@@ -1,0 +1,212 @@
+/*
+ * Design tokens, taken from the "Minimalist Chat App Design" artifact.
+ *
+ * Warm paper neutrals, a forest-green accent, Instrument Sans. Every colour in the
+ * app comes from here — no component declares a hex value.
+ *
+ * Theme handling has three states: an explicit choice stamps data-theme on <html>,
+ * while "system" stamps nothing and falls back to prefers-color-scheme.
+ */
+
+:root {
+  /* ─── surfaces ─────────────────────────────────────────────────────────── */
+  --bg: #fcfcfa; /* message pane, app canvas */
+  --bg-rail: #f5f4f0;
+  --bg-sidebar: #faf9f6;
+  --surface: #ffffff; /* cards, inputs, popovers */
+  --surface-hover: #f3f2ed;
+  --surface-hover-warm: #f0eee7; /* sidebar rows */
+  --surface-hover-deep: #eae8e1; /* rail buttons */
+  --surface-row-hover: #faf9f5; /* message hover */
+  --surface-muted: #f7f6f1; /* pinned bar, draft chip */
+  --surface-icon: #f1f0ea;
+
+  --hairline: #e7e5de; /* borders on surfaces */
+  --hairline-soft: #edebe4; /* dividers */
+  --hairline-strong: #cfccc2; /* hover borders */
+  --hairline-popover: #e4e2da;
+
+  /* ─── text ─────────────────────────────────────────────────────────────── */
+  --text: #1a1d1b;
+  --text-body: #252926; /* message bodies read slightly softer */
+  --text-2: #4e534f;
+  --text-3: #6b6f6c;
+  --text-4: #8e928e;
+  --text-5: #9a9e9a;
+  --text-label: #a3a6a2; /* uppercase section labels */
+  --text-faint: #b7bab6;
+  --text-rail: #7b807c;
+
+  /* ─── accent ───────────────────────────────────────────────────────────── */
+  --accent: #1f5c3d;
+  --accent-hover: #14402a;
+  --accent-contrast: #fcfcfa;
+  --accent-wash: #eff3ef; /* active sidebar row */
+  --accent-wash-rail: #e4ebe5; /* active rail button */
+  --accent-wash-soft: #eaf1ec; /* empty-state badge */
+  --accent-border: #c9dace;
+  --accent-border-soft: #dde6df;
+  --avatar-bg: #dce6de;
+
+  /* ─── state ────────────────────────────────────────────────────────────── */
+  --presence-online: #3f9a63;
+  --presence-away: #d6a32e;
+  --presence-offline: #c6c4bc;
+  --unread-line: #dcc7b4;
+  --unread-text: #a66a3c;
+  --danger: #a33b2f;
+  --disabled-bg: #edebe4;
+  --disabled-fg: #b7bab6;
+  --track-off: #dedcd4;
+  --scrollbar: #dddbd3;
+
+  --shadow-popover: 0 4px 14px -6px rgb(26 29 27 / 18%);
+  --shadow-menu: 0 6px 20px -8px rgb(26 29 27 / 16%);
+  --shadow-knob: 0 1px 3px rgb(26 29 27 / 20%);
+
+  /* ─── type ─────────────────────────────────────────────────────────────── */
+  --font-ui: 'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --text-2xs: 10.5px;
+  --text-xs: 11px;
+  --text-sm: 11.5px;
+  --text-label-size: 12px;
+  --text-meta: 12.5px;
+  --text-ui: 13px;
+  --text-row: 13.5px;
+  --text-base: 14px;
+  --text-title: 15px;
+  --text-lg: 19px;
+  --text-xl: 22px;
+
+  /* ─── layout ───────────────────────────────────────────────────────────── */
+  --rail-width: 64px;
+  --sidebar-width: 264px;
+  --panel-width: 380px;
+  --header-height: 64px;
+  --pane-gutter: 22px;
+
+  /* ─── density (Balanced) ───────────────────────────────────────────────── */
+  --message-padding-y: 10px;
+}
+
+:root[data-density='compact'] {
+  --message-padding-y: 5px;
+}
+
+:root[data-density='airy'] {
+  --message-padding-y: 15px;
+}
+
+/*
+ * Dark theme. The artifact defines the paper palette; this keeps its warm-neutral
+ * character and lifts the green so it still passes contrast on a dark ground.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #141614;
+    --bg-rail: #101210;
+    --bg-sidebar: #171a17;
+    --surface: #1c1f1c;
+    --surface-hover: #232623;
+    --surface-hover-warm: #232623;
+    --surface-hover-deep: #2a2e2a;
+    --surface-row-hover: #1a1d1a;
+    --surface-muted: #1f221f;
+    --surface-icon: #262a26;
+
+    --hairline: #2b2f2b;
+    --hairline-soft: #242824;
+    --hairline-strong: #3b403b;
+    --hairline-popover: #323732;
+
+    --text: #eceee9;
+    --text-body: #dfe2dd;
+    --text-2: #b3b8b2;
+    --text-3: #9aa099;
+    --text-4: #838a82;
+    --text-5: #767d75;
+    --text-label: #6f766e;
+    --text-faint: #5e655d;
+    --text-rail: #8b928a;
+
+    --accent: #5fb287;
+    --accent-hover: #7cc79f;
+    --accent-contrast: #0c130f;
+    --accent-wash: #1b2a22;
+    --accent-wash-rail: #1f3327;
+    --accent-wash-soft: #1b2a22;
+    --accent-border: #2f4a3a;
+    --accent-border-soft: #294235;
+    --avatar-bg: #24382c;
+
+    --presence-online: #4fae72;
+    --presence-away: #d0a03a;
+    --presence-offline: #565c55;
+    --unread-line: #5c4636;
+    --unread-text: #d59a63;
+    --danger: #d9705f;
+    --disabled-bg: #262a26;
+    --disabled-fg: #5e655d;
+    --track-off: #363b36;
+    --scrollbar: #2f342f;
+
+    --shadow-popover: 0 4px 14px -6px rgb(0 0 0 / 55%);
+    --shadow-menu: 0 6px 20px -8px rgb(0 0 0 / 55%);
+    --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #141614;
+  --bg-rail: #101210;
+  --bg-sidebar: #171a17;
+  --surface: #1c1f1c;
+  --surface-hover: #232623;
+  --surface-hover-warm: #232623;
+  --surface-hover-deep: #2a2e2a;
+  --surface-row-hover: #1a1d1a;
+  --surface-muted: #1f221f;
+  --surface-icon: #262a26;
+
+  --hairline: #2b2f2b;
+  --hairline-soft: #242824;
+  --hairline-strong: #3b403b;
+  --hairline-popover: #323732;
+
+  --text: #eceee9;
+  --text-body: #dfe2dd;
+  --text-2: #b3b8b2;
+  --text-3: #9aa099;
+  --text-4: #838a82;
+  --text-5: #767d75;
+  --text-label: #6f766e;
+  --text-faint: #5e655d;
+  --text-rail: #8b928a;
+
+  --accent: #5fb287;
+  --accent-hover: #7cc79f;
+  --accent-contrast: #0c130f;
+  --accent-wash: #1b2a22;
+  --accent-wash-rail: #1f3327;
+  --accent-wash-soft: #1b2a22;
+  --accent-border: #2f4a3a;
+  --accent-border-soft: #294235;
+  --avatar-bg: #24382c;
+
+  --presence-online: #4fae72;
+  --presence-away: #d0a03a;
+  --presence-offline: #565c55;
+  --unread-line: #5c4636;
+  --unread-text: #d59a63;
+  --danger: #d9705f;
+  --disabled-bg: #262a26;
+  --disabled-fg: #5e655d;
+  --track-off: #363b36;
+  --scrollbar: #2f342f;
+
+  --shadow-popover: 0 4px 14px -6px rgb(0 0 0 / 55%);
+  --shadow-menu: 0 6px 20px -8px rgb(0 0 0 / 55%);
+  --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
+}

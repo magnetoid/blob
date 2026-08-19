@@ -1,0 +1,62 @@
+# Development infrastructure. The app itself runs on the host via `pnpm dev`.
+# For the full production stack see docker-compose.prod.yml.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: blob
+      POSTGRES_PASSWORD: blob
+      POSTGRES_DB: blob
+    ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U blob']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports: ['6379:6379']
+    volumes: ['redisdata:/data']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: blobadmin
+      MINIO_ROOT_PASSWORD: blobadmin123
+    ports: ['9000:9000', '9001:9001']
+    volumes: ['miniodata:/data']
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Creates the bucket on first boot, then exits.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio: { condition: service_healthy }
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 blobadmin blobadmin123 &&
+      mc mb --ignore-existing local/blob-files &&
+      echo 'bucket ready'"
+
+  # Catches all outgoing mail in dev. UI at http://localhost:8025
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports: ['1025:1025', '8025:8025']
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
