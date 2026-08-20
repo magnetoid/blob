@@ -1,0 +1,16 @@
+---
+type: map
+status: derived
+tags:
+- map
+links: []
+created: '2026-08-20T16:39:00'
+updated: '2026-08-20T16:39:00'
+---
+
+# apps/api/src/blob_api/plugins/events.py
+
+Symbols in `apps/api/src/blob_api/plugins/events.py`.
+
+- L31 `emit(session: AsyncSession, *, workspace_id: str, event: str, payload: dict[str, Any], exclude_plugin_id: str | None=None)` (function) — Queue `event` for every enabled plugin subscribed to it. Returns delivery ids.
+- L86 `has_subscribers(session: AsyncSession, workspace_id: str, event: str)` (function) — Whether emitting is worth the payload construction on a hot path.

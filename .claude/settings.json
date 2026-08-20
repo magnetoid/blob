@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "torsor hooks run session-end --root ."
+          }
+        ]
+      }
+    ]
+  }
+}

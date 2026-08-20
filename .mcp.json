@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "torsor-helper": {
+      "command": "torsor",
+      "args": [
+        "mcp",
+        "--root",
+        "/Users/magnetoid/c/blob"
+      ]
+    }
+  }
+}
