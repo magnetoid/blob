@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .config import settings
@@ -73,8 +74,9 @@ class SessionMiddleware:
             await self.app(scope, receive, send)
             return
 
-        request = Request(scope)
-        token = request.cookies.get(SESSION_COOKIE)
+        # HTTPConnection covers both http and websocket scopes; Request asserts http.
+        connection = HTTPConnection(scope)
+        token = connection.cookies.get(SESSION_COOKIE)
         user = await resolve_session(token) if token else None
         scope.setdefault("state", {})["user"] = user
 
@@ -82,6 +84,7 @@ class SessionMiddleware:
             await self.app(scope, receive, send)
             return
 
+        request = Request(scope)
         path = request.url.path
         method = request.method
         is_public = (method, path) in PUBLIC_ROUTES or path.startswith(PUBLIC_PREFIXES)
@@ -159,6 +162,7 @@ def create_app() -> FastAPI:
         await redis.ping()
         return {"ok": True, **hub.stats()}
 
+    from .realtime.ws import router as ws_router
     from .routers.auth import router as auth_router
     from .routers.channels import router as channel_router
     from .routers.files import router as file_router
@@ -172,6 +176,7 @@ def create_app() -> FastAPI:
     app.include_router(message_router)
     app.include_router(search_router)
     app.include_router(file_router)
+    app.include_router(ws_router)
 
     return app
 

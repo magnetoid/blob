@@ -31,6 +31,7 @@ dev = [
     "mypy>=1.14",
     "websockets>=14",
     "types-boto3[s3]>=1.35",
+    "httpx-ws>=0.9.0",
 ]
 
 [build-system]
