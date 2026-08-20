@@ -49,9 +49,11 @@ Not features — places where working code is unprotected.
 - **No protocol parity test.** The WebSocket protocol is hand-written on both sides —
   `packages/shared/src/protocol.ts` and a Pydantic mirror. Nothing catches a drift, and
   the failure is silent at runtime rather than at build time.
-- **No generated types or contract diff.** Milestone 8 planned `openapi-typescript` into
-  `packages/shared/src/generated/api.ts` plus a `check:contract` script. Neither exists,
-  so the hand-written types and the real API can diverge unnoticed.
+- **No generated types or contract diff.** Milestone 8 planned `openapi-typescript` output
+  under "packages/shared/src/generated/" plus a `check:contract` script. Neither exists,
+  so the hand-written types and the real API can diverge unnoticed. (Path in quotes, not
+  backticks — it is a planned artifact, and the staleness check rightly flags a backticked
+  path that is not on disk.)
 - **Zero frontend tests.** 24 `.ts`/`.tsx` files under `apps/web/src`; `vitest` passes
   vacuously on `--passWithNoTests`. The theme token logic and the socket reconnect path
   are the two worth covering first.
