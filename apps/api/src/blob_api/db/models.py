@@ -445,6 +445,137 @@ class ThreadSubscription(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class ThreadSummary(Base):
+    __tablename__ = "thread_summaries"
+    __table_args__ = (
+        UniqueConstraint("thread_root_id", name="thread_summaries_root_uniq"),
+        Index("thread_summaries_workspace_recent", "workspace_id", text("updated_at DESC")),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    thread_root_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    created_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    provider: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'heuristic-v1'")
+    )
+    overview: Mapped[str] = mapped_column(Text, nullable=False)
+    decisions: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    action_items: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    open_questions: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    participant_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(UUIDStr), nullable=False, server_default=text("'{}'")
+    )
+    message_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class MessageTranslation(Base):
+    __tablename__ = "message_translations"
+    __table_args__ = (
+        UniqueConstraint("message_id", "target_language", name="message_translations_target_uniq"),
+        Index("message_translations_message", "message_id"),
+        Index("message_translations_workspace_recent", "workspace_id", text("updated_at DESC")),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    requested_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    source_body: Mapped[str] = mapped_column(Text, nullable=False)
+    source_language: Mapped[str | None] = mapped_column(Text)
+    target_language: Mapped[str] = mapped_column(Text, nullable=False)
+    translated_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class AgentTask(Base):
+    __tablename__ = "agent_tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled')",
+            name="agent_tasks_status_check",
+        ),
+        CheckConstraint(
+            "priority IN ('low', 'medium', 'high', 'critical')",
+            name="agent_tasks_priority_check",
+        ),
+        Index(
+            "agent_tasks_assignee_recent",
+            "assignee_user_id",
+            text("updated_at DESC"),
+            postgresql_where=text("assignee_user_id IS NOT NULL"),
+        ),
+        Index("agent_tasks_workspace_recent", "workspace_id", text("updated_at DESC")),
+        Index(
+            "agent_tasks_thread_recent",
+            "thread_root_id",
+            text("updated_at DESC"),
+            postgresql_where=text("thread_root_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    thread_root_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE")
+    )
+    created_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    assignee_user_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    summary_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("thread_summaries.id", ondelete="SET NULL")
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    instructions: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("''")
+    )
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'todo'"))
+    priority: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'medium'")
+    )
+    due_at: Mapped[Any | None] = mapped_column(Timestamp)
+    completed_at: Mapped[Any | None] = mapped_column(Timestamp)
+    outcome: Mapped[str | None] = mapped_column(Text)
+    external_ref: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class PushSubscription(Base):
     __tablename__ = "push_subscriptions"
     __table_args__ = (Index("push_subs_user", "user_id"),)
@@ -622,6 +753,7 @@ class PluginDelivery(Base):
 
 
 __all__ = [
+    "AgentTask",
     "Attachment",
     "AuditEvent",
     "Base",
@@ -643,6 +775,7 @@ __all__ = [
     "String",
     "Theme",
     "ThreadSubscription",
+    "ThreadSummary",
     "User",
     "Webhook",
     "Workspace",

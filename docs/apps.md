@@ -13,7 +13,9 @@ installable from the console.
 
 ## Installing
 
-An admin registers your app in **Administration → Apps** with a manifest:
+An admin registers your app in **Administration → Apps** with a manifest. The Apps screen
+now ships in the web admin console, including install, approve, enable/disable, secret
+rotation, token issuance/revocation and delivery-log inspection:
 
 ```json
 {
@@ -100,6 +102,9 @@ backlog instead of starting from a pile of failures.
 | `message.created` | A message was posted |
 | `message.updated` | A message was edited |
 | `message.deleted` | A message was deleted |
+| `thread.summary.updated` | A thread summary was generated or refreshed |
+| `task.created` | A human or agent task was created |
+| `task.updated` | A human or agent task changed state |
 | `reaction.added` / `reaction.removed` | Someone reacted |
 | `channel.created` | A channel was created |
 | `member.joined` / `member.left` | Someone joined or left a channel |
@@ -109,6 +114,9 @@ Your app is never woken by its own messages — otherwise an app that posts on
 
 There are no presence, typing or read-state events, and there will not be. They reveal
 who is at their desk minute by minute, and nothing an app legitimately does needs that.
+
+The delivery log in **Administration → Apps** shows pending and failed attempts so an
+operator can see whether an app is misconfigured, disabled, or simply backlogged.
 
 ## Calling Blob
 

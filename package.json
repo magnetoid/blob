@@ -10,7 +10,7 @@
     "worker": "pnpm --filter @blob/api worker",
     "build": "pnpm --filter \"./packages/*\" build && pnpm --filter @blob/web build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm --filter @blob/api lint",
+    "lint": "pnpm --filter @blob/api lint && pnpm --filter @blob/web lint",
     "test": "pnpm -r test",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
     "migrate": "pnpm --filter @blob/api migrate",

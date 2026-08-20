@@ -19,6 +19,15 @@ from ..schemas.base import CamelModel, require_iso
 
 # Actions are dotted and past-tense, so the log reads as a sentence with the actor.
 ACTIONS = (
+    "agent.summary_generated",
+    "agent.task_created",
+    "agent.task_updated",
+    "bot.channel_joined",
+    "bot.message_deleted",
+    "bot.message_posted",
+    "bot.message_updated",
+    "bot.reaction_added",
+    "bot.reaction_removed",
     "user.role_changed",
     "user.deactivated",
     "user.reactivated",
@@ -39,8 +48,13 @@ ACTIONS = (
     "theme.saved",
     "theme.deleted",
     "plugin.installed",
+    "plugin.updated",
+    "plugin.approved",
     "plugin.enabled",
     "plugin.disabled",
+    "plugin.secret_rotated",
+    "plugin.token_issued",
+    "plugin.tokens_revoked",
     "plugin.uninstalled",
 )
 

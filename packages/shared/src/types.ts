@@ -1,14 +1,18 @@
 /** Domain types shared by the server and every client. */
 
 export type UserRole = 'member' | 'admin' | 'owner';
+export type UserKind = 'human' | 'bot';
 export type ChannelKind = 'public' | 'private' | 'dm' | 'group_dm';
 export type NotifyLevel = 'all' | 'mentions' | 'none';
 export type MessageKind = 'user' | 'system' | 'bot';
 export type PresenceState = 'active' | 'away' | 'offline';
+export type AgentTaskStatus = 'todo' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
+export type AgentTaskPriority = 'low' | 'medium' | 'high' | 'critical';
 
 /** Public shape of a user. Never includes password_hash or email of other users. */
 export interface User {
   id: string;
+  kind: UserKind;
   displayName: string;
   fullName: string | null;
   title: string | null;
@@ -40,6 +44,8 @@ export interface UserPrefs {
   /** Manual snooze until this ISO timestamp. */
   snoozeUntil: string | null;
   enterToSend: boolean;
+  language: string | null;
+  autoTranslate: boolean;
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -51,6 +57,8 @@ export const DEFAULT_PREFS: UserPrefs = {
   dnd: null,
   snoozeUntil: null,
   enterToSend: true,
+  language: null,
+  autoTranslate: false,
 };
 
 export interface Channel {
@@ -145,6 +153,66 @@ export interface Theme {
   tokens: Record<string, string>;
   isPreset: boolean;
   isEnabled: boolean;
+}
+
+export interface ThreadSummaryDecision {
+  text: string;
+  messageId: string | null;
+}
+
+export interface ThreadSummaryActionItem {
+  text: string;
+  assigneeUserId: string | null;
+  sourceMessageId: string | null;
+}
+
+export interface ThreadSummary {
+  id: string;
+  channelId: string;
+  threadRootId: string;
+  createdBy: string | null;
+  provider: string;
+  overview: string;
+  decisions: ThreadSummaryDecision[];
+  actionItems: ThreadSummaryActionItem[];
+  openQuestions: string[];
+  participantIds: string[];
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentTask {
+  id: string;
+  channelId: string;
+  threadRootId: string | null;
+  createdBy: string | null;
+  assigneeUserId: string | null;
+  assigneeKind: UserKind | null;
+  summaryId: string | null;
+  title: string;
+  instructions: string;
+  status: AgentTaskStatus;
+  priority: AgentTaskPriority;
+  dueAt: string | null;
+  completedAt: string | null;
+  outcome: string | null;
+  externalRef: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MessageTranslation {
+  id: string;
+  messageId: string;
+  requestedBy: string | null;
+  provider: string;
+  sourceLanguage: string | null;
+  targetLanguage: string;
+  translatedText: string;
+  cached: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Bootstrap {

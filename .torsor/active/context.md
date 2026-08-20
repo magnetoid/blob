@@ -8,10 +8,12 @@ tags: [active]
 
 ## Current focus
 
-Milestone 16 (external apps) shipped. Next in the roadmap is **milestone 17: blocks** —
-`messages.blocks jsonb` already exists, unrendered; what is missing is the seven block
-types, `BlockRenderer.tsx`, and `/api/interactions` verifying that an `actionId` exists in
-the *stored* blocks.
+Milestone 16 (external apps) shipped and now has a working admin Apps console. The
+agentic workspace slice is also in place: thread summaries, human/agent tasks, durable
+offline outbox replay, and multilingual message translation are all implemented. The next
+large roadmap seam is still **milestone 17: blocks** — `messages.blocks jsonb` already
+exists, unrendered; what is missing is the seven block types, `BlockRenderer.tsx`, and
+`/api/interactions` verifying that an `actionId` exists in the *stored* blocks.
 
 ## Recent changes
 
@@ -34,8 +36,9 @@ the *stored* blocks.
   local run of the production serving path, and by pinning the two toolchain versions
   whose defaults would have failed the build (uv 0.11 for lockfile revision 3, corepack's
   download prompt).
-- **No frontend for the plugin console.** The admin API is complete and tested; milestone
-  20 is the screen.
+- **The plugin console frontend now exists.** Administration → Apps covers install,
+  approval, enable/disable, token and secret rotation, uninstall, and delivery-log
+  inspection.
 - **`fastembed` is not installed**, so torsor recall falls back to hashing embeddings.
 
 ## Traps this codebase has already sprung

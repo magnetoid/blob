@@ -7,7 +7,7 @@
  * server uses for unread counts.
  */
 
-import { create } from 'zustand';
+import { create, type StateCreator } from 'zustand';
 import type {
   Bootstrap,
   ChannelWithState,
@@ -20,6 +20,15 @@ import type {
   UserPrefs,
 } from '@blob/shared';
 import { api } from './api.ts';
+import {
+  isRecoverableSendError,
+  loadOutbox,
+  materializeOutboxMessage,
+  persistOutbox,
+  sortOutbox,
+  type LocalMessageDeliveryStatus,
+  type LocalOutboxEntry,
+} from './outbox.ts';
 import { socket, type SocketStatus } from './socket.ts';
 
 export interface ChannelMessages {
@@ -40,6 +49,7 @@ interface State {
   channels: Record<string, ChannelWithState>;
   messages: Record<string, ChannelMessages>;
   threads: Record<string, Message[]>;
+  outbox: Record<string, LocalOutboxEntry>;
   presence: Record<string, PresenceState>;
   typing: Record<string, Record<string, number>>;
   activeChannelId: string | null;
@@ -49,10 +59,15 @@ interface State {
 
   boot: (data: Bootstrap) => void;
   reset: () => void;
+  hydrateOutbox: () => void;
+  flushOutbox: () => Promise<void>;
   openChannel: (channelId: string) => Promise<void>;
   loadOlder: (channelId: string) => Promise<void>;
   openThread: (rootId: string | null) => Promise<void>;
   sendMessage: (channelId: string, body: string, threadRootId?: string | null) => Promise<void>;
+  retryQueuedMessage: (clientMsgId: string) => Promise<void>;
+  discardQueuedMessage: (clientMsgId: string) => void;
+  messageDeliveryState: (message: Message) => LocalMessageDeliveryStatus | null;
   toggleReaction: (message: Message, emoji: string) => Promise<void>;
   markRead: (channelId: string) => Promise<void>;
   applyEvent: (event: ServerEvent) => void;
@@ -96,6 +111,7 @@ export const useStore = create<State>((set, get) => ({
   channels: {},
   messages: {},
   threads: {},
+  outbox: {},
   presence: {},
   typing: {},
   activeChannelId: null,
@@ -112,20 +128,98 @@ export const useStore = create<State>((set, get) => ({
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
     }),
 
-  reset: () =>
+  reset: () => {
+    persistOutbox({});
     set({
       ready: false,
+      workspaceName: '',
+      themes: [],
       currentUser: null,
       users: {},
       channels: {},
       messages: {},
       threads: {},
+      outbox: {},
       presence: {},
       typing: {},
       activeChannelId: null,
       activeThreadRootId: null,
       unreadMarkers: {},
-    }),
+    });
+  },
+
+  hydrateOutbox: () => {
+    const restored = sortOutbox(loadOutbox()).reduce<Record<string, LocalOutboxEntry>>(
+      (acc, entry) => {
+        acc[entry.clientMsgId] = {
+          ...entry,
+          status: entry.status === 'failed' ? 'failed' : 'queued',
+        };
+        return acc;
+      },
+      {},
+    );
+    persistOutbox(restored);
+    set((s) => withProjectedOutbox(s, restored));
+    if (get().status === 'online') {
+      void get().flushOutbox();
+    }
+  },
+
+  flushOutbox: async () => {
+    if (!get().currentUser || get().status !== 'online') return;
+
+    for (const entry of sortOutbox(get().outbox)) {
+      const latest = get().outbox[entry.clientMsgId];
+      if (!latest) continue;
+
+      setOutbox(set, get, (outbox) => ({
+        ...outbox,
+        [latest.clientMsgId]: {
+          ...latest,
+          status: 'sending',
+          attempts: latest.attempts + 1,
+          lastError: null,
+        },
+      }));
+
+      try {
+        const { message } = await api.messages.send(latest.channelId, {
+          body: latest.body,
+          clientMsgId: latest.clientMsgId,
+          threadRootId: latest.threadRootId,
+        });
+        setOutbox(set, get, (outbox) => {
+          const next = { ...outbox };
+          delete next[latest.clientMsgId];
+          return next;
+        });
+        get().applyEvent({ t: 'message.new', message });
+      } catch (error) {
+        if (isRecoverableSendError(error)) {
+          setOutbox(set, get, (outbox) => ({
+            ...outbox,
+            [latest.clientMsgId]: {
+              ...(outbox[latest.clientMsgId] as LocalOutboxEntry),
+              status: 'queued',
+              lastError: 'Waiting for a stable connection.',
+            },
+          }));
+          break;
+        }
+
+        const message = error instanceof Error ? error.message : 'That message could not be delivered.';
+        setOutbox(set, get, (outbox) => ({
+          ...outbox,
+          [latest.clientMsgId]: {
+            ...(outbox[latest.clientMsgId] as LocalOutboxEntry),
+            status: 'failed',
+            lastError: message,
+          },
+        }));
+      }
+    }
+  },
 
   openChannel: async (channelId) => {
     const state = get();
@@ -147,7 +241,15 @@ export const useStore = create<State>((set, get) => ({
       }));
       const { messages, hasMore } = await api.messages.history(channelId, { limit: 50 });
       set((s) => ({
-        messages: { ...s.messages, [channelId]: { items: messages, hasMore, loading: false, loaded: true } },
+        messages: {
+          ...s.messages,
+          [channelId]: {
+            items: overlayChannelOutbox(s.currentUser, s.outbox, channelId, messages),
+            hasMore,
+            loading: false,
+            loaded: true,
+          },
+        },
       }));
     }
     await get().markRead(channelId);
@@ -171,7 +273,12 @@ export const useStore = create<State>((set, get) => ({
         messages: {
           ...s.messages,
           [channelId]: {
-            items: [...messages, ...existing.items],
+            items: overlayChannelOutbox(
+              s.currentUser,
+              s.outbox,
+              channelId,
+              [...messages, ...stripPending(existing.items)],
+            ),
             hasMore,
             loading: false,
             loaded: true,
@@ -185,7 +292,9 @@ export const useStore = create<State>((set, get) => ({
     set({ activeThreadRootId: rootId });
     if (!rootId) return;
     const { messages } = await api.messages.thread(rootId);
-    set((s) => ({ threads: { ...s.threads, [rootId]: messages } }));
+    set((s) => ({
+      threads: { ...s.threads, [rootId]: overlayThreadOutbox(s.currentUser, s.outbox, rootId, messages) },
+    }));
   },
 
   sendMessage: async (channelId, body, threadRootId = null) => {
@@ -193,45 +302,20 @@ export const useStore = create<State>((set, get) => ({
     if (!user) return;
 
     const clientMsgId = crypto.randomUUID();
-    const optimistic: Message = {
-      id: `pending-${clientMsgId}`,
-      channelId,
-      authorId: user.id,
-      kind: 'user',
-      body,
-      threadRootId,
-      alsoInChannel: false,
-      replyCount: 0,
-      replyUserIds: [],
-      lastReplyAt: null,
-      mentionUserIds: [],
-      mentionsEveryone: false,
+    const optimisticEntry: LocalOutboxEntry = {
       clientMsgId,
-      editedAt: null,
-      deletedAt: null,
-      pinnedAt: null,
+      channelId,
+      threadRootId,
+      body,
       createdAt: new Date().toISOString(),
-      reactions: [],
-      attachments: [],
-      linkPreview: null,
+      status: get().status === 'online' ? 'sending' : 'queued',
+      attempts: 0,
+      lastError: null,
     };
 
-    // Show it immediately; the server's copy replaces it by clientMsgId.
-    if (threadRootId) {
-      set((s) => ({
-        threads: { ...s.threads, [threadRootId]: [...(s.threads[threadRootId] ?? []), optimistic] },
-      }));
-    } else {
-      set((s) => {
-        const existing = s.messages[channelId] ?? emptyMessages();
-        return {
-          messages: {
-            ...s.messages,
-            [channelId]: { ...existing, items: [...existing.items, optimistic], loaded: true },
-          },
-        };
-      });
-    }
+    setOutbox(set, get, (outbox) => ({ ...outbox, [clientMsgId]: optimisticEntry }));
+
+    if (optimisticEntry.status === 'queued') return;
 
     try {
       const { message } = await api.messages.send(channelId, {
@@ -239,24 +323,61 @@ export const useStore = create<State>((set, get) => ({
         clientMsgId,
         threadRootId,
       });
-      get().applyEvent({ t: 'message.new', message });
-    } catch (err) {
-      // Leave the bubble in place but mark it failed, so the text isn't lost.
-      const failed = { ...optimistic, body: optimistic.body, kind: 'user' as const };
-      set((s) => {
-        const existing = s.messages[channelId] ?? emptyMessages();
-        return {
-          messages: {
-            ...s.messages,
-            [channelId]: {
-              ...existing,
-              items: existing.items.map((m) => (m.clientMsgId === clientMsgId ? failed : m)),
-            },
-          },
-        };
+      setOutbox(set, get, (outbox) => {
+        const next = { ...outbox };
+        delete next[clientMsgId];
+        return next;
       });
-      throw err;
+      get().applyEvent({ t: 'message.new', message });
+    } catch (error) {
+      if (isRecoverableSendError(error)) {
+        setOutbox(set, get, (outbox) => ({
+          ...outbox,
+          [clientMsgId]: {
+            ...(outbox[clientMsgId] as LocalOutboxEntry),
+            status: 'queued',
+            attempts: (outbox[clientMsgId] as LocalOutboxEntry).attempts + 1,
+            lastError: 'Waiting for a stable connection.',
+          },
+        }));
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : 'That message could not be delivered.';
+      setOutbox(set, get, (outbox) => ({
+        ...outbox,
+        [clientMsgId]: {
+          ...(outbox[clientMsgId] as LocalOutboxEntry),
+          status: 'failed',
+          attempts: (outbox[clientMsgId] as LocalOutboxEntry).attempts + 1,
+          lastError: message,
+        },
+      }));
+      throw error;
     }
+  },
+
+  retryQueuedMessage: async (clientMsgId) => {
+    const current = get().outbox[clientMsgId];
+    if (!current) return;
+    setOutbox(set, get, (outbox) => ({
+      ...outbox,
+      [clientMsgId]: { ...current, status: 'queued', lastError: null },
+    }));
+    await get().flushOutbox();
+  },
+
+  discardQueuedMessage: (clientMsgId) => {
+    setOutbox(set, get, (outbox) => {
+      const next = { ...outbox };
+      delete next[clientMsgId];
+      return next;
+    });
+  },
+
+  messageDeliveryState: (message) => {
+    if (!message.clientMsgId) return null;
+    return get().outbox[message.clientMsgId]?.status ?? null;
   },
 
   toggleReaction: async (message, emoji) => {
@@ -291,7 +412,15 @@ export const useStore = create<State>((set, get) => ({
           if (message.threadRootId) {
             const thread = s.threads[message.threadRootId];
             if (thread) {
-              next.threads = { ...s.threads, [message.threadRootId]: upsert(thread, message) };
+              next.threads = {
+                ...s.threads,
+                [message.threadRootId]: overlayThreadOutbox(
+                  s.currentUser,
+                  s.outbox,
+                  message.threadRootId,
+                  upsert(stripPending(thread), message),
+                ),
+              };
             }
           } else {
             const existing = s.messages[message.channelId];
@@ -300,7 +429,15 @@ export const useStore = create<State>((set, get) => ({
             if (existing?.loaded) {
               next.messages = {
                 ...s.messages,
-                [message.channelId]: { ...existing, items: upsert(existing.items, message) },
+                [message.channelId]: {
+                  ...existing,
+                  items: overlayChannelOutbox(
+                    s.currentUser,
+                    s.outbox,
+                    message.channelId,
+                    upsert(stripPending(existing.items), message),
+                  ),
+                },
               };
             }
           }
@@ -337,15 +474,25 @@ export const useStore = create<State>((set, get) => ({
               ...s.messages,
               [event.channelId]: {
                 ...existing,
-                items: existing.items.filter((m) => m.id !== event.id),
+                items: overlayChannelOutbox(
+                  s.currentUser,
+                  s.outbox,
+                  event.channelId,
+                  stripPending(existing.items).filter((m) => m.id !== event.id),
+                ),
               },
             };
           }
           if (event.threadRootId && s.threads[event.threadRootId]) {
             next.threads = {
               ...s.threads,
-              [event.threadRootId]: (s.threads[event.threadRootId] ?? []).filter(
-                (m) => m.id !== event.id,
+              [event.threadRootId]: overlayThreadOutbox(
+                s.currentUser,
+                s.outbox,
+                event.threadRootId,
+                stripPending(s.threads[event.threadRootId] ?? []).filter(
+                  (m) => m.id !== event.id,
+                ),
               ),
             };
           }
@@ -495,6 +642,7 @@ export const useStore = create<State>((set, get) => ({
 
     const active = get().activeChannelId;
     if (active && !get().messages[active]?.loaded) await get().openChannel(active);
+    await get().flushOutbox();
   },
 
   setPrefs: async (prefs) => {
@@ -526,12 +674,97 @@ function mapChannel(
   return { ...messages, [channelId]: { ...existing, items: existing.items.map(fn) } };
 }
 
+function setOutbox(
+  set: Parameters<StateCreator<State>>[0],
+  get: () => State,
+  updater: (outbox: Record<string, LocalOutboxEntry>) => Record<string, LocalOutboxEntry>,
+): void {
+  let nextOutbox: Record<string, LocalOutboxEntry> = {};
+  set((state) => {
+    nextOutbox = updater(state.outbox);
+    return withProjectedOutbox(state, nextOutbox);
+  });
+  persistOutbox(nextOutbox);
+}
+
+function withProjectedOutbox(
+  state: State,
+  outbox: Record<string, LocalOutboxEntry>,
+): Pick<State, 'outbox' | 'messages' | 'threads'> {
+  return {
+    outbox,
+    messages: Object.fromEntries(
+      Object.entries(state.messages).map(([channelId, list]) => [
+        channelId,
+        list.loaded
+          ? {
+              ...list,
+              items: overlayChannelOutbox(state.currentUser, outbox, channelId, list.items),
+            }
+          : list,
+      ]),
+    ),
+    threads: Object.fromEntries(
+      Object.entries(state.threads).map(([rootId, items]) => [
+        rootId,
+        overlayThreadOutbox(state.currentUser, outbox, rootId, items),
+      ]),
+    ),
+  };
+}
+
+function overlayChannelOutbox(
+  currentUser: CurrentUser | null,
+  outbox: Record<string, LocalOutboxEntry>,
+  channelId: string,
+  items: Message[],
+): Message[] {
+  if (!currentUser) return stripPending(items);
+  let next = stripPending(items);
+  for (const entry of sortOutbox(outbox)) {
+    if (entry.channelId === channelId && entry.threadRootId === null) {
+      next = upsert(next, materializeOutboxMessage(entry, currentUser.id));
+    }
+  }
+  return next;
+}
+
+function overlayThreadOutbox(
+  currentUser: CurrentUser | null,
+  outbox: Record<string, LocalOutboxEntry>,
+  rootId: string,
+  items: Message[],
+): Message[] {
+  if (!currentUser) return stripPending(items);
+  let next = stripPending(items);
+  for (const entry of sortOutbox(outbox)) {
+    if (entry.threadRootId === rootId) {
+      next = upsert(next, materializeOutboxMessage(entry, currentUser.id));
+    }
+  }
+  return next;
+}
+
+function stripPending(items: Message[]): Message[] {
+  return items.filter((message) => !message.id.startsWith('pending-'));
+}
+
 /** Wire the socket into the store once, at app start. */
 export function connectStoreToSocket(): () => void {
   const unsubscribeEvents = socket.subscribe((event) => useStore.getState().applyEvent(event));
-  const unsubscribeStatus = socket.onStatus((status) => useStore.setState({ status }));
+  let hasConnectedOnce = false;
+  const unsubscribeStatus = socket.onStatus((status) => {
+    useStore.setState({ status });
+    if (status === 'online' && !hasConnectedOnce) {
+      hasConnectedOnce = true;
+      void useStore.getState().flushOutbox();
+    }
+  });
   socket.onReconnect = () => {
-    void useStore.getState().resync();
+    void (async () => {
+      await useStore.getState().resync();
+      await useStore.getState().flushOutbox();
+    })();
   };
   socket.connect();
 

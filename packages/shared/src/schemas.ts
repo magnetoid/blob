@@ -91,6 +91,8 @@ export const updatePrefsSchema = z.object({
   themeLight: z.string().max(40).optional(),
   themeDark: z.string().max(40).optional(),
   keywords: z.array(z.string().trim().min(1).max(40)).max(30).optional(),
+  language: z.string().trim().min(2).max(16).nullable().optional(),
+  autoTranslate: z.boolean().optional(),
   dnd: z
     .object({
       enabled: z.boolean(),

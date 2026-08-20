@@ -9,10 +9,13 @@ from pydantic import Field
 from .base import CamelModel
 
 UserRole = Literal["member", "admin", "owner"]
+UserKind = Literal["human", "bot"]
 ChannelKind = Literal["public", "private", "dm", "group_dm"]
 NotifyLevel = Literal["all", "mentions", "none"]
 MessageKind = Literal["user", "system", "bot"]
 PresenceState = Literal["active", "away", "offline"]
+AgentTaskStatus = Literal["todo", "in_progress", "blocked", "done", "cancelled"]
+AgentTaskPriority = Literal["low", "medium", "high", "critical"]
 
 
 class UserPrefs(CamelModel):
@@ -28,6 +31,8 @@ class UserPrefs(CamelModel):
     #: Manual snooze until this ISO timestamp.
     snooze_until: str | None = None
     enter_to_send: bool = True
+    language: str | None = None
+    auto_translate: bool = False
 
 
 DEFAULT_PREFS = UserPrefs()
@@ -37,6 +42,7 @@ class User(CamelModel):
     """Public shape of a user. Never includes password_hash or another user's email."""
 
     id: str
+    kind: UserKind = "human"
     display_name: str
     full_name: str | None = None
     title: str | None = None
@@ -154,6 +160,66 @@ class ThemeSummary(CamelModel):
     tokens: dict[str, str]
     is_preset: bool
     is_enabled: bool
+
+
+class ThreadSummaryDecision(CamelModel):
+    text: str
+    message_id: str | None = None
+
+
+class ThreadSummaryActionItem(CamelModel):
+    text: str
+    assignee_user_id: str | None = None
+    source_message_id: str | None = None
+
+
+class ThreadSummary(CamelModel):
+    id: str
+    channel_id: str
+    thread_root_id: str
+    created_by: str | None = None
+    provider: str
+    overview: str
+    decisions: list[ThreadSummaryDecision] = Field(default_factory=list)
+    action_items: list[ThreadSummaryActionItem] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+    participant_ids: list[str] = Field(default_factory=list)
+    message_count: int = 0
+    created_at: str
+    updated_at: str
+
+
+class AgentTask(CamelModel):
+    id: str
+    channel_id: str
+    thread_root_id: str | None = None
+    created_by: str | None = None
+    assignee_user_id: str | None = None
+    assignee_kind: UserKind | None = None
+    summary_id: str | None = None
+    title: str
+    instructions: str = ""
+    status: AgentTaskStatus = "todo"
+    priority: AgentTaskPriority = "medium"
+    due_at: str | None = None
+    completed_at: str | None = None
+    outcome: str | None = None
+    external_ref: dict[str, str] = Field(default_factory=dict)
+    created_at: str
+    updated_at: str
+
+
+class MessageTranslation(CamelModel):
+    id: str
+    message_id: str
+    requested_by: str | None = None
+    provider: str
+    source_language: str | None = None
+    target_language: str
+    translated_text: str
+    cached: bool = False
+    created_at: str
+    updated_at: str
 
 
 class Bootstrap(CamelModel):

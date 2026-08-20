@@ -55,9 +55,19 @@ class Settings(BaseSettings):
     VAPID_SUBJECT: str = "mailto:admin@example.com"
 
     PLUGINS_DIR: str = "plugins"
+    TRANSLATION_PROVIDER: Literal["disabled", "libretranslate", "deepl"] = "disabled"
+    TRANSLATION_BASE_URL: str | None = None
+    TRANSLATION_API_KEY: str | None = None
+    TRANSLATION_TIMEOUT_SEC: float = 10.0
 
     @field_validator(
-        "SMTP_USER", "SMTP_PASS", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "WEB_DIST"
+        "SMTP_USER",
+        "SMTP_PASS",
+        "VAPID_PUBLIC_KEY",
+        "VAPID_PRIVATE_KEY",
+        "WEB_DIST",
+        "TRANSLATION_BASE_URL",
+        "TRANSLATION_API_KEY",
     )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:
