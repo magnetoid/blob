@@ -25,7 +25,11 @@ services:
       # Generates the public domain and routes it to port 3000. PUBLIC_URL must match it
       # exactly — it is the origin every mutating request is checked against.
       - SERVICE_FQDN_APP_3000
-      - PUBLIC_URL=${SERVICE_FQDN_APP}
+      # Coolify's generated value can come through without a scheme, and a schemeless
+      # PUBLIC_URL parses to an empty host — which fails the origin check on every
+      # sign-in with "Blocked request." Set PUBLIC_URL explicitly to the full public
+      # origin and this falls back to it.
+      - PUBLIC_URL=${PUBLIC_URL:-${SERVICE_FQDN_APP}}
       # Not decoration: this is what marks the session cookie Secure and drops the
       # localhost exemption in the origin check.
       - NODE_ENV=production
@@ -77,7 +81,7 @@ services:
     environment:
       # The app has already migrated by the time this starts.
       - RUN_MIGRATIONS=false
-      - PUBLIC_URL=${SERVICE_FQDN_APP}
+      - PUBLIC_URL=${PUBLIC_URL:-${SERVICE_FQDN_APP}}
       - NODE_ENV=production
       - DATABASE_URL=postgres://blob:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/blob
       - REDIS_URL=redis://redis:6379
