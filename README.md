@@ -117,8 +117,13 @@ Worth setting once it is up:
 
 | Variable | Why |
 |---|---|
+| `PUBLIC_URL` | **Set this explicitly to the full public origin, scheme included.** Coolify's generated `SERVICE_FQDN_APP` can arrive as a bare host, and a schemeless value parses to an empty host — which fails the origin check on every mutating request, so sign-in returns "Blocked request." and nothing else explains why. |
 | `SMTP_HOST` and friends | Invitations and password resets arrive by mail. Without them invite links still work — they are shown in the UI — but a forgotten password needs an admin. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Web Push when someone is away. `npx web-push generate-vapid-keys`. Without them, notifications stay in-app. |
+
+Coolify sets a compose service's domain from `docker_compose_domains`, which it refuses
+to accept until it has parsed the compose file from git — so the first deploy has to run
+before the domain can be attached, and a second one applies it.
 
 Two things to know about the stack it builds:
 
