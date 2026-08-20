@@ -12,6 +12,7 @@ export function ChannelView() {
   const activeChannelId = useStore((s) => s.activeChannelId);
   const channel = useStore((s) => (s.activeChannelId ? s.channels[s.activeChannelId] : undefined));
   const messages = useStore((s) => (s.activeChannelId ? s.messages[s.activeChannelId] : undefined));
+  const outbox = useStore((s) => s.outbox);
   const typing = useStore((s) => (s.activeChannelId ? s.typing[s.activeChannelId] : undefined));
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
@@ -64,6 +65,30 @@ export function ChannelView() {
   const isDm = channel.kind === 'dm' || channel.kind === 'group_dm';
   const title = channel.name ?? channelTitle(channel);
   const archived = channel.archivedAt !== null;
+  const queuedCount = Object.values(outbox).filter((entry) => entry.status === 'queued').length;
+  const failedCount = Object.values(outbox).filter((entry) => entry.status === 'failed').length;
+  const showDeliveryBanner = status !== 'online' || queuedCount > 0 || failedCount > 0;
+
+  let connectionText: string | null = null;
+  if (status === 'connecting') {
+    connectionText =
+      queuedCount > 0
+        ? `Reconnecting… ${queuedCount} ${queuedCount === 1 ? 'message is' : 'messages are'} queued.`
+        : 'Reconnecting…';
+  } else if (status !== 'online') {
+    connectionText =
+      queuedCount > 0
+        ? `Offline — ${queuedCount} ${queuedCount === 1 ? 'message is' : 'messages are'} queued to send when you reconnect.`
+        : 'Offline — new messages will queue until you reconnect.';
+  } else if (failedCount > 0) {
+    connectionText =
+      failedCount === 1
+        ? 'One queued message needs attention before it can be sent.'
+        : `${failedCount} queued messages need attention before they can be sent.`;
+  } else if (queuedCount > 0) {
+    connectionText =
+      queuedCount === 1 ? 'Sending one queued message…' : `Sending ${queuedCount} queued messages…`;
+  }
 
   return (
     <div className="pane">
@@ -94,9 +119,9 @@ export function ChannelView() {
         </button>
       </header>
 
-      {status !== 'online' && (
+      {showDeliveryBanner && connectionText && (
         <div className="connection-banner">
-          {status === 'connecting' ? 'Reconnecting…' : 'Offline — messages will send when you reconnect'}
+          {connectionText}
         </div>
       )}
 

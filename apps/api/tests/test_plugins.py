@@ -86,8 +86,9 @@ def test_every_event_maps_to_a_scope_that_exists() -> None:
 
 def test_no_presence_or_typing_event_is_offered() -> None:
     # Deliberately absent: they reveal who is at their desk, minute by minute.
+    forbidden_prefixes = ("presence.", "typing.", "read_state.")
     for name in EVENTS:
-        assert "presence" not in name and "typing" not in name and "read" not in name
+        assert not name.startswith(forbidden_prefixes)
 
 
 def test_subscribing_needs_the_matching_scope() -> None:

@@ -29,10 +29,13 @@ from ..plugins import events as plugin_events
 from ..plugins.auth import BotCaller, current_bot, requires
 from ..realtime import hub
 from ..schemas.base import CamelModel
-from ..schemas.models import Channel, Message, User
+from ..schemas.models import AgentTask, Channel, Message, ThreadSummary, User
+from ..schemas.requests import CreateAgentTaskInput, UpdateAgentTaskInput
+from ..services import agentic as agentic_service
+from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
-from ..services.serialize import message_event, to_channel, to_user
+from ..services.serialize import message_event, to_agent_task, to_channel, to_user
 
 router = APIRouter(prefix="/api/v1", tags=["apps"])
 
@@ -96,6 +99,21 @@ class UsersOut(CamelModel):
     users: list[User]
 
 
+class ThreadSummaryOut(CamelModel):
+    ok: bool = True
+    summary: ThreadSummary
+
+
+class AgentTaskOut(CamelModel):
+    ok: bool = True
+    task: AgentTask
+
+
+class AgentTasksOut(CamelModel):
+    ok: bool = True
+    tasks: list[AgentTask]
+
+
 async def _resolve_channel(session: Any, workspace_id: str, reference: str) -> str:
     """Accept either an id or a #name."""
     reference = reference.strip()
@@ -120,6 +138,10 @@ async def _resolve_channel(session: Any, workspace_id: str, reference: str) -> s
     if row is None:
         raise not_found("There is no channel by that name.")
     return str(row.id)
+
+
+def _bot_actor(bot: BotCaller) -> audit_service.Actor:
+    return audit_service.Actor(id=bot.user_id, workspace_id=bot.workspace_id)
 
 
 @router.get("/auth.test", response_model=AuthTestOut)
@@ -160,6 +182,14 @@ async def post_message(
         if result.created:
             message = result.message
             thread_update = result.thread_update
+            await audit_service.record(
+                session,
+                _bot_actor(bot),
+                "bot.message_posted",
+                target_type="message",
+                target_id=message.id,
+                metadata={"channelId": channel_id, "threadRootId": payload.thread_root_id},
+            )
             await plugin_events.emit(
                 session,
                 workspace_id=bot.workspace_id,
@@ -205,6 +235,14 @@ async def update_message(
             bot.workspace_id,
             payload.text,
         )
+        await audit_service.record(
+            session,
+            _bot_actor(bot),
+            "bot.message_updated",
+            target_type="message",
+            target_id=message.id,
+            metadata={"channelId": message.channel_id},
+        )
         await plugin_events.emit(
             session,
             workspace_id=bot.workspace_id,
@@ -242,6 +280,14 @@ async def delete_message(
             session, payload.message_id, existing.author_id or bot.user_id, moderating
         )
         message_id = payload.message_id
+        await audit_service.record(
+            session,
+            _bot_actor(bot),
+            "bot.message_deleted",
+            target_type="message",
+            target_id=message_id,
+            metadata={"channelId": channel_id, "threadRootId": thread_root_id},
+        )
         await plugin_events.emit(
             session,
             workspace_id=bot.workspace_id,
@@ -286,6 +332,14 @@ async def add_reaction(
             message_id = payload.message_id
             emoji = payload.emoji
             user_id = bot.user_id
+            await audit_service.record(
+                session,
+                _bot_actor(bot),
+                "bot.reaction_added",
+                target_type="message",
+                target_id=message_id,
+                metadata={"channelId": channel_id, "emoji": emoji},
+            )
             after.add(
                 lambda: hub.to_channel(
                     channel_id,
@@ -338,6 +392,14 @@ async def join_conversation(
         # way to discover that it exists.
         await channel_service.assert_channel_access(session, bot.user_id, channel_id)
         await channel_service.join(session, channel_id, bot.user_id)
+        await audit_service.record(
+            session,
+            _bot_actor(bot),
+            "bot.channel_joined",
+            target_type="channel",
+            target_id=channel_id,
+            metadata={"channel": payload.channel},
+        )
         await plugin_events.emit(
             session,
             workspace_id=bot.workspace_id,
@@ -347,6 +409,160 @@ async def join_conversation(
         )
         after.add(lambda: fire_and_forget(enqueue("deliver_plugin_events")))
     return OkOut()
+
+
+@router.post("/threads.summarize", response_model=ThreadSummaryOut)
+async def summarize_thread(
+    payload: DeleteMessageInput, bot: BotCaller = requires("summaries:write")
+) -> ThreadSummaryOut:
+    async with transaction() as (session, _after):
+        root = await message_service.by_id(session, payload.message_id)
+        if root is None:
+            raise not_found("That thread no longer exists.")
+        thread_root_id = root.thread_root_id or root.id
+        await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
+        summary = await agentic_service.generate_summary(
+            session,
+            workspace_id=bot.workspace_id,
+            channel_id=root.channel_id,
+            thread_root_id=thread_root_id,
+            created_by=bot.user_id,
+        )
+        await audit_service.record(
+            session,
+            _bot_actor(bot),
+            "agent.summary_generated",
+            target_type="message",
+            target_id=thread_root_id,
+            metadata={"channelId": root.channel_id, "provider": summary.provider},
+        )
+        await plugin_events.emit(
+            session,
+            workspace_id=bot.workspace_id,
+            event="thread.summary.updated",
+            payload=summary.model_dump(by_alias=True),
+            exclude_plugin_id=bot.plugin_id,
+        )
+    return ThreadSummaryOut(summary=summary)
+
+
+@router.post("/tasks.create", response_model=AgentTaskOut, status_code=201)
+async def create_task(
+    thread_root_id: str,
+    payload: CreateAgentTaskInput,
+    bot: BotCaller = requires("tasks:write"),
+) -> AgentTaskOut:
+    async with transaction() as (session, _after):
+        root = await message_service.by_id(session, thread_root_id)
+        if root is None:
+            raise not_found("That thread no longer exists.")
+        actual_root_id = root.thread_root_id or root.id
+        await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
+        task = await agentic_service.create_task(
+            session,
+            workspace_id=bot.workspace_id,
+            channel_id=root.channel_id,
+            thread_root_id=actual_root_id,
+            created_by=bot.user_id,
+            assignee_user_id=payload.assignee_user_id,
+            title=payload.title,
+            instructions=payload.instructions,
+            priority=payload.priority,
+            due_at=payload.due_at,
+            summary_id=payload.summary_id,
+            external_ref=payload.external_ref,
+        )
+        await audit_service.record(
+            session,
+            _bot_actor(bot),
+            "agent.task_created",
+            target_type="agent_task",
+            target_id=task.id,
+            metadata={"threadRootId": actual_root_id, "channelId": root.channel_id},
+        )
+        await plugin_events.emit(
+            session,
+            workspace_id=bot.workspace_id,
+            event="task.created",
+            payload=task.model_dump(by_alias=True),
+            exclude_plugin_id=bot.plugin_id,
+        )
+    return AgentTaskOut(task=task)
+
+
+@router.post("/tasks.update", response_model=AgentTaskOut)
+async def update_task(
+    task_id: str,
+    payload: UpdateAgentTaskInput,
+    bot: BotCaller = requires("tasks:write"),
+) -> AgentTaskOut:
+    async with transaction() as (session, _after):
+        existing = await agentic_service.get_task(session, task_id)
+        await channel_service.assert_channel_access(session, bot.user_id, existing.channel_id)
+        if existing.assignee_user_id not in (None, bot.user_id) and not bot.has("admin:write"):
+            raise bad_request(
+                "This app can only update its own assigned tasks.", code="not_own_task"
+            )
+        task = await agentic_service.update_task(
+            session,
+            task_id=task_id,
+            workspace_id=bot.workspace_id,
+            assignee_user_id=payload.assignee_user_id,
+            status=payload.status,
+            priority=payload.priority,
+            due_at=payload.due_at,
+            outcome=payload.outcome,
+            instructions=payload.instructions,
+        )
+        await audit_service.record(
+            session,
+            _bot_actor(bot),
+            "agent.task_updated",
+            target_type="agent_task",
+            target_id=task.id,
+            metadata={"status": task.status, "assigneeUserId": task.assignee_user_id},
+        )
+        await plugin_events.emit(
+            session,
+            workspace_id=bot.workspace_id,
+            event="task.updated",
+            payload=task.model_dump(by_alias=True),
+            exclude_plugin_id=bot.plugin_id,
+        )
+    return AgentTaskOut(task=task)
+
+
+@router.get("/tasks.list", response_model=AgentTasksOut)
+async def list_tasks(
+    thread_root_id: str | None = None,
+    bot: BotCaller = requires("tasks:read"),
+) -> AgentTasksOut:
+    async with session_scope() as session:
+        if thread_root_id:
+            root = await message_service.by_id(session, thread_root_id)
+            if root is None:
+                raise not_found("That thread no longer exists.")
+            actual_root_id = root.thread_root_id or root.id
+            await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
+            tasks = await agentic_service.list_tasks_for_thread(session, actual_root_id)
+            return AgentTasksOut(tasks=tasks)
+
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT t.*, u.kind AS assignee_kind
+                      FROM agent_tasks t
+                      LEFT JOIN users u ON u.id = t.assignee_user_id
+                     WHERE t.workspace_id = :ws
+                       AND t.assignee_user_id = :user_id
+                     ORDER BY t.updated_at DESC, t.id DESC
+                    """
+                ),
+                {"ws": bot.workspace_id, "user_id": bot.user_id},
+            )
+        ).fetchall()
+    return AgentTasksOut(tasks=[to_agent_task(row) for row in rows])
 
 
 @router.get("/users.list", response_model=UsersOut)

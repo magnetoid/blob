@@ -1,13 +1,18 @@
 /** Typed HTTP client. Every call goes through here so error shapes stay consistent. */
 
 import type {
+  AgentTask,
+  AgentTaskPriority,
+  AgentTaskStatus,
   Bootstrap,
   Theme,
   ChannelWithState,
   CurrentUser,
   Message,
+  MessageTranslation,
   NotifyLevel,
   SyncResponse,
+  ThreadSummary,
   User,
   UserPrefs,
 } from '@blob/shared';
@@ -91,6 +96,41 @@ export interface AdminHealth {
   messageCount: number;
   storageBytes: number;
   version: string;
+}
+
+export interface AdminPlugin {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  runtime: string;
+  status: 'enabled' | 'disabled' | 'needs_review';
+  version: string;
+  requestUrl: string | null;
+  events: string[];
+  scopes: string[];
+  botUserId: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+  pendingDeliveries: number;
+  failedDeliveries: number;
+}
+
+export interface AdminPluginCatalog {
+  scopes: Record<string, string>;
+  events: Record<string, string>;
+}
+
+export interface AdminPluginDelivery {
+  id: string;
+  event: string;
+  status: string;
+  attempts: number;
+  lastStatusCode: number | null;
+  lastError: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
 }
 
 export class ApiError extends Error {
@@ -236,12 +276,57 @@ export const api = {
     ) => post<{ message: Message }>(`/api/channels/${channelId}/messages`, input),
     edit: (id: string, body: string) => patch<{ message: Message }>(`/api/messages/${id}`, { body }),
     remove: (id: string) => del<{ ok: true }>(`/api/messages/${id}`),
+    translate: (
+      id: string,
+      input: {
+        targetLanguage?: string | null;
+        forceRefresh?: boolean;
+      } = {},
+    ) => post<{ translation: MessageTranslation }>(`/api/messages/${id}/translate`, input),
     thread: (rootId: string) => get<{ messages: Message[] }>(`/api/messages/${rootId}/thread`),
     threads: () => get<{ messages: Message[] }>('/api/threads'),
     pin: (id: string, pinned: boolean) => put<{ message: Message }>(`/api/messages/${id}/pin`, { pinned }),
     react: (id: string, emoji: string) => put<{ ok: true }>(`/api/messages/${id}/reactions`, { emoji }),
     unreact: (id: string, emoji: string) =>
       del<{ ok: true }>(`/api/messages/${id}/reactions?emoji=${encodeURIComponent(emoji)}`),
+  },
+
+  agentic: {
+    getThreadSummary: (messageId: string) =>
+      get<{ summary: ThreadSummary | null }>(`/api/threads/${messageId}/summary`),
+    refreshThreadSummary: (messageId: string) =>
+      post<{ summary: ThreadSummary }>(`/api/threads/${messageId}/summary`),
+    listThreadTasks: (messageId: string) =>
+      get<{ tasks: AgentTask[] }>(`/api/threads/${messageId}/tasks`),
+    createThreadTask: (
+      messageId: string,
+      input: {
+        title: string;
+        instructions?: string;
+        assigneeUserId?: string | null;
+        priority?: AgentTaskPriority;
+        dueAt?: string | null;
+        summaryId?: string | null;
+        externalRef?: Record<string, string>;
+      },
+    ) => post<{ task: AgentTask }>(`/api/threads/${messageId}/tasks`, input),
+    updateTask: (
+      taskId: string,
+      input: {
+        assigneeUserId?: string | null;
+        status?: AgentTaskStatus;
+        priority?: AgentTaskPriority;
+        dueAt?: string | null;
+        outcome?: string | null;
+        instructions?: string;
+      },
+    ) => patch<{ task: AgentTask }>(`/api/tasks/${taskId}`, input),
+    listTasks: (params: { assignee?: string; status?: AgentTaskStatus } = {}) => {
+      const search = new URLSearchParams();
+      if (params.assignee) search.set('assignee', params.assignee);
+      if (params.status) search.set('status', params.status);
+      return get<{ tasks: AgentTask[] }>(`/api/tasks?${search}`);
+    },
   },
 
   themes: {
@@ -292,6 +377,38 @@ export const api = {
     createWebhook: (channelId: string, name: string) =>
       post<AdminWebhook>('/api/admin/webhooks', { channelId, name }),
     revokeWebhook: (id: string) => del<{ ok: true }>(`/api/admin/webhooks/${id}`),
+
+    pluginCatalog: () => get<AdminPluginCatalog>('/api/admin/plugins/catalog'),
+    plugins: () => get<{ plugins: AdminPlugin[] }>('/api/admin/plugins'),
+    installPlugin: (input: {
+      slug: string;
+      name: string;
+      description?: string | null;
+      runtime: 'external';
+      version: string;
+      requestUrl: string;
+      events: string[];
+      scopes: string[];
+    }) =>
+      post<{ plugin: AdminPlugin; signingSecret: string; botToken: string }>(
+        '/api/admin/plugins',
+        input,
+      ),
+    approvePlugin: (pluginId: string) =>
+      post<{ plugin: AdminPlugin }>(`/api/admin/plugins/${pluginId}/approve`),
+    setPluginEnabled: (pluginId: string, enabled: boolean) =>
+      post<{ plugin: AdminPlugin }>(`/api/admin/plugins/${pluginId}/enabled`, { enabled }),
+    rotatePluginSecret: (pluginId: string) =>
+      post<{ signingSecret: string }>(`/api/admin/plugins/${pluginId}/secret`),
+    issuePluginToken: (pluginId: string) =>
+      post<{ botToken: string }>(`/api/admin/plugins/${pluginId}/token`),
+    revokePluginTokens: (pluginId: string) =>
+      del<{ ok: true }>(`/api/admin/plugins/${pluginId}/tokens`),
+    pluginDeliveries: (pluginId: string, limit = 20) =>
+      get<{ deliveries: AdminPluginDelivery[] }>(
+        `/api/admin/plugins/${pluginId}/deliveries?limit=${limit}`,
+      ),
+    uninstallPlugin: (pluginId: string) => del<{ ok: true }>(`/api/admin/plugins/${pluginId}`),
   },
 
   search: (q: string) =>

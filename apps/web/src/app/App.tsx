@@ -13,6 +13,7 @@ export function App() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [needsSetup, setNeedsSetup] = useState(false);
   const boot = useStore((s) => s.boot);
+  const hydrateOutbox = useStore((s) => s.hydrateOutbox);
   const prefs = useStore((s) => s.currentUser?.prefs);
   const themes = useStore((s) => s.themes);
 
@@ -46,8 +47,9 @@ export function App() {
   // Connect the socket only while signed in.
   useEffect(() => {
     if (phase !== 'signed-in') return undefined;
+    hydrateOutbox();
     return connectStoreToSocket();
-  }, [phase]);
+  }, [phase, hydrateOutbox]);
 
   // Theme and density are stamped on <html> so tokens.css can respond. This is the
   // single place the document is touched; the theme editor previews through the same

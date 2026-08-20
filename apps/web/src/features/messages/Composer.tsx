@@ -94,9 +94,9 @@ export function Composer({ channelId, threadRootId = null, placeholder, autoFocu
     setDraft('');
     try {
       await sendMessage(channelId, body, threadRootId);
-    } catch {
-      setDraft(body);
-      setError("That didn't send. Check your connection and try again.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "That message couldn't be sent.";
+      setError(`${message} It's kept in the outbox below so you can retry or discard it.`);
     } finally {
       setSending(false);
     }

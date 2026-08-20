@@ -21,18 +21,20 @@ from ..lib.rate_limit import consume
 from ..plugins import events as plugin_events
 from ..realtime import hub
 from ..schemas.base import CamelModel
-from ..schemas.models import Message, ReadStateOut
+from ..schemas.models import Message, MessageTranslation, ReadStateOut
 from ..schemas.requests import (
     EditMessageInput,
     MarkReadInput,
     PinInput,
     ReactionInput,
     SendMessageInput,
+    TranslateMessageInput,
     WebhookPostInput,
 )
 from ..services import channels as channel_service
 from ..services import messages as message_service
 from ..services import read_state as read_state_service
+from ..services import translation as translation_service
 from ..services.serialize import message_event
 
 router = APIRouter(tags=["messages"])
@@ -51,6 +53,10 @@ class MessagesOut(CamelModel):
 
 class MessageOut(CamelModel):
     message: Message
+
+
+class MessageTranslationOut(CamelModel):
+    translation: MessageTranslation
 
 
 class ReadStateResponse(CamelModel):
@@ -154,6 +160,53 @@ async def get_thread(message_id: str, user: SessionUser = Depends(current_user))
         await channel_service.assert_channel_access(session, user.id, root.channel_id)
         messages = await message_service.thread(session, message_id)
     return MessagesOut(messages=messages)
+
+
+@router.post("/api/messages/{message_id}/translate", response_model=MessageTranslationOut)
+async def translate_message(
+    message_id: str,
+    payload: TranslateMessageInput,
+    user: SessionUser = Depends(current_user),
+) -> MessageTranslationOut:
+    async with transaction() as (session, _after):
+        message = await message_service.by_id(session, message_id)
+        if message is None or message.deleted_at is not None:
+            raise not_found("That message is gone.")
+        await channel_service.assert_channel_access(session, user.id, message.channel_id)
+        prefs_row = (
+            await session.execute(text("SELECT prefs FROM users WHERE id = :id"), {"id": user.id})
+        ).fetchone()
+        target_language = payload.target_language or (
+            prefs_row.prefs.get("language")
+            if prefs_row is not None and isinstance(prefs_row.prefs, dict)
+            else None
+        )
+        if not isinstance(target_language, str) or not target_language.strip():
+            raise forbidden("Set your preferred language before using translation.")
+        normalized_target = translation_service.normalize_language_code(target_language)
+        if not payload.force_refresh:
+            cached = await translation_service.get_cached_translation(
+                session,
+                message_id=message.id,
+                target_language=normalized_target,
+                source_body=message.body,
+            )
+            if cached is not None:
+                return MessageTranslationOut(translation=cached)
+
+        translated = await translation_service.translate_text(
+            message.body,
+            target_language=normalized_target,
+        )
+        stored = await translation_service.store_translation(
+            session,
+            workspace_id=user.workspace_id,
+            message_id=message.id,
+            requested_by=user.id,
+            source_body=message.body,
+            payload=translated,
+        )
+    return MessageTranslationOut(translation=stored)
 
 
 @router.get("/api/threads", response_model=MessagesOut)

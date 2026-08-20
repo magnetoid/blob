@@ -183,6 +183,7 @@ def create_app() -> FastAPI:
 
     from .realtime.ws import router as ws_router
     from .routers.admin import router as admin_router
+    from .routers.agentic import router as agentic_router
     from .routers.auth import router as auth_router
     from .routers.bot_api import router as bot_api_router
     from .routers.channels import router as channel_router
@@ -197,6 +198,7 @@ def create_app() -> FastAPI:
     app.include_router(user_router)
     app.include_router(channel_router)
     app.include_router(message_router)
+    app.include_router(agentic_router)
     app.include_router(search_router)
     app.include_router(file_router)
     app.include_router(admin_router)

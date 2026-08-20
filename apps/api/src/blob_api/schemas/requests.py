@@ -147,6 +147,8 @@ class UpdatePrefsInput(CamelModel):
     dnd: dict[str, Any] | None = None
     snooze_until: str | None = None
     enter_to_send: bool | None = None
+    language: str | None = Field(default=None, min_length=2, max_length=16)
+    auto_translate: bool | None = None
 
 
 class UploadRequestInput(CamelModel):
@@ -181,3 +183,27 @@ class AddMembersInput(CamelModel):
 class WebhookPostInput(CamelModel):
     text: str = Field(min_length=1, max_length=MESSAGE_MAX_LENGTH)
     username: str | None = Field(default=None, max_length=40)
+
+
+class CreateAgentTaskInput(CamelModel):
+    title: str = Field(min_length=1, max_length=140)
+    instructions: str = Field(default="", max_length=4000)
+    assignee_user_id: str | None = None
+    priority: Literal["low", "medium", "high", "critical"] = "medium"
+    due_at: str | None = None
+    summary_id: str | None = None
+    external_ref: dict[str, str] = Field(default_factory=dict)
+
+
+class UpdateAgentTaskInput(CamelModel):
+    assignee_user_id: str | None = None
+    status: Literal["todo", "in_progress", "blocked", "done", "cancelled"] | None = None
+    priority: Literal["low", "medium", "high", "critical"] | None = None
+    due_at: str | None = None
+    outcome: str | None = Field(default=None, max_length=4000)
+    instructions: str | None = Field(default=None, max_length=4000)
+
+
+class TranslateMessageInput(CamelModel):
+    target_language: str | None = Field(default=None, min_length=2, max_length=16)
+    force_refresh: bool = False

@@ -36,6 +36,10 @@ SCOPES: dict[str, str] = {
     "users:read": "See who is in the workspace",
     "users:read.email": "See people's email addresses",
     "users:manage": "Change roles and deactivate people",
+    "tasks:read": "Read agent task assignments and status",
+    "tasks:write": "Create and update agent tasks",
+    "summaries:read": "Read thread summaries",
+    "summaries:write": "Generate thread summaries",
     "files:read": "Download attachments",
     "files:write": "Upload attachments",
     "admin:read": "Read workspace settings and the audit log",
@@ -58,6 +62,9 @@ EVENTS: dict[str, str] = {
     "channel.created": "A channel was created",
     "member.joined": "Someone joined a channel",
     "member.left": "Someone left a channel",
+    "task.created": "An agent task was created",
+    "task.updated": "An agent task changed state",
+    "thread.summary.updated": "A thread summary was generated or refreshed",
 }
 
 #: Which scope an event requires. Subscribing to message events without being allowed to
@@ -71,6 +78,9 @@ EVENT_SCOPES: dict[str, str] = {
     "channel.created": "channels:read",
     "member.joined": "channels:read",
     "member.left": "channels:read",
+    "task.created": "tasks:read",
+    "task.updated": "tasks:read",
+    "thread.summary.updated": "summaries:read",
 }
 
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,38}[a-z0-9]$")

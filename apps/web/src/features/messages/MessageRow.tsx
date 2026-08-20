@@ -5,10 +5,11 @@
  * one avatar and header; the exact time then appears in the gutter on hover.
  */
 
-import { useMemo, useState } from 'react';
-import type { Message } from '@blob/shared';
-import { api } from '../../lib/api.ts';
+import { useEffect, useMemo, useState, memo } from 'react';
+import type { Message, MessageTranslation } from '@blob/shared';
+import { ApiError, api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
+import type { LocalMessageDeliveryStatus } from '../../lib/outbox.ts';
 import { renderMarkdown } from '../../lib/markdown.tsx';
 import { Avatar } from '../../components/Avatar.tsx';
 import { FileIcon, MoreIcon, ReplyIcon } from '../../components/Icon.tsx';
@@ -24,6 +25,12 @@ interface Props {
   inThread?: boolean;
 }
 
+const translationCache = new Map<string, MessageTranslation>();
+
+function translationCacheKey(message: Message, targetLanguage: string): string {
+  return `${message.id}:${message.editedAt ?? message.createdAt}:${targetLanguage}`;
+}
+
 export function isGrouped(message: Message, previous: Message | null): boolean {
   if (!previous) return false;
   if (previous.authorId !== message.authorId) return false;
@@ -32,20 +39,31 @@ export function isGrouped(message: Message, previous: Message | null): boolean {
   return gap < 60_000;
 }
 
-export function MessageRow({ message, previous, onOpenThread, inThread = false }: Props) {
+export const MessageRow = memo(function MessageRow({ message, previous, onOpenThread, inThread = false }: Props) {
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
   const toggleReaction = useStore((s) => s.toggleReaction);
+  const retryQueuedMessage = useStore((s) => s.retryQueuedMessage);
+  const discardQueuedMessage = useStore((s) => s.discardQueuedMessage);
+  const deliveryState = useStore((s) => s.messageDeliveryState(message));
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.body);
   const [menuOpen, setMenuOpen] = useState(false);
+  const preferredLanguage = currentUser?.prefs.language ?? null;
+  const autoTranslate = Boolean(currentUser?.prefs.autoTranslate && preferredLanguage);
+  const [translation, setTranslation] = useState<MessageTranslation | null>(null);
+  const [translationBusy, setTranslationBusy] = useState(false);
+  const [translationError, setTranslationError] = useState<string | null>(null);
+  const [translationVisible, setTranslationVisible] = useState(false);
 
   const author = message.authorId ? users[message.authorId] : undefined;
   const grouped = isGrouped(message, previous);
-  const pending = message.id.startsWith('pending-');
+  const pending = deliveryState !== null || message.id.startsWith('pending-');
   const mine = message.authorId === currentUser?.id;
   const mentionsMe = currentUser ? message.mentionUserIds.includes(currentUser.id) : false;
+  const canTranslate =
+    !pending && !editing && !message.deletedAt && !!message.body.trim() && !!preferredLanguage;
 
   const knownNames = useMemo(
     () => new Map(Object.values(users).map((u) => [u.displayName.toLowerCase(), u.id])),
@@ -56,6 +74,50 @@ export function MessageRow({ message, previous, onOpenThread, inThread = false }
     () => renderMarkdown(message.body, { knownNames, currentUserId: currentUser?.id ?? null }),
     [message.body, knownNames, currentUser],
   );
+
+  useEffect(() => {
+    if (!preferredLanguage) {
+      setTranslation(null);
+      setTranslationVisible(false);
+      setTranslationError(null);
+      return;
+    }
+    const cached = translationCache.get(translationCacheKey(message, preferredLanguage)) ?? null;
+    setTranslation(cached);
+    setTranslationVisible((current) => (cached !== null ? autoTranslate || current : false));
+    setTranslationError(null);
+  }, [autoTranslate, message, preferredLanguage]);
+
+  useEffect(() => {
+    if (!autoTranslate || !canTranslate || mine || translation || translationBusy) return;
+    void requestTranslation();
+    // Intentionally depends on the translated message identity to retry after edits.
+  }, [autoTranslate, canTranslate, mine, translation, translationBusy, message.id, message.editedAt]);
+
+  async function requestTranslation(forceRefresh = false) {
+    if (!preferredLanguage || !canTranslate) return;
+    setTranslationBusy(true);
+    setTranslationError(null);
+    try {
+      const { translation: next } = await api.messages.translate(message.id, {
+        targetLanguage: preferredLanguage,
+        forceRefresh,
+      });
+      translationCache.set(translationCacheKey(message, preferredLanguage), next);
+      setTranslation(next);
+      setTranslationVisible(true);
+    } catch (error) {
+      const nextError =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "That translation couldn't be loaded.";
+      setTranslationError(nextError);
+    } finally {
+      setTranslationBusy(false);
+    }
+  }
 
   if (message.deletedAt) {
     return (
@@ -75,6 +137,7 @@ export function MessageRow({ message, previous, onOpenThread, inThread = false }
       data-starts-group={!grouped && previous !== null}
       data-mentions-me={mentionsMe}
       data-pending={pending}
+      data-delivery-state={deliveryState ?? undefined}
     >
       <div className="message-gutter">
         {grouped ? (
@@ -93,7 +156,9 @@ export function MessageRow({ message, previous, onOpenThread, inThread = false }
             <time className="message-time" dateTime={message.createdAt}>
               {formatTime(message.createdAt)}
             </time>
-            {pending && <span className="message-edited">sending…</span>}
+            {deliveryState && (
+              <span className="message-edited">{deliveryStatusLabel(deliveryState)}</span>
+            )}
           </div>
         )}
 
@@ -192,6 +257,79 @@ export function MessageRow({ message, previous, onOpenThread, inThread = false }
               </span>
             )}
           </a>
+        )}
+
+        {canTranslate && (
+          <div className="message-translation-actions">
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => {
+                if (translation) {
+                  setTranslationVisible((visible) => !visible);
+                  return;
+                }
+                void requestTranslation();
+              }}
+              disabled={translationBusy}
+            >
+              {translationBusy
+                ? 'Translating…'
+                : translationVisible
+                  ? 'Hide translation'
+                  : translation
+                    ? 'Show translation'
+                    : 'Translate'}
+            </button>
+            {translation && (
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => void requestTranslation(true)}
+                disabled={translationBusy}
+              >
+                Refresh
+              </button>
+            )}
+            {translationError && <span className="message-translation-error">{translationError}</span>}
+          </div>
+        )}
+
+        {translationVisible && translation && (
+          <div className="message-translation-card">
+            <div className="message-translation-meta">
+              {translation.sourceLanguage
+                ? `Translated from ${displayLanguage(translation.sourceLanguage)} to ${displayLanguage(translation.targetLanguage)}`
+                : `Translated to ${displayLanguage(translation.targetLanguage)}`}
+              {' · '}
+              {translation.provider}
+            </div>
+            <div className="message-translation-text">{translation.translatedText}</div>
+          </div>
+        )}
+
+        {deliveryState && (
+          <div className="message-delivery" data-state={deliveryState}>
+            <span>{deliveryStatusHint(deliveryState)}</span>
+            {deliveryState === 'failed' && (
+              <>
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => void retryQueuedMessage(message.clientMsgId)}
+                >
+                  Retry
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => discardQueuedMessage(message.clientMsgId)}
+                >
+                  Discard
+                </button>
+              </>
+            )}
+          </div>
         )}
 
         {message.reactions.length > 0 && (
@@ -296,7 +434,7 @@ export function MessageRow({ message, previous, onOpenThread, inThread = false }
       )}
     </article>
   );
-}
+});
 
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -315,4 +453,35 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function deliveryStatusLabel(status: LocalMessageDeliveryStatus): string {
+  switch (status) {
+    case 'sending':
+      return 'sending…';
+    case 'queued':
+      return 'queued';
+    case 'failed':
+      return 'needs attention';
+  }
+}
+
+function deliveryStatusHint(status: LocalMessageDeliveryStatus): string {
+  switch (status) {
+    case 'sending':
+      return 'Sending now.';
+    case 'queued':
+      return 'Queued to send when your connection is back.';
+    case 'failed':
+      return 'That send was rejected. Retry it or discard this draft.';
+  }
+}
+
+function displayLanguage(code: string): string {
+  try {
+    const display = new Intl.DisplayNames(undefined, { type: 'language' }).of(code);
+    return display ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
 }

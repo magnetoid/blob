@@ -8,6 +8,7 @@ from typing import Any
 from ..lib.storage import public_file_url
 from ..schemas.base import iso, require_iso
 from ..schemas.models import (
+    AgentTask,
     Attachment,
     Channel,
     ChannelWithState,
@@ -15,7 +16,11 @@ from ..schemas.models import (
     LinkPreview,
     Membership,
     Message,
+    MessageTranslation,
     Reaction,
+    ThreadSummary,
+    ThreadSummaryActionItem,
+    ThreadSummaryDecision,
     User,
     UserPrefs,
     Workspace,
@@ -23,7 +28,7 @@ from ..schemas.models import (
 
 #: The columns every user query selects. Kept in one place so the shape cannot drift.
 USER_COLUMNS = """id, email, display_name, full_name, title, avatar_key, timezone, role,
-  status_emoji, status_text, status_expires_at, prefs, deactivated_at, created_at"""
+  status_emoji, status_text, status_expires_at, prefs, deactivated_at, created_at, kind"""
 
 
 def _prefs(raw: dict[str, Any] | None) -> UserPrefs:
@@ -36,6 +41,7 @@ def to_user(row: Any) -> User:
     expired = bool(expires_at and _as_datetime(expires_at) < datetime.now(UTC))
     return User(
         id=row.id,
+        kind=getattr(row, "kind", None) or "human",
         display_name=row.display_name,
         full_name=row.full_name,
         title=row.title,
@@ -156,6 +162,69 @@ def _as_datetime(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value if value.tzinfo else value.replace(tzinfo=UTC)
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+
+def to_thread_summary(row: Any) -> ThreadSummary:
+    return ThreadSummary(
+        id=row.id,
+        channel_id=row.channel_id,
+        thread_root_id=row.thread_root_id,
+        created_by=row.created_by,
+        provider=row.provider,
+        overview=row.overview,
+        decisions=[
+            ThreadSummaryDecision.model_validate(item)
+            for item in (row.decisions or [])
+            if item is not None
+        ],
+        action_items=[
+            ThreadSummaryActionItem.model_validate(item)
+            for item in (row.action_items or [])
+            if item is not None
+        ],
+        open_questions=list(row.open_questions or []),
+        participant_ids=list(row.participant_ids or []),
+        message_count=row.message_count,
+        created_at=require_iso(row.created_at),
+        updated_at=require_iso(row.updated_at),
+    )
+
+
+def to_agent_task(row: Any) -> AgentTask:
+    return AgentTask(
+        id=row.id,
+        channel_id=row.channel_id,
+        thread_root_id=row.thread_root_id,
+        created_by=row.created_by,
+        assignee_user_id=row.assignee_user_id,
+        assignee_kind=getattr(row, "assignee_kind", None),
+        summary_id=row.summary_id,
+        title=row.title,
+        instructions=row.instructions,
+        status=row.status,
+        priority=row.priority,
+        due_at=iso(row.due_at),
+        completed_at=iso(row.completed_at),
+        outcome=row.outcome,
+        external_ref=row.external_ref or {},
+        created_at=require_iso(row.created_at),
+        updated_at=require_iso(row.updated_at),
+    )
+
+
+def to_message_translation(row: Any, *, cached: bool = False) -> MessageTranslation:
+    return MessageTranslation(
+        id=row.id,
+        message_id=row.message_id,
+        requested_by=row.requested_by,
+        provider=row.provider,
+        source_language=row.source_language,
+        target_language=row.target_language,
+        translated_text=row.translated_text,
+        cached=cached,
+        created_at=require_iso(row.created_at),
+        updated_at=require_iso(row.updated_at),
+    )
 
 
 #: SQL fragment that aggregates reactions and attachments onto a message row.
