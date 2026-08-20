@@ -2,9 +2,9 @@
 
 import { useStore } from '../../lib/store.ts';
 import { Avatar } from '../../components/Avatar.tsx';
-import { MessagesIcon, SearchIcon, SettingsIcon } from '../../components/Icon.tsx';
+import { MembersIcon, MessagesIcon, SearchIcon, SettingsIcon } from '../../components/Icon.tsx';
 
-export type RailView = 'messages' | 'search' | 'settings';
+export type RailView = 'messages' | 'search' | 'admin' | 'settings';
 
 interface Props {
   view: RailView;
@@ -15,6 +15,7 @@ export function Rail({ view, onChange }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
   const status = useStore((s) => s.status);
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
   return (
     <nav className="rail" aria-label="Views">
@@ -38,6 +39,17 @@ export function Rail({ view, onChange }: Props) {
       >
         <SearchIcon size={19} strokeWidth={1.6} />
       </button>
+      {isAdmin && (
+        <button
+          className="rail-btn"
+          aria-pressed={view === 'admin'}
+          onClick={() => onChange('admin')}
+          title="Administration"
+        >
+          <MembersIcon size={19} strokeWidth={1.6} />
+        </button>
+      )}
+
       <button
         className="rail-btn"
         aria-pressed={view === 'settings'}

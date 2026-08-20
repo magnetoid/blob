@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
-from ..lib.auth import SessionUser, current_user, require_admin
-from ..lib.errors import bad_request, not_found
+from ..lib.auth import SessionUser, current_user
+from ..lib.errors import not_found
 from ..lib.ids import new_id
 from ..lib.storage import public_file_url
 from ..realtime import hub
@@ -219,92 +219,6 @@ async def get_user(user_id: str, user: SessionUser = Depends(current_user)) -> U
     if row is None:
         raise not_found("There is no such person here.")
     return UserOut(user=to_user(row))
-
-
-# ─── admin ────────────────────────────────────────────────────────────────────
-@router.post("/api/admin/users/{user_id}/deactivate", response_model=OkOut)
-async def deactivate_user(user_id: str, admin: SessionUser = Depends(require_admin)) -> OkOut:
-    """Deactivation keeps the person's messages but ends their access immediately."""
-    if user_id == admin.id:
-        raise bad_request("You cannot deactivate your own account.")
-
-    async with transaction() as (session, after):
-        target = (
-            await session.execute(
-                text("SELECT role FROM users WHERE id = :id AND workspace_id = :ws"),
-                {"id": user_id, "ws": admin.workspace_id},
-            )
-        ).fetchone()
-        if target is None:
-            raise not_found("There is no such person here.")
-        if target.role == "owner":
-            raise bad_request("The workspace owner cannot be deactivated.")
-
-        await session.execute(
-            text(
-                """
-                UPDATE users SET deactivated_at = now()
-                 WHERE id = :id AND workspace_id = :ws
-                """
-            ),
-            {"id": user_id, "ws": admin.workspace_id},
-        )
-        await session.execute(text("DELETE FROM sessions WHERE user_id = :id"), {"id": user_id})
-        row = (
-            await session.execute(
-                text(f"SELECT {USER_COLUMNS} FROM users WHERE id = :id"), {"id": user_id}
-            )
-        ).fetchone()
-
-        def broadcast() -> None:
-            for conn in hub.connections_for_user(user_id):
-                conn.close()
-            if row is not None:
-                hub.to_all({"t": "user.updated", "user": to_user(row).model_dump(by_alias=True)})
-
-        after.add(broadcast)
-
-    return OkOut()
-
-
-@router.post("/api/admin/users/{user_id}/reactivate", response_model=OkOut)
-async def reactivate_user(user_id: str, admin: SessionUser = Depends(require_admin)) -> OkOut:
-    async with transaction() as (session, after):
-        # The display-name unique index is partial (WHERE deactivated_at IS NULL), so
-        # reactivating into a name someone else took would raise a raw 23505.
-        clash = (
-            await session.execute(
-                text(
-                    """
-                    SELECT 1 FROM users active
-                     WHERE active.workspace_id = :ws
-                       AND active.deactivated_at IS NULL
-                       AND lower(active.display_name) = (
-                             SELECT lower(display_name) FROM users WHERE id = :id)
-                    """
-                ),
-                {"id": user_id, "ws": admin.workspace_id},
-            )
-        ).fetchone()
-        if clash is not None:
-            raise bad_request("Someone else is using that display name now. Rename them first.")
-
-        await session.execute(
-            text("UPDATE users SET deactivated_at = NULL WHERE id = :id AND workspace_id = :ws"),
-            {"id": user_id, "ws": admin.workspace_id},
-        )
-        row = (
-            await session.execute(
-                text(f"SELECT {USER_COLUMNS} FROM users WHERE id = :id"), {"id": user_id}
-            )
-        ).fetchone()
-        if row is not None:
-            public = to_user(row)
-            after.add(
-                lambda: hub.to_all({"t": "user.updated", "user": public.model_dump(by_alias=True)})
-            )
-
-    return OkOut()
 
 
 # ─── web push ─────────────────────────────────────────────────────────────────

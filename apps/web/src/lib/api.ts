@@ -11,6 +11,87 @@ import type {
   UserPrefs,
 } from '@blob/shared';
 
+/** Admin-only shapes. `AdminUser` carries email, which the public `User` omits. */
+export interface AdminUser {
+  id: string;
+  email: string;
+  displayName: string;
+  fullName: string | null;
+  title: string | null;
+  role: 'member' | 'admin' | 'owner';
+  deactivatedAt: string | null;
+  createdAt: string;
+  lastSeenAt: string | null;
+  sessionCount: number;
+  channelCount: number;
+  messageCount: number;
+}
+
+export interface AdminInvite {
+  id: string;
+  email: string | null;
+  role: string;
+  createdByName: string | null;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+  acceptedByName: string | null;
+  revokedAt: string | null;
+  status: 'pending' | 'accepted' | 'expired' | 'revoked';
+}
+
+export interface AdminChannel {
+  id: string;
+  kind: string;
+  name: string | null;
+  topic: string | null;
+  createdAt: string;
+  archivedAt: string | null;
+  memberCount: number;
+  messageCount: number;
+  lastMessageAt: string | null;
+}
+
+export interface AuditEvent {
+  id: string;
+  action: string;
+  actorId: string | null;
+  actorName: string | null;
+  targetType: string | null;
+  targetId: string | null;
+  targetLabel: string | null;
+  metadata: Record<string, unknown>;
+  ip: string | null;
+  createdAt: string;
+}
+
+export interface WorkspaceSettings {
+  name: string;
+  slug: string;
+  settings: Record<string, unknown>;
+}
+
+export interface AdminWebhook {
+  id: string;
+  name: string;
+  channelId: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  /** Present only in the creation response; the raw token is never recoverable. */
+  url: string | null;
+}
+
+export interface AdminHealth {
+  database: boolean;
+  redis: boolean;
+  queueDepth: number;
+  connections: number;
+  usersOnline: number;
+  messageCount: number;
+  storageBytes: number;
+  version: string;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -84,6 +165,8 @@ export const api = {
       post<{ user: CurrentUser }>('/api/auth/login', { email, password }),
     logout: () => post<{ ok: true }>('/api/auth/logout'),
     invite: (token: string) => get<{ email: string | null; workspace: string }>(`/api/invites/${token}`),
+    createInvite: (input: { email?: string; role?: 'member' | 'admin'; expiresInDays?: number }) =>
+      post<{ url: string; expiresAt: string }>('/api/invites', input),
     forgotPassword: (email: string) => post<{ ok: true }>('/api/auth/forgot-password', { email }),
     resetPassword: (token: string, password: string) =>
       post<{ ok: true }>('/api/auth/reset-password', { token, password }),
@@ -158,6 +241,44 @@ export const api = {
     react: (id: string, emoji: string) => put<{ ok: true }>(`/api/messages/${id}/reactions`, { emoji }),
     unreact: (id: string, emoji: string) =>
       del<{ ok: true }>(`/api/messages/${id}/reactions?emoji=${encodeURIComponent(emoji)}`),
+  },
+
+  admin: {
+    users: (params: { q?: string; includeDeactivated?: boolean } = {}) => {
+      const search = new URLSearchParams();
+      if (params.q) search.set('q', params.q);
+      if (params.includeDeactivated === false) search.set('include_deactivated', 'false');
+      return get<{ users: AdminUser[]; total: number }>(`/api/admin/users?${search}`);
+    },
+    setRole: (id: string, role: 'member' | 'admin' | 'owner') =>
+      put<{ ok: true }>(`/api/admin/users/${id}/role`, { role }),
+    deactivate: (id: string) => post<{ ok: true }>(`/api/admin/users/${id}/deactivate`),
+    reactivate: (id: string) => post<{ ok: true }>(`/api/admin/users/${id}/reactivate`),
+    revokeSessions: (id: string) => post<{ ok: true }>(`/api/admin/users/${id}/revoke-sessions`),
+
+    invites: () => get<{ invites: AdminInvite[] }>('/api/admin/invites'),
+    revokeInvite: (id: string) => del<{ ok: true }>(`/api/admin/invites/${id}`),
+
+    channels: () => get<{ channels: AdminChannel[] }>('/api/admin/channels'),
+    archiveChannel: (id: string) => post<{ ok: true }>(`/api/admin/channels/${id}/archive`),
+
+    audit: (params: { action?: string; actorId?: string } = {}) => {
+      const search = new URLSearchParams();
+      if (params.action) search.set('action', params.action);
+      if (params.actorId) search.set('actor_id', params.actorId);
+      return get<{ events: AuditEvent[] }>(`/api/admin/audit?${search}`);
+    },
+
+    settings: () => get<WorkspaceSettings>('/api/admin/settings'),
+    updateSettings: (input: { name?: string; settings?: Record<string, unknown> }) =>
+      patch<WorkspaceSettings>('/api/admin/settings', input),
+
+    health: () => get<AdminHealth>('/api/admin/health'),
+
+    webhooks: () => get<{ webhooks: AdminWebhook[] }>('/api/admin/webhooks'),
+    createWebhook: (channelId: string, name: string) =>
+      post<AdminWebhook>('/api/admin/webhooks', { channelId, name }),
+    revokeWebhook: (id: string) => del<{ ok: true }>(`/api/admin/webhooks/${id}`),
   },
 
   search: (q: string) =>

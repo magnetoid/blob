@@ -9,6 +9,7 @@ import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
+import { AdminView } from '../features/admin/AdminView.tsx';
 import { SettingsView } from '../features/settings/SettingsView.tsx';
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
@@ -69,6 +70,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
       {view === 'messages' && <ChannelView />}
       {view === 'search' && <SearchView />}
+      {view === 'admin' && <AdminView />}
       {view === 'settings' && <SettingsView onSignedOut={onSignedOut} />}
 
       {panelOpen && <ThreadPanel rootId={activeThreadRootId as string} />}
