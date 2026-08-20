@@ -40,7 +40,7 @@ def iso(value: datetime | str | None) -> str | None:
 
 def require_iso(value: datetime | str) -> str:
     result = iso(value)
-    assert result is not None  # noqa: S101 - non-null input guaranteed by the signature
+    assert result is not None
     return result
 
 

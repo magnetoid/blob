@@ -30,9 +30,7 @@ class ChannelNameMixin:
         if len(name) > 64:
             raise ValueError("Channel names are limited to 64 characters.")
         if not CHANNEL_NAME_RE.match(name):
-            raise ValueError(
-                "Use lowercase letters, numbers, hyphens and underscores."
-            )
+            raise ValueError("Use lowercase letters, numbers, hyphens and underscores.")
         return name
 
 

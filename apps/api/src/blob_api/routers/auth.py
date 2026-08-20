@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
@@ -134,9 +132,7 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
             if invite is None:
                 raise unauthorized("That invitation has expired or was already used.")
             if invite.email and invite.email.lower() != email:
-                raise bad_request(
-                    "That invitation was issued for a different email address."
-                )
+                raise bad_request("That invitation was issued for a different email address.")
             role = getattr(invite, "role", None) or "member"
 
         user_id = new_id()
@@ -158,7 +154,7 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
                     "role": role,
                 },
             )
-        except Exception as exc:  # noqa: BLE001 - only the unique index is expected
+        except Exception as exc:
             if unique_violation(exc):
                 raise conflict(
                     "That email or display name is already taken.", "user_exists"

@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from fastapi import Request, Response
 from sqlalchemy import text
 
@@ -138,9 +138,7 @@ async def resolve_session(token: str) -> SessionUser | None:
 async def destroy_session(session_id: str) -> None:
     async with SessionFactory() as session:
         async with session.begin():
-            await session.execute(
-                text("DELETE FROM sessions WHERE id = :id"), {"id": session_id}
-            )
+            await session.execute(text("DELETE FROM sessions WHERE id = :id"), {"id": session_id})
 
 
 async def destroy_other_sessions(user_id: str, keep_session_id: str | None = None) -> None:

@@ -13,7 +13,12 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from sqlalchemy import Row, event, text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.util import await_only
 
 from ..config import settings
@@ -44,6 +49,7 @@ def _register_codecs(dbapi_connection: Any, _record: Any) -> None:
         )
 
     await_only(setup())
+
 
 SessionFactory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
 
@@ -100,9 +106,7 @@ async def fetch_one(
     return result.fetchone()
 
 
-async def execute(
-    session: AsyncSession, sql: str, params: dict[str, Any] | None = None
-) -> None:
+async def execute(session: AsyncSession, sql: str, params: dict[str, Any] | None = None) -> None:
     await session.execute(text(sql), params or {})
 
 

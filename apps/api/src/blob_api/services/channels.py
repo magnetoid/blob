@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -198,7 +198,7 @@ async def create_channel(
                 "created_by": created_by,
             },
         )
-    except Exception as exc:  # noqa: BLE001 - re-raised below unless it is the unique index
+    except Exception as exc:
         if _is_unique_violation(exc):
             raise conflict(f"#{name} already exists.", "channel_exists") from exc
         raise
@@ -213,9 +213,7 @@ async def join(session: AsyncSession, channel_id: str, user_id: str) -> None:
 
 async def leave(session: AsyncSession, channel_id: str, user_id: str) -> None:
     await session.execute(
-        text(
-            "DELETE FROM channel_members WHERE channel_id = :channel_id AND user_id = :user_id"
-        ),
+        text("DELETE FROM channel_members WHERE channel_id = :channel_id AND user_id = :user_id"),
         {"channel_id": channel_id, "user_id": user_id},
     )
 

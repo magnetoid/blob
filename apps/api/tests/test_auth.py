@@ -23,7 +23,11 @@ async def test_signup_without_an_invitation_is_refused(client: Client) -> None:
     stranger = client.fork()
     response = await stranger.post(
         "/api/auth/signup",
-        {"email": "nobody@example.com", "password": "correct-horse-battery", "displayName": "Nobody"},
+        {
+            "email": "nobody@example.com",
+            "password": "correct-horse-battery",
+            "displayName": "Nobody",
+        },
     )
     assert response.status == 401
     assert response.body["error"]["code"] == "unauthorized"
@@ -134,15 +138,23 @@ async def test_logout_others_keeps_the_current_session(client: Client) -> None:
 async def test_password_reset_signs_out_every_session(client: Client) -> None:
     await sign_up(client, "Owner")
     # The endpoint always reports success, so a stranger cannot enumerate accounts.
-    assert (await client.post("/api/auth/forgot-password", {"email": "ghost@example.com"})).status == 200
+    assert (
+        await client.post("/api/auth/forgot-password", {"email": "ghost@example.com"})
+    ).status == 200
 
 
 @pytest.mark.parametrize(
     ("payload", "field"),
     [
-        ({"email": "not-an-email", "password": "correct-horse-battery", "displayName": "X"}, "email"),
+        (
+            {"email": "not-an-email", "password": "correct-horse-battery", "displayName": "X"},
+            "email",
+        ),
         ({"email": "a@example.com", "password": "short", "displayName": "X"}, "password"),
-        ({"email": "a@example.com", "password": "correct-horse-battery", "displayName": ""}, "displayName"),
+        (
+            {"email": "a@example.com", "password": "correct-horse-battery", "displayName": ""},
+            "displayName",
+        ),
     ],
 )
 async def test_invalid_signup_reports_400_with_the_offending_field(

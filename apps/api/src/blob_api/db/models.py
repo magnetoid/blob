@@ -260,9 +260,7 @@ class ChannelMember(Base):
     notify_level: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'mentions'")
     )
-    is_starred: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("false")
-    )
+    is_starred: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
 
 class Message(Base):
@@ -278,9 +276,7 @@ class Message(Base):
             postgresql_where=text("thread_root_id IS NOT NULL"),
         ),
         # Idempotent sends: retrying the same client_msg_id is a no-op.
-        Index(
-            "messages_client_idem", "channel_id", "author_id", "client_msg_id", unique=True
-        ),
+        Index("messages_client_idem", "channel_id", "author_id", "client_msg_id", unique=True),
         Index("messages_search", "search_tsv", postgresql_using="gin"),
         Index("messages_mentions", "mention_user_ids", postgresql_using="gin"),
         Index(

@@ -16,15 +16,15 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
 os.environ.setdefault("SESSION_SECRET", "test-secret-that-is-at-least-32-characters-long")
 os.environ.setdefault("PUBLIC_URL", "http://localhost:5173")
 
-import pytest  # noqa: E402
-import pytest_asyncio  # noqa: E402
-from sqlalchemy import text  # noqa: E402
+import pytest
+import pytest_asyncio
+from sqlalchemy import text
 
-from blob_api.db.engine import SessionFactory, close_engine  # noqa: E402
-from blob_api.lib.redis import close_redis, redis  # noqa: E402
-from blob_api.realtime import hub  # noqa: E402
+from blob_api.db.engine import SessionFactory, close_engine
+from blob_api.lib.redis import close_redis, redis
+from blob_api.realtime import hub
 
-from .helpers import Client, build_client, migrate_test_db  # noqa: E402
+from .helpers import Client, build_client, migrate_test_db
 
 TRUNCATE = """
 TRUNCATE workspaces, users, sessions, invites, password_resets, channels,

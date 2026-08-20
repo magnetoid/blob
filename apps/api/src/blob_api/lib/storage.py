@@ -88,9 +88,7 @@ def public_file_url(key: str) -> str:
 
 
 async def delete_object(key: str) -> None:
-    await asyncio.to_thread(
-        _client().delete_object, Bucket=settings.S3_BUCKET, Key=key
-    )
+    await asyncio.to_thread(_client().delete_object, Bucket=settings.S3_BUCKET, Key=key)
 
 
 async def put_object(key: str, body: bytes, mime: str) -> None:

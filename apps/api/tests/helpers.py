@@ -24,7 +24,7 @@ PASSWORD = "correct-horse-battery"
 
 
 def _alembic(*args: str) -> None:
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(
         [sys.executable, "-m", "alembic", *args],
         cwd=API_DIR,
         capture_output=True,
@@ -74,9 +74,7 @@ class Client:
         self.display_name: str = ""
 
     async def request(self, method: str, url: str, body: Any = None) -> Response:
-        response = await self._http.request(
-            method, url, json=body if body is not None else None
-        )
+        response = await self._http.request(method, url, json=body if body is not None else None)
         try:
             payload = response.json() if response.content else None
         except ValueError:
@@ -101,9 +99,7 @@ class Client:
     def fork(self) -> Client:
         """A second client sharing no cookies — a different browser, same server."""
         return Client(
-            httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app), base_url="http://test"
-            )
+            httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
         )
 
 
@@ -157,8 +153,6 @@ def client_msg_id() -> str:
     return f"test-{uuid4()}"
 
 
-async def send_message(
-    client: Client, channel_id: str, body: str, **extra: Any
-) -> Response:
+async def send_message(client: Client, channel_id: str, body: str, **extra: Any) -> Response:
     payload: dict[str, Any] = {"body": body, "clientMsgId": client_msg_id(), **extra}
     return await client.post(f"/api/channels/{channel_id}/messages", payload)

@@ -45,7 +45,10 @@ def upgrade() -> None:
         ),
         sa.Column("ip", postgresql.INET),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
         ),
     )
     # UUIDv7 ids sort chronologically, so "newest first" needs no timestamp index.
@@ -68,7 +71,10 @@ def upgrade() -> None:
             server_default=sa.text("'{}'::jsonb"),
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
         ),
         sa.Column(
             "updated_by",
@@ -83,9 +89,7 @@ def upgrade() -> None:
         sa.Column("role", sa.Text, nullable=False, server_default=sa.text("'member'")),
     )
     op.add_column("invites", sa.Column("revoked_at", sa.DateTime(timezone=True)))
-    op.create_check_constraint(
-        "invites_role_check", "invites", "role IN ('member', 'admin')"
-    )
+    op.create_check_constraint("invites_role_check", "invites", "role IN ('member', 'admin')")
     op.create_index("invites_workspace", "invites", ["workspace_id", sa.text("id DESC")])
 
 

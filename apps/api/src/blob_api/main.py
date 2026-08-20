@@ -160,8 +160,18 @@ def create_app() -> FastAPI:
         return {"ok": True, **hub.stats()}
 
     from .routers.auth import router as auth_router
+    from .routers.channels import router as channel_router
+    from .routers.files import router as file_router
+    from .routers.messages import router as message_router
+    from .routers.search import router as search_router
+    from .routers.users import router as user_router
 
     app.include_router(auth_router)
+    app.include_router(user_router)
+    app.include_router(channel_router)
+    app.include_router(message_router)
+    app.include_router(search_router)
+    app.include_router(file_router)
 
     return app
 

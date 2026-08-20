@@ -137,9 +137,7 @@ def is_user_online(user_id: str) -> bool:
 def focused_channels(user_id: str) -> set[str]:
     """Which channel each of a user's connections is currently focused on."""
     return {
-        conn.focused_channel_id
-        for conn in _by_user.get(user_id, set())
-        if conn.focused_channel_id
+        conn.focused_channel_id for conn in _by_user.get(user_id, set()) if conn.focused_channel_id
     }
 
 
@@ -182,7 +180,9 @@ def _publish(envelope: dict[str, Any]) -> None:
 
     task = loop.create_task(redis.publish(EVENTS_CHANNEL, json.dumps(envelope)))
     _tasks.add(task)
-    task.add_done_callback(lambda t: (_tasks.discard(t), t.exception() if not t.cancelled() else None))
+    task.add_done_callback(
+        lambda t: (_tasks.discard(t), t.exception() if not t.cancelled() else None)
+    )
 
 
 _bridge_started = False

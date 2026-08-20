@@ -86,7 +86,7 @@ def split_statements(sql: str) -> Iterator[str]:
 
         if char == "$":
             end = sql.find("$", index + 1)
-            if end != -1 and sql[index + 1 : end].replace("_", "").isalnum() or end == index + 1:
+            if (end != -1 and sql[index + 1 : end].replace("_", "").isalnum()) or end == index + 1:
                 dollar_tag = sql[index : end + 1]
                 statement.append(dollar_tag)
                 index = end + 1
