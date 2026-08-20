@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # tsc + ruff + mypy --strict + the full pytest suite. The integration tests run
+  # against real Postgres and Redis, because what they assert — idempotent inserts,
+  # unread math, the permission join that keeps private channels out of other people's
+  # search results — lives in SQL.
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: blob
+          POSTGRES_PASSWORD: blob
+          POSTGRES_DB: blob_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U blob -d blob_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgres://blob:blob@localhost:5432/blob_test
+      REDIS_URL: redis://localhost:6379/15
+      SESSION_SECRET: ci-secret-that-is-at-least-32-characters-long
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+        working-directory: apps/api
+
+      - run: pnpm check
+
+      # The models must describe the live schema exactly, or the next autogenerate
+      # proposes dropping the generated column and the partial indexes. This check was
+      # failing unnoticed for two milestones before it was wired up here.
+      - name: Schema matches the models
+        run: uv run alembic check
+        working-directory: apps/api
+
+  # Builds the image and boots the real production stack. Worth its own job: the two
+  # failures this catches — a uv too old for the lockfile revision, and corepack
+  # prompting instead of downloading — happen only in a container, never locally.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: blob:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A build that produces an image which cannot boot is not a passing build. This
+      # exercises the entrypoint's advisory-locked migration against a real Postgres.
+      - name: Boot the production stack
+        env:
+          SERVICE_FQDN_APP: http://localhost:3000
+          SERVICE_PASSWORD_POSTGRES: ciPostgresPassword
+          SERVICE_BASE64_64_SESSION: ci-session-secret-at-least-32-characters-long
+          SERVICE_USER_MINIO: ciminio
+          SERVICE_PASSWORD_MINIO: ciMinioPassword
+        run: docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240
+
+      - name: The app is live and its dependencies are reachable
+        run: |
+          docker compose -f docker-compose.prod.yml exec -T app python -c "
+          import json, urllib.request
+          for path in ('healthz', 'readyz'):
+              body = urllib.request.urlopen(f'http://127.0.0.1:3000/{path}', timeout=10).read()
+              assert json.loads(body) == {'ok': True}, (path, body)
+              print(path, 'ok')
+          "
+
+      - name: The schema reached head
+        run: |
+          docker compose -f docker-compose.prod.yml exec -T postgres \
+            psql -U blob -d blob -tAc "SELECT version_num FROM alembic_version"
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs --no-color --tail 100
+
+      - if: always()
+        run: docker compose -f docker-compose.prod.yml down -v
+
+  # The architectural rules declared in .torsor/architecture/decisions/ are only real if
+  # something enforces them. --strict fails on *new* drift, so existing debt does not
+  # block a change that did not cause it.
+  intent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+      - run: uv tool install torsor-helper
+      - run: torsor guard --strict --severity error $(git ls-files '*.py')
