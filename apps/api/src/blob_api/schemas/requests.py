@@ -1,0 +1,183 @@
+"""Request bodies — the Pydantic mirror of `packages/shared/src/schemas.ts`.
+
+Validation messages are user-facing: the client renders `error.message` directly, so
+they read as sentences rather than as validator names.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Annotated, Literal
+
+from pydantic import EmailStr, Field, StringConstraints, field_validator, model_validator
+
+from .base import CamelModel
+
+MESSAGE_MAX_LENGTH = 12_000
+
+Password = Annotated[str, StringConstraints(min_length=10, max_length=200)]
+DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
+
+CHANNEL_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9\-_]*$")
+
+
+class ChannelNameMixin:
+    @staticmethod
+    def _check_channel_name(value: str) -> str:
+        name = value.strip().lower()
+        if not name:
+            raise ValueError("Enter a channel name.")
+        if len(name) > 64:
+            raise ValueError("Channel names are limited to 64 characters.")
+        if not CHANNEL_NAME_RE.match(name):
+            raise ValueError(
+                "Use lowercase letters, numbers, hyphens and underscores."
+            )
+        return name
+
+
+class SignupInput(CamelModel):
+    email: EmailStr
+    password: Password
+    display_name: DisplayName
+    #: Present unless this is the very first user, who founds the workspace.
+    invite_token: str | None = Field(default=None, min_length=10)
+    workspace_name: str | None = Field(default=None, max_length=60)
+
+
+class LoginInput(CamelModel):
+    email: EmailStr
+    password: str = Field(min_length=1)
+
+
+class ForgotPasswordInput(CamelModel):
+    email: EmailStr
+
+
+class ResetPasswordInput(CamelModel):
+    token: str = Field(min_length=10)
+    password: Password
+
+
+class CreateInviteInput(CamelModel):
+    email: EmailStr | None = None
+    expires_in_days: int = Field(default=7, ge=1, le=30)
+    role: Literal["member", "admin"] = "member"
+
+
+class CreateChannelInput(CamelModel, ChannelNameMixin):
+    name: str
+    kind: Literal["public", "private"]
+    topic: str | None = Field(default=None, max_length=250)
+    description: str | None = Field(default=None, max_length=2000)
+    member_ids: list[str] | None = Field(default=None, max_length=200)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, value: str) -> str:
+        return cls._check_channel_name(value)
+
+
+class UpdateChannelInput(CamelModel, ChannelNameMixin):
+    name: str | None = None
+    topic: str | None = Field(default=None, max_length=250)
+    description: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, value: str | None) -> str | None:
+        return None if value is None else cls._check_channel_name(value)
+
+
+class MembershipUpdateInput(CamelModel):
+    notify_level: Literal["all", "mentions", "none"] | None = None
+    is_starred: bool | None = None
+
+
+class CreateDmInput(CamelModel):
+    user_ids: list[str] = Field(min_length=1, max_length=8)
+
+
+class SendMessageInput(CamelModel):
+    body: str = Field(default="", max_length=MESSAGE_MAX_LENGTH)
+    client_msg_id: str = Field(min_length=8, max_length=64)
+    thread_root_id: str | None = None
+    also_in_channel: bool = False
+    attachment_ids: list[str] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def _needs_content(self) -> SendMessageInput:
+        if not self.body.strip() and not self.attachment_ids:
+            raise ValueError("Write something or attach a file.")
+        return self
+
+
+class EditMessageInput(CamelModel):
+    body: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MESSAGE_MAX_LENGTH)
+    ]
+
+
+class ReactionInput(CamelModel):
+    emoji: str = Field(min_length=1, max_length=64)
+
+
+class MarkReadInput(CamelModel):
+    last_read_message_id: str
+
+
+class PinInput(CamelModel):
+    pinned: bool
+
+
+class UpdateProfileInput(CamelModel):
+    display_name: DisplayName | None = None
+    full_name: str | None = Field(default=None, max_length=80)
+    title: str | None = Field(default=None, max_length=80)
+    timezone: str | None = Field(default=None, max_length=60)
+    status_emoji: str | None = Field(default=None, max_length=64)
+    status_text: str | None = Field(default=None, max_length=100)
+    status_expires_at: str | None = None
+
+
+class UpdatePrefsInput(CamelModel):
+    theme: Literal["light", "dark", "system"] | None = None
+    density: Literal["comfortable", "compact", "airy"] | None = None
+    keywords: list[str] | None = Field(default=None, max_length=30)
+    dnd: dict | None = None
+    snooze_until: str | None = None
+    enter_to_send: bool | None = None
+
+
+class UploadRequestInput(CamelModel):
+    filename: str = Field(min_length=1, max_length=255)
+    mime: str = Field(min_length=1, max_length=150)
+    size_bytes: int = Field(gt=0, le=100 * 1024 * 1024)
+
+
+class UploadCompleteInput(CamelModel):
+    width: int | None = Field(default=None, gt=0, le=20_000)
+    height: int | None = Field(default=None, gt=0, le=20_000)
+
+
+class PushSubscriptionKeys(CamelModel):
+    p256dh: str
+    auth: str
+
+
+class PushSubscriptionInput(CamelModel):
+    endpoint: str
+    keys: PushSubscriptionKeys
+
+
+class PushUnsubscribeInput(CamelModel):
+    endpoint: str
+
+
+class AddMembersInput(CamelModel):
+    user_ids: list[str] = Field(min_length=1, max_length=50)
+
+
+class WebhookPostInput(CamelModel):
+    text: str = Field(min_length=1, max_length=MESSAGE_MAX_LENGTH)
+    username: str | None = Field(default=None, max_length=40)
