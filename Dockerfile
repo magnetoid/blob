@@ -6,6 +6,9 @@
 
 # ─── 1. the client ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS web
+# The prompt is what corepack does instead of downloading when no TTY says otherwise,
+# which in a build is a hang rather than a question.
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /src
 
@@ -23,7 +26,9 @@ RUN pnpm --filter @blob/web build
 
 # ─── 2. the server's dependencies ─────────────────────────────────────────────
 FROM python:3.12-slim AS api
-COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /usr/local/bin/uv
+# Pinned to the minor that wrote uv.lock: the lockfile is revision 3, and an older uv
+# refuses to read it rather than resolving something different.
+COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /usr/local/bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
