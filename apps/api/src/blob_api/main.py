@@ -169,6 +169,7 @@ def create_app() -> FastAPI:
     from .routers.files import router as file_router
     from .routers.messages import router as message_router
     from .routers.search import router as search_router
+    from .routers.themes import router as theme_router
     from .routers.users import router as user_router
 
     app.include_router(auth_router)
@@ -178,6 +179,7 @@ def create_app() -> FastAPI:
     app.include_router(search_router)
     app.include_router(file_router)
     app.include_router(admin_router)
+    app.include_router(theme_router)
     app.include_router(ws_router)
 
     return app

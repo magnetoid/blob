@@ -88,6 +88,8 @@ export const membershipUpdateSchema = z.object({
 export const updatePrefsSchema = z.object({
   theme: z.enum(['light', 'dark', 'system']).optional(),
   density: z.enum(['comfortable', 'compact', 'airy']).optional(),
+  themeLight: z.string().max(40).optional(),
+  themeDark: z.string().max(40).optional(),
   keywords: z.array(z.string().trim().min(1).max(40)).max(30).optional(),
   dnd: z
     .object({

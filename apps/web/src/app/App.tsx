@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../lib/api.ts';
 import { connectStoreToSocket, useStore } from '../lib/store.ts';
+import { applyTheme, pickTheme } from '../lib/theme.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
 import { Workspace } from './Workspace.tsx';
 
@@ -13,6 +14,7 @@ export function App() {
   const [needsSetup, setNeedsSetup] = useState(false);
   const boot = useStore((s) => s.boot);
   const prefs = useStore((s) => s.currentUser?.prefs);
+  const themes = useStore((s) => s.themes);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,13 +49,23 @@ export function App() {
     return connectStoreToSocket();
   }, [phase]);
 
-  // Theme and density are stamped on <html> so tokens.css can respond.
+  // Theme and density are stamped on <html> so tokens.css can respond. This is the
+  // single place the document is touched; the theme editor previews through the same
+  // helpers.
   useEffect(() => {
     const root = document.documentElement;
-    if (!prefs || prefs.theme === 'system') root.removeAttribute('data-theme');
-    else root.setAttribute('data-theme', prefs.theme);
     root.setAttribute('data-density', prefs?.density ?? 'comfortable');
-  }, [prefs]);
+    if (!prefs) return undefined;
+
+    const apply = () => applyTheme(pickTheme(themes, prefs), prefs.theme);
+    apply();
+
+    // 'system' has to follow the OS while the app is open, not only at load.
+    if (prefs.theme !== 'system') return undefined;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, [prefs, themes]);
 
   if (phase === 'loading') {
     return (

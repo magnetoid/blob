@@ -21,13 +21,15 @@ import { useStore } from '../../lib/store.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { SearchIcon } from '../../components/Icon.tsx';
 import { formatRelative } from '../messages/MessageRow.tsx';
+import { ThemesSection } from './ThemesSection.tsx';
 
-type Section = 'people' | 'invitations' | 'channels' | 'audit' | 'settings';
+type Section = 'people' | 'invitations' | 'channels' | 'themes' | 'audit' | 'settings';
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'people', label: 'People' },
   { id: 'invitations', label: 'Invitations' },
   { id: 'channels', label: 'Channels' },
+  { id: 'themes', label: 'Themes' },
   { id: 'audit', label: 'Audit log' },
   { id: 'settings', label: 'Settings' },
 ];
@@ -99,6 +101,7 @@ export function AdminView() {
             {section === 'people' && <PeopleSection isOwner={isOwner} onError={setError} />}
             {section === 'invitations' && <InvitationsSection onError={setError} />}
             {section === 'channels' && <ChannelsSection onError={setError} />}
+            {section === 'themes' && <ThemesSection onError={setError} />}
             {section === 'audit' && <AuditSection />}
             {section === 'settings' && <SettingsSection onError={setError} />}
           </div>

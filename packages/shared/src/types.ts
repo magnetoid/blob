@@ -30,6 +30,9 @@ export interface CurrentUser extends User {
 export interface UserPrefs {
   theme: 'light' | 'dark' | 'system';
   density: 'comfortable' | 'compact' | 'airy';
+  /** Which named theme fills each side; `theme` still decides which side applies. */
+  themeLight: string;
+  themeDark: string;
   /** Words that trigger a notification anywhere in the workspace. */
   keywords: string[];
   /** Quiet hours; notifications are suppressed outside [start, end) local time. */
@@ -42,6 +45,8 @@ export interface UserPrefs {
 export const DEFAULT_PREFS: UserPrefs = {
   theme: 'system',
   density: 'comfortable',
+  themeLight: 'paper',
+  themeDark: 'midnight',
   keywords: [],
   dnd: null,
   snoozeUntil: null,
@@ -131,10 +136,22 @@ export interface Workspace {
 }
 
 /** Everything the client needs on boot, in one round trip. */
+/** A named set of token overrides on top of the built-in palette. */
+export interface Theme {
+  id: string;
+  slug: string;
+  name: string;
+  mode: 'light' | 'dark';
+  tokens: Record<string, string>;
+  isPreset: boolean;
+  isEnabled: boolean;
+}
+
 export interface Bootstrap {
   workspace: Workspace;
   user: CurrentUser;
   users: User[];
   channels: ChannelWithState[];
   customEmoji: { name: string; url: string }[];
+  themes: Theme[];
 }

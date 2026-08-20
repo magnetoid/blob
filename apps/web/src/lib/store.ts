@@ -15,6 +15,7 @@ import type {
   Message,
   PresenceState,
   ServerEvent,
+  Theme,
   User,
   UserPrefs,
 } from '@blob/shared';
@@ -34,6 +35,7 @@ interface State {
   status: SocketStatus;
   currentUser: CurrentUser | null;
   workspaceName: string;
+  themes: Theme[];
   users: Record<string, User>;
   channels: Record<string, ChannelWithState>;
   messages: Record<string, ChannelMessages>;
@@ -89,6 +91,7 @@ export const useStore = create<State>((set, get) => ({
   status: 'offline',
   currentUser: null,
   workspaceName: '',
+  themes: [],
   users: {},
   channels: {},
   messages: {},
@@ -104,6 +107,7 @@ export const useStore = create<State>((set, get) => ({
       ready: true,
       currentUser: data.user,
       workspaceName: data.workspace.name,
+      themes: data.themes,
       users: Object.fromEntries(data.users.map((u) => [u.id, u])),
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
     }),

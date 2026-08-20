@@ -2,6 +2,7 @@
 
 import type {
   Bootstrap,
+  Theme,
   ChannelWithState,
   CurrentUser,
   Message,
@@ -241,6 +242,18 @@ export const api = {
     react: (id: string, emoji: string) => put<{ ok: true }>(`/api/messages/${id}/reactions`, { emoji }),
     unreact: (id: string, emoji: string) =>
       del<{ ok: true }>(`/api/messages/${id}/reactions?emoji=${encodeURIComponent(emoji)}`),
+  },
+
+  themes: {
+    list: () => get<{ themes: Theme[]; groups: Record<string, string[]> }>('/api/themes'),
+    save: (input: {
+      id?: string;
+      name: string;
+      mode: 'light' | 'dark';
+      tokens: Record<string, string>;
+      isEnabled?: boolean;
+    }) => put<{ theme: Theme }>('/api/admin/themes', input),
+    remove: (id: string) => del<{ ok: true }>(`/api/admin/themes/${id}`),
   },
 
   admin: {

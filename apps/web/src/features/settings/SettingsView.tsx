@@ -19,6 +19,7 @@ const DENSITIES = [
 export function SettingsView({ onSignedOut }: { onSignedOut: () => void }) {
   const currentUser = useStore((s) => s.currentUser);
   const setPrefs = useStore((s) => s.setPrefs);
+  const themes = useStore((s) => s.themes);
   const reset = useStore((s) => s.reset);
 
   const [keywordDraft, setKeywordDraft] = useState('');
@@ -52,6 +53,44 @@ export function SettingsView({ onSignedOut }: { onSignedOut: () => void }) {
                 {theme.label}
               </button>
             ))}
+          </div>
+
+          <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+            Light palette
+          </h2>
+          <div className="chip-row">
+            {themes
+              .filter((t) => t.mode === 'light')
+              .map((theme) => (
+                <button
+                  key={theme.id}
+                  className="chip"
+                  aria-pressed={prefs.themeLight === theme.slug}
+                  onClick={() => void setPrefs({ themeLight: theme.slug })}
+                >
+                  <span className="swatch" style={{ background: theme.tokens['--accent'] }} />
+                  {theme.name}
+                </button>
+              ))}
+          </div>
+
+          <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+            Dark palette
+          </h2>
+          <div className="chip-row">
+            {themes
+              .filter((t) => t.mode === 'dark')
+              .map((theme) => (
+                <button
+                  key={theme.id}
+                  className="chip"
+                  aria-pressed={prefs.themeDark === theme.slug}
+                  onClick={() => void setPrefs({ themeDark: theme.slug })}
+                >
+                  <span className="swatch" style={{ background: theme.tokens['--accent'] }} />
+                  {theme.name}
+                </button>
+              ))}
           </div>
 
           <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>

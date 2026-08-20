@@ -14,7 +14,14 @@ from ..lib.ids import new_id
 from ..lib.storage import public_file_url
 from ..realtime import hub
 from ..schemas.base import CamelModel
-from ..schemas.models import Bootstrap, CurrentUser, CustomEmoji, User, UserPrefs
+from ..schemas.models import (
+    Bootstrap,
+    CurrentUser,
+    CustomEmoji,
+    ThemeSummary,
+    User,
+    UserPrefs,
+)
 from ..schemas.requests import (
     PushSubscriptionInput,
     PushUnsubscribeInput,
@@ -22,6 +29,7 @@ from ..schemas.requests import (
     UpdateProfileInput,
 )
 from ..services import channels as channel_service
+from ..services import themes as theme_service
 from ..services.serialize import USER_COLUMNS, to_current_user, to_user, to_workspace
 
 router = APIRouter(tags=["users"])
@@ -54,6 +62,10 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
     Keeping the boot payload to a single round trip is why Slack eventually built
     Flannel; starting here costs nothing and postpones that problem indefinitely.
     """
+    # Presets are inserted once per workspace, on the first boot that needs them.
+    async with transaction() as (setup, _):
+        await theme_service.ensure_presets(setup, user.workspace_id)
+
     async with session_scope() as session:
         me = (
             await session.execute(
@@ -92,6 +104,7 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
             )
         ).fetchall()
         channels = await channel_service.list_for_user(session, user.id, user.workspace_id)
+        themes = await theme_service.list_themes(session, user.workspace_id)
 
     return Bootstrap(
         workspace=to_workspace(workspace),
@@ -100,6 +113,19 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
         channels=channels,
         custom_emoji=[
             CustomEmoji(name=row.name, url=public_file_url(row.object_key)) for row in emoji
+        ],
+        themes=[
+            ThemeSummary(
+                id=theme.id,
+                slug=theme.slug,
+                name=theme.name,
+                mode=theme.mode,
+                tokens=theme.tokens,
+                is_preset=theme.is_preset,
+                is_enabled=theme.is_enabled,
+            )
+            for theme in themes
+            if theme.is_enabled
         ],
     )
 

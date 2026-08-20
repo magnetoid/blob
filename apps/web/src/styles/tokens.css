@@ -59,6 +59,8 @@
   --disabled-fg: #b7bab6;
   --track-off: #dedcd4;
   --scrollbar: #dddbd3;
+  --knob: #ffffff;
+  --backdrop: rgb(26 29 27 / 32%);
 
   --shadow-popover: 0 4px 14px -6px rgb(26 29 27 / 18%);
   --shadow-menu: 0 6px 20px -8px rgb(26 29 27 / 16%);
@@ -103,58 +105,64 @@
  * Dark theme. The artifact defines the paper palette; this keeps its warm-neutral
  * character and lifts the green so it still passes contrast on a dark ground.
  */
+/*
+ * Dark values, written once and selected two ways: by the OS when the viewer has made
+ * no explicit choice, and by the stamped attribute when they have.
+ */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #141614;
-    --bg-rail: #101210;
-    --bg-sidebar: #171a17;
-    --surface: #1c1f1c;
-    --surface-hover: #232623;
-    --surface-hover-warm: #232623;
-    --surface-hover-deep: #2a2e2a;
-    --surface-row-hover: #1a1d1a;
-    --surface-muted: #1f221f;
-    --surface-icon: #262a26;
+  --bg: #141614;
+  --bg-rail: #101210;
+  --bg-sidebar: #171a17;
+  --surface: #1c1f1c;
+  --surface-hover: #232623;
+  --surface-hover-warm: #232623;
+  --surface-hover-deep: #2a2e2a;
+  --surface-row-hover: #1a1d1a;
+  --surface-muted: #1f221f;
+  --surface-icon: #262a26;
 
-    --hairline: #2b2f2b;
-    --hairline-soft: #242824;
-    --hairline-strong: #3b403b;
-    --hairline-popover: #323732;
+  --hairline: #2b2f2b;
+  --hairline-soft: #242824;
+  --hairline-strong: #3b403b;
+  --hairline-popover: #323732;
 
-    --text: #eceee9;
-    --text-body: #dfe2dd;
-    --text-2: #b3b8b2;
-    --text-3: #9aa099;
-    --text-4: #838a82;
-    --text-5: #767d75;
-    --text-label: #6f766e;
-    --text-faint: #5e655d;
-    --text-rail: #8b928a;
+  --text: #eceee9;
+  --text-body: #dfe2dd;
+  --text-2: #b3b8b2;
+  --text-3: #9aa099;
+  --text-4: #838a82;
+  --text-5: #767d75;
+  --text-label: #6f766e;
+  --text-faint: #5e655d;
+  --text-rail: #8b928a;
 
-    --accent: #5fb287;
-    --accent-hover: #7cc79f;
-    --accent-contrast: #0c130f;
-    --accent-wash: #1b2a22;
-    --accent-wash-rail: #1f3327;
-    --accent-wash-soft: #1b2a22;
-    --accent-border: #2f4a3a;
-    --accent-border-soft: #294235;
-    --avatar-bg: #24382c;
+  --accent: #5fb287;
+  --accent-hover: #7cc79f;
+  --accent-contrast: #0c130f;
+  --accent-wash: #1b2a22;
+  --accent-wash-rail: #1f3327;
+  --accent-wash-soft: #1b2a22;
+  --accent-border: #2f4a3a;
+  --accent-border-soft: #294235;
+  --avatar-bg: #24382c;
 
-    --presence-online: #4fae72;
-    --presence-away: #d0a03a;
-    --presence-offline: #565c55;
-    --unread-line: #5c4636;
-    --unread-text: #d59a63;
-    --danger: #d9705f;
-    --disabled-bg: #262a26;
-    --disabled-fg: #5e655d;
-    --track-off: #363b36;
-    --scrollbar: #2f342f;
+  --presence-online: #4fae72;
+  --presence-away: #d0a03a;
+  --presence-offline: #565c55;
+  --unread-line: #5c4636;
+  --unread-text: #d59a63;
+  --danger: #d9705f;
+  --disabled-bg: #262a26;
+  --disabled-fg: #5e655d;
+  --track-off: #363b36;
+  --scrollbar: #2f342f;
+  --knob: #e8ebe7;
+  --backdrop: rgb(0 0 0 / 55%);
 
-    --shadow-popover: 0 4px 14px -6px rgb(0 0 0 / 55%);
-    --shadow-menu: 0 6px 20px -8px rgb(0 0 0 / 55%);
-    --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
+  --shadow-popover: 0 4px 14px -6px rgb(0 0 0 / 55%);
+  --shadow-menu: 0 6px 20px -8px rgb(0 0 0 / 55%);
+  --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
   }
 }
 
@@ -205,8 +213,11 @@
   --disabled-fg: #5e655d;
   --track-off: #363b36;
   --scrollbar: #2f342f;
+  --knob: #e8ebe7;
+  --backdrop: rgb(0 0 0 / 55%);
 
   --shadow-popover: 0 4px 14px -6px rgb(0 0 0 / 55%);
   --shadow-menu: 0 6px 20px -8px rgb(0 0 0 / 55%);
   --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
 }
+

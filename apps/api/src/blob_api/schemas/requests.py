@@ -141,6 +141,8 @@ class UpdateProfileInput(CamelModel):
 class UpdatePrefsInput(CamelModel):
     theme: Literal["light", "dark", "system"] | None = None
     density: Literal["comfortable", "compact", "airy"] | None = None
+    theme_light: str | None = Field(default=None, max_length=40)
+    theme_dark: str | None = Field(default=None, max_length=40)
     keywords: list[str] | None = Field(default=None, max_length=30)
     dnd: dict[str, Any] | None = None
     snooze_until: str | None = None

@@ -31,11 +31,14 @@ lives in [TEAM-CHAT-BUILD-PLAN.md](TEAM-CHAT-BUILD-PLAN.md).
   `has:link`, `has:file`, `before:` and `after:` modifiers, permission-filtered per user.
 - **Presence** — live status dots and typing indicators. No read receipts, by design.
 - **⌘K palette** — jump to any channel, person, or action.
-- **Themes** — light, dark, and system, plus compact / comfortable / airy density.
+- **Themes** — light, dark and system, each side filled by a named palette an admin can
+  edit token by token, plus compact / comfortable / airy density.
+- **Administration** — people and roles, invitations, every channel including private
+  ones, an audit log, workspace settings, live health, and webhook management.
 - **Incoming webhooks** — post into a channel from CI or a cron job.
 
 Not built yet: file uploads (the API and schema are in place, the UI is not), huddles,
-workflow automation, and the AI layer. See the plan's roadmap for the order.
+the plugin system, and the AI layer. See the plan's roadmap for the order.
 
 ## Stack
 

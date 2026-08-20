@@ -18,6 +18,9 @@ PresenceState = Literal["active", "away", "offline"]
 class UserPrefs(CamelModel):
     theme: Literal["light", "dark", "system"] = "system"
     density: Literal["comfortable", "compact", "airy"] = "comfortable"
+    #: Which named theme fills each side; `theme` still decides which side applies.
+    theme_light: str = "paper"
+    theme_dark: str = "midnight"
     #: Words that trigger a notification anywhere in the workspace.
     keywords: list[str] = Field(default_factory=list)
     #: Quiet hours; notifications are suppressed outside [start, end) local time.
@@ -143,6 +146,16 @@ class CustomEmoji(CamelModel):
     url: str
 
 
+class ThemeSummary(CamelModel):
+    id: str
+    slug: str
+    name: str
+    mode: Literal["light", "dark"]
+    tokens: dict[str, str]
+    is_preset: bool
+    is_enabled: bool
+
+
 class Bootstrap(CamelModel):
     """Everything the client needs on boot, in one round trip."""
 
@@ -151,6 +164,7 @@ class Bootstrap(CamelModel):
     users: list[User]
     channels: list[ChannelWithState]
     custom_emoji: list[CustomEmoji]
+    themes: list[ThemeSummary]
 
 
 class ReadStateOut(CamelModel):

@@ -11,6 +11,23 @@
       href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400&display=swap"
     />
     <title>Blob</title>
+    <script>
+      // Runs before first paint: the server's answer is a round trip away, so the last
+      // known palette is mirrored in localStorage and replayed here.
+      try {
+        var saved = JSON.parse(localStorage.getItem('blob.theme') || 'null');
+        if (saved) {
+          var root = document.documentElement;
+          if (saved.preference && saved.preference !== 'system') {
+            root.setAttribute('data-theme', saved.preference);
+          }
+          if (saved.mode) root.style.colorScheme = saved.mode;
+          for (var name in saved.tokens || {}) {
+            root.style.setProperty(name, saved.tokens[name]);
+          }
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
