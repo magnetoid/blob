@@ -30,7 +30,8 @@ TRUNCATE = """
 TRUNCATE workspaces, users, sessions, invites, password_resets, channels,
          channel_members, messages, reactions, attachments, custom_emoji,
          read_states, thread_subscriptions, push_subscriptions, webhooks,
-         audit_events, workspace_settings
+         audit_events, workspace_settings, themes, plugins, plugin_secrets,
+         plugin_grants, plugin_deliveries, bot_tokens
 RESTART IDENTITY CASCADE
 """
 

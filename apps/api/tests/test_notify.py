@@ -10,8 +10,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from blob_api.jobs.unfurl import first_url, is_private_address
+from blob_api.jobs.unfurl import first_url
 from blob_api.lib.mentions import matches_keywords, parse_mentions
+from blob_api.lib.net import is_private_address
 from blob_api.schemas.models import UserPrefs
 from blob_api.services.notify import (
     Decision,

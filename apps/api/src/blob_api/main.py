@@ -39,7 +39,11 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
 }
 
 #: Prefixes whose whole subtree is public (invite previews, incoming webhooks).
-PUBLIC_PREFIXES = ("/api/invites/", "/api/hooks/")
+#:
+#: `/api/v1/` is the app callback API: it authenticates with a bot token rather than a
+#: session cookie, so it must bypass the cookie check — and it enforces its own auth on
+#: every route through the `current_bot` dependency, never falling back to "no user".
+PUBLIC_PREFIXES = ("/api/invites/", "/api/hooks/", "/api/v1/")
 
 
 def _error(status: int, code: str, message: str, field: str | None = None) -> JSONResponse:
@@ -180,9 +184,11 @@ def create_app() -> FastAPI:
     from .realtime.ws import router as ws_router
     from .routers.admin import router as admin_router
     from .routers.auth import router as auth_router
+    from .routers.bot_api import router as bot_api_router
     from .routers.channels import router as channel_router
     from .routers.files import router as file_router
     from .routers.messages import router as message_router
+    from .routers.plugins import router as plugin_router
     from .routers.search import router as search_router
     from .routers.themes import router as theme_router
     from .routers.users import router as user_router
@@ -195,6 +201,8 @@ def create_app() -> FastAPI:
     app.include_router(file_router)
     app.include_router(admin_router)
     app.include_router(theme_router)
+    app.include_router(plugin_router)
+    app.include_router(bot_api_router)
     app.include_router(ws_router)
 
     # Last, so every route above answers first: a mount at "/" matches anything.

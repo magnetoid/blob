@@ -159,6 +159,11 @@ def _as_datetime(value: Any) -> datetime:
 
 
 #: SQL fragment that aggregates reactions and attachments onto a message row.
+def message_event(name: str, message: Message) -> dict[str, Any]:
+    """The socket envelope carrying a message. Shared so every sender emits one shape."""
+    return {"t": name, "message": message.model_dump(by_alias=True)}
+
+
 MESSAGE_SELECT = """
   m.*,
   COALESCE((

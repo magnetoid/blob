@@ -79,6 +79,7 @@ async def send(
     also_in_channel: bool = False,
     attachment_ids: list[str] | None = None,
     kind: str = "user",
+    plugin_id: str | None = None,
 ) -> SendResult:
     message_id = new_id()
     attachment_ids = attachment_ids or []
@@ -101,11 +102,12 @@ async def send(
                 """
                 INSERT INTO messages (
                   id, workspace_id, channel_id, author_id, kind, body, thread_root_id,
-                  also_in_channel, mention_user_ids, mentions_everyone, client_msg_id)
+                  also_in_channel, mention_user_ids, mentions_everyone, client_msg_id,
+                  plugin_id)
                 VALUES (
                   :id, :ws, :channel_id, :author_id, :kind, :body, :thread_root_id,
                   :also_in_channel, cast(:mention_user_ids AS uuid[]), :mentions_everyone,
-                  :client_msg_id)
+                  :client_msg_id, :plugin_id)
                 ON CONFLICT (channel_id, author_id, client_msg_id) DO NOTHING
                 RETURNING id
                 """
@@ -122,6 +124,7 @@ async def send(
                 "mention_user_ids": mentions.user_ids,
                 "mentions_everyone": mentions.everyone,
                 "client_msg_id": client_msg_id,
+                "plugin_id": plugin_id,
             },
         )
     ).fetchone()

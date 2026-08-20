@@ -18,6 +18,7 @@ from ..db.engine import close_engine, transaction
 from ..lib.queue import redis_settings
 from ..lib.redis import close_redis
 from ..lib.storage import delete_object
+from ..plugins import delivery as plugin_delivery
 from ..realtime import hub
 from .notify import handle_notify
 from .unfurl import handle_unfurl
@@ -62,6 +63,18 @@ async def sweep_orphans(_ctx: dict[str, Any]) -> None:
         log.info("swept %d orphaned uploads", len(rows))
 
 
+async def deliver_plugin_events(_ctx: dict[str, Any]) -> None:
+    """Drain the plugin outbox.
+
+    Enqueued after every event so delivery is prompt, and also run on a timer so a lost
+    enqueue delays events rather than losing them — the queue is a latency optimisation,
+    the table is the source of truth.
+    """
+    delivered = await plugin_delivery.drain()
+    if delivered:
+        log.info("attempted %d plugin deliveries", delivered)
+
+
 async def startup(_ctx: dict[str, Any]) -> None:
     # The worker broadcasts too (read-state updates from notify), so it needs the bridge.
     await hub.start_redis_bridge()
@@ -75,9 +88,14 @@ async def shutdown(_ctx: dict[str, Any]) -> None:
 
 
 class WorkerSettings:
-    functions = [notify, unfurl, sweep_orphans]
+    functions = [notify, unfurl, sweep_orphans, deliver_plugin_events]
     # arq's stub types cron() more narrowly than it accepts at runtime.
-    cron_jobs = [cron(sweep_orphans, hour=4, minute=0)]  # type: ignore[arg-type]
+    cron_jobs = [
+        cron(sweep_orphans, hour=4, minute=0),  # type: ignore[arg-type]
+        # The safety net under the enqueue: retries that came due, and anything whose
+        # enqueue was lost, go out within the minute.
+        cron(deliver_plugin_events, second=0),  # type: ignore[arg-type]
+    ]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = redis_settings()

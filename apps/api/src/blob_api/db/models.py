@@ -61,6 +61,7 @@ class User(Base):
     __table_args__ = (
         UniqueConstraint("workspace_id", "email"),
         CheckConstraint("role IN ('member', 'admin', 'owner')", name="users_role_check"),
+        CheckConstraint("kind IN ('human', 'bot')", name="users_kind_check"),
         # Mention resolution looks users up by lowercased display name. Partial, so a
         # deactivated user does not hold their name hostage.
         Index(
@@ -69,6 +70,12 @@ class User(Base):
             func.lower(text("display_name")),
             unique=True,
             postgresql_where=text("deactivated_at IS NULL"),
+        ),
+        Index(
+            "users_bot_plugin",
+            "bot_plugin_id",
+            unique=True,
+            postgresql_where=text("bot_plugin_id IS NOT NULL"),
         ),
     )
 
@@ -92,6 +99,12 @@ class User(Base):
     )
     deactivated_at: Mapped[Any | None] = mapped_column(Timestamp)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    #: A plugin's bot is a real user row, so author_id, avatars and member lists all work
+    #: without the client knowing bots exist.
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'human'"))
+    bot_plugin_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="SET NULL")
+    )
 
 
 class Session(Base):
@@ -330,6 +343,12 @@ class Message(Base):
     )
     # Added by 002; link previews live beside the message so an edit cannot forge one.
     link_preview: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # Added by 004. `blocks` is structured content; `body` remains the plain-text
+    # fallback and the only thing search_tsv is built from.
+    plugin_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="SET NULL")
+    )
+    blocks: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
 
 
 class Reaction(Base):
@@ -459,21 +478,170 @@ class Webhook(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class Theme(Base):
+    """Added by 003. A named set of token overrides on the built-in palette."""
+
+    __tablename__ = "themes"
+    __table_args__ = (
+        CheckConstraint("mode IN ('light', 'dark')", name="themes_mode_check"),
+        UniqueConstraint("workspace_id", "slug", name="themes_slug_uniq"),
+        Index("themes_workspace", "workspace_id", "mode"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    slug: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[str] = mapped_column(Text, nullable=False)
+    tokens: Mapped[dict[str, str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    is_preset: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    created_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class Plugin(Base):
+    """An installed app. One row whether it runs in-process or over HTTP."""
+
+    __tablename__ = "plugins"
+    __table_args__ = (
+        CheckConstraint("runtime IN ('local', 'external')", name="plugins_runtime_check"),
+        CheckConstraint(
+            "status IN ('enabled', 'disabled', 'needs_review', 'failed')",
+            name="plugins_status_check",
+        ),
+        CheckConstraint(
+            "runtime <> 'external' OR request_url IS NOT NULL",
+            name="plugins_external_needs_url",
+        ),
+        UniqueConstraint("workspace_id", "slug", name="plugins_slug_uniq"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    slug: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    runtime: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'enabled'"))
+    version: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'0.0.0'"))
+    request_url: Mapped[str | None] = mapped_column(Text)
+    events: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
+    last_error: Mapped[str | None] = mapped_column(Text)
+    installed_by: Mapped[str | None] = mapped_column(
+        UUIDStr,
+        # users and plugins reference each other — a bot belongs to a plugin, a plugin
+        # was installed by someone. Both sides are nullable so the cycle is fine at
+        # runtime; use_alter tells SQLAlchemy how to order the DDL anyway.
+        ForeignKey("users.id", ondelete="SET NULL", use_alter=True),
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class PluginSecret(Base):
+    __tablename__ = "plugin_secrets"
+
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), primary_key=True
+    )
+    signing_secret: Mapped[str] = mapped_column(Text, nullable=False)
+    rotated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class PluginGrant(Base):
+    __tablename__ = "plugin_grants"
+    __table_args__ = (PrimaryKeyConstraint("plugin_id", "scope", name="plugin_grants_pkey"),)
+
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
+    )
+    scope: Mapped[str] = mapped_column(Text, nullable=False)
+    granted_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    granted_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class BotToken(Base):
+    __tablename__ = "bot_tokens"
+    __table_args__ = (Index("bot_tokens_plugin", "plugin_id"),)
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    last_used_at: Mapped[Any | None] = mapped_column(Timestamp)
+    revoked_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
+class PluginDelivery(Base):
+    """The outbox. Written in the transaction that caused the event, drained by the worker."""
+
+    __tablename__ = "plugin_deliveries"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'delivered', 'failed', 'dead')",
+            name="plugin_deliveries_status_check",
+        ),
+        Index(
+            "plugin_deliveries_due",
+            "next_attempt_at",
+            postgresql_where=text("status = 'pending'"),
+        ),
+        Index("plugin_deliveries_plugin", "plugin_id", text("id DESC")),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
+    )
+    event: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'"))
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    next_attempt_at: Mapped[Any] = mapped_column(
+        Timestamp, nullable=False, server_default=_now()
+    )
+    last_status_code: Mapped[int | None] = mapped_column(Integer)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    delivered_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
 __all__ = [
     "Attachment",
     "AuditEvent",
     "Base",
+    "BotToken",
     "Channel",
     "ChannelMember",
     "CustomEmoji",
     "Invite",
     "Message",
     "PasswordReset",
+    "Plugin",
+    "PluginDelivery",
+    "PluginGrant",
+    "PluginSecret",
     "PushSubscription",
     "Reaction",
     "ReadState",
     "Session",
     "String",
+    "Theme",
     "ThreadSubscription",
     "User",
     "Webhook",

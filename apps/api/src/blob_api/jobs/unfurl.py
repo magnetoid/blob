@@ -7,12 +7,9 @@ vector, so private address ranges are refused and the fetch is capped hard.
 
 from __future__ import annotations
 
-import asyncio
-import ipaddress
 import json
 import logging
 import re
-import socket
 from typing import Any
 from urllib.parse import urlparse
 
@@ -20,6 +17,7 @@ import httpx
 from sqlalchemy import text
 
 from ..db.engine import transaction
+from ..lib.net import is_private_host
 from ..realtime import hub
 from ..services import messages as message_service
 
@@ -35,30 +33,6 @@ _TITLE_RE = re.compile(r"<title[^>]*>([^<]*)</title>", re.IGNORECASE)
 def first_url(body: str) -> str | None:
     match = _URL_RE.search(body)
     return match.group(0) if match else None
-
-
-def is_private_address(address: str) -> bool:
-    try:
-        ip = ipaddress.ip_address(address)
-    except ValueError:
-        return True
-    return (
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_reserved
-        or ip.is_multicast
-        or ip.is_unspecified
-    )
-
-
-async def _is_private_host(hostname: str) -> bool:
-    """Refuse loopback, link-local and RFC1918 targets — this runs inside our network."""
-    try:
-        infos = await asyncio.get_running_loop().getaddrinfo(hostname, None)
-    except socket.gaierror:
-        return True
-    return any(is_private_address(str(info[4][0])) for info in infos)
 
 
 def _meta(html: str, prop: str) -> str | None:
@@ -83,7 +57,7 @@ async def fetch_unfurl(raw_url: str) -> dict[str, Any] | None:
     parsed = urlparse(raw_url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         return None
-    if await _is_private_host(parsed.hostname):
+    if await is_private_host(parsed.hostname):
         return None
 
     try:

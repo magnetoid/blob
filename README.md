@@ -36,9 +36,13 @@ lives in [TEAM-CHAT-BUILD-PLAN.md](TEAM-CHAT-BUILD-PLAN.md).
 - **Administration** — people and roles, invitations, every channel including private
   ones, an audit log, workspace settings, live health, and webhook management.
 - **Incoming webhooks** — post into a channel from CI or a cron job.
+- **Apps** — external integrations with a name, an avatar and a place in the member list.
+  Signed event delivery, a scoped callback API, and a bot that is a real user. See
+  [docs/apps.md](docs/apps.md).
 
 Not built yet: file uploads (the API and schema are in place, the UI is not), huddles,
-the plugin system, and the AI layer. See the plan's roadmap for the order.
+message blocks, the local plugin runtime, slash commands, and the AI layer. See the plan's
+roadmap for the order.
 
 ## Stack
 
@@ -156,6 +160,7 @@ apps/api        FastAPI app, WebSocket tier, arq worker
 apps/web        React client
 packages/shared Types, zod schemas and the wire protocol used by the client
 plugins/        local plugins (see the build plan)
+docs/           what people integrating with Blob need
 Dockerfile      builds both tiers into one image; context is the repo root
 docker/         container entrypoint
 ```

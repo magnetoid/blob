@@ -6,10 +6,8 @@ enqueue. Nothing in this file emits inside a transaction.
 
 from __future__ import annotations
 
-import asyncio
 import re
-from collections.abc import Coroutine
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import text
@@ -18,8 +16,9 @@ from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, hash_token
 from ..lib.errors import forbidden, not_found
 from ..lib.ids import new_id
-from ..lib.queue import enqueue
+from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
+from ..plugins import events as plugin_events
 from ..realtime import hub
 from ..schemas.base import CamelModel
 from ..schemas.models import Message, ReadStateOut
@@ -34,6 +33,7 @@ from ..schemas.requests import (
 from ..services import channels as channel_service
 from ..services import messages as message_service
 from ..services import read_state as read_state_service
+from ..services.serialize import message_event
 
 router = APIRouter(tags=["messages"])
 
@@ -66,18 +66,13 @@ class OkOut(CamelModel):
     ok: bool = True
 
 
-_pending: set[asyncio.Task[None]] = set()
+def _plugin_drain() -> None:
+    """Nudge the worker to deliver what the transaction just queued.
 
-
-def _message_event(name: str, message: Message) -> dict[str, Any]:
-    return {"t": name, "message": message.model_dump(by_alias=True)}
-
-
-def _schedule(coro: Coroutine[Any, Any, None]) -> None:
-    """Fire an enqueue without awaiting it, keeping a reference so it is not collected."""
-    task = asyncio.create_task(coro)
-    _pending.add(task)
-    task.add_done_callback(_pending.discard)
+    The outbox is also drained on a timer, so this is a latency improvement rather than
+    the delivery mechanism — if the enqueue is lost, the events still go out.
+    """
+    fire_and_forget(enqueue("deliver_plugin_events"))
 
 
 @router.get("/api/channels/{channel_id}/messages", response_model=HistoryOut)
@@ -124,14 +119,25 @@ async def send_message(
 
         # Retries of the same client_msg_id return the stored row and broadcast nothing.
         if result.created:
+            # Inside the transaction, deliberately. The outbox row and the message it
+            # describes commit together or not at all, so an app is never told about a
+            # message that was rolled back, and never misses one because the process
+            # died between COMMIT and the HTTP call.
+            await plugin_events.emit(
+                session,
+                workspace_id=user.workspace_id,
+                event="message.created",
+                payload=result.message.model_dump(by_alias=True),
+            )
 
             def broadcast() -> None:
-                hub.to_channel(channel_id, _message_event("message.new", result.message))
+                hub.to_channel(channel_id, message_event("message.new", result.message))
                 if result.thread_update:
                     hub.to_channel(channel_id, result.thread_update.as_event())
-                _schedule(enqueue("notify", result.message.id))
+                fire_and_forget(enqueue("notify", result.message.id))
                 if URL_RE.search(payload.body):
-                    _schedule(enqueue("unfurl", result.message.id))
+                    fire_and_forget(enqueue("unfurl", result.message.id))
+                _plugin_drain()
 
             after_commit.add(broadcast)
 
@@ -172,9 +178,18 @@ async def edit_message(
         message = await message_service.edit(
             session, message_id, user.id, user.workspace_id, payload.body
         )
-        after.add(
-            lambda: hub.to_channel(message.channel_id, _message_event("message.updated", message))
+        await plugin_events.emit(
+            session,
+            workspace_id=user.workspace_id,
+            event="message.updated",
+            payload=message.model_dump(by_alias=True),
         )
+
+        def broadcast_edit() -> None:
+            hub.to_channel(message.channel_id, message_event("message.updated", message))
+            _plugin_drain()
+
+        after.add(broadcast_edit)
     return MessageOut(message=message)
 
 
@@ -190,8 +205,15 @@ async def delete_message(message_id: str, user: SessionUser = Depends(current_us
         channel_id, thread_root_id = await message_service.remove(
             session, message_id, user.id, user.is_admin
         )
-        after.add(
-            lambda: hub.to_channel(
+        await plugin_events.emit(
+            session,
+            workspace_id=user.workspace_id,
+            event="message.deleted",
+            payload={"id": message_id, "channelId": channel_id},
+        )
+
+        def broadcast_delete() -> None:
+            hub.to_channel(
                 channel_id,
                 {
                     "t": "message.deleted",
@@ -200,7 +222,9 @@ async def delete_message(message_id: str, user: SessionUser = Depends(current_us
                     "threadRootId": thread_root_id,
                 },
             )
-        )
+            _plugin_drain()
+
+        after.add(broadcast_delete)
     return OkOut()
 
 
@@ -217,7 +241,7 @@ async def pin_message(
         )
         message = await message_service.set_pinned(session, message_id, user.id, payload.pinned)
         after.add(
-            lambda: hub.to_channel(message.channel_id, _message_event("message.updated", message))
+            lambda: hub.to_channel(message.channel_id, message_event("message.updated", message))
         )
     return MessageOut(message=message)
 
@@ -235,18 +259,24 @@ async def add_reaction(
             session, user.id, existing.channel_id, require_member=True, require_writable=True
         )
         if await message_service.add_reaction(session, message_id, user.id, payload.emoji):
-            after.add(
-                lambda: hub.to_channel(
-                    existing.channel_id,
-                    {
-                        "t": "reaction.added",
-                        "messageId": message_id,
-                        "channelId": existing.channel_id,
-                        "emoji": payload.emoji,
-                        "userId": user.id,
-                    },
-                )
+            reaction = {
+                "messageId": message_id,
+                "channelId": existing.channel_id,
+                "emoji": payload.emoji,
+                "userId": user.id,
+            }
+            await plugin_events.emit(
+                session,
+                workspace_id=user.workspace_id,
+                event="reaction.added",
+                payload=reaction,
             )
+
+            def broadcast_reaction() -> None:
+                hub.to_channel(existing.channel_id, {"t": "reaction.added", **reaction})
+                _plugin_drain()
+
+            after.add(broadcast_reaction)
     return OkOut()
 
 
@@ -261,16 +291,22 @@ async def remove_reaction(
         if existing is None:
             raise not_found("That message is gone.")
         if await message_service.remove_reaction(session, message_id, user.id, emoji):
+            reaction = {
+                "messageId": message_id,
+                "channelId": existing.channel_id,
+                "emoji": emoji,
+                "userId": user.id,
+            }
+            await plugin_events.emit(
+                session,
+                workspace_id=user.workspace_id,
+                event="reaction.removed",
+                payload=reaction,
+            )
             after.add(
                 lambda: hub.to_channel(
                     existing.channel_id,
-                    {
-                        "t": "reaction.removed",
-                        "messageId": message_id,
-                        "channelId": existing.channel_id,
-                        "emoji": emoji,
-                        "userId": user.id,
-                    },
+                    {"t": "reaction.removed", **reaction},
                 )
             )
     return OkOut()
@@ -338,10 +374,17 @@ async def incoming_webhook(token: str, payload: WebhookPostInput) -> OkOut:
 
         if result.created:
             channel_id = hook.channel_id
+            await plugin_events.emit(
+                session,
+                workspace_id=hook.workspace_id,
+                event="message.created",
+                payload=result.message.model_dump(by_alias=True),
+            )
 
             def broadcast_hook() -> None:
-                hub.to_channel(channel_id, _message_event("message.new", result.message))
-                _schedule(enqueue("notify", result.message.id))
+                hub.to_channel(channel_id, message_event("message.new", result.message))
+                fire_and_forget(enqueue("notify", result.message.id))
+                _plugin_drain()
 
             after.add(broadcast_hook)
 
