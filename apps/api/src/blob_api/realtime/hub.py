@@ -178,11 +178,20 @@ def _publish(envelope: dict[str, Any]) -> None:
     except RuntimeError:
         return  # No loop (e.g. a unit test); local delivery already happened.
 
-    task = loop.create_task(redis.publish(EVENTS_CHANNEL, json.dumps(envelope)))
+    task = loop.create_task(_publish_async(envelope))
     _tasks.add(task)
-    task.add_done_callback(
-        lambda t: (_tasks.discard(t), t.exception() if not t.cancelled() else None)
-    )
+    task.add_done_callback(_forget)
+
+
+async def _publish_async(envelope: dict[str, Any]) -> None:
+    await redis.publish(EVENTS_CHANNEL, json.dumps(envelope))
+
+
+def _forget(task: asyncio.Task[Any]) -> None:
+    """Drop the reference and surface any error the publish raised."""
+    _tasks.discard(task)
+    if not task.cancelled():
+        task.exception()
 
 
 _bridge_started = False

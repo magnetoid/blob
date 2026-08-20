@@ -1,0 +1,164 @@
+"""Deliver notifications for one message.
+
+Runs after the send transaction has committed, so it reads its own consistent view and
+never blocks the sender. Push is suppressed for anyone with the channel already on
+screen — they have seen the message.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from collections.abc import Callable, Sequence
+from typing import Any
+
+from sqlalchemy import text
+
+from ..config import settings
+from ..db.engine import transaction
+from ..realtime import hub
+from ..schemas.models import ReadStateOut
+from ..services import notify as notify_service
+from ..services import read_state as read_state_service
+
+log = logging.getLogger("blob.jobs.notify")
+
+
+def _broadcast_later(user_id: str, state: ReadStateOut) -> Callable[[], None]:
+    """Bind the loop variables now, so the after-commit callback sees this pair."""
+
+    def run() -> None:
+        read_state_service.broadcast(user_id, state)
+
+    return run
+
+
+def _preview(body: str) -> str:
+    flat = " ".join(body.split())
+    return f"{flat[:117]}…" if len(flat) > 120 else flat
+
+
+async def handle_notify(message_id: str) -> None:
+    async with transaction() as (session, after):
+        message = (
+            await session.execute(
+                text(
+                    """
+                    SELECT m.id, m.channel_id, c.kind AS channel_kind, c.name AS channel_name,
+                           m.author_id, u.display_name AS author_name, m.body,
+                           m.mention_user_ids, m.mentions_everyone, m.thread_root_id
+                      FROM messages m
+                      JOIN channels c ON c.id = m.channel_id
+                      LEFT JOIN users u ON u.id = m.author_id
+                     WHERE m.id = :id AND m.deleted_at IS NULL
+                    """
+                ),
+                {"id": message_id},
+            )
+        ).fetchone()
+        if message is None:
+            return
+
+        recipients = await notify_service.load_recipients(session, message.channel_id)
+        subscribers = (
+            await notify_service.load_thread_subscribers(session, message.thread_root_id)
+            if message.thread_root_id
+            else set()
+        )
+
+        decisions = notify_service.decide(
+            notify_service.NotifiableMessage(
+                id=message.id,
+                channel_id=message.channel_id,
+                channel_kind=message.channel_kind,
+                author_id=message.author_id,
+                body=message.body,
+                mention_user_ids=list(message.mention_user_ids or []),
+                mentions_everyone=message.mentions_everyone,
+                thread_root_id=message.thread_root_id,
+            ),
+            recipients,
+            thread_subscribers=subscribers,
+        )
+        if not decisions:
+            return
+
+        mention_ids = [d.user_id for d in decisions if d.counts_as_mention]
+        states = await read_state_service.increment_mentions(
+            session, mention_ids, message.channel_id
+        )
+        for user_id, state in zip(mention_ids, states, strict=False):
+            after.add(_broadcast_later(user_id, state))
+
+        # Someone looking at this very channel has already seen it; don't push at them.
+        push_targets = [
+            d.user_id
+            for d in decisions
+            if message.channel_id not in hub.focused_channels(d.user_id)
+        ]
+        if push_targets and settings.push_enabled:
+            is_dm = message.channel_kind in ("dm", "group_dm")
+            title = (
+                (message.author_name or "New message")
+                if is_dm
+                else f"#{message.channel_name or 'channel'}"
+            )
+            prefix = f"{message.author_name}: " if message.author_name else ""
+            payload = {
+                "title": title,
+                "body": f"{prefix}{_preview(message.body)}",
+                "url": f"/c/{message.channel_id}",
+                "tag": message.channel_id,
+            }
+            subs = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT id, endpoint, p256dh, auth FROM push_subscriptions
+                         WHERE user_id = ANY(cast(:ids AS uuid[]))
+                        """
+                    ),
+                    {"ids": push_targets},
+                )
+            ).fetchall()
+            dead = await _send_push(subs, payload)
+            if dead:
+                await session.execute(
+                    text("DELETE FROM push_subscriptions WHERE id = ANY(cast(:ids AS uuid[]))"),
+                    {"ids": dead},
+                )
+
+
+async def _send_push(subs: Sequence[Any], payload: dict[str, Any]) -> list[str]:
+    """Fan out web push, returning subscriptions the browser has thrown away."""
+    from pywebpush import WebPushException, webpush
+
+    dead: list[str] = []
+
+    def _one(sub: Any) -> str | None:
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": sub.endpoint,
+                    "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
+                },
+                data=json.dumps(payload),
+                vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": settings.VAPID_SUBJECT},
+            )
+        except WebPushException as exc:
+            status = getattr(exc.response, "status_code", None)
+            # 404/410 mean the browser threw the subscription away; stop trying.
+            if status in (404, 410):
+                return str(sub.id)
+            log.warning("push failed: %s", exc)
+        return None
+
+    results = await asyncio.gather(
+        *(asyncio.to_thread(_one, sub) for sub in subs), return_exceptions=True
+    )
+    for result in results:
+        if isinstance(result, str):
+            dead.append(result)
+    return dead

@@ -1,0 +1,18 @@
+{
+  "name": "@blob/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shim so the pnpm workspace still drives the Python backend.",
+  "scripts": {
+    "dev": "uv run uvicorn blob_api.main:app --reload --host 127.0.0.1 --port 3000",
+    "start": "uv run uvicorn blob_api.main:app --host 0.0.0.0 --port 3000",
+    "worker": "uv run arq blob_api.jobs.worker.WorkerSettings",
+    "migrate": "uv run alembic upgrade head",
+    "seed": "uv run python -m blob_api.db.seed",
+    "openapi": "uv run python -m blob_api.openapi_dump",
+    "typecheck": "uv run mypy src",
+    "lint": "uv run ruff check src tests",
+    "format": "uv run ruff format src tests",
+    "test": "uv run pytest -q"
+  }
+}

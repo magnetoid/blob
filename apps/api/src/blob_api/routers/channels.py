@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
@@ -44,7 +46,7 @@ class OkOut(CamelModel):
     ok: bool = True
 
 
-def _channel_event(name: str, channel: ChannelWithState) -> dict:
+def _channel_event(name: str, channel: ChannelWithState) -> dict[str, Any]:
     return {"t": name, "channel": channel.model_dump(by_alias=True)}
 
 

@@ -6,8 +6,10 @@ enqueue. Nothing in this file emits inside a transaction.
 
 from __future__ import annotations
 
+import asyncio
 import re
-from typing import Annotated
+from collections.abc import Coroutine
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import text
@@ -16,6 +18,7 @@ from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, hash_token
 from ..lib.errors import forbidden, not_found
 from ..lib.ids import new_id
+from ..lib.queue import enqueue
 from ..lib.rate_limit import consume
 from ..realtime import hub
 from ..schemas.base import CamelModel
@@ -63,8 +66,18 @@ class OkOut(CamelModel):
     ok: bool = True
 
 
-def _message_event(name: str, message: Message) -> dict:
+_pending: set[asyncio.Task[None]] = set()
+
+
+def _message_event(name: str, message: Message) -> dict[str, Any]:
     return {"t": name, "message": message.model_dump(by_alias=True)}
+
+
+def _schedule(coro: Coroutine[Any, Any, None]) -> None:
+    """Fire an enqueue without awaiting it, keeping a reference so it is not collected."""
+    task = asyncio.create_task(coro)
+    _pending.add(task)
+    task.add_done_callback(_pending.discard)
 
 
 @router.get("/api/channels/{channel_id}/messages", response_model=HistoryOut)
@@ -116,6 +129,9 @@ async def send_message(
                 hub.to_channel(channel_id, _message_event("message.new", result.message))
                 if result.thread_update:
                     hub.to_channel(channel_id, result.thread_update.as_event())
+                _schedule(enqueue("notify", result.message.id))
+                if URL_RE.search(payload.body):
+                    _schedule(enqueue("unfurl", result.message.id))
 
             after_commit.add(broadcast)
 
@@ -322,9 +338,12 @@ async def incoming_webhook(token: str, payload: WebhookPostInput) -> OkOut:
 
         if result.created:
             channel_id = hook.channel_id
-            after.add(
-                lambda: hub.to_channel(channel_id, _message_event("message.new", result.message))
-            )
+
+            def broadcast_hook() -> None:
+                hub.to_channel(channel_id, _message_event("message.new", result.message))
+                _schedule(enqueue("notify", result.message.id))
+
+            after.add(broadcast_hook)
 
     return OkOut()
 

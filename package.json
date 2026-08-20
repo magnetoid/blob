@@ -6,14 +6,16 @@
   "engines": { "node": ">=22" },
   "packageManager": "pnpm@10.30.3",
   "scripts": {
-    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
-    "build": "pnpm --filter \"./packages/*\" build && pnpm --filter \"./apps/*\" build",
+    "dev": "pnpm --parallel --filter @blob/api --filter @blob/web dev",
+    "worker": "pnpm --filter @blob/api worker",
+    "build": "pnpm --filter \"./packages/*\" build && pnpm --filter @blob/web build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "eslint .",
+    "lint": "pnpm --filter @blob/api lint",
     "test": "pnpm -r test",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
-    "migrate": "pnpm --filter @blob/server migrate",
-    "seed": "pnpm --filter @blob/server seed"
+    "migrate": "pnpm --filter @blob/api migrate",
+    "seed": "pnpm --filter @blob/api seed",
+    "openapi": "pnpm --filter @blob/api openapi > packages/shared/openapi.json"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

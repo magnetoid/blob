@@ -39,17 +39,23 @@ workflow automation, and the AI layer. See the plan's roadmap for the order.
 
 ## Stack
 
-TypeScript end to end.
+Python backend, React front end.
 
 | Layer | Choice |
 |---|---|
 | Web | React 18 + Vite |
-| API | Fastify (Node 22+), REST for writes |
-| Realtime | `ws`, one event bus, Redis pub/sub between processes |
+| API | FastAPI (Python 3.12), REST for writes |
+| Data | SQLAlchemy 2.0 async + asyncpg, Alembic migrations |
+| Realtime | FastAPI WebSockets, one event hub, Redis pub/sub between processes |
 | Database | Postgres 16 — messages, search, everything |
 | Ephemera | Redis — presence, typing, rate limits |
-| Jobs | BullMQ — notifications, link unfurls |
+| Jobs | arq — notifications, link unfurls, sweeps |
 | Files | S3-compatible (MinIO) with presigned uploads |
+
+The chat queries are hand-tuned SQL held in `text()` rather than re-expressed as
+query-builder chains; the ORM defines the schema, drives Alembic, and serves the
+CRUD-heavy tables. The Alembic baseline runs the original SQL verbatim, so the schema is
+byte-identical to the one the earlier TypeScript server left behind.
 
 Message ids are UUIDv7, so they sort chronologically and "is this unread?" is a
 comparison rather than a `COUNT`. Every write is idempotent on a client-generated id,
@@ -61,15 +67,24 @@ Requires Node 22+, pnpm, Postgres 16 and Redis. (`docker compose up -d` starts
 Postgres, Redis, MinIO and MailHog if you'd rather not install them.)
 
 ```bash
-pnpm install
+pnpm install                  # web + shared
+cd apps/api && uv sync && cd ../..   # backend
 cp .env.example .env          # then set SESSION_SECRET to `openssl rand -hex 32`
 
 createdb blob                 # skip if you used docker compose
-pnpm migrate
+pnpm migrate                  # alembic upgrade head
 pnpm seed                     # optional: a demo workspace with people and messages
 
 pnpm dev                      # API on :3000, web on :5173
+pnpm worker                   # in another shell: notifications and unfurls
 ```
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/) alongside Node and pnpm.
+
+A database created by the earlier TypeScript server is adopted rather than rebuilt:
+`alembic stamp 0001` then `alembic upgrade head`, after which the old
+`schema_migrations` table can be dropped. Existing password hashes keep working —
+argon2-cffi verifies what `@node-rs/argon2` wrote.
 
 Open http://localhost:5173. The first account you create owns the workspace; invite
 everyone else from Preferences.
@@ -79,23 +94,25 @@ The seeded demo workspace signs in with `ana@example.com` / `correct-horse-batte
 ## Layout
 
 ```
-apps/server     Fastify API, WebSocket tier, background worker
+apps/api        FastAPI app, WebSocket tier, arq worker
 apps/web        React client
-packages/shared Types, zod schemas and the wire protocol, shared by both
+packages/shared Types, zod schemas and the wire protocol used by the client
+plugins/        local plugins (see the build plan)
 ```
 
-`apps/server/src/realtime/` imports nothing from `routes/`, so the socket tier can move
-to its own process without a rewrite when connection counts justify it.
+`apps/api/src/blob_api/realtime/` imports nothing from `routers/`, so the socket tier can
+move to its own process without a rewrite when connection counts justify it.
 
 ## Tests
 
 ```bash
-pnpm check      # typecheck + lint + tests
+pnpm check      # tsc + ruff + mypy + pytest
 ```
 
 Integration tests run against a real Postgres (`blob_test`) and Redis, because the
 behaviour worth testing — idempotent inserts, unread cursors, the permission join that
-keeps private channels out of other people's search results — lives in SQL.
+keeps private channels out of other people's search results — lives in SQL. The
+WebSocket tests drive a real socket through the ASGI app.
 
 ## Licence
 

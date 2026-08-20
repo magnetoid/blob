@@ -332,6 +332,9 @@ async def create_invite(
             )
         ).fetchone()
 
+    if row is None:
+        raise bad_request("Could not create that invitation.")
+
     url = f"{settings.PUBLIC_URL}/join/{token}"
     if payload.email:
         await send_invite(

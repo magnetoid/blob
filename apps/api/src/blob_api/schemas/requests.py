@@ -7,7 +7,7 @@ they read as sentences rather than as validator names.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import EmailStr, Field, StringConstraints, field_validator, model_validator
 
@@ -142,7 +142,7 @@ class UpdatePrefsInput(CamelModel):
     theme: Literal["light", "dark", "system"] | None = None
     density: Literal["comfortable", "compact", "airy"] | None = None
     keywords: list[str] | None = Field(default=None, max_length=30)
-    dnd: dict | None = None
+    dnd: dict[str, Any] | None = None
     snooze_until: str | None = None
     enter_to_send: bool | None = None
 
