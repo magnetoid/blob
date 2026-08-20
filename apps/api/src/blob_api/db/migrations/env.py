@@ -20,7 +20,9 @@ config = context.config
 config.set_main_option("sqlalchemy.url", settings.sqlalchemy_url)
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Without disable_existing_loggers=False this silences every logger configured
+    # before it — including the one the boot-time migration reports through.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

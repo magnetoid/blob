@@ -26,11 +26,10 @@ DOWNLOAD_URL_TTL_SEC = 3600
 INLINE_MIME = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"}
 
 
-@lru_cache(maxsize=1)
-def _client() -> Any:
+def _build(endpoint: str) -> Any:
     return boto3.client(
         "s3",
-        endpoint_url=settings.S3_ENDPOINT,
+        endpoint_url=endpoint,
         region_name=settings.S3_REGION,
         aws_access_key_id=settings.S3_ACCESS_KEY,
         aws_secret_access_key=settings.S3_SECRET_KEY,
@@ -39,6 +38,25 @@ def _client() -> Any:
             s3={"addressing_style": "path" if settings.S3_FORCE_PATH_STYLE else "auto"},
         ),
     )
+
+
+@lru_cache(maxsize=1)
+def _client() -> Any:
+    """For the server's own reads and writes, over whatever network reaches the bucket."""
+    return _build(settings.S3_ENDPOINT)
+
+
+@lru_cache(maxsize=1)
+def _signing_client() -> Any:
+    """For presigning, which is different.
+
+    A signature covers the host, and the browser follows the URL from outside. Deployed
+    behind a container network the server reaches the bucket at `http://minio:9000` and
+    the browser cannot, so signing with the internal endpoint produces links that fail
+    to resolve. S3_PUBLIC_ENDPOINT is the one the browser will use; it falls back to
+    S3_ENDPOINT, which is correct in development where both are the same host.
+    """
+    return _build(settings.s3_public_endpoint)
 
 
 def is_inline_image(mime: str) -> bool:
@@ -54,7 +72,7 @@ def build_object_key(workspace_id: str, filename: str) -> str:
 
 def presign_upload(key: str, mime: str) -> str:
     # Presigning is local crypto, no I/O, so it is safe to call on the event loop.
-    return _client().generate_presigned_url(
+    return _signing_client().generate_presigned_url(
         "put_object",
         Params={"Bucket": settings.S3_BUCKET, "Key": key, "ContentType": mime},
         ExpiresIn=UPLOAD_URL_TTL_SEC,
@@ -67,7 +85,7 @@ def presign_download(key: str, filename: str | None = None, mime: str | None = N
     else:
         safe = (filename or "file").replace('"', "")
         disposition = f'attachment; filename="{safe}"'
-    return _client().generate_presigned_url(
+    return _signing_client().generate_presigned_url(
         "get_object",
         Params={
             "Bucket": settings.S3_BUCKET,

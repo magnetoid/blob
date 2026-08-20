@@ -1,0 +1,172 @@
+# Production stack, shaped for Coolify.
+#
+# In Coolify: new resource → Docker Compose → point "Docker Compose Location" at
+# /docker-compose.prod.yml → deploy. The SERVICE_* names below are Coolify's own: on the
+# first deploy it generates the domain, the database password and the session secret, and
+# reuses them on every deploy after. Nothing here needs editing to get a working
+# workspace; SMTP is the one thing worth filling in, and only when you want invitations
+# to arrive by mail rather than by copied link.
+#
+# The same file runs under plain `docker compose up` if you set the four ${...} values
+# yourself.
+#
+# The app's environment is repeated on the worker rather than shared through a YAML
+# anchor: Coolify parses and rewrites this file to add its own labels and networks, and
+# repetition is cheaper than depending on what survives that.
+
+services:
+  # The API, the WebSocket tier and the built client, from one image on one origin.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # Generates the public domain and routes it to port 3000. PUBLIC_URL must match it
+      # exactly — it is the origin every mutating request is checked against.
+      - SERVICE_FQDN_APP_3000
+      - PUBLIC_URL=${SERVICE_FQDN_APP}
+      # Not decoration: this is what marks the session cookie Secure and drops the
+      # localhost exemption in the origin check.
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://blob:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/blob
+      - REDIS_URL=redis://redis:6379
+      - SESSION_SECRET=${SERVICE_BASE64_64_SESSION}
+      - SESSION_TTL_DAYS=${SESSION_TTL_DAYS:-30}
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT:-http://minio:9000}
+      - S3_BUCKET=${S3_BUCKET:-blob-files}
+      - S3_ACCESS_KEY=${SERVICE_USER_MINIO}
+      - S3_SECRET_KEY=${SERVICE_PASSWORD_MINIO}
+      - S3_FORCE_PATH_STYLE=true
+      # Mail failures are logged, never fatal: invite links are also shown in the UI, so
+      # an unconfigured mail server costs convenience rather than access.
+      - SMTP_HOST=${SMTP_HOST:-localhost}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - MAIL_FROM=${MAIL_FROM:-Blob <chat@example.com>}
+      # `npx web-push generate-vapid-keys`. Without them, notifications stay in-app.
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Liveness only. /readyz is the one that checks Postgres and Redis; using it here
+      # would restart the app whenever the database blinked.
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:3000/healthz',timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+  # Notifications, link unfurls and the orphan sweep. Same image, different entrypoint,
+  # so a slow push provider can never delay a message.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["arq", "blob_api.jobs.worker.WorkerSettings"]
+    environment:
+      # The app has already migrated by the time this starts.
+      - RUN_MIGRATIONS=false
+      - PUBLIC_URL=${SERVICE_FQDN_APP}
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://blob:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/blob
+      - REDIS_URL=redis://redis:6379
+      - SESSION_SECRET=${SERVICE_BASE64_64_SESSION}
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT:-http://minio:9000}
+      - S3_BUCKET=${S3_BUCKET:-blob-files}
+      - S3_ACCESS_KEY=${SERVICE_USER_MINIO}
+      - S3_SECRET_KEY=${SERVICE_PASSWORD_MINIO}
+      - S3_FORCE_PATH_STYLE=true
+      - SMTP_HOST=${SMTP_HOST:-localhost}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - MAIL_FROM=${MAIL_FROM:-Blob <chat@example.com>}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
+    depends_on:
+      app:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=blob
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRES_DB=blob
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blob -d blob"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Presence and typing are disposable, but the job queue is not: arq holds queued
+    # notifications and unfurls in Redis, and they should survive a restart.
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Attachments. Kept off the public internet for now: the upload UI is not built, so
+  # nothing signs a URL a browser has to follow. When it ships, add
+  #   - SERVICE_FQDN_MINIO_9000
+  # to the environment below and set S3_PUBLIC_ENDPOINT=${SERVICE_FQDN_MINIO} on both app
+  # and worker — a presigned URL is signed for a specific host, so the one the browser
+  # uses has to be the one it was signed for.
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${SERVICE_USER_MINIO}
+      - MINIO_ROOT_PASSWORD=${SERVICE_PASSWORD_MINIO}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Creates the bucket, then exits. Runs again on every deploy and does nothing the
+  # second time.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000
+        "${SERVICE_USER_MINIO}" "${SERVICE_PASSWORD_MINIO}" &&
+        mc mb --ignore-existing "local/${S3_BUCKET:-blob-files}" &&
+        echo 'bucket ready'
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

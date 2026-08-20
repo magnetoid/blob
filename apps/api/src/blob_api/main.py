@@ -22,12 +22,14 @@ from .lib.auth import SESSION_COOKIE, resolve_session
 from .lib.errors import AppError
 from .lib.redis import close_redis, redis
 from .realtime import hub
+from .web import mount_web
 
 log = logging.getLogger("blob")
 
 #: Routes reachable without a session. Everything else under /api requires one.
 PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("GET", "/healthz"),
+    ("GET", "/readyz"),
     ("GET", "/api/auth/state"),
     ("POST", "/api/auth/signup"),
     ("POST", "/api/auth/login"),
@@ -157,10 +159,23 @@ def create_app() -> FastAPI:
 
     @app.get("/healthz")
     async def healthz() -> dict[str, Any]:
+        """Liveness: is this process answering?
+
+        Deliberately touches nothing. It is what the container health check calls, and a
+        check that queried Postgres would restart a healthy app every time the database
+        blinked — exactly when restarting helps least. It also used to report live socket
+        counts, which is not something to publish on a public URL; the authenticated
+        /api/admin/health carries those.
+        """
+        return {"ok": True}
+
+    @app.get("/readyz")
+    async def readyz() -> dict[str, Any]:
+        """Readiness: can this process serve? Used as the gate on a deploy."""
         async with SessionFactory() as session:
             await session.execute(text("SELECT 1"))
         await redis.ping()
-        return {"ok": True, **hub.stats()}
+        return {"ok": True}
 
     from .realtime.ws import router as ws_router
     from .routers.admin import router as admin_router
@@ -181,6 +196,10 @@ def create_app() -> FastAPI:
     app.include_router(admin_router)
     app.include_router(theme_router)
     app.include_router(ws_router)
+
+    # Last, so every route above answers first: a mount at "/" matches anything.
+    if settings.WEB_DIST and not mount_web(app, settings.WEB_DIST):
+        log.warning("WEB_DIST=%s has no index.html; serving the API only", settings.WEB_DIST)
 
     return app
 

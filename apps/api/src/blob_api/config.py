@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     PORT: int = 3000
     PUBLIC_URL: str = "http://localhost:5173"
 
+    #: Where the built client lives. Set in the image; unset in development, where Vite
+    #: serves the client itself and proxies /api and /ws here.
+    WEB_DIST: str | None = None
+
     DATABASE_URL: str
     REDIS_URL: str = "redis://localhost:6379"
 
@@ -52,7 +56,9 @@ class Settings(BaseSettings):
 
     PLUGINS_DIR: str = "plugins"
 
-    @field_validator("SMTP_USER", "SMTP_PASS", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY")
+    @field_validator(
+        "SMTP_USER", "SMTP_PASS", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "WEB_DIST"
+    )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:
         return value or None

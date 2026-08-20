@@ -1,0 +1,35 @@
+# The build context is the repo root, so everything below is what does *not* travel to
+# the daemon. The venv matters most: it is ~155 MB of platform-linked binaries built on
+# a developer's machine, and copying it into the image shadows the one uv builds there.
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+
+.git
+.gitignore
+.github
+
+# Built on the way in, never copied in.
+**/dist
+**/build
+
+# Local state and tooling output.
+.env
+.env.local
+**/.ruff_cache
+**/.mypy_cache
+**/.pytest_cache
+**/coverage
+**/.vite
+**/playwright-report
+**/test-results
+.playwright-mcp
+data
+
+# Tests and docs are not part of a running server.
+apps/api/tests
+*.md
+
+**/.DS_Store
+**/*.log

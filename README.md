@@ -94,6 +94,61 @@ everyone else from Preferences.
 
 The seeded demo workspace signs in with `ana@example.com` / `correct-horse-battery`.
 
+## Deploying it
+
+The client and the server ship as one image on one origin: `/`, `/api` and `/ws` all come
+from the same host, so the session cookie needs no CORS exemption and a proxy in front has
+a single service to route.
+
+### Coolify
+
+New resource → **Docker Compose** → set *Docker Compose Location* to
+`/docker-compose.prod.yml` → deploy.
+
+The first deploy generates the domain, the database password and the session secret and
+holds them for every deploy after, so a working workspace needs nothing typed in. The
+first account you create at the generated URL owns it.
+
+Worth setting once it is up:
+
+| Variable | Why |
+|---|---|
+| `SMTP_HOST` and friends | Invitations and password resets arrive by mail. Without them invite links still work — they are shown in the UI — but a forgotten password needs an admin. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Web Push when someone is away. `npx web-push generate-vapid-keys`. Without them, notifications stay in-app. |
+
+Two things to know about the stack it builds:
+
+- **Backups are yours to arrange.** Coolify's automated backups cover databases it manages
+  as resources, not ones inside a compose file. If you want them, create a Postgres
+  resource in Coolify, point `DATABASE_URL` at it, and delete the `postgres` service here.
+  The same applies to Redis, though Redis holds only the job queue and presence.
+- **MinIO is not published.** Attachments have no UI yet, so nothing signs a URL a browser
+  must follow. The compose file says what to add when that changes; a presigned URL is
+  signed for a specific host, so the browser has to reach the bucket at the host it was
+  signed for.
+
+### Anywhere else
+
+`docker compose -f docker-compose.prod.yml up` works with the four `SERVICE_*` values
+supplied yourself. For a plain `docker build`, the root `Dockerfile` builds the whole app
+from the repo root and takes its datastores from `DATABASE_URL` and `REDIS_URL`.
+
+Behind any reverse proxy, two settings matter:
+
+- `PUBLIC_URL` must be exactly the public origin. Every mutating request is checked
+  against it, and a mismatch shows up as "Blocked request." on sign-in.
+- Keep `--proxy-headers` on uvicorn (the image's default). Without it every request appears
+  to come from the proxy, so one person failing logins rate-limits everybody and every
+  audit row records the same address.
+
+Migrations run from the entrypoint on each boot, under a Postgres advisory lock — replicas
+booting together serialize rather than race, and a failed migration stops the container
+instead of serving against a schema it does not have.
+
+`/healthz` is liveness and touches nothing; `/readyz` checks Postgres and Redis. The
+container health check uses the first deliberately, so a database blip does not restart a
+healthy app.
+
 ## Layout
 
 ```
@@ -101,6 +156,8 @@ apps/api        FastAPI app, WebSocket tier, arq worker
 apps/web        React client
 packages/shared Types, zod schemas and the wire protocol used by the client
 plugins/        local plugins (see the build plan)
+Dockerfile      builds both tiers into one image; context is the repo root
+docker/         container entrypoint
 ```
 
 `apps/api/src/blob_api/realtime/` imports nothing from `routers/`, so the socket tier can
