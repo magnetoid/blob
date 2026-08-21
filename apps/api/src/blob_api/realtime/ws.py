@@ -109,7 +109,7 @@ async def _reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)
 
         elif kind == "presence.sub":
             user_ids = [str(uid) for uid in frame.get("userIds", [])][:MAX_PRESENCE_SUBS]
-            conn.presence_subs = set(user_ids)
+            hub.set_presence_subs(conn, user_ids)
             states = await presence.get_presence(user_ids)
             for subject, state in states.items():
                 conn.send({"t": "presence", "userId": subject, "state": state})

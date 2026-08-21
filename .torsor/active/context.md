@@ -55,3 +55,9 @@ Worth knowing before changing the equivalent code:
   reactivating or naming a bot after an existing person needs a clash check first.
 - Alembic's `fileConfig` sets the root logger to WARNING as a side effect and, without
   `disable_existing_loggers=False`, silences every logger configured before it.
+- `torsor deps` reports every Python import as unknown here, `fastapi` and `sqlalchemy`
+  included. It resolves its manifest from `--root`, and the repo root is a pnpm workspace:
+  the Python manifest is at `apps/api/pyproject.toml`, one level down. So `torsor verify`
+  fails its deps stage whenever a `.py` file changes, and passes when none has. The gate
+  CI enforces is `torsor guard --strict --severity error`, which is unaffected — read a
+  deps failure here as the layout, not as a hallucinated dependency.

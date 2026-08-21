@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-20T16:39:00'
-updated: '2026-08-20T16:39:00'
+created: '2026-08-21T01:21:53'
+updated: '2026-08-21T01:21:53'
 ---
 
 # apps/api/src/blob_api/schemas/requests.py
@@ -33,10 +33,13 @@ Symbols in `apps/api/src/blob_api/schemas/requests.py`.
 - L127 `PinInput` (class)
 - L131 `UpdateProfileInput` (class)
 - L141 `UpdatePrefsInput` (class)
-- L152 `UploadRequestInput` (class)
-- L158 `UploadCompleteInput` (class)
-- L163 `PushSubscriptionKeys` (class)
-- L168 `PushSubscriptionInput` (class)
-- L173 `PushUnsubscribeInput` (class)
-- L177 `AddMembersInput` (class)
-- L181 `WebhookPostInput` (class)
+- L154 `UploadRequestInput` (class)
+- L160 `UploadCompleteInput` (class)
+- L165 `PushSubscriptionKeys` (class)
+- L170 `PushSubscriptionInput` (class)
+- L175 `PushUnsubscribeInput` (class)
+- L179 `AddMembersInput` (class)
+- L183 `WebhookPostInput` (class)
+- L188 `CreateAgentTaskInput` (class)
+- L198 `UpdateAgentTaskInput` (class)
+- L207 `TranslateMessageInput` (class)

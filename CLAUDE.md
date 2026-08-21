@@ -29,6 +29,16 @@ index, and the asyncpg uuid codec.
 
 
 ### Non-negotiable principles
+- **Open source, and agent-native.** Blob is an open-source AI agentic work-team
+  communication platform. Every feature ships in this repo under one licence, with nothing
+  held back behind a plan check or an enterprise tier — the deployment a team runs is the
+  whole product. Agents join a workspace as real members with real permissions, and their
+  output lands in the conversation rather than in a panel bolted beside it.
+- **As familiar as Slack.** Someone who uses Slack should not have to learn Blob: the same
+  layout, the same words for things — channels, threads, DMs, reactions, ⌘K — and the same
+  keyboard reflexes. Where a cleverer interaction competes with the one Slack users already
+  have in their fingers, ship Slack's. The only exceptions are the other principles on this
+  list, and each one is a deliberate departure rather than a difference for its own sake.
 - **The client is the contract.** The React app is the acceptance test for the server. If
   an unmodified client breaks, the server is wrong — this is what carried the TypeScript →
   Python rewrite without a single frontend change.

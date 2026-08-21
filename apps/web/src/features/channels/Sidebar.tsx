@@ -1,11 +1,12 @@
 /** Channel and DM navigation. */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { api } from '../../lib/api.ts';
+import { navigate } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
-import { PlusIcon, SearchIcon } from '../../components/Icon.tsx';
+import { ChevronDownIcon, PlusIcon, SearchIcon } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 
 interface Props {
@@ -87,12 +88,7 @@ export function Sidebar({ onOpenSearch }: Props) {
 
   return (
     <div className="sidebar">
-      <div className="sidebar-header">
-        <div className="workspace-name">{workspaceName}</div>
-        <div className="workspace-meta">
-          {memberCount} {memberCount === 1 ? 'member' : 'members'}
-        </div>
-      </div>
+      <WorkspaceMenu name={workspaceName} memberCount={memberCount} />
 
       <div className="sidebar-search">
         <button className="search-trigger" onClick={onOpenSearch}>
@@ -162,6 +158,72 @@ export function Sidebar({ onOpenSearch }: Props) {
       </div>
 
       {creating && <CreateChannelDialog onClose={() => setCreating(false)} />}
+    </div>
+  );
+}
+
+/**
+ * The workspace name, and the menu behind it.
+ *
+ * Slack puts administration here rather than in the rail, and someone looking for it
+ * looks here first. The rail button stays: this adds a labelled way in, it does not
+ * replace the one that exists.
+ */
+function WorkspaceMenu({ name, memberCount }: { name: string; memberCount: number }) {
+  const currentUser = useStore((s) => s.currentUser);
+  const [open, setOpen] = useState(false);
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent && event.key !== 'Escape') return;
+      setOpen(false);
+    };
+    // Capture, so a click landing on any control still dismisses the menu first.
+    window.addEventListener('click', close, true);
+    window.addEventListener('keydown', close);
+    return () => {
+      window.removeEventListener('click', close, true);
+      window.removeEventListener('keydown', close);
+    };
+  }, [open]);
+
+  const go = (path: string) => {
+    setOpen(false);
+    navigate(path);
+  };
+
+  return (
+    <div className="sidebar-header">
+      <button
+        className="workspace-trigger"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((value) => !value);
+        }}
+      >
+        <span className="workspace-name">{name}</span>
+        <ChevronDownIcon size={14} strokeWidth={2} />
+      </button>
+      <div className="workspace-meta">
+        {memberCount} {memberCount === 1 ? 'member' : 'members'}
+      </div>
+
+      {open && (
+        <div className="workspace-menu" role="menu">
+          {isAdmin && (
+            <button className="workspace-menu-item" role="menuitem" onClick={() => go('/admin/people')}>
+              Administration
+            </button>
+          )}
+          <button className="workspace-menu-item" role="menuitem" onClick={() => go('/settings')}>
+            Preferences
+          </button>
+        </div>
+      )}
     </div>
   );
 }

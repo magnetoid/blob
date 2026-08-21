@@ -8,11 +8,11 @@ created: '2026-08-21T01:21:53'
 updated: '2026-08-21T01:21:53'
 ---
 
-# apps/api/src/blob_api/db/migrations/versions/0004_plugins.py
+# apps/api/src/blob_api/db/migrations/versions/0006_message_translations.py
 
-Symbols in `apps/api/src/blob_api/db/migrations/versions/0004_plugins.py`.
+Symbols in `apps/api/src/blob_api/db/migrations/versions/0006_message_translations.py`.
 
 - L21 `_uuid()` (function)
 - L25 `_now()` (function)
 - L29 `upgrade()` (function)
-- L180 `downgrade()` (function)
+- L71 `downgrade()` (function)

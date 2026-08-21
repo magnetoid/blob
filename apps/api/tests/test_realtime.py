@@ -18,6 +18,7 @@ from httpx_ws import aconnect_ws
 from httpx_ws.transport import ASGIWebSocketTransport
 
 from blob_api.main import app
+from blob_api.realtime import hub
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up
 
@@ -157,3 +158,50 @@ async def test_a_private_channel_message_never_reaches_a_non_member(team: dict) 
         await send_message(team["owner"], team["general"]["id"], "for everyone")
         event = await receive_until(ws, "message.new")
         assert event["message"]["body"] == "for everyone"
+
+
+def test_presence_subscriptions_leave_nothing_behind() -> None:
+    """The reverse presence index must empty as connections resubscribe and leave.
+
+    A leak here is invisible in behaviour and unbounded in memory: the delivery tests
+    above still pass while the index grows a stale entry per socket per resubscribe.
+    """
+    hub.reset_for_tests()
+
+    watcher = hub.new_connection("conn-1", "watcher")
+    other = hub.new_connection("conn-2", "other")
+    hub.register(watcher)
+    hub.register(other)
+
+    hub.set_presence_subs(watcher, ["alice", "bob"])
+    hub.set_presence_subs(other, ["alice"])
+    assert hub._by_presence_sub["alice"] == {watcher, other}
+    assert hub._by_presence_sub["bob"] == {watcher}
+
+    # Narrowing a subscription drops the connection from the subject it left, and an
+    # empty bucket is removed rather than kept as an empty set.
+    hub.set_presence_subs(watcher, ["bob"])
+    assert hub._by_presence_sub["alice"] == {other}
+    assert watcher.presence_subs == {"bob"}
+
+    hub.unregister(watcher)
+    assert "bob" not in hub._by_presence_sub
+    assert watcher.presence_subs == set()
+
+    hub.unregister(other)
+    assert hub._by_presence_sub == {}
+
+
+def test_presence_reaches_only_the_connections_watching() -> None:
+    hub.reset_for_tests()
+
+    watcher = hub.new_connection("conn-1", "watcher")
+    bystander = hub.new_connection("conn-2", "bystander")
+    hub.register(watcher)
+    hub.register(bystander)
+    hub.set_presence_subs(watcher, ["alice"])
+
+    hub.to_presence_subscribers("alice", {"t": "presence", "userId": "alice", "state": "active"})
+
+    assert watcher.outbox.get_nowait()["userId"] == "alice"
+    assert bystander.outbox.empty()

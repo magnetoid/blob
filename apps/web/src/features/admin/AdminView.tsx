@@ -24,9 +24,10 @@ import { useStore } from '../../lib/store.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { SearchIcon } from '../../components/Icon.tsx';
 import { formatRelative } from '../messages/MessageRow.tsx';
+import { navigate, type AdminSection } from '../../lib/router.ts';
 import { ThemesSection } from './ThemesSection.tsx';
 
-type Section = 'people' | 'invitations' | 'channels' | 'apps' | 'themes' | 'audit' | 'settings';
+type Section = AdminSection;
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'people', label: 'People' },
@@ -52,12 +53,20 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
 }
 
-export function AdminView() {
+export function AdminView({ section }: { section: Section }) {
   const currentUser = useStore((s) => s.currentUser);
-  const [section, setSection] = useState<Section>('people');
   const [error, setError] = useState<string | null>(null);
 
   const isOwner = currentUser?.role === 'owner';
+
+  // The section is the URL now, so an error from the section you just left would follow
+  // you into the next one — including when the Back button is what moved you. Adjusting
+  // during render rather than in an effect avoids the extra pass.
+  const [errorSection, setErrorSection] = useState(section);
+  if (errorSection !== section) {
+    setErrorSection(section);
+    setError(null);
+  }
 
   return (
     <div className="pane">
@@ -85,10 +94,7 @@ export function AdminView() {
                 key={entry.id}
                 className="chip"
                 aria-pressed={section === entry.id}
-                onClick={() => {
-                  setError(null);
-                  setSection(entry.id);
-                }}
+                onClick={() => navigate(`/admin/${entry.id}`)}
               >
                 {entry.label}
               </button>

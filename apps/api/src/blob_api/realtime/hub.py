@@ -37,7 +37,9 @@ class Connection:
     outbox: asyncio.Queue[ServerEvent]
     #: Channels this connection currently receives events for.
     channel_ids: set[str] = field(default_factory=set)
-    #: Users whose presence this connection asked for (Slack's presence_sub).
+    #: Users whose presence this connection asked for (Slack's presence_sub). Maintained
+    #: through set_presence_subs, which keeps the reverse index in step; assigning to it
+    #: directly would leave that index stale.
     presence_subs: set[str] = field(default_factory=set)
     #: The channel the user is looking at right now, if any.
     focused_channel_id: str | None = None
@@ -65,6 +67,11 @@ class Connection:
 _by_connection: dict[str, Connection] = {}
 _by_user: dict[str, set[Connection]] = {}
 _by_channel: dict[str, set[Connection]] = {}
+#: Subject user id -> the connections watching that user's presence. The reverse of
+#: Connection.presence_subs, kept so a presence flip costs a dict lookup instead of a
+#: scan of every socket in the process. The client subscribes to everyone it can see, so
+#: without this a workspace-wide reconnect is quadratic.
+_by_presence_sub: dict[str, set[Connection]] = {}
 #: Strong references, so fire-and-forget publishes are not garbage collected mid-flight.
 _tasks: set[asyncio.Task[Any]] = set()
 
@@ -83,8 +90,20 @@ def unregister(conn: Connection) -> None:
     _remove(_by_user, conn.user_id, conn)
     for channel_id in conn.channel_ids:
         _remove(_by_channel, channel_id, conn)
+    for subject_id in conn.presence_subs:
+        _remove(_by_presence_sub, subject_id, conn)
     conn.channel_ids.clear()
     conn.presence_subs.clear()
+
+
+def set_presence_subs(conn: Connection, user_ids: list[str]) -> None:
+    """Replace what this connection watches, and keep the reverse index in step."""
+    wanted = set(user_ids)
+    for subject_id in conn.presence_subs - wanted:
+        _remove(_by_presence_sub, subject_id, conn)
+    for subject_id in wanted - conn.presence_subs:
+        _add(_by_presence_sub, subject_id, conn)
+    conn.presence_subs = wanted
 
 
 def subscribe_channels(conn: Connection, channel_ids: list[str]) -> None:
@@ -124,10 +143,13 @@ def to_all(event: ServerEvent) -> None:
 
 def to_presence_subscribers(user_id: str, event: ServerEvent) -> None:
     """Presence updates go only to connections that asked about this user."""
-    for conn in list(_by_connection.values()):
-        if user_id in conn.presence_subs:
-            conn.send(event)
+    _deliver_presence(user_id, event)
     _publish({"origin": PROCESS_ID, "event": event, "to": {"presence": user_id}})
+
+
+def _deliver_presence(user_id: str, event: ServerEvent) -> None:
+    for conn in list(_by_presence_sub.get(user_id, set())):
+        conn.send(event)
 
 
 def is_user_online(user_id: str) -> bool:
@@ -223,9 +245,7 @@ async def start_redis_bridge() -> None:
             # Presence subscription sets are per-connection state and cannot be
             # addressed across processes; each process consults its own.
             if "presence" in to:
-                for conn in list(_by_connection.values()):
-                    if to["presence"] in conn.presence_subs:
-                        conn.send(event)
+                _deliver_presence(to["presence"], event)
                 continue
             _deliver_local(event, to)
 
@@ -245,6 +265,7 @@ def reset_for_tests() -> None:
     _by_connection.clear()
     _by_user.clear()
     _by_channel.clear()
+    _by_presence_sub.clear()
 
 
 def _add(mapping: dict[str, set[Connection]], key: str, value: Connection) -> None:

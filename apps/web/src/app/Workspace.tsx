@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store.ts';
 import { socket } from '../lib/socket.ts';
+import { navigate, parseRoute, pathForRoute, pathForView, usePath } from '../lib/router.ts';
 import { Rail, type RailView } from '../features/channels/Rail.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
@@ -15,13 +16,31 @@ import { SettingsView } from '../features/settings/SettingsView.tsx';
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
   const users = useStore((s) => s.users);
+  const currentUser = useStore((s) => s.currentUser);
   const activeChannelId = useStore((s) => s.activeChannelId);
   const activeThreadRootId = useStore((s) => s.activeThreadRootId);
   const openChannel = useStore((s) => s.openChannel);
   const openThread = useStore((s) => s.openThread);
 
-  const [view, setView] = useState<RailView>('messages');
+  const path = usePath();
+  const route = parseRoute(path);
+  const view: RailView = route.view;
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Two jobs, one effect: send a member who typed /admin back to the conversation, and
+  // rewrite a stale or misspelt URL to the route it actually resolved to, so the address
+  // bar never disagrees with the screen.
+  useEffect(() => {
+    const resolved = parseRoute(path);
+    if (resolved.view === 'admin' && !isAdmin) {
+      navigate('/', { replace: true });
+      return;
+    }
+    const canonical = pathForRoute(resolved);
+    if (canonical !== path) navigate(canonical, { replace: true });
+  }, [path, isAdmin]);
 
   // Open something on arrival so the app never starts on an empty pane.
   useEffect(() => {
@@ -48,7 +67,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       }
       if (meta && event.key.toLowerCase() === 'f') {
         event.preventDefault();
-        setView('search');
+        navigate('/search');
         return;
       }
       if (event.key === 'Escape') {
@@ -65,12 +84,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   return (
     <div className="shell" data-panel={panelOpen ? 'open' : 'closed'}>
-      <Rail view={view} onChange={setView} />
-      <Sidebar onOpenSearch={() => setView('search')} />
+      <Rail view={view} onChange={(next) => navigate(pathForView(next))} />
+      <Sidebar onOpenSearch={() => navigate('/search')} />
 
       {view === 'messages' && <ChannelView />}
       {view === 'search' && <SearchView />}
-      {view === 'admin' && <AdminView />}
+      {route.view === 'admin' && isAdmin && <AdminView section={route.section} />}
       {view === 'settings' && <SettingsView onSignedOut={onSignedOut} />}
 
       {panelOpen && <ThreadPanel rootId={activeThreadRootId as string} />}

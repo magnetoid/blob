@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-20T16:39:00'
-updated: '2026-08-20T16:39:00'
+created: '2026-08-21T01:21:53'
+updated: '2026-08-21T01:21:53'
 ---
 
 # Repository Map
@@ -49,7 +49,17 @@ Modules and their key symbols (ranked by references).
   - `_now()` (function)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 25 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0005_agentic_workspace.py** — 4 symbol(s)
+  - `_uuid()` (function)
+  - `_now()` (function)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0006_message_translations.py** — 4 symbol(s)
+  - `_uuid()` (function)
+  - `_now()` (function)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 28 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -164,10 +174,4 @@ Modules and their key symbols (ranked by references).
   - `new_secret()` (function)
   - `sign(secret: str, timestamp: int, body: bytes)` (function)
   - `verify(secret: str, timestamp: str | None, signature: str | None, body: bytes)` (function)
-- **apps/api/src/blob_api/realtime/hub.py** — 25 symbol(s)
-  - `Connection` (class)
-  - `_deliver_local(event: ServerEvent, to: dict[str, Any])` (function)
-  - `_publish(envelope: dict[str, Any])` (function)
-  - `_remove(mapping: dict[str, set[Connection]], key: str, value: Connection)` (function)
-  - `_add(mapping: dict[str, set[Connection]], key: str, value: Connection)` (function)
-- **apps/api/src/blob_api/realtime/presence.py** — 6 symbol(s)…[truncated]
+- **apps/api/src/blob_api/realtime/hub.py** — 27 symbo…[truncated]
