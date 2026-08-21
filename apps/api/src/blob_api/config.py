@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     COOLIFY_TOKEN: str | None = None
     COOLIFY_PROJECT_UUID: str | None = None
     COOLIFY_SERVER_UUID: str | None = None
+    #: Which Docker destination on that server. Only required when the server has more
+    #: than one — Coolify refuses the create outright in that case rather than picking,
+    #: so it is optional here and sent only when set. Point it at the same destination
+    #: Blob itself runs on, so an agent shares the network its workspace is reachable on.
+    COOLIFY_DESTINATION_UUID: str | None = None
     COOLIFY_ENVIRONMENT: str = "production"
     AGENT_DEPLOY_TIMEOUT_SEC: float = 30.0
 
@@ -88,6 +93,7 @@ class Settings(BaseSettings):
         "COOLIFY_TOKEN",
         "COOLIFY_PROJECT_UUID",
         "COOLIFY_SERVER_UUID",
+        "COOLIFY_DESTINATION_UUID",
     )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:

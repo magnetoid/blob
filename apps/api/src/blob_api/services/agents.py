@@ -20,7 +20,7 @@ from sqlalchemy import text
 from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError, bad_request
 from ..plugins import registry
-from ..plugins.runner import AGENT_PORT, Deployment, current_runner
+from ..plugins.runner import AGENT_PORT, Deployment, current_runner, normalize_fqdn
 from ..plugins.source import RepoSource, read_manifest
 from ..services import audit as audit_service
 from ..services.audit import Actor
@@ -165,6 +165,11 @@ def _require_deployment(plugin: object) -> str:
 
 
 async def _record_deployment(plugin_id: str, deployment: Deployment) -> None:
+    # Normalized here rather than trusting the runner, because this is the one place the
+    # callback URL is built and a runner is an interface anyone can implement. Coolify
+    # alone reports two different shapes.
+    base = normalize_fqdn(deployment.url)
+
     async with transaction() as (session, _):
         await session.execute(
             text(
@@ -182,7 +187,7 @@ async def _record_deployment(plugin_id: str, deployment: Deployment) -> None:
                 "id": plugin_id,
                 "deployment_id": deployment.id,
                 "status": deployment.status,
-                "url": f"https://{deployment.url}/blob/events" if deployment.url else None,
+                "url": f"{base}/blob/events" if base else None,
             },
         )
 

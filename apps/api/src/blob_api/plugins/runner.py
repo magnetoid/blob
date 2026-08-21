@@ -37,7 +37,32 @@ class Deployment:
 
     id: str
     status: str
+    #: An absolute base URL including scheme, or None until one has been assigned.
     url: str | None = None
+
+
+def normalize_fqdn(value: object) -> str | None:
+    """Turn whatever the runner calls a hostname into a base URL we can append to.
+
+    Coolify is inconsistent here, and the two shapes fail differently. A freshly created
+    application reports `http://name.sslip.io` — scheme included — so prefixing another
+    scheme produces `https://http://...`, which is not a URL at all and fails every
+    delivery. An older application reports `name.sslip.io:3000` with no scheme, which
+    needs one. Several domains can also arrive comma-separated; the first is the one the
+    proxy answers on.
+
+    Whatever arrives, what leaves here is absolute or nothing.
+    """
+    if not value:
+        return None
+    first = str(value).split(",")[0].strip()
+    if not first:
+        return None
+    if first.startswith(("http://", "https://")):
+        return first.rstrip("/")
+    # No scheme. Assume TLS, which is what a Coolify proxy terminates for a real domain;
+    # an operator using a plain-http hostname carries it in the value itself.
+    return f"https://{first.rstrip('/')}"
 
 
 class AgentRunner(Protocol):
@@ -70,27 +95,29 @@ class CoolifyRunner:
         # goes through the same guard registration uses. It resolves DNS, hence the await.
         await check_outbound_url(repo, require_https=True)
 
-        created = await self._call(
-            "POST",
-            "/api/v1/applications/public",
-            {
-                "project_uuid": settings.COOLIFY_PROJECT_UUID,
-                "server_uuid": settings.COOLIFY_SERVER_UUID,
-                "environment_name": settings.COOLIFY_ENVIRONMENT,
-                "git_repository": repo,
-                "git_branch": ref,
-                # nixpacks reads the repository and works out how to build it, which
-                # covers an ordinary Python or Node agent with no Dockerfile. A repo that
-                # ships one is better served by it, and says so in its manifest.
-                "build_pack": env.pop("__build_pack__", "nixpacks"),
-                "name": f"agent-{slug}",
-                # Which port the proxy should route to. Without it the runner guesses,
-                # and an agent that guessed differently is unreachable — which looks
-                # exactly like an agent that failed to start.
-                "ports_exposes": str(AGENT_PORT),
-                "instant_deploy": False,
-            },
-        )
+        payload: dict[str, Any] = {
+            "project_uuid": settings.COOLIFY_PROJECT_UUID,
+            "server_uuid": settings.COOLIFY_SERVER_UUID,
+            "environment_name": settings.COOLIFY_ENVIRONMENT,
+            "git_repository": repo,
+            "git_branch": ref,
+            # nixpacks reads the repository and works out how to build it, which covers
+            # an ordinary Python or Node agent with no Dockerfile. A repo that ships one
+            # is better served by it, and says so in its manifest.
+            "build_pack": env.pop("__build_pack__", "nixpacks"),
+            "name": f"agent-{slug}",
+            # Which port the proxy should route to. Without it the runner guesses, and
+            # an agent that guessed differently is unreachable — which looks exactly
+            # like an agent that failed to start.
+            "ports_exposes": str(AGENT_PORT),
+            "instant_deploy": False,
+        }
+        # Sent only when configured: a server with one destination does not need it, and
+        # a server with several refuses the create rather than choosing for us.
+        if settings.COOLIFY_DESTINATION_UUID:
+            payload["destination_uuid"] = settings.COOLIFY_DESTINATION_UUID
+
+        created = await self._call("POST", "/api/v1/applications/public", payload)
         application_uuid = str(created.get("uuid") or "")
         if not application_uuid:
             raise AppError(502, "runner_failed", "The runner did not return an application.")
@@ -116,7 +143,7 @@ class CoolifyRunner:
         return Deployment(
             id=deployment_id,
             status=str(payload.get("status") or "unknown"),
-            url=payload.get("fqdn") or None,
+            url=normalize_fqdn(payload.get("fqdn")),
         )
 
     async def logs(self, deployment_id: str, lines: int = 200) -> str:
@@ -173,4 +200,11 @@ def current_runner() -> AgentRunner:
     return CoolifyRunner()
 
 
-__all__ = ["AgentRunner", "CoolifyRunner", "Deployment", "current_runner"]
+__all__ = [
+    "AGENT_PORT",
+    "AgentRunner",
+    "CoolifyRunner",
+    "Deployment",
+    "current_runner",
+    "normalize_fqdn",
+]

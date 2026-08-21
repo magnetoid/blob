@@ -69,3 +69,48 @@ def test_coolifys_own_injected_url_is_not_what_we_read() -> None:
 def test_a_blank_setting_counts_as_unset() -> None:
     # Compose files supply empty strings for variables nobody filled in.
     assert _settings(COOLIFY_API_URL="").COOLIFY_API_URL is None
+
+
+# ─── the callback URL ─────────────────────────────────────────────────────────
+class TestTheHostnameTheRunnerReports:
+    """Coolify reports a hostname in two different shapes, and one of them used to
+    produce `https://http://host/blob/events` — every delivery to every hosted agent
+    failing on a URL that was never a URL. Found by creating a real application and
+    reading the field back, not from the code."""
+
+    def test_a_scheme_that_is_already_there_is_not_doubled(self) -> None:
+        from blob_api.plugins.runner import normalize_fqdn
+
+        assert normalize_fqdn("http://abc.65.21.238.89.sslip.io") == (
+            "http://abc.65.21.238.89.sslip.io"
+        )
+        assert normalize_fqdn("https://agent.example.com") == "https://agent.example.com"
+
+    def test_a_bare_hostname_gets_one(self) -> None:
+        from blob_api.plugins.runner import normalize_fqdn
+
+        assert normalize_fqdn("abc.sslip.io:3000") == "https://abc.sslip.io:3000"
+
+    def test_the_first_of_several_domains_wins(self) -> None:
+        from blob_api.plugins.runner import normalize_fqdn
+
+        assert normalize_fqdn("https://a.example.com,https://b.example.com") == (
+            "https://a.example.com"
+        )
+
+    def test_nothing_assigned_yet_stays_nothing(self) -> None:
+        from blob_api.plugins.runner import normalize_fqdn
+
+        assert normalize_fqdn(None) is None
+        assert normalize_fqdn("") is None
+        assert normalize_fqdn("   ") is None
+
+    def test_what_comes_out_can_always_have_a_path_appended(self) -> None:
+        from blob_api.plugins.runner import normalize_fqdn
+
+        for raw in ("http://a.io", "a.io", "a.io:3000/", "https://a.io/"):
+            base = normalize_fqdn(raw)
+            assert base is not None
+            url = f"{base}/blob/events"
+            assert url.count("://") == 1, url
+            assert url.endswith("/blob/events")
