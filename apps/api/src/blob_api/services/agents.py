@@ -20,7 +20,7 @@ from sqlalchemy import text
 from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError, bad_request
 from ..plugins import registry
-from ..plugins.runner import Deployment, current_runner
+from ..plugins.runner import AGENT_PORT, Deployment, current_runner
 from ..plugins.source import RepoSource, read_manifest
 from ..services import audit as audit_service
 from ..services.audit import Actor
@@ -34,7 +34,7 @@ async def preview(repo_url: str, ref: str) -> RepoSource:
 
 
 async def install_from_repo(
-    actor: Actor, repo_url: str, ref: str, public_url: str
+    actor: Actor, repo_url: str, ref: str, public_url: str, env: dict[str, str] | None = None
 ) -> tuple[registry.Installed, RepoSource]:
     # Hosting first. Reading the manifest is a network call, and making it before
     # discovering there is nowhere to run the result wastes it and reports the wrong
@@ -62,17 +62,26 @@ async def install_from_repo(
 
     # Past the commit. The agent's credentials go to the container and nowhere else —
     # this is the only moment the bot token exists in plaintext outside the response.
-    env = {
+    #
+    # Operator configuration goes underneath, so a supplied key can never displace the
+    # credentials Blob issues; the names are refused up front as well, and this ordering
+    # is the belt to that pair of braces. None of it is stored: the runner holds the one
+    # copy, which is what lets a redeploy work without asking for the key again.
+    deploy_env = {
+        **(env or {}),
         "__build_pack__": source.build_pack,
         "BLOB_BASE_URL": public_url,
         "BLOB_BOT_TOKEN": installed.bot_token,
         "BLOB_SIGNING_SECRET": installed.signing_secret,
         "BLOB_PLUGIN_SLUG": source.manifest.slug,
+        # The same number the runner is told to route to, so an agent can bind what it
+        # is actually reached on instead of guessing.
+        "PORT": str(AGENT_PORT),
     }
 
     try:
         deployment = await runner.deploy(
-            slug=source.manifest.slug, repo=source.repo_url, ref=source.ref, env=env
+            slug=source.manifest.slug, repo=source.repo_url, ref=source.ref, env=deploy_env
         )
     except AppError as exc:
         await _record_failure(installed.plugin_id, exc.message)

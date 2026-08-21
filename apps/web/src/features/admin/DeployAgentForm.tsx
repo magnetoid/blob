@@ -14,11 +14,23 @@ interface Props {
   onError: (message: string | null) => void;
 }
 
+/** One row of the configuration table. `id` only exists to key the list while editing. */
+interface EnvRow {
+  id: number;
+  key: string;
+  value: string;
+}
+
 export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
   const [repoUrl, setRepoUrl] = useState('');
   const [ref, setRef] = useState('main');
   const [preview, setPreview] = useState<AgentRepoPreview | null>(null);
+  const [env, setEnv] = useState<EnvRow[]>([]);
   const [busy, setBusy] = useState(false);
+
+  function setRow(id: number, patch: Partial<EnvRow>) {
+    setEnv((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  }
 
   function fail(err: unknown, fallback: string) {
     onError(err instanceof ApiError ? err.message : fallback);
@@ -43,13 +55,20 @@ export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
     setBusy(true);
     onError(null);
     try {
+      const supplied = Object.fromEntries(
+        env
+          .map((row) => [row.key.trim(), row.value] as const)
+          .filter(([key, value]) => key && value),
+      );
       const installed = await api.admin.installFromRepo({
         repoUrl: preview.repoUrl,
         ref: preview.ref,
+        env: Object.keys(supplied).length > 0 ? supplied : undefined,
       });
       onInstalled(installed.plugin.name, installed.signingSecret, installed.botToken);
       setPreview(null);
       setRepoUrl('');
+      setEnv([]);
     } catch (err) {
       fail(err, 'That agent could not be deployed.');
     } finally {
@@ -137,6 +156,51 @@ export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
               Receives: {preview.events.join(', ')}
             </p>
           )}
+
+          <h3 className="section-label" style={{ paddingLeft: 0, marginTop: 16 }}>
+            Configuration
+          </h3>
+          <p className="pref-hint" style={{ margin: '0 0 10px' }}>
+            Anything the agent needs that this workspace cannot know — a model provider&rsquo;s
+            API key, usually. It goes to the container and is not stored here, so a redeploy
+            keeps it but nothing else can read it back.
+          </p>
+
+          {env.map((row) => (
+            <div key={row.id} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <input
+                className="input"
+                style={{ flex: 1 }}
+                value={row.key}
+                placeholder="ANTHROPIC_API_KEY"
+                aria-label="Variable name"
+                onChange={(event) => setRow(row.id, { key: event.target.value })}
+              />
+              <input
+                className="input"
+                style={{ flex: 1 }}
+                type="password"
+                value={row.value}
+                placeholder="value"
+                aria-label={`Value for ${row.key || 'the variable'}`}
+                onChange={(event) => setRow(row.id, { value: event.target.value })}
+              />
+              <button
+                className="btn btn-ghost"
+                aria-label={`Remove ${row.key || 'this variable'}`}
+                onClick={() => setEnv((rows) => rows.filter((r) => r.id !== row.id))}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <button
+            className="btn btn-ghost"
+            onClick={() => setEnv((rows) => [...rows, { id: Date.now(), key: '', value: '' }])}
+          >
+            Add a variable
+          </button>
 
           <div className="dialog-actions" style={{ justifyContent: 'flex-start', marginTop: 14 }}>
             <button className="btn btn-primary" onClick={() => void install()} disabled={busy}>

@@ -28,6 +28,7 @@ from ..lib.auth import SessionUser, require_admin
 from ..lib.errors import bad_request, not_found
 from ..lib.net import check_outbound_url
 from ..plugins import registry
+from ..plugins.env import validate_env
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
 from ..schemas.base import CamelModel, iso
 from ..services import agents as agent_service
@@ -82,6 +83,9 @@ class InstalledOut(CamelModel):
 class RepoInput(CamelModel):
     repo_url: str = Field(min_length=1, max_length=300)
     ref: str = Field(default="main", min_length=1, max_length=100)
+    #: Configuration the agent needs and Blob cannot know — a model provider's key being
+    #: the usual one. Passed to the runner and never stored here.
+    env: dict[str, str] | None = None
 
 
 class RepoPreviewOut(CamelModel):
@@ -519,7 +523,11 @@ async def install_from_repo(
     payload: RepoInput, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> InstalledOut:
     installed, _source = await agent_service.install_from_repo(
-        actor_for(request, admin), payload.repo_url, payload.ref, settings.PUBLIC_URL
+        actor_for(request, admin),
+        payload.repo_url,
+        payload.ref,
+        settings.PUBLIC_URL,
+        env=validate_env(payload.env),
     )
     async with session_scope() as session:
         row = await registry.by_id(session, installed.plugin_id, admin.workspace_id)

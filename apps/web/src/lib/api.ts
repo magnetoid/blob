@@ -437,7 +437,12 @@ export const api = {
     // before anything is approved.
     previewRepo: (input: { repoUrl: string; ref?: string }) =>
       post<AgentRepoPreview>('/api/admin/plugins/preview-repo', input),
-    installFromRepo: (input: { repoUrl: string; ref?: string }) =>
+    installFromRepo: (input: {
+      repoUrl: string;
+      ref?: string;
+      /** Passed to the container and not stored — see the console's Configuration rows. */
+      env?: Record<string, string>;
+    }) =>
       post<{ plugin: AdminPlugin; signingSecret: string; botToken: string }>(
         '/api/admin/plugins/from-repo',
         input,

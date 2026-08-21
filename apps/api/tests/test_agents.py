@@ -232,3 +232,63 @@ def test_the_manifest_is_read_as_a_container_regardless_of_what_it_claims() -> N
     manifest = Manifest.model_validate(document)
     assert manifest.runtime == "container"
     assert source_module.MANIFEST_NAME == "blob-app.json"
+
+
+# ─── configuration an agent needs ─────────────────────────────────────────────
+async def test_an_agent_can_be_given_the_key_it_needs(
+    client: Client, hosted: StubRunner
+) -> None:
+    """Without this, no agent that talks to a model provider is installable at all.
+
+    Blob creates the container, so Blob is the only thing positioned to hand over a
+    provider key — and for a long time the install request had nowhere to put one.
+    """
+    owner = await sign_up(client, "Owner")
+    created = await owner.post(
+        "/api/admin/plugins/from-repo",
+        {"repoUrl": REPO, "env": {"ANTHROPIC_API_KEY": "sk-ant-test"}},
+    )
+    assert created.status == 201, created.body
+
+    assert hosted.deployed is not None
+    env = hosted.deployed["env"]
+    assert env["ANTHROPIC_API_KEY"] == "sk-ant-test"
+    # Still gets everything Blob supplies, and the port it is actually reached on.
+    assert env["BLOB_BOT_TOKEN"]
+    assert env["PORT"] == "3000"
+
+
+async def test_supplied_configuration_cannot_displace_the_agents_own_credentials(
+    client: Client, hosted: StubRunner
+) -> None:
+    # Refused by name rather than merged away, so nobody has to reason about ordering.
+    owner = await sign_up(client, "Owner")
+    response = await owner.post(
+        "/api/admin/plugins/from-repo",
+        {"repoUrl": REPO, "env": {"BLOB_BOT_TOKEN": "not-yours"}},
+    )
+    assert response.status == 400
+    assert response.body["error"]["code"] == "reserved_env_key"
+    # Nothing was deployed, so a rejected install leaves no half-built agent behind.
+    assert hosted.deployed is None
+
+
+async def test_an_unusable_variable_name_names_the_field(
+    client: Client, hosted: StubRunner
+) -> None:
+    owner = await sign_up(client, "Owner")
+    response = await owner.post(
+        "/api/admin/plugins/from-repo",
+        {"repoUrl": REPO, "env": {"not-a-var": "x"}},
+    )
+    assert response.status == 400
+    assert response.body["error"]["field"] == "not-a-var"
+
+
+async def test_installing_without_configuration_still_works(
+    client: Client, hosted: StubRunner
+) -> None:
+    owner = await sign_up(client, "Owner")
+    assert (await owner.post("/api/admin/plugins/from-repo", {"repoUrl": REPO})).status == 201
+    assert hosted.deployed is not None
+    assert "ANTHROPIC_API_KEY" not in hosted.deployed["env"]

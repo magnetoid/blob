@@ -24,6 +24,12 @@ from ..lib.net import check_outbound_url
 
 log = logging.getLogger("blob.agents")
 
+#: The port a hosted agent is expected to listen on. Told to the runner so its proxy
+#: routes there, and to the agent as PORT so it does not have to guess what we told the
+#: proxy. One number, stated in both directions, rather than a convention each side
+#: assumes about the other.
+AGENT_PORT = 3000
+
 
 @dataclass(slots=True)
 class Deployment:
@@ -78,6 +84,10 @@ class CoolifyRunner:
                 # ships one is better served by it, and says so in its manifest.
                 "build_pack": env.pop("__build_pack__", "nixpacks"),
                 "name": f"agent-{slug}",
+                # Which port the proxy should route to. Without it the runner guesses,
+                # and an agent that guessed differently is unreachable — which looks
+                # exactly like an agent that failed to start.
+                "ports_exposes": str(AGENT_PORT),
                 "instant_deploy": False,
             },
         )
