@@ -64,7 +64,12 @@ class Settings(BaseSettings):
     # as external apps — only the "and run it for me" half is off. Blob never holds the
     # Docker socket itself; the runner is whatever already owns that privilege.
     AGENT_RUNNER: Literal["disabled", "coolify"] = "disabled"
-    COOLIFY_URL: str | None = None
+    #: Where the runner's API lives. Deliberately not COOLIFY_URL: Coolify injects that
+    #: name into every container it runs, set to that container's own address, so a Blob
+    #: deployed on Coolify would read its own URL and aim the runner at itself. The one
+    #: environment where this feature is most likely to be used is the one where that
+    #: name cannot be used.
+    COOLIFY_API_URL: str | None = None
     COOLIFY_TOKEN: str | None = None
     COOLIFY_PROJECT_UUID: str | None = None
     COOLIFY_SERVER_UUID: str | None = None
@@ -79,7 +84,7 @@ class Settings(BaseSettings):
         "WEB_DIST",
         "TRANSLATION_BASE_URL",
         "TRANSLATION_API_KEY",
-        "COOLIFY_URL",
+        "COOLIFY_API_URL",
         "COOLIFY_TOKEN",
         "COOLIFY_PROJECT_UUID",
         "COOLIFY_SERVER_UUID",
@@ -105,7 +110,7 @@ class Settings(BaseSettings):
         """Every piece has to be present, or a deploy fails halfway through."""
         return self.AGENT_RUNNER == "coolify" and all(
             (
-                self.COOLIFY_URL,
+                self.COOLIFY_API_URL,
                 self.COOLIFY_TOKEN,
                 self.COOLIFY_PROJECT_UUID,
                 self.COOLIFY_SERVER_UUID,

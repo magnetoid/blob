@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T19:34:18'
-updated: '2026-08-21T19:34:18'
+created: '2026-08-21T19:55:03'
+updated: '2026-08-21T19:55:03'
 ---
 
 # apps/api/tests/test_agents.py
@@ -32,3 +32,7 @@ Symbols in `apps/api/tests/test_agents.py`.
 - L206 `test_the_logs_come_back_for_a_hosted_agent(client: Client, hosted: StubRunner)` (function)
 - L221 `test_a_container_manifest_cannot_be_installed_by_hand(client: Client)` (function)
 - L228 `test_the_manifest_is_read_as_a_container_regardless_of_what_it_claims()` (function) — A repository does not get to say it runs in-process. ADR 0009 stands.
+- L238 `test_an_agent_can_be_given_the_key_it_needs(client: Client, hosted: StubRunner)` (function) — Without this, no agent that talks to a model provider is installable at all.
+- L261 `test_supplied_configuration_cannot_displace_the_agents_own_credentials(client: Client, hosted: StubRunner)` (function)
+- L276 `test_an_unusable_variable_name_names_the_field(client: Client, hosted: StubRunner)` (function)
+- L288 `test_installing_without_configuration_still_works(client: Client, hosted: StubRunner)` (function)

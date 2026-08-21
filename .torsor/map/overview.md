@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T19:34:11'
-updated: '2026-08-21T19:34:11'
+created: '2026-08-21T19:55:03'
+updated: '2026-08-21T19:55:03'
 ---
 
 # Repository Map
@@ -100,8 +100,8 @@ Modules and their key symbols (ranked by references).
   - `hash_token(token: str)` (function)
   - `hash_password(plain: str)` (function)
 - **apps/api/src/blob_api/lib/errors.py** — 8 symbol(s)
-  - `not_found(message: str="That doesn't exist.")` (function)
   - `bad_request(message: str, code: str='bad_request')` (function)
+  - `not_found(message: str="That doesn't exist.")` (function)
   - `AppError` (class)
   - `forbidden(message: str="You don't have access to that.")` (function)
   - `unauthorized(message: str='Sign in to continue.')` (function)
@@ -168,6 +168,8 @@ Modules and their key symbols (ranked by references).
   - `post(url: str, secret: str, payload: dict[str, Any], delivery_id: str)` (function)
   - `_record(session: AsyncSession, delivery_id: str, status_code: int, error: str, attempts: int)` (function)
   - `record_result(delivery_id: str, status_code: int, error: str, attempts: int)` (function)
+- **apps/api/src/blob_api/plugins/env.py** — 1 symbol(s)
+  - `validate_env(raw: dict[str, str] | None)` (function)
 - **apps/api/src/blob_api/plugins/events.py** — 2 symbol(s)
   - `emit(session: AsyncSession, *, workspace_id: str, event: str, payload: dict[str, Any], exclude_plugin_id: str | None=None, only_plugin_id: str | None=None)` (function)
   - `has_subscribers(session: AsyncSession, workspace_id: str, event: str)` (function)
@@ -177,5 +179,4 @@ Modules and their key symbols (ranked by references).
   - `new_scopes(previous: list[str], requested: list[str])` (function)
   - `_check_slug(cls, value: str)` (method)
   - `_check_version(cls, value: str)` (method)
-- **apps/api/src/blob_api/plugins/registry.py** — 15 symbol(s)
-  - `by_id(session: AsyncSession, plugin_id: str, workspace…[truncated]
+- **app…[truncated]

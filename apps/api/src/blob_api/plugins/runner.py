@@ -62,7 +62,7 @@ class CoolifyRunner:
     """
 
     def __init__(self) -> None:
-        self._base = (settings.COOLIFY_URL or "").rstrip("/")
+        self._base = (settings.COOLIFY_API_URL or "").rstrip("/")
         self._token = settings.COOLIFY_TOKEN or ""
 
     async def deploy(self, *, slug: str, repo: str, ref: str, env: dict[str, str]) -> Deployment:
