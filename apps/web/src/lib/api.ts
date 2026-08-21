@@ -445,6 +445,9 @@ export const api = {
     stopAgent: (pluginId: string) => post<{ ok: true }>(`/api/admin/plugins/${pluginId}/stop`),
   },
 
+  interact: (input: { messageId: string; actionId: string; value: string }) =>
+    post<{ ok: true }>('/api/interactions', input),
+
   search: (q: string) =>
     get<{ messages: Message[]; total: number }>(`/api/search?q=${encodeURIComponent(q)}`),
 

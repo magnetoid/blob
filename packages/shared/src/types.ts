@@ -99,6 +99,38 @@ export interface Attachment {
   thumbUrl: string | null;
 }
 
+/** Structured message content. Seven types, closed deliberately — see plugins/blocks.py. */
+export interface BlockText {
+  text: string;
+  markdown?: boolean;
+}
+
+export interface BlockButton {
+  type: 'button';
+  actionId: string;
+  text: string;
+  value?: string;
+  style?: 'default' | 'primary' | 'danger';
+}
+
+export interface BlockSelect {
+  type: 'select';
+  actionId: string;
+  placeholder?: string;
+  options: { label: string; value: string }[];
+}
+
+export type BlockElement = BlockButton | BlockSelect;
+
+export type MessageBlock =
+  | { type: 'section'; text: BlockText }
+  | { type: 'fields'; fields: BlockText[] }
+  | { type: 'divider' }
+  | { type: 'context'; elements: BlockText[] }
+  | { type: 'image'; url: string; alt?: string }
+  | { type: 'actions'; elements: BlockElement[] }
+  | { type: 'input'; actionId: string; label: string; placeholder?: string };
+
 export interface Reaction {
   emoji: string;
   /** Users who reacted, in the order they reacted. */
@@ -133,6 +165,10 @@ export interface Message {
   createdAt: string;
   reactions: Reaction[];
   attachments: Attachment[];
+  /** Structured content beside `body`, which stays the plain-text fallback. */
+  blocks?: MessageBlock[] | null;
+  /** Which app posted this, when one did. */
+  pluginId?: string | null;
   linkPreview: LinkPreview | null;
 }
 

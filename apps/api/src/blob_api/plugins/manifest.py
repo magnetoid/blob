@@ -67,6 +67,7 @@ EVENTS: dict[str, str] = {
     "task.created": "An agent task was created",
     "task.updated": "An agent task changed state",
     "thread.summary.updated": "A thread summary was generated or refreshed",
+    "interaction.triggered": "Someone used a button or select in one of its messages",
 }
 
 #: Which scope an event requires. Subscribing to message events without being allowed to
@@ -83,6 +84,9 @@ EVENT_SCOPES: dict[str, str] = {
     "task.created": "tasks:read",
     "task.updated": "tasks:read",
     "thread.summary.updated": "summaries:read",
+    # An app only ever receives interactions on its own messages, so the scope that
+    # matters is the one that let it post them.
+    "interaction.triggered": "messages:write",
 }
 
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,38}[a-z0-9]$")

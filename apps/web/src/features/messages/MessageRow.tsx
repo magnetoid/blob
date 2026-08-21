@@ -11,6 +11,7 @@ import { ApiError, api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import type { LocalMessageDeliveryStatus } from '../../lib/outbox.ts';
 import { renderMarkdown } from '../../lib/markdown.tsx';
+import { BlockRenderer } from './BlockRenderer.tsx';
 import { Avatar } from '../../components/Avatar.tsx';
 import { FileIcon, MoreIcon, ReplyIcon } from '../../components/Icon.tsx';
 
@@ -207,6 +208,14 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
             {rendered}
             {message.editedAt && <span className="message-edited"> (edited)</span>}
           </div>
+        )}
+
+        {message.blocks && message.blocks.length > 0 && (
+          <BlockRenderer
+            messageId={message.id}
+            blocks={message.blocks}
+            options={{ knownNames, currentUserId: currentUser?.id ?? null }}
+          />
         )}
 
         {message.attachments.length > 0 && (

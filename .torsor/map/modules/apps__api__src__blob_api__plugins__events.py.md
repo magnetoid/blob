@@ -4,13 +4,13 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T07:12:06'
-updated: '2026-08-21T07:12:06'
+created: '2026-08-21T07:24:31'
+updated: '2026-08-21T07:24:31'
 ---
 
 # apps/api/src/blob_api/plugins/events.py
 
 Symbols in `apps/api/src/blob_api/plugins/events.py`.
 
-- L31 `emit(session: AsyncSession, *, workspace_id: str, event: str, payload: dict[str, Any], exclude_plugin_id: str | None=None)` (function) — Queue `event` for every enabled plugin subscribed to it. Returns delivery ids.
-- L86 `has_subscribers(session: AsyncSession, workspace_id: str, event: str)` (function) — Whether emitting is worth the payload construction on a hot path.
+- L31 `emit(session: AsyncSession, *, workspace_id: str, event: str, payload: dict[str, Any], exclude_plugin_id: str | None=None, only_plugin_id: str | None=None)` (function) — Queue `event` for every enabled plugin subscribed to it. Returns delivery ids.
+- L99 `has_subscribers(session: AsyncSession, workspace_id: str, event: str)` (function) — Whether emitting is worth the payload construction on a hot path.

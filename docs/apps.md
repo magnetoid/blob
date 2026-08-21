@@ -191,6 +191,57 @@ and a review behind it.
 
 The local runtime is not built yet; external apps are.
 
+## Blocks
+
+A message can carry structured content beside its text. Seven types, and the list is
+closed on purpose: a block vocabulary grows until it is a layout engine, and a layout
+engine inside a chat message is a rendering surface nobody can review.
+
+```json
+{
+  "channel": "#builds",
+  "text": "Build passed on main",
+  "blocks": [
+    { "type": "section", "text": { "text": "Build **passed** on `main`" } },
+    { "type": "fields", "fields": [{ "text": "*Took*: 2m14s" }, { "text": "*By*: ana" }] },
+    { "type": "divider" },
+    { "type": "actions", "elements": [
+      { "type": "button", "actionId": "deploy", "text": "Deploy", "style": "primary" },
+      { "type": "button", "actionId": "cancel", "text": "Cancel" }
+    ]}
+  ]
+}
+```
+
+`section`, `fields`, `divider`, `context`, `image`, `actions` (button and select), and
+`input`. Anything else is refused, and keys the schema does not declare are dropped
+before storage rather than kept and passed to the renderer.
+
+**`text` is not optional.** It stays the plain-text fallback and remains the only thing
+the search index reads, so it should say what the blocks say. A client that cannot render
+blocks still shows something true.
+
+### Interactions
+
+When someone uses a button or a select, the app subscribed to `interaction.triggered`
+receives it — and only that app, because an interaction is a reply to whoever published
+the action:
+
+```json
+{
+  "event": "interaction.triggered",
+  "payload": {
+    "messageId": "...", "channelId": "...",
+    "actionId": "deploy", "value": "", "userId": "..."
+  }
+}
+```
+
+The server accepts an interaction only if its `actionId` appears in the blocks stored on
+that message. That single check is the whole security story: the server holds the blocks,
+so a client cannot invent an action and an app can never be handed an id it did not
+publish. Deleting a message takes its buttons with it.
+
 ## Agents deployed from a repository
 
 An agent can be installed by pasting its repository URL instead of typing a manifest.

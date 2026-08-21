@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T07:12:07'
-updated: '2026-08-21T07:12:07'
+created: '2026-08-21T07:24:31'
+updated: '2026-08-21T07:24:31'
 ---
 
 # apps/api/tests/test_plugin_delivery.py

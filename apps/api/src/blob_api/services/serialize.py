@@ -133,6 +133,9 @@ def to_message(row: Any) -> Message:
         else [to_attachment(item) for item in (getattr(row, "attachments", None) or []) if item]
     )
     preview = None if deleted else getattr(row, "link_preview", None)
+    # Deleting a message must take its buttons with it, or an interaction could still be
+    # sent against content that is gone.
+    blocks = None if deleted else getattr(row, "blocks", None)
 
     return Message(
         id=row.id,
@@ -155,6 +158,8 @@ def to_message(row: Any) -> Message:
         created_at=require_iso(row.created_at),
         reactions=reactions,
         attachments=attachments,
+        blocks=blocks or None,
+        plugin_id=getattr(row, "plugin_id", None),
         link_preview=LinkPreview.model_validate(preview) if preview else None,
     )
 

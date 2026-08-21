@@ -2497,3 +2497,83 @@ select.chip {
   font-size: var(--text-2xs);
   color: var(--text-4);
 }
+
+/* ─── message blocks ─────────────────────────────────────────────────────── */
+.blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+  max-width: 560px;
+}
+
+.block-section p {
+  margin: 0;
+}
+
+.block-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px 20px;
+  font-size: var(--text-sm);
+}
+
+.block-fields p {
+  margin: 0;
+}
+
+.block-divider {
+  height: 1px;
+  margin: 2px 0;
+  border: 0;
+  background: var(--hairline-soft);
+}
+
+.block-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: var(--text-2xs);
+  color: var(--text-4);
+}
+
+.block-context p {
+  margin: 0;
+}
+
+.block-image {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.block-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.block-actions .btn[data-style='primary'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.block-actions .btn[data-style='danger'] {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 25%, var(--hairline));
+}
+
+.block-select {
+  width: auto;
+  min-width: 160px;
+  padding: 7px 10px;
+}
+
+.block-input {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 320px;
+}

@@ -144,6 +144,10 @@ class Message(CamelModel):
     created_at: str
     reactions: list[Reaction] = Field(default_factory=list)
     attachments: list[Attachment] = Field(default_factory=list)
+    #: Structured content beside `body`, which stays the plain-text fallback.
+    blocks: list[dict[str, Any]] | None = None
+    #: Which app posted this, when one did.
+    plugin_id: str | None = None
     link_preview: LinkPreview | None = None
 
 

@@ -27,6 +27,7 @@ from ..lib.ids import new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..plugins import events as plugin_events
 from ..plugins.auth import BotCaller, current_bot, requires
+from ..plugins.blocks import validate_blocks
 from ..realtime import hub
 from ..schemas.base import CamelModel
 from ..schemas.models import AgentTask, Channel, Message, ThreadSummary, User
@@ -60,6 +61,9 @@ class PostMessageInput(CamelModel):
     also_in_channel: bool = False
     #: Apps that retry should send the same value twice; the second call stores nothing.
     client_msg_id: str | None = None
+    #: Structured content. `text` stays the fallback for anything that cannot render it,
+    #: and remains the only thing search reads — so it should say the same thing.
+    blocks: list[dict[str, Any]] | None = None
 
 
 class MessageOut(CamelModel):
@@ -177,6 +181,7 @@ async def post_message(
             also_in_channel=payload.also_in_channel,
             kind="bot",
             plugin_id=bot.plugin_id,
+            blocks=validate_blocks(payload.blocks),
         )
 
         if result.created:

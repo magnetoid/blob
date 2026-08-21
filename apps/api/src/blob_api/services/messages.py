@@ -7,6 +7,7 @@ mid-transaction lets a client fetch a message the database hasn't committed yet.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -80,6 +81,9 @@ async def send(
     attachment_ids: list[str] | None = None,
     kind: str = "user",
     plugin_id: str | None = None,
+    #: Structured content beside the text. `body` stays the fallback and the only thing
+    #: the search index reads, so a client that ignores blocks still shows something.
+    blocks: list[dict[str, Any]] | None = None,
 ) -> SendResult:
     message_id = new_id()
     attachment_ids = attachment_ids or []
@@ -103,11 +107,11 @@ async def send(
                 INSERT INTO messages (
                   id, workspace_id, channel_id, author_id, kind, body, thread_root_id,
                   also_in_channel, mention_user_ids, mentions_everyone, client_msg_id,
-                  plugin_id)
+                  plugin_id, blocks)
                 VALUES (
                   :id, :ws, :channel_id, :author_id, :kind, :body, :thread_root_id,
                   :also_in_channel, cast(:mention_user_ids AS uuid[]), :mentions_everyone,
-                  :client_msg_id, :plugin_id)
+                  :client_msg_id, :plugin_id, cast(:blocks AS jsonb))
                 ON CONFLICT (channel_id, author_id, client_msg_id) DO NOTHING
                 RETURNING id
                 """
@@ -125,6 +129,7 @@ async def send(
                 "mentions_everyone": mentions.everyone,
                 "client_msg_id": client_msg_id,
                 "plugin_id": plugin_id,
+                "blocks": json.dumps(blocks) if blocks else None,
             },
         )
     ).fetchone()

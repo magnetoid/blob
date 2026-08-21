@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T07:12:06'
-updated: '2026-08-21T07:12:06'
+created: '2026-08-21T07:24:31'
+updated: '2026-08-21T07:24:31'
 ---
 
 # apps/api/src/blob_api/schemas/models.py
@@ -23,13 +23,13 @@ Symbols in `apps/api/src/blob_api/schemas/models.py`.
 - L113 `Reaction` (class)
 - L119 `LinkPreview` (class)
 - L127 `Message` (class)
-- L150 `CustomEmoji` (class)
-- L155 `ThemeSummary` (class)
-- L165 `ThreadSummaryDecision` (class)
-- L170 `ThreadSummaryActionItem` (class)
-- L176 `ThreadSummary` (class)
-- L192 `AgentTask` (class)
-- L212 `MessageTranslation` (class)
-- L225 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
-- L236 `ReadStateOut` (class)
-- L242 `FeedbackTicket` (class)
+- L154 `CustomEmoji` (class)
+- L159 `ThemeSummary` (class)
+- L169 `ThreadSummaryDecision` (class)
+- L174 `ThreadSummaryActionItem` (class)
+- L180 `ThreadSummary` (class)
+- L196 `AgentTask` (class)
+- L216 `MessageTranslation` (class)
+- L229 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
+- L240 `ReadStateOut` (class)
+- L246 `FeedbackTicket` (class)

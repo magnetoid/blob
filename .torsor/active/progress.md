@@ -43,6 +43,12 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   routers and services, and the timings lived in three modules. Each assertion was proved
   by breaking it deliberately: a renamed event, a drifted heartbeat, and a declaration
   nothing sends.
+- **17 · Blocks** — seven types, closed deliberately. `body` stays the fallback and the
+  only thing search reads. An interaction is accepted only when its `actionId` appears in
+  the blocks stored on that message, which is the entire security story: a client cannot
+  invent an action and an app cannot receive an id it never published. Found a real bug
+  while wiring it — `plugins.events.emit` filtered `runtime = 'external'`, so a container
+  agent would have subscribed to events and received none.
 - **Agents from a repository** — `blob-app.json` read from GitHub, scopes approved, then
   deployed as a container by a runner that is not this process. See ADR 0010. Hosting is
   off unless `AGENT_RUNNER` is set, and the Coolify calls have not yet been exercised
@@ -50,14 +56,11 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
 
 ## In progress
 
-Nothing. 231 tests pass; ruff, mypy --strict and tsc are clean.
+Nothing. 274 backend tests and 17 in the browser pass; ruff, mypy, tsc and
+`alembic check` are clean.
 
 ## Next
 
-- **17 · Blocks** — seven types, `messages.blocks` already in the schema,
-  `BlockRenderer.tsx`, `/api/interactions` validating `actionId` against stored blocks.
-  Wanted sooner now than the numbering suggests: structured output from an agent, in the
-  conversation rather than beside it, *is* blocks.
 - **Agent deployment, second half** — the console shows no live status or logs for a
   hosted agent. `GET /{id}/deployment`, `redeploy` and `stop` exist and are tested;
   nothing renders them.
@@ -88,5 +91,5 @@ Not features — places where working code is unprotected.
 
 ## Blocked
 
-- **Verifying the Docker image build.** Needs roughly 6 GB free; the machine had 4.3 GB
-  on a 98%-full volume.
+Nothing. The image build was blocked on local disk; CI builds it and boots the whole
+production stack on every push, which is a better check than doing it by hand ever was.

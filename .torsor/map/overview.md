@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T07:12:06'
-updated: '2026-08-21T07:12:06'
+created: '2026-08-21T07:24:31'
+updated: '2026-08-21T07:24:31'
 ---
 
 # Repository Map
@@ -100,8 +100,8 @@ Modules and their key symbols (ranked by references).
   - `hash_token(token: str)` (function)
   - `hash_password(plain: str)` (function)
 - **apps/api/src/blob_api/lib/errors.py** — 8 symbol(s)
-  - `not_found(message: str="That doesn't exist.")` (function)
   - `bad_request(message: str, code: str='bad_request')` (function)
+  - `not_found(message: str="That doesn't exist.")` (function)
   - `AppError` (class)
   - `forbidden(message: str="You don't have access to that.")` (function)
   - `unauthorized(message: str='Sign in to continue.')` (function)
@@ -156,6 +156,12 @@ Modules and their key symbols (ranked by references).
   - `current_bot(request: Request)` (function)
   - `_bearer(request: Request)` (function)
   - `has(self, scope: str)` (method)
+- **apps/api/src/blob_api/plugins/blocks.py** — 14 symbol(s)
+  - `TextSpan` (class)
+  - `ActionsBlock` (class)
+  - `InputBlock` (class)
+  - `collect_action_ids(blocks: list[Block])` (function)
+  - `SectionBlock` (class)
 - **apps/api/src/blob_api/plugins/delivery.py** — 7 symbol(s)
   - `backoff_for(attempts: int, *, jitter: float | None=None)` (function)
   - `lease_due(limit: int=BATCH)` (function)
@@ -163,7 +169,7 @@ Modules and their key symbols (ranked by references).
   - `_record(session: AsyncSession, delivery_id: str, status_code: int, error: str, attempts: int)` (function)
   - `record_result(delivery_id: str, status_code: int, error: str, attempts: int)` (function)
 - **apps/api/src/blob_api/plugins/events.py** — 2 symbol(s)
-  - `emit(session: AsyncSession, *, workspace_id: str, event: str, payload: dict[str, Any], exclude_plugin_id: str | None=None)` (function)
+  - `emit(session: AsyncSession, *, workspace_id: str, event: str, payload: dict[str, Any], exclude_plugin_id: str | None=None, only_plugin_id: str | None=None)` (function)
   - `has_subscribers(session: AsyncSession, workspace_id: str, event: str)` (function)
 - **apps/api/src/blob_api/plugins/manifest.py** — 5 symbol(s)
   - `Manifest` (class)
@@ -172,8 +178,4 @@ Modules and their key symbols (ranked by references).
   - `_check_slug(cls, value: str)` (method)
   - `_check_version(cls, value: str)` (method)
 - **apps/api/src/blob_api/plugins/registry.py** — 15 symbol(s)
-  - `by_id(session: AsyncSession, plugin_id: str, workspace_id: str)` (function)
-  - `bot_user_id(session: AsyncSession, plugin_id: str)` (function)
-  - `Installed` (class)
-  - `_write_grants(session: AsyncSession, plugin_id: str, scopes: list[str], granted_by: str | None)` (function)
-  - `bot_email(slug: str)`…[truncated]
+  - `by_id(session: AsyncSession, plugin_id: str, workspace…[truncated]

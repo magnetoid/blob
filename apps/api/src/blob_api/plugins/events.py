@@ -35,11 +35,16 @@ async def emit(
     event: str,
     payload: dict[str, Any],
     exclude_plugin_id: str | None = None,
+    only_plugin_id: str | None = None,
 ) -> list[str]:
     """Queue `event` for every enabled plugin subscribed to it. Returns delivery ids.
 
     `exclude_plugin_id` keeps an app from being woken by its own message — without it,
     an app that posts on `message.created` answers itself forever.
+
+    `only_plugin_id` narrows delivery to one app, for an event that belongs to it alone:
+    an interaction is a reply to the app whose message published the action, and sending
+    it to every subscriber would hand one app the button presses meant for another.
     """
     subscribers = (
         await session.execute(
@@ -49,13 +54,21 @@ async def emit(
                   FROM plugins p
                  WHERE p.workspace_id = :ws
                    AND p.status = 'enabled'
-                   AND p.runtime = 'external'
+                   -- A container agent is an external app whose hosting we arranged;
+                   -- filtering on 'external' alone would deliver it nothing.
+                   AND p.runtime IN ('external', 'container')
                    AND :event = ANY(p.events)
                    AND (cast(:exclude AS uuid) IS NULL OR p.id <> cast(:exclude AS uuid))
+                   AND (cast(:only AS uuid) IS NULL OR p.id = cast(:only AS uuid))
                  ORDER BY p.id
                 """
             ),
-            {"ws": workspace_id, "event": event, "exclude": exclude_plugin_id},
+            {
+                "ws": workspace_id,
+                "event": event,
+                "exclude": exclude_plugin_id,
+                "only": only_plugin_id,
+            },
         )
     ).fetchall()
     if not subscribers:
