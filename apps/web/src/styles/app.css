@@ -1183,6 +1183,96 @@ button {
   position: relative;
 }
 
+/* Drag and drop. The outline lands on the box the files will join, so the target is
+   the composer rather than the whole window. */
+.composer-wrap[data-dragging='true'] .composer-box {
+  border-color: var(--accent);
+  background: var(--accent-wash-soft);
+}
+
+.attachment-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 8px 0;
+  list-style: none;
+}
+
+.attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  padding: 5px 5px 5px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  background: var(--surface-muted);
+}
+
+.attachment-chip[data-status='uploading'] {
+  opacity: 0.75;
+}
+
+.attachment-chip[data-status='failed'] {
+  border-color: var(--danger);
+}
+
+.attachment-chip-thumb {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface-icon);
+  color: var(--text-4);
+}
+
+.attachment-chip-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.attachment-chip-name {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-chip-meta {
+  font-size: var(--text-2xs);
+  color: var(--text-4);
+}
+
+.attachment-chip[data-status='failed'] .attachment-chip-meta {
+  color: var(--danger);
+}
+
+.attachment-chip-remove {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-4);
+  cursor: pointer;
+}
+
+.attachment-chip-remove:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
 .autocomplete {
   position: absolute;
   bottom: calc(100% + 6px);

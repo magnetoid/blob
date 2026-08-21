@@ -26,6 +26,14 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   `/api/v1/` callback API, signed delivery, transactional outbox, admin management API.
 - **Deployment** — one image, one origin, Coolify compose, boot migrations under an
   advisory lock.
+- **Routing** — the four views and the seven admin sections are real paths, so a screen
+  can be linked and reloaded into. Hand-rolled: four views and no nested layouts did not
+  justify a fourth runtime dependency. Administration also gained the labelled way in
+  that Slack has, behind the workspace name.
+- **File uploads** — attach, drag-and-drop and paste-a-screenshot. Only the client was
+  missing; the ticket/PUT/complete flow and `attachmentIds` on send already existed. The
+  bucket is created on first upload rather than by an init container, because a container
+  that exits makes `docker compose up --wait` report failure even on exit 0.
 
 ## In progress
 
@@ -45,7 +53,6 @@ Nothing. 231 tests pass; ruff, mypy --strict and tsc are clean.
 
 Not features — places where working code is unprotected.
 
-- **No CI.** 231 tests, and nothing runs them on push. `.github/workflows/` does not exist.
 - **No protocol parity test.** The WebSocket protocol is hand-written on both sides —
   `packages/shared/src/protocol.ts` and a Pydantic mirror. Nothing catches a drift, and
   the failure is silent at runtime rather than at build time.
@@ -54,15 +61,14 @@ Not features — places where working code is unprotected.
   so the hand-written types and the real API can diverge unnoticed. (Path in quotes, not
   backticks — it is a planned artifact, and the staleness check rightly flags a backticked
   path that is not on disk.)
-- **Zero frontend tests.** 24 `.ts`/`.tsx` files under `apps/web/src`; `vitest` passes
-  vacuously on `--passWithNoTests`. The theme token logic and the socket reconnect path
-  are the two worth covering first.
+- **Almost no frontend tests.** Two files are covered — the outbox and the router — out of
+  roughly 26 under `apps/web/src`, and `vitest` still runs with `--passWithNoTests`. The
+  theme token logic and the socket reconnect path are the two worth covering next.
+- **No object-storage test.** The upload path is exercised by hand and by the browser, not
+  by CI: the presign/PUT/complete round trip needs a bucket, and the `image` job does not
+  start one.
 
 ## Deferred
-
-- **File upload UI.** The API, schema and presigning exist; only the client is missing.
-  MinIO is in the production compose but unrouted until then, because nothing yet signs a
-  URL a browser must follow.
 - **Huddles** and the **AI layer** — see the build plan.
 
 ## Blocked

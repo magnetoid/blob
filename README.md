@@ -40,9 +40,12 @@ lives in [TEAM-CHAT-BUILD-PLAN.md](TEAM-CHAT-BUILD-PLAN.md).
   Signed event delivery, a scoped callback API, and a bot that is a real user. See
   [docs/apps.md](docs/apps.md).
 
-Not built yet: file uploads (the API and schema are in place, the UI is not), huddles,
-message blocks, the local plugin runtime, slash commands, and the AI layer. See the plan's
-roadmap for the order.
+- **Files** — attach by button, drag-and-drop, or pasting a screenshot straight into the
+  composer. Uploads go to object storage directly, so file bytes never pass through the
+  API process.
+
+Not built yet: huddles, message blocks, the local plugin runtime, slash commands, and the
+AI layer. See the plan's roadmap for the order.
 
 ## Stack
 
@@ -131,10 +134,11 @@ Two things to know about the stack it builds:
   as resources, not ones inside a compose file. If you want them, create a Postgres
   resource in Coolify, point `DATABASE_URL` at it, and delete the `postgres` service here.
   The same applies to Redis, though Redis holds only the job queue and presence.
-- **MinIO is not published.** Attachments have no UI yet, so nothing signs a URL a browser
-  must follow. The compose file says what to add when that changes; a presigned URL is
-  signed for a specific host, so the browser has to reach the bucket at the host it was
-  signed for.
+- **MinIO needs its own hostname.** The browser uploads to the bucket directly and reads
+  from it directly, and a presigned URL is signed for one specific host — so MinIO gets a
+  domain of its own (`SERVICE_FQDN_MINIO_9000`) and the app signs with it. If those two
+  disagree, every attachment link resolves to a host the browser cannot reach. Point
+  `S3_*` at a managed S3 instead and the service can be deleted outright.
 
 ### Anywhere else
 

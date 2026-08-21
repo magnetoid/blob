@@ -8,6 +8,7 @@ request.
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any
@@ -18,6 +19,8 @@ from botocore.client import Config
 
 from ..config import settings
 from .ids import new_id
+
+log = logging.getLogger("blob.storage")
 
 UPLOAD_URL_TTL_SEC = 900  # 15 minutes to start the upload
 DOWNLOAD_URL_TTL_SEC = 3600
@@ -57,6 +60,40 @@ def _signing_client() -> Any:
     S3_ENDPOINT, which is correct in development where both are the same host.
     """
     return _build(settings.s3_public_endpoint)
+
+
+_bucket_ready = False
+
+
+async def ensure_bucket() -> None:
+    """Create the bucket on first use if it is not there.
+
+    The alternative is a one-shot `mc` container in the compose file, and a container
+    that exits makes `docker compose up --wait` report failure even on exit 0 — so the
+    bucket would cost a deploy step or a permanently unhealthy stack. Doing it here is
+    idempotent and needs nothing of the operator.
+
+    Failures are swallowed: a managed S3 bucket usually denies CreateBucket to the
+    application's credentials, and the bucket already exists in that case. A real
+    problem surfaces on the upload itself rather than taking the request down here.
+    """
+    global _bucket_ready
+    if _bucket_ready:
+        return
+
+    client = _client()
+    try:
+        await asyncio.to_thread(client.head_bucket, Bucket=settings.S3_BUCKET)
+    except Exception:
+        try:
+            await asyncio.to_thread(client.create_bucket, Bucket=settings.S3_BUCKET)
+        except Exception:
+            # Deliberately not cached: storage may simply not be up yet, and caching a
+            # failure here would mean uploads stayed broken until the process restarted.
+            # The upload itself is what reports a real problem to the caller.
+            log.warning("bucket %s is not reachable yet", settings.S3_BUCKET)
+            return
+    _bucket_ready = True
 
 
 def is_inline_image(mime: str) -> bool:

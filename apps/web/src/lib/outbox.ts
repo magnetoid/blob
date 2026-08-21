@@ -10,6 +10,8 @@ export interface LocalOutboxEntry {
   channelId: string;
   threadRootId: string | null;
   body: string;
+  /** Uploaded before the message was queued, so a replay re-sends the same ids. */
+  attachmentIds: string[];
   createdAt: string;
   status: LocalMessageDeliveryStatus;
   attempts: number;
@@ -24,7 +26,15 @@ export function loadOutbox(): Record<string, LocalOutboxEntry> {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isOutbox(parsed)) return {};
-    return parsed;
+    // Entries written before attachments existed have no attachmentIds. One invalid
+    // entry discards the whole outbox, so this field is optional on the way in and
+    // filled here — an upgrade must not throw away someone's queued messages.
+    return Object.fromEntries(
+      Object.entries(parsed).map(([key, entry]) => [
+        key,
+        { ...entry, attachmentIds: entry.attachmentIds ?? [] },
+      ]),
+    );
   } catch {
     return {};
   }
@@ -63,6 +73,8 @@ export function materializeOutboxMessage(entry: LocalOutboxEntry, authorId: stri
     pinnedAt: null,
     createdAt: entry.createdAt,
     reactions: [],
+    // The entry holds ids, not the rows the server builds from them, so a pending
+    // message shows its text and gains its attachments when the send lands.
     attachments: [],
     linkPreview: null,
   };
@@ -77,12 +89,14 @@ function hasStorage(): boolean {
   return typeof window !== 'undefined' && typeof globalThis.localStorage !== 'undefined';
 }
 
-function isOutbox(value: unknown): value is Record<string, LocalOutboxEntry> {
+type StoredEntry = Omit<LocalOutboxEntry, 'attachmentIds'> & { attachmentIds?: string[] };
+
+function isOutbox(value: unknown): value is Record<string, StoredEntry> {
   if (!isRecord(value)) return false;
   return Object.values(value).every(isOutboxEntry);
 }
 
-function isOutboxEntry(value: unknown): value is LocalOutboxEntry {
+function isOutboxEntry(value: unknown): value is StoredEntry {
   if (!isRecord(value)) return false;
   return (
     typeof value.clientMsgId === 'string' &&
@@ -92,7 +106,10 @@ function isOutboxEntry(value: unknown): value is LocalOutboxEntry {
     typeof value.createdAt === 'string' &&
     isDeliveryStatus(value.status) &&
     typeof value.attempts === 'number' &&
-    (typeof value.lastError === 'string' || value.lastError === null)
+    (typeof value.lastError === 'string' || value.lastError === null) &&
+    (value.attachmentIds === undefined ||
+      (Array.isArray(value.attachmentIds) &&
+        value.attachmentIds.every((id) => typeof id === 'string')))
   );
 }
 

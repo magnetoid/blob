@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T01:21:53'
-updated: '2026-08-21T01:21:53'
+created: '2026-08-21T03:46:44'
+updated: '2026-08-21T03:46:44'
 ---
 
 # Repository Map
@@ -129,10 +129,10 @@ Modules and their key symbols (ranked by references).
   - `close_redis()` (function)
   - `typing_key(channel_id: str, user_id: str)` (function)
   - `rate_key(bucket: str, subject: str)` (function)
-- **apps/api/src/blob_api/lib/storage.py** — 10 symbol(s)
+- **apps/api/src/blob_api/lib/storage.py** — 11 symbol(s)
   - `public_file_url(key: str)` (function)
-  - `_build(endpoint: str)` (function)
   - `_client()` (function)
+  - `_build(endpoint: str)` (function)
   - `_signing_client()` (function)
   - `presign_download(key: str, filename: str | None=None, mime: str | None=None)` (function)
 - **apps/api/src/blob_api/main.py** — 7 symbol(s)

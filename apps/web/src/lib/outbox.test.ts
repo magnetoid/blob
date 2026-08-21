@@ -36,6 +36,7 @@ const sampleEntry: LocalOutboxEntry = {
   channelId: 'chan-1',
   threadRootId: null,
   body: 'Queued hello',
+  attachmentIds: [],
   createdAt: '2026-08-20T12:00:00.000Z',
   status: 'queued',
   attempts: 1,
@@ -68,6 +69,32 @@ describe('outbox persistence', () => {
 
   it('drops invalid persisted payloads', () => {
     storage.setItem(STORAGE_KEY, JSON.stringify({ broken: { nope: true } }));
+
+    expect(loadOutbox()).toEqual({});
+  });
+
+  // One bad entry discards the whole outbox, so an entry written before attachments
+  // existed has to keep validating — otherwise shipping this drops queued messages.
+  it('adopts entries written before attachments existed', () => {
+    const legacy = { ...sampleEntry } as Partial<LocalOutboxEntry>;
+    delete legacy.attachmentIds;
+    storage.setItem(STORAGE_KEY, JSON.stringify({ [sampleEntry.clientMsgId]: legacy }));
+
+    expect(loadOutbox()).toEqual({ [sampleEntry.clientMsgId]: sampleEntry });
+  });
+
+  it('keeps attachment ids through a round trip', () => {
+    const withFiles = { ...sampleEntry, attachmentIds: ['att-1', 'att-2'] };
+    persistOutbox({ [withFiles.clientMsgId]: withFiles });
+
+    expect(loadOutbox()[withFiles.clientMsgId]?.attachmentIds).toEqual(['att-1', 'att-2']);
+  });
+
+  it('rejects attachment ids that are not strings', () => {
+    storage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ [sampleEntry.clientMsgId]: { ...sampleEntry, attachmentIds: [7] } }),
+    );
 
     expect(loadOutbox()).toEqual({});
   });

@@ -64,7 +64,12 @@ interface State {
   openChannel: (channelId: string) => Promise<void>;
   loadOlder: (channelId: string) => Promise<void>;
   openThread: (rootId: string | null) => Promise<void>;
-  sendMessage: (channelId: string, body: string, threadRootId?: string | null) => Promise<void>;
+  sendMessage: (
+    channelId: string,
+    body: string,
+    threadRootId?: string | null,
+    attachmentIds?: string[],
+  ) => Promise<void>;
   retryQueuedMessage: (clientMsgId: string) => Promise<void>;
   discardQueuedMessage: (clientMsgId: string) => void;
   messageDeliveryState: (message: Message) => LocalMessageDeliveryStatus | null;
@@ -188,6 +193,7 @@ export const useStore = create<State>((set, get) => ({
           body: latest.body,
           clientMsgId: latest.clientMsgId,
           threadRootId: latest.threadRootId,
+          attachmentIds: latest.attachmentIds,
         });
         setOutbox(set, get, (outbox) => {
           const next = { ...outbox };
@@ -297,7 +303,7 @@ export const useStore = create<State>((set, get) => ({
     }));
   },
 
-  sendMessage: async (channelId, body, threadRootId = null) => {
+  sendMessage: async (channelId, body, threadRootId = null, attachmentIds = []) => {
     const user = get().currentUser;
     if (!user) return;
 
@@ -307,6 +313,7 @@ export const useStore = create<State>((set, get) => ({
       channelId,
       threadRootId,
       body,
+      attachmentIds,
       createdAt: new Date().toISOString(),
       status: get().status === 'online' ? 'sending' : 'queued',
       attempts: 0,
@@ -322,6 +329,7 @@ export const useStore = create<State>((set, get) => ({
         body,
         clientMsgId,
         threadRootId,
+        attachmentIds,
       });
       setOutbox(set, get, (outbox) => {
         const next = { ...outbox };

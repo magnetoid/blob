@@ -18,7 +18,7 @@ from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import new_id
 from ..lib.rate_limit import consume
-from ..lib.storage import build_object_key, presign_download, presign_upload
+from ..lib.storage import build_object_key, ensure_bucket, presign_download, presign_upload
 from ..schemas.base import CamelModel
 from ..schemas.requests import UploadCompleteInput, UploadRequestInput
 
@@ -59,6 +59,7 @@ async def create_upload(
 ) -> UploadTicket:
     """Step 1: ask for somewhere to put the file."""
     await consume("upload", user.id)
+    await ensure_bucket()
 
     extension = payload.filename.rsplit(".", 1)[-1].lower() if "." in payload.filename else ""
     if extension in BLOCKED_EXTENSIONS:

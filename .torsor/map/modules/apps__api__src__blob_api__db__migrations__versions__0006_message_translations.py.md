@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T01:21:53'
-updated: '2026-08-21T01:21:53'
+created: '2026-08-21T03:46:45'
+updated: '2026-08-21T03:46:45'
 ---
 
 # apps/api/src/blob_api/db/migrations/versions/0006_message_translations.py
