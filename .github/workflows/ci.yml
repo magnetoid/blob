@@ -34,17 +34,6 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 20
-      # Without a bucket the attachment and feedback-snapshot tests skip rather than
-      # fail, which is the worst outcome: green, and proving nothing.
-      minio:
-        image: bitnami/minio:latest
-        env:
-          MINIO_ROOT_USER: blobadmin
-          MINIO_ROOT_PASSWORD: blobadmin123
-        ports: ['9000:9000']
-        options: >-
-          --health-cmd "mc ready local"
-          --health-interval 5s --health-timeout 5s --health-retries 30
 
     env:
       NODE_ENV: test
@@ -59,6 +48,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # Not a service container: MinIO needs `server /data` as its command, and the
+      # services block cannot set one. Started here so the attachment and snapshot tests
+      # run for real — without a bucket they skip, which is green while proving nothing.
+      - name: Start object storage
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=blobadmin -e MINIO_ROOT_PASSWORD=blobadmin123 \
+            minio/minio:latest server /data
+          for _ in $(seq 1 40); do
+            if curl -sf http://localhost:9000/minio/health/live; then echo "storage up"; exit 0; fi
+            sleep 2
+          done
+          echo "storage never became healthy"; docker logs minio; exit 1
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
