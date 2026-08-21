@@ -34,6 +34,13 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   missing; the ticket/PUT/complete flow and `attachmentIds` on send already existed. The
   bucket is created on first upload rather than by an init container, because a container
   that exits makes `docker compose up --wait` report failure even on exit 0.
+- **Feedback tickets** — filed by anyone from the user menu, read by admins only, since a
+  page snapshot can contain a private channel. Carries the console log and the page as
+  the reporter saw it, both captured when the dialog opens rather than on submit.
+- **Agents from a repository** — `blob-app.json` read from GitHub, scopes approved, then
+  deployed as a container by a runner that is not this process. See ADR 0010. Hosting is
+  off unless `AGENT_RUNNER` is set, and the Coolify calls have not yet been exercised
+  against a live deploy — only against a stub.
 
 ## In progress
 
@@ -43,11 +50,19 @@ Nothing. 231 tests pass; ruff, mypy --strict and tsc are clean.
 
 - **17 · Blocks** — seven types, `messages.blocks` already in the schema,
   `BlockRenderer.tsx`, `/api/interactions` validating `actionId` against stored blocks.
-- **18 · Local plugin runtime** — importlib discovery under `PLUGINS_DIR`, decorator API,
-  per-plugin KV, circuit breaker, boot quarantine.
+  Wanted sooner now than the numbering suggests: structured output from an agent, in the
+  conversation rather than beside it, *is* blocks.
+- **Agent deployment, second half** — the console shows no live status or logs for a
+  hosted agent. `GET /{id}/deployment`, `redeploy` and `stop` exist and are tested;
+  nothing renders them.
 - **19 · Slash commands** — conflict resolution at install; ephemeral, in-channel and
   deferred responses.
-- **20 · Plugin admin console** — the screen over the existing admin API.
+- **18 · Local plugin runtime** — importlib discovery under `PLUGINS_DIR`, decorator API,
+  per-plugin KV, circuit breaker, boot quarantine. Less urgent than it was: an agent from
+  a repository now runs as a container, which is what people actually wanted this for,
+  without the in-process trust ADR 0009 refuses.
+- **20 · Plugin admin console** — largely built as the Apps section; what remains is the
+  deployment surface above.
 
 ## Gaps in what already ships
 
