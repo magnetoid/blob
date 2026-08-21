@@ -187,6 +187,7 @@ def create_app() -> FastAPI:
     from .routers.auth import router as auth_router
     from .routers.bot_api import router as bot_api_router
     from .routers.channels import router as channel_router
+    from .routers.feedback import router as feedback_router
     from .routers.files import router as file_router
     from .routers.messages import router as message_router
     from .routers.plugins import router as plugin_router
@@ -201,6 +202,7 @@ def create_app() -> FastAPI:
     app.include_router(agentic_router)
     app.include_router(search_router)
     app.include_router(file_router)
+    app.include_router(feedback_router)
     app.include_router(admin_router)
     app.include_router(theme_router)
     app.include_router(plugin_router)

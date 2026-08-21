@@ -255,6 +255,9 @@ button {
 .shell {
   display: grid;
   grid-template-columns: var(--rail-width) var(--sidebar-width) minmax(0, 1fr);
+  /* A row for the bar, then the rest. The bar spans every column, so the user menu is
+     reachable from the conversation, search, preferences and administration alike. */
+  grid-template-rows: var(--topbar-height) minmax(0, 1fr);
   height: 100%;
   overflow: hidden;
   background: var(--bg);
@@ -266,6 +269,159 @@ button {
   grid-template-columns:
     var(--rail-width) var(--sidebar-width)
     minmax(0, 1fr) var(--panel-width);
+}
+
+/* ─── top bar ────────────────────────────────────────────────────────────── */
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--hairline-soft);
+  background: var(--bg-rail);
+}
+
+.topbar-brand {
+  font-size: var(--text-row);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-2);
+}
+
+.topbar-spacer {
+  flex: 1;
+}
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.user-menu-trigger:hover {
+  background: var(--surface-hover);
+}
+
+.user-menu-trigger svg {
+  color: var(--text-4);
+  transition: transform 120ms ease;
+}
+
+.user-menu-trigger[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.user-menu-avatar {
+  position: relative;
+  display: flex;
+}
+
+.user-menu-name {
+  max-width: 160px;
+  overflow: hidden;
+  font-size: var(--text-row);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu-panel {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 232px;
+  padding: 5px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+}
+
+.user-menu-header {
+  padding: 8px 9px 10px;
+  border-bottom: 1px solid var(--hairline-soft);
+  margin-bottom: 5px;
+}
+
+.user-menu-header-name {
+  font-size: var(--text-row);
+  font-weight: 600;
+}
+
+.user-menu-header-email {
+  overflow: hidden;
+  font-size: var(--text-2xs);
+  color: var(--text-4);
+  text-overflow: ellipsis;
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-row);
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-menu-item:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.user-menu-item:disabled {
+  color: var(--disabled-fg);
+  cursor: default;
+}
+
+.user-menu-soon {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: var(--text-2xs);
+  color: var(--text-4);
+}
+
+/* ─── profile ────────────────────────────────────────────────────────────── */
+.profile-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 24px 0 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.profile-preview-name {
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.profile-preview-meta {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--text-4);
 }
 
 /* ─── rail ───────────────────────────────────────────────────────────────── */
@@ -2207,4 +2363,92 @@ select.chip {
   color: var(--text-3);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ─── feedback tickets ───────────────────────────────────────────────────── */
+.feedback-kind {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: var(--text-2xs);
+  text-transform: capitalize;
+  color: var(--text-4);
+}
+
+.feedback-kind[data-kind='bug'] {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 25%, var(--hairline));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+
+.feedback-kind[data-kind='feature'] {
+  color: var(--accent);
+  border-color: var(--accent-border-soft);
+  background: var(--accent-wash-soft);
+}
+
+.feedback-detail {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.feedback-body {
+  margin: 0 0 14px;
+  font-size: var(--text-row);
+  white-space: pre-wrap;
+}
+
+.feedback-env {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px 18px;
+  margin: 0 0 14px;
+}
+
+.feedback-env dt {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-4);
+}
+
+.feedback-env dd {
+  margin: 1px 0 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+}
+
+.feedback-log {
+  max-height: 320px;
+  margin: 14px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+/* The reporter's page, rendered back. Sandboxed here and served under a CSP that
+   forbids scripts and network access, because this markup came from their browser. */
+.feedback-snapshot {
+  width: 100%;
+  height: 460px;
+  margin-top: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.feedback-delete {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 25%, var(--hairline));
 }

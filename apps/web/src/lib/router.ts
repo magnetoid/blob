@@ -16,6 +16,7 @@ export const ADMIN_SECTIONS = [
   'invitations',
   'channels',
   'apps',
+  'feedback',
   'themes',
   'audit',
   'settings',
@@ -27,6 +28,7 @@ export type Route =
   | { view: 'messages' }
   | { view: 'search' }
   | { view: 'settings' }
+  | { view: 'profile' }
   | { view: 'admin'; section: AdminSection };
 
 export type View = Route['view'];
@@ -37,6 +39,7 @@ export function parseRoute(path: string): Route {
 
   if (clean === '/search') return { view: 'search' };
   if (clean === '/settings') return { view: 'settings' };
+  if (clean === '/profile') return { view: 'profile' };
 
   if (clean === '/admin') return { view: 'admin', section: 'people' };
   const admin = clean.match(/^\/admin\/([^/]+)$/);
@@ -57,6 +60,8 @@ export function pathForRoute(route: Route): string {
       return '/search';
     case 'settings':
       return '/settings';
+    case 'profile':
+      return '/profile';
     case 'admin':
       return `/admin/${route.section}`;
     default:

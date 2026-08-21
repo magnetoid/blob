@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T03:48:04'
-updated: '2026-08-21T03:48:04'
+created: '2026-08-21T05:52:32'
+updated: '2026-08-21T05:52:32'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -40,3 +40,4 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L693 `PluginGrant` (class)
 - L707 `BotToken` (class)
 - L721 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
+- L755 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.

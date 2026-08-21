@@ -752,6 +752,45 @@ class PluginDelivery(Base):
     delivered_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
+class FeedbackTicket(Base):
+    """Added by 0007. A bug report, feature request or note, with its diagnostics."""
+
+    __tablename__ = "feedback_tickets"
+    __table_args__ = (
+        CheckConstraint("kind IN ('bug', 'feedback', 'feature')", name="feedback_kind_valid"),
+        CheckConstraint("status IN ('open', 'closed')", name="feedback_status_valid"),
+        Index("feedback_tickets_recent", "workspace_id", text("created_at DESC")),
+        Index(
+            "feedback_tickets_open",
+            "workspace_id",
+            text("created_at DESC"),
+            postgresql_where=text("status = 'open'"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    reporter_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'open'"))
+    environment: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    console_log: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    snapshot_key: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    resolved_at: Mapped[Any | None] = mapped_column(Timestamp)
+    resolved_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
 __all__ = [
     "AgentTask",
     "Attachment",
@@ -761,6 +800,7 @@ __all__ = [
     "Channel",
     "ChannelMember",
     "CustomEmoji",
+    "FeedbackTicket",
     "Invite",
     "Message",
     "PasswordReset",

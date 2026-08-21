@@ -23,18 +23,10 @@ from ..lib.redis import redis
 from ..realtime import hub
 from ..schemas.base import CamelModel, iso, require_iso
 from ..services import audit as audit_service
-from ..services.audit import Actor, AuditEntry
+from ..services.audit import AuditEntry, actor_for
 from ..services.serialize import USER_COLUMNS, to_user
 
 router = APIRouter(tags=["admin"], prefix="/api/admin")
-
-
-def actor_for(request: Request, user: SessionUser) -> Actor:
-    return Actor(
-        id=user.id,
-        workspace_id=user.workspace_id,
-        ip=request.client.host if request.client else None,
-    )
 
 
 # ─── payloads ─────────────────────────────────────────────────────────────────

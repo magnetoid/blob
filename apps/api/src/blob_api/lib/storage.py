@@ -146,6 +146,19 @@ async def delete_object(key: str) -> None:
     await asyncio.to_thread(_client().delete_object, Bucket=settings.S3_BUCKET, Key=key)
 
 
+async def get_object(key: str) -> bytes:
+    """Read an object through the app rather than redirecting the browser to it.
+
+    Used where the response headers matter — a feedback snapshot is markup captured from
+    a browser, and it is served under a CSP this process controls.
+    """
+    response = await asyncio.to_thread(
+        _client().get_object, Bucket=settings.S3_BUCKET, Key=key
+    )
+    body: bytes = await asyncio.to_thread(response["Body"].read)
+    return body
+
+
 async def put_object(key: str, body: bytes, mime: str) -> None:
     await asyncio.to_thread(
         _client().put_object, Bucket=settings.S3_BUCKET, Key=key, Body=body, ContentType=mime

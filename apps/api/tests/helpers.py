@@ -7,7 +7,7 @@ import subprocess
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -63,6 +63,9 @@ async def _inspect_schema() -> tuple[bool, bool]:
 class Response:
     status: int
     body: Any
+    #: Only a few tests care, but a response header can be the whole assertion —
+    #: a snapshot is only safe to render because of the policy it is served under.
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 class Client:
@@ -79,7 +82,11 @@ class Client:
             payload = response.json() if response.content else None
         except ValueError:
             payload = response.text
-        return Response(status=response.status_code, body=payload)
+        return Response(
+            status=response.status_code,
+            body=payload,
+            headers={k.lower(): v for k, v in response.headers.items()},
+        )
 
     async def get(self, url: str) -> Response:
         return await self.request("GET", url)

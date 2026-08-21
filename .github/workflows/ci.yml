@@ -34,12 +34,28 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 20
+      # Without a bucket the attachment and feedback-snapshot tests skip rather than
+      # fail, which is the worst outcome: green, and proving nothing.
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: blobadmin
+          MINIO_ROOT_PASSWORD: blobadmin123
+        ports: ['9000:9000']
+        options: >-
+          --health-cmd "mc ready local"
+          --health-interval 5s --health-timeout 5s --health-retries 30
 
     env:
       NODE_ENV: test
       DATABASE_URL: postgres://blob:blob@localhost:5432/blob_test
       REDIS_URL: redis://localhost:6379/15
       SESSION_SECRET: ci-secret-that-is-at-least-32-characters-long
+      S3_ENDPOINT: http://localhost:9000
+      S3_BUCKET: blob-test
+      S3_ACCESS_KEY: blobadmin
+      S3_SECRET_KEY: blobadmin123
+      S3_FORCE_PATH_STYLE: 'true'
 
     steps:
       - uses: actions/checkout@v4

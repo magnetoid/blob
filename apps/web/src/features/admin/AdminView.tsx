@@ -25,6 +25,7 @@ import { Avatar } from '../../components/Avatar.tsx';
 import { SearchIcon } from '../../components/Icon.tsx';
 import { formatRelative } from '../messages/MessageRow.tsx';
 import { navigate, type AdminSection } from '../../lib/router.ts';
+import { FeedbackSection } from './FeedbackSection.tsx';
 import { ThemesSection } from './ThemesSection.tsx';
 
 type Section = AdminSection;
@@ -34,6 +35,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'invitations', label: 'Invitations' },
   { id: 'channels', label: 'Channels' },
   { id: 'apps', label: 'Apps' },
+  { id: 'feedback', label: 'Feedback' },
   { id: 'themes', label: 'Themes' },
   { id: 'audit', label: 'Audit log' },
   { id: 'settings', label: 'Settings' },
@@ -112,6 +114,7 @@ export function AdminView({ section }: { section: Section }) {
             {section === 'invitations' && <InvitationsSection onError={setError} />}
             {section === 'channels' && <ChannelsSection onError={setError} />}
             {section === 'apps' && <AppsSection onError={setError} />}
+            {section === 'feedback' && <FeedbackSection onError={setError} />}
             {section === 'themes' && <ThemesSection onError={setError} />}
             {section === 'audit' && <AuditSection />}
             {section === 'settings' && <SettingsSection onError={setError} />}

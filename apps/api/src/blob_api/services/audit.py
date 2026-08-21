@@ -11,9 +11,11 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..lib.auth import SessionUser
 from ..lib.ids import new_id
 from ..schemas.base import CamelModel, require_iso
 
@@ -64,6 +66,15 @@ class Actor:
     id: str
     workspace_id: str
     ip: str | None = None
+
+
+def actor_for(request: Request, user: SessionUser) -> Actor:
+    """Who did it, and from where. The address is what makes the log forensic."""
+    return Actor(
+        id=user.id,
+        workspace_id=user.workspace_id,
+        ip=request.client.host if request.client else None,
+    )
 
 
 class AuditEntry(CamelModel):

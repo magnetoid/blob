@@ -8,6 +8,7 @@ import type {
   Theme,
   ChannelWithState,
   CurrentUser,
+  FeedbackTicket,
   Message,
   MessageTranslation,
   NotifyLevel,
@@ -416,6 +417,25 @@ export const api = {
 
   sync: (cursors: Record<string, string>) =>
     get<SyncResponse>(`/api/sync?cursors=${encodeURIComponent(JSON.stringify(cursors))}`),
+
+  feedback: {
+    submit: (input: {
+      kind: 'bug' | 'feedback' | 'feature';
+      title: string;
+      body: string;
+      environment: Record<string, string>;
+      consoleLog: string;
+      snapshot: string;
+    }) => post<{ ticket: FeedbackTicket }>('/api/feedback', input),
+    list: (status?: 'open' | 'closed') =>
+      get<{ tickets: FeedbackTicket[] }>(
+        `/api/admin/feedback${status ? `?status=${status}` : ''}`,
+      ),
+    setStatus: (id: string, status: 'open' | 'closed') =>
+      patch<{ ticket: FeedbackTicket }>(`/api/admin/feedback/${id}`, { status }),
+    remove: (id: string) => del<{ ok: true }>(`/api/admin/feedback/${id}`),
+    snapshotUrl: (id: string) => `/api/admin/feedback/${id}/snapshot`,
+  },
 
   uploads: {
     create: (input: { filename: string; mime: string; sizeBytes: number }) =>

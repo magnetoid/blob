@@ -207,3 +207,18 @@ class UpdateAgentTaskInput(CamelModel):
 class TranslateMessageInput(CamelModel):
     target_language: str | None = Field(default=None, min_length=2, max_length=16)
     force_refresh: bool = False
+
+
+class FeedbackInput(CamelModel):
+    kind: Literal["bug", "feedback", "feature"]
+    title: str = Field(min_length=1, max_length=140)
+    body: str = Field(default="", max_length=8000)
+    #: Captured by the browser at the moment of reporting; all optional, because a
+    #: ticket with no diagnostics is still worth more than no ticket.
+    environment: dict[str, str] = Field(default_factory=dict)
+    console_log: str = Field(default="", max_length=64_000)
+    snapshot: str = Field(default="", max_length=2_000_000)
+
+
+class FeedbackStatusInput(CamelModel):
+    status: Literal["open", "closed"]

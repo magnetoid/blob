@@ -1,20 +1,21 @@
 /** The 64px navigation rail: view switching plus your own avatar. */
 
 import { useStore } from '../../lib/store.ts';
-import { Avatar } from '../../components/Avatar.tsx';
+import type { View } from '../../lib/router.ts';
 import { MembersIcon, MessagesIcon, SearchIcon, SettingsIcon } from '../../components/Icon.tsx';
 
-export type RailView = 'messages' | 'search' | 'admin' | 'settings';
+/** Views the rail can switch to. Profile has no rail button; it lives in the user menu. */
+export type RailView = Exclude<View, 'profile'>;
 
 interface Props {
-  view: RailView;
+  /** The whole app's view, so a screen the rail cannot reach simply presses nothing. */
+  view: View;
   onChange: (view: RailView) => void;
 }
 
 export function Rail({ view, onChange }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
-  const status = useStore((s) => s.status);
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
   return (
@@ -59,16 +60,9 @@ export function Rail({ view, onChange }: Props) {
         <SettingsIcon size={19} strokeWidth={1.6} />
       </button>
 
+      {/* The avatar used to sit here. It is in the top-right user menu now, which is
+          where someone coming from Slack looks for it. */}
       <div className="rail-spacer" />
-
-      <span className="rail-avatar">
-        <Avatar user={currentUser ?? undefined} />
-        <span
-          className="presence-dot"
-          data-state={status === 'online' ? 'active' : 'offline'}
-          title={status === 'online' ? 'Connected' : 'Reconnecting…'}
-        />
-      </span>
     </nav>
   );
 }

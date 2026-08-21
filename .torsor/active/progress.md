@@ -64,9 +64,6 @@ Not features — places where working code is unprotected.
 - **Almost no frontend tests.** Two files are covered — the outbox and the router — out of
   roughly 26 under `apps/web/src`, and `vitest` still runs with `--passWithNoTests`. The
   theme token logic and the socket reconnect path are the two worth covering next.
-- **No object-storage test.** The upload path is exercised by hand and by the browser, not
-  by CI: the presign/PUT/complete round trip needs a bucket, and the `image` job does not
-  start one.
 
 ## Deferred
 - **Huddles** and the **AI layer** — see the build plan.

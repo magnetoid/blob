@@ -223,3 +223,20 @@ export interface Bootstrap {
   customEmoji: { name: string; url: string }[];
   themes: Theme[];
 }
+
+/** A bug report, feature request or note, filed from the user menu. */
+export interface FeedbackTicket {
+  id: string;
+  kind: 'bug' | 'feedback' | 'feature';
+  title: string;
+  body: string;
+  status: 'open' | 'closed';
+  reporterId: string | null;
+  environment: Record<string, string>;
+  consoleLog: string;
+  /** The snapshot is fetched by its own endpoint; a list never carries the markup. */
+  hasSnapshot: boolean;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+}

@@ -43,6 +43,9 @@ lives in [TEAM-CHAT-BUILD-PLAN.md](TEAM-CHAT-BUILD-PLAN.md).
 - **Files** — attach by button, drag-and-drop, or pasting a screenshot straight into the
   composer. Uploads go to object storage directly, so file bytes never pass through the
   API process.
+- **Feedback** — anyone can report a bug, request a feature or leave a note from the user
+  menu. The ticket carries the browser console and a snapshot of the page as the reporter
+  saw it, and lands in the admin console where it can be read, closed or deleted.
 
 Not built yet: huddles, message blocks, the local plugin runtime, slash commands, and the
 AI layer. See the plan's roadmap for the order.

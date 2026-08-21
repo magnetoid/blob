@@ -13,6 +13,7 @@ from ..schemas.models import (
     Channel,
     ChannelWithState,
     CurrentUser,
+    FeedbackTicket,
     LinkPreview,
     Membership,
     Message,
@@ -256,3 +257,22 @@ MESSAGE_SELECT = """
      WHERE a.message_id = m.id
   ), '[]'::json) AS attachments
 """
+
+
+def to_feedback_ticket(row: Any) -> FeedbackTicket:
+    return FeedbackTicket(
+        id=row.id,
+        kind=row.kind,
+        title=row.title,
+        body=row.body,
+        status=row.status,
+        reporter_id=row.reporter_id,
+        environment={str(k): str(v) for k, v in (row.environment or {}).items()},
+        console_log=row.console_log or "",
+        # The snapshot is fetched by its own endpoint, so the ticket only says whether
+        # one exists — a list of tickets must not drag megabytes of markup with it.
+        has_snapshot=bool(row.snapshot_key),
+        created_at=require_iso(row.created_at),
+        resolved_at=iso(row.resolved_at),
+        resolved_by=row.resolved_by,
+    )

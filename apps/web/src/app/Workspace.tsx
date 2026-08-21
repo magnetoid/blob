@@ -1,10 +1,10 @@
-/** The signed-in shell: rail, sidebar, main view, optional thread panel. */
+/** The signed-in shell: top bar, rail, sidebar, main view, optional thread panel. */
 
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store.ts';
 import { socket } from '../lib/socket.ts';
 import { navigate, parseRoute, pathForRoute, pathForView, usePath } from '../lib/router.ts';
-import { Rail, type RailView } from '../features/channels/Rail.tsx';
+import { Rail } from '../features/channels/Rail.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
@@ -12,6 +12,9 @@ import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
 import { AdminView } from '../features/admin/AdminView.tsx';
 import { SettingsView } from '../features/settings/SettingsView.tsx';
+import { ProfileView } from '../features/settings/ProfileView.tsx';
+import { TopBar } from '../features/shell/TopBar.tsx';
+import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
@@ -24,10 +27,11 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   const path = usePath();
   const route = parseRoute(path);
-  const view: RailView = route.view;
+  const view = route.view;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Two jobs, one effect: send a member who typed /admin back to the conversation, and
   // rewrite a stale or misspelt URL to the route it actually resolved to, so the address
@@ -84,6 +88,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   return (
     <div className="shell" data-panel={panelOpen ? 'open' : 'closed'}>
+      <TopBar onFeedback={() => setFeedbackOpen(true)} />
       <Rail view={view} onChange={(next) => navigate(pathForView(next))} />
       <Sidebar onOpenSearch={() => navigate('/search')} />
 
@@ -91,9 +96,11 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {view === 'search' && <SearchView />}
       {route.view === 'admin' && isAdmin && <AdminView section={route.section} />}
       {view === 'settings' && <SettingsView onSignedOut={onSignedOut} />}
+      {view === 'profile' && <ProfileView />}
 
       {panelOpen && <ThreadPanel rootId={activeThreadRootId as string} />}
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+      {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
     </div>
   );
 }

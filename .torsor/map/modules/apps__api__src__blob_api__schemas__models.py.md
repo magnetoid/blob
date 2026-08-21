@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T03:48:04'
-updated: '2026-08-21T03:48:04'
+created: '2026-08-21T05:52:32'
+updated: '2026-08-21T05:52:32'
 ---
 
 # apps/api/src/blob_api/schemas/models.py
@@ -32,3 +32,4 @@ Symbols in `apps/api/src/blob_api/schemas/models.py`.
 - L212 `MessageTranslation` (class)
 - L225 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
 - L236 `ReadStateOut` (class)
+- L242 `FeedbackTicket` (class)

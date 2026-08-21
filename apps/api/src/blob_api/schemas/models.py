@@ -237,3 +237,18 @@ class ReadStateOut(CamelModel):
     channel_id: str
     last_read_message_id: str | None = None
     mention_count: int = 0
+
+
+class FeedbackTicket(CamelModel):
+    id: str
+    kind: Literal["bug", "feedback", "feature"]
+    title: str
+    body: str
+    status: Literal["open", "closed"]
+    reporter_id: str | None = None
+    environment: dict[str, str] = Field(default_factory=dict)
+    console_log: str = ""
+    has_snapshot: bool = False
+    created_at: str
+    resolved_at: str | None = None
+    resolved_by: str | None = None

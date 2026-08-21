@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T03:48:04'
-updated: '2026-08-21T03:48:04'
+created: '2026-08-21T05:52:31'
+updated: '2026-08-21T05:52:31'
 ---
 
 # Repository Map
@@ -59,7 +59,11 @@ Modules and their key symbols (ranked by references).
   - `_now()` (function)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 28 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0007_feedback_tickets.py** — 3 symbol(s)
+  - `_uuid()` (function)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 29 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -129,9 +133,9 @@ Modules and their key symbols (ranked by references).
   - `close_redis()` (function)
   - `typing_key(channel_id: str, user_id: str)` (function)
   - `rate_key(bucket: str, subject: str)` (function)
-- **apps/api/src/blob_api/lib/storage.py** — 11 symbol(s)
-  - `public_file_url(key: str)` (function)
+- **apps/api/src/blob_api/lib/storage.py** — 12 symbol(s)
   - `_client()` (function)
+  - `public_file_url(key: str)` (function)
   - `_build(endpoint: str)` (function)
   - `_signing_client()` (function)
   - `presign_download(key: str, filename: str | None=None, mime: str | None=None)` (function)
@@ -172,6 +176,4 @@ Modules and their key symbols (ranked by references).
   - `bot_email(slug: str)` (function)
 - **apps/api/src/blob_api/plugins/signing.py** — 3 symbol(s)
   - `new_secret()` (function)
-  - `sign(secret: str, timestamp: int, body: bytes)` (function)
-  - `verify(secret: str, timestamp: str | None, signature: str | None, body: bytes)` (function)
-- **apps/api/src/blob_api/realtime/hub.py** — 27 symbo…[truncated]
+  - `sign(secret: str, timestamp: int, body…[truncated]

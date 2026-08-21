@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T03:48:04'
-updated: '2026-08-21T03:48:04'
+created: '2026-08-21T05:52:32'
+updated: '2026-08-21T05:52:32'
 ---
 
 # apps/api/src/blob_api/schemas/requests.py
@@ -43,3 +43,5 @@ Symbols in `apps/api/src/blob_api/schemas/requests.py`.
 - L188 `CreateAgentTaskInput` (class)
 - L198 `UpdateAgentTaskInput` (class)
 - L207 `TranslateMessageInput` (class)
+- L212 `FeedbackInput` (class)
+- L223 `FeedbackStatusInput` (class)
