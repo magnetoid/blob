@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T00:27:09'
-updated: '2026-08-22T00:27:09'
+created: '2026-08-22T01:05:35'
+updated: '2026-08-22T01:05:35'
 ---
 
 # Repository Map
@@ -113,11 +113,12 @@ Modules and their key symbols (ranked by references).
   - `send_mail(to: str, subject: str, body: str)` (function)
   - `send_invite(to: str, inviter_name: str, url: str, workspace: str)` (function)
   - `send_password_reset(to: str, url: str)` (function)
-- **apps/api/src/blob_api/lib/mentions.py** — 4 symbol(s)
-  - `MentionResult` (class)
+- **apps/api/src/blob_api/lib/mentions.py** — 6 symbol(s)
   - `strip_code(body: str)` (function)
+  - `MentionResult` (class)
   - `parse_mentions(body: str, name_to_id: dict[str, str])` (function)
-  - `matches_keywords(body: str, keywords: list[str])` (function)
+  - `_simple_lower(value: str)` (function)
+  - `mention_lookup_phrases(body: str)` (function)
 - **apps/api/src/blob_api/lib/net.py** — 4 symbol(s)
   - `is_private_host(hostname: str)` (function)
   - `check_outbound_url(raw_url: str, *, require_https: bool)` (function)
@@ -177,4 +178,4 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/plugins/manifest.py** — 5 symbol(s)
   - `Manifest` (class)
   - `validate_manifest(manifest: Manifest)` (function)
-  - `new_scopes(previous: list[str], requested: list[str])` (funct…[truncated]
+  - `new_scopes(previous: list[str], r…[truncated]
