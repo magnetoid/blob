@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T20:16:23'
-updated: '2026-08-21T20:16:23'
+created: '2026-08-21T20:31:03'
+updated: '2026-08-21T20:31:03'
 ---
 
 # apps/api/tests/test_agent_hosting_config.py
@@ -18,3 +18,9 @@ Symbols in `apps/api/tests/test_agent_hosting_config.py`.
 - L40 `test_fully_configured_hosting_is_on()` (function)
 - L51 `test_coolifys_own_injected_url_is_not_what_we_read()` (function) — The regression guard for the name collision.
 - L69 `test_a_blank_setting_counts_as_unset()` (function)
+- L75 `TestTheHostnameTheRunnerReports` (class) — Coolify reports a hostname in two different shapes, and one of them used to
+- L81 `test_a_scheme_that_is_already_there_is_not_doubled(self)` (method)
+- L89 `test_a_bare_hostname_gets_one(self)` (method)
+- L94 `test_the_first_of_several_domains_wins(self)` (method)
+- L101 `test_nothing_assigned_yet_stays_nothing(self)` (method)
+- L108 `test_what_comes_out_can_always_have_a_path_appended(self)` (method)

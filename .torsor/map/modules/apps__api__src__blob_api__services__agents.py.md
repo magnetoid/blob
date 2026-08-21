@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T20:16:23'
-updated: '2026-08-21T20:16:23'
+created: '2026-08-21T20:31:00'
+updated: '2026-08-21T20:31:00'
 ---
 
 # apps/api/src/blob_api/services/agents.py
@@ -20,4 +20,4 @@ Symbols in `apps/api/src/blob_api/services/agents.py`.
 - L136 `stop(actor: Actor, plugin_id: str)` (function)
 - L157 `_require_deployment(plugin: object)` (function)
 - L167 `_record_deployment(plugin_id: str, deployment: Deployment)` (function)
-- L190 `_record_failure(plugin_id: str, reason: str)` (function)
+- L195 `_record_failure(plugin_id: str, reason: str)` (function)

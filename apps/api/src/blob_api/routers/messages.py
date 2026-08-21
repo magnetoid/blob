@@ -135,6 +135,7 @@ async def send_message(
                 session,
                 workspace_id=user.workspace_id,
                 event="message.created",
+                channel_id=channel_id,
                 payload=result.message.model_dump(by_alias=True),
             )
 
@@ -237,6 +238,7 @@ async def edit_message(
             session,
             workspace_id=user.workspace_id,
             event="message.updated",
+            channel_id=message.channel_id,
             payload=message.model_dump(by_alias=True),
         )
 
@@ -279,6 +281,7 @@ async def delete_message(
             session,
             workspace_id=user.workspace_id,
             event="message.deleted",
+            channel_id=channel_id,
             payload={"id": message_id, "channelId": channel_id},
         )
 
@@ -339,6 +342,7 @@ async def add_reaction(
                 session,
                 workspace_id=user.workspace_id,
                 event="reaction.added",
+                channel_id=existing.channel_id,
                 payload=reaction,
             )
 
@@ -371,6 +375,7 @@ async def remove_reaction(
                 session,
                 workspace_id=user.workspace_id,
                 event="reaction.removed",
+                channel_id=existing.channel_id,
                 payload=reaction,
             )
             after.add(
@@ -448,6 +453,7 @@ async def incoming_webhook(token: str, payload: WebhookPostInput) -> OkOut:
                 session,
                 workspace_id=hook.workspace_id,
                 event="message.created",
+                channel_id=channel_id,
                 payload=result.message.model_dump(by_alias=True),
             )
 

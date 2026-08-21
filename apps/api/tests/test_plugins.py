@@ -591,3 +591,77 @@ async def test_uninstalling_is_audited(team: dict) -> None:
     await team["owner"].delete(f"/api/admin/plugins/{body['plugin']['id']}")
     events = (await team["owner"].get("/api/admin/audit?action=plugin.uninstalled")).body["events"]
     assert events and events[0]["metadata"]["slug"] == "standup-bot"
+
+
+# ─── what an app is allowed to hear ───────────────────────────────────────────
+class TestAnAppHearsOnlyWhatItCouldRead:
+    """The push side has to agree with the pull side.
+
+    docs/apps.md promises a bot's access is scoped exactly as a person's, and the API
+    keeps that promise: a private channel it was not invited to answers 404. The event
+    stream did not. Every app subscribed to `message.created` was handed the body of
+    every message in the workspace — every private channel, every DM — while the
+    endpoint for fetching those same messages refused.
+    """
+
+    async def test_a_public_channel_is_heard_without_joining(self, team: dict) -> None:
+        # A person can read a public channel without being a member, so a bot can too.
+        plugin_id = (await install(team["owner"]))["plugin"]["id"]
+        await send_message(team["owner"], team["general"], "public news")
+        assert await queued(plugin_id) == ["message.created"]
+
+    async def test_a_private_channel_is_not_heard(self, team: dict) -> None:
+        plugin_id = (await install(team["owner"]))["plugin"]["id"]
+        private = (
+            await team["owner"].post(
+                "/api/channels", {"name": "leadership", "kind": "private"}
+            )
+        ).body["channel"]["id"]
+
+        await send_message(team["owner"], private, "not for apps")
+
+        assert await queued(plugin_id) == []
+
+    async def test_a_private_channel_is_heard_once_the_bot_is_in_it(self, team: dict) -> None:
+        body = await install(team["owner"])
+        plugin_id = body["plugin"]["id"]
+        private = (
+            await team["owner"].post("/api/channels", {"name": "invited", "kind": "private"})
+        ).body["channel"]["id"]
+
+        # Invited the way a person would be, using the bot's own user row.
+        bot_user_id = body["plugin"]["botUserId"]
+        await team["owner"].post(f"/api/channels/{private}/members", {"userIds": [bot_user_id]})
+
+        await send_message(team["owner"], private, "now you may hear this")
+        assert await queued(plugin_id) == ["message.created"]
+
+    async def test_a_direct_message_is_not_heard(self, team: dict) -> None:
+        # The most private thing in the product, and it was going to every app.
+        plugin_id = (await install(team["owner"]))["plugin"]["id"]
+        dm = (
+            await team["owner"].post("/api/dms", {"userIds": [team["member"].user_id]})
+        ).body["channel"]["id"]
+
+        await send_message(team["owner"], dm, "just between us")
+
+        assert await queued(plugin_id) == []
+
+
+async def test_a_channel_event_without_a_channel_is_refused(team: dict) -> None:
+    """The guard that keeps this fixed.
+
+    A channel-scoped event emitted without its channel would deliver to everyone, so it
+    raises rather than falling back to the old behaviour.
+    """
+    from blob_api.db.engine import SessionFactory
+    from blob_api.plugins import events as plugin_events
+
+    async with SessionFactory() as session:
+        with pytest.raises(ValueError, match="must be emitted with channel_id"):
+            await plugin_events.emit(
+                session,
+                workspace_id="00000000-0000-0000-0000-000000000000",
+                event="message.created",
+                payload={},
+            )

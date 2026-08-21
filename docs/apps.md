@@ -112,6 +112,13 @@ backlog instead of starting from a pile of failures.
 Your app is never woken by its own messages — otherwise an app that posts on
 `message.created` would answer itself forever.
 
+**You only hear what your bot could read.** Anything that happens in a channel is
+delivered on the same terms the API applies to fetching it: public channels reach every
+app, and a private channel or a DM reaches only an app whose bot was actually invited
+to it. Subscribing to `message.created` is not a way to read the workspace — if you
+need an app to see a private channel, add its bot to that channel the way you would add
+a person.
+
 There are no presence, typing or read-state events, and there will not be. They reveal
 who is at their desk minute by minute, and nothing an app legitimately does needs that.
 

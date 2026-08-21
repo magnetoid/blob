@@ -83,6 +83,7 @@ async def refresh_thread_summary(
             session,
             workspace_id=user.workspace_id,
             event="thread.summary.updated",
+            channel_id=channel_id,
             payload=summary.model_dump(by_alias=True),
         )
     return ThreadSummaryOut(summary=summary)

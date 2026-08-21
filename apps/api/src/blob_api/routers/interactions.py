@@ -78,6 +78,7 @@ async def interact(
             session,
             workspace_id=user.workspace_id,
             event="interaction.triggered",
+            channel_id=str(row.channel_id),
             payload={
                 "messageId": str(row.id),
                 "channelId": str(row.channel_id),

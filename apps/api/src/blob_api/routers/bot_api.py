@@ -199,6 +199,7 @@ async def post_message(
                 session,
                 workspace_id=bot.workspace_id,
                 event="message.created",
+                channel_id=channel_id,
                 payload=message.model_dump(by_alias=True),
                 # Without this an app that posts on message.created answers itself
                 # forever, at whatever rate the network allows.
@@ -252,6 +253,7 @@ async def update_message(
             session,
             workspace_id=bot.workspace_id,
             event="message.updated",
+            channel_id=message.channel_id,
             payload=message.model_dump(by_alias=True),
             exclude_plugin_id=bot.plugin_id,
         )
@@ -297,6 +299,7 @@ async def delete_message(
             session,
             workspace_id=bot.workspace_id,
             event="message.deleted",
+            channel_id=channel_id,
             payload={"id": message_id, "channelId": channel_id},
             exclude_plugin_id=bot.plugin_id,
         )
@@ -409,6 +412,7 @@ async def join_conversation(
             session,
             workspace_id=bot.workspace_id,
             event="member.joined",
+            channel_id=channel_id,
             payload={"channelId": channel_id, "userId": bot.user_id},
             exclude_plugin_id=bot.plugin_id,
         )
@@ -445,6 +449,7 @@ async def summarize_thread(
             session,
             workspace_id=bot.workspace_id,
             event="thread.summary.updated",
+            channel_id=root.channel_id,
             payload=summary.model_dump(by_alias=True),
             exclude_plugin_id=bot.plugin_id,
         )
