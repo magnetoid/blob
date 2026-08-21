@@ -25,6 +25,7 @@ import { Avatar } from '../../components/Avatar.tsx';
 import { SearchIcon } from '../../components/Icon.tsx';
 import { formatRelative } from '../messages/MessageRow.tsx';
 import { navigate, type AdminSection } from '../../lib/router.ts';
+import { DeployAgentForm } from './DeployAgentForm.tsx';
 import { FeedbackSection } from './FeedbackSection.tsx';
 import { ThemesSection } from './ThemesSection.tsx';
 
@@ -520,6 +521,15 @@ function AppsSection({ onError }: { onError: (message: string | null) => void })
             )}
           </div>
         )}
+
+        <DeployAgentForm
+          scopeCatalog={catalog?.scopes ?? {}}
+          onError={onError}
+          onInstalled={(pluginName, signingSecret, botToken) => {
+            setSecretNotice({ pluginName, signingSecret, botToken });
+            load();
+          }}
+        />
 
         <form
           className="admin-app-form"

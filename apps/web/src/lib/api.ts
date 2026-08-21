@@ -118,6 +118,24 @@ export interface AdminPlugin {
   failedDeliveries: number;
 }
 
+export interface AgentRepoPreview {
+  repoUrl: string;
+  ref: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  version: string;
+  build: string;
+  events: string[];
+  scopes: string[];
+}
+
+export interface AgentDeployment {
+  deploymentId: string | null;
+  status: string;
+  url: string | null;
+}
+
 export interface AdminPluginCatalog {
   scopes: Record<string, string>;
   events: Record<string, string>;
@@ -410,6 +428,21 @@ export const api = {
         `/api/admin/plugins/${pluginId}/deliveries?limit=${limit}`,
       ),
     uninstallPlugin: (pluginId: string) => del<{ ok: true }>(`/api/admin/plugins/${pluginId}`),
+
+    // Agents installed from a repository. Preview first: the scopes have to be seen
+    // before anything is approved.
+    previewRepo: (input: { repoUrl: string; ref?: string }) =>
+      post<AgentRepoPreview>('/api/admin/plugins/preview-repo', input),
+    installFromRepo: (input: { repoUrl: string; ref?: string }) =>
+      post<{ plugin: AdminPlugin; signingSecret: string; botToken: string }>(
+        '/api/admin/plugins/from-repo',
+        input,
+      ),
+    deployment: (pluginId: string) =>
+      get<AgentDeployment>(`/api/admin/plugins/${pluginId}/deployment`),
+    redeploy: (pluginId: string) =>
+      post<AgentDeployment>(`/api/admin/plugins/${pluginId}/redeploy`),
+    stopAgent: (pluginId: string) => post<{ ok: true }>(`/api/admin/plugins/${pluginId}/stop`),
   },
 
   search: (q: string) =>

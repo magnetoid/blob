@@ -2452,3 +2452,48 @@ select.chip {
   color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 25%, var(--hairline));
 }
+
+/* ─── deploying an agent from a repository ───────────────────────────────── */
+.agent-preview {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent-border-soft);
+  border-radius: 10px;
+  background: var(--accent-wash-soft);
+}
+
+.agent-scopes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-scopes li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: var(--text-sm);
+}
+
+.agent-scopes code {
+  flex: none;
+  min-width: 150px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-2);
+}
+
+.agent-scopes span {
+  color: var(--text-4);
+}
+
+.agent-deployment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-2xs);
+  color: var(--text-4);
+}
