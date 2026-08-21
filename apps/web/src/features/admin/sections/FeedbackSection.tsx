@@ -8,9 +8,9 @@
 
 import { useEffect, useState } from 'react';
 import type { FeedbackTicket } from '@blob/shared';
-import { api } from '../../lib/api.ts';
-import { useStore } from '../../lib/store.ts';
-import { formatRelative } from '../messages/MessageRow.tsx';
+import { api } from '../../../lib/api.ts';
+import { useStore } from '../../../lib/store.ts';
+import { formatRelative } from '../../messages/MessageRow.tsx';
 
 type Filter = 'open' | 'closed' | 'all';
 

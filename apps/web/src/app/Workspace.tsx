@@ -10,7 +10,7 @@ import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
-import { AdminView } from '../features/admin/AdminView.tsx';
+import { AdminConsole } from '../features/admin/AdminConsole.tsx';
 import { SettingsView } from '../features/settings/SettingsView.tsx';
 import { ProfileView } from '../features/settings/ProfileView.tsx';
 import { TopBar } from '../features/shell/TopBar.tsx';
@@ -86,6 +86,26 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // The thread panel belongs to the conversation view only.
   const panelOpen = view === 'messages' && Boolean(activeThreadRootId);
 
+  // Administration takes the whole window. The rail and channel list are navigation for
+  // a conversation, and none of it helps someone reading an audit log. What does stay is
+  // everything that belongs to the person rather than the view: the top bar with the
+  // account menu, ⌘K, and the feedback dialog — which matters most here, because the
+  // report attaches a snapshot of the screen you are on, and leaving the console to file
+  // one would attach a channel instead of the page that went wrong.
+  if (route.view === 'admin' && isAdmin) {
+    return (
+      <>
+        <AdminConsole
+          section={route.section}
+          detailId={route.detailId}
+          onFeedback={() => setFeedbackOpen(true)}
+        />
+        {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+        {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
+      </>
+    );
+  }
+
   return (
     <div className="shell" data-panel={panelOpen ? 'open' : 'closed'}>
       <TopBar onFeedback={() => setFeedbackOpen(true)} />
@@ -94,7 +114,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
       {view === 'messages' && <ChannelView />}
       {view === 'search' && <SearchView />}
-      {route.view === 'admin' && isAdmin && <AdminView section={route.section} />}
       {view === 'settings' && <SettingsView onSignedOut={onSignedOut} />}
       {view === 'profile' && <ProfileView />}
 

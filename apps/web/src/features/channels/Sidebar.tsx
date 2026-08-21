@@ -215,7 +215,7 @@ function WorkspaceMenu({ name, memberCount }: { name: string; memberCount: numbe
       {open && (
         <div className="workspace-menu" role="menu">
           {isAdmin && (
-            <button className="workspace-menu-item" role="menuitem" onClick={() => go('/admin/people')}>
+            <button className="workspace-menu-item" role="menuitem" onClick={() => go('/admin')}>
               Administration
             </button>
           )}

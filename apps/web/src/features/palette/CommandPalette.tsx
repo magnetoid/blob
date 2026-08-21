@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../lib/api.ts';
+import { navigate } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 
@@ -103,6 +104,10 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     if (!item) return;
     onClose();
     await item.run();
+    // Opening a channel while the console (or search, or preferences) is on screen used
+    // to change what was behind the palette and nothing else. Picking a conversation
+    // means "take me to it".
+    if (item.kind === 'Channel' || item.kind === 'Person') navigate('/');
   }
 
   return (

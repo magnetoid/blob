@@ -23,7 +23,7 @@ interface Item {
 }
 
 const ITEMS: Item[] = [
-  { label: 'Superadmin', path: '/admin/people', adminOnly: true },
+  { label: 'Superadmin', path: '/admin', adminOnly: true },
   { label: 'User profile', path: '/profile' },
   { label: 'Settings', path: '/settings' },
   { label: 'Update', soon: true },

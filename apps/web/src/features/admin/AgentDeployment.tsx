@@ -13,11 +13,13 @@ import { api, ApiError, type AgentDeployment as Deployment } from '../../lib/api
 interface Props {
   pluginId: string;
   repo: string | null;
-  ref: string | null;
+  // Not `ref`. React reserves that name and extracts it from props, so a component
+  // declaring one is handed undefined and silently loses the branch it was showing.
+  gitRef: string | null;
   onError: (message: string | null) => void;
 }
 
-export function AgentDeployment({ pluginId, repo, ref, onError }: Props) {
+export function AgentDeployment({ pluginId, repo, gitRef, onError }: Props) {
   const [deployment, setDeployment] = useState<Deployment | null>(null);
   const [logs, setLogs] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -92,7 +94,7 @@ export function AgentDeployment({ pluginId, repo, ref, onError }: Props) {
         {repo && (
           <a href={repo} target="_blank" rel="noreferrer">
             {repo.replace('https://github.com/', '')}
-            {ref && ref !== 'main' ? `@${ref}` : ''}
+            {gitRef && gitRef !== 'main' ? `@${gitRef}` : ''}
           </a>
         )}
       </div>

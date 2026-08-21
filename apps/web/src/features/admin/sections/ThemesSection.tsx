@@ -8,9 +8,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Theme } from '@blob/shared';
-import { api, ApiError } from '../../lib/api.ts';
-import { useStore } from '../../lib/store.ts';
-import { applyTheme, pickTheme, previewTokens } from '../../lib/theme.ts';
+import { api, ApiError } from '../../../lib/api.ts';
+import { ConfirmDialog } from '../../../components/ConfirmDialog.tsx';
+import { useStore } from '../../../lib/store.ts';
+import { applyTheme, pickTheme, previewTokens } from '../../../lib/theme.ts';
 
 /** Built-in defaults, read off the document so the editor starts from the real values. */
 function currentValue(token: string): string {
@@ -50,6 +51,7 @@ export function ThemesSection({ onError }: { onError: (message: string | null) =
   const [mode, setMode] = useState<'light' | 'dark'>('light');
   const [tokens, setTokens] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<Theme | null>(null);
 
   useEffect(() => {
     void api.themes
@@ -226,19 +228,7 @@ export function ThemesSection({ onError }: { onError: (message: string | null) =
                   <button className="btn" onClick={() => startEdit(theme, false)}>
                     Edit
                   </button>
-                  <button
-                    className="btn"
-                    onClick={async () => {
-                      if (!confirm(`Delete “${theme.name}”?`)) return;
-                      try {
-                        await api.themes.remove(theme.id);
-                        const listed = await api.themes.list();
-                        useStore.setState({ themes: listed.themes });
-                      } catch (err) {
-                        onError(err instanceof ApiError ? err.message : 'Could not delete it.');
-                      }
-                    }}
-                  >
+                  <button className="btn" onClick={() => setDeleting(theme)}>
                     Delete
                   </button>
                 </>
@@ -247,6 +237,29 @@ export function ThemesSection({ onError }: { onError: (message: string | null) =
           </div>
         ))}
       </div>
+
+      {deleting && (
+        <ConfirmDialog
+          title={`Delete “${deleting.name}”?`}
+          body="Anyone using it falls back to the workspace default."
+          confirmLabel="Delete"
+          danger
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            const theme = deleting;
+            setDeleting(null);
+            void (async () => {
+              try {
+                await api.themes.remove(theme.id);
+                const listed = await api.themes.list();
+                useStore.setState({ themes: listed.themes });
+              } catch (err) {
+                onError(err instanceof ApiError ? err.message : 'Could not delete it.');
+              }
+            })();
+          }}
+        />
+      )}
     </section>
   );
 }

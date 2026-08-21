@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ADMIN_SECTIONS, parseRoute, pathForRoute, pathForView, type Route } from './router.ts';
+import {
+  ADMIN_DETAIL_SECTIONS,
+  ADMIN_SECTIONS,
+  parseRoute,
+  pathForRoute,
+  pathForView,
+  type Route,
+} from './router.ts';
 
 describe('parseRoute', () => {
   it('reads the top-level views', () => {
@@ -26,9 +33,27 @@ describe('parseRoute', () => {
   // A bad link should land somewhere usable, not on a blank pane.
   it('falls back to messages for anything unknown', () => {
     expect(parseRoute('/admin/nonsense')).toEqual({ view: 'messages' });
-    expect(parseRoute('/admin/people/extra')).toEqual({ view: 'messages' });
     expect(parseRoute('/join/some-token')).toEqual({ view: 'messages' });
     expect(parseRoute('/nope')).toEqual({ view: 'messages' });
+  });
+
+  it('reads a detail page under a section that has one', () => {
+    expect(parseRoute('/admin/people/u123')).toEqual({
+      view: 'admin',
+      section: 'people',
+      detailId: 'u123',
+    });
+  });
+
+  // The second segment is only meaningful where a detail page exists. Elsewhere it is a
+  // malformed link, and rendering the list while ignoring half the URL hides that.
+  it('refuses a detail id on a section without detail pages', () => {
+    expect(parseRoute('/admin/audit/u123')).toEqual({ view: 'messages' });
+    expect(parseRoute('/admin/settings/anything')).toEqual({ view: 'messages' });
+  });
+
+  it('never reads more than two segments', () => {
+    expect(parseRoute('/admin/people/u123/extra')).toEqual({ view: 'messages' });
   });
 
   // 'settings' names both a top-level view and an admin section; they must not collide.
@@ -45,6 +70,11 @@ describe('pathForRoute', () => {
       { view: 'search' },
       { view: 'settings' },
       ...ADMIN_SECTIONS.map((section) => ({ view: 'admin' as const, section })),
+      ...ADMIN_DETAIL_SECTIONS.map((section) => ({
+        view: 'admin' as const,
+        section,
+        detailId: 'abc123',
+      })),
     ];
     for (const route of routes) {
       expect(parseRoute(pathForRoute(route))).toEqual(route);

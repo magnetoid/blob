@@ -117,6 +117,19 @@ button {
   border-color: var(--accent-hover);
 }
 
+/* For the confirm button of something destructive: the last word you read before a
+   channel is archived should not look like the word for "save". */
+.btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: var(--accent-contrast);
+}
+
 .btn-ghost {
   height: 32px;
   padding: 0 10px;
@@ -2059,6 +2072,112 @@ button {
   opacity: 0.9;
 }
 
+/* ─── admin console: the page frame ──────────────────────────────────────── */
+/* A layout of its own, not the chat shell with a different third column. The nav
+   borrows the sidebar's width and surface so the console reads as the same product,
+   and the row primitive is literally the channel row — same reflexes, same marking of
+   where you are. */
+.admin-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  /* Same top row as the chat shell, because the account menu lives in it and a menu
+     that exists in only some views is a menu people lose. */
+  grid-template-rows: var(--topbar-height) minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--text-base);
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--hairline);
+}
+
+.admin-nav-header {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.admin-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--text-4);
+  font-size: var(--text-ui);
+  transition: color 120ms ease;
+}
+
+.admin-back:hover {
+  color: var(--text);
+}
+
+.admin-nav-title {
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.admin-nav-sub {
+  margin-top: 3px;
+  font-size: var(--text-label-size);
+  color: var(--text-4);
+}
+
+.admin-nav .channel-row:disabled {
+  cursor: default;
+}
+
+.admin-nav .channel-row:disabled:hover {
+  background: transparent;
+}
+
+.admin-main {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.admin-page {
+  max-width: 860px;
+  padding: 36px 32px 60px;
+}
+
+.admin-page-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-page-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.admin-page-sub {
+  margin: 6px 0 0;
+  font-size: var(--text-row);
+  color: var(--text-4);
+}
+
+.admin-page-body {
+  margin-top: 26px;
+}
+
+/* Off-canvas below, inert above: a fixed element that is never revealed. */
+.admin-nav-toggle,
+.admin-nav-scrim {
+  display: none;
+}
+
 /* ─── admin console ──────────────────────────────────────────────────────── */
 .admin-apps-shell {
   display: flex;
@@ -2284,6 +2403,53 @@ button {
 }
 
 @media (max-width: 900px) {
+  /* The nav becomes a drawer rather than a squeezed column: at this width a 264px rail
+     leaves nothing for the tables it is there to navigate. */
+  .admin-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-nav {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 80;
+    width: min(300px, 85vw);
+    transform: translateX(-100%);
+    /* Hidden, not merely moved. A transform leaves every control in the tab order, so
+       a closed drawer would hand a keyboard user a dozen invisible buttons to walk
+       through — and this nav comes before the page in the DOM, so they would meet
+       "Back to workspace" before anything they can see. */
+    visibility: hidden;
+    transition:
+      transform 160ms ease,
+      visibility 160ms ease;
+    box-shadow: var(--shadow-menu);
+  }
+
+  .admin-shell[data-nav='open'] .admin-nav {
+    transform: none;
+    visibility: visible;
+  }
+
+  .admin-nav-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: var(--backdrop);
+  }
+
+  .admin-shell[data-nav='open'] .admin-nav-scrim {
+    display: block;
+  }
+
+  .admin-nav-toggle {
+    display: inline-flex;
+  }
+
+  .admin-page {
+    padding: 24px 18px 48px;
+  }
+
   .admin-app-form,
   .admin-app-permissions {
     grid-template-columns: 1fr;
