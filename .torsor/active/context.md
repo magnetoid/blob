@@ -55,6 +55,13 @@ Worth knowing before changing the equivalent code:
   reactivating or naming a bot after an existing person needs a clash check first.
 - Alembic's `fileConfig` sets the root logger to WARNING as a side effect and, without
   `disable_existing_loggers=False`, silences every logger configured before it.
+- Coolify's **Docker Compose Location can silently revert to `/docker-compose.yml`**, the
+  dev datastore stack, which has no `app` service — so the site 503s with every container
+  gone and no obvious cause. Check that setting first when production is down; the value
+  it needs is `/docker-compose.prod.yml`. Attaching a domain is a two-deploy dance for the
+  same reason the README gives: Coolify refuses `docker_compose_domains` until it has
+  parsed the compose file from git, and it only writes the proxy labels when it recreates
+  the container.
 - `torsor deps` reports every Python import as unknown here, `fastapi` and `sqlalchemy`
   included. It resolves its manifest from `--root`, and the repo root is a pnpm workspace:
   the Python manifest is at `apps/api/pyproject.toml`, one level down. So `torsor verify`
