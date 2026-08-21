@@ -26,6 +26,9 @@ log = logging.getLogger("blob.jobs.unfurl")
 FETCH_TIMEOUT_SEC = 5.0
 MAX_BYTES = 512 * 1024
 
+#: Redirect hops followed. Each one is re-checked before it is fetched.
+MAX_REDIRECTS = 3
+
 _URL_RE = re.compile(r"https?://[^\s<>\"')]+")
 _TITLE_RE = re.compile(r"<title[^>]*>([^<]*)</title>", re.IGNORECASE)
 
@@ -53,34 +56,61 @@ def _decode_entities(value: str) -> str:
     return html_module.unescape(value)
 
 
-async def fetch_unfurl(raw_url: str) -> dict[str, Any] | None:
-    parsed = urlparse(raw_url)
+async def _allowed(url: str) -> bool:
+    """Whether this exact URL may be fetched from this process."""
+    parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        return None
-    if await is_private_host(parsed.hostname):
+        return False
+    return not await is_private_host(parsed.hostname)
+
+
+async def fetch_unfurl(raw_url: str) -> dict[str, Any] | None:
+    if not await _allowed(raw_url):
         return None
 
     try:
+        # Redirects are walked by hand so every hop is checked, not just the one someone
+        # typed. Following them automatically meant a link to any public redirector could
+        # send this process to 169.254.169.254 or a service on the internal network — and
+        # because the title and og: tags of whatever came back are stored on the message
+        # and broadcast to the channel, the reply came with a read channel attached. Any
+        # member could do it with one message.
+        url = raw_url
         async with httpx.AsyncClient(
             timeout=FETCH_TIMEOUT_SEC,
-            follow_redirects=True,
-            max_redirects=3,
+            follow_redirects=False,
             headers={"user-agent": "blob-unfurl/1.0", "accept": "text/html"},
         ) as client:
-            async with client.stream("GET", raw_url) as response:
-                if response.status_code >= 400:
-                    return None
-                if "text/html" not in response.headers.get("content-type", ""):
-                    return None
+            for _hop in range(MAX_REDIRECTS + 1):
+                async with client.stream("GET", url) as response:
+                    if response.is_redirect:
+                        location = response.headers.get("location")
+                        if not location:
+                            return None
+                        # Relative targets are legal, so resolve before judging.
+                        url = str(response.url.join(location))
+                        if not await _allowed(url):
+                            log.warning("unfurl refused a redirect into a private address")
+                            return None
+                        continue
 
-                chunks: list[bytes] = []
-                total = 0
-                async for chunk in response.aiter_bytes():
-                    chunks.append(chunk)
-                    total += len(chunk)
-                    if total >= MAX_BYTES:
-                        break
-                html = b"".join(chunks)[:MAX_BYTES].decode("utf-8", errors="replace")
+                    if response.status_code >= 400:
+                        return None
+                    if "text/html" not in response.headers.get("content-type", ""):
+                        return None
+
+                    chunks: list[bytes] = []
+                    total = 0
+                    async for chunk in response.aiter_bytes():
+                        chunks.append(chunk)
+                        total += len(chunk)
+                        if total >= MAX_BYTES:
+                            break
+                    html = b"".join(chunks)[:MAX_BYTES].decode("utf-8", errors="replace")
+                    break
+            else:
+                # Ran out of hops without reaching a real page.
+                return None
     except (httpx.HTTPError, UnicodeDecodeError):
         return None
 

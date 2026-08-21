@@ -44,6 +44,12 @@ class Connection:
     #: The channel the user is looking at right now, if any.
     focused_channel_id: str | None = None
     closed: bool = False
+    #: Set when this connection is dropped, so whoever owns the socket can tear it down.
+    #: `closed` alone is a flag nobody is waiting on: the socket's read loop sits in
+    #: `receive_json` until the client stops talking, and a client that is merely slow
+    #: keeps talking. Without something to wait on, a dropped connection stayed
+    #: registered and silent — online to the user, and receiving nothing.
+    closed_event: asyncio.Event = field(default_factory=asyncio.Event)
 
     def send(self, event: ServerEvent) -> None:
         """Queue an event.
@@ -57,11 +63,13 @@ class Connection:
             self.outbox.put_nowait(event)
         except asyncio.QueueFull:
             # Slow consumer. Dropping the connection is kinder than unbounded memory;
-            # the client reconnects and resyncs over REST.
+            # the client reconnects and resyncs over REST — which only happens if the
+            # socket actually closes, hence the event.
             self.close()
 
     def close(self) -> None:
         self.closed = True
+        self.closed_event.set()
 
 
 _by_connection: dict[str, Connection] = {}

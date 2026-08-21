@@ -171,7 +171,15 @@ async def translate_message(
     payload: TranslateMessageInput,
     user: SessionUser = Depends(current_user),
 ) -> MessageTranslationOut:
-    async with transaction() as (session, _after):
+    # Every call can reach a metered third party, so it is limited like sending is.
+    # Without this, one member in a loop could spend the workspace's translation budget.
+    await consume("translate", user.id)
+
+    # Read and cache-check in one short transaction, translate outside it, store in
+    # another. The provider is allowed ten seconds; holding a Postgres transaction open
+    # for a remote call that long blocks vacuum and ties up a pooled connection for
+    # something that is not database work.
+    async with session_scope() as session:
         message = await message_service.by_id(session, message_id)
         if message is None or message.deleted_at is not None:
             raise not_found("That message is gone.")
@@ -197,10 +205,12 @@ async def translate_message(
             if cached is not None:
                 return MessageTranslationOut(translation=cached)
 
-        translated = await translation_service.translate_text(
-            message.body,
-            target_language=normalized_target,
-        )
+    translated = await translation_service.translate_text(
+        message.body,
+        target_language=normalized_target,
+    )
+
+    async with transaction() as (session, _after):
         stored = await translation_service.store_translation(
             session,
             workspace_id=user.workspace_id,
@@ -364,6 +374,11 @@ async def remove_reaction(
         existing = await message_service.by_id(session, message_id)
         if existing is None:
             raise not_found("That message is gone.")
+        # The only mutation that skipped this. Removing a reaction can only ever touch
+        # your own, so nothing was destroyable — but answering 200 for a message id in a
+        # channel you cannot see and 404 for one that does not exist told you which
+        # private message ids are real, which is the distinction the 404 exists to hide.
+        await channel_service.assert_channel_access(session, user.id, existing.channel_id)
         if await message_service.remove_reaction(session, message_id, user.id, emoji):
             reaction = {
                 "messageId": message_id,

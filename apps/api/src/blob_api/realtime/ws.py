@@ -56,16 +56,28 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     await presence.mark_active(user.id)
 
     writer = asyncio.create_task(_writer(websocket, conn))
+    # The reader ends when the client goes away; the closed event ends when *we* drop the
+    # connection, which the hub does when a client falls too far behind. Waiting on the
+    # reader alone left those connections registered and silent forever, because a slow
+    # client is still a talking client and the read never returns.
+    reader = asyncio.create_task(_reader(websocket, conn, user))
+    dropped = asyncio.create_task(conn.closed_event.wait())
     try:
-        await _reader(websocket, conn, user)
+        await asyncio.wait({reader, dropped}, return_when=asyncio.FIRST_COMPLETED)
     except WebSocketDisconnect:
         pass
     finally:
         conn.close()
-        writer.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await writer
+        for task in (reader, dropped, writer):
+            task.cancel()
+        for task in (reader, dropped, writer):
+            with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect):
+                await task
         hub.unregister(conn)
+        # Close the socket rather than leaving it open behind a cancelled reader, so the
+        # client's onclose fires and its existing reconnect-and-resync path runs.
+        with contextlib.suppress(RuntimeError, WebSocketDisconnect):
+            await websocket.close()
         await presence.mark_offline(user.id)
 
 

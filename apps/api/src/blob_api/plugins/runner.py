@@ -20,7 +20,7 @@ import httpx
 
 from ..config import settings
 from ..lib.errors import AppError, bad_request
-from ..lib.net import check_outbound_url
+from ..lib.net import assert_outbound_url
 
 log = logging.getLogger("blob.agents")
 
@@ -93,7 +93,7 @@ class CoolifyRunner:
     async def deploy(self, *, slug: str, repo: str, ref: str, env: dict[str, str]) -> Deployment:
         # A repository URL is operator-supplied and reaches out from this process, so it
         # goes through the same guard registration uses. It resolves DNS, hence the await.
-        await check_outbound_url(repo, require_https=True)
+        await assert_outbound_url(repo, require_https=True, code="bad_repo_url")
 
         payload: dict[str, Any] = {
             "project_uuid": settings.COOLIFY_PROJECT_UUID,

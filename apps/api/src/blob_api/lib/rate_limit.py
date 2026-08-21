@@ -28,6 +28,10 @@ LIMITS: dict[str, Limit] = {
     # Pressing a button is cheaper and more frequent than writing a message, but it
     # still reaches an app over the network, so it is not free.
     "interaction": Limit(60, 60),
+    # Reading a conversation in another language is a handful of calls, not a stream of
+    # them — and each one can bill a third party, so this is the workspace's wallet as
+    # much as its capacity. Cached translations never reach here.
+    "translate": Limit(20, 60),
 }
 
 

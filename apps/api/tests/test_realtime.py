@@ -205,3 +205,39 @@ def test_presence_reaches_only_the_connections_watching() -> None:
 
     assert watcher.outbox.get_nowait()["userId"] == "alice"
     assert bystander.outbox.empty()
+
+
+# ─── backpressure ─────────────────────────────────────────────────────────────
+async def test_a_client_that_falls_behind_is_dropped_rather_than_left_silent(
+    team: dict,
+) -> None:
+    """The connection has to actually go away, not just be marked gone.
+
+    `close()` used to set a flag and nothing else. The socket stayed open, the read loop
+    stayed parked in `receive_json`, and the connection stayed in the hub's registries —
+    so every later event was silently discarded by `send`'s own `closed` check. To the
+    person at the keyboard the app looked connected and simply stopped receiving, with
+    nothing to reconnect from. This asserts the drop is observable.
+    """
+    async with socket_for(team["owner"]) as ws:
+        await receive_until(ws, "hello")
+
+        before = hub.stats()["connections"]
+        assert before >= 1
+
+        # Fill the outbox past OUTBOX_LIMIT without reading, the way a throttled tab or
+        # a bad mobile link does. The overflowing put is what triggers the drop.
+        conn = next(c for c in hub.connections_for_user(team["owner"].user_id))
+        for index in range(hub.OUTBOX_LIMIT + 5):
+            conn.send({"t": "noise", "n": index})
+
+        assert conn.closed is True
+        assert conn.closed_event.is_set() is True
+
+        # The endpoint is waiting on that event; give it a moment to tear down.
+        await asyncio.wait_for(_until(lambda: hub.stats()["connections"] < before), timeout=3.0)
+
+
+async def _until(predicate: Any) -> None:
+    while not predicate():
+        await asyncio.sleep(0.02)

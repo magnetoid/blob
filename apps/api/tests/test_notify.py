@@ -209,3 +209,113 @@ def test_unfurl_refuses_private_addresses(address: str, private: bool) -> None:
 def test_first_url_finds_the_leading_link() -> None:
     assert first_url("see https://example.com/x and more") == "https://example.com/x"
     assert first_url("no links here") is None
+
+
+class TestUnfurlFollowsRedirectsSafely:
+    """A link is attacker-controlled input that makes the server fetch something.
+
+    The address check used to run on the URL someone typed and then hand the fetch to
+    httpx with `follow_redirects=True`, so any public redirector was a way to reach
+    169.254.169.254 or a service on the internal network. The title and og: tags of
+    whatever came back are stored on the message and broadcast to the channel, so the
+    request came with a read channel attached. These pin the hop-by-hop check.
+    """
+
+    async def test_a_redirect_into_a_private_address_is_refused(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from blob_api.jobs import unfurl as unfurl_job
+
+        hops: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            hops.append(str(request.url))
+            if request.url.host == "redirector.example.com":
+                return httpx.Response(302, headers={"location": "http://169.254.169.254/latest/"})
+            # Reaching here would mean the guard let the metadata service through.
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/html"},
+                content=b"<title>root credentials</title>",
+            )
+
+        transport = httpx.MockTransport(handler)
+        real_client = httpx.AsyncClient
+
+        def fake_client(**kwargs: object) -> httpx.AsyncClient:
+            kwargs.pop("transport", None)
+            return real_client(**kwargs, transport=transport)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(unfurl_job.httpx, "AsyncClient", fake_client)
+
+        async def only_the_link_local_is_private(hostname: str) -> bool:
+            return hostname == "169.254.169.254"
+
+        monkeypatch.setattr(unfurl_job, "is_private_host", only_the_link_local_is_private)
+
+        result = await unfurl_job.fetch_unfurl("https://redirector.example.com/go")
+
+        assert result is None
+        # It stopped at the redirect: the private address was never requested.
+        assert hops == ["https://redirector.example.com/go"]
+
+    async def test_a_redirect_to_a_public_page_is_still_followed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from blob_api.jobs import unfurl as unfurl_job
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.host == "redirector.example.com":
+                return httpx.Response(302, headers={"location": "https://example.com/article"})
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/html"},
+                content=b"<title>An article</title>",
+            )
+
+        transport = httpx.MockTransport(handler)
+        real_client = httpx.AsyncClient
+
+        def fake_client(**kwargs: object) -> httpx.AsyncClient:
+            kwargs.pop("transport", None)
+            return real_client(**kwargs, transport=transport)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(unfurl_job.httpx, "AsyncClient", fake_client)
+
+        async def nothing_is_private(hostname: str) -> bool:
+            return False
+
+        monkeypatch.setattr(unfurl_job, "is_private_host", nothing_is_private)
+
+        result = await unfurl_job.fetch_unfurl("https://redirector.example.com/go")
+
+        assert result is not None
+        assert result["title"] == "An article"
+
+
+async def test_an_inert_guard_now_refuses_rather_than_returning_a_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two call sites awaited the checker and dropped its answer on the floor.
+
+    `check_outbound_url` returns its reason instead of raising, which reads as a guard
+    and is one forgotten `if` away from being none. The raising form removes the choice.
+    """
+    from blob_api.lib import net
+    from blob_api.lib.errors import AppError
+
+    async def everything_is_private(hostname: str) -> bool:
+        return True
+
+    monkeypatch.setattr(net, "is_private_host", everything_is_private)
+
+    with pytest.raises(AppError) as caught:
+        await net.assert_outbound_url(
+            "https://internal.example.com", require_https=True, code="bad_repo_url"
+        )
+    assert caught.value.status_code == 400
+    assert caught.value.code == "bad_repo_url"

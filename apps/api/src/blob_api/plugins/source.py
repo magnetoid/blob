@@ -17,7 +17,7 @@ import httpx
 
 from ..config import settings
 from ..lib.errors import bad_request
-from ..lib.net import check_outbound_url
+from ..lib.net import assert_outbound_url
 from .manifest import Manifest, validate_manifest
 
 MANIFEST_NAME = "blob-app.json"
@@ -68,7 +68,7 @@ async def read_manifest(repo_url: str, ref: str = "main") -> RepoSource:
     url = raw_manifest_url(repo_url, ref)
     # The same guard registration uses: resolves DNS rather than matching strings, so a
     # hostname pointing at a private address is refused.
-    await check_outbound_url(url, require_https=True)
+    await assert_outbound_url(url, require_https=True, code="bad_repo_url")
 
     try:
         async with httpx.AsyncClient(

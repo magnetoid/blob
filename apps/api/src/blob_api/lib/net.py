@@ -17,6 +17,8 @@ import ipaddress
 import socket
 from urllib.parse import urlparse
 
+from .errors import bad_request
+
 
 def is_private_address(address: str) -> bool:
     try:
@@ -67,3 +69,16 @@ async def check_outbound_url(raw_url: str, *, require_https: bool) -> str | None
     if await is_private_host(parsed.hostname):
         return "That address is inside the server's own network."
     return None
+
+
+async def assert_outbound_url(raw_url: str, *, require_https: bool, code: str) -> None:
+    """Refuse a URL the server should not fetch, by raising.
+
+    `check_outbound_url` returns its reason rather than raising, which reads as a guard
+    at a glance and is one forgotten `if` away from being no guard at all — two call
+    sites had exactly that, awaiting it and discarding the answer. Anywhere the only
+    sensible response is "refuse", call this instead: there is nothing to forget.
+    """
+    reason = await check_outbound_url(raw_url, require_https=require_https)
+    if reason is not None:
+        raise bad_request(reason, code=code)
