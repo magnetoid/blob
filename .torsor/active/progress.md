@@ -52,7 +52,10 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
 - **Agents from a repository** — `blob-app.json` read from GitHub, scopes approved, then
   deployed as a container by a runner that is not this process. See ADR 0010. Hosting is
   off unless `AGENT_RUNNER` is set, and the Coolify calls have not yet been exercised
-  against a live deploy — only against a stub.
+  against a live deploy — only against a stub. The console shows a hosted agent's status,
+  its logs, and buttons to redeploy or stop it; status is fetched when a row is opened
+  rather than polled, because a list of agents polling a runner is a lot of requests to
+  answer a question nobody is looking at.
 
 ## In progress
 
@@ -61,9 +64,6 @@ Nothing. 274 backend tests and 17 in the browser pass; ruff, mypy, tsc and
 
 ## Next
 
-- **Agent deployment, second half** — the console shows no live status or logs for a
-  hosted agent. `GET /{id}/deployment`, `redeploy` and `stop` exist and are tested;
-  nothing renders them.
 - **19 · Slash commands** — conflict resolution at install; ephemeral, in-channel and
   deferred responses.
 - **18 · Local plugin runtime** — importlib discovery under `PLUGINS_DIR`, decorator API,

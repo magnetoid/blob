@@ -116,6 +116,10 @@ export interface AdminPlugin {
   updatedAt: string;
   pendingDeliveries: number;
   failedDeliveries: number;
+  /** Set only for an agent Blob deployed from a repository. */
+  sourceRepo?: string | null;
+  sourceRef?: string | null;
+  deploymentStatus?: string | null;
 }
 
 export interface AgentRepoPreview {
@@ -443,6 +447,8 @@ export const api = {
     redeploy: (pluginId: string) =>
       post<AgentDeployment>(`/api/admin/plugins/${pluginId}/redeploy`),
     stopAgent: (pluginId: string) => post<{ ok: true }>(`/api/admin/plugins/${pluginId}/stop`),
+    deploymentLogs: (pluginId: string) =>
+      get<{ logs: string }>(`/api/admin/plugins/${pluginId}/logs`),
   },
 
   interact: (input: { messageId: string; actionId: string; value: string }) =>

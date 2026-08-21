@@ -2577,3 +2577,41 @@ select.chip {
   gap: 5px;
   max-width: 320px;
 }
+
+/* ─── hosted agent deployment ────────────────────────────────────────────── */
+.agent-deployment-panel {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 9px;
+  background: var(--surface-muted);
+}
+
+.agent-deployment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-sm);
+}
+
+.agent-deployment a {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-logs {
+  max-height: 300px;
+  margin: 12px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}

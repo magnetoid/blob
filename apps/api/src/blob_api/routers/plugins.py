@@ -55,6 +55,10 @@ class PluginOut(CamelModel):
     #: Queued and failed counts, so a broken app is visible without reading logs.
     pending_deliveries: int = 0
     failed_deliveries: int = 0
+    #: Set only for an agent deployed from a repository.
+    source_repo: str | None = None
+    source_ref: str | None = None
+    deployment_status: str | None = None
 
 
 class PluginsOut(CamelModel):
@@ -98,6 +102,10 @@ class DeploymentOut(CamelModel):
     deployment_id: str | None = None
     status: str
     url: str | None = None
+
+
+class LogsOut(CamelModel):
+    logs: str
 
 
 class DeliveryOut(CamelModel):
@@ -151,6 +159,9 @@ async def _to_plugin(session: Any, row: Any) -> PluginOut:
         runtime=row.runtime,
         status=row.status,
         version=row.version,
+        source_repo=getattr(row, "source_repo", None),
+        source_ref=getattr(row, "source_ref", None),
+        deployment_status=getattr(row, "deployment_status", None),
         request_url=row.request_url,
         events=list(row.events or []),
         scopes=scopes,
@@ -495,6 +506,16 @@ async def redeploy(
     return DeploymentOut(
         deployment_id=deployment.id, status=deployment.status, url=deployment.url
     )
+
+
+@router.get("/{plugin_id}/logs", response_model=LogsOut)
+async def deployment_logs(
+    plugin_id: str,
+    lines: Annotated[int, Query(ge=10, le=1000)] = 200,
+    admin: SessionUser = Depends(require_admin),
+) -> LogsOut:
+    """What the container has written. Where an agent that will not start says why."""
+    return LogsOut(logs=await agent_service.logs(admin.workspace_id, plugin_id, lines))
 
 
 @router.post("/{plugin_id}/stop", response_model=OkOut)

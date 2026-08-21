@@ -115,6 +115,15 @@ async def status(workspace_id: str, plugin_id: str) -> Deployment:
     return deployment
 
 
+async def logs(workspace_id: str, plugin_id: str, lines: int = 200) -> str:
+    runner = current_runner()
+
+    async with session_scope() as session:
+        plugin = await registry.by_id(session, plugin_id, workspace_id)
+
+    return await runner.logs(_require_deployment(plugin), lines)
+
+
 async def stop(actor: Actor, plugin_id: str) -> None:
     runner = current_runner()
 
@@ -184,4 +193,4 @@ async def _record_failure(plugin_id: str, reason: str) -> None:
     log.warning("agent %s failed to deploy: %s", plugin_id, reason)
 
 
-__all__ = ["install_from_repo", "preview", "redeploy", "status", "stop"]
+__all__ = ["install_from_repo", "logs", "preview", "redeploy", "status", "stop"]

@@ -55,6 +55,9 @@ class StubRunner:
     async def status(self, deployment_id: str) -> Deployment:
         return Deployment(id=deployment_id, status="running", url="agent-standup.example.com")
 
+    async def logs(self, deployment_id: str, lines: int = 200) -> str:
+        return f"boot ok ({lines} lines requested)"
+
     async def stop(self, deployment_id: str) -> None:
         self.stopped.append(deployment_id)
 
@@ -198,6 +201,21 @@ async def test_an_app_that_is_not_hosted_here_says_so(
     refused = await owner.get(f"/api/admin/plugins/{plugin_id}/deployment")
     assert refused.status == 400
     assert refused.body["error"]["code"] == "not_hosted"
+
+
+async def test_the_logs_come_back_for_a_hosted_agent(client: Client, hosted: StubRunner) -> None:
+    owner = await sign_up(client, "Owner")
+    created = await owner.post("/api/admin/plugins/from-repo", {"repoUrl": REPO})
+    plugin_id = created.body["plugin"]["id"]
+
+    logs = await owner.get(f"/api/admin/plugins/{plugin_id}/logs")
+    assert logs.status == 200
+    assert "boot ok" in logs.body["logs"]
+
+    # An agent that will not start says why here, so the row carries where it came from.
+    listed = (await owner.get("/api/admin/plugins")).body["plugins"][0]
+    assert listed["sourceRepo"] == REPO
+    assert listed["sourceRef"] == "main"
 
 
 async def test_a_container_manifest_cannot_be_installed_by_hand(client: Client) -> None:

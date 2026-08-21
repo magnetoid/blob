@@ -43,6 +43,8 @@ class AgentRunner(Protocol):
 
     async def status(self, deployment_id: str) -> Deployment: ...
 
+    async def logs(self, deployment_id: str, lines: int) -> str: ...
+
     async def stop(self, deployment_id: str) -> None: ...
 
 
@@ -106,6 +108,20 @@ class CoolifyRunner:
             status=str(payload.get("status") or "unknown"),
             url=payload.get("fqdn") or None,
         )
+
+    async def logs(self, deployment_id: str, lines: int = 200) -> str:
+        """Whatever the container has written lately.
+
+        An agent that will not start says why here and nowhere else, so this is the
+        difference between an admin who can fix it and one who can only redeploy and
+        hope.
+        """
+        payload = await self._call(
+            "GET", f"/api/v1/applications/{deployment_id}/logs?lines={lines}"
+        )
+        if isinstance(payload, dict):
+            return str(payload.get("logs") or payload.get("output") or "")
+        return str(payload or "")
 
     async def stop(self, deployment_id: str) -> None:
         await self._call("GET", f"/api/v1/applications/{deployment_id}/stop")

@@ -25,6 +25,7 @@ import { Avatar } from '../../components/Avatar.tsx';
 import { SearchIcon } from '../../components/Icon.tsx';
 import { formatRelative } from '../messages/MessageRow.tsx';
 import { navigate, type AdminSection } from '../../lib/router.ts';
+import { AgentDeployment } from './AgentDeployment.tsx';
 import { DeployAgentForm } from './DeployAgentForm.tsx';
 import { FeedbackSection } from './FeedbackSection.tsx';
 import { ThemesSection } from './ThemesSection.tsx';
@@ -729,6 +730,15 @@ function AppsSection({ onError }: { onError: (message: string | null) => void })
                           <span className="role-pill">{plugin.failedDeliveries} failed</span>
                         )}
                       </div>
+                      {plugin.runtime === 'container' && (
+                        <AgentDeployment
+                          pluginId={plugin.id}
+                          repo={plugin.sourceRepo ?? null}
+                          ref={plugin.sourceRef ?? null}
+                          onError={onError}
+                        />
+                      )}
+
                       {plugin.lastError && (
                         <p className="error-text" style={{ margin: '10px 0 0' }}>
                           {plugin.lastError}
