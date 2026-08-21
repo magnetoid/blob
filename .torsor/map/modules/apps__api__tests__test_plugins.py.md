@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T20:31:04'
-updated: '2026-08-21T20:31:04'
+created: '2026-08-21T21:05:55'
+updated: '2026-08-21T21:05:55'
 ---
 
 # apps/api/tests/test_plugins.py
@@ -64,3 +64,9 @@ Symbols in `apps/api/tests/test_plugins.py`.
 - L552 `test_uninstalling_keeps_what_the_bot_said(team: dict)` (function)
 - L582 `test_uninstalling_stops_the_token(team: dict)` (function)
 - L589 `test_uninstalling_is_audited(team: dict)` (function)
+- L597 `TestAnAppHearsOnlyWhatItCouldRead` (class) — The push side has to agree with the pull side.
+- L607 `test_a_public_channel_is_heard_without_joining(self, team: dict)` (method)
+- L613 `test_a_private_channel_is_not_heard(self, team: dict)` (method)
+- L625 `test_a_private_channel_is_heard_once_the_bot_is_in_it(self, team: dict)` (method)
+- L639 `test_a_direct_message_is_not_heard(self, team: dict)` (method)
+- L651 `test_a_channel_event_without_a_channel_is_refused(team: dict)` (function) — The guard that keeps this fixed.

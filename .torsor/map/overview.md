@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T20:30:59'
-updated: '2026-08-21T20:30:59'
+created: '2026-08-21T21:05:54'
+updated: '2026-08-21T21:05:54'
 ---
 
 # Repository Map
@@ -171,12 +171,11 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/plugins/env.py** — 1 symbol(s)
   - `validate_env(raw: dict[str, str] | None)` (function)
 - **apps/api/src/blob_api/plugins/events.py** — 2 symbol(s)
-  - `emit(session: AsyncSession, *, workspace_id: str, event: str, payload: dict[str, Any], exclude_plugin_id: str | None=None, only_plugin_id: str | None=None)` (function)
+  - `emit(session: AsyncSession, *, workspace_id: str, event: str, payload: dict[str, Any], channel_id: str | None=None, exclude_plugin_id: str | None=None, only_plugin_id: str | None=None)` (function)
   - `has_subscribers(session: AsyncSession, workspace_id: str, event: str)` (function)
 - **apps/api/src/blob_api/plugins/manifest.py** — 5 symbol(s)
   - `Manifest` (class)
   - `validate_manifest(manifest: Manifest)` (function)
   - `new_scopes(previous: list[str], requested: list[str])` (function)
   - `_check_slug(cls, value: str)` (method)
-  - `_check_version(cls, value: str)` (method)
-- **app…[truncated]
+  - `_check_version(cls,…[truncated]
