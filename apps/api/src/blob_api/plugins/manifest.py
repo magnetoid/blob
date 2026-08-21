@@ -20,7 +20,9 @@ from pydantic import Field, field_validator
 from ..lib.errors import bad_request
 from ..schemas.base import CamelModel
 
-Runtime = Literal["local", "external"]
+#: Where the code runs. "container" is an external app whose hosting Blob arranged —
+#: same contract, same scopes, same delivery; see ADR 0010.
+Runtime = Literal["local", "external", "container"]
 Status = Literal["enabled", "disabled", "needs_review", "failed"]
 
 #: Every permission a plugin can hold. Granted as a set at install, one row each, so a
@@ -95,7 +97,8 @@ class Manifest(CamelModel):
     description: str | None = Field(default=None, max_length=500)
     runtime: Runtime = "external"
     version: str = "0.0.0"
-    #: Where events are POSTed. External apps only; validated against the SSRF guard.
+    #: Where events are POSTed. External apps only; validated against the SSRF guard. A
+    #: container agent gets one once the runner has assigned it a hostname.
     request_url: str | None = None
     events: list[str] = Field(default_factory=list)
     scopes: list[str] = Field(default_factory=list)

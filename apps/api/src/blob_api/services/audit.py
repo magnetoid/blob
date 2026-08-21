@@ -58,6 +58,10 @@ ACTIONS = (
     "plugin.token_issued",
     "plugin.tokens_revoked",
     "plugin.uninstalled",
+    "plugin.redeployed",
+    "plugin.stopped",
+    "feedback.status_changed",
+    "feedback.deleted",
 )
 
 

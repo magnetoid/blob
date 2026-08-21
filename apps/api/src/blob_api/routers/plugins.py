@@ -19,8 +19,10 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import Field
 from sqlalchemy import text
 
+from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, require_admin
 from ..lib.errors import bad_request
@@ -28,6 +30,7 @@ from ..lib.net import check_outbound_url
 from ..plugins import registry
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
 from ..schemas.base import CamelModel, iso
+from ..services import agents as agent_service
 from ..services import audit as audit_service
 from ..services.audit import actor_for
 
@@ -70,6 +73,31 @@ class InstalledOut(CamelModel):
     #: Shown once. Not recoverable — rotate to get a new one.
     signing_secret: str
     bot_token: str
+
+
+class RepoInput(CamelModel):
+    repo_url: str = Field(min_length=1, max_length=300)
+    ref: str = Field(default="main", min_length=1, max_length=100)
+
+
+class RepoPreviewOut(CamelModel):
+    """What the console shows before anyone approves anything."""
+
+    repo_url: str
+    ref: str
+    slug: str
+    name: str
+    description: str | None = None
+    version: str
+    build: str
+    events: list[str]
+    scopes: list[str]
+
+
+class DeploymentOut(CamelModel):
+    deployment_id: str | None = None
+    status: str
+    url: str | None = None
 
 
 class DeliveryOut(CamelModel):
@@ -156,6 +184,12 @@ async def list_plugins(admin: SessionUser = Depends(require_admin)) -> PluginsOu
 async def install_plugin(
     manifest: Manifest, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> InstalledOut:
+    if manifest.runtime == "container":
+        raise bad_request(
+            "An agent hosted from a repository is installed with its repository URL, "
+            "not a manifest — POST /api/admin/plugins/from-repo.",
+            code="use_from_repo",
+        )
     if manifest.runtime != "external":
         raise bad_request(
             "Local plugins are installed on the filesystem and loaded at boot, not "
@@ -402,6 +436,72 @@ async def uninstall_plugin(
             target_id=plugin_id,
             metadata={"slug": existing.slug, "name": existing.name},
         )
+    return OkOut()
+
+
+# ─── agents hosted from a repository ──────────────────────────────────────────
+@router.post("/preview-repo", response_model=RepoPreviewOut)
+async def preview_repo(
+    payload: RepoInput, admin: SessionUser = Depends(require_admin)
+) -> RepoPreviewOut:
+    """Read the manifest so the scopes can be approved before anything is installed."""
+    source = await agent_service.preview(payload.repo_url, payload.ref)
+    return RepoPreviewOut(
+        repo_url=source.repo_url,
+        ref=source.ref,
+        slug=source.manifest.slug,
+        name=source.manifest.name,
+        description=source.manifest.description,
+        version=source.manifest.version,
+        build=source.build_pack,
+        events=sorted(set(source.manifest.events)),
+        scopes=sorted(set(source.manifest.scopes)),
+    )
+
+
+@router.post("/from-repo", response_model=InstalledOut, status_code=201)
+async def install_from_repo(
+    payload: RepoInput, request: Request, admin: SessionUser = Depends(require_admin)
+) -> InstalledOut:
+    installed, _source = await agent_service.install_from_repo(
+        actor_for(request, admin), payload.repo_url, payload.ref, settings.PUBLIC_URL
+    )
+    async with session_scope() as session:
+        row = await registry.by_id(session, installed.plugin_id, admin.workspace_id)
+        plugin = await _to_plugin(session, row)
+
+    return InstalledOut(
+        plugin=plugin,
+        signing_secret=installed.signing_secret,
+        bot_token=installed.bot_token,
+    )
+
+
+@router.get("/{plugin_id}/deployment", response_model=DeploymentOut)
+async def deployment_status(
+    plugin_id: str, admin: SessionUser = Depends(require_admin)
+) -> DeploymentOut:
+    deployment = await agent_service.status(admin.workspace_id, plugin_id)
+    return DeploymentOut(
+        deployment_id=deployment.id, status=deployment.status, url=deployment.url
+    )
+
+
+@router.post("/{plugin_id}/redeploy", response_model=DeploymentOut)
+async def redeploy(
+    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+) -> DeploymentOut:
+    deployment = await agent_service.redeploy(actor_for(request, admin), plugin_id)
+    return DeploymentOut(
+        deployment_id=deployment.id, status=deployment.status, url=deployment.url
+    )
+
+
+@router.post("/{plugin_id}/stop", response_model=OkOut)
+async def stop_agent(
+    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+) -> OkOut:
+    await agent_service.stop(actor_for(request, admin), plugin_id)
     return OkOut()
 
 

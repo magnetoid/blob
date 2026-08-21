@@ -4,15 +4,15 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T06:03:23'
-updated: '2026-08-21T06:03:23'
+created: '2026-08-21T06:40:59'
+updated: '2026-08-21T06:40:59'
 ---
 
 # Repository Map
 
 Modules and their key symbols (ranked by references).
 
-- **apps/api/src/blob_api/config.py** — 8 symbol(s)
+- **apps/api/src/blob_api/config.py** — 9 symbol(s)
   - `Settings` (class)
   - `get_settings()` (function)
   - `_blank_is_none(cls, value: str | None)` (method)
@@ -61,6 +61,9 @@ Modules and their key symbols (ranked by references).
   - `downgrade()` (function)
 - **apps/api/src/blob_api/db/migrations/versions/0007_feedback_tickets.py** — 3 symbol(s)
   - `_uuid()` (function)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0008_container_agents.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 29 symbol(s)
@@ -116,9 +119,9 @@ Modules and their key symbols (ranked by references).
   - `parse_mentions(body: str, name_to_id: dict[str, str])` (function)
   - `matches_keywords(body: str, keywords: list[str])` (function)
 - **apps/api/src/blob_api/lib/net.py** — 3 symbol(s)
+  - `check_outbound_url(raw_url: str, *, require_https: bool)` (function)
   - `is_private_host(hostname: str)` (function)
   - `is_private_address(address: str)` (function)
-  - `check_outbound_url(raw_url: str, *, require_https: bool)` (function)
 - **apps/api/src/blob_api/lib/queue.py** — 5 symbol(s)
   - `enqueue(job: str, *args: Any)` (function)
   - `fire_and_forget(coro: Coroutine[Any, Any, None])` (function)
@@ -173,7 +176,4 @@ Modules and their key symbols (ranked by references).
   - `bot_user_id(session: AsyncSession, plugin_id: str)` (function)
   - `Installed` (class)
   - `_write_grants(session: AsyncSession, plugin_id: str, scopes: list[str], granted_by: str | None)` (function)
-  - `bot_email(slug: str)` (function)
-- **apps/api/src/blob_api/plugins/signing.py** — 3 symbol(s)
-  - `new_secret()` (function)
-  - `sign(secret: str, timestamp: int, body…[truncated]
+  - `bot_email(slug: str)`…[truncated]

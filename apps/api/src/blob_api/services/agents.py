@@ -1,0 +1,187 @@
+"""Installing an agent from a repository, and hosting it.
+
+Three things have to happen and the order matters. The plugin row, its grants, its bot
+user and its tokens are written first and committed; only then does the runner get asked
+to start a container. That is the same persist-then-act discipline the rest of the
+codebase follows — an agent must never boot, call back, and find no workspace record of
+itself.
+
+If the deploy fails the install stands, marked `failed` with the reason. The admin can
+retry without re-approving scopes, and a workspace is never left holding a bot user whose
+plugin does not exist.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from sqlalchemy import text
+
+from ..db.engine import session_scope, transaction
+from ..lib.errors import AppError, bad_request
+from ..plugins import registry
+from ..plugins.runner import Deployment, current_runner
+from ..plugins.source import RepoSource, read_manifest
+from ..services import audit as audit_service
+from ..services.audit import Actor
+
+log = logging.getLogger("blob.agents")
+
+
+async def preview(repo_url: str, ref: str) -> RepoSource:
+    """Read the manifest so the console can show what is about to be approved."""
+    return await read_manifest(repo_url, ref)
+
+
+async def install_from_repo(
+    actor: Actor, repo_url: str, ref: str, public_url: str
+) -> tuple[registry.Installed, RepoSource]:
+    # Hosting first. Reading the manifest is a network call, and making it before
+    # discovering there is nowhere to run the result wastes it and reports the wrong
+    # problem — "no manifest at that URL" when the real answer is "hosting is off".
+    runner = current_runner()
+    source = await read_manifest(repo_url, ref)
+
+    async with transaction() as (session, _):
+        installed = await registry.install(
+            session,
+            workspace_id=actor.workspace_id,
+            manifest=source.manifest,
+            installed_by=actor.id,
+            source_repo=source.repo_url,
+            source_ref=source.ref,
+        )
+        await audit_service.record(
+            session,
+            actor,
+            "plugin.installed",
+            target_type="plugin",
+            target_id=installed.plugin_id,
+            metadata={"repo": source.repo_url, "ref": source.ref, "runtime": "container"},
+        )
+
+    # Past the commit. The agent's credentials go to the container and nowhere else —
+    # this is the only moment the bot token exists in plaintext outside the response.
+    env = {
+        "__build_pack__": source.build_pack,
+        "BLOB_BASE_URL": public_url,
+        "BLOB_BOT_TOKEN": installed.bot_token,
+        "BLOB_SIGNING_SECRET": installed.signing_secret,
+        "BLOB_PLUGIN_SLUG": source.manifest.slug,
+    }
+
+    try:
+        deployment = await runner.deploy(
+            slug=source.manifest.slug, repo=source.repo_url, ref=source.ref, env=env
+        )
+    except AppError as exc:
+        await _record_failure(installed.plugin_id, exc.message)
+        raise
+
+    await _record_deployment(installed.plugin_id, deployment)
+    return installed, source
+
+
+async def redeploy(actor: Actor, plugin_id: str) -> Deployment:
+    runner = current_runner()
+
+    async with session_scope() as session:
+        plugin = await registry.by_id(session, plugin_id, actor.workspace_id)
+
+    deployment_id = _require_deployment(plugin)
+    deployment = await runner.redeploy(deployment_id)
+    await _record_deployment(plugin_id, deployment)
+
+    async with transaction() as (session, _):
+        await audit_service.record(
+            session,
+            actor,
+            "plugin.redeployed",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"ref": plugin.source_ref or ""},
+        )
+    return deployment
+
+
+async def status(workspace_id: str, plugin_id: str) -> Deployment:
+    runner = current_runner()
+
+    async with session_scope() as session:
+        plugin = await registry.by_id(session, plugin_id, workspace_id)
+
+    deployment = await runner.status(_require_deployment(plugin))
+    await _record_deployment(plugin_id, deployment)
+    return deployment
+
+
+async def stop(actor: Actor, plugin_id: str) -> None:
+    runner = current_runner()
+
+    async with session_scope() as session:
+        plugin = await registry.by_id(session, plugin_id, actor.workspace_id)
+
+    await runner.stop(_require_deployment(plugin))
+
+    async with transaction() as (session, _):
+        await session.execute(
+            text(
+                "UPDATE plugins SET deployment_status = 'stopped', status = 'disabled' "
+                "WHERE id = :id"
+            ),
+            {"id": plugin_id},
+        )
+        await audit_service.record(
+            session, actor, "plugin.stopped", target_type="plugin", target_id=plugin_id
+        )
+
+
+def _require_deployment(plugin: object) -> str:
+    deployment_id = getattr(plugin, "deployment_id", None)
+    if not deployment_id:
+        raise bad_request(
+            "That app is not hosted here — it runs wherever its author put it.",
+            code="not_hosted",
+        )
+    return str(deployment_id)
+
+
+async def _record_deployment(plugin_id: str, deployment: Deployment) -> None:
+    async with transaction() as (session, _):
+        await session.execute(
+            text(
+                """
+                UPDATE plugins
+                   SET deployment_id = :deployment_id,
+                       deployment_status = :status,
+                       -- The runner assigns the hostname, so the callback URL is only
+                       -- knowable once it has answered.
+                       request_url = COALESCE(:url, request_url)
+                 WHERE id = :id
+                """
+            ),
+            {
+                "id": plugin_id,
+                "deployment_id": deployment.id,
+                "status": deployment.status,
+                "url": f"https://{deployment.url}/blob/events" if deployment.url else None,
+            },
+        )
+
+
+async def _record_failure(plugin_id: str, reason: str) -> None:
+    async with transaction() as (session, _):
+        await session.execute(
+            text(
+                """
+                UPDATE plugins
+                   SET status = 'failed', deployment_status = 'failed', last_error = :reason
+                 WHERE id = :id
+                """
+            ),
+            {"id": plugin_id, "reason": reason[:500]},
+        )
+    log.warning("agent %s failed to deploy: %s", plugin_id, reason)
+
+
+__all__ = ["install_from_repo", "preview", "redeploy", "status", "stop"]

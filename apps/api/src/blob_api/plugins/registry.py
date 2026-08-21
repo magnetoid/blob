@@ -72,6 +72,10 @@ async def install(
     workspace_id: str,
     manifest: Manifest,
     installed_by: str,
+    #: Set for a container agent. The check constraint is evaluated per statement, so
+    #: this belongs in the INSERT rather than an UPDATE that follows it.
+    source_repo: str | None = None,
+    source_ref: str | None = None,
 ) -> Installed:
     validate_manifest(manifest)
 
@@ -90,10 +94,12 @@ async def install(
             """
             INSERT INTO plugins
               (id, workspace_id, slug, name, description, runtime, version,
-               request_url, events, installed_by)
+               request_url, events, installed_by, source_repo, source_ref,
+               deployment_status)
             VALUES
               (:id, :ws, :slug, :name, :description, :runtime, :version,
-               :request_url, cast(:events AS text[]), :installed_by)
+               :request_url, cast(:events AS text[]), :installed_by, :source_repo,
+               :source_ref, :deployment_status)
             """
         ),
         {
@@ -107,6 +113,9 @@ async def install(
             "request_url": manifest.request_url,
             "events": manifest.events,
             "installed_by": installed_by,
+            "source_repo": source_repo,
+            "source_ref": source_ref,
+            "deployment_status": "pending" if source_repo else None,
         },
     )
 

@@ -190,3 +190,69 @@ and a review behind it.
 > code. If you need to run code you do not fully trust, write an external app.**
 
 The local runtime is not built yet; external apps are.
+
+## Agents deployed from a repository
+
+An agent can be installed by pasting its repository URL instead of typing a manifest.
+Blob reads the manifest, shows the scopes for approval, then asks a runner to build the
+repository and run it as its own container.
+
+This does not change the trust model. A container agent **is an external app** — same
+scoped `/api/v1/` API, same bot user, same signed deliveries. The only difference is who
+arranged the hosting. Nothing from the repository runs inside the server process, so the
+rule above still holds.
+
+### What the repository needs
+
+A `blob-app.json` at its root:
+
+```json
+{
+  "slug": "standup-agent",
+  "name": "Standup Agent",
+  "description": "Asks what everyone did yesterday",
+  "version": "1.0.0",
+  "build": "nixpacks",
+  "events": ["message.created"],
+  "scopes": ["messages:read", "messages:write"]
+}
+```
+
+`build` is optional. The default, `nixpacks`, reads the repository and works out how to
+build it, which covers an ordinary Python or Node project with nothing added. Use
+`dockerfile` if the repository ships one and you would rather it were used.
+
+There is no `runtime` or `requestUrl` field to set. The runtime is always `container`
+here — a repository does not get to declare that it runs in-process — and the URL is not
+known until the runner has assigned the container a hostname.
+
+### What the agent is given
+
+Four environment variables, set before its first boot so it never starts without them:
+
+| Variable | What it is |
+|---|---|
+| `BLOB_BASE_URL` | Where to call the API |
+| `BLOB_BOT_TOKEN` | Its own credentials, scoped to what was approved |
+| `BLOB_SIGNING_SECRET` | For verifying the deliveries it receives |
+| `BLOB_PLUGIN_SLUG` | Its own slug |
+
+An AI agent brings its own model: whatever key or endpoint it needs is configured on the
+agent, not on Blob. Blob has no LLM dependency and no model credentials of its own, which
+is what keeps a self-hosted deployment genuinely self-contained — an agent pointed at a
+local Ollama is as valid as one pointed at a hosted API.
+
+### Turning it on
+
+Hosting is off by default, and off is a normal state: agents can still be registered as
+external apps and run wherever their author put them. To enable it, set `AGENT_RUNNER`
+and the runner's credentials.
+
+Blob never holds the Docker socket. The Coolify runner asks Coolify — which already owns
+that privilege on a host running it — to create and deploy the application. On a machine
+running anything else, that separation is the difference between a compromise of the chat
+app and a compromise of the box.
+
+> **Deploying an agent runs someone else's code on your server, in its own container with
+> only the scopes you granted. It cannot reach the workspace except through the API every
+> app uses.**

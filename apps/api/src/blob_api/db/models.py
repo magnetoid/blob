@@ -650,7 +650,7 @@ class Plugin(Base):
             name="plugins_status_check",
         ),
         CheckConstraint(
-            "runtime = 'local' OR request_url IS NOT NULL",
+            "runtime <> 'external' OR request_url IS NOT NULL",
             name="plugins_external_needs_url",
         ),
         CheckConstraint(

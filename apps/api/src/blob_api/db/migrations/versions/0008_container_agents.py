@@ -35,13 +35,15 @@ def upgrade() -> None:
         "runtime IN ('local', 'external', 'container')",
     )
 
-    # A container agent is reached over HTTP like any external app, so it needs a URL
-    # too — the existing constraint only demanded one of 'external'.
+    # Restated rather than left alone, so this converges from either state: an earlier
+    # cut of this migration widened it to demand a URL of every non-local runtime, which
+    # a container agent cannot satisfy — the runner assigns its hostname during the
+    # deploy, after the row exists.
     op.drop_constraint("plugins_external_needs_url", "plugins", type_="check")
     op.create_check_constraint(
         "plugins_external_needs_url",
         "plugins",
-        "runtime = 'local' OR request_url IS NOT NULL",
+        "runtime <> 'external' OR request_url IS NOT NULL",
     )
 
     op.create_check_constraint(
@@ -53,14 +55,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_constraint("plugins_container_needs_repo", "plugins", type_="check")
-
-    op.drop_constraint("plugins_external_needs_url", "plugins", type_="check")
-    op.create_check_constraint(
-        "plugins_external_needs_url",
-        "plugins",
-        "runtime <> 'external' OR request_url IS NOT NULL",
-    )
-
     op.drop_constraint("plugins_runtime_check", "plugins", type_="check")
     op.create_check_constraint(
         "plugins_runtime_check", "plugins", "runtime IN ('local', 'external')"
