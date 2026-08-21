@@ -37,6 +37,12 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
 - **Feedback tickets** — filed by anyone from the user menu, read by admins only, since a
   page snapshot can contain a private channel. Carries the console log and the page as
   the reporter saw it, both captured when the dialog opens rather than on submit.
+- **Protocol parity** — `blob_api.realtime.protocol` declares the event vocabulary and
+  the timings once, and a test parses `protocol.ts` and compares. The plan called for a
+  Pydantic mirror; there was none — event names were string literals scattered through
+  routers and services, and the timings lived in three modules. Each assertion was proved
+  by breaking it deliberately: a renamed event, a drifted heartbeat, and a declaration
+  nothing sends.
 - **Agents from a repository** — `blob-app.json` read from GitHub, scopes approved, then
   deployed as a container by a runner that is not this process. See ADR 0010. Hosting is
   off unless `AGENT_RUNNER` is set, and the Coolify calls have not yet been exercised
@@ -68,9 +74,6 @@ Nothing. 231 tests pass; ruff, mypy --strict and tsc are clean.
 
 Not features — places where working code is unprotected.
 
-- **No protocol parity test.** The WebSocket protocol is hand-written on both sides —
-  `packages/shared/src/protocol.ts` and a Pydantic mirror. Nothing catches a drift, and
-  the failure is silent at runtime rather than at build time.
 - **No generated types or contract diff.** Milestone 8 planned `openapi-typescript` output
   under "packages/shared/src/generated/" plus a `check:contract` script. Neither exists,
   so the hand-written types and the real API can diverge unnoticed. (Path in quotes, not

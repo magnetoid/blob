@@ -11,6 +11,7 @@ from sqlalchemy import text
 from ..db.engine import session_scope
 from ..lib.auth import SessionUser, current_user
 from ..lib.rate_limit import consume
+from ..realtime.protocol import MAX_REPLAY_PER_CHANNEL
 from ..schemas.base import CamelModel
 from ..schemas.models import ChannelWithState, Message, ReadStateOut
 from ..services import channels as channel_service
@@ -20,8 +21,7 @@ from ..services.serialize import MESSAGE_SELECT, to_message
 
 router = APIRouter(tags=["search"])
 
-#: Above this many missed messages in one channel we tell the client to refetch.
-MAX_REPLAY_PER_CHANNEL = 200
+
 
 
 class ParsedOut(CamelModel):

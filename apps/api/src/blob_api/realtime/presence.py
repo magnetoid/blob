@@ -11,13 +11,13 @@ from typing import Literal
 
 from ..lib.redis import presence_key, redis, typing_key
 from . import hub
+from .protocol import TYPING_TTL_MS
 
 PresenceState = Literal["active", "away", "offline"]
 
 #: Presence keys expire after two missed heartbeats.
 PRESENCE_TTL_SEC = 60
-#: Typing indicator lifetime, matched by the client's own timeout.
-TYPING_TTL_MS = 5_000
+
 
 
 async def mark_active(user_id: str) -> None:

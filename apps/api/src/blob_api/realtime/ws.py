@@ -21,13 +21,10 @@ from ..db.engine import session_scope
 from ..lib.auth import SessionUser
 from ..lib.ids import new_id
 from . import hub, presence
+from .protocol import HEARTBEAT_MS, TYPING_THROTTLE_MS
 
 router = APIRouter()
 
-#: Client heartbeat interval; the server drops a connection after two missed beats.
-HEARTBEAT_MS = 25_000
-#: A client may send at most one typing frame per this interval.
-TYPING_THROTTLE_MS = 3_000
 DEAD_AFTER_SEC = (HEARTBEAT_MS * 2 + 5_000) / 1000
 #: Presence subscriptions are per-view; cap them so one client cannot ask for everyone.
 MAX_PRESENCE_SUBS = 500
