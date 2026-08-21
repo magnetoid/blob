@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T03:46:45'
-updated: '2026-08-21T03:46:45'
+created: '2026-08-21T03:48:04'
+updated: '2026-08-21T03:48:04'
 ---
 
 # apps/api/src/blob_api/routers/bot_api.py

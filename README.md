@@ -137,8 +137,15 @@ Two things to know about the stack it builds:
 - **MinIO needs its own hostname.** The browser uploads to the bucket directly and reads
   from it directly, and a presigned URL is signed for one specific host — so MinIO gets a
   domain of its own (`SERVICE_FQDN_MINIO_9000`) and the app signs with it. If those two
-  disagree, every attachment link resolves to a host the browser cannot reach. Point
-  `S3_*` at a managed S3 instead and the service can be deleted outright.
+  disagree, every attachment link resolves to a host the browser cannot reach. Set
+  `S3_PUBLIC_ENDPOINT` to that domain explicitly, **scheme included**: Coolify's
+  `SERVICE_FQDN_*` is a bare hostname by design — only `SERVICE_URL_*` carries a scheme —
+  and boto3 signs against a URL. Point `S3_*` at a managed S3 instead and the service can
+  be deleted outright.
+- **A reverse proxy in front needs `client_max_body_size` raised** to at least the upload
+  cap, and `proxy_request_buffering off` so a large upload streams through rather than
+  spooling to the proxy's disk first. nginx defaults to 1 MB, which rejects most real
+  attachments with a 413 the client cannot explain.
 
 ### Anywhere else
 
