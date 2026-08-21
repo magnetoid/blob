@@ -82,3 +82,20 @@ Worth knowing before changing the equivalent code:
   attempts fail with `password authentication failed for user "blob"` — which reads like
   a credentials problem and is not one. Production went down this way. Reach the runner
   through `host.docker.internal` (mapped to `host-gateway` in the compose file) instead.
+- **`host.docker.internal` is a host address, so it lands in the INPUT chain.** On the
+  production host that chain has policy DROP, and 8000 is not in its allow-list, so the
+  runner's API times out from inside the container while answering fine from the host.
+  Nothing logs a refusal — the call just hangs until the deploy timeout. The rule that
+  permits it is owned by `blob-coolify-api-fw.service` on the host, which derives the
+  bridge and subnet from the Coolify resource UUID and re-adds the rule after boot.
+- **Never run `plesk ext firewall --apply` on a host that also runs Docker.** Plesk
+  regenerates its rules with `iptables -F FORWARD` and `iptables -t nat -F`, which flushes
+  Docker's DNAT, MASQUERADE and DOCKER-USER rules and drops networking for *every*
+  container on the machine until dockerd is restarted. Adding a firewall rule through the
+  supported tool is far more destructive than adding one by hand; a single additive
+  `-I INPUT` touches nothing else. This is also why the rule needs a systemd unit: the
+  Plesk unit rebuilds INPUT from its own database at every boot.
+- **Coolify's lifecycle verbs are POST; its read verbs are GET.** `stop`, `start` and
+  `restart` answer a GET with `405 {"message":"This endpoint has changed to a POST
+  request."}`, while `GET /applications/{uuid}` and `.../logs` are correct as GETs. The
+  asymmetry is not guessable and is pinned by `tests/test_agent_runner_api.py`.

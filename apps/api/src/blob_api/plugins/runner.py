@@ -161,7 +161,11 @@ class CoolifyRunner:
         return str(payload or "")
 
     async def stop(self, deployment_id: str) -> None:
-        await self._call("GET", f"/api/v1/applications/{deployment_id}/stop")
+        # POST, not GET. Coolify answers a GET here with 405 "This endpoint has changed
+        # to a POST request" — the lifecycle verbs (stop/start/restart) moved, while
+        # status and logs stayed on GET. Written against the docs and only caught by
+        # calling the live API: every stop an admin asked for failed as runner_failed.
+        await self._call("POST", f"/api/v1/applications/{deployment_id}/stop")
 
     async def _call(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         try:

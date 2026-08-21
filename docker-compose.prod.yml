@@ -69,6 +69,15 @@ services:
       # resolve to two different databases and authentication fails on whichever one DNS
       # happens to pick. Set COOLIFY_API_URL to http://host.docker.internal:8000 (or
       # wherever the runner listens) to switch agent hosting on.
+      #
+      # Setting it is not always enough. host.docker.internal is an address *on the host*,
+      # so the call arrives on the host's INPUT chain — and a host with a default-deny
+      # INPUT policy drops it silently: the request hangs until the deploy timeout and
+      # nothing logs a refusal. If agent installs time out while `curl` from the host
+      # works, that is this. Allow the app's own docker subnet to reach the runner's port
+      # and nothing wider; on a Plesk host, add that rule with a plain `iptables -I INPUT`
+      # from a boot-time unit rather than through Plesk, whose apply step flushes the
+      # FORWARD and nat tables and takes every container on the machine offline with it.
       - COOLIFY_API_URL=${COOLIFY_API_URL:-}
       - COOLIFY_TOKEN=${COOLIFY_TOKEN:-}
       - COOLIFY_PROJECT_UUID=${COOLIFY_PROJECT_UUID:-}
