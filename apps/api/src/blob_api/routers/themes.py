@@ -11,8 +11,8 @@ from ..lib.auth import SessionUser, current_user, require_admin
 from ..schemas.base import CamelModel
 from ..services import audit as audit_service
 from ..services import themes as theme_service
+from ..services.audit import actor_for
 from ..services.themes import Theme
-from .admin import actor_for
 
 router = APIRouter(tags=["themes"])
 

@@ -60,6 +60,17 @@ class Settings(BaseSettings):
     TRANSLATION_API_KEY: str | None = None
     TRANSLATION_TIMEOUT_SEC: float = 10.0
 
+    # Hosting an agent from a repository. Disabled means agents can still be registered
+    # as external apps — only the "and run it for me" half is off. Blob never holds the
+    # Docker socket itself; the runner is whatever already owns that privilege.
+    AGENT_RUNNER: Literal["disabled", "coolify"] = "disabled"
+    COOLIFY_URL: str | None = None
+    COOLIFY_TOKEN: str | None = None
+    COOLIFY_PROJECT_UUID: str | None = None
+    COOLIFY_SERVER_UUID: str | None = None
+    COOLIFY_ENVIRONMENT: str = "production"
+    AGENT_DEPLOY_TIMEOUT_SEC: float = 30.0
+
     @field_validator(
         "SMTP_USER",
         "SMTP_PASS",
@@ -68,6 +79,10 @@ class Settings(BaseSettings):
         "WEB_DIST",
         "TRANSLATION_BASE_URL",
         "TRANSLATION_API_KEY",
+        "COOLIFY_URL",
+        "COOLIFY_TOKEN",
+        "COOLIFY_PROJECT_UUID",
+        "COOLIFY_SERVER_UUID",
     )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:
@@ -84,6 +99,18 @@ class Settings(BaseSettings):
     @property
     def s3_public_endpoint(self) -> str:
         return self.S3_PUBLIC_ENDPOINT or self.S3_ENDPOINT
+
+    @property
+    def agent_hosting_enabled(self) -> bool:
+        """Every piece has to be present, or a deploy fails halfway through."""
+        return self.AGENT_RUNNER == "coolify" and all(
+            (
+                self.COOLIFY_URL,
+                self.COOLIFY_TOKEN,
+                self.COOLIFY_PROJECT_UUID,
+                self.COOLIFY_SERVER_UUID,
+            )
+        )
 
     @property
     def push_enabled(self) -> bool:

@@ -18,8 +18,8 @@ from ..services import agentic as agentic_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services.audit import actor_for
 from ..services.serialize import to_agent_task
-from .admin import actor_for
 
 router = APIRouter(tags=["agentic"])
 

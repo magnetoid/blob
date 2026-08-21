@@ -29,7 +29,7 @@ from ..plugins import registry
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
 from ..schemas.base import CamelModel, iso
 from ..services import audit as audit_service
-from .admin import actor_for
+from ..services.audit import actor_for
 
 router = APIRouter(tags=["admin"], prefix="/api/admin/plugins")
 

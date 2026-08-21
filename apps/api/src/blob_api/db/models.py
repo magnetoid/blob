@@ -642,14 +642,20 @@ class Plugin(Base):
 
     __tablename__ = "plugins"
     __table_args__ = (
-        CheckConstraint("runtime IN ('local', 'external')", name="plugins_runtime_check"),
+        CheckConstraint(
+            "runtime IN ('local', 'external', 'container')", name="plugins_runtime_check"
+        ),
         CheckConstraint(
             "status IN ('enabled', 'disabled', 'needs_review', 'failed')",
             name="plugins_status_check",
         ),
         CheckConstraint(
-            "runtime <> 'external' OR request_url IS NOT NULL",
+            "runtime = 'local' OR request_url IS NOT NULL",
             name="plugins_external_needs_url",
+        ),
+        CheckConstraint(
+            "runtime <> 'container' OR source_repo IS NOT NULL",
+            name="plugins_container_needs_repo",
         ),
         UniqueConstraint("workspace_id", "slug", name="plugins_slug_uniq"),
     )
@@ -669,6 +675,11 @@ class Plugin(Base):
         ARRAY(Text), nullable=False, server_default=text("'{}'")
     )
     last_error: Mapped[str | None] = mapped_column(Text)
+    #: Where a container agent came from, and what the runner calls its deployment.
+    source_repo: Mapped[str | None] = mapped_column(Text)
+    source_ref: Mapped[str | None] = mapped_column(Text)
+    deployment_id: Mapped[str | None] = mapped_column(Text)
+    deployment_status: Mapped[str | None] = mapped_column(Text)
     installed_by: Mapped[str | None] = mapped_column(
         UUIDStr,
         # users and plugins reference each other — a bot belongs to a plugin, a plugin
