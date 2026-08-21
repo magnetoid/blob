@@ -31,11 +31,14 @@ exists, unrendered; what is missing is the seven block types, `BlockRenderer.tsx
 
 ## Open questions
 
-- **The Docker image build has never been run.** Local disk was too full to start a
-  Docker daemon, so the Dockerfile and compose file are verified only by reading, by a
-  local run of the production serving path, and by pinning the two toolchain versions
-  whose defaults would have failed the build (uv 0.11 for lockfile revision 3, corepack's
-  download prompt).
+- ~~The Docker image build has never been run.~~ **Settled.** CI's `image` job builds it,
+  boots `docker-compose.prod.yml` with `--wait`, checks `/healthz` and `/readyz`, and
+  asserts the schema reached head — so the entrypoint's advisory-locked migration runs
+  against a real Postgres on every push. Left here rather than deleted because the stale
+  version of this note outlived the work and later got read back as fact: a full audit
+  named the unbuilt image its largest deployment risk, on the strength of a line that had
+  been untrue for weeks. A note that says a thing is unverified is itself a claim that
+  expires.
 - **The plugin console frontend now exists.** Administration → Apps covers install,
   approval, enable/disable, token and secret rotation, uninstall, and delivery-log
   inspection.
