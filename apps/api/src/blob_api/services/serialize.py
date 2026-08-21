@@ -239,8 +239,27 @@ def message_event(name: str, message: Message) -> dict[str, Any]:
     return {"t": name, "message": message.model_dump(by_alias=True)}
 
 
-MESSAGE_SELECT = """
-  m.*,
+#: Every column of `messages` except `search_tsv`, which is the point of the list.
+#:
+#: `m.*` used to stand here, which meant every message read — opening a channel, a
+#: thread, a search — also fetched the message's tsvector and threw it away. It is not
+#: small: on a live workspace the tsvectors weigh about two and a half times the message
+#: bodies they index, so the hottest query in the product was spending most of its bytes
+#: on a column no caller reads.
+#:
+#: The cost of naming columns is that a migration adding one has to add it here too, or
+#: it silently will not reach the client. That is what the message serialization tests
+#: are for; a missing column fails them rather than shipping a null.
+MESSAGE_COLUMNS = """
+  m.id, m.workspace_id, m.channel_id, m.author_id, m.kind, m.body,
+  m.thread_root_id, m.also_in_channel, m.reply_count, m.reply_user_ids,
+  m.last_reply_at, m.mention_user_ids, m.mentions_everyone, m.client_msg_id,
+  m.edited_at, m.deleted_at, m.pinned_at, m.pinned_by, m.created_at,
+  m.link_preview, m.plugin_id, m.blocks
+"""
+
+MESSAGE_SELECT = f"""
+  {MESSAGE_COLUMNS},
   COALESCE((
     SELECT json_agg(json_build_object('emoji', r.emoji, 'user_ids', r.user_ids)
                     ORDER BY r.first_at)
