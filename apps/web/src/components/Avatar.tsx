@@ -1,19 +1,19 @@
 /** Initials avatar with optional presence dot. */
 
-import type { PresenceState, User } from '@blob/shared';
+import type { PresenceState, User } from "@blob/shared";
 
-export function initials(name: string): string {
+function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
 }
 
 interface Props {
-  user: Pick<User, 'displayName' | 'avatarUrl'> | undefined;
-  size?: 'sm' | 'md' | 'lg';
+  user: Pick<User, "displayName" | "avatarUrl"> | undefined;
+  size?: "sm" | "md" | "lg";
 }
 
-export function Avatar({ user, size = 'md' }: Props) {
-  const name = user?.displayName ?? '?';
+export function Avatar({ user, size = "md" }: Props) {
+  const name = user?.displayName ?? "?";
   return (
     <span className="avatar" data-size={size} title={name}>
       {user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : initials(name)}
@@ -25,7 +25,7 @@ export function AvatarWithPresence({
   user,
   state,
 }: {
-  user: Pick<User, 'displayName' | 'avatarUrl'> | undefined;
+  user: Pick<User, "displayName" | "avatarUrl"> | undefined;
   state: PresenceState;
 }) {
   return (

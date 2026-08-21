@@ -5,18 +5,19 @@
  * one avatar and header; the exact time then appears in the gutter on hover.
  */
 
-import { useEffect, useMemo, useState, memo } from 'react';
-import type { Message, MessageTranslation } from '@blob/shared';
-import { ApiError, api } from '../../lib/api.ts';
-import { useStore } from '../../lib/store.ts';
-import type { LocalMessageDeliveryStatus } from '../../lib/outbox.ts';
-import { renderMarkdown } from '../../lib/markdown.tsx';
-import { BlockRenderer } from './BlockRenderer.tsx';
-import { Avatar } from '../../components/Avatar.tsx';
-import { FileIcon, MoreIcon, ReplyIcon } from '../../components/Icon.tsx';
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
+import type { Message, MessageTranslation } from "@blob/shared";
+import { ApiError, api } from "../../lib/api.ts";
+import { useStore } from "../../lib/store.ts";
+import type { LocalMessageDeliveryStatus } from "../../lib/outbox.ts";
+import { renderMarkdown } from "../../lib/markdown.tsx";
+import { BlockRenderer } from "./BlockRenderer.tsx";
+import { formatRelative, formatTime } from "./messageFormatting.ts";
+import { Avatar } from "../../components/Avatar.tsx";
+import { FileIcon, MoreIcon, ReplyIcon } from "../../components/Icon.tsx";
 
 /** Offered directly in the hover toolbar; the rest come from the picker. */
-const QUICK_REACTIONS = ['👍', '🎉', '👀'];
+const QUICK_REACTIONS = ["👍", "🎉", "👀"];
 
 interface Props {
   message: Message;
@@ -32,15 +33,22 @@ function translationCacheKey(message: Message, targetLanguage: string): string {
   return `${message.id}:${message.editedAt ?? message.createdAt}:${targetLanguage}`;
 }
 
-export function isGrouped(message: Message, previous: Message | null): boolean {
+function isGrouped(message: Message, previous: Message | null): boolean {
   if (!previous) return false;
   if (previous.authorId !== message.authorId) return false;
   if (previous.deletedAt || message.deletedAt) return false;
-  const gap = new Date(message.createdAt).getTime() - new Date(previous.createdAt).getTime();
+  const gap =
+    new Date(message.createdAt).getTime() -
+    new Date(previous.createdAt).getTime();
   return gap < 60_000;
 }
 
-export const MessageRow = memo(function MessageRow({ message, previous, onOpenThread, inThread = false }: Props) {
+export const MessageRow = memo(function MessageRow({
+  message,
+  previous,
+  onOpenThread,
+  inThread = false,
+}: Props) {
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
   const toggleReaction = useStore((s) => s.toggleReaction);
@@ -52,27 +60,45 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
   const [draft, setDraft] = useState(message.body);
   const [menuOpen, setMenuOpen] = useState(false);
   const preferredLanguage = currentUser?.prefs.language ?? null;
-  const autoTranslate = Boolean(currentUser?.prefs.autoTranslate && preferredLanguage);
-  const [translation, setTranslation] = useState<MessageTranslation | null>(null);
+  const autoTranslate = Boolean(
+    currentUser?.prefs.autoTranslate && preferredLanguage,
+  );
+  const [translation, setTranslation] = useState<MessageTranslation | null>(
+    null,
+  );
   const [translationBusy, setTranslationBusy] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [translationVisible, setTranslationVisible] = useState(false);
+  const editRef = useRef<HTMLTextAreaElement>(null);
 
   const author = message.authorId ? users[message.authorId] : undefined;
   const grouped = isGrouped(message, previous);
-  const pending = deliveryState !== null || message.id.startsWith('pending-');
+  const pending = deliveryState !== null || message.id.startsWith("pending-");
   const mine = message.authorId === currentUser?.id;
-  const mentionsMe = currentUser ? message.mentionUserIds.includes(currentUser.id) : false;
+  const mentionsMe = currentUser
+    ? message.mentionUserIds.includes(currentUser.id)
+    : false;
   const canTranslate =
-    !pending && !editing && !message.deletedAt && !!message.body.trim() && !!preferredLanguage;
+    !pending &&
+    !editing &&
+    !message.deletedAt &&
+    !!message.body.trim() &&
+    !!preferredLanguage;
 
   const knownNames = useMemo(
-    () => new Map(Object.values(users).map((u) => [u.displayName.toLowerCase(), u.id])),
+    () =>
+      new Map(
+        Object.values(users).map((u) => [u.displayName.toLowerCase(), u.id]),
+      ),
     [users],
   );
 
   const rendered = useMemo(
-    () => renderMarkdown(message.body, { knownNames, currentUserId: currentUser?.id ?? null }),
+    () =>
+      renderMarkdown(message.body, {
+        knownNames,
+        currentUserId: currentUser?.id ?? null,
+      }),
     [message.body, knownNames, currentUser],
   );
 
@@ -83,42 +109,70 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
       setTranslationError(null);
       return;
     }
-    const cached = translationCache.get(translationCacheKey(message, preferredLanguage)) ?? null;
+    const cached =
+      translationCache.get(translationCacheKey(message, preferredLanguage)) ??
+      null;
     setTranslation(cached);
-    setTranslationVisible((current) => (cached !== null ? autoTranslate || current : false));
+    setTranslationVisible((current) =>
+      cached !== null ? autoTranslate || current : false,
+    );
     setTranslationError(null);
   }, [autoTranslate, message, preferredLanguage]);
 
-  useEffect(() => {
-    if (!autoTranslate || !canTranslate || mine || translation || translationBusy) return;
-    void requestTranslation();
-    // Intentionally depends on the translated message identity to retry after edits.
-  }, [autoTranslate, canTranslate, mine, translation, translationBusy, message.id, message.editedAt]);
-
-  async function requestTranslation(forceRefresh = false) {
-    if (!preferredLanguage || !canTranslate) return;
-    setTranslationBusy(true);
-    setTranslationError(null);
-    try {
-      const { translation: next } = await api.messages.translate(message.id, {
-        targetLanguage: preferredLanguage,
-        forceRefresh,
-      });
-      translationCache.set(translationCacheKey(message, preferredLanguage), next);
-      setTranslation(next);
-      setTranslationVisible(true);
-    } catch (error) {
-      const nextError =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
+  const requestTranslation = useCallback(
+    async (forceRefresh = false) => {
+      if (!preferredLanguage || !canTranslate) return;
+      setTranslationBusy(true);
+      setTranslationError(null);
+      try {
+        const { translation: next } = await api.messages.translate(message.id, {
+          targetLanguage: preferredLanguage,
+          forceRefresh,
+        });
+        translationCache.set(
+          translationCacheKey(message, preferredLanguage),
+          next,
+        );
+        setTranslation(next);
+        setTranslationVisible(true);
+      } catch (error) {
+        const nextError =
+          error instanceof ApiError
             ? error.message
-            : "That translation couldn't be loaded.";
-      setTranslationError(nextError);
-    } finally {
-      setTranslationBusy(false);
-    }
-  }
+            : error instanceof Error
+              ? error.message
+              : "That translation couldn't be loaded.";
+        setTranslationError(nextError);
+      } finally {
+        setTranslationBusy(false);
+      }
+    },
+    [canTranslate, message, preferredLanguage],
+  );
+
+  useEffect(() => {
+    if (
+      !autoTranslate ||
+      !canTranslate ||
+      mine ||
+      translation ||
+      translationBusy
+    )
+      return;
+    void requestTranslation();
+  }, [
+    autoTranslate,
+    canTranslate,
+    mine,
+    requestTranslation,
+    translation,
+    translationBusy,
+  ]);
+
+  useEffect(() => {
+    if (!editing) return;
+    editRef.current?.focus();
+  }, [editing]);
 
   if (message.deletedAt) {
     return (
@@ -153,12 +207,16 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
       <div className="message-main">
         {!grouped && (
           <div className="message-head">
-            <span className="message-author">{author?.displayName ?? 'Someone'}</span>
+            <span className="message-author">
+              {author?.displayName ?? "Someone"}
+            </span>
             <time className="message-time" dateTime={message.createdAt}>
               {formatTime(message.createdAt)}
             </time>
             {deliveryState && (
-              <span className="message-edited">{deliveryStatusLabel(deliveryState)}</span>
+              <span className="message-edited">
+                {deliveryStatusLabel(deliveryState)}
+              </span>
             )}
           </div>
         )}
@@ -172,22 +230,27 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
               await api.messages.edit(message.id, trimmed);
               setEditing(false);
             }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              marginTop: 4,
+            }}
           >
             <textarea
+              ref={editRef}
               className="input"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              rows={Math.min(10, draft.split('\n').length + 1)}
-              autoFocus
+              rows={Math.min(10, draft.split("\n").length + 1)}
               onKeyDown={(e) => {
-                if (e.key === 'Escape') {
+                if (e.key === "Escape") {
                   setDraft(message.body);
                   setEditing(false);
                 }
               }}
             />
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: "flex", gap: 8 }}>
               <button className="btn btn-primary" type="submit">
                 Save
               </button>
@@ -206,7 +269,9 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
         ) : (
           <div className="message-body">
             {rendered}
-            {message.editedAt && <span className="message-edited"> (edited)</span>}
+            {message.editedAt && (
+              <span className="message-edited"> (edited)</span>
+            )}
           </div>
         )}
 
@@ -221,8 +286,13 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
         {message.attachments.length > 0 && (
           <div className="attachments">
             {message.attachments.map((attachment) =>
-              attachment.mime.startsWith('image/') ? (
-                <a key={attachment.id} href={attachment.url} target="_blank" rel="noreferrer">
+              attachment.mime.startsWith("image/") ? (
+                <a
+                  key={attachment.id}
+                  href={attachment.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   <img
                     className="attachment-image"
                     src={attachment.thumbUrl ?? attachment.url}
@@ -241,8 +311,13 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
                     <FileIcon size={15} />
                   </span>
                   <span>
-                    <span className="attachment-name">{attachment.filename}</span>
-                    <span className="attachment-size" style={{ display: 'block' }}>
+                    <span className="attachment-name">
+                      {attachment.filename}
+                    </span>
+                    <span
+                      className="attachment-size"
+                      style={{ display: "block" }}
+                    >
                       {formatSize(attachment.sizeBytes)}
                     </span>
                   </span>
@@ -259,9 +334,14 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
             target="_blank"
             rel="noreferrer"
           >
-            <span className="link-preview-title">{message.linkPreview.title}</span>
+            <span className="link-preview-title">
+              {message.linkPreview.title}
+            </span>
             {message.linkPreview.description && (
-              <span className="link-preview-description" style={{ display: 'block' }}>
+              <span
+                className="link-preview-description"
+                style={{ display: "block" }}
+              >
                 {message.linkPreview.description}
               </span>
             )}
@@ -283,12 +363,12 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
               disabled={translationBusy}
             >
               {translationBusy
-                ? 'Translating…'
+                ? "Translating…"
                 : translationVisible
-                  ? 'Hide translation'
+                  ? "Hide translation"
                   : translation
-                    ? 'Show translation'
-                    : 'Translate'}
+                    ? "Show translation"
+                    : "Translate"}
             </button>
             {translation && (
               <button
@@ -300,7 +380,11 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
                 Refresh
               </button>
             )}
-            {translationError && <span className="message-translation-error">{translationError}</span>}
+            {translationError && (
+              <span className="message-translation-error">
+                {translationError}
+              </span>
+            )}
           </div>
         )}
 
@@ -310,17 +394,19 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
               {translation.sourceLanguage
                 ? `Translated from ${displayLanguage(translation.sourceLanguage)} to ${displayLanguage(translation.targetLanguage)}`
                 : `Translated to ${displayLanguage(translation.targetLanguage)}`}
-              {' · '}
+              {" · "}
               {translation.provider}
             </div>
-            <div className="message-translation-text">{translation.translatedText}</div>
+            <div className="message-translation-text">
+              {translation.translatedText}
+            </div>
           </div>
         )}
 
         {deliveryState && (
           <div className="message-delivery" data-state={deliveryState}>
             <span>{deliveryStatusHint(deliveryState)}</span>
-            {deliveryState === 'failed' && (
+            {deliveryState === "failed" && (
               <>
                 <button
                   className="btn btn-ghost"
@@ -347,9 +433,16 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
               <button
                 key={reaction.emoji}
                 className="reaction"
-                data-mine={currentUser ? reaction.userIds.includes(currentUser.id) : false}
+                data-mine={
+                  currentUser
+                    ? reaction.userIds.includes(currentUser.id)
+                    : false
+                }
+                type="button"
                 onClick={() => void toggleReaction(message, reaction.emoji)}
-                title={reaction.userIds.map((id) => users[id]?.displayName ?? 'Someone').join(', ')}
+                title={reaction.userIds
+                  .map((id) => users[id]?.displayName ?? "Someone")
+                  .join(", ")}
               >
                 <span>{reaction.emoji}</span>
                 <span>{reaction.userIds.length}</span>
@@ -359,9 +452,16 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
         )}
 
         {!inThread && message.replyCount > 0 && (
-          <button className="thread-summary" onClick={() => onOpenThread(message.id)}>
-            {message.replyUserIds[0] && <Avatar user={users[message.replyUserIds[0]]} size="sm" />}
-            {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
+          <button
+            className="thread-summary"
+            type="button"
+            onClick={() => onOpenThread(message.id)}
+          >
+            {message.replyUserIds[0] && (
+              <Avatar user={users[message.replyUserIds[0]]} size="sm" />
+            )}
+            {message.replyCount}{" "}
+            {message.replyCount === 1 ? "reply" : "replies"}
             {message.lastReplyAt && (
               <span className="thread-summary-meta">
                 Last reply {formatRelative(message.lastReplyAt)}
@@ -378,6 +478,7 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
               key={emoji}
               className="message-action"
               data-emoji="true"
+              type="button"
               onClick={() => void toggleReaction(message, emoji)}
               title={`React ${emoji}`}
             >
@@ -388,15 +489,17 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
           {!inThread && (
             <button
               className="message-action"
+              type="button"
               onClick={() => onOpenThread(message.threadRootId ?? message.id)}
               title="Reply in thread"
             >
               <ReplyIcon size={15} />
             </button>
           )}
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: "relative" }}>
             <button
               className="message-action"
+              type="button"
               onClick={() => setMenuOpen((open) => !open)}
               title="More"
               aria-expanded={menuOpen}
@@ -404,19 +507,33 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
               <MoreIcon size={15} />
             </button>
             {menuOpen && (
-              <div className="autocomplete" style={{ bottom: 'auto', top: 32, left: 'auto', right: 0, width: 160 }}>
+              <div
+                className="autocomplete"
+                style={{
+                  bottom: "auto",
+                  top: 32,
+                  left: "auto",
+                  right: 0,
+                  width: 160,
+                }}
+              >
                 <button
                   className="autocomplete-item"
+                  type="button"
                   onClick={() => {
                     setMenuOpen(false);
-                    void api.messages.pin(message.id, message.pinnedAt === null);
+                    void api.messages.pin(
+                      message.id,
+                      message.pinnedAt === null,
+                    );
                   }}
                 >
-                  {message.pinnedAt ? 'Unpin' : 'Pin to channel'}
+                  {message.pinnedAt ? "Unpin" : "Pin to channel"}
                 </button>
                 {mine && (
                   <button
                     className="autocomplete-item"
+                    type="button"
                     onClick={() => {
                       setMenuOpen(false);
                       setEditing(true);
@@ -428,9 +545,11 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
                 {mine && (
                   <button
                     className="autocomplete-item"
+                    type="button"
                     onClick={() => {
                       setMenuOpen(false);
-                      if (confirm('Delete this message?')) void api.messages.remove(message.id);
+                      if (confirm("Delete this message?"))
+                        void api.messages.remove(message.id);
                     }}
                   >
                     Delete message
@@ -445,19 +564,6 @@ export const MessageRow = memo(function MessageRow({ message, previous, onOpenTh
   );
 });
 
-export function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-}
-
-export function formatRelative(iso: string): string {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -466,29 +572,31 @@ function formatSize(bytes: number): string {
 
 function deliveryStatusLabel(status: LocalMessageDeliveryStatus): string {
   switch (status) {
-    case 'sending':
-      return 'sending…';
-    case 'queued':
-      return 'queued';
-    case 'failed':
-      return 'needs attention';
+    case "sending":
+      return "sending…";
+    case "queued":
+      return "queued";
+    case "failed":
+      return "needs attention";
   }
 }
 
 function deliveryStatusHint(status: LocalMessageDeliveryStatus): string {
   switch (status) {
-    case 'sending':
-      return 'Sending now.';
-    case 'queued':
-      return 'Queued to send when your connection is back.';
-    case 'failed':
-      return 'That send was rejected. Retry it or discard this draft.';
+    case "sending":
+      return "Sending now.";
+    case "queued":
+      return "Queued to send when your connection is back.";
+    case "failed":
+      return "That send was rejected. Retry it or discard this draft.";
   }
 }
 
 function displayLanguage(code: string): string {
   try {
-    const display = new Intl.DisplayNames(undefined, { type: 'language' }).of(code);
+    const display = new Intl.DisplayNames(undefined, { type: "language" }).of(
+      code,
+    );
     return display ?? code.toUpperCase();
   } catch {
     return code.toUpperCase();

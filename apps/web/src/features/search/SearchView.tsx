@@ -5,18 +5,18 @@
  * has:link before:2026-01-01` — with the free text as whatever is left over.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import type { Message } from '@blob/shared';
-import { api } from '../../lib/api.ts';
-import { useStore } from '../../lib/store.ts';
-import { Avatar } from '../../components/Avatar.tsx';
-import { SearchIcon } from '../../components/Icon.tsx';
-import { formatRelative } from '../messages/MessageRow.tsx';
+import { useEffect, useRef, useState } from "react";
+import type { Message } from "@blob/shared";
+import { api } from "../../lib/api.ts";
+import { useStore } from "../../lib/store.ts";
+import { Avatar } from "../../components/Avatar.tsx";
+import { SearchIcon } from "../../components/Icon.tsx";
+import { formatRelative } from "../messages/messageFormatting.ts";
 
 const FILTERS = [
-  { label: 'All', value: '' },
-  { label: 'Has file', value: 'has:file' },
-  { label: 'Has link', value: 'has:link' },
+  { label: "All", value: "" },
+  { label: "Has file", value: "has:file" },
+  { label: "Has link", value: "has:link" },
 ] as const;
 
 export function SearchView() {
@@ -25,8 +25,8 @@ export function SearchView() {
   const openChannel = useStore((s) => s.openChannel);
   const channelTitle = useStore((s) => s.channelTitle);
 
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<string>('');
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<string>("");
   const [results, setResults] = useState<Message[] | null>(null);
   const [total, setTotal] = useState(0);
   const [searching, setSearching] = useState(false);
@@ -38,13 +38,15 @@ export function SearchView() {
 
   // Debounce so typing doesn't fire a request per keystroke.
   useEffect(() => {
-    const term = [query, filter].filter(Boolean).join(' ').trim();
-    if (!term) {
-      setResults(null);
-      return undefined;
-    }
-    setSearching(true);
+    const term = [query, filter].filter(Boolean).join(" ").trim();
     const timer = setTimeout(async () => {
+      if (!term) {
+        setResults(null);
+        setTotal(0);
+        setSearching(false);
+        return;
+      }
+      setSearching(true);
       try {
         const result = await api.search(term);
         setResults(result.messages);
@@ -77,6 +79,7 @@ export function SearchView() {
             <button
               key={f.label}
               className="chip"
+              type="button"
               aria-pressed={filter === f.value}
               onClick={() => setFilter(f.value)}
             >
@@ -94,43 +97,49 @@ export function SearchView() {
             </div>
             <div className="empty-state-title">Search the whole history</div>
             <div className="empty-state-body">
-              Nothing is ever archived away. Narrow results with <code>from:</code>,{' '}
-              <code>in:</code>, <code>has:link</code> or <code>before:</code>.
+              Nothing is ever archived away. Narrow results with{" "}
+              <code>from:</code>, <code>in:</code>, <code>has:link</code> or{" "}
+              <code>before:</code>.
             </div>
           </div>
         ) : results.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-title">
-              {searching ? 'Searching…' : `Nothing matched “${query}”`}
+              {searching ? "Searching…" : `Nothing matched “${query}”`}
             </div>
-            <div className="empty-state-body">Try a shorter phrase, or drop the filters.</div>
+            <div className="empty-state-body">
+              Try a shorter phrase, or drop the filters.
+            </div>
           </div>
         ) : (
           <>
             <div className="search-count">
-              {total} {total === 1 ? 'result' : 'results'}
+              {total} {total === 1 ? "result" : "results"}
             </div>
             {results.map((message) => {
-              const author = message.authorId ? users[message.authorId] : undefined;
+              const author = message.authorId
+                ? users[message.authorId]
+                : undefined;
               const channel = channels[message.channelId];
               return (
                 <button
                   key={message.id}
                   className="search-result"
+                  type="button"
                   onClick={() => void openChannel(message.channelId)}
                 >
                   <Avatar user={author} size="lg" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="search-result-head">
                       <span className="search-result-author">
-                        {author?.displayName ?? 'Someone'}
+                        {author?.displayName ?? "Someone"}
                       </span>
                       <span className="search-result-meta">
                         {channel
                           ? channel.name
                             ? `#${channel.name}`
                             : channelTitle(channel)
-                          : 'Unknown'}{' '}
+                          : "Unknown"}{" "}
                         · {formatRelative(message.createdAt)}
                       </span>
                     </div>

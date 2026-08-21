@@ -1,21 +1,25 @@
 /** Who has been invited, and who has not arrived yet. */
 
-import { useCallback, useEffect, useState } from 'react';
-import { api, type AdminInvite } from '../../../lib/api.ts';
-import { formatRelative } from '../../messages/MessageRow.tsx';
-import { useAdminAction } from '../hooks.ts';
+import { useCallback, useEffect, useState } from "react";
+import { api, type AdminInvite } from "../../../lib/api.ts";
+import { formatRelative } from "../../messages/messageFormatting.ts";
+import { useAdminAction } from "../hooks.ts";
 
-export function InvitationsSection({ onError }: { onError: (message: string | null) => void }) {
+export function InvitationsSection({
+  onError,
+}: {
+  onError: (message: string | null) => void;
+}) {
   const [invites, setInvites] = useState<AdminInvite[]>([]);
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'member' | 'admin'>('member');
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"member" | "admin">("member");
   const [link, setLink] = useState<string | null>(null);
 
   const load = useCallback(() => {
     void api.admin
       .invites()
       .then((r) => setInvites(r.invites))
-      .catch(() => onError('Could not load invitations.'));
+      .catch(() => onError("Could not load invitations."));
   }, [onError]);
 
   useEffect(() => {
@@ -27,7 +31,12 @@ export function InvitationsSection({ onError }: { onError: (message: string | nu
   return (
     <section>
       <form
-        style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 20 }}
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "flex-end",
+          marginBottom: 20,
+        }}
         onSubmit={(event) => {
           event.preventDefault();
           void act(async () => {
@@ -36,7 +45,7 @@ export function InvitationsSection({ onError }: { onError: (message: string | nu
               role,
             });
             setLink(created.url);
-            setEmail('');
+            setEmail("");
           });
         }}
       >
@@ -55,7 +64,7 @@ export function InvitationsSection({ onError }: { onError: (message: string | nu
           <select
             className="input"
             value={role}
-            onChange={(e) => setRole(e.target.value as 'member' | 'admin')}
+            onChange={(e) => setRole(e.target.value as "member" | "admin")}
           >
             <option value="member">member</option>
             <option value="admin">admin</option>
@@ -67,9 +76,16 @@ export function InvitationsSection({ onError }: { onError: (message: string | nu
       </form>
 
       {link && (
-        <div className="draft-chip" style={{ marginBottom: 18, width: '100%' }}>
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{link}</span>
-          <button className="btn btn-ghost" onClick={() => void navigator.clipboard.writeText(link)}>
+        <div className="draft-chip" style={{ marginBottom: 18, width: "100%" }}>
+          <span
+            style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}
+          >
+            {link}
+          </span>
+          <button
+            className="btn btn-ghost"
+            onClick={() => void navigator.clipboard.writeText(link)}
+          >
             Copy
           </button>
         </div>
@@ -77,24 +93,37 @@ export function InvitationsSection({ onError }: { onError: (message: string | nu
 
       <div className="admin-table">
         {invites.map((invite) => (
-          <div className="admin-row" key={invite.id} data-inactive={invite.status !== 'pending'}>
+          <div
+            className="admin-row"
+            key={invite.id}
+            data-inactive={invite.status !== "pending"}
+          >
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="admin-row-title">
-                {invite.email ?? 'Shareable link'}
-                <span className="role-pill" data-muted={invite.status !== 'pending'}>
+                {invite.email ?? "Shareable link"}
+                <span
+                  className="role-pill"
+                  data-muted={invite.status !== "pending"}
+                >
                   {invite.status}
                 </span>
-                {invite.role !== 'member' && <span className="role-pill">{invite.role}</span>}
+                {invite.role !== "member" && (
+                  <span className="role-pill">{invite.role}</span>
+                )}
               </div>
               <div className="admin-row-meta">
-                Created by {invite.createdByName ?? 'someone'} {formatRelative(invite.createdAt)}
-                {invite.acceptedByName && ` · accepted by ${invite.acceptedByName}`}
+                Created by {invite.createdByName ?? "someone"}{" "}
+                {formatRelative(invite.createdAt)}
+                {invite.acceptedByName &&
+                  ` · accepted by ${invite.acceptedByName}`}
               </div>
             </div>
-            {invite.status === 'pending' && (
+            {invite.status === "pending" && (
               <button
                 className="btn"
-                onClick={() => void act(() => api.admin.revokeInvite(invite.id))}
+                onClick={() =>
+                  void act(() => api.admin.revokeInvite(invite.id))
+                }
               >
                 Revoke
               </button>

@@ -7,9 +7,10 @@
  * load above.
  */
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
-import type { Message } from '@blob/shared';
-import { MessageRow } from './MessageRow.tsx';
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import type { Message } from "@blob/shared";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { MessageRow } from "./MessageRow.tsx";
 
 interface Props {
   messages: Message[];
@@ -38,24 +39,74 @@ export function MessageList({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const wasAtBottom = useRef(true);
-  const previousHeight = useRef(0);
-  const previousCount = useRef(0);
+  const previousMetrics = useRef({
+    firstId: null as string | null,
+    lastId: null as string | null,
+    scrollHeight: 0,
+  });
+
+  const decoratedMessages = useMemo(
+    () =>
+      messages.map((message, index) => {
+        const previous = index > 0 ? (messages[index - 1] as Message) : null;
+        const day = dayKey(message.createdAt);
+        const previousDay = previous ? dayKey(previous.createdAt) : null;
+        const showDay = previousDay !== day;
+        const isFirstUnread =
+          unreadAfterId !== null && previous !== null
+            ? previous.id <= unreadAfterId && message.id > unreadAfterId
+            : false;
+
+        return {
+          message,
+          previous,
+          showDay,
+          isFirstUnread,
+        };
+      }),
+    [messages, unreadAfterId],
+  );
+
+  // TanStack Virtual is the intended virtualization layer here; React's compiler rule
+  // flags the hook generically even when the usage is correct.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: decoratedMessages.length,
+    getScrollElement: () => scrollRef.current,
+    getItemKey: (index) =>
+      decoratedMessages[index]?.message.id ?? `row-${index}`,
+    estimateSize: () => (inThread ? 120 : 148),
+    overscan: 10,
+  });
 
   useLayoutEffect(() => {
     const node = scrollRef.current;
     if (!node) return;
 
-    const grewAtTop = messages.length > previousCount.current && node.scrollTop < STICK_THRESHOLD;
+    const previous = previousMetrics.current;
+    const nextFirstId = messages[0]?.id ?? null;
+    const nextLastId = messages[messages.length - 1]?.id ?? null;
+    const prependedOlderPage =
+      previous.firstId !== null &&
+      previous.lastId !== null &&
+      nextFirstId !== null &&
+      nextLastId !== null &&
+      previous.firstId !== nextFirstId &&
+      previous.lastId === nextLastId &&
+      node.scrollTop < STICK_THRESHOLD;
 
-    if (grewAtTop && previousHeight.current > 0) {
+    if (prependedOlderPage && previous.scrollHeight > 0) {
       // Older page prepended: keep the reader looking at the same message.
-      node.scrollTop = node.scrollHeight - previousHeight.current;
+      node.scrollTop += node.scrollHeight - previous.scrollHeight;
     } else if (wasAtBottom.current) {
       node.scrollTop = node.scrollHeight;
     }
 
-    previousHeight.current = node.scrollHeight;
-    previousCount.current = messages.length;
+    previousMetrics.current = {
+      firstId: nextFirstId,
+      lastId: nextLastId,
+      scrollHeight: node.scrollHeight,
+    };
   }, [messages]);
 
   useEffect(() => {
@@ -65,12 +116,13 @@ export function MessageList({
     function onScroll() {
       const el = scrollRef.current;
       if (!el) return;
-      wasAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
+      wasAtBottom.current =
+        el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
       if (el.scrollTop < 200 && hasMore && !loading) onLoadOlder();
     }
 
-    node.addEventListener('scroll', onScroll, { passive: true });
-    return () => node.removeEventListener('scroll', onScroll);
+    node.addEventListener("scroll", onScroll, { passive: true });
+    return () => node.removeEventListener("scroll", onScroll);
   }, [hasMore, loading, onLoadOlder]);
 
   if (messages.length === 0 && emptyState) {
@@ -81,50 +133,63 @@ export function MessageList({
     );
   }
 
-  let lastDay = '';
-
   return (
-    <div className="message-list" ref={scrollRef} role="log" aria-live="polite" aria-relevant="additions">
+    <div
+      className="message-list"
+      ref={scrollRef}
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions"
+    >
       {hasMore && (
-        <div style={{ padding: '8px 22px' }}>
-          <button className="btn btn-ghost" onClick={onLoadOlder} disabled={loading}>
-            {loading ? 'Loading…' : 'Load earlier messages'}
+        <div style={{ padding: "8px 22px" }}>
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={onLoadOlder}
+            disabled={loading}
+          >
+            {loading ? "Loading…" : "Load earlier messages"}
           </button>
         </div>
       )}
 
-      {messages.map((message, index) => {
-        const previous = index > 0 ? (messages[index - 1] as Message) : null;
-        const day = dayKey(message.createdAt);
-        const showDay = day !== lastDay;
-        if (showDay) lastDay = day;
+      <div
+        className="message-list-viewport"
+        style={{ height: `${virtualizer.getTotalSize()}px` }}
+      >
+        {virtualizer.getVirtualItems().map((item) => {
+          const { message, previous, showDay, isFirstUnread } =
+            decoratedMessages[item.index]!;
 
-        const isFirstUnread =
-          unreadAfterId !== null && previous !== null
-            ? previous.id <= unreadAfterId && message.id > unreadAfterId
-            : false;
-
-        return (
-          <div key={message.id}>
-            {showDay && (
-              <div className="day-divider">
-                <span>{dayLabel(message.createdAt)}</span>
-              </div>
-            )}
-            {isFirstUnread && (
-              <div className="unread-divider">
-                <span>New</span>
-              </div>
-            )}
-            <MessageRow
-              message={message}
-              previous={showDay || isFirstUnread ? null : previous}
-              onOpenThread={onOpenThread}
-              inThread={inThread}
-            />
-          </div>
-        );
-      })}
+          return (
+            <div
+              key={item.key}
+              ref={virtualizer.measureElement}
+              data-index={item.index}
+              className="message-list-row"
+              style={{ transform: `translateY(${item.start}px)` }}
+            >
+              {showDay && (
+                <div className="day-divider">
+                  <span>{dayLabel(message.createdAt)}</span>
+                </div>
+              )}
+              {isFirstUnread && (
+                <div className="unread-divider">
+                  <span>New</span>
+                </div>
+              )}
+              <MessageRow
+                message={message}
+                previous={showDay || isFirstUnread ? null : previous}
+                onOpenThread={onOpenThread}
+                inThread={inThread}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -139,12 +204,12 @@ function dayLabel(iso: string): string {
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
 
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
   return date.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric',
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
   });
 }

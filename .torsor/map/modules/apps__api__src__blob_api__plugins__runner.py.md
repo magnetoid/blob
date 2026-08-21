@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T22:34:51'
-updated: '2026-08-21T22:34:51'
+created: '2026-08-22T00:27:10'
+updated: '2026-08-22T00:27:10'
 ---
 
 # apps/api/src/blob_api/plugins/runner.py
@@ -27,5 +27,5 @@ Symbols in `apps/api/src/blob_api/plugins/runner.py`.
 - L141 `status(self, deployment_id: str)` (method)
 - L149 `logs(self, deployment_id: str, lines: int=200)` (method) — Whatever the container has written lately.
 - L163 `stop(self, deployment_id: str)` (method)
-- L166 `_call(self, method: str, path: str, body: dict[str, Any] | None=None)` (method)
-- L187 `current_runner()` (function) — The configured runner, or a clear refusal.
+- L170 `_call(self, method: str, path: str, body: dict[str, Any] | None=None)` (method)
+- L191 `current_runner()` (function) — The configured runner, or a clear refusal.

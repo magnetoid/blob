@@ -93,6 +93,15 @@ async def test_a_deleted_message_leaves_the_index(team: dict) -> None:
     assert (await team["owner"].get("/api/search?q=ephemeralwidget")).body["total"] == 0
 
 
+async def test_total_counts_all_matches_even_when_the_page_is_limited(team: dict) -> None:
+    for i in range(3):
+        await send_message(team["owner"], team["general"]["id"], f"reindex-me {i}")
+
+    response = await team["owner"].get("/api/search?q=reindex-me&limit=1")
+    assert len(response.body["messages"]) == 1
+    assert response.body["total"] == 3
+
+
 # This is the security boundary: search joins against channel_members, and removing
 # that join would leak every private channel workspace-wide.
 async def test_private_messages_stay_out_of_a_non_members_results(team: dict) -> None:

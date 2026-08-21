@@ -81,8 +81,10 @@ async def search(
         await session.execute(
             text(
                 f"""
-                WITH hits AS (
-                  SELECT m.id
+                WITH filtered AS (
+                  SELECT
+                    m.id,
+                    ts_rank(m.search_tsv, websearch_to_tsquery('english', :query)) AS rank
                     FROM messages m
                     JOIN channel_members cm
                       ON cm.channel_id = m.channel_id
@@ -102,11 +104,15 @@ async def search(
                           OR (:has = 'link' AND m.body ~* 'https?://')
                           OR (:has = 'file' AND EXISTS (
                                 SELECT 1 FROM attachments a WHERE a.message_id = m.id)))
-                   ORDER BY ts_rank(m.search_tsv, websearch_to_tsquery('english', :query)) DESC,
-                            m.id DESC
+                ),
+                hits AS (
+                  SELECT id
+                    FROM filtered
+                   ORDER BY rank DESC,
+                            id DESC
                    LIMIT :limit
                 )
-                SELECT {MESSAGE_SELECT}, (SELECT count(*) FROM hits)::int AS total
+                SELECT {MESSAGE_SELECT}, (SELECT count(*) FROM filtered)::int AS total
                   FROM messages m
                   JOIN hits ON hits.id = m.id
                  ORDER BY m.id DESC

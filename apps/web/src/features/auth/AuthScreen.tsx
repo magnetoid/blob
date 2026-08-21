@@ -1,9 +1,9 @@
 /** Sign in, sign up, and first-run workspace setup. */
 
-import { useEffect, useState, type FormEvent } from 'react';
-import { api, ApiError } from '../../lib/api.ts';
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { api, ApiError } from "../../lib/api.ts";
 
-type Mode = 'login' | 'signup';
+type Mode = "login" | "signup";
 
 interface Props {
   needsSetup: boolean;
@@ -18,11 +18,14 @@ function inviteTokenFromUrl(): string | null {
 
 export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   const inviteToken = inviteTokenFromUrl();
-  const [mode, setMode] = useState<Mode>(needsSetup || inviteToken ? 'signup' : 'login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [workspaceName, setWorkspaceName] = useState('');
+  const workspaceNameRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState<Mode>(
+    needsSetup || inviteToken ? "signup" : "login",
+  );
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [workspaceName, setWorkspaceName] = useState("");
   const [inviteWorkspace, setInviteWorkspace] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -36,42 +39,55 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
         if (invite.email) setEmail(invite.email);
       })
       .catch((err: unknown) => {
-        setError(err instanceof ApiError ? err.message : 'That invitation is not valid.');
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "That invitation is not valid.",
+        );
       });
   }, [inviteToken]);
+
+  useEffect(() => {
+    if (!needsSetup) return;
+    workspaceNameRef.current?.focus();
+  }, [needsSetup]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setBusy(true);
     try {
-      if (mode === 'login') {
+      if (mode === "login") {
         await api.auth.login(email, password);
       } else {
         await api.auth.signup({
           email,
           password,
           displayName,
-          workspaceName: needsSetup ? workspaceName || 'Workspace' : undefined,
+          workspaceName: needsSetup ? workspaceName || "Workspace" : undefined,
           inviteToken: inviteToken ?? undefined,
         });
       }
       // Drop the invite token from the URL so a refresh doesn't retry it.
-      if (inviteToken) window.history.replaceState(null, '', '/');
+      if (inviteToken) window.history.replaceState(null, "", "/");
       await onSignedIn();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.');
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Something went wrong. Try again.",
+      );
       setBusy(false);
     }
   }
 
   const title = needsSetup
-    ? 'Set up your workspace'
-    : mode === 'login'
-      ? 'Sign in'
+    ? "Set up your workspace"
+    : mode === "login"
+      ? "Sign in"
       : inviteWorkspace
         ? `Join ${inviteWorkspace}`
-        : 'Create your account';
+        : "Create your account";
 
   return (
     <div className="auth">
@@ -85,7 +101,8 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
           </h1>
           {needsSetup && (
             <p className="auth-subtitle">
-              You're the first person here, so this account becomes the workspace owner.
+              You're the first person here, so this account becomes the
+              workspace owner.
             </p>
           )}
         </div>
@@ -94,16 +111,16 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
           <label className="field">
             <span className="field-label">Workspace name</span>
             <input
+              ref={workspaceNameRef}
               className="input"
               value={workspaceName}
               onChange={(e) => setWorkspaceName(e.target.value)}
               placeholder="Acme"
-              autoFocus
             />
           </label>
         )}
 
-        {mode === 'signup' && (
+        {mode === "signup" && (
           <label className="field">
             <span className="field-label">Display name</span>
             <input
@@ -137,31 +154,37 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={mode === 'signup' ? 10 : 1}
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+            minLength={mode === "signup" ? 10 : 1}
+            autoComplete={
+              mode === "signup" ? "new-password" : "current-password"
+            }
           />
-          {mode === 'signup' && <span className="muted" style={{ fontSize: 13 }}>At least 10 characters.</span>}
+          {mode === "signup" && (
+            <span className="muted" style={{ fontSize: 13 }}>
+              At least 10 characters.
+            </span>
+          )}
         </label>
 
         {error && <p className="error-text">{error}</p>}
 
         <button className="btn btn-primary" type="submit" disabled={busy}>
-          {busy ? 'Working…' : mode === 'login' ? 'Sign in' : 'Create account'}
+          {busy ? "Working…" : mode === "login" ? "Sign in" : "Create account"}
         </button>
 
         {!needsSetup && !inviteToken && (
           <p className="auth-switch">
-            {mode === 'login' ? (
+            {mode === "login" ? (
               <>
-                Have an invitation?{' '}
-                <button type="button" onClick={() => setMode('signup')}>
+                Have an invitation?{" "}
+                <button type="button" onClick={() => setMode("signup")}>
                   Create an account
                 </button>
               </>
             ) : (
               <>
-                Already here?{' '}
-                <button type="button" onClick={() => setMode('login')}>
+                Already here?{" "}
+                <button type="button" onClick={() => setMode("login")}>
                   Sign in
                 </button>
               </>

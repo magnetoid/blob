@@ -6,16 +6,16 @@
  * first release rather than as polish later.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../../lib/api.ts';
-import { navigate } from '../../lib/router.ts';
-import { useStore } from '../../lib/store.ts';
-import { Avatar } from '../../components/Avatar.tsx';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../../lib/api.ts";
+import { navigate } from "../../lib/router.ts";
+import { useStore } from "../../lib/store.ts";
+import { Avatar } from "../../components/Avatar.tsx";
 
 interface Item {
   id: string;
   label: string;
-  kind: 'Channel' | 'Person' | 'Action';
+  kind: "Channel" | "Person" | "Action";
   hint?: string;
   run: () => void | Promise<void>;
 }
@@ -28,7 +28,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const setPrefs = useStore((s) => s.setPrefs);
   const channelTitle = useStore((s) => s.channelTitle);
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -42,12 +42,14 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       .map((channel) => ({
         id: `c-${channel.id}`,
         label: channel.name ? `#${channel.name}` : channelTitle(channel),
-        kind: 'Channel',
-        hint: channel.membership ? undefined : 'not joined',
+        kind: "Channel",
+        hint: channel.membership ? undefined : "not joined",
         run: async () => {
-          if (!channel.membership && channel.kind === 'public') {
+          if (!channel.membership && channel.kind === "public") {
             const { channel: joined } = await api.channels.join(channel.id);
-            useStore.setState((s) => ({ channels: { ...s.channels, [joined.id]: joined } }));
+            useStore.setState((s) => ({
+              channels: { ...s.channels, [joined.id]: joined },
+            }));
           }
           await openChannel(channel.id);
         },
@@ -58,29 +60,37 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       .map((person) => ({
         id: `u-${person.id}`,
         label: person.displayName,
-        kind: 'Person',
+        kind: "Person",
         run: async () => {
           const { channel } = await api.dms.open([person.id]);
-          useStore.setState((s) => ({ channels: { ...s.channels, [channel.id]: channel } }));
+          useStore.setState((s) => ({
+            channels: { ...s.channels, [channel.id]: channel },
+          }));
           await openChannel(channel.id);
         },
       }));
 
-    const theme = currentUser?.prefs.theme ?? 'system';
-    const density = currentUser?.prefs.density ?? 'comfortable';
+    const theme = currentUser?.prefs.theme ?? "system";
+    const density = currentUser?.prefs.density ?? "comfortable";
     const actionItems: Item[] = [
       {
-        id: 'a-theme',
-        label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
-        kind: 'Action',
-        run: () => setPrefs({ theme: theme === 'dark' ? 'light' : 'dark' }),
+        id: "a-theme",
+        label:
+          theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+        kind: "Action",
+        run: () => setPrefs({ theme: theme === "dark" ? "light" : "dark" }),
       },
       {
-        id: 'a-density',
-        label: density === 'compact' ? 'Use comfortable density' : 'Use compact density',
-        kind: 'Action',
+        id: "a-density",
+        label:
+          density === "compact"
+            ? "Use comfortable density"
+            : "Use compact density",
+        kind: "Action",
         run: () =>
-          setPrefs({ density: density === 'compact' ? 'comfortable' : 'compact' }),
+          setPrefs({
+            density: density === "compact" ? "comfortable" : "compact",
+          }),
       },
     ];
 
@@ -88,7 +98,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   }, [channels, users, currentUser, openChannel, setPrefs, channelTitle]);
 
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase().replace(/^[#@]/, '');
+    const q = query.trim().toLowerCase().replace(/^[#@]/, "");
     if (!q) return items.slice(0, 12);
     return items
       .map((item) => ({ item, score: score(item.label.toLowerCase(), q) }))
@@ -98,8 +108,6 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       .map((entry) => entry.item);
   }, [items, query]);
 
-  useEffect(() => setIndex(0), [query]);
-
   async function choose(item: Item | undefined) {
     if (!item) return;
     onClose();
@@ -107,14 +115,32 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     // Opening a channel while the console (or search, or preferences) is on screen used
     // to change what was behind the palette and nothing else. Picking a conversation
     // means "take me to it".
-    if (item.kind === 'Channel' || item.kind === 'Person') navigate('/');
+    if (item.kind === "Channel" || item.kind === "Person") navigate("/");
   }
 
   return (
-    <div className="palette-backdrop" onClick={onClose} role="presentation">
+    <div
+      className="palette-backdrop"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (
+          event.key === "Escape" ||
+          event.key === "Enter" ||
+          event.key === " "
+        ) {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Close command palette"
+    >
       <div
         className="palette"
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Jump to"
@@ -124,15 +150,20 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           className="palette-input"
           value={query}
           placeholder="Jump to a channel, a person, or an action…"
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIndex(0);
+          }}
           onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
+            if (event.key === "ArrowDown") {
               event.preventDefault();
               setIndex((i) => (i + 1) % Math.max(matches.length, 1));
-            } else if (event.key === 'ArrowUp') {
+            } else if (event.key === "ArrowUp") {
               event.preventDefault();
-              setIndex((i) => (i - 1 + matches.length) % Math.max(matches.length, 1));
-            } else if (event.key === 'Enter') {
+              setIndex(
+                (i) => (i - 1 + matches.length) % Math.max(matches.length, 1),
+              );
+            } else if (event.key === "Enter") {
               event.preventDefault();
               void choose(matches[index]);
             }
@@ -151,8 +182,11 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                 onMouseEnter={() => setIndex(i)}
                 onClick={() => void choose(item)}
               >
-                {item.kind === 'Person' && (
-                  <Avatar user={{ displayName: item.label, avatarUrl: null }} size="sm" />
+                {item.kind === "Person" && (
+                  <Avatar
+                    user={{ displayName: item.label, avatarUrl: null }}
+                    size="sm"
+                  />
                 )}
                 <span>{item.label}</span>
                 {item.hint && <span className="muted">{item.hint}</span>}

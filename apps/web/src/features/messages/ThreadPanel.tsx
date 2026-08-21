@@ -1,12 +1,17 @@
 /** The right panel's thread view: root message plus its replies and agentic helpers. */
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import type { AgentTask, AgentTaskPriority, AgentTaskStatus, ThreadSummary } from '@blob/shared';
-import { ApiError, api } from '../../lib/api.ts';
-import { useStore } from '../../lib/store.ts';
-import { MessageList } from './MessageList.tsx';
-import { Composer } from './Composer.tsx';
-import { CloseIcon, PlusIcon } from '../../components/Icon.tsx';
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import type {
+  AgentTask,
+  AgentTaskPriority,
+  AgentTaskStatus,
+  ThreadSummary,
+} from "@blob/shared";
+import { ApiError, api } from "../../lib/api.ts";
+import { useStore } from "../../lib/store.ts";
+import { MessageList } from "./MessageList.tsx";
+import { Composer } from "./Composer.tsx";
+import { CloseIcon, PlusIcon } from "../../components/Icon.tsx";
 
 interface TaskDraft {
   status: AgentTaskStatus;
@@ -16,27 +21,30 @@ interface TaskDraft {
 }
 
 const TASK_STATUS_OPTIONS: Array<{ value: AgentTaskStatus; label: string }> = [
-  { value: 'todo', label: 'To do' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'blocked', label: 'Blocked' },
-  { value: 'done', label: 'Done' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: "todo", label: "To do" },
+  { value: "in_progress", label: "In progress" },
+  { value: "blocked", label: "Blocked" },
+  { value: "done", label: "Done" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
-const TASK_PRIORITY_OPTIONS: Array<{ value: AgentTaskPriority; label: string }> = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'critical', label: 'Critical' },
+const TASK_PRIORITY_OPTIONS: Array<{
+  value: AgentTaskPriority;
+  label: string;
+}> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "critical", label: "Critical" },
 ];
 
 function formatWhen(value: string | null): string {
-  if (!value) return 'Not yet';
+  if (!value) return "Not yet";
   return new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -44,8 +52,8 @@ function draftFor(task: AgentTask): TaskDraft {
   return {
     status: task.status,
     priority: task.priority,
-    assigneeUserId: task.assigneeUserId ?? '',
-    outcome: task.outcome ?? '',
+    assigneeUserId: task.assigneeUserId ?? "",
+    outcome: task.outcome ?? "",
   };
 }
 
@@ -77,22 +85,24 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [assigneeUserId, setAssigneeUserId] = useState('');
-  const [priority, setPriority] = useState<AgentTaskPriority>('medium');
+  const [title, setTitle] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [assigneeUserId, setAssigneeUserId] = useState("");
+  const [priority, setPriority] = useState<AgentTaskPriority>("medium");
 
   const root = thread?.[0];
   const channel = root ? channels[root.channelId] : undefined;
   const replyCount = Math.max((thread?.length ?? 1) - 1, 0);
-  const canManageAssignments = currentUser?.role !== 'member';
+  const canManageAssignments = currentUser?.role !== "member";
 
   const assignees = useMemo(
     () =>
       Object.values(users)
         .filter((user) => !user.deactivated)
-        .filter((user) => canManageAssignments || user.kind !== 'bot')
-        .sort((left, right) => left.displayName.localeCompare(right.displayName)),
+        .filter((user) => canManageAssignments || user.kind !== "bot")
+        .sort((left, right) =>
+          left.displayName.localeCompare(right.displayName),
+        ),
     [canManageAssignments, users],
   );
 
@@ -114,18 +124,23 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
         setSummary(summaryResult.summary);
         setTasks(taskResult.tasks);
         setTaskDrafts(
-          Object.fromEntries(taskResult.tasks.map((task) => [task.id, draftFor(task)])),
+          Object.fromEntries(
+            taskResult.tasks.map((task) => [task.id, draftFor(task)]),
+          ),
         );
       } catch (error) {
         if (cancelled) return;
-        const message = errorMessage(error, 'Could not load the thread controls.');
+        const message = errorMessage(
+          error,
+          "Could not load the thread controls.",
+        );
         setSummaryError(message);
         setTasksError(message);
       } finally {
-          if (!cancelled) {
-            setSummaryLoading(false);
-            setTasksLoading(false);
-          }
+        if (!cancelled) {
+          setSummaryLoading(false);
+          setTasksLoading(false);
+        }
       }
     }
 
@@ -142,7 +157,9 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
       const result = await api.agentic.refreshThreadSummary(rootId);
       setSummary(result.summary);
     } catch (error) {
-      setSummaryError(errorMessage(error, 'Could not refresh the thread summary.'));
+      setSummaryError(
+        errorMessage(error, "Could not refresh the thread summary."),
+      );
     } finally {
       setSummaryBusy(false);
     }
@@ -163,14 +180,17 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
         summaryId: summary?.id ?? null,
       });
       setTasks((current) => [result.task, ...current]);
-      setTaskDrafts((current) => ({ ...current, [result.task.id]: draftFor(result.task) }));
-      setTitle('');
-      setInstructions('');
-      setAssigneeUserId('');
-      setPriority('medium');
+      setTaskDrafts((current) => ({
+        ...current,
+        [result.task.id]: draftFor(result.task),
+      }));
+      setTitle("");
+      setInstructions("");
+      setAssigneeUserId("");
+      setPriority("medium");
       setCreateOpen(false);
     } catch (error) {
-      setCreateError(errorMessage(error, 'Could not create that task.'));
+      setCreateError(errorMessage(error, "Could not create that task."));
     } finally {
       setCreateBusy(false);
     }
@@ -189,7 +209,8 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
     if (draft.priority !== task.priority) payload.priority = draft.priority;
     if (canManageAssignments) {
       const nextAssignee = draft.assigneeUserId || null;
-      if (nextAssignee !== (task.assigneeUserId ?? null)) payload.assigneeUserId = nextAssignee;
+      if (nextAssignee !== (task.assigneeUserId ?? null))
+        payload.assigneeUserId = nextAssignee;
     }
     const trimmedOutcome = draft.outcome.trim();
     if ((trimmedOutcome || null) !== (task.outcome ?? null)) {
@@ -201,10 +222,15 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
     setTasksError(null);
     try {
       const result = await api.agentic.updateTask(task.id, payload);
-      setTasks((current) => current.map((item) => (item.id === task.id ? result.task : item)));
-      setTaskDrafts((current) => ({ ...current, [task.id]: draftFor(result.task) }));
+      setTasks((current) =>
+        current.map((item) => (item.id === task.id ? result.task : item)),
+      );
+      setTaskDrafts((current) => ({
+        ...current,
+        [task.id]: draftFor(result.task),
+      }));
     } catch (error) {
-      setTasksError(errorMessage(error, 'Could not update that task.'));
+      setTasksError(errorMessage(error, "Could not update that task."));
     } finally {
       setSavingTaskId(null);
     }
@@ -215,7 +241,11 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
       const existing = current[taskId];
       return {
         ...current,
-        [taskId]: { ...(existing ?? draftFor(tasks.find((task) => task.id === taskId) as AgentTask)), ...patch },
+        [taskId]: {
+          ...(existing ??
+            draftFor(tasks.find((task) => task.id === taskId) as AgentTask)),
+          ...patch,
+        },
       };
     });
   }
@@ -226,17 +256,29 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
         <div>
           <h2 className="panel-title">Thread</h2>
           <div className="panel-sub">
-            {channel ? (channel.name ? `#${channel.name}` : channelTitle(channel)) : ''}
-            {replyCount > 0 && ` · ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
+            {channel
+              ? channel.name
+                ? `#${channel.name}`
+                : channelTitle(channel)
+              : ""}
+            {replyCount > 0 &&
+              ` · ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`}
           </div>
         </div>
-        <button className="icon-btn" onClick={() => void openThread(null)} title="Close thread">
+        <button
+          className="icon-btn"
+          onClick={() => void openThread(null)}
+          title="Close thread"
+        >
           <CloseIcon size={15} />
         </button>
       </div>
 
       <div className="agentic-stack">
-        <section className="agentic-card" aria-labelledby="thread-summary-title">
+        <section
+          className="agentic-card"
+          aria-labelledby="thread-summary-title"
+        >
           <div className="agentic-head">
             <div>
               <div className="agentic-kicker">AI Summary</div>
@@ -244,8 +286,12 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                 Catch up without rereading
               </h3>
             </div>
-            <button className="btn" onClick={() => void refreshSummary()} disabled={summaryBusy}>
-              {summaryBusy ? 'Working…' : summary ? 'Refresh' : 'Generate'}
+            <button
+              className="btn"
+              onClick={() => void refreshSummary()}
+              disabled={summaryBusy}
+            >
+              {summaryBusy ? "Working…" : summary ? "Refresh" : "Generate"}
             </button>
           </div>
 
@@ -255,7 +301,8 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
             <div className="agentic-body">
               <p className="summary-overview">{summary.overview}</p>
               <div className="summary-meta">
-                {summary.provider} · {summary.messageCount} messages · updated {formatWhen(summary.updatedAt)}
+                {summary.provider} · {summary.messageCount} messages · updated{" "}
+                {formatWhen(summary.updatedAt)}
               </div>
 
               {summary.decisions.length > 0 && (
@@ -263,7 +310,9 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                   <div className="agentic-list-title">Decisions</div>
                   <ul className="agentic-list">
                     {summary.decisions.map((item, index) => (
-                      <li key={`${item.messageId ?? 'decision'}-${index}`}>{item.text}</li>
+                      <li key={`${item.messageId ?? "decision"}-${index}`}>
+                        {item.text}
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -274,12 +323,14 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                   <div className="agentic-list-title">Action Items</div>
                   <ul className="agentic-list">
                     {summary.actionItems.map((item, index) => (
-                      <li key={`${item.sourceMessageId ?? 'action'}-${index}`}>
+                      <li key={`${item.sourceMessageId ?? "action"}-${index}`}>
                         {item.text}
                         {item.assigneeUserId && (
                           <span className="agentic-inline-meta">
-                            {' '}
-                            · {users[item.assigneeUserId]?.displayName ?? 'Assigned'}
+                            {" "}
+                            ·{" "}
+                            {users[item.assigneeUserId]?.displayName ??
+                              "Assigned"}
                           </span>
                         )}
                       </li>
@@ -301,8 +352,8 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
             </div>
           ) : (
             <div className="agentic-empty">
-              No thread summary yet. Generate one to capture decisions, action items, and open
-              questions.
+              No thread summary yet. Generate one to capture decisions, action
+              items, and open questions.
             </div>
           )}
 
@@ -317,9 +368,12 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                 Coordinate people and agents
               </h3>
             </div>
-            <button className="btn btn-ghost" onClick={() => setCreateOpen((open) => !open)}>
+            <button
+              className="btn btn-ghost"
+              onClick={() => setCreateOpen((open) => !open)}
+            >
               <PlusIcon size={15} />
-              {createOpen ? 'Hide' : 'New task'}
+              {createOpen ? "Hide" : "New task"}
             </button>
           </div>
 
@@ -349,14 +403,16 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                   {assignees.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.displayName}
-                      {user.kind === 'bot' ? ' (Agent)' : ''}
+                      {user.kind === "bot" ? " (Agent)" : ""}
                     </option>
                   ))}
                 </select>
                 <select
                   className="input"
                   value={priority}
-                  onChange={(event) => setPriority(event.target.value as AgentTaskPriority)}
+                  onChange={(event) =>
+                    setPriority(event.target.value as AgentTaskPriority)
+                  }
                 >
                   {TASK_PRIORITY_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -366,8 +422,12 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                 </select>
               </div>
               <div className="agentic-actions">
-                <button className="btn btn-primary" type="submit" disabled={createBusy || !title.trim()}>
-                  {createBusy ? 'Creating…' : 'Create task'}
+                <button
+                  className="btn btn-primary"
+                  type="submit"
+                  disabled={createBusy || !title.trim()}
+                >
+                  {createBusy ? "Creating…" : "Create task"}
                 </button>
               </div>
               {createError && <div className="error-text">{createError}</div>}
@@ -378,7 +438,8 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
             <div className="agentic-empty">Loading tasks…</div>
           ) : tasks.length === 0 ? (
             <div className="agentic-empty">
-              No tasks yet. Turn the thread into a tracked handoff for a teammate or agent.
+              No tasks yet. Turn the thread into a tracked handoff for a
+              teammate or agent.
             </div>
           ) : (
             <div className="task-list">
@@ -390,17 +451,21 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                       <div>
                         <div className="task-title">{task.title}</div>
                         <div className="task-meta">
-                          <span className="task-badge" data-tone={draft.priority}>
-                            {draft.priority.replace('_', ' ')}
+                          <span
+                            className="task-badge"
+                            data-tone={draft.priority}
+                          >
+                            {draft.priority.replace("_", " ")}
                           </span>
                           <span className="task-badge" data-tone={draft.status}>
-                            {draft.status.replace('_', ' ')}
+                            {draft.status.replace("_", " ")}
                           </span>
                           <span>
                             {task.assigneeUserId
-                              ? users[task.assigneeUserId]?.displayName ?? 'Assigned'
-                              : 'Unassigned'}
-                            {task.assigneeKind === 'bot' ? ' · Agent' : ''}
+                              ? (users[task.assigneeUserId]?.displayName ??
+                                "Assigned")
+                              : "Unassigned"}
+                            {task.assigneeKind === "bot" ? " · Agent" : ""}
                           </span>
                         </div>
                       </div>
@@ -409,11 +474,13 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                         onClick={() => void saveTask(task)}
                         disabled={savingTaskId === task.id}
                       >
-                        {savingTaskId === task.id ? 'Saving…' : 'Save'}
+                        {savingTaskId === task.id ? "Saving…" : "Save"}
                       </button>
                     </div>
 
-                    {task.instructions && <div className="task-copy">{task.instructions}</div>}
+                    {task.instructions && (
+                      <div className="task-copy">{task.instructions}</div>
+                    )}
 
                     <div className="agentic-grid">
                       <select
@@ -464,7 +531,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                         {assignees.map((user) => (
                           <option key={user.id} value={user.id}>
                             {user.displayName}
-                            {user.kind === 'bot' ? ' (Agent)' : ''}
+                            {user.kind === "bot" ? " (Agent)" : ""}
                           </option>
                         ))}
                       </select>
@@ -511,7 +578,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
           channelId={root.channelId}
           threadRootId={rootId}
           placeholder="Reply in thread"
-          autoFocus
+          initialFocus
         />
       )}
     </aside>

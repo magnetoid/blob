@@ -1,13 +1,13 @@
 /** Everyone in the workspace, and what they can do. */
 
-import { useCallback, useEffect, useState } from 'react';
-import { api, type AdminUser } from '../../../lib/api.ts';
-import { useStore } from '../../../lib/store.ts';
-import { Avatar } from '../../../components/Avatar.tsx';
-import { ConfirmDialog } from '../../../components/ConfirmDialog.tsx';
-import { SearchIcon } from '../../../components/Icon.tsx';
-import { formatRelative } from '../../messages/MessageRow.tsx';
-import { useAdminAction } from '../hooks.ts';
+import { useCallback, useEffect, useState } from "react";
+import { api, type AdminUser } from "../../../lib/api.ts";
+import { useStore } from "../../../lib/store.ts";
+import { Avatar } from "../../../components/Avatar.tsx";
+import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import { SearchIcon } from "../../../components/Icon.tsx";
+import { formatRelative } from "../../messages/messageFormatting.ts";
+import { useAdminAction } from "../hooks.ts";
 
 export function PeopleSection({
   isOwner,
@@ -18,7 +18,7 @@ export function PeopleSection({
 }) {
   const currentUser = useStore((s) => s.currentUser);
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [deactivating, setDeactivating] = useState<AdminUser | null>(null);
 
@@ -27,7 +27,7 @@ export function PeopleSection({
     void api.admin
       .users({ q: query || undefined })
       .then((r) => setUsers(r.users))
-      .catch(() => onError('Could not load the directory.'))
+      .catch(() => onError("Could not load the directory."))
       .finally(() => setLoading(false));
   }, [query, onError]);
 
@@ -61,40 +61,59 @@ export function PeopleSection({
               key={user.id}
               data-inactive={user.deactivatedAt !== null}
             >
-              <Avatar user={{ displayName: user.displayName, avatarUrl: null }} size="lg" />
+              <Avatar
+                user={{ displayName: user.displayName, avatarUrl: null }}
+                size="lg"
+              />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="admin-row-title">
                   {user.displayName}
-                  {user.role !== 'member' && <span className="role-pill">{user.role}</span>}
-                  {user.deactivatedAt && <span className="role-pill" data-muted>deactivated</span>}
+                  {user.role !== "member" && (
+                    <span className="role-pill">{user.role}</span>
+                  )}
+                  {user.deactivatedAt && (
+                    <span className="role-pill" data-muted>
+                      deactivated
+                    </span>
+                  )}
                 </div>
                 <div className="admin-row-meta">
-                  {user.email} · {user.messageCount} messages · {user.channelCount} channels
-                  {user.lastSeenAt ? ` · seen ${formatRelative(user.lastSeenAt)}` : ' · never seen'}
+                  {user.email} · {user.messageCount} messages ·{" "}
+                  {user.channelCount} channels
+                  {user.lastSeenAt
+                    ? ` · seen ${formatRelative(user.lastSeenAt)}`
+                    : " · never seen"}
                 </div>
               </div>
 
               <div className="admin-row-actions">
-                {isOwner && user.id !== currentUser?.id && !user.deactivatedAt && (
-                  <select
-                    className="chip"
-                    value={user.role}
-                    aria-label={`Role for ${user.displayName}`}
-                    onChange={(e) =>
-                      void act(() =>
-                        api.admin.setRole(user.id, e.target.value as 'member' | 'admin' | 'owner'),
-                      )
-                    }
-                  >
-                    <option value="member">member</option>
-                    <option value="admin">admin</option>
-                    <option value="owner">owner</option>
-                  </select>
-                )}
+                {isOwner &&
+                  user.id !== currentUser?.id &&
+                  !user.deactivatedAt && (
+                    <select
+                      className="chip"
+                      value={user.role}
+                      aria-label={`Role for ${user.displayName}`}
+                      onChange={(e) =>
+                        void act(() =>
+                          api.admin.setRole(
+                            user.id,
+                            e.target.value as "member" | "admin" | "owner",
+                          ),
+                        )
+                      }
+                    >
+                      <option value="member">member</option>
+                      <option value="admin">admin</option>
+                      <option value="owner">owner</option>
+                    </select>
+                  )}
                 {!user.deactivatedAt && user.sessionCount > 0 && (
                   <button
                     className="btn btn-ghost"
-                    onClick={() => void act(() => api.admin.revokeSessions(user.id))}
+                    onClick={() =>
+                      void act(() => api.admin.revokeSessions(user.id))
+                    }
                     title={`Sign out of ${user.sessionCount} session(s)`}
                   >
                     Sign out
@@ -103,14 +122,19 @@ export function PeopleSection({
                 {user.deactivatedAt ? (
                   <button
                     className="btn"
-                    onClick={() => void act(() => api.admin.reactivate(user.id))}
+                    onClick={() =>
+                      void act(() => api.admin.reactivate(user.id))
+                    }
                   >
                     Reactivate
                   </button>
                 ) : (
-                  user.role !== 'owner' &&
+                  user.role !== "owner" &&
                   user.id !== currentUser?.id && (
-                    <button className="btn" onClick={() => setDeactivating(user)}>
+                    <button
+                      className="btn"
+                      onClick={() => setDeactivating(user)}
+                    >
                       Deactivate
                     </button>
                   )
@@ -118,7 +142,9 @@ export function PeopleSection({
               </div>
             </div>
           ))}
-          {users.length === 0 && <p className="muted">Nobody matched “{query}”.</p>}
+          {users.length === 0 && (
+            <p className="muted">Nobody matched “{query}”.</p>
+          )}
         </div>
       )}
 

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request, forbidden, not_found
 from ..lib.ids import new_id
-from ..lib.mentions import parse_mentions
+from ..lib.mentions import mention_lookup_phrases, parse_mentions
 from ..schemas.models import Message
 from .serialize import MESSAGE_SELECT, to_message
 
@@ -52,17 +52,25 @@ class SendResult:
     thread_update: ThreadUpdate | None
 
 
-async def display_name_index(session: AsyncSession, workspace_id: str) -> dict[str, str]:
-    """Lowercased display name → user id, for mention resolution."""
+async def display_name_matches(
+    session: AsyncSession, workspace_id: str, body: str
+) -> dict[str, str]:
+    """Lowercased display name → user id for names this body could actually mention."""
+    phrases = mention_lookup_phrases(body)
+    if not phrases:
+        return {}
+
     rows = (
         await session.execute(
             text(
                 """
                 SELECT id, display_name FROM users
-                 WHERE workspace_id = :ws AND deactivated_at IS NULL
+                 WHERE workspace_id = :ws
+                   AND deactivated_at IS NULL
+                   AND lower(display_name) = ANY(cast(:display_names AS text[]))
                 """
             ),
-            {"ws": workspace_id},
+            {"ws": workspace_id, "display_names": phrases},
         )
     ).fetchall()
     return {row.display_name.lower(): row.id for row in rows}
@@ -87,7 +95,7 @@ async def send(
 ) -> SendResult:
     message_id = new_id()
     attachment_ids = attachment_ids or []
-    mentions = parse_mentions(body, await display_name_index(session, workspace_id))
+    mentions = parse_mentions(body, await display_name_matches(session, workspace_id, body))
 
     if thread_root_id:
         root = (
@@ -370,7 +378,7 @@ async def edit(
     if existing.author_id != user_id:
         raise forbidden("You can only edit your own messages.")
 
-    mentions = parse_mentions(body, await display_name_index(session, workspace_id))
+    mentions = parse_mentions(body, await display_name_matches(session, workspace_id, body))
     await session.execute(
         text(
             """

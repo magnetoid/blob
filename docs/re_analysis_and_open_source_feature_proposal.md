@@ -4,6 +4,15 @@
 **Target:** Blob (Self-hosted, Open-Source Agentic Team Chat)
 **Context:** This report provides a deep architectural re-analysis of the codebase and aligns future development with the newly updated `CLAUDE.md` principles: **100% Open Source, No Enterprise Tiers, Agent-Native, and As Familiar as Slack**.
 
+> **Status, 2026-08-22 — parts of the "Current State" below have since been overtaken.**
+> Message virtualization (item 2), the O(1) presence indexes (item 3) and `BlockRenderer.tsx`
+> (item 4) all shipped; the mention-resolution fetch named later was replaced by an indexed
+> lookup. The original wording is left exactly as written rather than corrected in place,
+> because a report is a record of what was true on its date and quietly editing it makes the
+> next reader trust the stale parts more, not less. A later audit did read this document's
+> "lacks a frontend renderer" line as current and planned work around it, which is the cost
+> this banner exists to prevent. Check the code before acting on any *Current State* here.
+
 ---
 
 ## 1. Codebase Re-Analysis: Architecture, Debt, and Scalability

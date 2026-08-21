@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 import pytest
 
 from blob_api.jobs.unfurl import first_url
-from blob_api.lib.mentions import matches_keywords, parse_mentions
+from blob_api.lib.mentions import matches_keywords, mention_lookup_phrases, parse_mentions
 from blob_api.lib.net import is_private_address
 from blob_api.schemas.models import UserPrefs
 from blob_api.services.notify import (
@@ -78,6 +78,38 @@ def test_never_mentions_anyone_from_inside_code() -> None:
 def test_ignores_unknown_names_and_email_addresses() -> None:
     assert parse_mentions("@nobody hello", NAMES).user_ids == []
     assert parse_mentions("write to ana@example.com", NAMES).user_ids == []
+
+
+# ─── which names are worth asking the database about ──────────────────────────
+def test_the_lookup_offers_every_prefix_of_a_mention() -> None:
+    # parse_mentions tries the longest name first and works down, so the filter that
+    # decides which rows come back has to cover the same ground or the longer name is
+    # never in the dictionary to be preferred.
+    phrases = mention_lookup_phrases("@Ana Maria ping")
+    assert "ana maria ping" in phrases
+    assert "ana maria" in phrases
+    assert "ana" in phrases
+
+
+def test_the_lookup_matches_how_postgres_lowercases() -> None:
+    # The phrase is lowercased in Python; `display_name` is lowercased by SQL. Python
+    # applies full case mapping and turns "İ" into two code points, Postgres applies the
+    # simple mapping and returns "i", so a name spelled with it would be filtered out
+    # before anyone could match it — a mention that resolves to nobody, silently.
+    phrases = mention_lookup_phrases("hey @İvan")
+    assert "ivan" in phrases  # what lower(display_name) actually produces
+    assert "i̇van" in phrases  # and what Python produces, still offered
+
+
+def test_ordinary_names_gain_nothing_from_that() -> None:
+    # The second spelling is only added when it differs, so the common path is unchanged.
+    assert mention_lookup_phrases("hi @Ana") == ["ana"]
+    assert mention_lookup_phrases("hi @Miloš") == ["miloš"]
+
+
+def test_a_body_with_no_mention_asks_nothing() -> None:
+    assert mention_lookup_phrases("no names here") == []
+    assert mention_lookup_phrases("`@ana`") == []
 
 
 # ─── keywords ─────────────────────────────────────────────────────────────────

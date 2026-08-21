@@ -11,7 +11,7 @@
  * happened. One job, no lifecycle.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 export function ConfirmDialog({
   title,
@@ -33,10 +33,10 @@ export function ConfirmDialog({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === "Escape") onClose();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   // The dialog takes focus, not the confirm button. Focusing the button would make Return
@@ -47,11 +47,29 @@ export function ConfirmDialog({
   }, []);
 
   return (
-    <div className="dialog-backdrop" onClick={onClose} role="presentation">
+    <div
+      className="dialog-backdrop"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (
+          event.key === "Escape" ||
+          event.key === "Enter" ||
+          event.key === " "
+        ) {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Close ${title}`}
+    >
       <div
         ref={dialogRef}
         className="dialog"
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -65,7 +83,7 @@ export function ConfirmDialog({
             Cancel
           </button>
           <button
-            className={danger ? 'btn btn-danger' : 'btn btn-primary'}
+            className={danger ? "btn btn-danger" : "btn btn-primary"}
             type="button"
             onClick={onConfirm}
           >

@@ -1,24 +1,29 @@
 /** Create a channel. */
 
-import { useState, type FormEvent } from 'react';
-import { channelNameSchema } from '@blob/shared';
-import { api, ApiError } from '../../lib/api.ts';
-import { useStore } from '../../lib/store.ts';
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { channelNameSchema } from "@blob/shared";
+import { api, ApiError } from "../../lib/api.ts";
+import { useStore } from "../../lib/store.ts";
 
 export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
   const openChannel = useStore((s) => s.openChannel);
+  const nameRef = useRef<HTMLInputElement>(null);
 
-  const [name, setName] = useState('');
-  const [topic, setTopic] = useState('');
+  const [name, setName] = useState("");
+  const [topic, setTopic] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    nameRef.current?.focus();
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     const parsed = channelNameSchema.safeParse(name);
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'That name will not work.');
+      setError(parsed.error.issues[0]?.message ?? "That name will not work.");
       return;
     }
 
@@ -27,23 +32,47 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
     try {
       const { channel } = await api.channels.create({
         name: parsed.data,
-        kind: isPrivate ? 'private' : 'public',
+        kind: isPrivate ? "private" : "public",
         topic: topic.trim() || undefined,
       });
-      useStore.setState((s) => ({ channels: { ...s.channels, [channel.id]: channel } }));
+      useStore.setState((s) => ({
+        channels: { ...s.channels, [channel.id]: channel },
+      }));
       await openChannel(channel.id);
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not create that channel.');
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not create that channel.",
+      );
       setBusy(false);
     }
   }
 
   return (
-    <div className="dialog-backdrop" onClick={onClose} role="presentation">
+    <div
+      className="dialog-backdrop"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (
+          event.key === "Escape" ||
+          event.key === "Enter" ||
+          event.key === " "
+        ) {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Close create channel dialog"
+    >
       <form
         className="dialog"
-        onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
         role="dialog"
         aria-modal="true"
@@ -54,11 +83,13 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
         <label className="field">
           <span className="field-label">Name</span>
           <input
+            ref={nameRef}
             className="input"
             value={name}
-            onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+            onChange={(e) =>
+              setName(e.target.value.toLowerCase().replace(/\s+/g, "-"))
+            }
             placeholder="launch-planning"
-            autoFocus
             maxLength={64}
           />
         </label>
@@ -74,7 +105,7 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
           />
         </label>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
             type="button"
             className="toggle"
@@ -85,11 +116,11 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
           </button>
           <span>
             <span className="pref-label">Private</span>
-            <span className="pref-hint" style={{ display: 'block' }}>
+            <span className="pref-hint" style={{ display: "block" }}>
               Only invited people can find or read it.
             </span>
           </span>
-        </label>
+        </div>
 
         {error && <p className="error-text">{error}</p>}
 
@@ -98,7 +129,7 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
             Cancel
           </button>
           <button className="btn btn-primary" type="submit" disabled={busy}>
-            {busy ? 'Creating…' : 'Create'}
+            {busy ? "Creating…" : "Create"}
           </button>
         </div>
       </form>

@@ -47,8 +47,10 @@ lives in [TEAM-CHAT-BUILD-PLAN.md](TEAM-CHAT-BUILD-PLAN.md).
   menu. The ticket carries the browser console and a snapshot of the page as the reporter
   saw it, and lands in the admin console where it can be read, closed or deleted.
 
-Not built yet: huddles, message blocks, the local plugin runtime, slash commands, and the
-AI layer. See the plan's roadmap for the order.
+Still on the roadmap: huddles, the local plugin runtime, and slash commands.
+
+Already built: message blocks and interactions, thread summaries, shared human/agent
+tasks, durable offline replay, and provider-backed message translation.
 
 ## Stack
 

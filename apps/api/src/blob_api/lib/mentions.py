@@ -36,6 +36,49 @@ def strip_code(body: str) -> str:
     return _INLINE_CODE_RE.sub(" ", _FENCED_RE.sub(" ", body))
 
 
+def _simple_lower(value: str) -> str:
+    """Lowercase one character to one character, the way Postgres does.
+
+    Python applies Unicode *full* case mapping, which is allowed to expand: "İ".lower()
+    is "i" followed by a combining dot, two code points. Postgres applies the simple
+    mapping and returns plain "i". Only this matters because the two run on opposite
+    sides of the same comparison — the phrase is lowercased here, `display_name` is
+    lowercased by SQL — so for such a name the two never meet and the mention resolves
+    to nobody, with nothing logged and no error shown.
+    """
+    return "".join(character.lower()[:1] or character for character in value)
+
+
+def mention_lookup_phrases(body: str) -> list[str]:
+    """Display-name phrases worth resolving against the database, lowercased.
+
+    This keeps mention resolution bounded by the names a message could plausibly mention
+    instead of fetching every active user in the workspace.
+
+    Both lowercasings of a phrase are returned when they differ, because this list is
+    only a filter: it decides which rows come back, and `parse_mentions` still decides
+    which of them the message actually named. Sending a candidate that matches nothing
+    costs one array element; omitting one loses a notification silently.
+    """
+    phrases: dict[str, None] = {}
+
+    for match in _MENTION_RE.finditer(strip_code(body)):
+        candidate = match.group(1)
+        if not candidate:
+            continue
+        words = candidate.split()[:MAX_NAME_WORDS]
+        for take in range(len(words), 0, -1):
+            joined = " ".join(words[:take])
+            for phrase in (
+                _TRAILING_PUNCT_RE.sub("", joined.lower()),
+                _TRAILING_PUNCT_RE.sub("", _simple_lower(joined)),
+            ):
+                if phrase:
+                    phrases[phrase] = None
+
+    return list(phrases)
+
+
 def parse_mentions(body: str, name_to_id: dict[str, str]) -> MentionResult:
     """Extract mentions from raw markdown.
 

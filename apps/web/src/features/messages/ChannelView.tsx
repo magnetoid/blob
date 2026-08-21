@@ -1,19 +1,25 @@
 /** The centre pane: channel header, messages, composer. */
 
-import { useEffect, useMemo, useState } from 'react';
-import { useStore } from '../../lib/store.ts';
-import { api } from '../../lib/api.ts';
-import { MessageList } from './MessageList.tsx';
-import { Composer } from './Composer.tsx';
-import { HuddleIcon, MembersIcon, PinIcon } from '../../components/Icon.tsx';
-import { TYPING_TTL_MS } from '@blob/shared';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useStore } from "../../lib/store.ts";
+import { api } from "../../lib/api.ts";
+import { MessageList } from "./MessageList.tsx";
+import { Composer } from "./Composer.tsx";
+import { HuddleIcon, MembersIcon, PinIcon } from "../../components/Icon.tsx";
+import { TYPING_TTL_MS } from "@blob/shared";
 
 export function ChannelView() {
   const activeChannelId = useStore((s) => s.activeChannelId);
-  const channel = useStore((s) => (s.activeChannelId ? s.channels[s.activeChannelId] : undefined));
-  const messages = useStore((s) => (s.activeChannelId ? s.messages[s.activeChannelId] : undefined));
+  const channel = useStore((s) =>
+    s.activeChannelId ? s.channels[s.activeChannelId] : undefined,
+  );
+  const messages = useStore((s) =>
+    s.activeChannelId ? s.messages[s.activeChannelId] : undefined,
+  );
   const outbox = useStore((s) => s.outbox);
-  const typing = useStore((s) => (s.activeChannelId ? s.typing[s.activeChannelId] : undefined));
+  const typing = useStore((s) =>
+    s.activeChannelId ? s.typing[s.activeChannelId] : undefined,
+  );
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
   const status = useStore((s) => s.status);
@@ -22,8 +28,8 @@ export function ChannelView() {
   const openThread = useStore((s) => s.openThread);
   const channelTitle = useStore((s) => s.channelTitle);
 
-  const [memberCount, setMemberCount] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
+  const [now, setNow] = useState(() => Date.now());
 
   // Typing indicators expire on a timer rather than an event, so re-render slowly.
   useEffect(() => {
@@ -33,19 +39,41 @@ export function ChannelView() {
   }, [typing]);
 
   useEffect(() => {
-    if (!activeChannelId) return;
-    setMemberCount(null);
+    if (!activeChannelId || memberCounts[activeChannelId] !== undefined) return;
     void api.channels
       .members(activeChannelId)
-      .then((r) => setMemberCount(r.userIds.length))
-      .catch(() => setMemberCount(null));
-  }, [activeChannelId]);
+      .then((r) =>
+        setMemberCounts((current) =>
+          current[activeChannelId] === r.userIds.length
+            ? current
+            : { ...current, [activeChannelId]: r.userIds.length },
+        ),
+      )
+      .catch(() => {});
+  }, [activeChannelId, memberCounts]);
+
+  // Defined here, above the early return, because hooks have to be — and memoised
+  // because `MessageRow` is wrapped in `memo` and these reach it as props. An arrow
+  // written inline at the call site is a new function on every render, which makes that
+  // comparison fail every time and re-renders every visible row. That was survivable
+  // when the list rendered once; now that it virtualises, the parent re-renders on
+  // scroll, so the wasted work lands exactly where it is felt.
+  const handleOpenThread = useCallback(
+    (rootId: string) => void openThread(rootId),
+    [openThread],
+  );
+  const handleLoadOlder = useCallback(() => {
+    if (activeChannelId) void loadOlder(activeChannelId);
+  }, [loadOlder, activeChannelId]);
 
   const typingNames = useMemo(() => {
     if (!typing) return [];
     return Object.entries(typing)
-      .filter(([userId, at]) => now - at < TYPING_TTL_MS && userId !== currentUser?.id)
-      .map(([userId]) => users[userId]?.displayName ?? 'Someone');
+      .filter(
+        ([userId, at]) =>
+          now - at < TYPING_TTL_MS && userId !== currentUser?.id,
+      )
+      .map(([userId]) => users[userId]?.displayName ?? "Someone");
   }, [typing, now, users, currentUser]);
 
   if (!activeChannelId || !channel) {
@@ -62,32 +90,40 @@ export function ChannelView() {
     );
   }
 
-  const isDm = channel.kind === 'dm' || channel.kind === 'group_dm';
+  const isDm = channel.kind === "dm" || channel.kind === "group_dm";
   const title = channel.name ?? channelTitle(channel);
   const archived = channel.archivedAt !== null;
-  const queuedCount = Object.values(outbox).filter((entry) => entry.status === 'queued').length;
-  const failedCount = Object.values(outbox).filter((entry) => entry.status === 'failed').length;
-  const showDeliveryBanner = status !== 'online' || queuedCount > 0 || failedCount > 0;
+  const memberCount = memberCounts[activeChannelId] ?? null;
+  const queuedCount = Object.values(outbox).filter(
+    (entry) => entry.status === "queued",
+  ).length;
+  const failedCount = Object.values(outbox).filter(
+    (entry) => entry.status === "failed",
+  ).length;
+  const showDeliveryBanner =
+    status !== "online" || queuedCount > 0 || failedCount > 0;
 
   let connectionText: string | null = null;
-  if (status === 'connecting') {
+  if (status === "connecting") {
     connectionText =
       queuedCount > 0
-        ? `Reconnecting… ${queuedCount} ${queuedCount === 1 ? 'message is' : 'messages are'} queued.`
-        : 'Reconnecting…';
-  } else if (status !== 'online') {
+        ? `Reconnecting… ${queuedCount} ${queuedCount === 1 ? "message is" : "messages are"} queued.`
+        : "Reconnecting…";
+  } else if (status !== "online") {
     connectionText =
       queuedCount > 0
-        ? `Offline — ${queuedCount} ${queuedCount === 1 ? 'message is' : 'messages are'} queued to send when you reconnect.`
-        : 'Offline — new messages will queue until you reconnect.';
+        ? `Offline — ${queuedCount} ${queuedCount === 1 ? "message is" : "messages are"} queued to send when you reconnect.`
+        : "Offline — new messages will queue until you reconnect.";
   } else if (failedCount > 0) {
     connectionText =
       failedCount === 1
-        ? 'One queued message needs attention before it can be sent.'
+        ? "One queued message needs attention before it can be sent."
         : `${failedCount} queued messages need attention before they can be sent.`;
   } else if (queuedCount > 0) {
     connectionText =
-      queuedCount === 1 ? 'Sending one queued message…' : `Sending ${queuedCount} queued messages…`;
+      queuedCount === 1
+        ? "Sending one queued message…"
+        : `Sending ${queuedCount} queued messages…`;
   }
 
   return (
@@ -103,26 +139,28 @@ export function ChannelView() {
             <h1 className="pane-title">{title}</h1>
           </div>
           <div className="pane-sub">
-            {channel.topic || (isDm ? 'Direct message' : 'No topic set')}
+            {channel.topic || (isDm ? "Direct message" : "No topic set")}
           </div>
         </div>
 
         <div className="pane-spacer" />
 
-        <button className="btn" disabled title="Huddles arrive in a later release">
+        <button
+          className="btn"
+          disabled
+          title="Huddles arrive in a later release"
+        >
           <HuddleIcon size={15} />
           Huddle
         </button>
         <button className="btn btn-ghost" title="Members">
           <MembersIcon size={15} />
-          {memberCount ?? '–'}
+          {memberCount ?? "–"}
         </button>
       </header>
 
       {showDeliveryBanner && connectionText && (
-        <div className="connection-banner">
-          {connectionText}
-        </div>
+        <div className="connection-banner">{connectionText}</div>
       )}
 
       {archived && (
@@ -137,19 +175,19 @@ export function ChannelView() {
         messages={messages?.items ?? []}
         hasMore={messages?.hasMore ?? false}
         loading={messages?.loading ?? false}
-        onLoadOlder={() => void loadOlder(activeChannelId)}
-        onOpenThread={(rootId) => void openThread(rootId)}
+        onLoadOlder={handleLoadOlder}
+        onOpenThread={handleOpenThread}
         unreadAfterId={unreadMarkers[activeChannelId] ?? null}
         emptyState={
           <div className="empty-state">
-            <div className="empty-state-mark">{isDm ? '@' : '#'}</div>
+            <div className="empty-state-mark">{isDm ? "@" : "#"}</div>
             <div className="empty-state-title">
               This is the start of {isDm ? title : `#${title}`}
             </div>
             <div className="empty-state-body">
               {isDm
-                ? 'Say hello. Nobody else can see this conversation.'
-                : 'No messages yet. Set a topic so people know what belongs here, or invite the folks who should be in the loop.'}
+                ? "Say hello. Nobody else can see this conversation."
+                : "No messages yet. Set a topic so people know what belongs here, or invite the folks who should be in the loop."}
             </div>
           </div>
         }
@@ -166,7 +204,7 @@ export function ChannelView() {
                 ? `${typingNames[0]} is typing…`
                 : typingNames.length === 2
                   ? `${typingNames[0]} and ${typingNames[1]} are typing…`
-                  : 'Several people are typing…'}
+                  : "Several people are typing…"}
             </span>
           </span>
         )}

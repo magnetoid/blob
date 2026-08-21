@@ -7,22 +7,31 @@
  * to describe.
  */
 
-import { useEffect, useState, type FormEvent } from 'react';
-import { api } from '../../lib/api.ts';
-import { capturePageSnapshot, describeEnvironment, readLog } from '../../lib/diagnostics.ts';
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { api } from "../../lib/api.ts";
+import {
+  capturePageSnapshot,
+  describeEnvironment,
+  readLog,
+} from "../../lib/diagnostics.ts";
 
-type Kind = 'bug' | 'feedback' | 'feature';
+type Kind = "bug" | "feedback" | "feature";
 
 const KINDS: { id: Kind; label: string; hint: string }[] = [
-  { id: 'bug', label: 'Bug', hint: 'Something is broken or behaving oddly.' },
-  { id: 'feature', label: 'Feature', hint: 'Something you would like Blob to do.' },
-  { id: 'feedback', label: 'Feedback', hint: 'Anything else worth saying.' },
+  { id: "bug", label: "Bug", hint: "Something is broken or behaving oddly." },
+  {
+    id: "feature",
+    label: "Feature",
+    hint: "Something you would like Blob to do.",
+  },
+  { id: "feedback", label: "Feedback", hint: "Anything else worth saying." },
 ];
 
 export function FeedbackDialog({ onClose }: { onClose: () => void }) {
-  const [kind, setKind] = useState<Kind>('bug');
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
+  const titleRef = useRef<HTMLInputElement>(null);
+  const [kind, setKind] = useState<Kind>("bug");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,11 +47,15 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === "Escape") onClose();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -55,13 +68,13 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
         title: title.trim(),
         body: body.trim(),
         environment: attach ? captured.environment : {},
-        consoleLog: attach ? captured.consoleLog : '',
-        snapshot: attach ? captured.snapshot : '',
+        consoleLog: attach ? captured.consoleLog : "",
+        snapshot: attach ? captured.snapshot : "",
       });
       setSent(true);
       window.setTimeout(onClose, 1400);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'That could not be sent.');
+      setError(err instanceof Error ? err.message : "That could not be sent.");
     } finally {
       setBusy(false);
     }
@@ -70,10 +83,28 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const active = KINDS.find((entry) => entry.id === kind);
 
   return (
-    <div className="dialog-backdrop" onClick={onClose} role="presentation">
+    <div
+      className="dialog-backdrop"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (
+          event.key === "Escape" ||
+          event.key === "Enter" ||
+          event.key === " "
+        ) {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Close feedback dialog"
+    >
       <form
         className="dialog"
-        onClick={(event) => event.stopPropagation()}
         onSubmit={submit}
         role="dialog"
         aria-modal="true"
@@ -103,11 +134,13 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
             <label className="field">
               <span className="field-label">Summary</span>
               <input
+                ref={titleRef}
                 className="input"
                 value={title}
                 maxLength={140}
-                autoFocus
-                placeholder={kind === 'bug' ? 'What went wrong?' : 'In one line'}
+                placeholder={
+                  kind === "bug" ? "What went wrong?" : "In one line"
+                }
                 onChange={(event) => setTitle(event.target.value)}
               />
             </label>
@@ -120,15 +153,15 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
                 rows={5}
                 maxLength={8000}
                 placeholder={
-                  kind === 'bug'
-                    ? 'What were you doing, and what did you expect instead?'
-                    : 'Anything that would help us understand it.'
+                  kind === "bug"
+                    ? "What were you doing, and what did you expect instead?"
+                    : "Anything that would help us understand it."
                 }
                 onChange={(event) => setBody(event.target.value)}
               />
             </label>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <button
                 type="button"
                 className="toggle"
@@ -139,12 +172,12 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
               </button>
               <span>
                 <span className="pref-label">Attach diagnostics</span>
-                <span className="pref-hint" style={{ display: 'block' }}>
-                  A snapshot of this page and the browser console, so an admin can see
-                  what you saw. Passwords are never included.
+                <span className="pref-hint" style={{ display: "block" }}>
+                  A snapshot of this page and the browser console, so an admin
+                  can see what you saw. Passwords are never included.
                 </span>
               </span>
-            </label>
+            </div>
 
             {error && <p className="error-text">{error}</p>}
 
@@ -152,8 +185,12 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
               <button className="btn" type="button" onClick={onClose}>
                 Cancel
               </button>
-              <button className="btn btn-primary" type="submit" disabled={!title.trim() || busy}>
-                {busy ? 'Sending…' : 'Send'}
+              <button
+                className="btn btn-primary"
+                type="submit"
+                disabled={!title.trim() || busy}
+              >
+                {busy ? "Sending…" : "Send"}
               </button>
             </div>
           </>
