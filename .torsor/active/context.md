@@ -68,3 +68,14 @@ Worth knowing before changing the equivalent code:
   fails its deps stage whenever a `.py` file changes, and passes when none has. The gate
   CI enforces is `torsor guard --strict --severity error`, which is unaffected — read a
   deps failure here as the layout, not as a hallucinated dependency.
+- **`COOLIFY_URL` is Coolify's, not yours.** Coolify injects it into every container it
+  runs, set to that container's *own* address, so a setting by that name can never hold
+  the runner's API endpoint on the platform this feature exists to drive. The runner's
+  base URL is `COOLIFY_API_URL` for exactly that reason, and a test asserts the old name
+  is not read.
+- **Do not connect this app to the runner's Docker network.** Coolify's own database is
+  aliased `postgres` on the `coolify` network, and so is this stack's. Joining it makes
+  `postgres` resolve to two addresses; DNS alternates, and roughly half of all connection
+  attempts fail with `password authentication failed for user "blob"` — which reads like
+  a credentials problem and is not one. Production went down this way. Reach the runner
+  through `host.docker.internal` (mapped to `host-gateway` in the compose file) instead.

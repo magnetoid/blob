@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T21:05:54'
-updated: '2026-08-21T21:05:54'
+created: '2026-08-21T22:18:42'
+updated: '2026-08-21T22:18:42'
 ---
 
 # Repository Map
@@ -81,12 +81,12 @@ Modules and their key symbols (ranked by references).
   - `_preview(body: str)` (function)
   - `handle_notify(message_id: str)` (function)
   - `_send_push(subs: Sequence[Any], payload: dict[str, Any])` (function)
-- **apps/api/src/blob_api/jobs/unfurl.py** — 5 symbol(s)
+- **apps/api/src/blob_api/jobs/unfurl.py** — 6 symbol(s)
   - `_meta(html: str, prop: str)` (function)
   - `_decode_entities(value: str)` (function)
+  - `_allowed(url: str)` (function)
   - `first_url(body: str)` (function)
   - `fetch_unfurl(raw_url: str)` (function)
-  - `handle_unfurl(message_id: str)` (function)
 - **apps/api/src/blob_api/jobs/worker.py** — 7 symbol(s)
   - `sweep_orphans(_ctx: dict[str, Any])` (function)
   - `deliver_plugin_events(_ctx: dict[str, Any])` (function)
@@ -118,9 +118,10 @@ Modules and their key symbols (ranked by references).
   - `strip_code(body: str)` (function)
   - `parse_mentions(body: str, name_to_id: dict[str, str])` (function)
   - `matches_keywords(body: str, keywords: list[str])` (function)
-- **apps/api/src/blob_api/lib/net.py** — 3 symbol(s)
-  - `check_outbound_url(raw_url: str, *, require_https: bool)` (function)
+- **apps/api/src/blob_api/lib/net.py** — 4 symbol(s)
   - `is_private_host(hostname: str)` (function)
+  - `check_outbound_url(raw_url: str, *, require_https: bool)` (function)
+  - `assert_outbound_url(raw_url: str, *, require_https: bool, code: str)` (function)
   - `is_private_address(address: str)` (function)
 - **apps/api/src/blob_api/lib/queue.py** — 5 symbol(s)
   - `enqueue(job: str, *args: Any)` (function)
@@ -176,6 +177,4 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/plugins/manifest.py** — 5 symbol(s)
   - `Manifest` (class)
   - `validate_manifest(manifest: Manifest)` (function)
-  - `new_scopes(previous: list[str], requested: list[str])` (function)
-  - `_check_slug(cls, value: str)` (method)
-  - `_check_version(cls,…[truncated]
+  - `new_scopes(previous: list[str], requested: list[str])` (funct…[truncated]

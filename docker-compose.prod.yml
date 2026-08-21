@@ -63,6 +63,21 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
+      # Hosting agents means calling the runner's API. Reach it through the host gateway
+      # rather than by joining the runner's own Docker network: that network has a
+      # container aliased `postgres` too, so joining it makes this app's `postgres`
+      # resolve to two different databases and authentication fails on whichever one DNS
+      # happens to pick. Set COOLIFY_API_URL to http://host.docker.internal:8000 (or
+      # wherever the runner listens) to switch agent hosting on.
+      - COOLIFY_API_URL=${COOLIFY_API_URL:-}
+      - COOLIFY_TOKEN=${COOLIFY_TOKEN:-}
+      - COOLIFY_PROJECT_UUID=${COOLIFY_PROJECT_UUID:-}
+      - COOLIFY_SERVER_UUID=${COOLIFY_SERVER_UUID:-}
+      - COOLIFY_DESTINATION_UUID=${COOLIFY_DESTINATION_UUID:-}
+      - AGENT_RUNNER=${AGENT_RUNNER:-disabled}
+    extra_hosts:
+      # So the runner's API is reachable without sharing a network with it.
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

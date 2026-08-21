@@ -4,16 +4,17 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T21:05:54'
-updated: '2026-08-21T21:05:54'
+created: '2026-08-21T22:18:43'
+updated: '2026-08-21T22:18:43'
 ---
 
 # apps/api/src/blob_api/jobs/unfurl.py
 
 Symbols in `apps/api/src/blob_api/jobs/unfurl.py`.
 
-- L33 `first_url(body: str)` (function)
-- L38 `_meta(html: str, prop: str)` (function)
-- L50 `_decode_entities(value: str)` (function)
-- L56 `fetch_unfurl(raw_url: str)` (function)
-- L98 `handle_unfurl(message_id: str)` (function)
+- L36 `first_url(body: str)` (function)
+- L41 `_meta(html: str, prop: str)` (function)
+- L53 `_decode_entities(value: str)` (function)
+- L59 `_allowed(url: str)` (function) — Whether this exact URL may be fetched from this process.
+- L67 `fetch_unfurl(raw_url: str)` (function)
+- L128 `handle_unfurl(message_id: str)` (function)

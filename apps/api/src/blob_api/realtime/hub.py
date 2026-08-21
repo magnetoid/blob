@@ -14,13 +14,17 @@ process unchanged when connection counts justify it.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
+import logging
 import os
 import secrets
 from dataclasses import dataclass, field
 from typing import Any
 
 from ..lib.redis import EVENTS_CHANNEL, redis, redis_sub
+
+log = logging.getLogger("blob.realtime.hub")
 
 ServerEvent = dict[str, Any]
 
@@ -220,42 +224,75 @@ async def _publish_async(envelope: dict[str, Any]) -> None:
 def _forget(task: asyncio.Task[Any]) -> None:
     """Drop the reference and surface any error the publish raised."""
     _tasks.discard(task)
-    if not task.cancelled():
-        task.exception()
+    if task.cancelled():
+        return
+    error = task.exception()
+    if error is not None:
+        # Retrieved to keep asyncio quiet, and logged because a publish that failed is a
+        # sibling process that never heard the event. Silently discarding it meant
+        # cross-process delivery could degrade with nothing to find afterwards.
+        log.warning("cross-process publish failed: %s", error)
 
 
 _bridge_started = False
 
 
+#: How long to wait before resubscribing after the bridge drops, and the ceiling it
+#: backs off to. A Redis restart is over in seconds; a longer outage should not become a
+#: reconnect storm from every process at once.
+BRIDGE_RETRY_SEC = 1.0
+BRIDGE_RETRY_MAX_SEC = 30.0
+
+
 async def start_redis_bridge() -> None:
-    """Re-broadcast events published by sibling processes to our local connections."""
+    """Re-broadcast events published by sibling processes to our local connections.
+
+    Supervised, because the first version was not. One `listen()` raising — a Redis
+    restart, a failover, a network blip — ended the task for good: the exception was
+    never retrieved, nothing was logged, and `_bridge_started` stayed true so it could
+    not be started again. Cross-process delivery stopped until someone restarted the
+    container, and nothing anywhere said so.
+    """
     global _bridge_started
     if _bridge_started:
         return
     _bridge_started = True
 
-    pubsub = redis_sub.pubsub()
-    await pubsub.subscribe(EVENTS_CHANNEL)
-
     async def loop() -> None:
-        async for message in pubsub.listen():
-            if message.get("type") != "message":
-                continue
+        delay = BRIDGE_RETRY_SEC
+        while True:
+            pubsub = redis_sub.pubsub()
             try:
-                envelope = json.loads(message["data"])
-            except (ValueError, TypeError):
-                continue
-            if envelope.get("origin") == PROCESS_ID:
-                continue
+                await pubsub.subscribe(EVENTS_CHANNEL)
+                delay = BRIDGE_RETRY_SEC  # Connected; forget any previous backoff.
+                async for message in pubsub.listen():
+                    if message.get("type") != "message":
+                        continue
+                    try:
+                        envelope = json.loads(message["data"])
+                    except (ValueError, TypeError):
+                        continue
+                    if envelope.get("origin") == PROCESS_ID:
+                        continue
 
-            to = envelope.get("to", {})
-            event = envelope.get("event", {})
-            # Presence subscription sets are per-connection state and cannot be
-            # addressed across processes; each process consults its own.
-            if "presence" in to:
-                _deliver_presence(to["presence"], event)
-                continue
-            _deliver_local(event, to)
+                    to = envelope.get("to", {})
+                    event = envelope.get("event", {})
+                    # Presence subscription sets are per-connection state and cannot be
+                    # addressed across processes; each process consults its own.
+                    if "presence" in to:
+                        _deliver_presence(to["presence"], event)
+                        continue
+                    _deliver_local(event, to)
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                log.warning("redis bridge dropped, resubscribing in %.0fs: %s", delay, error)
+            finally:
+                with contextlib.suppress(Exception):
+                    await pubsub.aclose()  # type: ignore[no-untyped-call]
+
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, BRIDGE_RETRY_MAX_SEC)
 
     task = asyncio.create_task(loop())
     _tasks.add(task)

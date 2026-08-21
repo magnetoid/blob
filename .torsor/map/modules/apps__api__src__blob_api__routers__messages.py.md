@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T21:05:54'
-updated: '2026-08-21T21:05:54'
+created: '2026-08-21T22:18:45'
+updated: '2026-08-21T22:18:45'
 ---
 
 # apps/api/src/blob_api/routers/messages.py
@@ -24,12 +24,12 @@ Symbols in `apps/api/src/blob_api/routers/messages.py`.
 - L104 `send_message(channel_id: str, payload: SendMessageInput, response: Response, user: SessionUser=Depends(current_user))` (function)
 - L158 `get_thread(message_id: str, user: SessionUser=Depends(current_user))` (function)
 - L169 `translate_message(message_id: str, payload: TranslateMessageInput, user: SessionUser=Depends(current_user))` (function)
-- L216 `list_threads(user: SessionUser=Depends(current_user))` (function) — Threads the user started or replied to — the sidebar's Threads view.
-- L224 `edit_message(message_id: str, payload: EditMessageInput, user: SessionUser=Depends(current_user))` (function)
-- L254 `delete_message(message_id: str, request: Request, user: SessionUser=Depends(current_user))` (function)
-- L305 `pin_message(message_id: str, payload: PinInput, user: SessionUser=Depends(current_user))` (function)
-- L324 `add_reaction(message_id: str, payload: ReactionInput, user: SessionUser=Depends(current_user))` (function)
-- L358 `remove_reaction(message_id: str, emoji: Annotated[str, Query(min_length=1, max_length=64)], user: SessionUser=Depends(current_user))` (function)
-- L392 `mark_read(channel_id: str, payload: MarkReadInput, user: SessionUser=Depends(current_user))` (function)
-- L407 `list_read_states(user: SessionUser=Depends(current_user))` (function)
-- L416 `incoming_webhook(token: str, payload: WebhookPostInput)` (function) — Post to a channel with a token instead of a session.
+- L226 `list_threads(user: SessionUser=Depends(current_user))` (function) — Threads the user started or replied to — the sidebar's Threads view.
+- L234 `edit_message(message_id: str, payload: EditMessageInput, user: SessionUser=Depends(current_user))` (function)
+- L264 `delete_message(message_id: str, request: Request, user: SessionUser=Depends(current_user))` (function)
+- L315 `pin_message(message_id: str, payload: PinInput, user: SessionUser=Depends(current_user))` (function)
+- L334 `add_reaction(message_id: str, payload: ReactionInput, user: SessionUser=Depends(current_user))` (function)
+- L368 `remove_reaction(message_id: str, emoji: Annotated[str, Query(min_length=1, max_length=64)], user: SessionUser=Depends(current_user))` (function)
+- L407 `mark_read(channel_id: str, payload: MarkReadInput, user: SessionUser=Depends(current_user))` (function)
+- L422 `list_read_states(user: SessionUser=Depends(current_user))` (function)
+- L431 `incoming_webhook(token: str, payload: WebhookPostInput)` (function) — Post to a channel with a token instead of a session.

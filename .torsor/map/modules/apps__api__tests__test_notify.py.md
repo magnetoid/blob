@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T21:05:55'
-updated: '2026-08-21T21:05:55'
+created: '2026-08-21T22:18:48'
+updated: '2026-08-21T22:18:48'
 ---
 
 # apps/api/tests/test_notify.py
@@ -41,3 +41,7 @@ Symbols in `apps/api/tests/test_notify.py`.
 - L188 `test_does_nothing_when_dnd_is_off()` (function)
 - L205 `test_unfurl_refuses_private_addresses(address: str, private: bool)` (function)
 - L209 `test_first_url_finds_the_leading_link()` (function)
+- L214 `TestUnfurlFollowsRedirectsSafely` (class) — A link is attacker-controlled input that makes the server fetch something.
+- L224 `test_a_redirect_into_a_private_address_is_refused(self, monkeypatch: pytest.MonkeyPatch)` (method)
+- L264 `test_a_redirect_to_a_public_page_is_still_followed(self, monkeypatch: pytest.MonkeyPatch)` (method)
+- L300 `test_an_inert_guard_now_refuses_rather_than_returning_a_reason(monkeypatch: pytest.MonkeyPatch)` (function) — Two call sites awaited the checker and dropped its answer on the floor.

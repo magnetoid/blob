@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T21:05:55'
-updated: '2026-08-21T21:05:55'
+created: '2026-08-21T22:18:48'
+updated: '2026-08-21T22:18:48'
 ---
 
 # apps/api/tests/test_realtime.py
@@ -25,3 +25,5 @@ Symbols in `apps/api/tests/test_realtime.py`.
 - L148 `test_a_private_channel_message_never_reaches_a_non_member(team: dict)` (function)
 - L163 `test_presence_subscriptions_leave_nothing_behind()` (function) — The reverse presence index must empty as connections resubscribe and leave.
 - L195 `test_presence_reaches_only_the_connections_watching()` (function)
+- L211 `test_a_client_that_falls_behind_is_dropped_rather_than_left_silent(team: dict)` (function) — The connection has to actually go away, not just be marked gone.
+- L241 `_until(predicate: Any)` (function)
