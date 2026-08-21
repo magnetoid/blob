@@ -25,7 +25,7 @@ from sqlalchemy import text
 from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, require_admin
-from ..lib.errors import bad_request
+from ..lib.errors import bad_request, not_found
 from ..lib.net import check_outbound_url
 from ..plugins import registry
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
@@ -117,10 +117,25 @@ class DeliveryOut(CamelModel):
     last_error: str | None = None
     created_at: str
     delivered_at: str | None = None
+    #: Only meaningful while a delivery is still pending. On a delivered or dead row the
+    #: column holds whatever the last lease stamped, which reads as a retry that is never
+    #: going to happen.
+    next_attempt_at: str | None = None
 
 
 class DeliveriesOut(CamelModel):
     deliveries: list[DeliveryOut]
+
+
+class DeliveryDetailOut(DeliveryOut):
+    """One delivery, with the body the app was sent.
+
+    Kept off the list on purpose: 200 payloads is a lot of JSON to send someone who is
+    looking for which delivery failed, and the answer to "what did it actually receive"
+    is only ever asked about one row at a time.
+    """
+
+    payload: dict[str, Any]
 
 
 class TokenOut(CamelModel):
@@ -133,6 +148,22 @@ class SecretOut(CamelModel):
 
 class OkOut(CamelModel):
     ok: bool = True
+
+
+def _to_delivery(row: Any) -> DeliveryOut:
+    return DeliveryOut(
+        id=row.id,
+        event=row.event,
+        status=row.status,
+        attempts=row.attempts,
+        last_status_code=row.last_status_code,
+        last_error=row.last_error,
+        created_at=iso(row.created_at),
+        delivered_at=iso(row.delivered_at) if row.delivered_at else None,
+        next_attempt_at=(
+            iso(row.next_attempt_at) if row.status == "pending" and row.next_attempt_at else None
+        ),
+    )
 
 
 async def _to_plugin(session: Any, row: Any) -> PluginOut:
@@ -405,7 +436,7 @@ async def list_deliveries(
                 text(
                     """
                     SELECT id, event, status, attempts, last_status_code, last_error,
-                           created_at, delivered_at
+                           created_at, delivered_at, next_attempt_at
                       FROM plugin_deliveries
                      WHERE plugin_id = :id
                      ORDER BY id DESC
@@ -415,21 +446,34 @@ async def list_deliveries(
                 {"id": plugin_id, "limit": limit},
             )
         ).fetchall()
-    return DeliveriesOut(
-        deliveries=[
-            DeliveryOut(
-                id=row.id,
-                event=row.event,
-                status=row.status,
-                attempts=row.attempts,
-                last_status_code=row.last_status_code,
-                last_error=row.last_error,
-                created_at=iso(row.created_at),
-                delivered_at=iso(row.delivered_at) if row.delivered_at else None,
+    return DeliveriesOut(deliveries=[_to_delivery(row) for row in rows])
+
+
+@router.get("/{plugin_id}/deliveries/{delivery_id}", response_model=DeliveryDetailOut)
+async def read_delivery(
+    plugin_id: str,
+    delivery_id: str,
+    admin: SessionUser = Depends(require_admin),
+) -> DeliveryDetailOut:
+    """One delivery in full, including the payload the app was sent."""
+    async with session_scope() as session:
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id, event, status, attempts, last_status_code, last_error,
+                           created_at, delivered_at, next_attempt_at, payload
+                      FROM plugin_deliveries
+                     WHERE id = :id AND plugin_id = :plugin_id
+                    """
+                ),
+                {"id": delivery_id, "plugin_id": plugin_id},
             )
-            for row in rows
-        ]
-    )
+        ).fetchone()
+    if row is None:
+        raise not_found("That delivery is not in this app's log.")
+    return DeliveryDetailOut(**_to_delivery(row).model_dump(), payload=row.payload)
 
 
 @router.delete("/{plugin_id}", response_model=OkOut)

@@ -21,6 +21,7 @@ from sqlalchemy import text
 from blob_api.db.engine import SessionFactory
 from blob_api.lib.ids import new_id
 from blob_api.plugins import delivery, signing
+from blob_api.plugins import events as plugin_events
 
 from .helpers import Client, sign_up
 
@@ -81,7 +82,15 @@ async def app_server() -> AsyncIterator[RecordingApp]:
         yield recorder
 
 
-async def make_plugin(workspace_id: str, port: int, events: list[str] | None = None) -> str:
+async def make_plugin(
+    workspace_id: str,
+    port: int,
+    events: list[str] | None = None,
+    *,
+    runtime: str = "external",
+    slug: str = "recorder",
+    with_url: bool = True,
+) -> str:
     """Insert an app pointed at the recording server.
 
     Written directly rather than through the install endpoint because the SSRF guard
@@ -94,16 +103,23 @@ async def make_plugin(workspace_id: str, port: int, events: list[str] | None = N
             text(
                 """
                 INSERT INTO plugins
-                  (id, workspace_id, slug, name, runtime, status, request_url, events)
-                VALUES (:id, :ws, 'recorder', 'Recorder', 'external', 'enabled', :url,
-                        cast(:events AS text[]))
+                  (id, workspace_id, slug, name, runtime, status, request_url, events,
+                   source_repo, source_ref)
+                VALUES (:id, :ws, :slug, 'Recorder', :runtime, 'enabled', :url,
+                        cast(:events AS text[]), :repo, :ref)
                 """
             ),
             {
                 "id": plugin_id,
                 "ws": workspace_id,
-                "url": f"http://127.0.0.1:{port}/events",
+                "slug": slug,
+                "runtime": runtime,
+                "url": f"http://127.0.0.1:{port}/events" if with_url else None,
                 "events": events or ["message.created"],
+                # plugins_container_needs_repo: an agent we host is one we can rebuild,
+                # so the row is required to say where it came from.
+                "repo": "https://github.com/blob/recorder" if runtime == "container" else None,
+                "ref": "main" if runtime == "container" else None,
             },
         )
         await session.execute(
@@ -334,3 +350,58 @@ async def test_any_2xx_counts_as_delivered(
     delivery_id = await queue(plugin_id)
     await delivery.drain_once()
     assert (await row(delivery_id)).status == "delivered"
+
+
+# ─── container agents ─────────────────────────────────────────────────────────
+async def test_a_container_agent_receives_its_deliveries(
+    workspace: str, app_server: RecordingApp
+) -> None:
+    """The regression test for events that were queued and never leased.
+
+    `emit` has always enqueued for container agents, but the drain only looked for
+    `runtime = 'external'`. Every agent deployed from a repository accumulated an outbox
+    it was never sent — silently, because the rows looked healthy: pending, zero
+    attempts, no error.
+    """
+    plugin_id = await make_plugin(workspace, app_server.port, runtime="container")
+    delivery_id = await queue(plugin_id, id="m1")
+
+    assert await delivery.drain_once() == 1
+    assert len(app_server.requests) == 1
+    assert json.loads(app_server.requests[0].body)["event"] == "message.created"
+    assert (await row(delivery_id)).status == "delivered"
+
+
+async def test_an_agent_without_a_url_yet_keeps_its_queue(workspace: str) -> None:
+    # A container agent exists before the runner has given it a hostname. Leasing those
+    # rows would spend the whole backoff ladder posting to nowhere, so the queue waits
+    # exactly the way a disabled app's does.
+    plugin_id = await make_plugin(workspace, 0, runtime="container", with_url=False)
+    delivery_id = await queue(plugin_id)
+
+    assert await delivery.drain_once() == 0
+    stored = await row(delivery_id)
+    assert stored.status == "pending"
+    assert stored.attempts == 0
+
+
+async def test_a_local_plugin_is_still_never_delivered_to(workspace: str) -> None:
+    # Local plugins run in-process; an HTTP delivery to one would be nonsense.
+    plugin_id = await make_plugin(workspace, 9, runtime="local")
+    await queue(plugin_id)
+    assert await delivery.drain_once() == 0
+
+
+async def test_has_subscribers_agrees_with_the_drain_about_container_agents(
+    workspace: str, app_server: RecordingApp
+) -> None:
+    """A shortcut that disagrees with the queue is worse than no shortcut.
+
+    `has_subscribers` answers "is building this payload worth it". When it filtered
+    'external' alone it reported "nobody is listening" for a workspace whose only
+    subscriber was a container agent.
+    """
+    await make_plugin(workspace, app_server.port, runtime="container")
+    async with SessionFactory() as session:
+        assert await plugin_events.has_subscribers(session, workspace, "message.created") is True
+        assert await plugin_events.has_subscribers(session, workspace, "message.deleted") is False

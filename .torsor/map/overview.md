@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T07:49:12'
-updated: '2026-08-21T07:49:12'
+created: '2026-08-21T16:16:25'
+updated: '2026-08-21T16:16:25'
 ---
 
 # Repository Map
@@ -100,8 +100,8 @@ Modules and their key symbols (ranked by references).
   - `hash_token(token: str)` (function)
   - `hash_password(plain: str)` (function)
 - **apps/api/src/blob_api/lib/errors.py** — 8 symbol(s)
-  - `bad_request(message: str, code: str='bad_request')` (function)
   - `not_found(message: str="That doesn't exist.")` (function)
+  - `bad_request(message: str, code: str='bad_request')` (function)
   - `AppError` (class)
   - `forbidden(message: str="You don't have access to that.")` (function)
   - `unauthorized(message: str='Sign in to continue.')` (function)

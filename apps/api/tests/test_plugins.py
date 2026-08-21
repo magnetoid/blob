@@ -447,6 +447,50 @@ async def test_deliveries_are_visible_to_an_admin(team: dict) -> None:
     assert response.body["deliveries"][0]["status"] == "pending"
 
 
+async def test_a_pending_delivery_says_when_it_will_be_tried(team: dict) -> None:
+    # Without this an admin looking at a stuck queue cannot tell a delivery that is
+    # waiting out its backoff from one that is never going to move again.
+    body = await install(team["owner"])
+    await send_message(team["owner"], team["general"], "hello")
+    listed = await team["owner"].get(f"/api/admin/plugins/{body['plugin']['id']}/deliveries")
+    assert listed.body["deliveries"][0]["nextAttemptAt"] is not None
+
+
+async def test_the_delivery_detail_returns_the_payload_the_app_was_sent(team: dict) -> None:
+    plugin_id = (await install(team["owner"]))["plugin"]["id"]
+    await send_message(team["owner"], team["general"], "hello")
+    listed = await team["owner"].get(f"/api/admin/plugins/{plugin_id}/deliveries")
+    delivery_id = listed.body["deliveries"][0]["id"]
+
+    detail = await team["owner"].get(f"/api/admin/plugins/{plugin_id}/deliveries/{delivery_id}")
+    assert detail.status == 200
+    assert detail.body["id"] == delivery_id
+    assert detail.body["payload"]["event"] == "message.created"
+    assert detail.body["payload"]["payload"]["body"] == "hello"
+
+
+async def test_a_delivery_belonging_to_another_app_is_not_readable(team: dict) -> None:
+    first = (await install(team["owner"]))["plugin"]["id"]
+    second = (await install(team["owner"], slug="other-bot", name="Other Bot"))["plugin"]["id"]
+    await send_message(team["owner"], team["general"], "hello")
+    listed = await team["owner"].get(f"/api/admin/plugins/{first}/deliveries")
+    delivery_id = listed.body["deliveries"][0]["id"]
+
+    assert (
+        await team["owner"].get(f"/api/admin/plugins/{second}/deliveries/{delivery_id}")
+    ).status == 404
+
+
+async def test_a_member_cannot_read_a_delivery(team: dict) -> None:
+    plugin_id = (await install(team["owner"]))["plugin"]["id"]
+    await send_message(team["owner"], team["general"], "hello")
+    listed = await team["owner"].get(f"/api/admin/plugins/{plugin_id}/deliveries")
+    delivery_id = listed.body["deliveries"][0]["id"]
+
+    response = await team["member"].get(f"/api/admin/plugins/{plugin_id}/deliveries/{delivery_id}")
+    assert response.status == 403
+
+
 # ─── updating ─────────────────────────────────────────────────────────────────
 async def test_an_update_that_widens_scopes_waits_for_approval(team: dict) -> None:
     body = await install(team["owner"])

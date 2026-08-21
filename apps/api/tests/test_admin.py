@@ -242,3 +242,38 @@ async def test_the_webhook_token_is_shown_once_and_never_again(team: dict) -> No
     )
     listing = await team["admin"].get("/api/admin/webhooks")
     assert all(w["url"] is None for w in listing.body["webhooks"])
+
+
+async def test_an_admin_deleting_someone_elses_message_is_audited(team: dict) -> None:
+    """Moderation is exactly what the log is for, and it used to leave no trace."""
+    sent = await send_message(team["member"], team["general"]["id"], "regrettable")
+    message_id = sent.body["message"]["id"]
+
+    assert (await team["admin"].delete(f"/api/messages/{message_id}")).status == 200
+
+    events = (await team["owner"].get("/api/admin/audit?action=message.deleted")).body["events"]
+    assert len(events) == 1
+    assert events[0]["actorName"] == "Admin"
+    assert events[0]["targetId"] == message_id
+    assert events[0]["metadata"]["authorId"] == team["member"].user_id
+
+
+async def test_deleting_your_own_message_is_not_audited(team: dict) -> None:
+    # Auditing ordinary use is surveillance, not forensics.
+    sent = await send_message(team["member"], team["general"]["id"], "never mind")
+    await team["member"].delete(f"/api/messages/{sent.body['message']['id']}")
+
+    events = (await team["owner"].get("/api/admin/audit?action=message.deleted")).body["events"]
+    assert events == []
+
+
+async def test_creating_an_invitation_is_audited(team: dict) -> None:
+    # An admin-role invitation is a way to mint an admin; only revocation was logged.
+    before = (await team["owner"].get("/api/admin/audit?action=invite.created")).body["events"]
+    await team["owner"].post("/api/invites", {"email": "new@example.com", "role": "admin"})
+
+    events = (await team["owner"].get("/api/admin/audit?action=invite.created")).body["events"]
+    # The fixture's own two invitations are logged too, which is the point.
+    assert len(events) == len(before) + 1
+    assert events[0]["metadata"] == {"email": "new@example.com", "role": "admin"}
+    assert events[0]["actorName"] == "Owner"

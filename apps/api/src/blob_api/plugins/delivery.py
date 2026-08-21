@@ -73,6 +73,10 @@ async def lease_due(limit: int = BATCH) -> list[Any]:
     instead of both queuing behind the same head of the line. Deliveries whose plugin is
     not enabled are not leased at all, so disabling an app pauses its queue rather than
     burning its retries.
+
+    A plugin with no `request_url` yet gets the same pause. A container agent has a row
+    before the runner has assigned it a hostname, and leasing those rows would spend the
+    whole backoff ladder posting to nowhere before the agent ever finishes deploying.
     """
     async with transaction() as (session, _after):
         rows = (
@@ -86,7 +90,12 @@ async def lease_due(limit: int = BATCH) -> list[Any]:
                          WHERE d.status = 'pending'
                            AND d.next_attempt_at <= now()
                            AND p.status = 'enabled'
-                           AND p.runtime = 'external'
+                           -- Must agree with the subscriber filter in events.emit: a
+                           -- container agent is an external app whose hosting we
+                           -- arranged, and leaving it out here queues its events
+                           -- forever without ever delivering one.
+                           AND p.runtime IN ('external', 'container')
+                           AND p.request_url IS NOT NULL
                          ORDER BY d.id
                          LIMIT :limit
                         FOR UPDATE OF d SKIP LOCKED

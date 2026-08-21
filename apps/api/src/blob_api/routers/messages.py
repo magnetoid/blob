@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
@@ -31,10 +31,12 @@ from ..schemas.requests import (
     TranslateMessageInput,
     WebhookPostInput,
 )
+from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
 from ..services import read_state as read_state_service
 from ..services import translation as translation_service
+from ..services.audit import actor_for
 from ..services.serialize import message_event
 
 router = APIRouter(tags=["messages"])
@@ -247,7 +249,9 @@ async def edit_message(
 
 
 @router.delete("/api/messages/{message_id}", response_model=OkOut)
-async def delete_message(message_id: str, user: SessionUser = Depends(current_user)) -> OkOut:
+async def delete_message(
+    message_id: str, request: Request, user: SessionUser = Depends(current_user)
+) -> OkOut:
     async with transaction() as (session, after):
         existing = await message_service.by_id(session, message_id)
         if existing is None:
@@ -255,9 +259,22 @@ async def delete_message(message_id: str, user: SessionUser = Depends(current_us
         await channel_service.assert_channel_access(
             session, user.id, existing.channel_id, require_member=True
         )
+        moderated = existing.author_id != user.id
         channel_id, thread_root_id = await message_service.remove(
             session, message_id, user.id, user.is_admin
         )
+        if moderated:
+            # Deleting someone else's message only succeeds for an admin, and that is
+            # exactly the act the log exists for. Self-deletes are not recorded: auditing
+            # every one of those is surveillance of ordinary use, not forensics.
+            await audit_service.record(
+                session,
+                actor_for(request, user),
+                "message.deleted",
+                target_type="message",
+                target_id=message_id,
+                metadata={"channelId": channel_id, "authorId": existing.author_id},
+            )
         await plugin_events.emit(
             session,
             workspace_id=user.workspace_id,

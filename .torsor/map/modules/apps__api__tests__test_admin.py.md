@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T07:49:12'
-updated: '2026-08-21T07:49:12'
+created: '2026-08-21T16:16:25'
+updated: '2026-08-21T16:16:25'
 ---
 
 # apps/api/tests/test_admin.py
@@ -36,3 +36,6 @@ Symbols in `apps/api/tests/test_admin.py`.
 - L209 `test_health_reports_the_datastores(team: dict)` (function)
 - L218 `test_a_webhook_can_be_created_used_and_revoked(team: dict)` (function)
 - L239 `test_the_webhook_token_is_shown_once_and_never_again(team: dict)` (function)
+- L247 `test_an_admin_deleting_someone_elses_message_is_audited(team: dict)` (function) — Moderation is exactly what the log is for, and it used to leave no trace.
+- L261 `test_deleting_your_own_message_is_not_audited(team: dict)` (function)
+- L270 `test_creating_an_invitation_is_audited(team: dict)` (function)

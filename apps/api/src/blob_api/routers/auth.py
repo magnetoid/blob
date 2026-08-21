@@ -35,6 +35,8 @@ from ..schemas.requests import (
     ResetPasswordInput,
     SignupInput,
 )
+from ..services import audit as audit_service
+from ..services.audit import actor_for
 from ..services.channels import DEFAULT_CHANNELS, add_members, unique_violation
 from ..services.serialize import USER_COLUMNS, to_current_user
 
@@ -296,6 +298,7 @@ async def list_sessions(user: SessionUser = Depends(current_user)) -> SessionsOu
 # ─── invitations ──────────────────────────────────────────────────────────────
 @router.post("/api/invites", response_model=InviteOut)
 async def create_invite(
+    request: Request,
     payload: CreateInviteInput | None = None,
     user: SessionUser = Depends(require_admin),
 ) -> InviteOut:
@@ -303,6 +306,7 @@ async def create_invite(
     await consume("invite", user.id)
 
     token = new_token()
+    invite_id = new_id()
     async with transaction() as (session, _):
         row = (
             await session.execute(
@@ -316,7 +320,7 @@ async def create_invite(
                     """
                 ),
                 {
-                    "id": new_id(),
+                    "id": invite_id,
                     "ws": user.workspace_id,
                     "email": payload.email.lower() if payload.email else None,
                     "token_hash": hash_token(token),
@@ -326,6 +330,16 @@ async def create_invite(
                 },
             )
         ).fetchone()
+        # Minting a way into the workspace — and an admin-role invitation is a way to
+        # mint an admin. The revocation was already logged; the creation was not.
+        await audit_service.record(
+            session,
+            actor_for(request, user),
+            "invite.created",
+            target_type="invite",
+            target_id=invite_id,
+            metadata={"email": payload.email, "role": payload.role},
+        )
         workspace = (
             await session.execute(
                 text("SELECT name FROM workspaces WHERE id = :id"), {"id": user.workspace_id}

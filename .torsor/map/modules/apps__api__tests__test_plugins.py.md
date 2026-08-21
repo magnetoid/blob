@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-21T07:49:12'
-updated: '2026-08-21T07:49:12'
+created: '2026-08-21T16:16:25'
+updated: '2026-08-21T16:16:25'
 ---
 
 # apps/api/tests/test_plugins.py
@@ -53,10 +53,14 @@ Symbols in `apps/api/tests/test_plugins.py`.
 - L423 `test_an_app_is_not_woken_by_its_own_message(team: dict)` (function)
 - L433 `test_two_apps_each_get_their_own_delivery(team: dict)` (function)
 - L441 `test_deliveries_are_visible_to_an_admin(team: dict)` (function)
-- L451 `test_an_update_that_widens_scopes_waits_for_approval(team: dict)` (function)
-- L474 `test_an_update_that_narrows_scopes_takes_effect_at_once(team: dict)` (function)
-- L491 `test_a_slug_cannot_change_after_install(team: dict)` (function)
-- L500 `test_rotating_the_secret_returns_a_different_one(team: dict)` (function)
-- L508 `test_uninstalling_keeps_what_the_bot_said(team: dict)` (function)
-- L538 `test_uninstalling_stops_the_token(team: dict)` (function)
-- L545 `test_uninstalling_is_audited(team: dict)` (function)
+- L450 `test_a_pending_delivery_says_when_it_will_be_tried(team: dict)` (function)
+- L459 `test_the_delivery_detail_returns_the_payload_the_app_was_sent(team: dict)` (function)
+- L472 `test_a_delivery_belonging_to_another_app_is_not_readable(team: dict)` (function)
+- L484 `test_a_member_cannot_read_a_delivery(team: dict)` (function)
+- L495 `test_an_update_that_widens_scopes_waits_for_approval(team: dict)` (function)
+- L518 `test_an_update_that_narrows_scopes_takes_effect_at_once(team: dict)` (function)
+- L535 `test_a_slug_cannot_change_after_install(team: dict)` (function)
+- L544 `test_rotating_the_secret_returns_a_different_one(team: dict)` (function)
+- L552 `test_uninstalling_keeps_what_the_bot_said(team: dict)` (function)
+- L582 `test_uninstalling_stops_the_token(team: dict)` (function)
+- L589 `test_uninstalling_is_audited(team: dict)` (function)

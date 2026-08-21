@@ -97,14 +97,20 @@ async def emit(
 
 
 async def has_subscribers(session: AsyncSession, workspace_id: str, event: str) -> bool:
-    """Whether emitting is worth the payload construction on a hot path."""
+    """Whether emitting is worth the payload construction on a hot path.
+
+    The runtime filter has to match `emit` exactly. A cheaper-looking answer here that
+    disagrees with the query that actually queues deliveries is worse than no shortcut
+    at all: it reports "nobody is listening" for a workspace whose only subscriber is a
+    container agent, and the events are never built.
+    """
     found = (
         await session.execute(
             text(
                 """
                 SELECT 1 FROM plugins
                  WHERE workspace_id = :ws AND status = 'enabled'
-                   AND runtime = 'external' AND :event = ANY(events)
+                   AND runtime IN ('external', 'container') AND :event = ANY(events)
                  LIMIT 1
                 """
             ),
