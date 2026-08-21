@@ -44,6 +44,7 @@ async def create(
 ) -> FeedbackTicket:
     ticket_id = new_id()
     key: str | None = None
+    environment = dict(payload.environment)
 
     # The upload happens before the insert so a ticket never points at an object that is
     # not there. An orphaned object if the insert fails is the cheaper failure.
@@ -58,6 +59,10 @@ async def create(
             key = candidate
         except Exception:
             log.warning("could not store the snapshot for ticket %s", ticket_id, exc_info=True)
+            # Said on the ticket, not only in the server log: without this an admin
+            # cannot tell a reporter who declined diagnostics from storage being down.
+            environment["snapshot"] = "not stored — object storage was unreachable"
+
 
     async with transaction() as (session, _):
         row = (
@@ -80,7 +85,7 @@ async def create(
                     "kind": payload.kind,
                     "title": payload.title.strip(),
                     "body": payload.body.strip(),
-                    "environment": _json(payload.environment),
+                    "environment": _json(environment),
                     "console_log": payload.console_log,
                     "snapshot_key": key,
                 },
