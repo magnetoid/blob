@@ -33,6 +33,7 @@ from ..plugins.manifest import EVENTS, SCOPES, Manifest
 from ..schemas.base import CamelModel, iso
 from ..services import agents as agent_service
 from ..services import audit as audit_service
+from ..services import channels as channel_service
 from ..services.audit import actor_for
 
 router = APIRouter(tags=["admin"], prefix="/api/admin/plugins")
@@ -62,6 +63,18 @@ class PluginOut(CamelModel):
     source_repo: str | None = None
     source_ref: str | None = None
     deployment_status: str | None = None
+
+
+class AppChannel(CamelModel):
+    id: str
+    name: str | None = None
+    kind: str
+    #: Whether this app's bot is currently a member.
+    joined: bool
+
+
+class AppChannelsOut(CamelModel):
+    channels: list[AppChannel]
 
 
 class PluginsOut(CamelModel):
@@ -487,6 +500,103 @@ async def read_delivery(
     if row is None:
         raise not_found("That delivery is not in this app's log.")
     return DeliveryDetailOut(**_to_delivery(row).model_dump(), payload=row.payload)
+
+
+@router.get("/{plugin_id}/channels", response_model=AppChannelsOut)
+async def app_channels(
+    plugin_id: str, admin: SessionUser = Depends(require_admin)
+) -> AppChannelsOut:
+    """Where this app can speak, and where it could.
+
+    An installed app is inert until its bot joins a channel, and until now nothing in
+    the console said so or offered to fix it — the only route in was the bot calling
+    `conversations.join` on its own behalf, which an app that has not been written yet
+    cannot do. That is the gap this closes.
+
+    Private channels and DMs are not listed. A bot belongs in one only if somebody in it
+    invited it, and enumerating them here would hand an admin a directory of private
+    rooms they are not in.
+    """
+    async with session_scope() as session:
+        plugin = await registry.by_id(session, plugin_id, admin.workspace_id)
+        bot_id = await registry.bot_user_id(session, plugin.id)
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT c.id, c.name, c.kind,
+                           EXISTS (
+                             SELECT 1 FROM channel_members cm
+                              WHERE cm.channel_id = c.id AND cm.user_id = :bot
+                           ) AS joined
+                      FROM channels c
+                     WHERE c.workspace_id = :ws
+                       AND c.kind = 'public'
+                       AND c.archived_at IS NULL
+                     ORDER BY c.name ASC
+                    """
+                ),
+                {"ws": admin.workspace_id, "bot": bot_id},
+            )
+        ).fetchall()
+    return AppChannelsOut(
+        channels=[
+            AppChannel(id=row.id, name=row.name, kind=row.kind, joined=bool(row.joined))
+            for row in rows
+        ]
+    )
+
+
+@router.post("/{plugin_id}/channels/{channel_id}", response_model=OkOut)
+async def app_join_channel(
+    plugin_id: str,
+    channel_id: str,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> OkOut:
+    async with transaction() as (session, _after):
+        plugin = await registry.by_id(session, plugin_id, admin.workspace_id)
+        bot_id = await registry.bot_user_id(session, plugin.id)
+        if not bot_id:
+            raise bad_request("That app has no bot to add.", code="no_bot")
+        # The admin's own access decides this, not the bot's: adding a bot somewhere you
+        # cannot see would be a way to read a channel you were not in.
+        await channel_service.assert_channel_access(session, admin.id, channel_id)
+        await channel_service.join(session, channel_id, bot_id)
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.channel_joined",
+            target_type="channel",
+            target_id=channel_id,
+            metadata={"pluginId": plugin_id, "slug": plugin.slug},
+        )
+    return OkOut()
+
+
+@router.delete("/{plugin_id}/channels/{channel_id}", response_model=OkOut)
+async def app_leave_channel(
+    plugin_id: str,
+    channel_id: str,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> OkOut:
+    async with transaction() as (session, _after):
+        plugin = await registry.by_id(session, plugin_id, admin.workspace_id)
+        bot_id = await registry.bot_user_id(session, plugin.id)
+        if not bot_id:
+            raise bad_request("That app has no bot to remove.", code="no_bot")
+        await channel_service.assert_channel_access(session, admin.id, channel_id)
+        await channel_service.leave(session, channel_id, bot_id)
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.channel_left",
+            target_type="channel",
+            target_id=channel_id,
+            metadata={"pluginId": plugin_id, "slug": plugin.slug},
+        )
+    return OkOut()
 
 
 @router.delete("/{plugin_id}", response_model=OkOut)

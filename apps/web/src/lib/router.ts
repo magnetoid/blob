@@ -33,7 +33,7 @@ export type AdminSection = (typeof ADMIN_SECTIONS)[number];
  * no detail view lands on the conversation like every other unknown path, instead of
  * rendering a list page that quietly ignores half its URL.
  */
-export const ADMIN_DETAIL_SECTIONS: readonly AdminSection[] = ['people'];
+export const ADMIN_DETAIL_SECTIONS: readonly AdminSection[] = ['people', 'apps'];
 
 /** Where a bare /admin lands. */
 export const DEFAULT_ADMIN_SECTION: AdminSection = 'people';

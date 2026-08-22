@@ -13,12 +13,35 @@ import { formatRelative } from "../../messages/messageFormatting.ts";
 import { AgentDeployment } from "../AgentDeployment.tsx";
 import { DeployAgentForm } from "../DeployAgentForm.tsx";
 import { useAdminAction } from "../hooks.ts";
+import { AppSettings } from "./AppSettings.tsx";
 
+/**
+ * /admin/apps is the list; /admin/apps/{id} is one app's settings.
+ *
+ * The split is a wrapper rather than an early return inside the list, because the list
+ * calls hooks — branching above them would change their order between the two routes,
+ * and would also leave the list fetching behind a screen nobody is looking at.
+ */
 export function AppsSection({
+  onError,
+  detailId,
+}: {
+  onError: (message: string | null) => void;
+  detailId?: string;
+}) {
+  return detailId ? (
+    <AppSettings pluginId={detailId} onError={onError} />
+  ) : (
+    <AppsList onError={onError} />
+  );
+}
+
+function AppsList({
   onError,
 }: {
   onError: (message: string | null) => void;
 }) {
+
   const [catalog, setCatalog] = useState<AdminPluginCatalog | null>(null);
   const [plugins, setPlugins] = useState<AdminPlugin[]>([]);
   const [deliveries, setDeliveries] = useState<

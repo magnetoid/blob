@@ -142,6 +142,13 @@ export interface AgentDeployment {
   url: string | null;
 }
 
+export interface AppChannel {
+  id: string;
+  name: string | null;
+  kind: string;
+  joined: boolean;
+}
+
 export interface AdminPluginCatalog {
   scopes: Record<string, string>;
   events: Record<string, string>;
@@ -437,6 +444,15 @@ export const api = {
         `/api/admin/plugins/${pluginId}/deliveries?limit=${limit}`,
       ),
     uninstallPlugin: (pluginId: string) => del<{ ok: true }>(`/api/admin/plugins/${pluginId}`),
+
+    // Where an app can speak. An installed app is inert until its bot joins a channel,
+    // and the app itself cannot always arrange that — an AG-UI agent never calls us.
+    appChannels: (pluginId: string) =>
+      get<{ channels: AppChannel[] }>(`/api/admin/plugins/${pluginId}/channels`),
+    appJoinChannel: (pluginId: string, channelId: string) =>
+      post<{ ok: true }>(`/api/admin/plugins/${pluginId}/channels/${channelId}`),
+    appLeaveChannel: (pluginId: string, channelId: string) =>
+      del<{ ok: true }>(`/api/admin/plugins/${pluginId}/channels/${channelId}`),
 
     // Agents installed from a repository. Preview first: the scopes have to be seen
     // before anything is approved.

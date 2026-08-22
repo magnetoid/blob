@@ -665,3 +665,63 @@ async def test_a_channel_event_without_a_channel_is_refused(team: dict) -> None:
                 event="message.created",
                 payload={},
             )
+
+
+# ─── which channels an app can speak in ───────────────────────────────────────
+class TestAppChannels:
+    """An installed app is inert until its bot joins a channel.
+
+    Before this there was no way to arrange that from the console at all: the only route
+    in was the app calling `conversations.join` for itself, which an app nobody has
+    written yet cannot do. So installing an agent produced something that looked
+    installed and answered nowhere.
+    """
+
+    async def test_public_channels_are_listed_with_membership(self, team: dict) -> None:
+        installed = await install(team["owner"])
+        plugin_id = installed["plugin"]["id"]
+
+        listed = (await team["owner"].get(f"/api/admin/plugins/{plugin_id}/channels")).body
+        assert listed["channels"], "the workspace has a #general to list"
+        assert all(not c["joined"] for c in listed["channels"])
+
+    async def test_an_admin_can_put_the_bot_in_a_channel_and_take_it_out(
+        self, team: dict
+    ) -> None:
+        installed = await install(team["owner"])
+        plugin_id = installed["plugin"]["id"]
+        general = team["general"]
+
+        assert (
+            await team["owner"].post(f"/api/admin/plugins/{plugin_id}/channels/{general}", {})
+        ).status == 200
+        after_join = (await team["owner"].get(f"/api/admin/plugins/{plugin_id}/channels")).body
+        assert [c["joined"] for c in after_join["channels"] if c["id"] == general] == [True]
+
+        assert (
+            await team["owner"].delete(f"/api/admin/plugins/{plugin_id}/channels/{general}")
+        ).status == 200
+        after_leave = (await team["owner"].get(f"/api/admin/plugins/{plugin_id}/channels")).body
+        assert [c["joined"] for c in after_leave["channels"] if c["id"] == general] == [False]
+
+    async def test_private_channels_are_not_listed(self, team: dict) -> None:
+        # A bot belongs in one only if somebody in it invited the bot. Listing them here
+        # would hand an admin a directory of rooms they are not in.
+        installed = await install(team["owner"])
+        private = (
+            await team["owner"].post(
+                "/api/channels", {"name": "board-only", "kind": "private"}
+            )
+        ).body["channel"]
+
+        listed = (
+            await team["owner"].get(f"/api/admin/plugins/{installed['plugin']['id']}/channels")
+        ).body
+        assert private["id"] not in [c["id"] for c in listed["channels"]]
+
+    async def test_a_member_cannot_move_an_app_around(self, team: dict) -> None:
+        installed = await install(team["owner"])
+        response = await team["member"].post(
+            f"/api/admin/plugins/{installed['plugin']['id']}/channels/{team['general']}", {}
+        )
+        assert response.status == 403
