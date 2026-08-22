@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T02:53:14'
-updated: '2026-08-22T02:53:14'
+created: '2026-08-22T03:21:58'
+updated: '2026-08-22T03:21:58'
 ---
 
 # apps/api/src/blob_api/realtime/presence.py
