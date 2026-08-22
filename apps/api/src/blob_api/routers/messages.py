@@ -146,6 +146,14 @@ async def send_message(
                 fire_and_forget(enqueue("notify", result.message.id))
                 if URL_RE.search(payload.body):
                     fire_and_forget(enqueue("unfurl", result.message.id))
+                # A mention might be of an app that answers over AG-UI. Which one is the
+                # job's problem, not the send path's: `mention_user_ids` is already on
+                # the row, and the job returns on a single SELECT when none of them is
+                # an agent. Only this handler enqueues it — a bot's own message must not
+                # start a run, which is what stops two agents talking to each other for
+                # ever.
+                if result.message.mention_user_ids:
+                    fire_and_forget(enqueue("agui_run", result.message.id))
                 _plugin_drain()
 
             after_commit.add(broadcast)

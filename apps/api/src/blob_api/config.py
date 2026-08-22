@@ -81,6 +81,19 @@ class Settings(BaseSettings):
     COOLIFY_ENVIRONMENT: str = "production"
     AGENT_DEPLOY_TIMEOUT_SEC: float = 30.0
 
+    # An AG-UI agent is called when it is mentioned and answers over an event stream.
+    # Every one of these is a containment bound rather than a tuning knob: a mentioned
+    # agent runs in the worker, so an agent that hangs or floods must cost a bounded
+    # amount of somebody else's latency.
+    #: Whole run, wall clock. After this the person gets "I couldn't finish that".
+    AGUI_TIMEOUT_SEC: float = 120.0
+    #: Between events. Catches an agent that opened a stream and then stopped talking.
+    AGUI_READ_TIMEOUT_SEC: float = 30.0
+    #: How much conversation the agent is given when it is mentioned outside a thread.
+    AGUI_HISTORY_LIMIT: int = 30
+    AGUI_MAX_EVENTS: int = 5_000
+    AGUI_MAX_BYTES: int = 2 * 1024 * 1024
+
     @field_validator(
         "SMTP_USER",
         "SMTP_PASS",

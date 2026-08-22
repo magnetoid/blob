@@ -94,12 +94,12 @@ async def install(
             """
             INSERT INTO plugins
               (id, workspace_id, slug, name, description, runtime, version,
-               request_url, events, installed_by, source_repo, source_ref,
+               request_url, agui_url, events, installed_by, source_repo, source_ref,
                deployment_status)
             VALUES
               (:id, :ws, :slug, :name, :description, :runtime, :version,
-               :request_url, cast(:events AS text[]), :installed_by, :source_repo,
-               :source_ref, :deployment_status)
+               :request_url, :agui_url, cast(:events AS text[]), :installed_by,
+               :source_repo, :source_ref, :deployment_status)
             """
         ),
         {
@@ -111,6 +111,7 @@ async def install(
             "runtime": manifest.runtime,
             "version": manifest.version,
             "request_url": manifest.request_url,
+            "agui_url": manifest.agui_url,
             "events": manifest.events,
             "installed_by": installed_by,
             "source_repo": source_repo,
@@ -252,7 +253,8 @@ async def update(
             """
             UPDATE plugins
                SET name = :name, description = :description, version = :version,
-                   request_url = :request_url, events = cast(:events AS text[]),
+                   request_url = :request_url, agui_url = :agui_url,
+                   events = cast(:events AS text[]),
                    status = :status, updated_at = now()
              WHERE id = :id
             """
@@ -263,6 +265,7 @@ async def update(
             "description": manifest.description,
             "version": manifest.version,
             "request_url": manifest.request_url,
+            "agui_url": manifest.agui_url,
             "events": manifest.events,
             "status": status,
         },

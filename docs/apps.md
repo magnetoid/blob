@@ -314,3 +314,60 @@ app and a compromise of the box.
 > **Deploying an agent runs someone else's code on your server, in its own container with
 > only the scopes you granted. It cannot reach the workspace except through the API every
 > app uses.**
+
+## Agents that speak AG-UI
+
+An app can answer without a webhook handler, without a bot token, and without any
+Blob-specific code beyond its manifest. Declare an AG-UI endpoint:
+
+```json
+{
+  "slug": "helper",
+  "name": "Helper",
+  "runtime": "external",
+  "aguiUrl": "https://agent.example.com/agui",
+  "events": [],
+  "scopes": ["messages:read", "messages:write", "channels:read", "channels:join"]
+}
+```
+
+[AG-UI](https://docs.ag-ui.com) is an open protocol for agents talking to user-facing
+applications, implemented on the agent side by LangGraph, CrewAI, PydanticAI, Google ADK,
+AWS Strands and the Claude Agent SDK. If your framework already exposes an AG-UI endpoint,
+that endpoint is the whole integration.
+
+**Blob is the client.** When a person @-mentions your app's bot in a channel the bot has
+joined, Blob POSTs a standard `RunAgentInput` — the thread, or the last 30 messages of the
+channel — and reads back your `text/event-stream`. The request is signed with the same
+`X-Blob-Signature` scheme as a webhook delivery, so if you already verify those you
+already verify this.
+
+What Blob does with the stream:
+
+| Event | Result |
+|---|---|
+| `TEXT_MESSAGE_START` / `CONTENT` / `END` | One message in the channel, posted by your bot |
+| `TEXT_MESSAGE_CHUNK` | The same, for agents that use the compact form |
+| `TOOL_CALL_START` | The tool's name is listed under the answer |
+| `RUN_FINISHED` with an `interrupt` outcome | The question is posted; mention the agent again to continue |
+| `RUN_ERROR` | A short message saying it could not finish, and `lastError` on the app |
+| everything else | Ignored, including all reasoning events — an agent's working-out is not its answer |
+
+Three things are worth knowing before you build against it.
+
+**A slow agent is silent until it is done.** An answer is buffered and written once, when
+the message ends — it does not appear token by token. This is deliberate: a row that is
+edited forty times is marked "(edited)" for ever and broadcast forty times. If your agent
+takes a while, say so in its first message. After `AGUI_TIMEOUT_SEC` (120s by default) the
+person is told it could not finish.
+
+**Only people start runs.** A message from another bot never triggers your agent, which is
+what stops two agents talking to each other until someone notices the bill.
+
+**AG-UI is a transport, not a permission.** Your bot still needs `messages:write`, and it
+still has to be a member of a channel to answer in it. In a channel it cannot see, it says
+nothing at all — not even an error, because a private channel's existence is private.
+
+> **Any member of a channel your agent is in can make it speak, and whatever it says is
+> posted as your app.** That is the feature, and it is also the threat model: treat channel
+> content as untrusted input to your agent.

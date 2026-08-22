@@ -17,6 +17,10 @@ exists, unrendered; what is missing is the seven block types, `BlockRenderer.tsx
 
 ## Recent changes
 
+- **AG-UI** — an app may declare `aguiUrl` and answer a mention with no webhook handler
+  and no bot token. Blob is the client and the agent is the server, because that is the
+  direction every agent framework already ships; see ADR 0011, which also records why an
+  answer is buffered and written once rather than streamed into an edit.
 - **Milestone 16** — external apps end to end: manifest and scope catalogue,
   SSRF-guarded registration, bots as real users, scoped `/api/v1/` callback API,
   HMAC-signed delivery through a transactional outbox with leased draining.
@@ -95,6 +99,14 @@ Worth knowing before changing the equivalent code:
   supported tool is far more destructive than adding one by hand; a single additive
   `-I INPUT` touches nothing else. This is also why the rule needs a systemd unit: the
   Plesk unit rebuilds INPUT from its own database at every boot.
+- **AG-UI's wire type values are SCREAMING_SNAKE, not the PascalCase in its docs.** The
+  published reference heads each section `TextMessageStart`, because that is the
+  TypeScript *interface* name; the discriminator on the wire is `TEXT_MESSAGE_START`.
+  Field names are camelCase in every SDK including the Python one, which declares
+  `message_id` and serialises `messageId`. Matching the docs' headings parses nothing at
+  all and fails silently — a test pins it. `state`, `tools` and `forwardedProps` are also
+  *required* keys in `RunAgentInput`, so omitting them is a 422 from any FastAPI-hosted
+  agent, which reads like the agent being down.
 - **Coolify's lifecycle verbs are POST; its read verbs are GET.** `stop`, `start` and
   `restart` answer a GET with `405 {"message":"This endpoint has changed to a POST
   request."}`, while `GET /applications/{uuid}` and `.../logs` are correct as GETs. The

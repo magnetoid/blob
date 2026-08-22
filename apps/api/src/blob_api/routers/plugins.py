@@ -47,6 +47,8 @@ class PluginOut(CamelModel):
     status: str
     version: str
     request_url: str | None = None
+    #: Set when the app answers over AG-UI instead of (or beside) a webhook.
+    agui_url: str | None = None
     events: list[str]
     scopes: list[str]
     bot_user_id: str | None = None
@@ -198,6 +200,7 @@ async def _to_plugin(session: Any, row: Any) -> PluginOut:
         source_ref=getattr(row, "source_ref", None),
         deployment_status=getattr(row, "deployment_status", None),
         request_url=row.request_url,
+        agui_url=getattr(row, "agui_url", None),
         events=list(row.events or []),
         scopes=scopes,
         bot_user_id=bot_id,
@@ -243,6 +246,7 @@ async def install_plugin(
             code="local_not_installable",
         )
     await _assert_reachable(manifest.request_url)
+    await _assert_reachable(manifest.agui_url)
 
     async with transaction() as (session, _after):
         installed = await registry.install(
@@ -282,8 +286,12 @@ async def _assert_reachable(url: str | None) -> None:
     real one: without it, registering an app is a way to make the server issue requests
     against its own network — the database, Redis, or a cloud metadata endpoint.
     """
+    # Absent is not this function's business any more: an app may declare a webhook URL,
+    # an AG-UI URL or both, and `validate_manifest` is what insists on at least one.
+    # Keeping the "missing" case here as well made the first of the two checks reject
+    # every AG-UI-only app before the second one could look at it.
     if not url:
-        raise bad_request("An external app needs a request URL.", code="url_required")
+        return
     reason = await check_outbound_url(url, require_https=True)
     if reason:
         raise bad_request(reason, code="bad_request_url")
@@ -297,6 +305,7 @@ async def update_plugin(
     admin: SessionUser = Depends(require_admin),
 ) -> PluginOut:
     await _assert_reachable(manifest.request_url)
+    await _assert_reachable(manifest.agui_url)
     async with transaction() as (session, _after):
         widened = await registry.update(
             session,

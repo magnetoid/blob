@@ -104,6 +104,11 @@ class Manifest(CamelModel):
     #: Where events are POSTed. External apps only; validated against the SSRF guard. A
     #: container agent gets one once the runner has assigned it a hostname.
     request_url: str | None = None
+    #: A standard AG-UI endpoint: Blob POSTs a RunAgentInput and reads back an SSE event
+    #: stream. An app with one of these needs no webhook handler and no bot token to
+    #: answer a mention — Blob calls it and writes what comes back. Validated against the
+    #: same SSRF guard as `request_url`.
+    agui_url: str | None = None
     events: list[str] = Field(default_factory=list)
     scopes: list[str] = Field(default_factory=list)
 
@@ -148,7 +153,10 @@ def validate_manifest(manifest: Manifest) -> None:
                 code="scope_required",
             )
 
-    if manifest.runtime == "external" and not manifest.request_url:
+    # Either transport satisfies this: an AG-UI app is reached by Blob calling it, so it
+    # has no webhook to declare. The error code is unchanged — it is part of somebody
+    # else's contract.
+    if manifest.runtime == "external" and not (manifest.request_url or manifest.agui_url):
         raise bad_request("An external app needs a request URL.", code="url_required")
 
 

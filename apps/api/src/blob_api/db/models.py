@@ -650,7 +650,7 @@ class Plugin(Base):
             name="plugins_status_check",
         ),
         CheckConstraint(
-            "runtime <> 'external' OR request_url IS NOT NULL",
+            "runtime <> 'external' OR request_url IS NOT NULL OR agui_url IS NOT NULL",
             name="plugins_external_needs_url",
         ),
         CheckConstraint(
@@ -671,6 +671,8 @@ class Plugin(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'enabled'"))
     version: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'0.0.0'"))
     request_url: Mapped[str | None] = mapped_column(Text)
+    #: An AG-UI endpoint Blob calls when this app's bot is mentioned.
+    agui_url: Mapped[str | None] = mapped_column(Text)
     events: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, server_default=text("'{}'")
     )

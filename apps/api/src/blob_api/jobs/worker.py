@@ -20,6 +20,7 @@ from ..lib.redis import close_redis
 from ..lib.storage import delete_object
 from ..plugins import delivery as plugin_delivery
 from ..realtime import hub
+from .agui import handle_agui_run
 from .notify import handle_notify
 from .unfurl import handle_unfurl
 
@@ -35,6 +36,15 @@ async def notify(_ctx: dict[str, Any], message_id: str) -> None:
 
 async def unfurl(_ctx: dict[str, Any], message_id: str) -> None:
     await handle_unfurl(message_id)
+
+
+async def agui_run(_ctx: dict[str, Any], message_id: str) -> None:
+    """Answer a mention of an AG-UI app's bot.
+
+    No cron behind this one, unlike the plugin outbox: there is no durable table of owed
+    runs, and re-running an agent an hour late is worse than not running it at all.
+    """
+    await handle_agui_run(message_id)
 
 
 async def sweep_orphans(_ctx: dict[str, Any]) -> None:
@@ -88,7 +98,7 @@ async def shutdown(_ctx: dict[str, Any]) -> None:
 
 
 class WorkerSettings:
-    functions = [notify, unfurl, sweep_orphans, deliver_plugin_events]
+    functions = [notify, unfurl, agui_run, sweep_orphans, deliver_plugin_events]
     # arq's stub types cron() more narrowly than it accepts at runtime.
     cron_jobs = [
         cron(sweep_orphans, hour=4, minute=0),  # type: ignore[arg-type]
