@@ -38,6 +38,7 @@ export function AppsSection({
     description: "",
     version: "1.0.0",
     requestUrl: "",
+    aguiUrl: "",
     events: [] as string[],
     scopes: [] as string[],
   });
@@ -155,7 +156,8 @@ export function AppsSection({
                 description: form.description.trim() || null,
                 runtime: "external",
                 version: form.version.trim() || "1.0.0",
-                requestUrl: form.requestUrl.trim(),
+                requestUrl: form.requestUrl.trim() || null,
+                aguiUrl: form.aguiUrl.trim() || null,
                 events: form.events,
                 scopes: form.scopes,
               })
@@ -171,6 +173,7 @@ export function AppsSection({
                   description: "",
                   version: "1.0.0",
                   requestUrl: "",
+                  aguiUrl: "",
                   events: [],
                   scopes: [],
                 });
@@ -248,8 +251,27 @@ export function AppsSection({
                 }))
               }
               placeholder="https://apps.example.com/blob/events"
-              required
             />
+            <span className="pref-hint">
+              Where Blob POSTs the events this app subscribed to.
+            </span>
+          </label>
+          <label className="field admin-app-form-wide">
+            <span className="field-label">AG-UI URL</span>
+            <input
+              className="input"
+              type="url"
+              value={form.aguiUrl}
+              onChange={(e) =>
+                setForm((current) => ({ ...current, aguiUrl: e.target.value }))
+              }
+              placeholder="https://agent.example.com/agui"
+            />
+            <span className="pref-hint">
+              For an agent that speaks AG-UI. Blob calls it when someone mentions the
+              app, and posts what it streams back — no webhook handler needed. Give one
+              of these two URLs, or both.
+            </span>
           </label>
 
           <div className="admin-app-permissions">
@@ -347,7 +369,8 @@ export function AppsSection({
                       </div>
                       <div className="admin-row-meta">
                         {plugin.description || plugin.slug}
-                        {plugin.requestUrl && ` · ${plugin.requestUrl}`}
+                        {(plugin.aguiUrl || plugin.requestUrl) &&
+                          ` · ${plugin.aguiUrl ?? plugin.requestUrl}`}
                         {plugin.botUserId && ` · bot user ${plugin.botUserId}`}
                       </div>
                       <div className="chip-row" style={{ marginTop: 10 }}>

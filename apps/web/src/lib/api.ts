@@ -108,6 +108,8 @@ export interface AdminPlugin {
   status: 'enabled' | 'disabled' | 'needs_review';
   version: string;
   requestUrl: string | null;
+  /** Set when the app answers over AG-UI rather than a webhook. */
+  aguiUrl: string | null;
   events: string[];
   scopes: string[];
   botUserId: string | null;
@@ -409,7 +411,10 @@ export const api = {
       description?: string | null;
       runtime: 'external';
       version: string;
-      requestUrl: string;
+      // One of these is required, not both: an app is reached by a webhook it serves,
+      // by an AG-UI endpoint Blob calls, or by both. The server decides which.
+      requestUrl?: string | null;
+      aguiUrl?: string | null;
       events: string[];
       scopes: string[];
     }) =>
