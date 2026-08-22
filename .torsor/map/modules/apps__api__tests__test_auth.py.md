@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T02:21:57'
-updated: '2026-08-22T02:21:57'
+created: '2026-08-22T02:53:15'
+updated: '2026-08-22T02:53:15'
 ---
 
 # apps/api/tests/test_auth.py
