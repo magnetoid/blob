@@ -25,8 +25,6 @@ import { FeedbackSection } from './sections/FeedbackSection.tsx';
 import { HealthSection } from './sections/HealthSection.tsx';
 import { InvitationsSection } from './sections/InvitationsSection.tsx';
 import { PeopleSection } from './sections/PeopleSection.tsx';
-import { SettingsSection } from './sections/SettingsSection.tsx';
-import { ThemesSection } from './sections/ThemesSection.tsx';
 import { WebhooksSection } from './sections/WebhooksSection.tsx';
 
 /** Ties the drawer toggle to the nav it opens, for anything reading the page structure. */
@@ -49,10 +47,8 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<AdminSectionProps>>
   apps: AppsSection,
   webhooks: WebhooksSection,
   feedback: FeedbackSection,
-  themes: ThemesSection,
   audit: AuditSection,
   health: HealthSection,
-  settings: SettingsSection,
 };
 
 export function AdminConsole({

@@ -20,7 +20,7 @@ export interface Item {
 // behaves. They are separate pages, so they are separate rows — and "Preferences" is
 // what Slack calls the personal one, which is the name people arrive already knowing.
 export const ITEMS: Item[] = [
-  { label: 'Workspace settings', path: '/admin/settings', adminOnly: true },
+  { label: 'Workspace settings', path: '/workspace', adminOnly: true },
   { label: 'Superadmin', path: '/admin', adminOnly: true },
   { label: 'User profile', path: '/profile' },
   { label: 'Preferences', path: '/settings' },

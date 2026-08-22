@@ -45,9 +45,9 @@ describe('filtering the nav', () => {
   });
 
   it('drops groups that end up empty', () => {
-    const groups = filterGroups(ADMIN_NAV, 'themes', true);
+    const groups = filterGroups(ADMIN_NAV, 'audit', true);
     expect(groups).toHaveLength(1);
-    expect(groups[0]?.sections.map((s) => s.id)).toEqual(['themes']);
+    expect(groups[0]?.sections.map((s) => s.id)).toEqual(['audit']);
   });
 
   it('says nothing matched rather than inventing a result', () => {
@@ -60,7 +60,7 @@ describe('filtering the nav', () => {
         id: 'g',
         label: 'Group',
         sections: [
-          { id: 'settings' as const, label: 'Settings', ownerOnly: true },
+          { id: 'health' as const, label: 'Health', ownerOnly: true },
           { id: 'audit' as const, label: 'Audit log' },
         ],
       },

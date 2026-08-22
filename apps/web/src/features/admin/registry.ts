@@ -111,27 +111,9 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     ],
   },
   {
-    id: 'customize',
-    label: 'Customize',
-    sections: [
-      {
-        id: 'themes',
-        label: 'Themes',
-        description: 'The colours this workspace offers, light and dark.',
-        keywords: ['colors', 'colours', 'palette', 'dark', 'light', 'tokens', 'branding'],
-      },
-    ],
-  },
-  {
     id: 'system',
     label: 'System',
     sections: [
-      {
-        id: 'settings',
-        label: 'Settings',
-        description: 'How this workspace behaves.',
-        keywords: ['workspace', 'name', 'policy'],
-      },
       {
         id: 'audit',
         label: 'Audit log',

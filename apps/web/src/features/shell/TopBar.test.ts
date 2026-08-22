@@ -22,9 +22,9 @@ describe('the account menu', () => {
 
     // How this account behaves, how the workspace behaves, how the server behaves.
     expect(path('Preferences')).toBe('/settings');
-    expect(path('Workspace settings')).toBe('/admin/settings');
+    expect(path('Workspace settings')).toBe('/workspace');
     expect(path('Superadmin')).toBe('/admin');
-    expect(parseRoute('/admin/settings')).toEqual({ view: 'admin', section: 'settings' });
+    expect(parseRoute('/workspace')).toEqual({ view: 'workspace', section: 'general' });
   });
 
   it('keeps the workspace and the server pages off a member menu', () => {

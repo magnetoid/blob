@@ -11,6 +11,7 @@ import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
 import { AdminConsole } from '../features/admin/AdminConsole.tsx';
+import { WorkspaceConsole } from '../features/workspace/WorkspaceConsole.tsx';
 import { SettingsView } from '../features/settings/SettingsView.tsx';
 import { ProfileView } from '../features/settings/ProfileView.tsx';
 import { TopBar } from '../features/shell/TopBar.tsx';
@@ -38,7 +39,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // bar never disagrees with the screen.
   useEffect(() => {
     const resolved = parseRoute(path);
-    if (resolved.view === 'admin' && !isAdmin) {
+    if ((resolved.view === 'admin' || resolved.view === 'workspace') && !isAdmin) {
       navigate('/', { replace: true });
       return;
     }
@@ -92,6 +93,16 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // account menu, ⌘K, and the feedback dialog — which matters most here, because the
   // report attaches a snapshot of the screen you are on, and leaving the console to file
   // one would attach a channel instead of the page that went wrong.
+  if (route.view === 'workspace' && isAdmin) {
+    return (
+      <>
+        <WorkspaceConsole section={route.section} onFeedback={() => setFeedbackOpen(true)} />
+        {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+        {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
+      </>
+    );
+  }
+
   if (route.view === 'admin' && isAdmin) {
     return (
       <>

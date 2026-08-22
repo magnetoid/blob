@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ADMIN_DETAIL_SECTIONS,
   ADMIN_SECTIONS,
+  WORKSPACE_SECTIONS,
   parseRoute,
   pathForRoute,
   pathForView,
@@ -57,9 +58,24 @@ describe('parseRoute', () => {
   });
 
   // 'settings' names both a top-level view and an admin section; they must not collide.
-  it('keeps /settings and /admin/settings apart', () => {
+  it('keeps the three kinds of settings apart', () => {
+    // Personal, workspace, server. One word used to cover all three.
     expect(parseRoute('/settings')).toEqual({ view: 'settings' });
-    expect(parseRoute('/admin/settings')).toEqual({ view: 'admin', section: 'settings' });
+    expect(parseRoute('/workspace')).toEqual({ view: 'workspace', section: 'general' });
+    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'people' });
+  });
+
+  it('sends the old workspace URLs to where those pages went', () => {
+    // Both were linkable, so they redirect instead of dead-ending on the conversation.
+    expect(parseRoute('/admin/settings')).toEqual({ view: 'workspace', section: 'general' });
+    expect(parseRoute('/admin/themes')).toEqual({ view: 'workspace', section: 'appearance' });
+  });
+
+  it('reads every workspace section, and refuses one that does not exist', () => {
+    for (const section of WORKSPACE_SECTIONS) {
+      expect(parseRoute(`/workspace/${section}`)).toEqual({ view: 'workspace', section });
+    }
+    expect(parseRoute('/workspace/invented')).toEqual({ view: 'messages' });
   });
 });
 

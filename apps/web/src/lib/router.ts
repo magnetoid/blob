@@ -18,13 +18,29 @@ export const ADMIN_SECTIONS = [
   'apps',
   'webhooks',
   'feedback',
-  'themes',
   'audit',
   'health',
-  'settings',
 ] as const;
 
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
+
+/**
+ * Setting up the workspace is its own page, not a section of the server console.
+ *
+ * The two answer different questions and belong to different people: /workspace is
+ * "what is this workspace like" — its name, how it looks, how people get in — and
+ * /admin is "is the server behaving" — health, audit, apps, the people table. Both were
+ * one screen, with workspace setup reduced to a single name field buried three clicks
+ * inside the operational console.
+ *
+ * The split also happens to be the boundary multi-tenancy needs, so drawing it now costs
+ * a route and saves an untangling later.
+ */
+export const WORKSPACE_SECTIONS = ['general', 'appearance'] as const;
+
+export type WorkspaceSection = (typeof WORKSPACE_SECTIONS)[number];
+
+export const DEFAULT_WORKSPACE_SECTION: WorkspaceSection = 'general';
 
 /**
  * Sections that have a detail page under them, at /admin/:section/:id.
@@ -43,6 +59,7 @@ export type Route =
   | { view: 'search' }
   | { view: 'settings' }
   | { view: 'profile' }
+  | { view: 'workspace'; section: WorkspaceSection }
   | { view: 'admin'; section: AdminSection; detailId?: string };
 
 export type View = Route['view'];
@@ -54,6 +71,21 @@ export function parseRoute(path: string): Route {
   if (clean === '/search') return { view: 'search' };
   if (clean === '/settings') return { view: 'settings' };
   if (clean === '/profile') return { view: 'profile' };
+
+  if (clean === '/workspace') return { view: 'workspace', section: DEFAULT_WORKSPACE_SECTION };
+  const workspace = clean.match(/^\/workspace\/([^/]+)$/);
+  if (workspace) {
+    const section = workspace[1] as WorkspaceSection;
+    if ((WORKSPACE_SECTIONS as readonly string[]).includes(section)) {
+      return { view: 'workspace', section };
+    }
+  }
+
+  // These two moved to /workspace when workspace setup stopped being a section of the
+  // operational console. They were real, linkable URLs, so they redirect rather than
+  // falling through to the conversation like a typo.
+  if (clean === '/admin/settings') return { view: 'workspace', section: 'general' };
+  if (clean === '/admin/themes') return { view: 'workspace', section: 'appearance' };
 
   if (clean === '/admin') return { view: 'admin', section: DEFAULT_ADMIN_SECTION };
   const admin = clean.match(/^\/admin\/([^/]+)(?:\/([^/]+))?$/);
@@ -79,6 +111,8 @@ export function pathForRoute(route: Route): string {
       return '/settings';
     case 'profile':
       return '/profile';
+    case 'workspace':
+      return `/workspace/${route.section}`;
     case 'admin':
       return route.detailId
         ? `/admin/${route.section}/${route.detailId}`
@@ -89,7 +123,9 @@ export function pathForRoute(route: Route): string {
 }
 
 export function pathForView(view: View): string {
-  return pathForRoute(view === 'admin' ? { view, section: DEFAULT_ADMIN_SECTION } : { view });
+  if (view === 'admin') return pathForRoute({ view, section: DEFAULT_ADMIN_SECTION });
+  if (view === 'workspace') return pathForRoute({ view, section: DEFAULT_WORKSPACE_SECTION });
+  return pathForRoute({ view });
 }
 
 function currentPath(): string {
