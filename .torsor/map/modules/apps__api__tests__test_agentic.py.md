@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T03:21:59'
-updated: '2026-08-22T03:21:59'
+created: '2026-08-22T04:12:52'
+updated: '2026-08-22T04:12:52'
 ---
 
 # apps/api/tests/test_agentic.py

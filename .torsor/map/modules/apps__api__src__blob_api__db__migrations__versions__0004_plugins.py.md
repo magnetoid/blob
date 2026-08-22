@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T03:21:56'
-updated: '2026-08-22T03:21:56'
+created: '2026-08-22T04:12:51'
+updated: '2026-08-22T04:12:51'
 ---
 
 # apps/api/src/blob_api/db/migrations/versions/0004_plugins.py

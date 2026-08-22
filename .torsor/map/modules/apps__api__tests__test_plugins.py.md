@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T03:21:59'
-updated: '2026-08-22T03:21:59'
+created: '2026-08-22T04:12:53'
+updated: '2026-08-22T04:12:53'
 ---
 
 # apps/api/tests/test_plugins.py
@@ -70,3 +70,8 @@ Symbols in `apps/api/tests/test_plugins.py`.
 - L625 `test_a_private_channel_is_heard_once_the_bot_is_in_it(self, team: dict)` (method)
 - L639 `test_a_direct_message_is_not_heard(self, team: dict)` (method)
 - L651 `test_a_channel_event_without_a_channel_is_refused(team: dict)` (function) — The guard that keeps this fixed.
+- L671 `TestAppChannels` (class) — An installed app is inert until its bot joins a channel.
+- L680 `test_public_channels_are_listed_with_membership(self, team: dict)` (method)
+- L688 `test_an_admin_can_put_the_bot_in_a_channel_and_take_it_out(self, team: dict)` (method)
+- L707 `test_private_channels_are_not_listed(self, team: dict)` (method)
+- L722 `test_a_member_cannot_move_an_app_around(self, team: dict)` (method)
