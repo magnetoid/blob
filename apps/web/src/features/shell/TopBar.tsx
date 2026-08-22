@@ -12,23 +12,8 @@ import { useStore } from '../../lib/store.ts';
 import { navigate, usePath } from '../../lib/router.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { ChevronDownIcon } from '../../components/Icon.tsx';
+import { ITEMS } from './menu.ts';
 
-interface Item {
-  label: string;
-  path?: string;
-  action?: 'feedback';
-  /** Shown but inert, with a reason, rather than hidden. */
-  soon?: boolean;
-  adminOnly?: boolean;
-}
-
-const ITEMS: Item[] = [
-  { label: 'Superadmin', path: '/admin', adminOnly: true },
-  { label: 'User profile', path: '/profile' },
-  { label: 'Settings', path: '/settings' },
-  { label: 'Update', soon: true },
-  { label: 'Feedback', action: 'feedback' },
-];
 
 export function TopBar({ onFeedback }: { onFeedback: () => void }) {
   const currentUser = useStore((s) => s.currentUser);
