@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T01:05:35'
-updated: '2026-08-22T01:05:35'
+created: '2026-08-22T02:21:56'
+updated: '2026-08-22T02:21:56'
 ---
 
 # Repository Map
@@ -66,6 +66,9 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0008_container_agents.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0009_agui.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 29 symbol(s)
   - `_now()` (function)
   - `Base` (class)
@@ -76,6 +79,12 @@ Modules and their key symbols (ranked by references).
   - `seed()` (function)
   - `main()` (function)
   - `_run()` (function)
+- **apps/api/src/blob_api/jobs/agui.py** — 9 symbol(s)
+  - `Listener` (class)
+  - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None)` (function)
+  - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
+  - `stream_run(listener: Listener, run_input: dict[str, Any], *, transport: httpx.AsyncBaseTransport | None=None)` (function)
+  - `_record_error(plugin_id: str, reason: str)` (function)
 - **apps/api/src/blob_api/jobs/notify.py** — 4 symbol(s)
   - `_broadcast_later(user_id: str, state: ReadStateOut)` (function)
   - `_preview(body: str)` (function)
@@ -87,12 +96,12 @@ Modules and their key symbols (ranked by references).
   - `_allowed(url: str)` (function)
   - `first_url(body: str)` (function)
   - `fetch_unfurl(raw_url: str)` (function)
-- **apps/api/src/blob_api/jobs/worker.py** — 7 symbol(s)
+- **apps/api/src/blob_api/jobs/worker.py** — 8 symbol(s)
   - `sweep_orphans(_ctx: dict[str, Any])` (function)
   - `deliver_plugin_events(_ctx: dict[str, Any])` (function)
   - `notify(_ctx: dict[str, Any], message_id: str)` (function)
   - `unfurl(_ctx: dict[str, Any], message_id: str)` (function)
-  - `startup(_ctx: dict[str, Any])` (function)
+  - `agui_run(_ctx: dict[str, Any], message_id: str)` (function)
 - **apps/api/src/blob_api/lib/auth.py** — 14 symbol(s)
   - `SessionUser` (class)
   - `current_user(request: Request)` (function)
@@ -152,6 +161,12 @@ Modules and their key symbols (ranked by references).
   - `create_app()` (function)
 - **apps/api/src/blob_api/openapi_dump.py** — 1 symbol(s)
   - `main()` (function)
+- **apps/api/src/blob_api/plugins/agui.py** — 21 symbol(s)
+  - `Post` (class)
+  - `_message_id(event: Mapping[str, Any])` (function)
+  - `_interrupt_prompt(event: Mapping[str, Any])` (function)
+  - `SseDecoder` (class)
+  - `__init__(self)` (method)
 - **apps/api/src/blob_api/plugins/auth.py** — 5 symbol(s)
   - `BotCaller` (class)
   - `requires(scope: str)` (function)
@@ -166,16 +181,4 @@ Modules and their key symbols (ranked by references).
   - `SectionBlock` (class)
 - **apps/api/src/blob_api/plugins/delivery.py** — 7 symbol(s)
   - `backoff_for(attempts: int, *, jitter: float | None=None)` (function)
-  - `lease_due(limit: int=BATCH)` (function)
-  - `post(url: str, secret: str, payload: dict[str, Any], delivery_id: str)` (function)
-  - `_record(session: AsyncSession, delivery_id: str, status_code: int, error: str, attempts: int)` (function)
-  - `record_result(delivery_id: str, status_code: int, error: str, attempts: int)` (function)
-- **apps/api/src/blob_api/plugins/env.py** — 1 symbol(s)
-  - `validate_env(raw: dict[str, str] | None)` (function)
-- **apps/api/src/blob_api/plugins/events.py** — 2 symbol(s)
-  - `emit(session: AsyncSession, *, workspace_id: str, event: str, payload: dict[str, Any], channel_id: str | None=None, exclude_plugin_id: str | None=None, only_plugin_id: str | None=None)` (function)
-  - `has_subscribers(session: AsyncSession, workspace_id: str, event: str)` (function)
-- **apps/api/src/blob_api/plugins/manifest.py** — 5 symbol(s)
-  - `Manifest` (class)
-  - `validate_manifest(manifest: Manifest)` (function)
-  - `new_scopes(previous: list[str], r…[truncated]
+  - `lease_due(limit: in…[truncated]
