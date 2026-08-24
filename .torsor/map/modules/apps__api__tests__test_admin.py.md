@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T04:32:20'
-updated: '2026-08-22T04:32:20'
+created: '2026-08-24T16:51:20'
+updated: '2026-08-24T16:51:20'
 ---
 
 # apps/api/tests/test_admin.py
@@ -39,3 +39,7 @@ Symbols in `apps/api/tests/test_admin.py`.
 - L247 `test_an_admin_deleting_someone_elses_message_is_audited(team: dict)` (function) — Moderation is exactly what the log is for, and it used to leave no trace.
 - L261 `test_deleting_your_own_message_is_not_audited(team: dict)` (function)
 - L270 `test_creating_an_invitation_is_audited(team: dict)` (function)
+- L289 `test_instance_users_lists_every_account_with_its_workspace(team: dict)` (function)
+- L298 `test_instance_users_is_owner_only(team: dict)` (function)
+- L304 `test_instance_workspaces_counts_what_is_in_each(team: dict)` (function)
+- L315 `test_instance_workspaces_is_owner_only(team: dict)` (function)

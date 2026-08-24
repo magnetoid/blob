@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T04:32:20'
-updated: '2026-08-22T04:32:20'
+created: '2026-08-24T16:51:20'
+updated: '2026-08-24T16:51:20'
 ---
 
 # apps/api/src/blob_api/schemas/models.py
@@ -24,12 +24,13 @@ Symbols in `apps/api/src/blob_api/schemas/models.py`.
 - L119 `LinkPreview` (class)
 - L127 `Message` (class)
 - L154 `CustomEmoji` (class)
-- L159 `ThemeSummary` (class)
-- L169 `ThreadSummaryDecision` (class)
-- L174 `ThreadSummaryActionItem` (class)
-- L180 `ThreadSummary` (class)
-- L196 `AgentTask` (class)
-- L216 `MessageTranslation` (class)
-- L229 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
-- L240 `ReadStateOut` (class)
-- L246 `FeedbackTicket` (class)
+- L159 `CommandSpec` (class) — One slash command, as the composer's autocomplete needs to describe it.
+- L172 `ThemeSummary` (class)
+- L182 `ThreadSummaryDecision` (class)
+- L187 `ThreadSummaryActionItem` (class)
+- L193 `ThreadSummary` (class)
+- L209 `AgentTask` (class)
+- L229 `MessageTranslation` (class)
+- L242 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
+- L254 `ReadStateOut` (class)
+- L260 `FeedbackTicket` (class)

@@ -13,8 +13,11 @@ lives in [TEAM-CHAT-BUILD-PLAN.md](TEAM-CHAT-BUILD-PLAN.md).
 
 ## What works today
 
-- **Workspaces and accounts** — first signup founds the workspace; everyone else joins
-  by invite link. Sessions are revocable server-side.
+- **Workspaces and accounts** — first signup founds the first workspace and its founder
+  administers the server; everyone else joins by invite link. One server can hold several
+  workspaces, and someone in more than one switches between them from the workspace name
+  in the corner. An address is one person with one password wherever they belong.
+  Sessions are revocable server-side.
 - **Channels** — public and private, archiving, topics, per-channel notification
   levels, join/leave, member management.
 - **Direct messages** — one-to-one and named group DMs, deduplicated by member set.
@@ -22,7 +25,9 @@ lives in [TEAM-CHAT-BUILD-PLAN.md](TEAM-CHAT-BUILD-PLAN.md).
   idempotent retry, keyset-paginated history.
 - **Threads** — Slack-style reply chains in a side panel, with live reply counts and
   participant facepiles on the root.
-- **Reactions** — Unicode emoji, aggregated with who-reacted tooltips.
+- **Reactions** — a searchable picker, aggregated with who-reacted tooltips. A workspace's
+  own uploaded emoji sit alongside the Unicode set and work anywhere `:name:` does,
+  including in a message body.
 - **Mentions** — `@person`, `@channel`, `@here`, resolved at write time and never
   triggered from inside code blocks.
 - **Attention** — unread cursors, mention badges, a "New messages" divider, keyword
@@ -30,11 +35,18 @@ lives in [TEAM-CHAT-BUILD-PLAN.md](TEAM-CHAT-BUILD-PLAN.md).
 - **Search** — Postgres full-text over the entire history with `from:`, `in:`,
   `has:link`, `has:file`, `before:` and `after:` modifiers, permission-filtered per user.
 - **Presence** — live status dots and typing indicators. No read receipts, by design.
+- **Slash commands** — `/help`, `/shrug`, `/me`, `/topic`, `/leave` and `/away`, with the
+  composer autocompleting as you type. The server owns the namespace, so a command an app
+  provides will appear in the same list. A command's private reply is shown only to whoever
+  ran it and is never stored.
 - **⌘K palette** — jump to any channel, person, or action.
 - **Themes** — light, dark and system, each side filled by a named palette an admin can
   edit token by token, plus compact / comfortable / airy density.
-- **Administration** — people and roles, invitations, every channel including private
-  ones, an audit log, workspace settings, live health, and webhook management.
+- **Administration**, in two consoles because they are two jobs. **Workspace** is running
+  one workspace: members and roles, invitations, every channel including private ones,
+  installed apps and hosted agents, webhooks, settings, and the theme. **Server** is
+  running the instance: every account on it, every workspace on it, live health, and the
+  audit log.
 - **Incoming webhooks** — post into a channel from CI or a cron job.
 - **Apps** — external integrations with a name, an avatar and a place in the member list.
   Signed event delivery, a scoped callback API, and a bot that is a real user. See
@@ -47,7 +59,9 @@ lives in [TEAM-CHAT-BUILD-PLAN.md](TEAM-CHAT-BUILD-PLAN.md).
   menu. The ticket carries the browser console and a snapshot of the page as the reporter
   saw it, and lands in the admin console where it can be read, closed or deleted.
 
-Still on the roadmap: huddles, the local plugin runtime, and slash commands.
+Still on the roadmap: huddles, the local plugin runtime, and app-provided slash commands
+— the dispatch endpoint and the built-in commands ship today; what is missing is a
+manifest that declares one and a delivery path for an app to answer it.
 
 Already built: message blocks and interactions, thread summaries, shared human/agent
 tasks, durable offline replay, and provider-backed message translation.
@@ -180,7 +194,6 @@ healthy app.
 apps/api        FastAPI app, WebSocket tier, arq worker
 apps/web        React client
 packages/shared Types, zod schemas and the wire protocol used by the client
-plugins/        local plugins (see the build plan)
 docs/           what people integrating with Blob need
 Dockerfile      builds both tiers into one image; context is the repo root
 docker/         container entrypoint

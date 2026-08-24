@@ -10,10 +10,41 @@ tags: [active]
 
 Milestone 16 (external apps) shipped and now has a working admin Apps console. The
 agentic workspace slice is also in place: thread summaries, human/agent tasks, durable
-offline outbox replay, and multilingual message translation are all implemented. The next
-large roadmap seam is still **milestone 17: blocks** — `messages.blocks jsonb` already
-exists, unrendered; what is missing is the seven block types, `BlockRenderer.tsx`, and
-`/api/interactions` verifying that an `actionId` exists in the *stored* blocks.
+offline outbox replay, and multilingual message translation are all implemented.
+
+**Milestone 17 (blocks) has shipped** — seven types, `BlockRenderer.tsx`, and
+`/api/interactions` checking the `actionId` against the *stored* blocks. This paragraph
+said it was still the next seam for long enough that a `/init` pass read it back as fact
+and had to check the code to find out otherwise; see the note under "Open questions"
+about the unbuilt image, which failed the same way. The roadmap in `progress.md` had it
+under Done the whole time.
+
+**Milestone 19 has shipped, both halves.** `POST /api/commands` with six built-ins and a
+composer that autocompletes them, and apps may now declare `commands` in their manifest:
+a unique index holds the name, dispatch is one signed request with a 3-second budget, and
+an app that needs longer answers later through a signed `responseUrl`.
+
+**Multi-workspace shipped.** One server can hold several workspaces; a person is several
+user rows, one per workspace, and the switcher hangs off the workspace name in the corner.
+`instance_admins` is the real instance-level role that `owner` had been standing in for.
+Two bugs that one workspace had kept unreachable came out with it — see the first two
+traps below.
+
+**The consoles were split by whose job they are.** `/workspace` runs one workspace —
+members, invitations, channels, apps and agents, webhooks, general, appearance. `/admin`
+runs the server — accounts, workspaces, health, audit, feedback. Five sections moved out
+of `/admin`, which had meant inviting a colleague started in a console named after the
+machine. Every old URL redirects, detail ids included. The instance pages only pay off
+once a server holds more than one workspace, and today it holds exactly one — see
+`progress.md` under Next for what multi-workspace actually needs.
+
+Before those, a smaller gap closed:
+**emoji**. The server had shipped `custom_emoji` since the beginning and sent it on every
+bootstrap; the client dropped the field on the floor, had no picker, and offered three
+hardcoded reactions. There is now `lib/emoji.ts` (a curated set, no new dependency), an
+`EmojiPicker` used by both the composer and the reaction toolbar, and `:name:` rendering
+in message bodies. A custom emoji beats a built-in one on a name collision, and a body
+supplies only a *name* — never a URL — so a message cannot aim an `<img>` anywhere.
 
 ## Recent changes
 
@@ -52,6 +83,19 @@ exists, unrendered; what is missing is the seven block types, `BlockRenderer.tsx
 
 Worth knowing before changing the equivalent code:
 
+- **Anything that finds a row by id must also check the workspace.**
+  `assert_channel_access` looked a channel up by id alone and let `is_public` grant the
+  read, so once a server held two workspaces any account could read another workspace's
+  public channels by id. The fix joins `users` on `workspace_id` *inside* the query
+  rather than taking it as a parameter, because a parameter is something a call site can
+  forget. Signup had the mirror of it: it read `workspaces ORDER BY created_at LIMIT 1`
+  and joined people to the oldest workspace whatever their invitation said, even though
+  the invite row had carried `workspace_id` all along. Both were unreachable while there
+  was one workspace, which is exactly why neither was noticed.
+- **One email is one person, with one password, across every workspace.** Under Slack's
+  model a person is several `users` rows. A reset must write to all of them, a new
+  workspace must copy the hash rather than prompt, and `login` must ORDER BY or the
+  planner decides which workspace someone lands in. See `services/workspaces`.
 - FastAPI returns **422** for validation; this client expects **400 `invalid_input`**.
 - Python's `isoformat()` emits microseconds and `+00:00`; the client expects milliseconds
   and `Z`.

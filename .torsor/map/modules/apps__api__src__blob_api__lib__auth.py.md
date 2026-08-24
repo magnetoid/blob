@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T04:32:20'
-updated: '2026-08-22T04:32:20'
+created: '2026-08-24T16:51:20'
+updated: '2026-08-24T16:51:20'
 ---
 
 # apps/api/src/blob_api/lib/auth.py
@@ -26,3 +26,4 @@ Symbols in `apps/api/src/blob_api/lib/auth.py`.
 - L176 `current_user(request: Request)` (function) — The signed-in user, or 401.
 - L184 `require_admin(request: Request)` (function) — Admin or owner, else 403.
 - L196 `require_owner(request: Request)` (function)
+- L203 `require_instance_admin(request: Request)` (function) — Administers the server, not a workspace on it.

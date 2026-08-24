@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T04:32:19'
-updated: '2026-08-22T04:32:19'
+created: '2026-08-24T16:51:20'
+updated: '2026-08-24T16:51:20'
 ---
 
 # Repository Map
@@ -69,12 +69,18 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0009_agui.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 29 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0010_plugin_commands.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0011_instance_admins.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 31 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
   - `User` (class)
-  - `Session` (class)
+  - `InstanceAdmin` (class)
 - **apps/api/src/blob_api/db/seed.py** — 3 symbol(s)
   - `seed()` (function)
   - `main()` (function)
@@ -102,18 +108,18 @@ Modules and their key symbols (ranked by references).
   - `notify(_ctx: dict[str, Any], message_id: str)` (function)
   - `unfurl(_ctx: dict[str, Any], message_id: str)` (function)
   - `agui_run(_ctx: dict[str, Any], message_id: str)` (function)
-- **apps/api/src/blob_api/lib/auth.py** — 14 symbol(s)
+- **apps/api/src/blob_api/lib/auth.py** — 15 symbol(s)
   - `SessionUser` (class)
   - `current_user(request: Request)` (function)
   - `require_admin(request: Request)` (function)
   - `hash_token(token: str)` (function)
   - `hash_password(plain: str)` (function)
-- **apps/api/src/blob_api/lib/errors.py** — 8 symbol(s)
+- **apps/api/src/blob_api/lib/errors.py** — 9 symbol(s)
   - `bad_request(message: str, code: str='bad_request')` (function)
   - `not_found(message: str="That doesn't exist.")` (function)
   - `AppError` (class)
   - `forbidden(message: str="You don't have access to that.")` (function)
-  - `unauthorized(message: str='Sign in to continue.')` (function)
+  - `conflict(message: str, code: str='conflict')` (function)
 - **apps/api/src/blob_api/lib/ids.py** — 3 symbol(s)
   - `new_id()` (function)
   - `new_token(nbytes: int=32)` (function)
@@ -134,8 +140,8 @@ Modules and their key symbols (ranked by references).
   - `assert_outbound_url(raw_url: str, *, require_https: bool, code: str)` (function)
   - `is_private_address(address: str)` (function)
 - **apps/api/src/blob_api/lib/queue.py** — 5 symbol(s)
-  - `enqueue(job: str, *args: Any)` (function)
   - `fire_and_forget(coro: Coroutine[Any, Any, None])` (function)
+  - `enqueue(job: str, *args: Any)` (function)
   - `redis_settings()` (function)
   - `get_pool()` (function)
   - `close_queue()` (function)
@@ -175,10 +181,4 @@ Modules and their key symbols (ranked by references).
   - `has(self, scope: str)` (method)
 - **apps/api/src/blob_api/plugins/blocks.py** — 14 symbol(s)
   - `TextSpan` (class)
-  - `ActionsBlock` (class)
-  - `InputBlock` (class)
-  - `collect_action_ids(blocks: list[Block])` (function)
-  - `SectionBlock` (class)
-- **apps/api/src/blob_api/plugins/delivery.py** — 7 symbol(s)
-  - `backoff_for(attempts: int, *, jitter: float | None=None)` (function)
-  - `lease_due(limit: in…[truncated]
+  - `…[truncated]

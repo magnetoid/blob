@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-22T04:32:20'
-updated: '2026-08-22T04:32:20'
+created: '2026-08-24T16:51:20'
+updated: '2026-08-24T16:51:20'
 ---
 
 # apps/api/tests/test_agui.py
@@ -51,3 +51,7 @@ Symbols in `apps/api/tests/test_agui.py`.
 - L490 `test_an_app_with_only_an_agui_url_installs(self, team: dict)` (method)
 - L494 `test_an_external_app_with_neither_url_is_refused(self, team: dict)` (method)
 - L501 `test_the_agui_url_goes_through_the_ssrf_guard(self, team: dict)` (method)
+- L510 `TestPrivateEndpoints` (class) — An agent one hop away should not need public DNS and a certificate.
+- L521 `test_a_private_endpoint_is_refused_by_default(self, team: dict)` (method)
+- L529 `test_the_operator_can_allow_one(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L542 `test_nonsense_is_still_refused_when_allowed(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
