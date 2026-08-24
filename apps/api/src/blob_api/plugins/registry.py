@@ -361,6 +361,43 @@ async def update(
     return widened
 
 
+async def describe(
+    session: AsyncSession,
+    *,
+    plugin_id: str,
+    workspace_id: str,
+    name: str | None = None,
+    description: str | None = None,
+    version: str | None = None,
+) -> None:
+    """Record what a socket agent says it is, on the way in.
+
+    This is the whole of "importing" a desktop agent: it connects and announces itself,
+    rather than being described by hand in a console it has never heard of.
+
+    Only the descriptive fields. Scopes, events and commands are conspicuously absent —
+    an agent that could widen its own grants by asserting them on connect would make the
+    consent screen decorative. Those still go through `update`, which parks new scopes in
+    `needs_review` where a person sees them.
+
+    Each field is optional and a missing one leaves what was there: an agent that sends a
+    name and no description should not blank the description an admin wrote.
+    """
+    await by_id(session, plugin_id, workspace_id)
+    fields = {"name": name, "description": description, "version": version}
+    given = {key: value for key, value in fields.items() if isinstance(value, str) and value}
+    if not given:
+        return
+
+    # Interpolated, and safe because the keys are the literal three above — never
+    # anything the agent sent. Only the *values* come from the wire, and those are bound.
+    assignments = ", ".join(f"{key} = :{key}" for key in given)
+    await session.execute(
+        text(f"UPDATE plugins SET {assignments}, updated_at = now() WHERE id = :id"),
+        {**given, "id": plugin_id},
+    )
+
+
 async def approve(session: AsyncSession, plugin_id: str, workspace_id: str) -> None:
     """Accept an update's widened scopes and let the app run again."""
     plugin = await by_id(session, plugin_id, workspace_id)

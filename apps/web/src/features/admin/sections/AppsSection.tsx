@@ -11,6 +11,7 @@ import {
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
 import { AgentDeployment } from "../AgentDeployment.tsx";
+import { ConnectAgentForm } from "../ConnectAgentForm.tsx";
 import { DeployAgentForm } from "../DeployAgentForm.tsx";
 import { useAdminAction } from "../hooks.ts";
 import { AppSettings } from "./AppSettings.tsx";
@@ -163,6 +164,18 @@ function AppsList({
           onError={onError}
           onInstalled={(pluginName, signingSecret, botToken) => {
             setSecretNotice({ pluginName, signingSecret, botToken });
+            load();
+          }}
+        />
+
+        <ConnectAgentForm
+          scopeCatalog={catalog?.scopes ?? {}}
+          onError={onError}
+          onConnected={(pluginName, botToken) => {
+            // No signing secret: nothing is going to POST to this agent, so there is
+            // nothing for it to verify. The token is both how it connects and how it
+            // calls back.
+            setSecretNotice({ pluginName, botToken });
             load();
           }}
         />

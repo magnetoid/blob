@@ -155,3 +155,21 @@ Worth knowing before changing the equivalent code:
   `restart` answer a GET with `405 {"message":"This endpoint has changed to a POST
   request."}`, while `GET /applications/{uuid}` and `.../logs` are correct as GETs. The
   asymmetry is not guessable and is pinned by `tests/test_agent_runner_api.py`.
+- **Subscribe before you publish, on any Redis request/response pair.** An agent can
+  answer a socket run in single-digit milliseconds. Publish the request first and its
+  opening events are broadcast to a channel nobody has subscribed to yet — the run then
+  hangs until its deadline and is reported as a timeout, having actually succeeded. The
+  ordering in `gateway.stream_events` is the fix and the reason it is not three lines.
+- **Redis pub/sub is fan-out, so "the holder" can be two processes.** An agent
+  reconnecting to a second app process while the first still believes it holds the socket
+  means a run published once is delivered twice, answered twice, and posted twice. Claim
+  the run id with `SET NX` before acting on it — the same claim `jobs/agui.py` takes on a
+  message before answering it.
+- **Never iterate a task set while cancelling it if a done-callback discards from it.**
+  `AgentConnection` kept its background tasks in a set and had each one discard itself on
+  completion; `__aexit__` looped over that live set cancelling, which mutated it mid-loop,
+  and the `gather` that followed awaited only what survived. The tasks outlived the
+  connection. On the test suite's shared event loop they ran on into the *next* test and
+  interleaved with its `TRUNCATE`, so the symptom was foreign-key violations during
+  fixture setup in files that have nothing to do with sockets — and it moved between runs.
+  Snapshot the set before cancelling, and gather the snapshot.

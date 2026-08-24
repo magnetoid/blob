@@ -573,13 +573,9 @@ class AgentTask(Base):
         UUIDStr, ForeignKey("thread_summaries.id", ondelete="SET NULL")
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
-    instructions: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("''")
-    )
+    instructions: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'todo'"))
-    priority: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'medium'")
-    )
+    priority: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'medium'"))
     due_at: Mapped[Any | None] = mapped_column(Timestamp)
     completed_at: Mapped[Any | None] = mapped_column(Timestamp)
     outcome: Mapped[str | None] = mapped_column(Text)
@@ -657,7 +653,8 @@ class Plugin(Base):
     __tablename__ = "plugins"
     __table_args__ = (
         CheckConstraint(
-            "runtime IN ('local', 'external', 'container')", name="plugins_runtime_check"
+            "runtime IN ('local', 'external', 'container', 'socket')",
+            name="plugins_runtime_check",
         ),
         CheckConstraint(
             "status IN ('enabled', 'disabled', 'needs_review', 'failed')",
@@ -796,9 +793,7 @@ class PluginDelivery(Base):
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'"))
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    next_attempt_at: Mapped[Any] = mapped_column(
-        Timestamp, nullable=False, server_default=_now()
-    )
+    next_attempt_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     last_status_code: Mapped[int | None] = mapped_column(Integer)
     last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())

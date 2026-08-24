@@ -56,7 +56,17 @@ async def current_bot(request: Request) -> BotCaller:
     token = _bearer(request)
     if token is None:
         raise unauthorized("This endpoint needs an app token.")
+    return await resolve_bot(token)
 
+
+async def resolve_bot(token: str) -> BotCaller:
+    """Everything `current_bot` does, minus where the token came from.
+
+    Split out because a socket agent authenticates with the same token over a WebSocket,
+    and a WebSocket has no `Request`. Two implementations of "which app is this, and what
+    may it do" is exactly the kind of pair that drifts until one of them forgets to check
+    `status`.
+    """
     async with SessionFactory() as session:
         row = (
             await session.execute(

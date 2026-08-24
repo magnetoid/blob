@@ -183,6 +183,7 @@ def create_app() -> FastAPI:
 
     from .realtime.ws import router as ws_router
     from .routers.admin import router as admin_router
+    from .routers.agent_socket import router as agent_socket_router
     from .routers.agentic import router as agentic_router
     from .routers.auth import router as auth_router
     from .routers.bot_api import router as bot_api_router
@@ -214,6 +215,7 @@ def create_app() -> FastAPI:
     app.include_router(plugin_router)
     app.include_router(bot_api_router)
     app.include_router(ws_router)
+    app.include_router(agent_socket_router)
 
     # Last, so every route above answers first: a mount at "/" matches anything.
     if settings.WEB_DIST and not mount_web(app, settings.WEB_DIST):

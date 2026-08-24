@@ -125,9 +125,35 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
     LIMIT 1` and joining people to the oldest one whatever they had been invited to. The
     invite row had carried `workspace_id` since the beginning; nothing read it.
 
+- **Socket agents — an agent that dials in** — a fourth runtime for the case with no
+  address at all: the agent on somebody's laptop, behind NAT. It opens a WebSocket to
+  `/ws/agent`, authenticates with its bot token and holds it; runs go down that pipe and
+  AG-UI events come back up. ADR 0011's "Blob is the client" is qualified, not overturned
+  — the agent still answers runs it did not start, and the same `Fold` reads the same
+  events, because `plugins/agui.py` is a pure function precisely so a second transport
+  costs a reader and no semantics. Connecting *is* importing: the agent announces its
+  name and description on the way in. Scopes are not self-declared — `hello` carries
+  identity only, or the consent screen would be decorative.
+
+  The hard part is that the process holding the socket is not the process running the
+  job: mentions are handled by the worker, sockets by an API process, so every run
+  crosses through Redis the way `hub.py` does it. Two traps came out of that and both are
+  tested. Pub/sub is fan-out, so a run can reach two holders and be answered twice — the
+  holder claims the run id with `SET NX` first. And subscribing has to happen *before*
+  publishing, or an agent that answers in single-digit milliseconds sends its opening
+  events to a channel nobody is listening on, and the run appears to hang and then time
+  out having actually succeeded.
+
+  Found a real bug writing the tests, and it was mine: `AgentConnection.__aexit__`
+  iterated the live task set while cancelling, and the done-callback discards from that
+  same set — so the `gather` awaited whatever was left and returned early. Tasks outlived
+  their connection and, on the suite's shared event loop, ran on into the next test,
+  where they interleaved with its `TRUNCATE` and surfaced as foreign-key violations in
+  fixtures that had nothing to do with sockets. Snapshot before cancelling.
+
 ## In progress
 
-Nothing. 425 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
+Nothing. 439 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
 ones, which skip when no bucket is up — green while proving nothing, so bring storage up
 before trusting them); 106 pass in the browser. ruff, mypy, tsc and `alembic check` are
 clean. Counts are worth re-measuring rather than trusting: this line read "274 and 17"

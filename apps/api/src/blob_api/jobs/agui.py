@@ -32,7 +32,7 @@ from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.redis import redis
-from ..plugins import agui
+from ..plugins import agui, gateway
 from ..plugins import events as plugin_events
 from ..plugins.signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
 from ..realtime import hub
@@ -50,8 +50,14 @@ class Listener:
     slug: str
     name: str
     bot_user_id: str
-    agui_url: str
+    #: None for a socket agent, which has no address — it dialled us. See `plugins/gateway`.
+    agui_url: str | None
     signing_secret: str
+    runtime: str = "external"
+
+    @property
+    def dials_in(self) -> bool:
+        return self.runtime == "socket"
 
 
 async def listeners_for(
@@ -69,13 +75,17 @@ async def listeners_for(
         await session.execute(
             text(
                 """
-                SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url, s.signing_secret
+                SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
+                       p.runtime, s.signing_secret
                   FROM plugins p
                   JOIN users u ON u.bot_plugin_id = p.id
                   JOIN plugin_secrets s ON s.plugin_id = p.id
                  WHERE p.workspace_id = :ws
                    AND p.status = 'enabled'
-                   AND p.agui_url IS NOT NULL
+                   -- An address, or a connection it opened itself. A socket agent has no
+                   -- agui_url and answering a mention is exactly what it is here for, so
+                   -- the URL test alone would filter out every one of them.
+                   AND (p.agui_url IS NOT NULL OR p.runtime = 'socket')
                    AND u.id = ANY(cast(:ids AS uuid[]))
                    AND u.deactivated_at IS NULL
                    AND EXISTS (
@@ -94,6 +104,7 @@ async def listeners_for(
             bot_user_id=row.bot_user_id,
             agui_url=row.agui_url,
             signing_secret=row.signing_secret,
+            runtime=row.runtime,
         )
         for row in rows
     ]
@@ -115,8 +126,16 @@ async def stream_run(
     scheme — so an app that already verifies Blob's deliveries verifies this with the
     code it has.
     """
+    if listener.dials_in:
+        return await _stream_over_socket(listener, run_input)
+
     fold = agui.Fold()
     posts: list[agui.Post] = []
+    if listener.agui_url is None:
+        # `listeners_for` admits an agent with no URL only when it dials in, so this is
+        # unreachable rather than merely unlikely — it is here because the type says the
+        # field is optional and silently POSTing to None is the worse way to find out.
+        return fold, posts, "that agent has no endpoint to call"
     decoder = agui.SseDecoder()
     body = json.dumps(run_input).encode()
     timestamp = int(time.time())
@@ -129,9 +148,7 @@ async def stream_run(
 
     seen_events = 0
     seen_bytes = 0
-    timeout = httpx.Timeout(
-        settings.AGUI_TIMEOUT_SEC, read=settings.AGUI_READ_TIMEOUT_SEC
-    )
+    timeout = httpx.Timeout(settings.AGUI_TIMEOUT_SEC, read=settings.AGUI_READ_TIMEOUT_SEC)
 
     try:
         async with httpx.AsyncClient(timeout=timeout, transport=transport) as client:
@@ -164,6 +181,53 @@ async def stream_run(
 
     # A stream that ended without RUN_FINISHED is treated as done, not as an error: an
     # answer that arrived in full should not get an apology appended under it.
+    posts.extend(fold.finish())
+    return fold, posts, None
+
+
+async def _stream_over_socket(
+    listener: Listener, run_input: dict[str, Any]
+) -> tuple[agui.Fold, list[agui.Post], str | None]:
+    """The same run, down a connection the agent opened, from a process that is not this one.
+
+    Everything after "where do the events come from" is identical to the HTTP path on
+    purpose — the same `Fold`, the same caps, the same treatment of a stream that stops
+    early. `plugins/agui.py` is a pure function of events precisely so that a second
+    transport costs this much and no more.
+
+    There is no signature here, and that is not an omission. A signature proves to the
+    *agent* that a request came from Blob, which matters when anyone on the internet can
+    POST to its URL. This agent authenticated itself with its bot token when it dialled
+    in, and the socket it is holding is the proof — nobody else can write to it.
+    """
+    fold = agui.Fold()
+    posts: list[agui.Post] = []
+
+    if not await gateway.is_online(listener.plugin_id):
+        return fold, posts, "that agent is not connected right now"
+
+    seen_events = 0
+    try:
+        async for event in gateway.stream_events(
+            listener.plugin_id, run_input, timeout_sec=gateway.run_timeout_sec()
+        ):
+            seen_events += 1
+            if seen_events > settings.AGUI_MAX_EVENTS:
+                posts.extend(fold.finish())
+                return fold, posts, "the agent sent more events than we will read"
+            posts.extend(fold.feed(event))
+            if fold.finished:
+                return fold, posts, None
+    except Exception as error:
+        posts.extend(fold.finish())
+        return fold, posts, f"the agent could not be reached: {error}"
+
+    if not fold.finished and not posts:
+        # Nothing at all came back inside the window. Distinguished from a short answer
+        # because "it said nothing" and "it never woke up" want different apologies.
+        posts.extend(fold.finish())
+        return fold, posts, "the agent did not answer in time"
+
     posts.extend(fold.finish())
     return fold, posts, None
 
@@ -367,9 +431,7 @@ async def _run_one(
     run_input = agui.build_run_input(
         thread_id=thread_root_id or channel_id,
         run_id=trigger_id,
-        messages=agui.to_agui_messages(
-            history, bot_user_id=listener.bot_user_id, names=names
-        ),
+        messages=agui.to_agui_messages(history, bot_user_id=listener.bot_user_id, names=names),
         channel_name=channel_name,
         trigger_user=asker,
     )

@@ -22,7 +22,12 @@ from ..schemas.base import CamelModel
 
 #: Where the code runs. "container" is an external app whose hosting Blob arranged —
 #: same contract, same scopes, same delivery; see ADR 0010.
-Runtime = Literal["local", "external", "container"]
+#:
+#: "socket" is the one that reverses who dials. Every other runtime is reached by Blob
+#: making a request to an address; a socket agent has no address to give — it runs on
+#: somebody's laptop, behind NAT, on a network this server cannot see — so it opens a
+#: connection *to* Blob and holds it, and runs are written down that pipe. See ADR 0012.
+Runtime = Literal["local", "external", "container", "socket"]
 Status = Literal["enabled", "disabled", "needs_review", "failed"]
 
 #: Every permission a plugin can hold. Granted as a set at install, one row each, so a
@@ -145,9 +150,7 @@ class Manifest(CamelModel):
     def _check_slug(cls, value: str) -> str:
         value = value.strip().lower()
         if not _SLUG_RE.match(value):
-            raise ValueError(
-                "A slug is 3-40 characters of lowercase letters, numbers and hyphens."
-            )
+            raise ValueError("A slug is 3-40 characters of lowercase letters, numbers and hyphens.")
         return value
 
     @field_validator("version")
@@ -170,15 +173,11 @@ def validate_manifest(
     """
     unknown_scopes = sorted(set(manifest.scopes) - set(SCOPES))
     if unknown_scopes:
-        raise bad_request(
-            f"Unknown scope: {', '.join(unknown_scopes)}.", code="unknown_scope"
-        )
+        raise bad_request(f"Unknown scope: {', '.join(unknown_scopes)}.", code="unknown_scope")
 
     unknown_events = sorted(set(manifest.events) - set(EVENTS))
     if unknown_events:
-        raise bad_request(
-            f"Unknown event: {', '.join(unknown_events)}.", code="unknown_event"
-        )
+        raise bad_request(f"Unknown event: {', '.join(unknown_events)}.", code="unknown_event")
 
     granted = set(manifest.scopes)
     for event in manifest.events:

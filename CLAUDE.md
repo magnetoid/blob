@@ -113,6 +113,14 @@ through a transactional outbox that the worker drains one request at a time per 
 `plugins/agui.py` is a pure bytes-in/writes-out function — Blob is the AG-UI *client* and
 the agent is the server, which is the direction every agent framework already ships.
 
+The one exception is `runtime: "socket"` (`plugins/gateway.py`, ADR 0012), for an agent
+with no address at all — on a laptop, behind NAT. It dials Blob and holds a WebSocket, and
+runs go down that pipe. Only the *transport* reverses: the agent still answers runs it did
+not start, and the same `Fold` reads the same events. The part that bites is that the
+process holding the socket is not the process running the job — mentions are the worker's,
+sockets are an API process's — so every run crosses through Redis, which is why the holder
+claims a run id with `SET NX` and why `stream_events` subscribes before it publishes.
+
 **Client.** `features/` by domain, `lib/` for the plumbing: a zustand store keeping
 messages per channel in ascending id order (UUIDv7 sorts chronologically, so a live
 insert is a sorted-position insert and "unread?" is a string comparison — the same trick

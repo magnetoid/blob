@@ -254,14 +254,25 @@ async def install_plugin(
             "not a manifest — POST /api/admin/plugins/from-repo.",
             code="use_from_repo",
         )
-    if manifest.runtime != "external":
+    if manifest.runtime == "local":
         raise bad_request(
             "Local plugins are installed on the filesystem and loaded at boot, not "
             "through the console — installing one is equivalent to deploying code.",
             code="local_not_installable",
         )
-    await _assert_reachable(manifest.request_url)
-    await _assert_reachable(manifest.agui_url)
+    if manifest.runtime == "socket":
+        # A socket agent is registered before it exists anywhere: this call mints the
+        # token, and the agent becomes real when it dials in with it. There is nothing to
+        # reach, and declaring a URL alongside would leave two answers to "where is it".
+        if manifest.request_url or manifest.agui_url:
+            raise bad_request(
+                "An agent that connects to Blob does not declare a URL — it dials in "
+                "with its token.",
+                code="url_not_allowed",
+            )
+    else:
+        await _assert_reachable(manifest.request_url)
+        await _assert_reachable(manifest.agui_url)
 
     async with transaction() as (session, _after):
         installed = await registry.install(
@@ -676,9 +687,7 @@ async def deployment_status(
     plugin_id: str, admin: SessionUser = Depends(require_admin)
 ) -> DeploymentOut:
     deployment = await agent_service.status(admin.workspace_id, plugin_id)
-    return DeploymentOut(
-        deployment_id=deployment.id, status=deployment.status, url=deployment.url
-    )
+    return DeploymentOut(deployment_id=deployment.id, status=deployment.status, url=deployment.url)
 
 
 @router.post("/{plugin_id}/redeploy", response_model=DeploymentOut)
@@ -686,9 +695,7 @@ async def redeploy(
     plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> DeploymentOut:
     deployment = await agent_service.redeploy(actor_for(request, admin), plugin_id)
-    return DeploymentOut(
-        deployment_id=deployment.id, status=deployment.status, url=deployment.url
-    )
+    return DeploymentOut(deployment_id=deployment.id, status=deployment.status, url=deployment.url)
 
 
 @router.get("/{plugin_id}/logs", response_model=LogsOut)

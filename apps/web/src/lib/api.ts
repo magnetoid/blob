@@ -487,7 +487,10 @@ export const api = {
       slug: string;
       name: string;
       description?: string | null;
-      runtime: 'external';
+      // 'socket' is an agent that dials in and holds the connection, for one that has no
+      // address to be called at — on a laptop, behind NAT. It declares no URL at all;
+      // the server refuses one, because the connection is where it is.
+      runtime: 'external' | 'socket';
       version: string;
       // One of these is required, not both: an app is reached by a webhook it serves,
       // by an AG-UI endpoint Blob calls, or by both. The server decides which.
