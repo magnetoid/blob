@@ -11,7 +11,9 @@ import { create, type StateCreator } from 'zustand';
 import type {
   Bootstrap,
   ChannelWithState,
+  CommandSpec,
   CurrentUser,
+  CustomEmoji,
   Message,
   PresenceState,
   ServerEvent,
@@ -45,6 +47,10 @@ interface State {
   currentUser: CurrentUser | null;
   workspaceName: string;
   themes: Theme[];
+  /** The workspace's own emoji, for the picker and for `:name:` in a body. */
+  customEmoji: CustomEmoji[];
+  /** Slash commands this server knows, for the composer's autocomplete. */
+  commands: CommandSpec[];
   users: Record<string, User>;
   channels: Record<string, ChannelWithState>;
   messages: Record<string, ChannelMessages>;
@@ -112,6 +118,8 @@ export const useStore = create<State>((set, get) => ({
   currentUser: null,
   workspaceName: '',
   themes: [],
+  customEmoji: [],
+  commands: [],
   users: {},
   channels: {},
   messages: {},
@@ -129,6 +137,8 @@ export const useStore = create<State>((set, get) => ({
       currentUser: data.user,
       workspaceName: data.workspace.name,
       themes: data.themes,
+      customEmoji: data.customEmoji,
+      commands: data.commands,
       users: Object.fromEntries(data.users.map((u) => [u.id, u])),
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
     }),
@@ -139,6 +149,8 @@ export const useStore = create<State>((set, get) => ({
       ready: false,
       workspaceName: '',
       themes: [],
+      customEmoji: [],
+      commands: [],
       currentUser: null,
       users: {},
       channels: {},

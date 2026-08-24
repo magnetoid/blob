@@ -16,6 +16,7 @@ from ..realtime import hub
 from ..schemas.base import CamelModel
 from ..schemas.models import (
     Bootstrap,
+    CommandSpec,
     CurrentUser,
     CustomEmoji,
     ThemeSummary,
@@ -29,6 +30,7 @@ from ..schemas.requests import (
     UpdateProfileInput,
 )
 from ..services import channels as channel_service
+from ..services import commands as command_service
 from ..services import themes as theme_service
 from ..services.serialize import USER_COLUMNS, to_current_user, to_user, to_workspace
 
@@ -105,6 +107,7 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
         ).fetchall()
         channels = await channel_service.list_for_user(session, user.id, user.workspace_id)
         themes = await theme_service.list_themes(session, user.workspace_id)
+        app_commands = await command_service.app_specs(session, user.workspace_id)
 
     return Bootstrap(
         workspace=to_workspace(workspace),
@@ -114,6 +117,20 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
         custom_emoji=[
             CustomEmoji(name=row.name, url=public_file_url(row.object_key)) for row in emoji
         ],
+        # Built-ins and app commands in one list, sorted together. The composer should
+        # not care which is which, and a name can only belong to one of them anyway —
+        # an app is refused a built-in's name at install.
+        commands=sorted(
+            [
+                CommandSpec(name=c.name, usage=c.usage, summary=c.summary)
+                for c in command_service.ordered()
+            ]
+            + [
+                CommandSpec(name=name, usage=usage, summary=summary)
+                for name, usage, summary in app_commands
+            ],
+            key=lambda c: c.name,
+        ),
         themes=[
             ThemeSummary(
                 id=theme.id,

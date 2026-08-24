@@ -107,6 +107,20 @@ class User(Base):
     )
 
 
+class InstanceAdmin(Base):
+    """A person who administers the server itself, rather than a workspace on it.
+
+    Keyed on email because under Slack's model one person is several user rows — one per
+    workspace they belong to — and the email is what is the same across them. See
+    migration 0011.
+    """
+
+    __tablename__ = "instance_admins"
+
+    email: Mapped[str] = mapped_column(CITEXT, primary_key=True)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class Session(Base):
     __tablename__ = "sessions"
     __table_args__ = (
@@ -691,6 +705,32 @@ class Plugin(Base):
     )
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class PluginCommand(Base):
+    """A slash command an app provides.
+
+    The unique index is the conflict resolution: two apps cannot both hold `/deploy` in
+    one workspace, and the install that loses the race is told which name it lost.
+    """
+
+    __tablename__ = "plugin_commands"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "name", name="plugin_commands_name_uniq"),
+        Index("plugin_commands_plugin_idx", "plugin_id"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
+    )
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    usage: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
 class PluginSecret(Base):

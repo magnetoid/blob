@@ -11,8 +11,8 @@
 
 import { useState } from 'react';
 import { ChevronLeftIcon, SearchIcon } from '../../components/Icon.tsx';
-import { navigate, type AdminSection } from '../../lib/router.ts';
-import { ADMIN_NAV, filterGroups, isPlanned, type AdminNavGroup } from './registry.ts';
+import { navigate } from '../../lib/router.ts';
+import { ADMIN_NAV, filterGroups, isPlanned, type NavGroup } from './registry.ts';
 
 export function AdminNav({
   id,
@@ -20,13 +20,20 @@ export function AdminNav({
   section,
   isOwner,
   onNavigate,
+  /** `/admin` or `/workspace`. Both consoles use this nav; only the prefix differs. */
+  basePath = '/admin',
+  title = 'Administration',
+  subtitle,
 }: {
   id?: string;
-  groups?: AdminNavGroup[];
-  section: AdminSection;
+  groups?: NavGroup[];
+  section: string;
   isOwner: boolean;
   /** Lets the mobile drawer close itself once a choice has been made. */
   onNavigate?: () => void;
+  basePath?: string;
+  title?: string;
+  subtitle?: string;
 }) {
   const [filter, setFilter] = useState('');
   const visible = filterGroups(groups, filter, isOwner);
@@ -38,11 +45,12 @@ export function AdminNav({
           <ChevronLeftIcon size={14} strokeWidth={2} />
           Back to workspace
         </button>
-        <div className="admin-nav-title">Administration</div>
+        <div className="admin-nav-title">{title}</div>
         <div className="admin-nav-sub">
-          {isOwner
-            ? 'You own this workspace.'
-            : 'You are an admin. Only the owner can change roles.'}
+          {subtitle ??
+            (isOwner
+              ? 'You own this workspace.'
+              : 'You are an admin. Only the owner can change roles.')}
         </div>
       </div>
 
@@ -82,7 +90,7 @@ export function AdminNav({
                   type="button"
                   onClick={() => {
                     onNavigate?.();
-                    navigate(`/admin/${entry.id}`);
+                    navigate(`${basePath}/${entry.id}`);
                   }}
                 >
                   <span className="channel-name">{entry.label}</span>

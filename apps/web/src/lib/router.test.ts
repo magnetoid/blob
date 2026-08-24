@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ADMIN_DETAIL_SECTIONS,
   ADMIN_SECTIONS,
+  WORKSPACE_DETAIL_SECTIONS,
   WORKSPACE_SECTIONS,
   parseRoute,
   pathForRoute,
@@ -17,7 +18,7 @@ describe('parseRoute', () => {
   });
 
   it('defaults bare /admin to the first section', () => {
-    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'people' });
+    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'users' });
   });
 
   it('reads every admin section', () => {
@@ -27,7 +28,7 @@ describe('parseRoute', () => {
   });
 
   it('ignores a trailing slash', () => {
-    expect(parseRoute('/admin/apps/')).toEqual({ view: 'admin', section: 'apps' });
+    expect(parseRoute('/admin/audit/')).toEqual({ view: 'admin', section: 'audit' });
     expect(parseRoute('/search//')).toEqual({ view: 'search' });
   });
 
@@ -39,9 +40,14 @@ describe('parseRoute', () => {
   });
 
   it('reads a detail page under a section that has one', () => {
-    expect(parseRoute('/admin/people/u123')).toEqual({
+    expect(parseRoute('/admin/users/u123')).toEqual({
       view: 'admin',
-      section: 'people',
+      section: 'users',
+      detailId: 'u123',
+    });
+    expect(parseRoute('/workspace/members/u123')).toEqual({
+      view: 'workspace',
+      section: 'members',
       detailId: 'u123',
     });
   });
@@ -50,11 +56,11 @@ describe('parseRoute', () => {
   // malformed link, and rendering the list while ignoring half the URL hides that.
   it('refuses a detail id on a section without detail pages', () => {
     expect(parseRoute('/admin/audit/u123')).toEqual({ view: 'messages' });
-    expect(parseRoute('/admin/settings/anything')).toEqual({ view: 'messages' });
+    expect(parseRoute('/workspace/general/anything')).toEqual({ view: 'messages' });
   });
 
   it('never reads more than two segments', () => {
-    expect(parseRoute('/admin/people/u123/extra')).toEqual({ view: 'messages' });
+    expect(parseRoute('/admin/users/u123/extra')).toEqual({ view: 'messages' });
   });
 
   // 'settings' names both a top-level view and an admin section; they must not collide.
@@ -62,13 +68,36 @@ describe('parseRoute', () => {
     // Personal, workspace, server. One word used to cover all three.
     expect(parseRoute('/settings')).toEqual({ view: 'settings' });
     expect(parseRoute('/workspace')).toEqual({ view: 'workspace', section: 'general' });
-    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'people' });
+    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'users' });
   });
 
-  it('sends the old workspace URLs to where those pages went', () => {
-    // Both were linkable, so they redirect instead of dead-ending on the conversation.
+  // Every one of these was a real, linkable URL before the workspace/instance split, so
+  // they redirect instead of dead-ending on the conversation.
+  it('sends the old admin URLs to where those pages went', () => {
     expect(parseRoute('/admin/settings')).toEqual({ view: 'workspace', section: 'general' });
     expect(parseRoute('/admin/themes')).toEqual({ view: 'workspace', section: 'appearance' });
+    expect(parseRoute('/admin/people')).toEqual({ view: 'workspace', section: 'members' });
+    expect(parseRoute('/admin/invitations')).toEqual({
+      view: 'workspace',
+      section: 'invitations',
+    });
+    expect(parseRoute('/admin/channels')).toEqual({ view: 'workspace', section: 'channels' });
+    expect(parseRoute('/admin/apps')).toEqual({ view: 'workspace', section: 'apps' });
+    expect(parseRoute('/admin/webhooks')).toEqual({ view: 'workspace', section: 'webhooks' });
+  });
+
+  it('carries a detail id across the move', () => {
+    // A link to one person or one app keeps working, pointing at the same thing.
+    expect(parseRoute('/admin/people/u123')).toEqual({
+      view: 'workspace',
+      section: 'members',
+      detailId: 'u123',
+    });
+    expect(parseRoute('/admin/apps/p9')).toEqual({
+      view: 'workspace',
+      section: 'apps',
+      detailId: 'p9',
+    });
   });
 
   it('reads every workspace section, and refuses one that does not exist', () => {
@@ -91,6 +120,12 @@ describe('pathForRoute', () => {
         section,
         detailId: 'abc123',
       })),
+      ...WORKSPACE_SECTIONS.map((section) => ({ view: 'workspace' as const, section })),
+      ...WORKSPACE_DETAIL_SECTIONS.map((section) => ({
+        view: 'workspace' as const,
+        section,
+        detailId: 'abc123',
+      })),
     ];
     for (const route of routes) {
       expect(parseRoute(pathForRoute(route))).toEqual(route);
@@ -98,7 +133,8 @@ describe('pathForRoute', () => {
   });
 
   it('sends the admin rail button to the first section', () => {
-    expect(pathForView('admin')).toBe('/admin/people');
+    expect(pathForView('admin')).toBe('/admin/users');
+    expect(pathForView('workspace')).toBe('/workspace/general');
     expect(pathForView('messages')).toBe('/');
   });
 });

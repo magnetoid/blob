@@ -32,6 +32,9 @@ LIMITS: dict[str, Limit] = {
     # them — and each one can bill a third party, so this is the workspace's wallet as
     # much as its capacity. Cached translations never reach here.
     "translate": Limit(20, 60),
+    # A command can post a message, so it cannot be cheaper than sending one. The window
+    # matches `send_message` for that reason rather than by coincidence.
+    "command": Limit(30, 60),
 }
 
 

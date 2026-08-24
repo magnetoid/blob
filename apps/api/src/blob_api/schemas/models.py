@@ -156,6 +156,19 @@ class CustomEmoji(CamelModel):
     url: str
 
 
+class CommandSpec(CamelModel):
+    """One slash command, as the composer's autocomplete needs to describe it.
+
+    Sent on bootstrap rather than hardcoded in the client, because the server owns the
+    command namespace — which is what lets an app-provided command appear in the
+    autocomplete without the client learning anything about it.
+    """
+
+    name: str
+    usage: str
+    summary: str
+
+
 class ThemeSummary(CamelModel):
     id: str
     slug: str
@@ -234,6 +247,7 @@ class Bootstrap(CamelModel):
     users: list[User]
     channels: list[ChannelWithState]
     custom_emoji: list[CustomEmoji]
+    commands: list[CommandSpec]
     themes: list[ThemeSummary]
 
 

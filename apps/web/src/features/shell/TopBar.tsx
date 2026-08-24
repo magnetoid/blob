@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../lib/store.ts';
 import { navigate, usePath } from '../../lib/router.ts';
 import { Avatar } from '../../components/Avatar.tsx';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher.tsx';
 import { ChevronDownIcon } from '../../components/Icon.tsx';
 import { ITEMS } from './menu.ts';
 
@@ -54,11 +55,14 @@ export function TopBar({ onFeedback }: { onFeedback: () => void }) {
 
   if (!currentUser) return null;
 
-  const visible = ITEMS.filter((item) => !item.adminOnly || isAdmin);
+  const isOwner = currentUser?.role === 'owner';
+  const visible = ITEMS.filter(
+    (item) => (!item.adminOnly || isAdmin) && (!item.ownerOnly || isOwner),
+  );
 
   return (
     <header className="topbar">
-      <div className="topbar-brand">{workspaceName}</div>
+      <WorkspaceSwitcher name={workspaceName} />
       <div className="topbar-spacer" />
 
       <div className="user-menu" ref={menuRef}>

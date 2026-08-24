@@ -198,3 +198,24 @@ def require_owner(request: Request) -> SessionUser:
     if user.role != "owner":
         raise forbidden("Only the workspace owner can do that.")
     return user
+
+
+async def require_instance_admin(request: Request) -> SessionUser:
+    """Administers the server, not a workspace on it.
+
+    Async and a database read, unlike the other two: `role` lives on the user row and is
+    scoped to one workspace, while this is a fact about a person across all of them. It
+    cannot be answered from the session alone, and pretending otherwise is what made
+    `owner` stand in for it for as long as there was only one workspace to own.
+    """
+    user = current_user(request)
+    async with SessionFactory() as session:
+        row = (
+            await session.execute(
+                text("SELECT 1 FROM instance_admins WHERE email = :email"),
+                {"email": user.email},
+            )
+        ).fetchone()
+    if row is None:
+        raise forbidden("Only a server administrator can do that.")
+    return user

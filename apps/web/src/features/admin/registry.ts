@@ -1,19 +1,29 @@
-/** What the console contains, as data.
+/** What the consoles contain, as data.
  *
- * The nav, the page headings and the filter all read from this one list, so adding a
+ * The nav, the page headings and the filter all read from these lists, so adding a
  * section is a row here plus a component — not four files that have to agree.
  *
+ * There are two consoles and the split is the point. **Workspace** answers "what is this
+ * workspace like and who is in it": members, invitations, channels, the apps it has
+ * installed, the webhooks pointing at it, how it looks. **Instance** answers "what is
+ * true of this server": every account on it, every workspace on it, which apps a
+ * workspace is allowed to install, and whether the machine is healthy.
+ *
+ * Members, invitations, channels, apps and webhooks used to sit in the instance console.
+ * Each one is a question about a single workspace, and having them there made one job
+ * look like two — an owner went to "superadmin" to invite a colleague. They moved.
+ *
  * Sections that are planned but not built are listed too, as `planned` rows. They are
- * shown disabled rather than hidden, because an admin looking for retention wants to
- * know it is coming rather than conclude Blob has no such idea. They deliberately do not
- * carry a route id: `ADMIN_SECTIONS` stays the list of URLs that actually exist.
+ * shown disabled rather than hidden, because someone looking for retention wants to know
+ * it is coming rather than conclude Blob has no such idea. They deliberately do not carry
+ * a route id: the `*_SECTIONS` lists stay the set of URLs that actually exist.
  */
 
-import type { AdminSection } from '../../lib/router.ts';
+import type { AdminSection, WorkspaceSection } from '../../lib/router.ts';
 
-export interface AdminSectionEntry {
-  /** Typed as AdminSection, so a row for a route that does not exist fails typecheck. */
-  id: AdminSection;
+export interface SectionEntry<Id extends string = string> {
+  /** Typed as a section id, so a row for a route that does not exist fails typecheck. */
+  id: Id;
   label: string;
   /** Sits under the page title. One sentence, saying what this page is for. */
   description?: string;
@@ -24,35 +34,46 @@ export interface AdminSectionEntry {
 }
 
 export interface PlannedSectionEntry {
-  /** Not an AdminSection: there is no route until the page is real. */
+  /** Not a section id: there is no route until the page is real. */
   id: string;
   label: string;
   planned: true;
 }
 
-export type AdminNavEntry = AdminSectionEntry | PlannedSectionEntry;
+export type NavEntry<Id extends string = string> = SectionEntry<Id> | PlannedSectionEntry;
 
-export interface AdminNavGroup {
+export interface NavGroup<Id extends string = string> {
   id: string;
   label: string;
-  sections: AdminNavEntry[];
+  sections: NavEntry<Id>[];
 }
 
-export function isPlanned(entry: AdminNavEntry): entry is PlannedSectionEntry {
+/** Kept as the old names so nothing outside has to learn two words for one thing. */
+export type AdminSectionEntry = SectionEntry<AdminSection>;
+export type AdminNavEntry = NavEntry<AdminSection>;
+export type AdminNavGroup = NavGroup<AdminSection>;
+
+export function isPlanned(entry: NavEntry): entry is PlannedSectionEntry {
   return 'planned' in entry;
 }
 
-export const ADMIN_NAV: AdminNavGroup[] = [
+/** Everything about one workspace. Where an owner or admin actually works. */
+export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
   {
-    id: 'overview',
-    label: 'Overview',
+    id: 'workspace',
+    label: 'Workspace',
     sections: [
-      { id: 'dashboard', label: 'Dashboard', planned: true },
       {
-        id: 'health',
-        label: 'Health',
-        description: 'Whether the parts this workspace runs on are answering.',
-        keywords: ['status', 'database', 'redis', 'queue', 'storage', 'version'],
+        id: 'general',
+        label: 'General',
+        description: 'What this workspace is called, and what people see first.',
+        keywords: ['name', 'settings', 'defaults'],
+      },
+      {
+        id: 'appearance',
+        label: 'Appearance',
+        description: 'The colours everyone here sees.',
+        keywords: ['theme', 'themes', 'colour', 'color', 'dark', 'light', 'palette'],
       },
     ],
   },
@@ -61,10 +82,10 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: 'People',
     sections: [
       {
-        id: 'people',
+        id: 'members',
         label: 'Members',
-        description: 'Everyone in the workspace, and what they can do.',
-        keywords: ['users', 'roles', 'admin', 'owner', 'deactivate', 'sessions'],
+        description: 'Everyone in this workspace, and what they can do.',
+        keywords: ['users', 'people', 'roles', 'admin', 'owner', 'deactivate', 'sessions'],
       },
       {
         id: 'invitations',
@@ -81,7 +102,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       {
         id: 'channels',
         label: 'Channels',
-        description: 'Every channel, including the private ones you are not in.',
+        description: 'Every channel here, including the private ones you are not in.',
         keywords: ['archive', 'private', 'public'],
       },
       { id: 'moderation', label: 'Moderation', planned: true },
@@ -89,31 +110,68 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     ],
   },
   {
-    id: 'agents',
+    id: 'integrations',
     label: 'Agents & apps',
     sections: [
-      { id: 'agents-directory', label: 'Agents', planned: true },
       {
         id: 'apps',
-        label: 'Apps',
-        description: 'Installed apps and the agents this workspace hosts.',
-        keywords: ['plugins', 'bots', 'tokens', 'scopes', 'deploy', 'agent', 'github'],
+        label: 'Apps & agents',
+        description: 'Apps installed here, and the agents this workspace hosts.',
+        keywords: [
+          'plugins',
+          'bots',
+          'tokens',
+          'scopes',
+          'deploy',
+          'agent',
+          'agents',
+          'github',
+          'commands',
+        ],
       },
-      { id: 'deliveries', label: 'Deliveries', planned: true },
-      { id: 'approvals', label: 'Approvals', planned: true },
       {
         id: 'webhooks',
         label: 'Webhooks',
-        description: 'Incoming URLs that let another system post into a channel.',
+        description: 'Incoming URLs that let another system post into a channel here.',
         keywords: ['incoming', 'hooks', 'ci', 'integration'],
       },
-      { id: 'hosted-ai', label: 'Hosted AI', planned: true },
+      { id: 'deliveries', label: 'Deliveries', planned: true },
+      { id: 'approvals', label: 'Approvals', planned: true },
+    ],
+  },
+];
+
+/** The whole server, across every workspace on it. */
+export const ADMIN_NAV: NavGroup<AdminSection>[] = [
+  {
+    id: 'instance',
+    label: 'Instance',
+    sections: [
+      {
+        id: 'users',
+        label: 'Accounts',
+        description: 'Every account on this server, and the workspace it belongs to.',
+        keywords: ['users', 'people', 'accounts', 'members', 'everyone', 'directory'],
+      },
+      {
+        id: 'workspaces',
+        label: 'Workspaces',
+        description: 'Every workspace on this server.',
+        keywords: ['tenants', 'teams', 'organisations', 'organizations'],
+      },
+      { id: 'app-catalogue', label: 'App catalogue', planned: true },
     ],
   },
   {
     id: 'system',
     label: 'System',
     sections: [
+      {
+        id: 'health',
+        label: 'Health',
+        description: 'Whether the parts this server runs on are answering.',
+        keywords: ['status', 'database', 'redis', 'queue', 'storage', 'version'],
+      },
       {
         id: 'audit',
         label: 'Audit log',
@@ -132,16 +190,29 @@ export const ADMIN_NAV: AdminNavGroup[] = [
   },
 ];
 
-const BY_ID = new Map<string, AdminSectionEntry>(
-  ADMIN_NAV.flatMap((group) => group.sections.filter((s) => !isPlanned(s)) as AdminSectionEntry[]).map(
-    (entry) => [entry.id, entry],
-  ),
-);
+function lookup<Id extends string>(groups: NavGroup<Id>[]): Map<string, SectionEntry<Id>> {
+  return new Map(
+    groups
+      .flatMap((group) => group.sections)
+      .filter((entry): entry is SectionEntry<Id> => !isPlanned(entry))
+      .map((entry) => [entry.id, entry]),
+  );
+}
 
-/** The registry row for a section. Every live section has one — see registry.test.ts. */
-export function sectionEntry(id: AdminSection): AdminSectionEntry {
-  const entry = BY_ID.get(id);
-  if (!entry) throw new Error(`No console entry for section "${id}".`);
+const ADMIN_BY_ID = lookup(ADMIN_NAV);
+const WORKSPACE_BY_ID = lookup(WORKSPACE_NAV);
+
+/** The registry row for an instance section. Every live one has one — see registry.test.ts. */
+export function sectionEntry(id: AdminSection): SectionEntry<AdminSection> {
+  const entry = ADMIN_BY_ID.get(id);
+  if (!entry) throw new Error(`No instance console entry for section "${id}".`);
+  return entry;
+}
+
+/** The registry row for a workspace section. */
+export function workspaceEntry(id: WorkspaceSection): SectionEntry<WorkspaceSection> {
+  const entry = WORKSPACE_BY_ID.get(id);
+  if (!entry) throw new Error(`No workspace console entry for section "${id}".`);
   return entry;
 }
 
@@ -152,11 +223,11 @@ export function sectionEntry(id: AdminSection): AdminSectionEntry {
  * row still matches — searching for "retention" should find the answer "not yet", not
  * nothing at all.
  */
-export function filterGroups(
-  groups: AdminNavGroup[],
+export function filterGroups<Id extends string>(
+  groups: NavGroup<Id>[],
   query: string,
   isOwner: boolean,
-): AdminNavGroup[] {
+): NavGroup<Id>[] {
   const needle = query.trim().toLowerCase();
   return groups
     .map((group) => ({

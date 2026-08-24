@@ -251,12 +251,42 @@ export interface MessageTranslation {
   updatedAt: string;
 }
 
+/**
+ * What running a slash command produced.
+ *
+ * `ephemeral` is shown to the person who ran it and nobody else, and is never stored —
+ * it rides back on the same request rather than over the socket, because its only reader
+ * is already holding the response. `message` is set when the command posted for real,
+ * and is the same shape a send returns so the optimistic path is unchanged.
+ */
+export interface CommandResult {
+  ephemeral: string | null;
+  message: Message | null;
+}
+
+/** A workspace's own emoji. Mirrors `blob_api.schemas.models.CustomEmoji`. */
+export interface CustomEmoji {
+  /** Shortcode without the colons — what `:name:` in a body or a reaction refers to. */
+  name: string;
+  url: string;
+}
+
+/** One slash command, as the composer's autocomplete describes it. */
+export interface CommandSpec {
+  name: string;
+  /** Argument shape, e.g. `<text>` or `[text]`. Empty when the command takes none. */
+  usage: string;
+  summary: string;
+}
+
 export interface Bootstrap {
   workspace: Workspace;
   user: CurrentUser;
   users: User[];
   channels: ChannelWithState[];
-  customEmoji: { name: string; url: string }[];
+  customEmoji: CustomEmoji[];
+  /** The server owns the command namespace; the client only renders what it is told. */
+  commands: CommandSpec[];
   themes: Theme[];
 }
 

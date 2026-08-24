@@ -13,7 +13,7 @@ from typing import Literal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import conflict, forbidden, not_found
+from ..lib.errors import conflict, forbidden, not_found, unique_violation
 from ..lib.ids import new_id
 from ..schemas.models import ChannelWithState
 from .serialize import to_channel_with_state
@@ -97,6 +97,13 @@ async def assert_channel_access(
                 """
                 SELECT c.id, c.kind, c.workspace_id, c.archived_at, cm.user_id AS member
                   FROM channels c
+                  -- Scoped by the caller's own workspace, and joined rather than passed
+                  -- in so that no call site can forget it. Without this a channel is
+                  -- found by id alone, and `is_public` then grants a read to anyone on
+                  -- the server — including someone whose account is in another
+                  -- workspace entirely. Unreachable while a server held one workspace;
+                  -- a cross-tenant read the moment it held two.
+                  JOIN users u ON u.id = :user_id AND u.workspace_id = c.workspace_id
                   LEFT JOIN channel_members cm
                          ON cm.channel_id = c.id AND cm.user_id = :user_id
                  WHERE c.id = :channel_id
@@ -199,7 +206,7 @@ async def create_channel(
             },
         )
     except Exception as exc:
-        if _is_unique_violation(exc):
+        if unique_violation(exc):
             raise conflict(f"#{name} already exists.", "channel_exists") from exc
         raise
 
@@ -270,10 +277,4 @@ async def find_or_create_dm(
     return surviving, surviving == channel_id
 
 
-def _is_unique_violation(exc: Exception) -> bool:
-    code = getattr(getattr(exc, "orig", None), "sqlstate", None)
-    return code == "23505" or "duplicate key value" in str(exc)
 
-
-def unique_violation(exc: Exception) -> bool:
-    return _is_unique_violation(exc)

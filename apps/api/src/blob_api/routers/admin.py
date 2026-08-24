@@ -13,16 +13,24 @@ import json
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import Field
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
-from ..lib.auth import SessionUser, hash_token, require_admin, require_owner
+from ..lib.auth import (
+    SessionUser,
+    hash_token,
+    require_admin,
+    require_instance_admin,
+    require_owner,
+)
 from ..lib.errors import bad_request, conflict, not_found
 from ..lib.ids import new_id, new_token
 from ..lib.redis import redis
 from ..realtime import hub
 from ..schemas.base import CamelModel, iso, require_iso
 from ..services import audit as audit_service
+from ..services import workspaces as workspace_service
 from ..services.audit import AuditEntry, actor_for
 from ..services.serialize import USER_COLUMNS, to_user
 
@@ -808,3 +816,180 @@ async def revoke_webhook(
 
 
 __all__ = ["router"]
+
+
+# ─── the instance, across every workspace on it ───────────────────────────────
+#
+# Everything above this line is scoped to the caller's workspace, which is what an owner
+# or admin running one workspace needs. These two are not: they answer "what is on this
+# server", which is a different job and, once a server holds more than one workspace, a
+# different person's.
+#
+# Gated on `instance_admins`, which is a fact about a *person* rather than a role inside
+# one workspace — see migration 0011. `owner` stood in for this while there was only ever
+# one workspace to own, and would have been the wrong answer the moment there were two.
+
+
+class InstanceUser(CamelModel):
+    id: str
+    email: str
+    display_name: str
+    role: str
+    kind: str
+    workspace_id: str
+    workspace_name: str
+    deactivated: bool
+    created_at: str
+
+
+class InstanceUsersOut(CamelModel):
+    users: list[InstanceUser]
+
+
+class InstanceWorkspace(CamelModel):
+    id: str
+    name: str
+    slug: str
+    member_count: int
+    channel_count: int
+    app_count: int
+    created_at: str
+
+
+class InstanceWorkspacesOut(CamelModel):
+    workspaces: list[InstanceWorkspace]
+
+
+@router.get("/instance/users", response_model=InstanceUsersOut)
+async def instance_users(
+    _admin: SessionUser = Depends(require_instance_admin),
+) -> InstanceUsersOut:
+    """Every account on the server, whichever workspace it belongs to."""
+    async with session_scope() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT u.id, u.email, u.display_name, u.role, u.kind,
+                           u.workspace_id, w.name AS workspace_name,
+                           u.deactivated_at, u.created_at
+                      FROM users u
+                      JOIN workspaces w ON w.id = u.workspace_id
+                     ORDER BY w.name, lower(u.display_name)
+                    """
+                )
+            )
+        ).fetchall()
+
+    return InstanceUsersOut(
+        users=[
+            InstanceUser(
+                id=row.id,
+                email=row.email,
+                display_name=row.display_name,
+                role=row.role,
+                kind=row.kind,
+                workspace_id=row.workspace_id,
+                workspace_name=row.workspace_name,
+                deactivated=row.deactivated_at is not None,
+                created_at=iso(row.created_at) or "",
+            )
+            for row in rows
+        ]
+    )
+
+
+@router.get("/instance/workspaces", response_model=InstanceWorkspacesOut)
+async def instance_workspaces(
+    _admin: SessionUser = Depends(require_instance_admin),
+) -> InstanceWorkspacesOut:
+    """Every workspace on the server, with enough to tell them apart at a glance.
+
+    Counted in one pass with correlated subqueries rather than three joins and a GROUP BY:
+    at the number of workspaces a self-hosted server holds, clarity is worth more than the
+    query plan, and each count reads as the sentence it answers.
+    """
+    async with session_scope() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT w.id, w.name, w.slug, w.created_at,
+                           (SELECT count(*) FROM users u
+                             WHERE u.workspace_id = w.id
+                               AND u.deactivated_at IS NULL) AS member_count,
+                           (SELECT count(*) FROM channels c
+                             WHERE c.workspace_id = w.id
+                               AND c.kind IN ('public', 'private')) AS channel_count,
+                           (SELECT count(*) FROM plugins p
+                             WHERE p.workspace_id = w.id) AS app_count
+                      FROM workspaces w
+                     ORDER BY w.created_at
+                    """
+                )
+            )
+        ).fetchall()
+
+    return InstanceWorkspacesOut(
+        workspaces=[
+            InstanceWorkspace(
+                id=row.id,
+                name=row.name,
+                slug=row.slug,
+                member_count=row.member_count,
+                channel_count=row.channel_count,
+                app_count=row.app_count,
+                created_at=iso(row.created_at) or "",
+            )
+            for row in rows
+        ]
+    )
+
+
+class CreateWorkspaceInput(CamelModel):
+    name: str = Field(min_length=1, max_length=80)
+
+
+class CreatedWorkspaceOut(CamelModel):
+    id: str
+    name: str
+    slug: str
+
+
+@router.post("/instance/workspaces", response_model=CreatedWorkspaceOut, status_code=201)
+async def create_workspace(
+    payload: CreateWorkspaceInput,
+    request: Request,
+    admin: SessionUser = Depends(require_instance_admin),
+) -> CreatedWorkspaceOut:
+    """Make another workspace, owned by whoever made it.
+
+    The creator gets an owner account in it carrying the password they already have —
+    `services/workspaces` keeps one address to one password across every row, so a new
+    workspace never means a new credential to remember or a prompt to set one.
+
+    They are not added to anyone else's workspace by this, and nobody else is added to
+    theirs. A workspace starts with exactly one person in it, which is what an invitation
+    is for.
+    """
+    async with transaction() as (session, _):
+        password_hash = await workspace_service.password_hash_for(session, admin.email)
+        founded = await workspace_service.found(
+            session,
+            name=payload.name,
+            email=admin.email,
+            display_name=admin.display_name,
+            password_hash=password_hash,
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "workspace.created",
+            target_type="workspace",
+            target_id=founded.workspace_id,
+            metadata={"name": payload.name.strip(), "slug": founded.slug},
+        )
+
+    return CreatedWorkspaceOut(
+        id=founded.workspace_id, name=payload.name.strip(), slug=founded.slug
+    )

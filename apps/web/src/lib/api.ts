@@ -5,6 +5,7 @@ import type {
   AgentTaskPriority,
   AgentTaskStatus,
   Bootstrap,
+  CommandResult,
   Theme,
   ChannelWithState,
   CurrentUser,
@@ -17,6 +18,39 @@ import type {
   User,
   UserPrefs,
 } from '@blob/shared';
+
+/** One account anywhere on the server, with the workspace it belongs to. */
+export interface InstanceUser {
+  id: string;
+  email: string;
+  displayName: string;
+  role: 'member' | 'admin' | 'owner';
+  kind: 'human' | 'bot';
+  workspaceId: string;
+  workspaceName: string;
+  deactivated: boolean;
+  createdAt: string;
+}
+
+/** One workspace this person can reach, and who they are inside it. */
+export interface WorkspaceMembership {
+  id: string;
+  name: string;
+  slug: string;
+  role: 'member' | 'admin' | 'owner';
+  current: boolean;
+}
+
+/** One workspace on the server, with enough to tell them apart at a glance. */
+export interface InstanceWorkspace {
+  id: string;
+  name: string;
+  slug: string;
+  memberCount: number;
+  channelCount: number;
+  appCount: number;
+  createdAt: string;
+}
 
 /** Admin-only shapes. `AdminUser` carries email, which the public `User` omits. */
 export interface AdminUser {
@@ -256,6 +290,20 @@ export const api = {
     list: () => get<{ users: User[] }>('/api/users'),
   },
 
+  workspaces: {
+    /** Every workspace this address has a live account in. */
+    mine: () => get<{ workspaces: WorkspaceMembership[] }>('/api/workspaces/mine'),
+    /**
+     * Move this browser to the account held in another workspace.
+     *
+     * The session cookie is swapped server-side, so everything cached from the old one
+     * is now wrong — the caller reloads rather than trying to reconcile two workspaces
+     * of state in a store built for one.
+     */
+    switch: (id: string) =>
+      post<{ workspaceId: string; userId: string }>(`/api/workspaces/${id}/switch`),
+  },
+
   channels: {
     list: () => get<{ channels: ChannelWithState[] }>('/api/channels'),
     create: (input: {
@@ -306,6 +354,15 @@ export const api = {
         attachmentIds?: string[];
       },
     ) => post<{ message: Message }>(`/api/channels/${channelId}/messages`, input),
+    /**
+     * Run a slash command.
+     *
+     * The whole text goes up with the leading slash still on it: the server owns the
+     * command namespace, so a client that has never heard of `/deploy` still routes it
+     * correctly and gets back an ephemeral answer either way.
+     */
+    command: (input: { channelId: string; text: string; clientMsgId: string }) =>
+      post<CommandResult>('/api/commands', input),
     edit: (id: string, body: string) => patch<{ message: Message }>(`/api/messages/${id}`, { body }),
     remove: (id: string) => del<{ ok: true }>(`/api/messages/${id}`),
     translate: (
@@ -374,6 +431,20 @@ export const api = {
   },
 
   admin: {
+    /**
+     * The whole server, not one workspace.
+     *
+     * Separate from `users` above deliberately: that one is scoped to the caller's
+     * workspace and is what the workspace console shows. These answer "what is on this
+     * machine", which is the instance console's question.
+     */
+    instanceUsers: () => get<{ users: InstanceUser[] }>('/api/admin/instance/users'),
+    createWorkspace: (name: string) =>
+      post<{ id: string; name: string; slug: string }>('/api/admin/instance/workspaces', {
+        name,
+      }),
+    instanceWorkspaces: () =>
+      get<{ workspaces: InstanceWorkspace[] }>('/api/admin/instance/workspaces'),
     users: (params: { q?: string; includeDeactivated?: boolean } = {}) => {
       const search = new URLSearchParams();
       if (params.q) search.set('q', params.q);

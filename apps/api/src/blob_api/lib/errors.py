@@ -16,6 +16,17 @@ class AppError(Exception):
         self.field = field
 
 
+def unique_violation(exc: Exception) -> bool:
+    """True when a write lost a race against a unique index.
+
+    Lives here rather than beside any one caller because both the service layer and the
+    plugin layer need it, and the plugin layer is below the services — a shared check on
+    a Postgres error code is exactly what `lib/` is for.
+    """
+    code = getattr(getattr(exc, "orig", None), "sqlstate", None)
+    return code == "23505" or "duplicate key value" in str(exc)
+
+
 def bad_request(message: str, code: str = "bad_request") -> AppError:
     """The request is malformed or fails validation."""
     return AppError(400, code, message)

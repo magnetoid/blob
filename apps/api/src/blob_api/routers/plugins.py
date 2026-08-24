@@ -35,6 +35,7 @@ from ..schemas.base import CamelModel, iso
 from ..services import agents as agent_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
+from ..services import commands as command_service
 from ..services.audit import actor_for
 
 router = APIRouter(tags=["admin"], prefix="/api/admin/plugins")
@@ -268,6 +269,7 @@ async def install_plugin(
             workspace_id=admin.workspace_id,
             manifest=manifest,
             installed_by=admin.id,
+            reserved_commands=command_service.builtin_names(),
         )
         await audit_service.record(
             session,
@@ -335,6 +337,7 @@ async def update_plugin(
             workspace_id=admin.workspace_id,
             manifest=manifest,
             actor_id=admin.id,
+            reserved_commands=command_service.builtin_names(),
         )
         await audit_service.record(
             session,

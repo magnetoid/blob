@@ -2811,3 +2811,212 @@ select.chip {
   line-height: 1.55;
   white-space: pre-wrap;
 }
+
+/* ─── emoji: the picker, and custom emoji wherever they render ───────────── */
+
+/* Sized to the line it sits on rather than to a fixed pixel count, so a custom
+   emoji matches the Unicode one beside it in a body, a reaction pill and the
+   picker grid without three separate rules. */
+.custom-emoji {
+  display: inline-block;
+  width: 1.35em;
+  height: 1.35em;
+  vertical-align: -0.28em;
+  object-fit: contain;
+}
+
+.emoji-picker-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.emoji-picker {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  width: 312px;
+  max-height: 332px;
+  padding: 8px;
+  border: 1px solid var(--hairline-popover);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-popover);
+}
+
+/* In the composer the panel hangs above the box rather than below a trigger. */
+.emoji-picker-anchor[data-composer='true'] {
+  position: static;
+}
+
+.emoji-picker-anchor[data-composer='true'] .emoji-picker {
+  top: auto;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: auto;
+}
+
+.emoji-search {
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text-2);
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+}
+
+.emoji-search:focus {
+  outline: none;
+  border-color: var(--accent-border);
+}
+
+.emoji-scroll {
+  margin-top: 8px;
+  overflow-y: auto;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+.emoji-section + .emoji-section {
+  margin-top: 10px;
+}
+
+.emoji-heading {
+  margin: 0 0 4px;
+  padding: 0 2px;
+  color: var(--text-4);
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+
+.emoji-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.emoji-cell:hover {
+  background: var(--surface-hover);
+}
+
+/* The keyboard cursor. Distinct from :hover so that arrowing through the list
+   reads as a selection rather than as a stray pointer. */
+.emoji-cell[data-active='true'] {
+  background: var(--accent-wash);
+  box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+
+.emoji-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.emoji-empty {
+  margin: 12px 4px;
+  color: var(--text-4);
+  font-size: var(--text-sm);
+}
+
+/* ─── slash commands ─────────────────────────────────────────────────────── */
+
+.autocomplete-item .command-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+.autocomplete-item .command-summary {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: var(--text-sm);
+  color: var(--text-4);
+}
+
+/* A command's reply to the person who ran it. Deliberately unlike a message: it is
+   not in the conversation, nobody else will ever see it, and saying so plainly is
+   what stops someone answering it as though the channel had. */
+.ephemeral-note {
+  margin: 0 0 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--accent-border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.ephemeral-body {
+  color: var(--text-2);
+  font-size: var(--text-ui);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.ephemeral-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  color: var(--text-4);
+  font-size: var(--text-xs);
+}
+
+.ephemeral-dismiss {
+  border: 0;
+  background: transparent;
+  color: var(--text-4);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ephemeral-dismiss:hover {
+  color: var(--text-2);
+}
+
+/* ─── workspace switcher ─────────────────────────────────────────────────── */
+
+.workspace-switcher {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Only a button when there is somewhere to go — a one-workspace server keeps the
+   plain label, so nothing invites a click that leads back to the same page. */
+.workspace-switcher-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.workspace-switcher-trigger:hover {
+  color: var(--text-2);
+}
+
+.workspace-switcher .user-menu-panel {
+  left: 0;
+  right: auto;
+}

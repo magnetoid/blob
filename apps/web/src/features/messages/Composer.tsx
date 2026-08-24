@@ -17,6 +17,8 @@ import {
 } from "react";
 import { useStore } from "../../lib/store.ts";
 import { socket } from "../../lib/socket.ts";
+import { api } from "../../lib/api.ts";
+import { commandQuery, matchCommands, parseCommand } from "../../lib/commands.ts";
 import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   describeSize,
@@ -25,6 +27,7 @@ import {
   type PendingAttachment,
 } from "../../lib/attachments.ts";
 import { Avatar } from "../../components/Avatar.tsx";
+import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import {
   AttachIcon,
   CloseIcon,
@@ -34,7 +37,6 @@ import {
   SendIcon,
 } from "../../components/Icon.tsx";
 
-const EMOJI_PICKS = ["👍", "🎉", "👀", "✅", "🙏", "🔥", "😄", "❤️"];
 
 interface Props {
   channelId: string;
@@ -52,12 +54,46 @@ export function Composer({
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
   const sendMessage = useStore((s) => s.sendMessage);
+  const applyEvent = useStore((s) => s.applyEvent);
   const enterToSend = useStore((s) => s.currentUser?.prefs.enterToSend ?? true);
 
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const emojiRef = useRef<HTMLDivElement>(null);
+  const commands = useStore((s) => s.commands);
+  const [commandIndex, setCommandIndex] = useState(0);
+  /** A command's reply to the person who ran it. Never stored, never broadcast. */
+  const [ephemeral, setEphemeral] = useState<string | null>(null);
+  const emojiTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // Dismiss on a click anywhere else, or Escape — the same contract as every other panel
+  // in the app. The trigger is checked too, and deliberately: the panel renders above the
+  // composer box while the button lives in the footer, so unlike the account menu it
+  // cannot simply sit inside the same ref. Without this the capture listener would close
+  // on the way down and the button's own toggle would reopen on the way back up, leaving
+  // a picker that could never be dismissed by clicking the thing that opened it.
+  useEffect(() => {
+    if (!emojiOpen) return undefined;
+    // Qualified, because this file imports React's KeyboardEvent for the textarea
+    // handlers and the bare names would resolve to those rather than to the DOM's.
+    const onClick = (event: globalThis.MouseEvent) => {
+      const target = event.target as Node;
+      if (emojiRef.current?.contains(target)) return;
+      if (emojiTriggerRef.current?.contains(target)) return;
+      setEmojiOpen(false);
+    };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setEmojiOpen(false);
+    };
+    window.addEventListener("click", onClick, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", onClick, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [emojiOpen]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
@@ -97,6 +133,40 @@ export function Composer({
     ];
   }, [mentionQuery, users, currentUser]);
 
+  /**
+   * Commands to offer while the name is half-typed.
+   *
+   * Only in the channel composer: a command acts on the channel, so running one from a
+   * thread would put its answer somewhere the person could not see it. In a thread a
+   * leading slash is ordinary text, which is also the only way to send one as text.
+   */
+  const commandMatches = useMemo(() => {
+    if (threadRootId) return [];
+    const query = commandQuery(draft);
+    return query === null ? [] : matchCommands(query, commands);
+  }, [draft, commands, threadRootId]);
+
+  /**
+   * Put an emoji where the caret is, not at the end.
+   *
+   * Appending is fine for the `@` button, which is always starting a new mention; an
+   * emoji is just as often going into the middle of a sentence already typed. The caret
+   * is restored past the inserted text on the next frame, once React has written the
+   * new value — setting it synchronously targets the old one.
+   */
+  function insertAtCursor(value: string) {
+    const el = textareaRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? start;
+    const inserted = `${value} `;
+    updateDraft(`${draft.slice(0, start)}${inserted}${draft.slice(end)}`);
+    requestAnimationFrame(() => {
+      const caret = start + inserted.length;
+      el?.focus();
+      el?.setSelectionRange(caret, caret);
+    });
+  }
+
   function updateDraft(value: string) {
     setDraft(value);
     setError(null);
@@ -107,6 +177,7 @@ export function Composer({
       .match(/@([\p{L}\p{N}._'-]*)$/u);
     setMentionQuery(match ? (match[1] ?? "") : null);
     setMentionIndex(0);
+    setCommandIndex(0);
 
     const now = Date.now();
     if (value.trim() && now - lastTypingRef.current > 3000) {
@@ -215,6 +286,35 @@ export function Composer({
       return;
     }
 
+    // A command is typed like a message and is not one: it goes to its own endpoint,
+    // and what comes back is either a real message the socket will also deliver, or a
+    // note only this person sees. Threads are excluded — see `commandMatches`.
+    const parsed = threadRootId ? null : parseCommand(body);
+    if (parsed) {
+      setSending(true);
+      setDraft("");
+      setEphemeral(null);
+      try {
+        const result = await api.messages.command({
+          channelId,
+          text: body,
+          clientMsgId: crypto.randomUUID(),
+        });
+        setEphemeral(result.ephemeral);
+        // The socket delivers this too; applying it here is what makes the message
+        // appear at once for the person who ran the command, exactly as a send does.
+        if (result.message) applyEvent({ t: "message.new", message: result.message });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "That command couldn't be run.";
+        setError(message);
+        setDraft(body);
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
     setSending(true);
     setDraft("");
     setAttachments([]);
@@ -240,7 +340,36 @@ export function Composer({
     }
   }
 
+  function applyCommand(name: string) {
+    // A trailing space, so the next keystroke is the argument rather than more name.
+    const next = `/${name} `;
+    setDraft(next);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(next.length, next.length);
+    });
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (commandMatches.length > 0) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setCommandIndex((i) => (i + 1) % commandMatches.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setCommandIndex((i) => (i - 1 + commandMatches.length) % commandMatches.length);
+        return;
+      }
+      if (event.key === "Tab") {
+        event.preventDefault();
+        const chosen = commandMatches[commandIndex];
+        if (chosen) applyCommand(chosen.name);
+        return;
+      }
+    }
+
     if (mentionQuery !== null && candidates.length > 0) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -319,26 +448,54 @@ export function Composer({
           </div>
         )}
 
-        {emojiOpen && (
-          <div
-            className="autocomplete"
-            style={{ width: "max-content", display: "flex", gap: 4 }}
-          >
-            {EMOJI_PICKS.map((emoji) => (
+        {ephemeral !== null && (
+          <div className="ephemeral-note" role="status">
+            <div className="ephemeral-body">{ephemeral}</div>
+            <div className="ephemeral-meta">
+              <span>Only visible to you</span>
               <button
-                key={emoji}
-                className="message-action"
-                data-emoji="true"
+                className="ephemeral-dismiss"
+                type="button"
+                onClick={() => setEphemeral(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {commandMatches.length > 0 && (
+          <div className="autocomplete" role="listbox">
+            {commandMatches.map((command, index) => (
+              <button
+                key={command.name}
+                className="autocomplete-item"
+                data-active={index === commandIndex}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  setDraft((d) => d + emoji);
-                  setEmojiOpen(false);
-                  textareaRef.current?.focus();
+                  applyCommand(command.name);
                 }}
               >
-                {emoji}
+                <span className="command-name">
+                  /{command.name}
+                  {command.usage ? ` ${command.usage}` : ""}
+                </span>
+                <span className="command-summary">{command.summary}</span>
               </button>
             ))}
+          </div>
+        )}
+
+        {emojiOpen && (
+          <div className="emoji-picker-anchor" data-composer="true" ref={emojiRef}>
+            <EmojiPicker
+              label="Insert an emoji"
+              onClose={() => setEmojiOpen(false)}
+              onPick={(value) => {
+                insertAtCursor(value);
+                setEmojiOpen(false);
+              }}
+            />
           </div>
         )}
 
@@ -421,11 +578,13 @@ export function Composer({
               <AttachIcon />
             </button>
             <button
+              ref={emojiTriggerRef}
               className="icon-btn"
               type="button"
               title="Emoji"
               onClick={() => setEmojiOpen((open) => !open)}
               aria-expanded={emojiOpen}
+              aria-haspopup="dialog"
             >
               <EmojiIcon />
             </button>

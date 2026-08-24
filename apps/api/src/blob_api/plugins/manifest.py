@@ -46,6 +46,7 @@ SCOPES: dict[str, str] = {
     "files:write": "Upload attachments",
     "admin:read": "Read workspace settings and the audit log",
     "admin:write": "Change workspace settings",
+    "commands": "Provide slash commands",
     "store": "Keep its own private key-value data",
     "schedule": "Run work on a timer",
 }
@@ -91,6 +92,29 @@ EVENT_SCOPES: dict[str, str] = {
 
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,38}[a-z0-9]$")
 _VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+#: A command name, without its slash. Deliberately the same shape the built-in parser
+#: accepts, or an app could register a name nobody is able to type.
+_COMMAND_RE = re.compile(r"^[a-z][a-z0-9_-]{0,30}$")
+
+
+class CommandDecl(CamelModel):
+    """One slash command an app provides."""
+
+    name: str
+    #: Argument shape shown in the composer, e.g. `<repo>` or `[query]`.
+    usage: str = Field(default="", max_length=60)
+    summary: str = Field(min_length=1, max_length=140)
+
+    @field_validator("name")
+    @classmethod
+    def _check_name(cls, value: str) -> str:
+        value = value.strip().lstrip("/").lower()
+        if not _COMMAND_RE.match(value):
+            raise ValueError(
+                "A command name is 1-31 characters: lowercase letters, numbers, "
+                "hyphens and underscores, starting with a letter."
+            )
+        return value
 
 
 class Manifest(CamelModel):
@@ -111,6 +135,10 @@ class Manifest(CamelModel):
     agui_url: str | None = None
     events: list[str] = Field(default_factory=list)
     scopes: list[str] = Field(default_factory=list)
+    #: Slash commands this app answers. Names are unique per workspace, which is enforced
+    #: by an index rather than a check — two apps installed at the same moment would both
+    #: pass a check and only one can hold the name.
+    commands: list[CommandDecl] = Field(default_factory=list, max_length=25)
 
     @field_validator("slug")
     @classmethod
@@ -130,8 +158,16 @@ class Manifest(CamelModel):
         return value
 
 
-def validate_manifest(manifest: Manifest) -> None:
-    """Reject what would otherwise fail later, at delivery time, in a background job."""
+def validate_manifest(
+    manifest: Manifest, *, reserved_commands: frozenset[str] = frozenset()
+) -> None:
+    """Reject what would otherwise fail later, at delivery time, in a background job.
+
+    `reserved_commands` is passed in rather than imported: the built-ins live in
+    `services.commands`, and this layer is below that one — `plugins/` importing a
+    service would invert the dependency that keeps the plugin layer independent of it.
+    Every install site supplies the same set.
+    """
     unknown_scopes = sorted(set(manifest.scopes) - set(SCOPES))
     if unknown_scopes:
         raise bad_request(
@@ -158,6 +194,32 @@ def validate_manifest(manifest: Manifest) -> None:
     # else's contract.
     if manifest.runtime == "external" and not (manifest.request_url or manifest.agui_url):
         raise bad_request("An external app needs a request URL.", code="url_required")
+
+    if manifest.commands:
+        if "commands" not in granted:
+            raise bad_request(
+                "Providing slash commands needs the commands scope.", code="scope_required"
+            )
+        # An app that answers a command has to be reachable to be asked.
+        if manifest.runtime == "external" and not manifest.request_url:
+            raise bad_request(
+                "An app with slash commands needs a request URL to be asked at.",
+                code="url_required",
+            )
+
+        names = [c.name for c in manifest.commands]
+        duplicates = sorted({n for n in names if names.count(n) > 1})
+        if duplicates:
+            raise bad_request(
+                f"Declared twice: /{', /'.join(duplicates)}.", code="duplicate_command"
+            )
+
+        clashes = sorted(set(names) & reserved_commands)
+        if clashes:
+            raise bad_request(
+                f"/{', /'.join(clashes)} is built in and cannot be replaced.",
+                code="command_reserved",
+            )
 
 
 def new_scopes(previous: list[str], requested: list[str]) -> list[str]:

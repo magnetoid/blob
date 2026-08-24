@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { ADMIN_SECTIONS } from '../../lib/router.ts';
-import { ADMIN_NAV, filterGroups, isPlanned, sectionEntry } from './registry.ts';
+import { ADMIN_SECTIONS, WORKSPACE_SECTIONS } from '../../lib/router.ts';
+import {
+  ADMIN_NAV,
+  WORKSPACE_NAV,
+  filterGroups,
+  isPlanned,
+  sectionEntry,
+  workspaceEntry,
+} from './registry.ts';
 
 const entries = ADMIN_NAV.flatMap((group) => group.sections);
 const live = entries.filter((entry) => !isPlanned(entry));
+
+const workspaceEntries = WORKSPACE_NAV.flatMap((group) => group.sections);
+const workspaceLive = workspaceEntries.filter((entry) => !isPlanned(entry));
 
 describe('the console registry', () => {
   // The drift guard. Three things have to agree — the router's list of URLs, the nav,
@@ -29,7 +39,37 @@ describe('the console registry', () => {
   });
 
   it('finds the entry for a section', () => {
-    expect(sectionEntry('people').label).toBe('Members');
+    expect(sectionEntry('users').label).toBe('Accounts');
+  });
+});
+
+// The same drift guard for the other console. The two lists are separate on purpose —
+// a section belongs to one job or the other, never both — so each needs its own check.
+describe('the workspace registry', () => {
+  it('has exactly one nav row per route', () => {
+    expect(workspaceLive.map((entry) => entry.id).sort()).toEqual([...WORKSPACE_SECTIONS].sort());
+  });
+
+  it('never gives a planned section a route', () => {
+    for (const entry of workspaceEntries.filter(isPlanned)) {
+      expect(WORKSPACE_SECTIONS as readonly string[]).not.toContain(entry.id);
+    }
+  });
+
+  it('uses each id once', () => {
+    const ids = workspaceEntries.map((entry) => entry.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('finds the entry for a section', () => {
+    expect(workspaceEntry('members').label).toBe('Members');
+  });
+
+  // The split is the point: nothing workspace-scoped should reappear in the instance
+  // console, which is how it drifted back into one console the first time.
+  it('shares no section id with the instance console', () => {
+    const instance = new Set(ADMIN_SECTIONS as readonly string[]);
+    for (const id of WORKSPACE_SECTIONS) expect(instance.has(id)).toBe(false);
   });
 });
 
@@ -39,9 +79,9 @@ describe('filtering the nav', () => {
   });
 
   it('matches a keyword rather than only the label', () => {
-    // Someone looking for "roles" is looking for Members.
-    const found = filterGroups(ADMIN_NAV, 'roles', true).flatMap((g) => g.sections);
-    expect(found.map((entry) => entry.id)).toContain('people');
+    // Someone looking for "roles" is looking for Members, which is a workspace page.
+    const found = filterGroups(WORKSPACE_NAV, 'roles', true).flatMap((g) => g.sections);
+    expect(found.map((entry) => entry.id)).toContain('members');
   });
 
   it('drops groups that end up empty', () => {

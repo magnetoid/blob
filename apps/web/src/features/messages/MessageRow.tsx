@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
-import type { Message, MessageTranslation } from "@blob/shared";
+import type { CustomEmoji, Message, MessageTranslation } from "@blob/shared";
 import { ApiError, api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import type { LocalMessageDeliveryStatus } from "../../lib/outbox.ts";
@@ -14,7 +14,9 @@ import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
 import { formatRelative, formatTime } from "./messageFormatting.ts";
 import { Avatar } from "../../components/Avatar.tsx";
+import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import { FileIcon, MoreIcon, ReplyIcon } from "../../components/Icon.tsx";
+import { resolveReaction } from "../../lib/emoji.ts";
 
 /** Offered directly in the hover toolbar; the rest come from the picker. */
 const QUICK_REACTIONS = ["👍", "🎉", "👀"];
@@ -25,6 +27,34 @@ interface Props {
   onOpenThread: (rootId: string) => void;
   /** Threads render replies flat, without their own summary line. */
   inThread?: boolean;
+}
+
+/**
+ * A reaction's face.
+ *
+ * Unicode reactions are stored as the character, custom ones as `:name:`. A shortcode
+ * whose emoji has since been deleted falls back to the raw text rather than to a broken
+ * image — the reaction still counts, it just stops having a picture.
+ */
+function ReactionFace({
+  value,
+  custom,
+}: {
+  value: string;
+  custom: readonly CustomEmoji[];
+}) {
+  const resolved = resolveReaction(value, custom);
+  if (resolved?.kind === "custom") {
+    return (
+      <img
+        className="custom-emoji"
+        src={resolved.url}
+        alt={`:${resolved.name}:`}
+        loading="lazy"
+      />
+    );
+  }
+  return <>{resolved?.char ?? value}</>;
 }
 
 const translationCache = new Map<string, MessageTranslation>();
@@ -51,6 +81,7 @@ export const MessageRow = memo(function MessageRow({
 }: Props) {
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
+  const customEmoji = useStore((s) => s.customEmoji);
   const toggleReaction = useStore((s) => s.toggleReaction);
   const retryQueuedMessage = useStore((s) => s.retryQueuedMessage);
   const discardQueuedMessage = useStore((s) => s.discardQueuedMessage);
@@ -59,6 +90,8 @@ export const MessageRow = memo(function MessageRow({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.body);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const preferredLanguage = currentUser?.prefs.language ?? null;
   const autoTranslate = Boolean(
     currentUser?.prefs.autoTranslate && preferredLanguage,
@@ -98,9 +131,29 @@ export const MessageRow = memo(function MessageRow({
       renderMarkdown(message.body, {
         knownNames,
         currentUserId: currentUser?.id ?? null,
+        customEmoji,
       }),
-    [message.body, knownNames, currentUser],
+    [message.body, knownNames, currentUser, customEmoji],
   );
+
+  // Same dismissal contract as the account menu: any click outside, or Escape. Capture
+  // phase, so opening another row's picker closes this one rather than leaving two open.
+  useEffect(() => {
+    if (!pickerOpen) return undefined;
+    const onClick = (event: MouseEvent) => {
+      if (pickerRef.current?.contains(event.target as Node)) return;
+      setPickerOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPickerOpen(false);
+    };
+    window.addEventListener("click", onClick, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", onClick, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [pickerOpen]);
 
   useEffect(() => {
     if (!preferredLanguage) {
@@ -279,7 +332,11 @@ export const MessageRow = memo(function MessageRow({
           <BlockRenderer
             messageId={message.id}
             blocks={message.blocks}
-            options={{ knownNames, currentUserId: currentUser?.id ?? null }}
+            options={{
+              knownNames,
+              currentUserId: currentUser?.id ?? null,
+              customEmoji,
+            }}
           />
         )}
 
@@ -444,7 +501,9 @@ export const MessageRow = memo(function MessageRow({
                   .map((id) => users[id]?.displayName ?? "Someone")
                   .join(", ")}
               >
-                <span>{reaction.emoji}</span>
+                <span>
+                  <ReactionFace value={reaction.emoji} custom={customEmoji} />
+                </span>
                 <span>{reaction.userIds.length}</span>
               </button>
             ))}
@@ -485,6 +544,29 @@ export const MessageRow = memo(function MessageRow({
               {emoji}
             </button>
           ))}
+          <div className="emoji-picker-anchor" ref={pickerRef}>
+            <button
+              className="message-action"
+              data-emoji="true"
+              type="button"
+              aria-expanded={pickerOpen}
+              aria-haspopup="dialog"
+              onClick={() => setPickerOpen((value) => !value)}
+              title="Add reaction"
+            >
+              ＋
+            </button>
+            {pickerOpen && (
+              <EmojiPicker
+                label="React with an emoji"
+                onClose={() => setPickerOpen(false)}
+                onPick={(value) => {
+                  setPickerOpen(false);
+                  void toggleReaction(message, value);
+                }}
+              />
+            )}
+          </div>
           <span className="action-divider" />
           {!inThread && (
             <button

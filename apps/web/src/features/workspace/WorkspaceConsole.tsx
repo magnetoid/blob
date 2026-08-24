@@ -1,87 +1,101 @@
-/** Setting up the workspace.
+/** Running one workspace.
  *
- * Its own page rather than a section of the server console, because the two answer
- * different questions for different people. This one is "what is this workspace like" —
- * its name, how it looks, how people get in. The superadmin console is "is the server
- * behaving" — health, the audit trail, installed apps, the people table.
+ * This is where an owner or admin actually works: who is in the workspace, who has been
+ * invited, what channels exist, which apps and agents are installed, what webhooks point
+ * at it, and how it looks. All of it used to be split across two consoles, with most of
+ * it filed under "superadmin" — so inviting a colleague meant opening a screen named
+ * after the server.
  *
- * They were one screen, and workspace setup had shrunk to a single name field three
- * clicks inside an operational console, which is the wrong end of the product to hide
- * the first thing an owner wants to change.
+ * The instance console is the other half, and it keeps only what is genuinely about the
+ * machine: every account on it, every workspace on it, and whether it is healthy.
  *
- * The shell markup mirrors the admin console deliberately: same classes, same shape, so
- * the two feel like one product with two rooms rather than two apps.
+ * Same nav component and the same markup as that console deliberately: two rooms of one
+ * product, not two apps.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ComponentType } from 'react';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
-import { navigate, WORKSPACE_SECTIONS, type WorkspaceSection } from '../../lib/router.ts';
+import { MenuIcon } from '../../components/Icon.tsx';
+import type { WorkspaceSection } from '../../lib/router.ts';
 import { TopBar } from '../shell/TopBar.tsx';
+import { AdminNav } from '../admin/AdminNav.tsx';
+import { WORKSPACE_NAV, workspaceEntry } from '../admin/registry.ts';
 import { useAdminAction, useAdminData } from '../admin/hooks.ts';
+import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
+import { AppsSection } from '../admin/sections/AppsSection.tsx';
+import { ChannelsSection } from '../admin/sections/ChannelsSection.tsx';
+import { InvitationsSection } from '../admin/sections/InvitationsSection.tsx';
+import { PeopleSection } from '../admin/sections/PeopleSection.tsx';
 import { ThemesSection } from '../admin/sections/ThemesSection.tsx';
+import { WebhooksSection } from '../admin/sections/WebhooksSection.tsx';
 
-const SECTIONS: Record<WorkspaceSection, { label: string; description: string }> = {
-  general: {
-    label: 'General',
-    description: 'What this workspace is called, and what people see first.',
-  },
-  appearance: {
-    label: 'Appearance',
-    description: 'The colours everyone here sees.',
-  },
+/** Ties the drawer toggle to the nav it opens, for anything reading the page structure. */
+const NAV_ID = 'workspace-console-nav';
+
+/**
+ * Every route needs a screen. Typed as a total record, so adding a section to
+ * WORKSPACE_SECTIONS without building it is a typecheck failure rather than a blank page.
+ */
+const SECTION_COMPONENTS: Record<WorkspaceSection, ComponentType<AdminSectionProps>> = {
+  general: GeneralSection,
+  members: PeopleSection,
+  invitations: InvitationsSection,
+  channels: ChannelsSection,
+  apps: AppsSection,
+  webhooks: WebhooksSection,
+  appearance: ThemesSection,
 };
 
 export function WorkspaceConsole({
   section,
+  detailId,
   onFeedback,
 }: {
   section: WorkspaceSection;
+  detailId?: string;
   onFeedback: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
-  const entry = SECTIONS[section];
+  const [navOpen, setNavOpen] = useState(false);
+  const currentUser = useStore((s) => s.currentUser);
+  const isOwner = currentUser?.role === 'owner';
+  const entry = workspaceEntry(section);
+  const Body = SECTION_COMPONENTS[section];
 
   return (
-    <div className="admin-shell" data-nav="closed">
+    <div className="admin-shell" data-nav={navOpen ? 'open' : 'closed'}>
       <TopBar onFeedback={onFeedback} />
-
-      <nav className="admin-nav" aria-label="Workspace settings">
-        <div className="admin-nav-header">
-          <button className="admin-back" onClick={() => navigate('/')}>
-            ← Back to Blob
-          </button>
-          <div className="admin-nav-title">Workspace</div>
-          <div className="admin-nav-sub">How this workspace works</div>
-        </div>
-
-        <div className="sidebar-scroll">
-          <section className="sidebar-section">
-            <h2 className="section-label">Settings</h2>
-            {WORKSPACE_SECTIONS.map((id) => (
-              <button
-                key={id}
-                className="channel-row"
-                aria-current={id === section ? 'page' : undefined}
-                onClick={() => navigate(`/workspace/${id}`)}
-              >
-                <span className="channel-name">{SECTIONS[id].label}</span>
-              </button>
-            ))}
-          </section>
-
-          <section className="sidebar-section">
-            <h2 className="section-label">Elsewhere</h2>
-            <button className="channel-row" onClick={() => navigate('/admin')}>
-              <span className="channel-name">Superadmin</span>
-            </button>
-          </section>
-        </div>
-      </nav>
+      <AdminNav
+        id={NAV_ID}
+        groups={WORKSPACE_NAV}
+        section={section}
+        isOwner={isOwner}
+        onNavigate={() => setNavOpen(false)}
+        basePath="/workspace"
+        title="Workspace"
+        subtitle={
+          isOwner ? 'You own this workspace.' : 'You are an admin of this workspace.'
+        }
+      />
+      <button
+        className="admin-nav-scrim"
+        aria-label="Close the section menu"
+        onClick={() => setNavOpen(false)}
+      />
 
       <main className="admin-main">
         <div className="admin-page">
           <header className="admin-page-header">
+            <button
+              className="admin-nav-toggle"
+              aria-label="Open the section menu"
+              aria-controls={NAV_ID}
+              aria-expanded={navOpen}
+              onClick={() => setNavOpen(true)}
+            >
+              <MenuIcon size={16} strokeWidth={2} />
+            </button>
             <div>
               <h1 className="admin-page-title">{entry.label}</h1>
               <p className="admin-page-sub">{entry.description}</p>
@@ -95,8 +109,7 @@ export function WorkspaceConsole({
           )}
 
           <div className="admin-page-body">
-            {section === 'general' && <GeneralSection onError={setError} />}
-            {section === 'appearance' && <ThemesSection onError={setError} />}
+            <Body onError={setError} isOwner={isOwner} detailId={detailId} />
           </div>
         </div>
       </main>

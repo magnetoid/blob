@@ -96,7 +96,11 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   if (route.view === 'workspace' && isAdmin) {
     return (
       <>
-        <WorkspaceConsole section={route.section} onFeedback={() => setFeedbackOpen(true)} />
+        <WorkspaceConsole
+          section={route.section}
+          detailId={route.detailId}
+          onFeedback={() => setFeedbackOpen(true)}
+        />
         {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
         {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
       </>

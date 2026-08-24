@@ -2,19 +2,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { AdminNav } from './AdminNav.tsx';
-import type { AdminNavGroup } from './registry.ts';
+import type { NavGroup, SectionEntry } from './registry.ts';
 
 // vitest globals are off, so RTL's automatic cleanup never runs. Without this, one
 // test's markup is still in the document while the next one queries it.
 afterEach(cleanup);
 
-const GROUPS: AdminNavGroup[] = [
+const GROUPS: NavGroup[] = [
   {
     id: 'people',
     label: 'People',
     sections: [
-      { id: 'people', label: 'Members', keywords: ['roles'] },
-      { id: 'invitations', label: 'Invitations', badge: 'new' },
+      { id: 'people', label: 'Members', keywords: ['roles'] } as SectionEntry,
+      { id: 'invitations', label: 'Invitations', badge: 'new' } as SectionEntry,
     ],
   },
   {

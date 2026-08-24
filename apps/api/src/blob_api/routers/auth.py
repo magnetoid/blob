@@ -22,7 +22,7 @@ from ..lib.auth import (
     set_session_cookie,
     verify_password,
 )
-from ..lib.errors import bad_request, conflict, not_found, unauthorized
+from ..lib.errors import bad_request, conflict, not_found, unauthorized, unique_violation
 from ..lib.ids import new_id, new_token
 from ..lib.mail import send_invite, send_password_reset
 from ..lib.rate_limit import consume
@@ -36,8 +36,9 @@ from ..schemas.requests import (
     SignupInput,
 )
 from ..services import audit as audit_service
+from ..services import workspaces as workspace_service
 from ..services.audit import actor_for
-from ..services.channels import DEFAULT_CHANNELS, add_members, unique_violation
+from ..services.channels import DEFAULT_CHANNELS, add_members
 from ..services.serialize import USER_COLUMNS, to_current_user
 
 router = APIRouter(tags=["auth"])
@@ -97,24 +98,39 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
     email = payload.email.lower()
 
     async with transaction() as (session, _):
+        # Only "is this a fresh install?" — *which* workspace someone joins comes from
+        # their invitation, never from this row. Reading the workspace here and using it
+        # for the join was correct while there was one; with two it silently put people
+        # into the oldest one whatever they had been invited to.
         workspace = (
-            await session.execute(
-                text("SELECT id, name FROM workspaces ORDER BY created_at LIMIT 1")
-            )
+            await session.execute(text("SELECT id FROM workspaces ORDER BY created_at LIMIT 1"))
         ).fetchone()
 
         role = "member"
+        user_id = ""
         if workspace is None:
-            # First ever signup: create the workspace and make this person its owner.
-            workspace_id = new_id()
-            role = "owner"
-            name = (payload.workspace_name or "").strip() or "Workspace"
-            await session.execute(
-                text("INSERT INTO workspaces (id, name, slug) VALUES (:id, :name, :slug)"),
-                {"id": workspace_id, "name": name, "slug": _slugify(name)},
-            )
+            # First ever signup founds the workspace, through the one path that makes
+            # one — see services/workspaces.found, which also seeds its default channels.
+            # Its founder becomes the server's first instance admin: there is nobody else
+            # to be, and a server whose instance console nobody can open has no way back.
+            try:
+                founded = await workspace_service.found(
+                    session,
+                    name=(payload.workspace_name or "").strip() or "Workspace",
+                    email=email,
+                    display_name=payload.display_name,
+                    password_hash=await hash_password(payload.password),
+                    grant_admin=True,
+                )
+            except Exception as exc:
+                if unique_violation(exc):
+                    raise conflict(
+                        "That email or display name is already taken.", "user_exists"
+                    ) from exc
+                raise
+            workspace_id = founded.workspace_id
+            user_id = founded.owner_user_id
         else:
-            workspace_id = workspace.id
             if not payload.invite_token:
                 raise unauthorized("You need an invitation to join.")
 
@@ -122,7 +138,7 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
                 await session.execute(
                     text(
                         """
-                        SELECT id, email, role FROM invites
+                        SELECT id, email, role, workspace_id FROM invites
                          WHERE token_hash = :token_hash
                            AND accepted_at IS NULL
                            AND expires_at > now()
@@ -136,47 +152,36 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
             if invite.email and invite.email.lower() != email:
                 raise bad_request("That invitation was issued for a different email address.")
             role = getattr(invite, "role", None) or "member"
+            # The invitation says which workspace. It always did; nothing read it.
+            workspace_id = invite.workspace_id
 
-        user_id = new_id()
-        try:
-            await session.execute(
-                text(
-                    """
-                    INSERT INTO users
-                      (id, workspace_id, email, password_hash, display_name, role)
-                    VALUES (:id, :ws, :email, :password_hash, :display_name, :role)
-                    """
-                ),
-                {
-                    "id": user_id,
-                    "ws": workspace_id,
-                    "email": email,
-                    "password_hash": await hash_password(payload.password),
-                    "display_name": payload.display_name,
-                    "role": role,
-                },
-            )
-        except Exception as exc:
-            if unique_violation(exc):
-                raise conflict(
-                    "That email or display name is already taken.", "user_exists"
-                ) from exc
-            raise
-
-        if workspace is None:
-            for name in DEFAULT_CHANNELS:
-                channel_id = new_id()
+        if workspace is not None:
+            user_id = new_id()
+            try:
                 await session.execute(
                     text(
                         """
-                        INSERT INTO channels (id, workspace_id, kind, name, created_by)
-                        VALUES (:id, :ws, 'public', :name, :created_by)
+                        INSERT INTO users
+                          (id, workspace_id, email, password_hash, display_name, role)
+                        VALUES (:id, :ws, :email, :password_hash, :display_name, :role)
                         """
                     ),
-                    {"id": channel_id, "ws": workspace_id, "name": name, "created_by": user_id},
+                    {
+                        "id": user_id,
+                        "ws": workspace_id,
+                        "email": email,
+                        "password_hash": await hash_password(payload.password),
+                        "display_name": payload.display_name,
+                        "role": role,
+                    },
                 )
-                await add_members(session, channel_id, [user_id])
-        else:
+            except Exception as exc:
+                if unique_violation(exc):
+                    raise conflict(
+                        "That email or display name is already taken.", "user_exists"
+                    ) from exc
+                raise
+
             defaults = (
                 await session.execute(
                     text(
@@ -225,9 +230,22 @@ async def login(payload: LoginInput, request: Request, response: Response) -> Se
     await consume("login", request.client.host if request.client else "unknown")
 
     async with session_scope() as session:
+        # One address can hold an account in several workspaces, so this has to say
+        # *which* one rather than take whatever the planner returns first. Live accounts
+        # win, then oldest — the same order `workspaces.for_email` lists them in, so
+        # where a bare sign-in lands and what the switcher shows first agree. When every
+        # account is deactivated a deactivated row is still selected, which is what keeps
+        # the "deactivated" message below reachable.
         row = (
             await session.execute(
-                text(f"SELECT {USER_COLUMNS}, password_hash FROM users WHERE email = :email"),
+                text(
+                    f"""
+                    SELECT {USER_COLUMNS}, password_hash FROM users
+                     WHERE email = :email AND kind = 'human'
+                     ORDER BY (deactivated_at IS NULL) DESC, created_at
+                     LIMIT 1
+                    """
+                ),
                 {"email": payload.email.lower()},
             )
         ).fetchone()
@@ -387,7 +405,14 @@ async def forgot_password(payload: ForgotPasswordInput, request: Request) -> OkO
     async with transaction() as (session, _):
         user = (
             await session.execute(
-                text("SELECT id FROM users WHERE email = :email AND deactivated_at IS NULL"),
+                text(
+                    """
+                    SELECT id FROM users
+                     WHERE email = :email AND deactivated_at IS NULL AND kind = 'human'
+                     ORDER BY created_at
+                     LIMIT 1
+                    """
+                ),
                 {"email": payload.email.lower()},
             )
         ).fetchone()
@@ -431,16 +456,33 @@ async def reset_password(
         if reset is None:
             raise bad_request("That reset link has expired. Request a new one.")
 
-        await session.execute(
-            text("UPDATE users SET password_hash = :hash WHERE id = :id"),
-            {"id": reset.user_id, "hash": await hash_password(payload.password)},
+        # Every account this address holds, not only the one the link was minted for.
+        # A reset that touched one row would leave the same person locked out of their
+        # other workspaces by the password they had just chosen, with nothing on screen
+        # to say why. See services/workspaces for the rule this keeps.
+        owner = (
+            await session.execute(
+                text("SELECT email FROM users WHERE id = :id"), {"id": reset.user_id}
+            )
+        ).fetchone()
+        if owner is None:
+            raise bad_request("That reset link is no longer valid.")
+        await workspace_service.set_password_everywhere(
+            session, owner.email, await hash_password(payload.password)
         )
         await session.execute(
             text("UPDATE password_resets SET used_at = now() WHERE id = :id"), {"id": reset.id}
         )
-        # Changing a password signs out every existing session.
+        # Changing a password signs out every existing session — in every workspace,
+        # since the password that protected them all has just changed.
         await session.execute(
-            text("DELETE FROM sessions WHERE user_id = :user_id"), {"user_id": reset.user_id}
+            text(
+                """
+                DELETE FROM sessions
+                 WHERE user_id IN (SELECT id FROM users WHERE email = :email)
+                """
+            ),
+            {"email": owner.email},
         )
         user_id = reset.user_id
 

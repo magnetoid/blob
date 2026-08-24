@@ -22,17 +22,24 @@ describe('the account menu', () => {
 
     // How this account behaves, how the workspace behaves, how the server behaves.
     expect(path('Preferences')).toBe('/settings');
-    expect(path('Workspace settings')).toBe('/workspace');
-    expect(path('Superadmin')).toBe('/admin');
+    expect(path('Manage workspace')).toBe('/workspace');
+    expect(path('Manage server')).toBe('/admin');
     expect(parseRoute('/workspace')).toEqual({ view: 'workspace', section: 'general' });
   });
 
   it('keeps the workspace and the server pages off a member menu', () => {
-    for (const label of ['Workspace settings', 'Superadmin']) {
+    for (const label of ['Manage workspace', 'Manage server']) {
       expect(ITEMS.find((item) => item.label === label)?.adminOnly).toBe(true);
     }
     // Preferences are everyone's, and hiding them from members would be the same bug
     // in the other direction.
     expect(ITEMS.find((item) => item.label === 'Preferences')?.adminOnly).toBeUndefined();
+  });
+
+  // The instance console reads past this workspace, so its endpoints are owner-gated.
+  // An admin shown the link would find every page inside it answering 403.
+  it('keeps the server console off an admin menu too', () => {
+    expect(ITEMS.find((item) => item.label === 'Manage server')?.ownerOnly).toBe(true);
+    expect(ITEMS.find((item) => item.label === 'Manage workspace')?.ownerOnly).toBeUndefined();
   });
 });

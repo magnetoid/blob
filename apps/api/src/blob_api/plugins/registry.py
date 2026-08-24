@@ -17,12 +17,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.auth import hash_token
-from ..lib.errors import bad_request, conflict, not_found
+from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import new_id, new_token
-from .manifest import Manifest, Status, new_scopes, validate_manifest
+from .manifest import CommandDecl, Manifest, Status, new_scopes, validate_manifest
 from .signing import new_secret
 
 #: Bots need an address because `users.email` is NOT NULL and unique per workspace.
@@ -76,8 +77,10 @@ async def install(
     #: this belongs in the INSERT rather than an UPDATE that follows it.
     source_repo: str | None = None,
     source_ref: str | None = None,
+    #: Names the built-ins already hold. Passed in because those live a layer above.
+    reserved_commands: frozenset[str] = frozenset(),
 ) -> Installed:
-    validate_manifest(manifest)
+    validate_manifest(manifest, reserved_commands=reserved_commands)
 
     taken = (
         await session.execute(
@@ -126,6 +129,12 @@ async def install(
         {"id": plugin_id, "secret": secret},
     )
     await _write_grants(session, plugin_id, manifest.scopes, installed_by)
+    await _write_commands(
+        session,
+        plugin_id=plugin_id,
+        workspace_id=workspace_id,
+        commands=manifest.commands,
+    )
 
     bot_user_id = await _create_bot_user(session, workspace_id, plugin_id, manifest)
     token = await mint_token(session, plugin_id)
@@ -206,6 +215,78 @@ async def _write_grants(
         )
 
 
+async def _write_commands(
+    session: AsyncSession,
+    *,
+    plugin_id: str,
+    workspace_id: str,
+    commands: list[CommandDecl],
+) -> None:
+    """Replace this app's commands with what its manifest now declares.
+
+    Deleting first is what makes an update that *drops* a command actually drop it, and
+    what lets an app rename one without colliding with itself.
+
+    A name another app already holds surfaces as a unique violation, which is the point:
+    two installs racing for `/deploy` both pass any check that could be written here, and
+    only one can win an index. The loser is told which name it lost rather than being
+    given a partial install.
+    """
+    await session.execute(
+        text("DELETE FROM plugin_commands WHERE plugin_id = :id"), {"id": plugin_id}
+    )
+
+    for command in commands:
+        try:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO plugin_commands (id, plugin_id, workspace_id, name, usage, summary)
+                    VALUES (:id, :plugin_id, :ws, :name, :usage, :summary)
+                    """
+                ),
+                {
+                    "id": new_id(),
+                    "plugin_id": plugin_id,
+                    "ws": workspace_id,
+                    "name": command.name,
+                    "usage": command.usage,
+                    "summary": command.summary,
+                },
+            )
+        except IntegrityError as exc:
+            if not unique_violation(exc):
+                raise
+            raise conflict(
+                f"/{command.name} is already provided by another app.",
+                "command_conflict",
+            ) from exc
+
+
+async def commands_for(session: AsyncSession, workspace_id: str) -> list[Any]:
+    """Every app command in the workspace, for the composer's list and for dispatch.
+
+    Only enabled apps: a disabled one keeps its name reserved — uninstalling is how a
+    name is released — but must not be offered or asked.
+    """
+    return list(
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT pc.name, pc.usage, pc.summary, pc.plugin_id
+                      FROM plugin_commands pc
+                      JOIN plugins p ON p.id = pc.plugin_id
+                     WHERE pc.workspace_id = :ws AND p.status = 'enabled'
+                     ORDER BY pc.name
+                    """
+                ),
+                {"ws": workspace_id},
+            )
+        ).fetchall()
+    )
+
+
 async def mint_token(session: AsyncSession, plugin_id: str) -> str:
     """A bearer token for the callback API. Only its hash is stored."""
     token = f"blob-bot-{new_token()}"
@@ -223,9 +304,10 @@ async def update(
     workspace_id: str,
     manifest: Manifest,
     actor_id: str,
+    reserved_commands: frozenset[str] = frozenset(),
 ) -> list[str]:
     """Apply a new manifest. Returns scopes that need approval before events resume."""
-    validate_manifest(manifest)
+    validate_manifest(manifest, reserved_commands=reserved_commands)
     existing = await by_id(session, plugin_id, workspace_id)
     if manifest.slug != existing.slug:
         raise bad_request("An app's slug cannot change after install.", code="slug_immutable")
@@ -246,6 +328,12 @@ async def update(
     # in the grants table rather than a second pending column means there is one answer
     # to "what does this app ask for", which is the question the consent screen asks.
     await _write_grants(session, plugin_id, manifest.scopes, actor_id)
+    await _write_commands(
+        session,
+        plugin_id=plugin_id,
+        workspace_id=workspace_id,
+        commands=manifest.commands,
+    )
 
     status = "needs_review" if widened else existing.status
     await session.execute(

@@ -11,12 +11,18 @@
 
 import { useEffect, useState } from 'react';
 
+/**
+ * The instance console: what is true of the whole server, across every workspace.
+ *
+ * Everything here is deliberately *not* workspace-scoped. Members, invitations, channels,
+ * apps and webhooks used to live here and did not belong: each one is a question about
+ * one workspace, and answering it from a console called "superadmin" made the two jobs
+ * look like one. They now live under /workspace, which is where someone running a
+ * workspace already goes.
+ */
 export const ADMIN_SECTIONS = [
-  'people',
-  'invitations',
-  'channels',
-  'apps',
-  'webhooks',
+  'users',
+  'workspaces',
   'feedback',
   'audit',
   'health',
@@ -36,7 +42,15 @@ export type AdminSection = (typeof ADMIN_SECTIONS)[number];
  * The split also happens to be the boundary multi-tenancy needs, so drawing it now costs
  * a route and saves an untangling later.
  */
-export const WORKSPACE_SECTIONS = ['general', 'appearance'] as const;
+export const WORKSPACE_SECTIONS = [
+  'general',
+  'members',
+  'invitations',
+  'channels',
+  'apps',
+  'webhooks',
+  'appearance',
+] as const;
 
 export type WorkspaceSection = (typeof WORKSPACE_SECTIONS)[number];
 
@@ -49,17 +63,20 @@ export const DEFAULT_WORKSPACE_SECTION: WorkspaceSection = 'general';
  * no detail view lands on the conversation like every other unknown path, instead of
  * rendering a list page that quietly ignores half its URL.
  */
-export const ADMIN_DETAIL_SECTIONS: readonly AdminSection[] = ['people', 'apps'];
+export const ADMIN_DETAIL_SECTIONS: readonly AdminSection[] = ['users'];
+
+/** Workspace sections with a detail page under them, at /workspace/:section/:id. */
+export const WORKSPACE_DETAIL_SECTIONS: readonly WorkspaceSection[] = ['members', 'apps'];
 
 /** Where a bare /admin lands. */
-export const DEFAULT_ADMIN_SECTION: AdminSection = 'people';
+export const DEFAULT_ADMIN_SECTION: AdminSection = 'users';
 
 export type Route =
   | { view: 'messages' }
   | { view: 'search' }
   | { view: 'settings' }
   | { view: 'profile' }
-  | { view: 'workspace'; section: WorkspaceSection }
+  | { view: 'workspace'; section: WorkspaceSection; detailId?: string }
   | { view: 'admin'; section: AdminSection; detailId?: string };
 
 export type View = Route['view'];
@@ -73,19 +90,41 @@ export function parseRoute(path: string): Route {
   if (clean === '/profile') return { view: 'profile' };
 
   if (clean === '/workspace') return { view: 'workspace', section: DEFAULT_WORKSPACE_SECTION };
-  const workspace = clean.match(/^\/workspace\/([^/]+)$/);
+  const workspace = clean.match(/^\/workspace\/([^/]+)(?:\/([^/]+))?$/);
   if (workspace) {
     const section = workspace[1] as WorkspaceSection;
     if ((WORKSPACE_SECTIONS as readonly string[]).includes(section)) {
-      return { view: 'workspace', section };
+      if (workspace[2] === undefined) return { view: 'workspace', section };
+      if (WORKSPACE_DETAIL_SECTIONS.includes(section)) {
+        return { view: 'workspace', section, detailId: workspace[2] };
+      }
     }
   }
 
-  // These two moved to /workspace when workspace setup stopped being a section of the
-  // operational console. They were real, linkable URLs, so they redirect rather than
-  // falling through to the conversation like a typo.
-  if (clean === '/admin/settings') return { view: 'workspace', section: 'general' };
-  if (clean === '/admin/themes') return { view: 'workspace', section: 'appearance' };
+  // Sections that used to live under /admin and are workspace business, not instance
+  // business. They were real, linkable URLs — someone has one in a bookmark or a message
+  // — so they redirect rather than falling through to the conversation like a typo.
+  const MOVED: Record<string, WorkspaceSection> = {
+    '/admin/settings': 'general',
+    '/admin/themes': 'appearance',
+    '/admin/people': 'members',
+    '/admin/invitations': 'invitations',
+    '/admin/channels': 'channels',
+    '/admin/apps': 'apps',
+    '/admin/webhooks': 'webhooks',
+  };
+  const moved = MOVED[clean];
+  if (moved) return { view: 'workspace', section: moved };
+
+  // A detail page under one of those keeps its id across the move.
+  const movedDetail = clean.match(/^\/admin\/(people|apps)\/([^/]+)$/);
+  if (movedDetail) {
+    return {
+      view: 'workspace',
+      section: movedDetail[1] === 'people' ? 'members' : 'apps',
+      detailId: movedDetail[2],
+    };
+  }
 
   if (clean === '/admin') return { view: 'admin', section: DEFAULT_ADMIN_SECTION };
   const admin = clean.match(/^\/admin\/([^/]+)(?:\/([^/]+))?$/);
@@ -112,7 +151,9 @@ export function pathForRoute(route: Route): string {
     case 'profile':
       return '/profile';
     case 'workspace':
-      return `/workspace/${route.section}`;
+      return route.detailId
+        ? `/workspace/${route.section}/${route.detailId}`
+        : `/workspace/${route.section}`;
     case 'admin':
       return route.detailId
         ? `/admin/${route.section}/${route.detailId}`

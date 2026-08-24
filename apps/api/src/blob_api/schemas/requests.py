@@ -110,6 +110,20 @@ class SendMessageInput(CamelModel):
         return self
 
 
+class RunCommandInput(CamelModel):
+    """A slash command, as typed.
+
+    `text` arrives with the leading slash still on it. The server does the parsing so
+    that a client which has never heard of a particular command still routes it here —
+    which is the whole point of dispatching centrally.
+    """
+
+    channel_id: str
+    text: str = Field(min_length=1, max_length=MESSAGE_MAX_LENGTH)
+    #: A command may post a message, and that write is idempotent like every other.
+    client_msg_id: str = Field(min_length=8, max_length=64)
+
+
 class EditMessageInput(CamelModel):
     body: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MESSAGE_MAX_LENGTH)

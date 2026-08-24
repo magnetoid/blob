@@ -24,6 +24,7 @@ from ..plugins.runner import AGENT_PORT, Deployment, current_runner, normalize_f
 from ..plugins.source import RepoSource, read_manifest
 from ..services import audit as audit_service
 from ..services.audit import Actor
+from . import commands as command_service
 
 log = logging.getLogger("blob.agents")
 
@@ -50,6 +51,7 @@ async def install_from_repo(
             installed_by=actor.id,
             source_repo=source.repo_url,
             source_ref=source.ref,
+            reserved_commands=command_service.builtin_names(),
         )
         await audit_service.record(
             session,

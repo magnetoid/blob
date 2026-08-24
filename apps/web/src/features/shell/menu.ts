@@ -13,6 +13,12 @@ export interface Item {
   /** Shown but inert, with a reason, rather than hidden. */
   soon?: boolean;
   adminOnly?: boolean;
+  /**
+   * Owner-only, and separate from `adminOnly` for a reason that bites: the instance
+   * console reads past this workspace, so every one of its endpoints is owner-gated.
+   * Showing an admin the link would hand them a console where each page answers 403.
+   */
+  ownerOnly?: boolean;
 }
 
 // Three different things were all reachable as "settings", which is one word doing too
@@ -20,8 +26,8 @@ export interface Item {
 // behaves. They are separate pages, so they are separate rows — and "Preferences" is
 // what Slack calls the personal one, which is the name people arrive already knowing.
 export const ITEMS: Item[] = [
-  { label: 'Workspace settings', path: '/workspace', adminOnly: true },
-  { label: 'Superadmin', path: '/admin', adminOnly: true },
+  { label: 'Manage workspace', path: '/workspace', adminOnly: true },
+  { label: 'Manage server', path: '/admin', adminOnly: true, ownerOnly: true },
   { label: 'User profile', path: '/profile' },
   { label: 'Preferences', path: '/settings' },
   { label: 'Update', soon: true },

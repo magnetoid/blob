@@ -277,3 +277,40 @@ async def test_creating_an_invitation_is_audited(team: dict) -> None:
     assert len(events) == len(before) + 1
     assert events[0]["metadata"] == {"email": "new@example.com", "role": "admin"}
     assert events[0]["actorName"] == "Owner"
+
+
+# ─── the instance, across every workspace ─────────────────────────────────────
+#
+# These are the two pages the instance console is actually made of. They are owner-gated
+# rather than admin-gated because they read past the caller's own workspace, and there is
+# no instance-level role yet to gate them with properly.
+
+
+async def test_instance_users_lists_every_account_with_its_workspace(team: dict) -> None:
+    body = (await team["owner"].get("/api/admin/instance/users")).body
+
+    names = {u["displayName"] for u in body["users"]}
+    assert {"Owner", "Admin", "Member"} <= names
+    # The point of this page over the workspace one: which workspace each account is in.
+    assert all(u["workspaceName"] for u in body["users"])
+
+
+async def test_instance_users_is_owner_only(team: dict) -> None:
+    # An admin runs a workspace; reading every account on the server is a different job.
+    assert (await team["admin"].get("/api/admin/instance/users")).status == 403
+    assert (await team["member"].get("/api/admin/instance/users")).status == 403
+
+
+async def test_instance_workspaces_counts_what_is_in_each(team: dict) -> None:
+    body = (await team["owner"].get("/api/admin/instance/workspaces")).body
+
+    # One workspace, because Blob founds one on the first signup and never a second.
+    assert len(body["workspaces"]) == 1
+    workspace = body["workspaces"][0]
+    assert workspace["memberCount"] == 3
+    assert workspace["channelCount"] >= 2
+    assert workspace["appCount"] == 0
+
+
+async def test_instance_workspaces_is_owner_only(team: dict) -> None:
+    assert (await team["admin"].get("/api/admin/instance/workspaces")).status == 403

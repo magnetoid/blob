@@ -1,10 +1,16 @@
-/** The administration console.
+/** The instance console: this server, across every workspace on it.
  *
  * A page of its own rather than a third column in the chat shell. The old layout put a
  * channel list beside the audit log, which was 264px of the screen spent on something
  * nobody administering a workspace is looking for, and gave every section the same
  * unlabelled heading. Here the nav says where you are and the heading says what you are
  * looking at.
+ *
+ * Members, invitations, channels, apps and webhooks used to live here. Every one of them
+ * is a question about a single workspace, so every one of them moved to /workspace —
+ * an owner should not have to open something called "superadmin" to invite a colleague.
+ * What is left is what genuinely belongs to the machine: the accounts on it, the
+ * workspaces on it, and whether it is healthy.
  *
  * The chat shell is not rendered at all while this is open — see Workspace.tsx. ⌘K still
  * works, because switching to a conversation is exactly what you want after finishing
@@ -18,14 +24,11 @@ import type { AdminSection } from '../../lib/router.ts';
 import { TopBar } from '../shell/TopBar.tsx';
 import { AdminNav } from './AdminNav.tsx';
 import { ADMIN_NAV, sectionEntry } from './registry.ts';
-import { AppsSection } from './sections/AppsSection.tsx';
+import { AccountsSection } from './sections/AccountsSection.tsx';
 import { AuditSection } from './sections/AuditSection.tsx';
-import { ChannelsSection } from './sections/ChannelsSection.tsx';
 import { FeedbackSection } from './sections/FeedbackSection.tsx';
 import { HealthSection } from './sections/HealthSection.tsx';
-import { InvitationsSection } from './sections/InvitationsSection.tsx';
-import { PeopleSection } from './sections/PeopleSection.tsx';
-import { WebhooksSection } from './sections/WebhooksSection.tsx';
+import { WorkspacesSection } from './sections/WorkspacesSection.tsx';
 
 /** Ties the drawer toggle to the nav it opens, for anything reading the page structure. */
 const NAV_ID = 'admin-console-nav';
@@ -41,11 +44,8 @@ export interface AdminSectionProps {
  * ADMIN_SECTIONS without building it is a typecheck failure rather than a blank page.
  */
 const SECTION_COMPONENTS: Record<AdminSection, ComponentType<AdminSectionProps>> = {
-  people: PeopleSection,
-  invitations: InvitationsSection,
-  channels: ChannelsSection,
-  apps: AppsSection,
-  webhooks: WebhooksSection,
+  users: AccountsSection,
+  workspaces: WorkspacesSection,
   feedback: FeedbackSection,
   audit: AuditSection,
   health: HealthSection,
@@ -88,6 +88,9 @@ export function AdminConsole({
         section={section}
         isOwner={isOwner}
         onNavigate={() => setNavOpen(false)}
+        basePath="/admin"
+        title="This server"
+        subtitle="Every workspace on this instance."
       />
       <button
         className="admin-nav-scrim"

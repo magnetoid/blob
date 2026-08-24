@@ -7,11 +7,15 @@
  */
 
 import { Fragment, type ReactNode } from 'react';
+import type { CustomEmoji } from '@blob/shared';
+import { resolveName } from './emoji.ts';
 
 export interface RenderOptions {
   /** Lowercased display name → user id, for highlighting mentions. */
   knownNames: Map<string, string>;
   currentUserId: string | null;
+  /** The workspace's own emoji, for resolving `:name:`. */
+  customEmoji: readonly CustomEmoji[];
 }
 
 /** Block-level parse: fenced code, quotes, lists, paragraphs. */
@@ -190,6 +194,31 @@ const INLINE_RULES: InlineRule[] = [
         );
       }
       return <Fragment key={key}>@{raw}</Fragment>;
+    },
+  },
+  {
+    // `:name:` — a workspace's own emoji, or one of the built-in shortcodes.
+    //
+    // The src never comes from the message. The body supplies a *name*, which has to
+    // match something the workspace uploaded before any URL is produced, so a body
+    // cannot point an <img> anywhere of its own choosing. An unknown name renders as
+    // the literal text the author typed, which is also what makes a deleted custom
+    // emoji degrade to `:name:` rather than to a broken image.
+    pattern: /:([a-z0-9_+-]+):/,
+    render: (m, o, key) => {
+      const resolved = resolveName(m[1] as string, o.customEmoji);
+      if (!resolved) return <Fragment key={key}>{m[0]}</Fragment>;
+      if (resolved.kind === 'unicode') return <Fragment key={key}>{resolved.char}</Fragment>;
+      return (
+        <img
+          key={key}
+          className="custom-emoji"
+          src={resolved.url}
+          alt={`:${resolved.name}:`}
+          title={`:${resolved.name}:`}
+          loading="lazy"
+        />
+      );
     },
   },
 ];

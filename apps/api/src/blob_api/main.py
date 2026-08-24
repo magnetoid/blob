@@ -187,6 +187,7 @@ def create_app() -> FastAPI:
     from .routers.auth import router as auth_router
     from .routers.bot_api import router as bot_api_router
     from .routers.channels import router as channel_router
+    from .routers.commands import router as command_router
     from .routers.feedback import router as feedback_router
     from .routers.files import router as file_router
     from .routers.interactions import router as interaction_router
@@ -195,11 +196,14 @@ def create_app() -> FastAPI:
     from .routers.search import router as search_router
     from .routers.themes import router as theme_router
     from .routers.users import router as user_router
+    from .routers.workspaces import router as workspace_router
 
     app.include_router(auth_router)
     app.include_router(user_router)
+    app.include_router(workspace_router)
     app.include_router(channel_router)
     app.include_router(message_router)
+    app.include_router(command_router)
     app.include_router(agentic_router)
     app.include_router(search_router)
     app.include_router(file_router)
