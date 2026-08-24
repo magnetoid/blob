@@ -220,15 +220,24 @@ services:
 
 networks:
   # Shared with agents deployed beside this stack, so the app can reach one without a
-  # public hostname and a certificate for a hop that never leaves the machine. Created
-  # once by the operator (`docker network create blob-agents`) and external here, because
-  # it outlives any single deploy and two stacks have to agree on it.
+  # public hostname and a certificate for a hop that never leaves the machine.
+  #
+  # **This stack creates it.** It was `external: true` for one commit, on the reasoning
+  # that the network outlives any single deploy and two stacks have to agree on it. Both
+  # halves are true and the conclusion was still wrong: `external` means Compose refuses
+  # to start when it is absent, so a host that had never run `docker network create
+  # blob-agents` by hand could not boot the stack at all. CI caught it — "network
+  # blob-agents declared as external, but could not be found" — and on a host that
+  # autodeploys from git it would have been a failed deploy on an app that was fine
+  # before. A dependency on a manual step is not a dependency worth having at boot.
+  #
+  # Named explicitly rather than left to Compose's `<project>_agents`, so an agent stack
+  # deployed separately can join it with `external: true` and a name it can predict.
   #
   # Deliberately NOT the runner's own network: that one has a container aliased
   # `postgres`, and joining it makes this stack's `postgres` resolve to two different
   # databases. Production went down that way once already.
   agents:
-    external: true
     name: blob-agents
 
 volumes:
