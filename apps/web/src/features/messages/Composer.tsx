@@ -7,6 +7,7 @@
  */
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -16,6 +17,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useStore } from "../../lib/store.ts";
+import { draftKey } from "../../lib/drafts.ts";
 import { socket } from "../../lib/socket.ts";
 import { api } from "../../lib/api.ts";
 import { commandQuery, matchCommands, parseCommand } from "../../lib/commands.ts";
@@ -55,9 +57,20 @@ export function Composer({
   const currentUser = useStore((s) => s.currentUser);
   const sendMessage = useStore((s) => s.sendMessage);
   const applyEvent = useStore((s) => s.applyEvent);
+  const editLastMessage = useStore((s) => s.editLastMessage);
   const enterToSend = useStore((s) => s.currentUser?.prefs.enterToSend ?? true);
 
-  const [draft, setDraft] = useState("");
+  // Backed by the store rather than by local state, so what you typed survives leaving
+  // the channel — the one piece of state here with no server behind it that still has to
+  // last. Reading by key means switching channels is reading a different entry; there is
+  // no save-on-unmount, and nothing to lose if a component is torn down without warning.
+  const key = draftKey(channelId, threadRootId);
+  const draft = useStore((s) => s.drafts[key]?.body ?? "");
+  const writeDraft = useStore((s) => s.setDraft);
+  const setDraft = useCallback(
+    (value: string) => writeDraft(channelId, threadRootId, value),
+    [writeDraft, channelId, threadRootId],
+  );
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -391,6 +404,22 @@ export function Composer({
         setMentionQuery(null);
         return;
       }
+    }
+
+    // ↑ on an empty composer edits your last message, as it does in Slack. Only when
+    // empty and only with the caret at the start — otherwise it would hijack moving
+    // through text somebody is in the middle of writing, which is the one way this
+    // shortcut turns from a convenience into a defect.
+    if (
+      event.key === "ArrowUp" &&
+      !draft &&
+      attachments.length === 0 &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey
+    ) {
+      if (editLastMessage(channelId, threadRootId)) event.preventDefault();
+      return;
     }
 
     const sendCombo = enterToSend

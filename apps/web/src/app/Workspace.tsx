@@ -1,6 +1,7 @@
 /** The signed-in shell: top bar, rail, sidebar, main view, optional thread panel. */
 
 import { useEffect, useState } from 'react';
+import type { ChannelWithState } from '@blob/shared';
 import { useStore } from '../lib/store.ts';
 import { socket } from '../lib/socket.ts';
 import { navigate, parseRoute, pathForRoute, pathForView, usePath } from '../lib/router.ts';
@@ -16,6 +17,8 @@ import { SettingsView } from '../features/settings/SettingsView.tsx';
 import { ProfileView } from '../features/settings/ProfileView.tsx';
 import { TopBar } from '../features/shell/TopBar.tsx';
 import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
+import { ShortcutHelp } from '../components/ShortcutHelp.tsx';
+import { isTypingTarget, matchShortcut } from '../lib/shortcuts.ts';
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
@@ -33,6 +36,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // Two jobs, one effect: send a member who typed /admin back to the conversation, and
   // rewrite a stale or misspelt URL to the route it actually resolved to, so the address
@@ -62,27 +66,61 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     if (userIds.length > 0) socket.send({ t: 'presence.sub', userIds });
   }, [users]);
 
+  // Every binding comes from `lib/shortcuts`, which is also what ⌘/ renders — so the
+  // help can neither invent a shortcut nor miss one. What stays here is only what each
+  // one *does*, which is the part that needs this component's state.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      const meta = event.metaKey || event.ctrlKey;
-      if (meta && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        setPaletteOpen(true);
-        return;
-      }
-      if (meta && event.key.toLowerCase() === 'f') {
-        event.preventDefault();
-        navigate('/search');
-        return;
-      }
-      if (event.key === 'Escape') {
-        if (paletteOpen) setPaletteOpen(false);
-        else if (activeThreadRootId) void openThread(null);
+      const typing = isTypingTarget(event.target);
+      const shortcut = matchShortcut(event, { typing });
+      if (!shortcut) return;
+
+      switch (shortcut.id) {
+        case 'palette':
+          event.preventDefault();
+          setPaletteOpen(true);
+          return;
+        case 'search':
+          event.preventDefault();
+          navigate('/search');
+          return;
+        case 'help':
+          event.preventDefault();
+          setHelpOpen((open) => !open);
+          return;
+        case 'next-unread': {
+          event.preventDefault();
+          const next = nextUnreadChannelId(channels, activeChannelId);
+          if (next) void openChannel(next);
+          return;
+        }
+        case 'edit-last':
+          // Handled by the composer, which is the only thing that knows whether the box
+          // is empty. Listed here so `⌘/` documents it and this switch stays the whole
+          // vocabulary.
+          return;
+        case 'close':
+          // Innermost first: closing a thread while a dialog is open over it would leave
+          // the dialog floating above a view that changed underneath.
+          if (helpOpen) setHelpOpen(false);
+          else if (feedbackOpen) setFeedbackOpen(false);
+          else if (paletteOpen) setPaletteOpen(false);
+          else if (activeThreadRootId) void openThread(null);
+          return;
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [paletteOpen, activeThreadRootId, openThread]);
+  }, [
+    paletteOpen,
+    helpOpen,
+    feedbackOpen,
+    activeThreadRootId,
+    openThread,
+    channels,
+    activeChannelId,
+    openChannel,
+  ]);
 
   // The thread panel belongs to the conversation view only.
   const panelOpen = view === 'messages' && Boolean(activeThreadRootId);
@@ -103,6 +141,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         />
         {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
         {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
+        {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
       </>
     );
   }
@@ -117,6 +156,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         />
         {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
         {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
+        {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
       </>
     );
   }
@@ -135,6 +175,34 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {panelOpen && <ThreadPanel rootId={activeThreadRootId as string} />}
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
+      {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
     </div>
   );
+}
+
+/**
+ * The next channel with something unread, wrapping past the end.
+ *
+ * Ordered the way the sidebar orders it — starred first, then by name — so the key walks
+ * the list you can see rather than a different one that happens to be in memory. Wrapping
+ * from the current position rather than always starting at the top is what makes it
+ * repeatable: pressing it twice should reach the second unread, not the first again.
+ */
+function nextUnreadChannelId(
+  channels: Record<string, ChannelWithState>,
+  activeChannelId: string | null,
+): string | null {
+  const ordered = Object.values(channels)
+    .filter((c) => c.membership !== null && !c.archivedAt)
+    .sort((a, b) => {
+      const starred = Number(b.membership?.isStarred) - Number(a.membership?.isStarred);
+      return starred !== 0 ? starred : (a.name ?? '').localeCompare(b.name ?? '');
+    });
+
+  const from = ordered.findIndex((c) => c.id === activeChannelId);
+  for (let step = 1; step <= ordered.length; step += 1) {
+    const candidate = ordered[(from + step + ordered.length) % ordered.length];
+    if (candidate && candidate.hasUnread && candidate.id !== activeChannelId) return candidate.id;
+  }
+  return null;
 }

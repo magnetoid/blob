@@ -23,6 +23,15 @@ import type {
 } from '@blob/shared';
 import { api } from './api.ts';
 import {
+  draftKey,
+  flushDrafts,
+  loadDrafts,
+  persistDrafts,
+  schedulePersist,
+  withDraft,
+  type Drafts,
+} from './drafts.ts';
+import {
   isRecoverableSendError,
   loadOutbox,
   materializeOutboxMessage,
@@ -56,6 +65,16 @@ interface State {
   messages: Record<string, ChannelMessages>;
   threads: Record<string, Message[]>;
   outbox: Record<string, LocalOutboxEntry>;
+  /** Typed and unsent, keyed by `draftKey` — a channel, or a thread inside one. */
+  drafts: Drafts;
+  /**
+   * The message currently open for editing, if any.
+   *
+   * In the store rather than in `MessageRow` because ↑ from an empty composer has to
+   * open one, and the composer cannot reach into a sibling's local state. At most one
+   * message is editable at a time, which a single id says and a boolean per row does not.
+   */
+  editingMessageId: string | null;
   presence: Record<string, PresenceState>;
   typing: Record<string, Record<string, number>>;
   activeChannelId: string | null;
@@ -67,6 +86,11 @@ interface State {
   reset: () => void;
   hydrateOutbox: () => void;
   flushOutbox: () => Promise<void>;
+  hydrateDrafts: () => void;
+  setDraft: (channelId: string, threadRootId: string | null, body: string) => void;
+  setEditingMessage: (messageId: string | null) => void;
+  /** Open your most recent message here for editing. Returns whether there was one. */
+  editLastMessage: (channelId: string, threadRootId: string | null) => boolean;
   openChannel: (channelId: string) => Promise<void>;
   loadOlder: (channelId: string) => Promise<void>;
   openThread: (rootId: string | null) => Promise<void>;
@@ -125,6 +149,8 @@ export const useStore = create<State>((set, get) => ({
   messages: {},
   threads: {},
   outbox: {},
+  drafts: {},
+  editingMessageId: null,
   presence: {},
   typing: {},
   activeChannelId: null,
@@ -145,6 +171,11 @@ export const useStore = create<State>((set, get) => ({
 
   reset: () => {
     persistOutbox({});
+    // Signing out clears drafts, as it clears the outbox. Half-written text is the kind
+    // of thing you would not want left on a machine you have just handed back. Flushed
+    // first, or a write scheduled a moment ago lands after the wipe and restores them.
+    flushDrafts();
+    persistDrafts({});
     set({
       ready: false,
       workspaceName: '',
@@ -157,6 +188,8 @@ export const useStore = create<State>((set, get) => ({
       messages: {},
       threads: {},
       outbox: {},
+      drafts: {},
+      editingMessageId: null,
       presence: {},
       typing: {},
       activeChannelId: null,
@@ -181,6 +214,52 @@ export const useStore = create<State>((set, get) => ({
     if (get().status === 'online') {
       void get().flushOutbox();
     }
+  },
+
+  hydrateDrafts: () => {
+    const restored = loadDrafts();
+    // Written back because loading prunes: what expired or did not fit should leave
+    // storage now, not the next time somebody happens to type.
+    persistDrafts(restored);
+    set({ drafts: restored });
+  },
+
+  setDraft: (channelId, threadRootId, body) => {
+    const key = draftKey(channelId, threadRootId);
+    const next = withDraft(get().drafts, key, body);
+    // Unchanged means unchanged: `withDraft` returns the same object when the body has
+    // not moved, and re-setting it would re-render every subscriber on each keystroke
+    // that lands back on the same text.
+    if (next === get().drafts) return;
+    // Scheduled, not written: this runs per keystroke, and the durable copy can lag the
+    // one on screen by a moment. `flushDrafts` closes the gap when the tab goes away.
+    schedulePersist(next);
+    set({ drafts: next });
+  },
+
+  setEditingMessage: (messageId) => set({ editingMessageId: messageId }),
+
+  editLastMessage: (channelId, threadRootId) => {
+    const state = get();
+    const me = state.currentUser?.id;
+    if (!me) return false;
+
+    const items = threadRootId
+      ? (state.threads[threadRootId] ?? [])
+      : (state.messages[channelId]?.items ?? []);
+
+    // Backwards from the end, and skipping what cannot be edited: a deleted message, and
+    // anything still in the outbox — a pending row has no server id to send an edit for.
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      const message = items[i];
+      if (!message) continue;
+      if (message.authorId !== me) continue;
+      if (message.deletedAt) continue;
+      if (message.id.startsWith('pending-')) continue;
+      set({ editingMessageId: message.id });
+      return true;
+    }
+    return false;
   },
 
   flushOutbox: async () => {

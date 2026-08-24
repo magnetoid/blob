@@ -87,7 +87,13 @@ export const MessageRow = memo(function MessageRow({
   const discardQueuedMessage = useStore((s) => s.discardQueuedMessage);
   const deliveryState = useStore((s) => s.messageDeliveryState(message));
 
-  const [editing, setEditing] = useState(false);
+  // Editing lives in the store, not here: ↑ from an empty composer opens the last
+  // message, and the composer cannot reach a sibling row's local state. At most one
+  // message is open at a time, which one id says and a boolean per row does not.
+  const editingMessageId = useStore((s) => s.editingMessageId);
+  const setEditingMessage = useStore((s) => s.setEditingMessage);
+  const editing = editingMessageId === message.id;
+  const setEditing = (open: boolean) => setEditingMessage(open ? message.id : null);
   const [draft, setDraft] = useState(message.body);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -224,8 +230,13 @@ export const MessageRow = memo(function MessageRow({
 
   useEffect(() => {
     if (!editing) return;
+    // Seeded here rather than only at mount. Editing can now be opened by ↑ from the
+    // composer, long after this row rendered, and `useState(message.body)` would hand
+    // back whatever the body was then — so an edit made in between would be undone by
+    // saving a stale draft.
+    setDraft(message.body);
     editRef.current?.focus();
-  }, [editing]);
+  }, [editing, message.body]);
 
   if (message.deletedAt) {
     return (

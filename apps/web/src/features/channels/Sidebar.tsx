@@ -5,6 +5,7 @@ import type { ChannelWithState } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { navigate } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
+import { channelHasDraft } from '../../lib/drafts.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import { ChevronDownIcon, PlusIcon, SearchIcon } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
@@ -22,6 +23,7 @@ export function Sidebar({ onOpenSearch }: Props) {
   const activeChannelId = useStore((s) => s.activeChannelId);
   const openChannel = useStore((s) => s.openChannel);
   const channelTitle = useStore((s) => s.channelTitle);
+  const drafts = useStore((s) => s.drafts);
 
   const [creating, setCreating] = useState(false);
 
@@ -81,6 +83,13 @@ export function Sidebar({ onOpenSearch }: Props) {
           </span>
         )}
         <span className="channel-name">{channel.name ?? channelTitle(channel)}</span>
+        {/* A draft you cannot see is a draft you forget you left. Suppressed on the
+            channel you are looking at, where the text is already on screen. */}
+        {!active && channelHasDraft(drafts, channel.id) && (
+          <span className="channel-draft" title="You have an unsent draft here">
+            draft
+          </span>
+        )}
         {channel.mentionCount > 0 && <span className="badge">{channel.mentionCount}</span>}
       </button>
     );

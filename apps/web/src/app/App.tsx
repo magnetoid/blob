@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../lib/api.ts';
 import { connectStoreToSocket, useStore } from '../lib/store.ts';
+import { flushDrafts } from '../lib/drafts.ts';
 import { applyTheme, pickTheme } from '../lib/theme.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
 import { Workspace } from './Workspace.tsx';
@@ -14,6 +15,7 @@ export function App() {
   const [needsSetup, setNeedsSetup] = useState(false);
   const boot = useStore((s) => s.boot);
   const hydrateOutbox = useStore((s) => s.hydrateOutbox);
+  const hydrateDrafts = useStore((s) => s.hydrateDrafts);
   const prefs = useStore((s) => s.currentUser?.prefs);
   const themes = useStore((s) => s.themes);
 
@@ -48,8 +50,21 @@ export function App() {
   useEffect(() => {
     if (phase !== 'signed-in') return undefined;
     hydrateOutbox();
+    hydrateDrafts();
     return connectStoreToSocket();
-  }, [phase, hydrateOutbox]);
+  }, [phase, hydrateOutbox, hydrateDrafts]);
+
+  // Write anything the composer scheduled before the tab goes away. `pagehide` rather
+  // than `beforeunload`: it is the one that fires on iOS and when a page goes into the
+  // back/forward cache, which is most of the ways a phone leaves a page.
+  useEffect(() => {
+    const flush = () => flushDrafts();
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, []);
 
   // Theme and density are stamped on <html> so tokens.css can respond. This is the
   // single place the document is touched; the theme editor previews through the same
