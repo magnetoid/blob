@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-24T16:51:20'
-updated: '2026-08-24T16:51:20'
+created: '2026-08-24T17:27:50'
+updated: '2026-08-24T17:27:50'
 ---
 
 # Repository Map
@@ -75,6 +75,9 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0011_instance_admins.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0012_socket_agents.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 31 symbol(s)
   - `_now()` (function)
   - `Base` (class)
@@ -85,12 +88,12 @@ Modules and their key symbols (ranked by references).
   - `seed()` (function)
   - `main()` (function)
   - `_run()` (function)
-- **apps/api/src/blob_api/jobs/agui.py** — 9 symbol(s)
+- **apps/api/src/blob_api/jobs/agui.py** — 11 symbol(s)
   - `Listener` (class)
   - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None)` (function)
   - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
   - `stream_run(listener: Listener, run_input: dict[str, Any], *, transport: httpx.AsyncBaseTransport | None=None)` (function)
-  - `_record_error(plugin_id: str, reason: str)` (function)
+  - `_stream_over_socket(listener: Listener, run_input: dict[str, Any])` (function)
 - **apps/api/src/blob_api/jobs/notify.py** — 4 symbol(s)
   - `_broadcast_later(user_id: str, state: ReadStateOut)` (function)
   - `_preview(body: str)` (function)
@@ -173,12 +176,7 @@ Modules and their key symbols (ranked by references).
   - `_interrupt_prompt(event: Mapping[str, Any])` (function)
   - `SseDecoder` (class)
   - `__init__(self)` (method)
-- **apps/api/src/blob_api/plugins/auth.py** — 5 symbol(s)
+- **apps/api/src/blob_api/plugins/auth.py** — 6 symbol(s)
   - `BotCaller` (class)
   - `requires(scope: str)` (function)
-  - `current_bot(request: Request)` (function)
-  - `_bearer(request: Request)` (function)
-  - `has(self, scope: str)` (method)
-- **apps/api/src/blob_api/plugins/blocks.py** — 14 symbol(s)
-  - `TextSpan` (class)
-  - `…[truncated]
+  - `current_bot(request: Request)` (function)…[truncated]

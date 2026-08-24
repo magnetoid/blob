@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-24T16:51:20'
-updated: '2026-08-24T16:51:20'
+created: '2026-08-24T17:27:50'
+updated: '2026-08-24T17:27:50'
 ---
 
 # apps/api/src/blob_api/plugins/registry.py
@@ -24,8 +24,9 @@ Symbols in `apps/api/src/blob_api/plugins/registry.py`.
 - L266 `commands_for(session: AsyncSession, workspace_id: str)` (function) — Every app command in the workspace, for the composer's list and for dispatch.
 - L290 `mint_token(session: AsyncSession, plugin_id: str)` (function) — A bearer token for the callback API. Only its hash is stored.
 - L300 `update(session: AsyncSession, *, plugin_id: str, workspace_id: str, manifest: Manifest, actor_id: str, reserved_commands: frozenset[str]=frozenset())` (function) — Apply a new manifest. Returns scopes that need approval before events resume.
-- L364 `approve(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Accept an update's widened scopes and let the app run again.
-- L372 `set_status(session: AsyncSession, plugin_id: str, workspace_id: str, status: Status)` (function)
-- L382 `rotate_secret(session: AsyncSession, plugin_id: str, workspace_id: str)` (function)
-- L398 `uninstall(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Remove the app and retire its bot, keeping everything the bot ever said.
-- L415 `bot_user_id(session: AsyncSession, plugin_id: str)` (function)
+- L364 `describe(session: AsyncSession, *, plugin_id: str, workspace_id: str, name: str | None=None, description: str | None=None, version: str | None=None)` (function) — Record what a socket agent says it is, on the way in.
+- L401 `approve(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Accept an update's widened scopes and let the app run again.
+- L409 `set_status(session: AsyncSession, plugin_id: str, workspace_id: str, status: Status)` (function)
+- L419 `rotate_secret(session: AsyncSession, plugin_id: str, workspace_id: str)` (function)
+- L435 `uninstall(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Remove the app and retire its bot, keeping everything the bot ever said.
+- L452 `bot_user_id(session: AsyncSession, plugin_id: str)` (function)

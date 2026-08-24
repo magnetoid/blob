@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-24T16:51:20'
-updated: '2026-08-24T16:51:20'
+created: '2026-08-24T17:27:50'
+updated: '2026-08-24T17:27:50'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -33,13 +33,13 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L462 `ThreadSummary` (class)
 - L503 `MessageTranslation` (class)
 - L530 `AgentTask` (class)
-- L593 `PushSubscription` (class)
-- L607 `Webhook` (class)
-- L626 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
-- L654 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
-- L710 `PluginCommand` (class) — A slash command an app provides.
-- L736 `PluginSecret` (class)
-- L746 `PluginGrant` (class)
-- L760 `BotToken` (class)
-- L774 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
-- L808 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
+- L589 `PushSubscription` (class)
+- L603 `Webhook` (class)
+- L622 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
+- L650 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
+- L707 `PluginCommand` (class) — A slash command an app provides.
+- L733 `PluginSecret` (class)
+- L743 `PluginGrant` (class)
+- L757 `BotToken` (class)
+- L771 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
+- L803 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
