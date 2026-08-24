@@ -84,6 +84,14 @@ services:
       - COOLIFY_SERVER_UUID=${COOLIFY_SERVER_UUID:-}
       - COOLIFY_DESTINATION_UUID=${COOLIFY_DESTINATION_UUID:-}
       - AGENT_RUNNER=${AGENT_RUNNER:-disabled}
+      - AGENT_ALLOW_PRIVATE_ENDPOINTS=${AGENT_ALLOW_PRIVATE_ENDPOINTS:-false}
+    networks:
+      # The stack's own network, plus one shared only with agents hosted on this box.
+      # Naming `default` explicitly is required: the moment a service lists any network,
+      # Compose stops attaching it to the default one, and this app would lose its
+      # database.
+      - default
+      - agents
     extra_hosts:
       # So the runner's API is reachable without sharing a network with it.
       - "host.docker.internal:host-gateway"
@@ -140,6 +148,9 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
+    networks:
+      - default
+      - agents
     depends_on:
       app:
         condition: service_healthy
@@ -206,6 +217,19 @@ services:
     # presence varies by image tag, and `docker compose up --wait` fails the whole
     # deploy on a health check that cannot pass — a worse outcome than none, since
     # nothing blocks on this service starting: the bucket is created on first upload.
+
+networks:
+  # Shared with agents deployed beside this stack, so the app can reach one without a
+  # public hostname and a certificate for a hop that never leaves the machine. Created
+  # once by the operator (`docker network create blob-agents`) and external here, because
+  # it outlives any single deploy and two stacks have to agree on it.
+  #
+  # Deliberately NOT the runner's own network: that one has a container aliased
+  # `postgres`, and joining it makes this stack's `postgres` resolve to two different
+  # databases. Production went down that way once already.
+  agents:
+    external: true
+    name: blob-agents
 
 volumes:
   pgdata:

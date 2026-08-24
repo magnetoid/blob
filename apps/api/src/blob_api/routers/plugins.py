@@ -17,6 +17,7 @@ to the server. This endpoint registers external apps only.
 from __future__ import annotations
 
 from typing import Annotated, Any
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import Field
@@ -304,6 +305,14 @@ async def _assert_reachable(url: str | None) -> None:
     # Keeping the "missing" case here as well made the first of the two checks reject
     # every AG-UI-only app before the second one could look at it.
     if not url:
+        return
+    if settings.AGENT_ALLOW_PRIVATE_ENDPOINTS:
+        # The operator has said they own the network this app sits on. The URL is still
+        # parsed — a malformed one is a mistake at any setting — but its address is not
+        # judged. See AGENT_ALLOW_PRIVATE_ENDPOINTS for why this exists.
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            raise bad_request("That is not a valid URL.", code="bad_request_url")
         return
     reason = await check_outbound_url(url, require_https=True)
     if reason:

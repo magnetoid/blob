@@ -93,6 +93,19 @@ class Settings(BaseSettings):
     AGUI_HISTORY_LIMIT: int = 30
     AGUI_MAX_EVENTS: int = 5_000
     AGUI_MAX_BYTES: int = 2 * 1024 * 1024
+    #: Allow an app endpoint on a private address, over plain HTTP.
+    #:
+    #: Off by default and it should stay off on anything public: the guard it relaxes is
+    #: what stops an admin registering an app URL that makes this server fetch its own
+    #: network — a database, a Redis, a cloud metadata endpoint.
+    #:
+    #: It exists because self-hosting has a case the guard was not written for. An agent
+    #: running in a container beside this one, on a network only these two share, is
+    #: reached the same way Postgres and MinIO are, and requiring a public hostname and a
+    #: certificate for that hop means requiring public DNS and a working ACME pipeline to
+    #: talk to something one hop away. Turning this on is a statement that the operator
+    #: controls the network the app sits on.
+    AGENT_ALLOW_PRIVATE_ENDPOINTS: bool = False
 
     @field_validator(
         "SMTP_USER",

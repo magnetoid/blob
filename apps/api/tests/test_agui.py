@@ -505,3 +505,49 @@ class TestRegistration:
         )
         assert response.status == 400
         assert response.body["error"]["code"] == "bad_request_url"
+
+
+class TestPrivateEndpoints:
+    """An agent one hop away should not need public DNS and a certificate.
+
+    The SSRF guard is right by default: an app URL is operator-supplied and makes *this*
+    server issue the request, so a private address is refused. But a self-hosted agent on
+    a network only these two containers share is reached the way Postgres and MinIO are,
+    and demanding a public hostname for that hop means demanding a working ACME pipeline
+    to talk to a neighbour. The relaxation is a setting, so it is a decision somebody made
+    rather than a hole somebody found.
+    """
+
+    async def test_a_private_endpoint_is_refused_by_default(self, team: dict) -> None:
+        response = await team["owner"].post(
+            "/api/admin/plugins",
+            {**APP, "requestUrl": None, "aguiUrl": "http://janus-agent:8642/v1/agui"},
+        )
+        assert response.status == 400
+        assert response.body["error"]["code"] == "bad_request_url"
+
+    async def test_the_operator_can_allow_one(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from blob_api.config import settings as app_settings
+
+        monkeypatch.setattr(app_settings, "AGENT_ALLOW_PRIVATE_ENDPOINTS", True)
+        response = await team["owner"].post(
+            "/api/admin/plugins",
+            {**APP, "requestUrl": None, "aguiUrl": "http://janus-agent:8642/v1/agui"},
+        )
+        assert response.status == 201, response.body
+        assert response.body["plugin"]["aguiUrl"] == "http://janus-agent:8642/v1/agui"
+
+    async def test_nonsense_is_still_refused_when_allowed(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Relaxed is not unchecked: a malformed URL is a mistake at any setting.
+        from blob_api.config import settings as app_settings
+
+        monkeypatch.setattr(app_settings, "AGENT_ALLOW_PRIVATE_ENDPOINTS", True)
+        for bad in ("not-a-url", "ftp://janus-agent/x", "http://"):
+            response = await team["owner"].post(
+                "/api/admin/plugins", {**APP, "requestUrl": None, "aguiUrl": bad}
+            )
+            assert response.status == 400, bad
