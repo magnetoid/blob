@@ -24,6 +24,7 @@ import type { AdminSection } from '../../lib/router.ts';
 import { TopBar } from '../shell/TopBar.tsx';
 import { AdminNav } from './AdminNav.tsx';
 import { ADMIN_NAV, sectionEntry } from './registry.ts';
+import { AppPolicySection } from './sections/AppPolicySection.tsx';
 import { AccountsSection } from './sections/AccountsSection.tsx';
 import { AuditSection } from './sections/AuditSection.tsx';
 import { FeedbackSection } from './sections/FeedbackSection.tsx';
@@ -50,6 +51,7 @@ export interface AdminSectionProps {
  */
 const SECTION_COMPONENTS: Record<AdminSection, ComponentType<AdminSectionProps>> = {
   users: AccountsSection,
+  'app-policy': AppPolicySection,
   workspaces: WorkspacesSection,
   feedback: FeedbackSection,
   audit: AuditSection,

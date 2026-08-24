@@ -210,6 +210,40 @@ class WorkspaceSettings(Base):
     )
 
 
+class WorkspacePolicy(Base):
+    """What one workspace may do to the machine it runs on.
+
+    Separate from `workspace_settings` on purpose: that is a JSONB blob a workspace admin
+    edits, and policy its own subject can edit is not policy. Only an instance admin
+    writes here. See migration 0013 — including why the environment stays the ceiling and
+    why a missing row means the column defaults rather than "allowed".
+    """
+
+    __tablename__ = "workspace_policies"
+
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
+    )
+    may_host_agents: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    may_use_private_endpoints: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    may_connect_socket_agents: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
+    denied_scopes: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")
+    )
+    #: NULL means no cap.
+    max_apps: Mapped[int | None] = mapped_column(Integer)
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
 class PasswordReset(Base):
     __tablename__ = "password_resets"
 

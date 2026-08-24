@@ -23,6 +23,7 @@ import { useEffect, useState } from 'react';
 export const ADMIN_SECTIONS = [
   'users',
   'workspaces',
+  'app-policy',
   'feedback',
   'audit',
   'health',

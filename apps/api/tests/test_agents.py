@@ -21,7 +21,7 @@ from blob_api.plugins.manifest import Manifest
 from blob_api.plugins.runner import Deployment
 from blob_api.plugins.source import RepoSource, raw_manifest_url
 
-from .helpers import Client, invite_and_sign_up, sign_up
+from .helpers import Client, allow_policy, invite_and_sign_up, sign_up, workspace_id_of
 
 REPO = "https://github.com/magnetoid/standup-agent"
 
@@ -92,6 +92,19 @@ def hosted(monkeypatch: pytest.MonkeyPatch) -> StubRunner:
     return stub
 
 
+async def hosting_owner(client: Client) -> Client:
+    """An owner whose workspace is allowed to deploy agents onto this machine.
+
+    Two switches gate hosting now — the `AGENT_RUNNER` ceiling and the workspace's own
+    policy — because a workspace admin and the person who owns the hardware stopped being
+    the same person when multi-workspace landed. These tests are about the runner, not
+    about the refusal, so the policy is opened up front.
+    """
+    owner = await sign_up(client, "Owner")
+    await allow_policy(await workspace_id_of(owner))
+    return owner
+
+
 def test_the_manifest_url_is_the_repository_raw_path() -> None:
     assert raw_manifest_url(REPO, "main") == (
         "https://raw.githubusercontent.com/magnetoid/standup-agent/main/blob-app.json"
@@ -113,7 +126,7 @@ def test_a_non_github_repository_is_refused_clearly() -> None:
 
 
 async def test_hosting_off_is_an_answer_not_a_crash(client: Client) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     assert settings.AGENT_RUNNER == "disabled"
 
     refused = await owner.post("/api/admin/plugins/from-repo", {"repoUrl": REPO})
@@ -122,7 +135,7 @@ async def test_hosting_off_is_an_answer_not_a_crash(client: Client) -> None:
 
 
 async def test_a_member_cannot_deploy_an_agent(client: Client) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     member = await invite_and_sign_up(owner, "Member")
 
     denied = await member.post("/api/admin/plugins/from-repo", {"repoUrl": REPO})
@@ -130,7 +143,7 @@ async def test_a_member_cannot_deploy_an_agent(client: Client) -> None:
 
 
 async def test_installing_from_a_repository_deploys_it(client: Client, hosted: StubRunner) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
 
     created = await owner.post("/api/admin/plugins/from-repo", {"repoUrl": REPO, "ref": "main"})
     assert created.status == 201
@@ -157,7 +170,7 @@ async def test_installing_from_a_repository_deploys_it(client: Client, hosted: S
 async def test_a_failed_deploy_leaves_a_retryable_install(
     client: Client, monkeypatch: pytest.MonkeyPatch, hosted: StubRunner
 ) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     hosted.fail = True
 
     failed = await owner.post("/api/admin/plugins/from-repo", {"repoUrl": REPO})
@@ -172,7 +185,7 @@ async def test_a_failed_deploy_leaves_a_retryable_install(
 
 
 async def test_stopping_an_agent_disables_it(client: Client, hosted: StubRunner) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     created = await owner.post("/api/admin/plugins/from-repo", {"repoUrl": REPO})
     plugin_id = created.body["plugin"]["id"]
 
@@ -186,7 +199,7 @@ async def test_stopping_an_agent_disables_it(client: Client, hosted: StubRunner)
 async def test_an_app_that_is_not_hosted_here_says_so(
     client: Client, hosted: StubRunner
 ) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     installed = await owner.post(
         "/api/admin/plugins",
         {
@@ -204,7 +217,7 @@ async def test_an_app_that_is_not_hosted_here_says_so(
 
 
 async def test_the_logs_come_back_for_a_hosted_agent(client: Client, hosted: StubRunner) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     created = await owner.post("/api/admin/plugins/from-repo", {"repoUrl": REPO})
     plugin_id = created.body["plugin"]["id"]
 
@@ -219,7 +232,7 @@ async def test_the_logs_come_back_for_a_hosted_agent(client: Client, hosted: Stu
 
 
 async def test_a_container_manifest_cannot_be_installed_by_hand(client: Client) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     refused = await owner.post("/api/admin/plugins", {**MANIFEST, "runtime": "container"})
     assert refused.status == 400
     assert refused.body["error"]["code"] == "use_from_repo"
@@ -243,7 +256,7 @@ async def test_an_agent_can_be_given_the_key_it_needs(
     Blob creates the container, so Blob is the only thing positioned to hand over a
     provider key — and for a long time the install request had nowhere to put one.
     """
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     created = await owner.post(
         "/api/admin/plugins/from-repo",
         {"repoUrl": REPO, "env": {"ANTHROPIC_API_KEY": "sk-ant-test"}},
@@ -262,7 +275,7 @@ async def test_supplied_configuration_cannot_displace_the_agents_own_credentials
     client: Client, hosted: StubRunner
 ) -> None:
     # Refused by name rather than merged away, so nobody has to reason about ordering.
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     response = await owner.post(
         "/api/admin/plugins/from-repo",
         {"repoUrl": REPO, "env": {"BLOB_BOT_TOKEN": "not-yours"}},
@@ -276,7 +289,7 @@ async def test_supplied_configuration_cannot_displace_the_agents_own_credentials
 async def test_an_unusable_variable_name_names_the_field(
     client: Client, hosted: StubRunner
 ) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     response = await owner.post(
         "/api/admin/plugins/from-repo",
         {"repoUrl": REPO, "env": {"not-a-var": "x"}},
@@ -288,7 +301,7 @@ async def test_an_unusable_variable_name_names_the_field(
 async def test_installing_without_configuration_still_works(
     client: Client, hosted: StubRunner
 ) -> None:
-    owner = await sign_up(client, "Owner")
+    owner = await hosting_owner(client)
     assert (await owner.post("/api/admin/plugins/from-repo", {"repoUrl": REPO})).status == 201
     assert hosted.deployed is not None
     assert "ANTHROPIC_API_KEY" not in hosted.deployed["env"]

@@ -197,7 +197,12 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
         description: 'Every workspace on this server.',
         keywords: ['tenants', 'teams', 'organisations', 'organizations'],
       },
-      { id: 'app-catalogue', label: 'App catalogue', planned: true },
+      {
+        id: 'app-policy',
+        label: 'App policy',
+        description: 'What each workspace may do to this machine, and how many apps it may install.',
+        keywords: ['apps', 'agents', 'catalogue', 'catalog', 'permissions', 'limits', 'allow'],
+      },
     ],
   },
   {

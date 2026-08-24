@@ -155,6 +155,19 @@ Worth knowing before changing the equivalent code:
   `restart` answer a GET with `405 {"message":"This endpoint has changed to a POST
   request."}`, while `GET /applications/{uuid}` and `.../logs` are correct as GETs. The
   asymmetry is not guessable and is pinned by `tests/test_agent_runner_api.py`.
+- **Policy that its subject can edit is not policy.** `workspace_settings` is a JSONB
+  blob a *workspace admin* writes through `PATCH /api/admin/settings`. Anything limiting
+  what a workspace may do belongs in `workspace_policies`, which only instance admins can
+  reach. Putting a limit in the first table means the person it limits can lift it.
+- **An allowlist by slug controls nothing.** A manifest's `slug` is chosen by whoever
+  registers the app and is only format-checked, so "only these app names may be
+  installed" is bypassed by picking a name on the list. Identity that cannot be spoofed
+  is a repository URL; everything else is a capability question, not an identity one.
+- **Two switches gate hosting and private endpoints, and a test that sets one is testing
+  the wrong refusal.** The environment flag is the ceiling and the workspace's policy row
+  is the floor. `tests/helpers.py::allow_policy` opens the row; without it a test that
+  monkeypatches `AGENT_RUNNER` or `AGENT_ALLOW_PRIVATE_ENDPOINTS` now gets a
+  `policy_forbidden` it did not mean to assert.
 - **Subscribe before you publish, on any Redis request/response pair.** An agent can
   answer a socket run in single-digit milliseconds. Publish the request first and its
   opening events are broadcast to a channel nobody has subscribed to yet — the run then

@@ -28,7 +28,14 @@ from blob_api.lib import net
 from blob_api.plugins import agui
 from blob_api.plugins.signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, verify
 
-from .helpers import Client, invite_and_sign_up, send_message, sign_up
+from .helpers import (
+    Client,
+    allow_policy,
+    invite_and_sign_up,
+    send_message,
+    sign_up,
+    workspace_id_of,
+)
 
 APP = {
     "slug": "helper",
@@ -532,6 +539,9 @@ class TestPrivateEndpoints:
         from blob_api.config import settings as app_settings
 
         monkeypatch.setattr(app_settings, "AGENT_ALLOW_PRIVATE_ENDPOINTS", True)
+        # Two switches now: the server's ceiling above, and this workspace's own policy.
+        # The operator allowing it globally is no longer the same as allowing it here.
+        await allow_policy(await workspace_id_of(team["owner"]))
         response = await team["owner"].post(
             "/api/admin/plugins",
             {**APP, "requestUrl": None, "aguiUrl": "http://janus-agent:8642/v1/agui"},
@@ -546,6 +556,7 @@ class TestPrivateEndpoints:
         from blob_api.config import settings as app_settings
 
         monkeypatch.setattr(app_settings, "AGENT_ALLOW_PRIVATE_ENDPOINTS", True)
+        await allow_policy(await workspace_id_of(team["owner"]))
         for bad in ("not-a-url", "ftp://janus-agent/x", "http://"):
             response = await team["owner"].post(
                 "/api/admin/plugins", {**APP, "requestUrl": None, "aguiUrl": bad}

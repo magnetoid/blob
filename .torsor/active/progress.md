@@ -151,9 +151,38 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   where they interleaved with its `TRUNCATE` and surfaced as foreign-key violations in
   fixtures that had nothing to do with sockets. Snapshot before cancelling.
 
+- **App policy — the operator gets a say** — every app endpoint authorises a *workspace*
+  admin, which was the whole story while one workspace was the server. Multi-workspace
+  split the workspace admin from the person who owns the hardware and left every
+  capability with the former: registering an app, running a repository's code as a
+  container on the operator's box, holding a socket into this process. `workspace_policies`
+  is the say — capability limits per workspace, not a catalogue of approved apps.
+
+  Capabilities rather than an allowlist because an allowlist by *name* controls nothing:
+  an external app is a URL and its slug is chosen by whoever registers it, so allowlisting
+  `acme-deploy` just means the next person names their app `acme-deploy`. What differs in
+  risk is what an app can do to the box.
+
+  Deliberately not a field in `workspace_settings`: that is a JSONB blob a workspace admin
+  edits, and policy its own subject can edit is not policy. Only instance admins have a
+  route to this table.
+
+  Two composition rules, both tested. **The environment is the ceiling** — `AGENT_RUNNER`
+  and `AGENT_ALLOW_PRIVATE_ENDPOINTS` still decide what the server can do at all, and a
+  policy row narrows that and can never widen it. **No row means the column defaults**,
+  which are closed for the two capabilities that reach the host; migration 0013 seeds the
+  workspaces that already existed as permissive, because an upgrade that quietly revokes
+  what they had yesterday reads as a bug rather than a policy.
+
+  One subtlety worth keeping: the hosting guard reads the *stored* policy, not the
+  effective one. The environment ceiling for hosting is enforced downstream by
+  `current_runner`, which refuses with `agent_hosting_disabled` and says to configure
+  AGENT_RUNNER — and shadowing that with "ask an administrator" is the wrong advice when
+  the administrator is the person reading it.
+
 ## In progress
 
-Nothing. 439 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
+Nothing. 453 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
 ones, which skip when no bucket is up — green while proving nothing, so bring storage up
 before trusting them); 106 pass in the browser. ruff, mypy, tsc and `alembic check` are
 clean. Counts are worth re-measuring rather than trusting: this line read "274 and 17"

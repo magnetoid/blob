@@ -36,6 +36,7 @@ from ..services import agents as agent_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import commands as command_service
+from ..services import policies as policy_service
 from ..services.audit import actor_for
 
 router = APIRouter(tags=["admin"], prefix="/api/admin/plugins")
@@ -260,6 +261,12 @@ async def install_plugin(
             "through the console — installing one is equivalent to deploying code.",
             code="local_not_installable",
         )
+    async with session_scope() as session:
+        policy = await policy_service.effective_for(session, admin.workspace_id)
+        await _assert_within_policy(session, admin.workspace_id, policy, manifest.scopes)
+    if manifest.runtime == "socket" and not policy.may_connect_socket_agents:
+        raise policy_service.refuse_socket_agent()
+
     if manifest.runtime == "socket":
         # A socket agent is registered before it exists anywhere: this call mints the
         # token, and the agent becomes real when it dials in with it. There is nothing to
@@ -271,8 +278,8 @@ async def install_plugin(
                 code="url_not_allowed",
             )
     else:
-        await _assert_reachable(manifest.request_url)
-        await _assert_reachable(manifest.agui_url)
+        await _assert_reachable(manifest.request_url, policy)
+        await _assert_reachable(manifest.agui_url, policy)
 
     async with transaction() as (session, _after):
         installed = await registry.install(
@@ -305,7 +312,7 @@ async def install_plugin(
     )
 
 
-async def _assert_reachable(url: str | None) -> None:
+async def _assert_reachable(url: str | None, policy: policy_service.Policy) -> None:
     """Refuse a request URL the server should not be made to fetch.
 
     HTTPS is required because a delivery carries workspace content and a signature; over
@@ -319,10 +326,11 @@ async def _assert_reachable(url: str | None) -> None:
     # every AG-UI-only app before the second one could look at it.
     if not url:
         return
-    if settings.AGENT_ALLOW_PRIVATE_ENDPOINTS:
-        # The operator has said they own the network this app sits on. The URL is still
-        # parsed — a malformed one is a mistake at any setting — but its address is not
-        # judged. See AGENT_ALLOW_PRIVATE_ENDPOINTS for why this exists.
+    if policy.may_use_private_endpoints:
+        # The operator has said they own the network this app sits on, *and* that this
+        # workspace may reach it. `effective_for` has already combined the two; a policy
+        # row can narrow AGENT_ALLOW_PRIVATE_ENDPOINTS and never widen it. The URL is
+        # still parsed — a malformed one is a mistake at any setting — but not judged.
         parsed = urlparse(url)
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
             raise bad_request("That is not a valid URL.", code="bad_request_url")
@@ -332,6 +340,25 @@ async def _assert_reachable(url: str | None) -> None:
         raise bad_request(reason, code="bad_request_url")
 
 
+def _assert_scopes_allowed(policy: policy_service.Policy, scopes: list[str]) -> None:
+    blocked = sorted(set(scopes) & policy.denied_scopes)
+    if blocked:
+        raise policy_service.refuse_scopes(blocked)
+
+
+async def _assert_within_policy(
+    session: Any,
+    workspace_id: str,
+    policy: policy_service.Policy,
+    scopes: list[str],
+) -> None:
+    """Everything an install has to satisfy that is not about the manifest being valid."""
+    _assert_scopes_allowed(policy, scopes)
+    if policy.max_apps is not None:
+        if await policy_service.app_count(session, workspace_id) >= policy.max_apps:
+            raise policy_service.refuse_app_limit(policy.max_apps)
+
+
 @router.put("/{plugin_id}", response_model=PluginOut)
 async def update_plugin(
     plugin_id: str,
@@ -339,8 +366,13 @@ async def update_plugin(
     request: Request,
     admin: SessionUser = Depends(require_admin),
 ) -> PluginOut:
-    await _assert_reachable(manifest.request_url)
-    await _assert_reachable(manifest.agui_url)
+    async with session_scope() as session:
+        policy = await policy_service.effective_for(session, admin.workspace_id)
+        # Not the app count: an update does not add one, and refusing to *edit* an app
+        # because the workspace is at its limit would strand it at whatever it was.
+        _assert_scopes_allowed(policy, manifest.scopes)
+    await _assert_reachable(manifest.request_url, policy)
+    await _assert_reachable(manifest.agui_url, policy)
     async with transaction() as (session, _after):
         widened = await registry.update(
             session,
@@ -664,6 +696,20 @@ async def preview_repo(
 async def install_from_repo(
     payload: RepoInput, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> InstalledOut:
+    # The sharpest capability on this router: it ends with the repository's code running
+    # as a container on the operator's machine. ADR 0010 says so plainly, and until
+    # multi-tenancy the operator and this admin were the same person.
+    async with session_scope() as session:
+        # `stored_for`, not `effective_for`: the environment ceiling for hosting is
+        # enforced downstream by `current_runner`, which refuses with
+        # `agent_hosting_disabled` and tells the admin to configure AGENT_RUNNER. Asking
+        # the combined answer here would shadow that with "ask an administrator", which
+        # is the wrong advice when the administrator is the person reading it.
+        policy = await policy_service.stored_for(session, admin.workspace_id)
+        if not policy.may_host_agents:
+            raise policy_service.refuse_hosting()
+        await _assert_within_policy(session, admin.workspace_id, policy, [])
+
     installed, _source = await agent_service.install_from_repo(
         actor_for(request, admin),
         payload.repo_url,

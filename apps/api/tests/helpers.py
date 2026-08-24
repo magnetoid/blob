@@ -163,3 +163,50 @@ def client_msg_id() -> str:
 async def send_message(client: Client, channel_id: str, body: str, **extra: Any) -> Response:
     payload: dict[str, Any] = {"body": body, "clientMsgId": client_msg_id(), **extra}
     return await client.post(f"/api/channels/{channel_id}/messages", payload)
+
+
+async def allow_policy(workspace_id: str, **fields: object) -> None:
+    """Open a capability for a workspace, straight into the table.
+
+    Tests about hosting or private endpoints are not about the policy console, and going
+    through its API would make every one of them depend on being an instance admin. The
+    guards need two switches now — the environment ceiling and the workspace's row — so a
+    test that sets only the first would be testing the refusal it did not mean to.
+    """
+    from sqlalchemy import text as _text
+
+    from blob_api.db.engine import SessionFactory as _SessionFactory
+
+    columns = {
+        "may_host_agents": fields.get("may_host_agents", True),
+        "may_use_private_endpoints": fields.get("may_use_private_endpoints", True),
+        "may_connect_socket_agents": fields.get("may_connect_socket_agents", True),
+    }
+    async with _SessionFactory() as session:
+        async with session.begin():
+            await session.execute(
+                _text(
+                    """
+                    INSERT INTO workspace_policies
+                        (workspace_id, may_host_agents, may_use_private_endpoints,
+                         may_connect_socket_agents)
+                    VALUES (:ws, :host, :private, :socket)
+                    ON CONFLICT (workspace_id) DO UPDATE SET
+                        may_host_agents = EXCLUDED.may_host_agents,
+                        may_use_private_endpoints = EXCLUDED.may_use_private_endpoints,
+                        may_connect_socket_agents = EXCLUDED.may_connect_socket_agents
+                    """
+                ),
+                {
+                    "ws": workspace_id,
+                    "host": columns["may_host_agents"],
+                    "private": columns["may_use_private_endpoints"],
+                    "socket": columns["may_connect_socket_agents"],
+                },
+            )
+
+
+async def workspace_id_of(client: Client) -> str:
+    """The workspace this client is signed into."""
+    boot = (await client.get("/api/bootstrap")).body
+    return str(boot["workspace"]["id"])

@@ -31,10 +31,11 @@ from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from ..db.engine import transaction
+from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError
 from ..plugins import gateway, registry
 from ..plugins.auth import BotCaller, resolve_bot
+from ..services import policies as policy_service
 
 log = logging.getLogger("blob.agents.socket")
 
@@ -56,6 +57,17 @@ async def agent_socket(websocket: WebSocket) -> None:
 
     bot = await _authenticate(websocket)
     if bot is None:
+        return
+
+    # Checked here rather than only at install, so revoking the capability takes effect
+    # on the next reconnect instead of whenever somebody happens to re-register. An
+    # agent's connection drops often — a laptop sleeps — so "next reconnect" is soon.
+    async with session_scope() as session:
+        policy = await policy_service.effective_for(session, bot.workspace_id)
+    if not policy.may_connect_socket_agents:
+        log.info("agent %s refused: workspace policy forbids socket agents", bot.slug)
+        with contextlib.suppress(Exception):
+            await websocket.close(code=CLOSE_UNAUTHORIZED)
         return
 
     async def send(payload: dict[str, Any]) -> None:

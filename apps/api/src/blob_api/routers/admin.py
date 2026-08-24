@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import Field
 from sqlalchemy import text
 
+from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.auth import (
     SessionUser,
@@ -27,9 +28,11 @@ from ..lib.auth import (
 from ..lib.errors import bad_request, conflict, not_found
 from ..lib.ids import new_id, new_token
 from ..lib.redis import redis
+from ..plugins.manifest import SCOPES
 from ..realtime import hub
 from ..schemas.base import CamelModel, iso, require_iso
 from ..services import audit as audit_service
+from ..services import policies as policy_service
 from ..services import workspaces as workspace_service
 from ..services.audit import AuditEntry, actor_for
 from ..services.serialize import USER_COLUMNS, to_user
@@ -993,3 +996,91 @@ async def create_workspace(
     return CreatedWorkspaceOut(
         id=founded.workspace_id, name=payload.name.strip(), slug=founded.slug
     )
+
+
+class PolicyOut(CamelModel):
+    """A workspace's policy, and what the server permits regardless.
+
+    Both halves are returned because a tick that does nothing is worse than no tick: if
+    the operator has turned hosting off server-wide, the console has to say so rather
+    than show an enabled switch whose value never reaches a guard.
+    """
+
+    workspace_id: str
+    may_host_agents: bool
+    may_use_private_endpoints: bool
+    may_connect_socket_agents: bool
+    denied_scopes: list[str]
+    max_apps: int | None = None
+    #: What the environment allows at all. Policy narrows this and can never widen it.
+    server_allows_hosting: bool
+    server_allows_private_endpoints: bool
+
+
+class PolicyInput(CamelModel):
+    """Every field optional: a PUT that sets one switch should not clear the others."""
+
+    may_host_agents: bool | None = None
+    may_use_private_endpoints: bool | None = None
+    may_connect_socket_agents: bool | None = None
+    denied_scopes: list[str] | None = None
+    max_apps: int | None = Field(default=None, ge=0, le=1000)
+
+
+def _policy_out(workspace_id: str, policy: policy_service.Policy) -> PolicyOut:
+    return PolicyOut(
+        workspace_id=workspace_id,
+        may_host_agents=policy.may_host_agents,
+        may_use_private_endpoints=policy.may_use_private_endpoints,
+        may_connect_socket_agents=policy.may_connect_socket_agents,
+        denied_scopes=sorted(policy.denied_scopes),
+        max_apps=policy.max_apps,
+        server_allows_hosting=settings.AGENT_RUNNER != "disabled",
+        server_allows_private_endpoints=settings.AGENT_ALLOW_PRIVATE_ENDPOINTS,
+    )
+
+
+@router.get("/instance/workspaces/{workspace_id}/policy", response_model=PolicyOut)
+async def read_policy(
+    workspace_id: str, _admin: SessionUser = Depends(require_instance_admin)
+) -> PolicyOut:
+    """What is written down for this workspace — not what the guards compute.
+
+    Deliberately `stored_for` rather than `effective_for`: the console edits the row, and
+    showing it the environment-narrowed value would make a switch appear to turn itself
+    off when the operator saved it.
+    """
+    async with session_scope() as session:
+        return _policy_out(workspace_id, await policy_service.stored_for(session, workspace_id))
+
+
+@router.put("/instance/workspaces/{workspace_id}/policy", response_model=PolicyOut)
+async def write_policy(
+    workspace_id: str,
+    payload: PolicyInput,
+    request: Request,
+    admin: SessionUser = Depends(require_instance_admin),
+) -> PolicyOut:
+    """Set what a workspace may do to this machine.
+
+    Instance admins only. There is no workspace-admin route to this table, and that is
+    the point of the table existing separately from `workspace_settings`.
+    """
+    unknown = sorted(set(payload.denied_scopes or []) - set(SCOPES))
+    if unknown:
+        raise bad_request(f"Unknown scope: {', '.join(unknown)}.", code="unknown_scope")
+
+    fields = payload.model_dump(exclude_none=True)
+    async with transaction() as (session, _):
+        policy = await policy_service.write(
+            session, workspace_id=workspace_id, actor_id=admin.id, **fields
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "workspace.policy_changed",
+            target_type="workspace",
+            target_id=workspace_id,
+            metadata=fields,
+        )
+    return _policy_out(workspace_id, policy)

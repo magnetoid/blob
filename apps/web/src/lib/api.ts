@@ -41,6 +41,24 @@ export interface WorkspaceMembership {
   current: boolean;
 }
 
+/** What a workspace may do to the machine it runs on. Instance admins only. */
+export interface WorkspacePolicy {
+  workspaceId: string;
+  mayHostAgents: boolean;
+  mayUsePrivateEndpoints: boolean;
+  mayConnectSocketAgents: boolean;
+  deniedScopes: string[];
+  maxApps: number | null;
+  /** What the environment permits at all. Policy narrows this and can never widen it. */
+  serverAllowsHosting: boolean;
+  serverAllowsPrivateEndpoints: boolean;
+}
+
+export type WorkspacePolicyInput = Pick<
+  WorkspacePolicy,
+  'mayHostAgents' | 'mayUsePrivateEndpoints' | 'mayConnectSocketAgents' | 'deniedScopes'
+> & { maxApps: number | null };
+
 /** One workspace on the server, with enough to tell them apart at a glance. */
 export interface InstanceWorkspace {
   id: string;
@@ -445,6 +463,17 @@ export const api = {
       }),
     instanceWorkspaces: () =>
       get<{ workspaces: InstanceWorkspace[] }>('/api/admin/instance/workspaces'),
+    /**
+     * What one workspace is allowed to do to this machine.
+     *
+     * Reads what is *written down*, not what the guards compute — the two differ when a
+     * capability is off server-wide, and the console shows both so a switch never
+     * appears to turn itself off after being saved.
+     */
+    workspacePolicy: (workspaceId: string) =>
+      get<WorkspacePolicy>(`/api/admin/instance/workspaces/${workspaceId}/policy`),
+    setWorkspacePolicy: (workspaceId: string, patch: Partial<WorkspacePolicyInput>) =>
+      put<WorkspacePolicy>(`/api/admin/instance/workspaces/${workspaceId}/policy`, patch),
     users: (params: { q?: string; includeDeactivated?: boolean } = {}) => {
       const search = new URLSearchParams();
       if (params.q) search.set('q', params.q);
