@@ -12,7 +12,7 @@
  * rather than being described by hand here.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../lib/api.ts';
 
 interface Props {
@@ -37,6 +37,11 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
   const [scopes, setScopes] = useState<string[]>(DEFAULT_SCOPES);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) nameRef.current?.focus();
+  }, [open]);
 
   const slug = slugify(name);
   // Three characters is the server's minimum, and failing here beats a 400 that lands
@@ -95,7 +100,11 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
         <input
           className="input"
           value={name}
-          autoFocus
+          // Focused in an effect rather than with `autoFocus`, which steals focus on
+          // mount wherever the element happens to render. Here the form only exists
+          // because someone just clicked to open it, so moving the caret into it is
+          // finishing their action rather than interrupting one.
+          ref={nameRef}
           placeholder="Desktop Claude"
           onChange={(event) => setName(event.target.value)}
           onKeyDown={(event) => {
