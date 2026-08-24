@@ -29,7 +29,7 @@ export const ITEMS: Item[] = [
   { label: 'Manage workspace', path: '/workspace', adminOnly: true },
   { label: 'Manage server', path: '/admin', adminOnly: true, ownerOnly: true },
   { label: 'User profile', path: '/profile' },
-  { label: 'Preferences', path: '/settings' },
+  { label: 'Preferences', path: '/workspace/preferences' },
   { label: 'Update', soon: true },
   { label: 'Feedback', action: 'feedback' },
 ];

@@ -37,6 +37,11 @@ export interface AdminSectionProps {
   onError: (message: string | null) => void;
   isOwner: boolean;
   detailId?: string;
+  /**
+   * Only the Preferences section uses this — it owns the Sign out button, which is the
+   * one control on these pages that ends the session rather than changing a setting.
+   */
+  onSignedOut?: () => void;
 }
 
 /**

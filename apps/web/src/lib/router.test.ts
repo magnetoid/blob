@@ -14,7 +14,8 @@ describe('parseRoute', () => {
   it('reads the top-level views', () => {
     expect(parseRoute('/')).toEqual({ view: 'messages' });
     expect(parseRoute('/search')).toEqual({ view: 'search' });
-    expect(parseRoute('/settings')).toEqual({ view: 'settings' });
+    // Preferences are a section of the workspace page now, not a view of their own.
+    expect(parseRoute('/settings')).toEqual({ view: 'workspace', section: 'preferences' });
   });
 
   it('defaults bare /admin to the first section', () => {
@@ -63,11 +64,15 @@ describe('parseRoute', () => {
     expect(parseRoute('/admin/users/u123/extra')).toEqual({ view: 'messages' });
   });
 
-  // 'settings' names both a top-level view and an admin section; they must not collide.
-  it('keeps the three kinds of settings apart', () => {
-    // Personal, workspace, server. One word used to cover all three.
-    expect(parseRoute('/settings')).toEqual({ view: 'settings' });
+  // Personal and workspace settings are now one page; the server console is still its
+  // own. What must not collide is the two *pages*, and the old personal URL.
+  it('keeps your settings and the server console apart, and folds the old URL in', () => {
+    expect(parseRoute('/settings')).toEqual({ view: 'workspace', section: 'preferences' });
     expect(parseRoute('/workspace')).toEqual({ view: 'workspace', section: 'general' });
+    expect(parseRoute('/workspace/preferences')).toEqual({
+      view: 'workspace',
+      section: 'preferences',
+    });
     expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'users' });
   });
 
@@ -113,7 +118,7 @@ describe('pathForRoute', () => {
     const routes: Route[] = [
       { view: 'messages' },
       { view: 'search' },
-      { view: 'settings' },
+      ...WORKSPACE_SECTIONS.map((section) => ({ view: 'workspace' as const, section })),
       ...ADMIN_SECTIONS.map((section) => ({ view: 'admin' as const, section })),
       ...ADMIN_DETAIL_SECTIONS.map((section) => ({
         view: 'admin' as const,

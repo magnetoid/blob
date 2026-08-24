@@ -94,6 +94,30 @@ describe('filtering the nav', () => {
     expect(filterGroups(ADMIN_NAV, 'zzzzz', true)).toEqual([]);
   });
 
+  it('hides an admin-only group from a member', () => {
+    // The workspace page carries both scopes since preferences merged into it. A member
+    // opening it must see their own sections and no sign that the others exist.
+    const groups = [
+      { id: 'you', label: 'You', sections: [{ id: 'preferences' as const, label: 'Preferences' }] },
+      {
+        id: 'workspace',
+        label: 'Workspace',
+        adminOnly: true,
+        sections: [{ id: 'members' as const, label: 'Members' }],
+      },
+    ];
+    expect(filterGroups(groups, '', false, false).map((g) => g.id)).toEqual(['you']);
+    expect(filterGroups(groups, '', false, true).map((g) => g.id)).toEqual(['you', 'workspace']);
+  });
+
+  it('puts your own sections before the workspace ones on the merged page', () => {
+    // Order is the whole argument for merging: everyone has the first group, only an
+    // admin has the second, so the one everybody came for is on top.
+    expect(WORKSPACE_NAV[0]?.id).toBe('you');
+    expect(WORKSPACE_NAV[0]?.adminOnly).toBeUndefined();
+    expect(WORKSPACE_NAV.slice(1).every((group) => group.adminOnly)).toBe(true);
+  });
+
   it('hides owner-only rows from an admin', () => {
     const groups = [
       {

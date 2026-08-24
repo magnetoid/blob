@@ -228,7 +228,7 @@ function WorkspaceMenu({ name, memberCount }: { name: string; memberCount: numbe
               Administration
             </button>
           )}
-          <button className="workspace-menu-item" role="menuitem" onClick={() => go('/settings')}>
+          <button className="workspace-menu-item" role="menuitem" onClick={() => go('/workspace/preferences')}>
             Preferences
           </button>
         </div>

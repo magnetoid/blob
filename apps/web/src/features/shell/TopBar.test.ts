@@ -21,7 +21,8 @@ describe('the account menu', () => {
     const path = (label: string) => ITEMS.find((item) => item.label === label)?.path;
 
     // How this account behaves, how the workspace behaves, how the server behaves.
-    expect(path('Preferences')).toBe('/settings');
+    // Preferences merged into the workspace page; the row points at its section now.
+    expect(path('Preferences')).toBe('/workspace/preferences');
     expect(path('Manage workspace')).toBe('/workspace');
     expect(path('Manage server')).toBe('/admin');
     expect(parseRoute('/workspace')).toEqual({ view: 'workspace', section: 'general' });

@@ -4,7 +4,15 @@ import { useEffect, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { useStore } from '../lib/store.ts';
 import { socket } from '../lib/socket.ts';
-import { navigate, parseRoute, pathForRoute, pathForView, usePath } from '../lib/router.ts';
+import {
+  DEFAULT_MEMBER_SECTION,
+  isPersonalSection,
+  navigate,
+  parseRoute,
+  pathForRoute,
+  pathForView,
+  usePath,
+} from '../lib/router.ts';
 import { Rail } from '../features/channels/Rail.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
@@ -13,7 +21,6 @@ import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
 import { AdminConsole } from '../features/admin/AdminConsole.tsx';
 import { WorkspaceConsole } from '../features/workspace/WorkspaceConsole.tsx';
-import { SettingsView } from '../features/settings/SettingsView.tsx';
 import { ProfileView } from '../features/settings/ProfileView.tsx';
 import { TopBar } from '../features/shell/TopBar.tsx';
 import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
@@ -43,7 +50,16 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // bar never disagrees with the screen.
   useEffect(() => {
     const resolved = parseRoute(path);
-    if ((resolved.view === 'admin' || resolved.view === 'workspace') && !isAdmin) {
+    // /workspace is no longer admin-only: it holds everyone's preferences as well as the
+    // workspace's settings. A member is sent to their own section rather than off the
+    // page — bouncing them to the conversation would mean the gear icon did nothing.
+    if (resolved.view === 'workspace' && !isAdmin && !isPersonalSection(resolved.section)) {
+      navigate(pathForRoute({ view: 'workspace', section: DEFAULT_MEMBER_SECTION }), {
+        replace: true,
+      });
+      return;
+    }
+    if (resolved.view === 'admin' && !isAdmin) {
       navigate('/', { replace: true });
       return;
     }
@@ -131,13 +147,14 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // account menu, ⌘K, and the feedback dialog — which matters most here, because the
   // report attaches a snapshot of the screen you are on, and leaving the console to file
   // one would attach a channel instead of the page that went wrong.
-  if (route.view === 'workspace' && isAdmin) {
+  if (route.view === 'workspace') {
     return (
       <>
         <WorkspaceConsole
           section={route.section}
           detailId={route.detailId}
           onFeedback={() => setFeedbackOpen(true)}
+          onSignedOut={onSignedOut}
         />
         {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
         {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
@@ -169,7 +186,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
       {view === 'messages' && <ChannelView />}
       {view === 'search' && <SearchView />}
-      {view === 'settings' && <SettingsView onSignedOut={onSignedOut} />}
       {view === 'profile' && <ProfileView />}
 
       {panelOpen && <ThreadPanel rootId={activeThreadRootId as string} />}

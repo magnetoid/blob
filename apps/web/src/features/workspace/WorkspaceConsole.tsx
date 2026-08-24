@@ -29,6 +29,8 @@ import { InvitationsSection } from '../admin/sections/InvitationsSection.tsx';
 import { PeopleSection } from '../admin/sections/PeopleSection.tsx';
 import { ThemesSection } from '../admin/sections/ThemesSection.tsx';
 import { WebhooksSection } from '../admin/sections/WebhooksSection.tsx';
+import { PreferencesSection } from '../../features/settings/PreferencesSection.tsx';
+import { NotificationsSection } from '../../features/settings/NotificationsSection.tsx';
 
 /** Ties the drawer toggle to the nav it opens, for anything reading the page structure. */
 const NAV_ID = 'workspace-console-nav';
@@ -38,6 +40,8 @@ const NAV_ID = 'workspace-console-nav';
  * WORKSPACE_SECTIONS without building it is a typecheck failure rather than a blank page.
  */
 const SECTION_COMPONENTS: Record<WorkspaceSection, ComponentType<AdminSectionProps>> = {
+  preferences: PreferencesSection,
+  notifications: NotificationsSection,
   general: GeneralSection,
   members: PeopleSection,
   invitations: InvitationsSection,
@@ -51,15 +55,22 @@ export function WorkspaceConsole({
   section,
   detailId,
   onFeedback,
+  onSignedOut,
 }: {
   section: WorkspaceSection;
   detailId?: string;
   onFeedback: () => void;
+  onSignedOut: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
   const currentUser = useStore((s) => s.currentUser);
+  const workspaceName = useStore((s) => s.workspaceName);
   const isOwner = currentUser?.role === 'owner';
+  // A member reaches this page for their own preferences and sees only those. The
+  // routing guard in `Workspace` keeps them off the admin sections; this keeps the nav
+  // from advertising them.
+  const isAdmin = isOwner || currentUser?.role === 'admin';
   const entry = workspaceEntry(section);
   const Body = SECTION_COMPONENTS[section];
 
@@ -71,11 +82,16 @@ export function WorkspaceConsole({
         groups={WORKSPACE_NAV}
         section={section}
         isOwner={isOwner}
+        isAdmin={isAdmin}
         onNavigate={() => setNavOpen(false)}
         basePath="/workspace"
         title="Workspace"
         subtitle={
-          isOwner ? 'You own this workspace.' : 'You are an admin of this workspace.'
+          isOwner
+            ? 'You own this workspace.'
+            : isAdmin
+              ? 'You are an admin of this workspace.'
+              : `Your settings in ${workspaceName}.`
         }
       />
       <button
@@ -109,7 +125,12 @@ export function WorkspaceConsole({
           )}
 
           <div className="admin-page-body">
-            <Body onError={setError} isOwner={isOwner} detailId={detailId} />
+            <Body
+              onError={setError}
+              isOwner={isOwner}
+              detailId={detailId}
+              onSignedOut={onSignedOut}
+            />
           </div>
         </div>
       </main>

@@ -19,6 +19,7 @@ export function AdminNav({
   groups = ADMIN_NAV,
   section,
   isOwner,
+  isAdmin = true,
   onNavigate,
   /** `/admin` or `/workspace`. Both consoles use this nav; only the prefix differs. */
   basePath = '/admin',
@@ -29,6 +30,8 @@ export function AdminNav({
   groups?: NavGroup[];
   section: string;
   isOwner: boolean;
+  /** False hides every admin-only group — this page also carries personal sections. */
+  isAdmin?: boolean;
   /** Lets the mobile drawer close itself once a choice has been made. */
   onNavigate?: () => void;
   basePath?: string;
@@ -36,7 +39,7 @@ export function AdminNav({
   subtitle?: string;
 }) {
   const [filter, setFilter] = useState('');
-  const visible = filterGroups(groups, filter, isOwner);
+  const visible = filterGroups(groups, filter, isOwner, isAdmin);
 
   return (
     <nav id={id} className="admin-nav" aria-label="Console sections">

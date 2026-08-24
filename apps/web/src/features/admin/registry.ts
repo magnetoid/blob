@@ -46,6 +46,15 @@ export interface NavGroup<Id extends string = string> {
   id: string;
   label: string;
   sections: NavEntry<Id>[];
+  /**
+   * Hidden from a plain member.
+   *
+   * This page carries two scopes since preferences folded into it: what is yours, which
+   * everyone has, and what is the workspace's, which only an admin may touch. The flag
+   * is on the *group* rather than on each row so the two cannot drift apart — a section
+   * added to an admin group is admin-gated by being there.
+   */
+  adminOnly?: boolean;
 }
 
 /** Kept as the old names so nothing outside has to learn two words for one thing. */
@@ -57,11 +66,37 @@ export function isPlanned(entry: NavEntry): entry is PlannedSectionEntry {
   return 'planned' in entry;
 }
 
-/** Everything about one workspace. Where an owner or admin actually works. */
+/**
+ * Everything you can configure, in one page.
+ *
+ * Two groups and the order is the point: yours first, because every member has those and
+ * most people came here for them, then the workspace's, which only an admin sees.
+ * Preferences used to be a separate page with a separate layout — one word, "settings",
+ * pointing at two differently-shaped screens.
+ */
 export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
+  {
+    id: 'you',
+    label: 'You',
+    sections: [
+      {
+        id: 'preferences',
+        label: 'Preferences',
+        description: 'How Blob looks and behaves for you, on this device and everywhere.',
+        keywords: ['theme', 'dark', 'light', 'density', 'language', 'sign out', 'settings'],
+      },
+      {
+        id: 'notifications',
+        label: 'Notifications',
+        description: 'When Blob is allowed to interrupt you, and what counts as urgent.',
+        keywords: ['quiet hours', 'do not disturb', 'dnd', 'keywords', 'alerts'],
+      },
+    ],
+  },
   {
     id: 'workspace',
     label: 'Workspace',
+    adminOnly: true,
     sections: [
       {
         id: 'general',
@@ -80,6 +115,7 @@ export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
   {
     id: 'people',
     label: 'People',
+    adminOnly: true,
     sections: [
       {
         id: 'members',
@@ -98,6 +134,7 @@ export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
   {
     id: 'conversations',
     label: 'Conversations',
+    adminOnly: true,
     sections: [
       {
         id: 'channels',
@@ -112,6 +149,7 @@ export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
   {
     id: 'integrations',
     label: 'Agents & apps',
+    adminOnly: true,
     sections: [
       {
         id: 'apps',
@@ -227,9 +265,11 @@ export function filterGroups<Id extends string>(
   groups: NavGroup<Id>[],
   query: string,
   isOwner: boolean,
+  isAdmin = true,
 ): NavGroup<Id>[] {
   const needle = query.trim().toLowerCase();
   return groups
+    .filter((group) => !group.adminOnly || isAdmin)
     .map((group) => ({
       ...group,
       sections: group.sections.filter((entry) => {

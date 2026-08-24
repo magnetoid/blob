@@ -43,6 +43,14 @@ export type AdminSection = (typeof ADMIN_SECTIONS)[number];
  * a route and saves an untangling later.
  */
 export const WORKSPACE_SECTIONS = [
+  // Yours. First, because everyone has these and only an admin has the rest — and
+  // because /settings folded into this page rather than staying a second one that
+  // looked different and lived somewhere else.
+  'preferences',
+  'notifications',
+  // The workspace's. Admin-only, enforced in `WorkspaceConsole` rather than here: a
+  // route that exists for one person and 404s for another is a route that leaks who is
+  // an admin.
   'general',
   'members',
   'invitations',
@@ -55,6 +63,16 @@ export const WORKSPACE_SECTIONS = [
 export type WorkspaceSection = (typeof WORKSPACE_SECTIONS)[number];
 
 export const DEFAULT_WORKSPACE_SECTION: WorkspaceSection = 'general';
+
+/** Where a plain member lands: the part of this page that is theirs. */
+export const DEFAULT_MEMBER_SECTION: WorkspaceSection = 'preferences';
+
+/** Sections anyone may open. Everything else on this page needs admin. */
+export const PERSONAL_SECTIONS: readonly WorkspaceSection[] = ['preferences', 'notifications'];
+
+export function isPersonalSection(section: WorkspaceSection): boolean {
+  return PERSONAL_SECTIONS.includes(section);
+}
 
 /**
  * Sections that have a detail page under them, at /admin/:section/:id.
@@ -74,7 +92,6 @@ export const DEFAULT_ADMIN_SECTION: AdminSection = 'users';
 export type Route =
   | { view: 'messages' }
   | { view: 'search' }
-  | { view: 'settings' }
   | { view: 'profile' }
   | { view: 'workspace'; section: WorkspaceSection; detailId?: string }
   | { view: 'admin'; section: AdminSection; detailId?: string };
@@ -86,7 +103,6 @@ export function parseRoute(path: string): Route {
   const clean = path.replace(/\/+$/, '') || '/';
 
   if (clean === '/search') return { view: 'search' };
-  if (clean === '/settings') return { view: 'settings' };
   if (clean === '/profile') return { view: 'profile' };
 
   if (clean === '/workspace') return { view: 'workspace', section: DEFAULT_WORKSPACE_SECTION };
@@ -105,6 +121,9 @@ export function parseRoute(path: string): Route {
   // business. They were real, linkable URLs — someone has one in a bookmark or a message
   // — so they redirect rather than falling through to the conversation like a typo.
   const MOVED: Record<string, WorkspaceSection> = {
+    // Preferences were their own page with their own layout. They are a section of this
+    // one now; the old URL still works because people have it in messages.
+    '/settings': 'preferences',
     '/admin/settings': 'general',
     '/admin/themes': 'appearance',
     '/admin/people': 'members',
@@ -146,8 +165,6 @@ export function pathForRoute(route: Route): string {
   switch (route.view) {
     case 'search':
       return '/search';
-    case 'settings':
-      return '/settings';
     case 'profile':
       return '/profile';
     case 'workspace':

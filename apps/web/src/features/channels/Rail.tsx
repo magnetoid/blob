@@ -1,7 +1,7 @@
 /** The 64px navigation rail: view switching plus your own avatar. */
 
 import { useStore } from '../../lib/store.ts';
-import type { View } from '../../lib/router.ts';
+import { navigate, pathForRoute, type View } from '../../lib/router.ts';
 import { MembersIcon, MessagesIcon, SearchIcon, SettingsIcon } from '../../components/Icon.tsx';
 
 /** Views the rail can switch to. Profile has no rail button; it lives in the user menu. */
@@ -53,8 +53,8 @@ export function Rail({ view, onChange }: Props) {
 
       <button
         className="rail-btn"
-        aria-pressed={view === 'settings'}
-        onClick={() => onChange('settings')}
+        aria-pressed={view === 'workspace'}
+        onClick={() => navigate(pathForRoute({ view: 'workspace', section: 'preferences' }))}
         title="Preferences"
       >
         <SettingsIcon size={19} strokeWidth={1.6} />
