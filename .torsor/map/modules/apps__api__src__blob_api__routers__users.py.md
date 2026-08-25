@@ -4,23 +4,24 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T04:30:13'
-updated: '2026-08-25T04:30:13'
+created: '2026-08-25T10:13:28'
+updated: '2026-08-25T10:13:28'
 ---
 
 # apps/api/src/blob_api/routers/users.py
 
 Symbols in `apps/api/src/blob_api/routers/users.py`.
 
-- L41 `UsersOut` (class)
-- L45 `UserOut` (class)
-- L49 `CurrentUserOut` (class)
-- L53 `PrefsOut` (class)
-- L57 `OkOut` (class)
-- L62 `bootstrap(user: SessionUser=Depends(current_user))` (function) — One request that returns everything the client needs to render.
-- L154 `update_me(payload: UpdateProfileInput, user: SessionUser=Depends(current_user))` (function)
-- L213 `update_prefs(payload: UpdatePrefsInput, user: SessionUser=Depends(current_user))` (function)
-- L240 `list_users(user: SessionUser=Depends(current_user))` (function)
-- L257 `get_user(user_id: str, user: SessionUser=Depends(current_user))` (function)
-- L272 `add_push_subscription(payload: PushSubscriptionInput, user: SessionUser=Depends(current_user))` (function)
-- L299 `remove_push_subscription(payload: PushUnsubscribeInput, user: SessionUser=Depends(current_user))` (function)
+- L45 `UsersOut` (class)
+- L49 `UserOut` (class)
+- L53 `CurrentUserOut` (class)
+- L57 `PrefsOut` (class)
+- L61 `OkOut` (class)
+- L66 `bootstrap(user: SessionUser=Depends(current_user))` (function) — One request that returns everything the client needs to render.
+- L171 `update_me(payload: UpdateProfileInput, user: SessionUser=Depends(current_user))` (function)
+- L208 `_write_profile(session: AsyncSession, user: SessionUser, payload: UpdateProfileInput, given: set[str])` (function) — The two writes a profile edit makes, so the caller can wrap both in one guard.
+- L259 `update_prefs(payload: UpdatePrefsInput, user: SessionUser=Depends(current_user))` (function)
+- L286 `list_users(user: SessionUser=Depends(current_user))` (function)
+- L303 `get_user(user_id: str, user: SessionUser=Depends(current_user))` (function)
+- L318 `add_push_subscription(payload: PushSubscriptionInput, user: SessionUser=Depends(current_user))` (function)
+- L345 `remove_push_subscription(payload: PushUnsubscribeInput, user: SessionUser=Depends(current_user))` (function)

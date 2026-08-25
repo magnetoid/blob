@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T04:30:13'
-updated: '2026-08-25T04:30:13'
+created: '2026-08-25T10:13:28'
+updated: '2026-08-25T10:13:28'
 ---
 
 # apps/api/src/blob_api/realtime/ws.py
@@ -13,6 +13,7 @@ updated: '2026-08-25T04:30:13'
 Symbols in `apps/api/src/blob_api/realtime/ws.py`.
 
 - L34 `websocket_endpoint(websocket: WebSocket)` (function)
-- L84 `_writer(websocket: WebSocket, conn: hub.Connection)` (function) — Drain the connection's outbox.
-- L98 `_reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)` (function)
-- L145 `_now_iso()` (function)
+- L96 `_writer(websocket: WebSocket, conn: hub.Connection)` (function) — Drain the connection's outbox.
+- L110 `_reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)` (function)
+- L165 `_visible_users(user_ids: list[str], workspace_id: str)` (function) — Which of these ids the caller is allowed to know anything about.
+- L187 `_now_iso()` (function)

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T04:30:13'
-updated: '2026-08-25T04:30:13'
+created: '2026-08-25T10:13:28'
+updated: '2026-08-25T10:13:28'
 ---
 
 # apps/api/src/blob_api/services/channels.py
@@ -17,9 +17,9 @@ Symbols in `apps/api/src/blob_api/services/channels.py`.
 - L73 `ChannelAccess` (class)
 - L81 `assert_channel_access(session: AsyncSession, user_id: str, channel_id: str, *, require_member: bool=False, require_writable: bool=False)` (function) — Authorize a user against a channel.
 - L138 `member_ids(session: AsyncSession, channel_id: str)` (function)
-- L148 `add_members(session: AsyncSession, channel_id: str, user_ids: list[str])` (function)
-- L175 `create_channel(session: AsyncSession, *, workspace_id: str, created_by: str, name: str, kind: str, topic: str | None=None, description: str | None=None, extra_member_ids: list[str] | None=None)` (function)
-- L217 `join(session: AsyncSession, channel_id: str, user_id: str)` (function)
-- L221 `leave(session: AsyncSession, channel_id: str, user_id: str)` (function)
-- L228 `dm_key(user_ids: list[str])` (function) — DMs are addressed by their member set, so opening one twice returns one channel.
-- L234 `find_or_create_dm(session: AsyncSession, workspace_id: str, user_ids: list[str])` (function)
+- L148 `add_members(session: AsyncSession, channel_id: str, user_ids: list[str])` (function) — Put people in a channel, refusing anybody who is not in its workspace.
+- L215 `create_channel(session: AsyncSession, *, workspace_id: str, created_by: str, name: str, kind: str, topic: str | None=None, description: str | None=None, extra_member_ids: list[str] | None=None)` (function)
+- L257 `join(session: AsyncSession, channel_id: str, user_id: str)` (function)
+- L261 `leave(session: AsyncSession, channel_id: str, user_id: str)` (function)
+- L268 `dm_key(user_ids: list[str])` (function) — DMs are addressed by their member set, so opening one twice returns one channel.
+- L274 `find_or_create_dm(session: AsyncSession, workspace_id: str, user_ids: list[str])` (function)

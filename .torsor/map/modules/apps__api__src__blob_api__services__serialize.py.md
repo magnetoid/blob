@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T04:30:13'
-updated: '2026-08-25T04:30:13'
+created: '2026-08-25T10:13:28'
+updated: '2026-08-25T10:13:28'
 ---
 
 # apps/api/src/blob_api/services/serialize.py
@@ -20,9 +20,9 @@ Symbols in `apps/api/src/blob_api/services/serialize.py`.
 - L86 `to_channel_with_state(row: Any)` (function)
 - L110 `to_attachment(raw: dict[str, Any])` (function)
 - L123 `to_message(row: Any)` (function)
-- L167 `_as_datetime(value: Any)` (function)
-- L173 `to_thread_summary(row: Any)` (function)
-- L199 `to_agent_task(row: Any)` (function)
-- L221 `to_message_translation(row: Any, *, cached: bool=False)` (function)
-- L237 `message_event(name: str, message: Message)` (function) — The socket envelope carrying a message. Shared so every sender emits one shape.
-- L286 `to_feedback_ticket(row: Any)` (function)
+- L168 `_as_datetime(value: Any)` (function)
+- L174 `to_thread_summary(row: Any)` (function)
+- L200 `to_agent_task(row: Any)` (function)
+- L222 `to_message_translation(row: Any, *, cached: bool=False)` (function)
+- L238 `message_event(name: str, message: Message)` (function) — The socket envelope carrying a message. Shared so every sender emits one shape.
+- L288 `to_feedback_ticket(row: Any)` (function)

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T04:30:13'
-updated: '2026-08-25T04:30:13'
+created: '2026-08-25T10:13:27'
+updated: '2026-08-25T10:13:27'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -26,22 +26,25 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L260 `Channel` (class)
 - L302 `ChannelMember` (class)
 - L327 `Message` (class)
-- L402 `Reaction` (class)
-- L419 `Attachment` (class)
-- L448 `CustomEmoji` (class)
-- L463 `ReadState` (class)
-- L478 `ThreadSubscription` (class)
-- L496 `SavedItem` (class) — A message somebody put aside for themselves. Slack's Later.
-- L518 `ThreadSummary` (class)
-- L559 `MessageTranslation` (class)
-- L586 `AgentTask` (class)
-- L645 `PushSubscription` (class)
-- L659 `Webhook` (class)
-- L678 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
-- L706 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
-- L763 `PluginCommand` (class) — A slash command an app provides.
-- L789 `PluginSecret` (class)
-- L799 `PluginGrant` (class)
-- L813 `BotToken` (class)
-- L827 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
-- L859 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
+- L408 `Reaction` (class)
+- L425 `Attachment` (class)
+- L454 `CustomEmoji` (class)
+- L469 `ReadState` (class)
+- L484 `ThreadSubscription` (class)
+- L502 `UserGroup` (class) — A named set of people, mentionable as one handle. Slack's user groups.
+- L543 `UserGroupMember` (class) — Who is in a group, and whether they have muted it.
+- L570 `WorkspaceHandle` (class) — Every mentionable name in a workspace, in one place, decided by one index.
+- L628 `SavedItem` (class) — A message somebody put aside for themselves. Slack's Later.
+- L650 `ThreadSummary` (class)
+- L691 `MessageTranslation` (class)
+- L718 `AgentTask` (class)
+- L777 `PushSubscription` (class)
+- L791 `Webhook` (class)
+- L810 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
+- L838 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
+- L895 `PluginCommand` (class) — A slash command an app provides.
+- L921 `PluginSecret` (class)
+- L931 `PluginGrant` (class)
+- L945 `BotToken` (class)
+- L959 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
+- L991 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.

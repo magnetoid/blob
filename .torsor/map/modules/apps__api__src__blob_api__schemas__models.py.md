@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T04:30:13'
-updated: '2026-08-25T04:30:13'
+created: '2026-08-25T10:13:28'
+updated: '2026-08-25T10:13:28'
 ---
 
 # apps/api/src/blob_api/schemas/models.py
@@ -23,14 +23,15 @@ Symbols in `apps/api/src/blob_api/schemas/models.py`.
 - L113 `Reaction` (class)
 - L119 `LinkPreview` (class)
 - L127 `Message` (class)
-- L154 `CustomEmoji` (class)
-- L159 `CommandSpec` (class) — One slash command, as the composer's autocomplete needs to describe it.
-- L172 `ThemeSummary` (class)
-- L182 `ThreadSummaryDecision` (class)
-- L187 `ThreadSummaryActionItem` (class)
-- L193 `ThreadSummary` (class)
-- L209 `AgentTask` (class)
-- L229 `MessageTranslation` (class)
-- L242 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
-- L258 `ReadStateOut` (class)
-- L264 `FeedbackTicket` (class)
+- L157 `CustomEmoji` (class)
+- L162 `CommandSpec` (class) — One slash command, as the composer's autocomplete needs to describe it.
+- L175 `ThemeSummary` (class)
+- L185 `ThreadSummaryDecision` (class)
+- L190 `ThreadSummaryActionItem` (class)
+- L196 `ThreadSummary` (class)
+- L212 `AgentTask` (class)
+- L232 `MessageTranslation` (class)
+- L245 `UserGroup` (class) — A named set of people, mentionable as one handle.
+- L255 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
+- L277 `ReadStateOut` (class)
+- L283 `FeedbackTicket` (class)

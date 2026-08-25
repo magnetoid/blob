@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T04:30:13'
-updated: '2026-08-25T04:30:13'
+created: '2026-08-25T10:13:27'
+updated: '2026-08-25T10:13:27'
 ---
 
 # Repository Map
@@ -84,7 +84,10 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0014_saved_items.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 33 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0015_user_groups.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 36 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -146,8 +149,8 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/lib/mentions.py** — 6 symbol(s)
   - `strip_code(body: str)` (function)
   - `MentionResult` (class)
-  - `parse_mentions(body: str, name_to_id: dict[str, str])` (function)
   - `_simple_lower(value: str)` (function)
+  - `parse_mentions(body: str, targets: dict[str, MentionTarget])` (function)
   - `mention_lookup_phrases(body: str)` (function)
 - **apps/api/src/blob_api/lib/net.py** — 4 symbol(s)
   - `is_private_host(hostname: str)` (function)
@@ -175,7 +178,4 @@ Modules and their key symbols (ranked by references).
   - `_signing_client()` (function)
   - `presign_download(key: str, filename: str | None=None, mime: str | None=None)` (function)
 - **apps/api/src/blob_api/main.py** — 7 symbol(s)
-  - `_error(status: int, code: str, message: str, field: str | None=None)` (function)
-  - `is_allowed_origin(origin: str)` (function)
-  - `SessionMiddleware` (class)
-  - `lifespan(app: F…[truncated]
+  - `_error(status: int, code: str, me…[truncated]

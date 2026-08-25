@@ -261,11 +261,33 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   a connection pool with anything that matters, and a handler that stores records over the
   network can eat itself.
 
+- **A workspace-isolation audit, and what it found** — prompted by the `to_all` leak: if
+  one broadcast helper could be wrong behind a docstring asserting the opposite, there was
+  no reason to think it was the only one. Five boundary classes swept, every candidate
+  attacked by a skeptic that defaulted to refuted.
+
+  **Three confirmed.** `add_members` accepted `users` rows from any workspace — a global
+  primary key satisfied the foreign key, and the after-commit broadcast then subscribed
+  that person's sockets to a *private* channel, permanently, since `leave` 404s them and
+  no admin remove-member route exists. `presence.sub` watched any id off the wire.
+  `/api/admin/health` reported server-wide totals to a workspace admin. All three fixed
+  with the constraint inside the statement; the traps are in `context.md`.
+
+  **What it found sound is worth as much:** every REST read path, `search`, the files
+  route, the bot API, plugin delivery and the notification worker all carry the boundary
+  in the query rather than in a parameter.
+
+  Verified by reverting: six of the seven new tests fail without the fixes, and the
+  seventh is the no-regression case. One only discriminated after a fix of its own —
+  `receive_until` discards what it passes over, so waiting for a presence frame *after*
+  consuming through the pong swallowed the frame being asserted about. A socket test that
+  waits for absence has to collect, not skip.
+
 ## In progress
 
-Nothing. 513 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
+Nothing. 571 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
 ones, which skip when no bucket is up — green while proving nothing, so bring storage up
-before trusting them); 199 pass in the browser. ruff, mypy, tsc and `alembic check` are
+before trusting them); 213 pass in the browser. ruff, mypy, tsc and `alembic check` are
 clean. Counts are worth re-measuring rather than trusting: this line read "274 and 17"
 for several milestones after both had moved, and "467 and 106" when the browser suite
 had already reached 142.

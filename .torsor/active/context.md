@@ -103,6 +103,30 @@ Worth knowing before changing the equivalent code:
   with no call site — `api.channels.setMembership`, `addMembers`, `archive`, `leave`,
   `update`, `api.messages.threads`, `auth.forgotPassword` and `resetPassword` were all
   dead at once. Do it after any milestone that lands a batch of routes.
+- **The workspace boundary is only ever safe when it is *inside the statement*.** Four
+  bugs of one shape have now been found here, and each was invisible with one workspace
+  and silent with several. `assert_channel_access` found a channel by id alone.
+  `hub.to_all` sent to every connection on the process behind a docstring that said
+  "workspace-wide". `services/channels.add_members` was `INSERT ... SELECT
+  unnest(:user_ids)` with two independent foreign keys and no composite constraint, so a
+  `users` row from another workspace satisfied the FK and could be planted in a private
+  channel. `/api/admin/health` counted every message on the server for any *workspace*
+  admin. The rule that would have prevented all four: derive the boundary from a row the
+  statement already touches — join `users` to `channels` on `workspace_id` — rather than
+  taking it as a parameter, which is something a call site can forget. `POST /api/dms`
+  had the check `add_members` was missing, in the same file, the whole time.
+- **A fix to one branch of a dispatcher is not a fix.** Both the `to_all` and the
+  `assert_channel_access` repairs were correct and neither was generalised: the workspace
+  filter went onto one branch of `_deliver_local` and stopped, so `_by_channel` and
+  `_by_presence_sub` delivery still consulted no workspace at all. When fixing a boundary
+  bug, check every sibling path that reaches the same registry.
+- **Any list of ids arriving from a client is a query, not a value.** `presence.sub`
+  took `userIds` off the wire, cast each to `str`, truncated at 500 and watched them —
+  live attendance telemetry on named people in other workspaces. Ids are not secret here:
+  they ride in message payloads and outlive being removed from a workspace, so "you would
+  have to know the id" is never the defence. Resolve such a list through SQL carrying the
+  caller's workspace, and drop what does not survive **silently** — refusing a specific id
+  confirms it names somebody.
 - **A diagnostics sink must not share a connection pool with anything that matters.**
   `lib/logbuf`'s handler first used `lib.redis.redis`. A logging handler is called from
   anywhere — including from code running on an event loop that is about to close — and a

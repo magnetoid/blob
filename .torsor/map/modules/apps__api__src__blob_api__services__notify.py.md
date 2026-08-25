@@ -4,19 +4,20 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T04:30:13'
-updated: '2026-08-25T04:30:13'
+created: '2026-08-25T10:13:28'
+updated: '2026-08-25T10:13:28'
 ---
 
 # apps/api/src/blob_api/services/notify.py
 
 Symbols in `apps/api/src/blob_api/services/notify.py`.
 
-- L29 `Recipient` (class)
-- L37 `NotifiableMessage` (class)
-- L49 `Decision` (class)
-- L56 `decide(message: NotifiableMessage, recipients: list[Recipient], now: datetime | None=None, thread_subscribers: set[str] | None=None)` (function)
-- L94 `is_snoozed(recipient: Recipient, now: datetime)` (function) — Manual snooze, or outside the user's configured working hours.
-- L125 `_local_parts(moment: datetime, timezone: str)` (function)
-- L134 `load_recipients(session: AsyncSession, channel_id: str)` (function) — Load the notification-relevant state for every member of a channel.
-- L161 `load_thread_subscribers(session: AsyncSession, thread_root_id: str)` (function)
+- L31 `Recipient` (class)
+- L39 `NotifiableMessage` (class)
+- L54 `Decision` (class)
+- L61 `decide(message: NotifiableMessage, recipients: list[Recipient], now: datetime | None=None, thread_subscribers: set[str] | None=None, group_recipients: set[str] | None=None)` (function)
+- L110 `is_snoozed(recipient: Recipient, now: datetime)` (function) — Manual snooze, or outside the user's configured working hours.
+- L141 `_local_parts(moment: datetime, timezone: str)` (function)
+- L150 `load_recipients(session: AsyncSession, channel_id: str)` (function) — Load the notification-relevant state for every member of a channel.
+- L177 `load_group_recipients(session: AsyncSession, group_ids: list[str])` (function) — Everyone in these groups who has not muted them.
+- L205 `load_thread_subscribers(session: AsyncSession, thread_root_id: str)` (function)
