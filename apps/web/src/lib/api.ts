@@ -41,6 +41,14 @@ export interface WorkspaceMembership {
   current: boolean;
 }
 
+/** One of the workspace's own emoji, as the admin console lists them. */
+export interface WorkspaceEmoji {
+  name: string;
+  url: string;
+  createdByName: string | null;
+  createdAt: string;
+}
+
 /** What a workspace may do to the machine it runs on. Instance admins only. */
 export interface WorkspacePolicy {
   workspaceId: string;
@@ -456,6 +464,12 @@ export const api = {
      * workspace and is what the workspace console shows. These answer "what is on this
      * machine", which is the instance console's question.
      */
+    /** The workspace's own emoji. The picker has always rendered these; now they can be added. */
+    customEmoji: () => get<{ emoji: WorkspaceEmoji[] }>('/api/admin/emoji'),
+    addCustomEmoji: (name: string, attachmentId: string) =>
+      post<WorkspaceEmoji>('/api/admin/emoji', { name, attachmentId }),
+    removeCustomEmoji: (name: string) =>
+      del<{ ok: true }>(`/api/admin/emoji/${encodeURIComponent(name)}`),
     instanceUsers: () => get<{ users: InstanceUser[] }>('/api/admin/instance/users'),
     createWorkspace: (name: string) =>
       post<{ id: string; name: string; slug: string }>('/api/admin/instance/workspaces', {

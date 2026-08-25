@@ -180,9 +180,30 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   AGENT_RUNNER — and shadowing that with "ask an administrator" is the wrong advice when
   the administrator is the person reading it.
 
+- **Two features that were complete apart from their entrance** — both the same shape as
+  the emoji bug earlier in this project, where the server had shipped and the client
+  dropped the field.
+
+  **Pins had no viewer.** The message menu has had Pin since blocks landed, the server has
+  `GET /api/channels/:id/pins`, and `api.channels.pins()` sat in the client unused — so a
+  pinned message could be pinned and then never found again, which is worse than not
+  offering the action. There is now a Pinned button in the channel header. Fetched on
+  open rather than on channel switch: pins are read rarely, a request per switch is a real
+  cost for a list most people look at once a week, and fetching on open means there is no
+  cache to invalidate when somebody pins something. Jumping scrolls to the row via a
+  `data-message-id` attribute — an attribute rather than an `id`, because the same message
+  renders in the list and in a thread at once.
+
+  **Custom emoji could not be added.** The `custom_emoji` table, the bootstrap payload,
+  the file route and the picker all existed; there was no route to create one, so
+  `:party-parrot:` could be referenced by anyone and created by nobody. Uploads reuse the
+  ordinary attachment flow — same ticket, same presigned PUT, same rate limit — and the
+  new endpoint only names the result. The name pattern is deliberately the same one
+  `markdown.tsx` matches, or an admin could add an emoji no message is able to reference.
+
 ## In progress
 
-Nothing. 453 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
+Nothing. 467 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
 ones, which skip when no bucket is up — green while proving nothing, so bring storage up
 before trusting them); 106 pass in the browser. ruff, mypy, tsc and `alembic check` are
 clean. Counts are worth re-measuring rather than trusting: this line read "274 and 17"

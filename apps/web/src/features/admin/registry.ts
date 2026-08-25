@@ -143,7 +143,12 @@ export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
         keywords: ['archive', 'private', 'public'],
       },
       { id: 'moderation', label: 'Moderation', planned: true },
-      { id: 'emoji', label: 'Emoji', planned: true },
+      {
+        id: 'emoji',
+        label: 'Emoji',
+        description: "The workspace's own emoji, for `:name:` in a message and for reactions.",
+        keywords: ['custom', 'emoticon', 'reaction', 'shortcode'],
+      },
     ],
   },
   {

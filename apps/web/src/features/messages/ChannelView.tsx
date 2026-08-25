@@ -6,6 +6,7 @@ import { api } from "../../lib/api.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
 import { HuddleIcon, MembersIcon, PinIcon } from "../../components/Icon.tsx";
+import { PinnedPanel } from "./PinnedPanel.tsx";
 import { TYPING_TTL_MS } from "@blob/shared";
 
 export function ChannelView() {
@@ -27,6 +28,24 @@ export function ChannelView() {
   const loadOlder = useStore((s) => s.loadOlder);
   const openThread = useStore((s) => s.openThread);
   const channelTitle = useStore((s) => s.channelTitle);
+
+  const [pinsOpen, setPinsOpen] = useState(false);
+
+  /**
+   * Bring a pinned message into view.
+   *
+   * Only works when it is on screen already — a pin can be older than the loaded page,
+   * and paging back to find it is a different feature. When it is not there the panel
+   * simply closes, which is honest; flashing an error for "that message is further up"
+   * would be worse than nothing.
+   */
+  function jumpToMessage(messageId: string) {
+    const node = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (!node) return;
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+    node.classList.add("message-flash");
+    setTimeout(() => node.classList.remove("message-flash"), 1600);
+  }
 
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
   const [now, setNow] = useState(() => Date.now());
@@ -153,6 +172,29 @@ export function ChannelView() {
           <HuddleIcon size={15} />
           Huddle
         </button>
+        <div style={{ position: "relative" }}>
+          <button
+            className="btn btn-ghost"
+            title="Pinned messages"
+            aria-expanded={pinsOpen}
+            onClick={(event) => {
+              // Stopped, or the panel's own capture-phase dismissal would close it on
+              // the way down and this toggle would reopen it on the way back up.
+              event.stopPropagation();
+              setPinsOpen((open) => !open);
+            }}
+          >
+            <PinIcon size={15} />
+            Pinned
+          </button>
+          {pinsOpen && activeChannelId && (
+            <PinnedPanel
+              channelId={activeChannelId}
+              onClose={() => setPinsOpen(false)}
+              onJump={jumpToMessage}
+            />
+          )}
+        </div>
         <button className="btn btn-ghost" title="Members">
           <MembersIcon size={15} />
           {memberCount ?? "–"}

@@ -25,6 +25,7 @@ import { useAdminAction, useAdminData } from '../admin/hooks.ts';
 import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
 import { AppsSection } from '../admin/sections/AppsSection.tsx';
 import { ChannelsSection } from '../admin/sections/ChannelsSection.tsx';
+import { EmojiSection } from '../admin/sections/EmojiSection.tsx';
 import { InvitationsSection } from '../admin/sections/InvitationsSection.tsx';
 import { PeopleSection } from '../admin/sections/PeopleSection.tsx';
 import { ThemesSection } from '../admin/sections/ThemesSection.tsx';
@@ -49,6 +50,7 @@ const SECTION_COMPONENTS: Record<WorkspaceSection, ComponentType<AdminSectionPro
   apps: AppsSection,
   webhooks: WebhooksSection,
   appearance: ThemesSection,
+  emoji: EmojiSection,
 };
 
 export function WorkspaceConsole({

@@ -252,6 +252,10 @@ export const MessageRow = memo(function MessageRow({
   return (
     <article
       className="message"
+      // The anchor the pinned panel jumps to. An attribute rather than an `id`, because
+      // the same message can render in the list and in a thread at once and duplicate
+      // ids would make `getElementById` pick whichever the DOM happened to hold first.
+      data-message-id={message.id}
       data-grouped={grouped}
       data-starts-group={!grouped && previous !== null}
       data-mentions-me={mentionsMe}

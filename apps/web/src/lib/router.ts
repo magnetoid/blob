@@ -59,6 +59,7 @@ export const WORKSPACE_SECTIONS = [
   'apps',
   'webhooks',
   'appearance',
+  'emoji',
 ] as const;
 
 export type WorkspaceSection = (typeof WORKSPACE_SECTIONS)[number];
