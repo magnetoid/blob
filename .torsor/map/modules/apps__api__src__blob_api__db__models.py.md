@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T10:13:27'
-updated: '2026-08-25T10:13:27'
+created: '2026-08-25T14:35:36'
+updated: '2026-08-25T14:35:36'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -34,17 +34,18 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L502 `UserGroup` (class) — A named set of people, mentionable as one handle. Slack's user groups.
 - L543 `UserGroupMember` (class) — Who is in a group, and whether they have muted it.
 - L570 `WorkspaceHandle` (class) — Every mentionable name in a workspace, in one place, decided by one index.
-- L628 `SavedItem` (class) — A message somebody put aside for themselves. Slack's Later.
-- L650 `ThreadSummary` (class)
-- L691 `MessageTranslation` (class)
-- L718 `AgentTask` (class)
-- L777 `PushSubscription` (class)
-- L791 `Webhook` (class)
-- L810 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
-- L838 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
-- L895 `PluginCommand` (class) — A slash command an app provides.
-- L921 `PluginSecret` (class)
-- L931 `PluginGrant` (class)
-- L945 `BotToken` (class)
-- L959 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
-- L991 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
+- L628 `AgentRun` (class) — One attempt by an agent to answer a mention.
+- L682 `SavedItem` (class) — A message somebody put aside for themselves. Slack's Later.
+- L704 `ThreadSummary` (class)
+- L745 `MessageTranslation` (class)
+- L772 `AgentTask` (class)
+- L831 `PushSubscription` (class)
+- L845 `Webhook` (class)
+- L864 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
+- L892 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
+- L949 `PluginCommand` (class) — A slash command an app provides.
+- L975 `PluginSecret` (class)
+- L985 `PluginGrant` (class)
+- L999 `BotToken` (class)
+- L1013 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
+- L1045 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.

@@ -264,3 +264,19 @@ Worth knowing before changing the equivalent code:
   interleaved with its `TRUNCATE`, so the symptom was foreign-key violations during
   fixture setup in files that have nothing to do with sockets — and it moved between runs.
   Snapshot the set before cancelling, and gather the snapshot.
+- **A patch helper that reads the real class at call time cannot be applied twice.**
+  `tests/test_agui.py::route_agent_to` captures `real = httpx.AsyncClient` when it runs,
+  and `jobs.agui.httpx` is the *same module object* every caller patches. Call it a second
+  time and the second fake wraps the first, so the first transport answers both requests —
+  a test that asks the agent twice silently gets the first reply for both, and passes.
+  Patch once through a mutable slot and swap the slot per call, as `test_agent_runs.py`
+  does. Any "patch the module attribute" helper has this shape; the tell is a helper that
+  is safe once and wrong twice, which no single-call test can reveal.
+- **`/read` is a ratchet on purpose, so rewinding needs its own verb.** The cursor moves
+  with `GREATEST(...)`, which means posting an *earlier* message id to it is accepted and
+  does nothing — silently. Mark-as-unread is therefore `POST /channels/{id}/unread`
+  rather than a smaller value through the same route. The client half is the real problem:
+  auto-read is aggressive by design (`openChannel` reads on arrival, and every
+  `message.new` in the channel you are looking at reads again), so `suppressReadFor` has
+  to hold until you next open a channel, or one arriving message undoes what you asked for
+  and nothing says so.

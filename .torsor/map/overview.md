@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T10:13:27'
-updated: '2026-08-25T10:13:27'
+created: '2026-08-25T14:35:36'
+updated: '2026-08-25T14:35:36'
 ---
 
 # Repository Map
@@ -87,7 +87,10 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0015_user_groups.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 36 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0016_agent_runs.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 37 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -114,12 +117,12 @@ Modules and their key symbols (ranked by references).
   - `_allowed(url: str)` (function)
   - `first_url(body: str)` (function)
   - `fetch_unfurl(raw_url: str)` (function)
-- **apps/api/src/blob_api/jobs/worker.py** — 8 symbol(s)
+- **apps/api/src/blob_api/jobs/worker.py** — 9 symbol(s)
+  - `sweep_agent_runs(_ctx: dict[str, Any])` (function)
   - `sweep_orphans(_ctx: dict[str, Any])` (function)
   - `deliver_plugin_events(_ctx: dict[str, Any])` (function)
   - `notify(_ctx: dict[str, Any], message_id: str)` (function)
   - `unfurl(_ctx: dict[str, Any], message_id: str)` (function)
-  - `agui_run(_ctx: dict[str, Any], message_id: str)` (function)
 - **apps/api/src/blob_api/lib/auth.py** — 15 symbol(s)
   - `SessionUser` (class)
   - `current_user(request: Request)` (function)
@@ -176,6 +179,4 @@ Modules and their key symbols (ranked by references).
   - `public_file_url(key: str)` (function)
   - `_build(endpoint: str)` (function)
   - `_signing_client()` (function)
-  - `presign_download(key: str, filename: str | None=None, mime: str | None=None)` (function)
-- **apps/api/src/blob_api/main.py** — 7 symbol(s)
-  - `_error(status: int, code: str, me…[truncated]
+  - `presign_download(key: str, filename: str | Non…[truncated]

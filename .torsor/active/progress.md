@@ -283,14 +283,31 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   consuming through the pong swallowed the frame being asserted about. A socket test that
   waits for absence has to collect, not skip.
 
+- **Leaving a message unread, and a log of what agents did** — two things people asked of
+  a system that could not answer either. `/read` is a ratchet, so unread is its own verb;
+  the client half is `suppressReadFor`, because auto-read would otherwise undo it on the
+  next arriving message.
+
+  `agent_runs` is the larger one. A run left no trace but `plugins.last_error`, which the
+  next failure overwrote — so "I mentioned the agent and nothing happened, why?" had no
+  answer, and failed, finished-quietly and never-started were indistinguishable from
+  outside. Four statuses because the code already produces four outcomes, and `interrupted`
+  is the one an operator can act on: it means the agent is waiting for a person, not that
+  it broke. The row is written *before* the agent is called, since a run that never returns
+  is exactly the case with nothing else to show for it; a daily sweep closes those and
+  enforces retention, because every mention writes a row and nothing else removes one. Two
+  short transactions around the network call, never one held across it. The event stream is
+  deliberately not stored — the posts are already messages with ids, and keeping the rest
+  would make this a transcript store to answer what the counts answer.
+
 ## In progress
 
-Nothing. 571 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
-ones, which skip when no bucket is up — green while proving nothing, so bring storage up
-before trusting them); 213 pass in the browser. ruff, mypy, tsc and `alembic check` are
-clean. Counts are worth re-measuring rather than trusting: this line read "274 and 17"
-for several milestones after both had moved, and "467 and 106" when the browser suite
-had already reached 142.
+Nothing. 591 backend tests pass with storage up and 218 pass in the browser; ruff, mypy,
+tsc, `alembic check` and `torsor guard` are clean. Two of those 591 skip when no bucket
+is running (the MinIO-backed attachment and snapshot ones — green while proving nothing,
+so bring storage up before trusting them). Counts are worth re-measuring rather than
+trusting: this line read "274 and 17" for several milestones after both had moved, and
+"467 and 106" when the browser suite had already reached 142.
 
 ## Next
 
@@ -306,14 +323,16 @@ none is an entrance problem — they are genuinely unbuilt.
   serialised onto `Message`, and *no query reads it and no component branches on it*. The
   client never sets it true, so nothing is broken today; a reply sent with it would appear
   live and vanish on reload. Either wire it into `history`'s filter or delete the column.
-- **Mark as unread.** `POST /api/channels/:id/read` takes a message id and would accept
-  an earlier one; nothing offers it. This is how people leave themselves a marker, and
-  its absence pushes them to Later for a job Later is not for.
-- **Scheduled send**, **user groups (`@team`)** and **channel bookmarks** — all three
-  absent end to end. User groups are the one with real depth: `parse_mentions` resolves
-  display names against a map, so a group is a new kind of key in that map plus a
-  membership table, and `notify.decide` would need to know a group mention is not an
-  `@channel`.
+- ~~**Mark as unread.**~~ **Done.** `POST /api/channels/:id/unread`, its own verb
+  because `/read` moves the cursor with `GREATEST(...)` and would have accepted an earlier
+  id and silently done nothing. The client half was the real work: auto-read is aggressive
+  by design, so `suppressReadFor` holds until you next open a channel.
+- **Scheduled send** and **channel bookmarks** — both still absent end to end. These are
+  what is left of Slack parity, and both are thin.
+- ~~**User groups (`@team`)**~~ **Done**, and it was the one with real depth. A handle is
+  not a display name, so `workspace_handles` gives people and groups one namespace to
+  collide in; `parse_mentions` returns typed targets; `notify.decide` learned that a group
+  mention is neither a person nor an `@channel`.
 - **Somebody's status is set in Preferences and read almost nowhere.** `statusEmoji` and
   `statusText` have been on `User` and settable the whole time; until the member list
   landed, no screen displayed either. The message row and the sidebar still do not.
