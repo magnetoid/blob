@@ -14,6 +14,7 @@ import { Avatar } from '../../components/Avatar.tsx';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.tsx';
 import { ChevronDownIcon, FeedbackIcon } from '../../components/Icon.tsx';
 import { ITEMS } from './menu.ts';
+import { hasUnseenRelease } from '../../lib/changelog.ts';
 
 
 export function TopBar({ onFeedback }: { onFeedback: () => void }) {
@@ -52,6 +53,11 @@ export function TopBar({ onFeedback }: { onFeedback: () => void }) {
     setMenuPath(path);
     setOpen(false);
   }
+
+  // Read once and cleared on arrival, in the same render-phase adjustment: the page
+  // marks itself read in an effect, so re-reading storage here would race it.
+  const [unseenRelease, setUnseenRelease] = useState(hasUnseenRelease);
+  if (unseenRelease && path === '/whats-new') setUnseenRelease(false);
 
   if (!currentUser) return null;
 
@@ -97,6 +103,9 @@ export function TopBar({ onFeedback }: { onFeedback: () => void }) {
             />
           </span>
           <span className="user-menu-name">{currentUser.displayName}</span>
+          {/* A quiet mark, not a count: there is nothing to act on, only something to
+              read, and a red badge would make release notes feel like an unread DM. */}
+          {unseenRelease && <span className="menu-dot" aria-hidden="true" />}
           <ChevronDownIcon size={13} strokeWidth={2} />
         </button>
 
@@ -133,6 +142,9 @@ export function TopBar({ onFeedback }: { onFeedback: () => void }) {
                   }}
                 >
                   {item.label}
+                  {item.path === '/whats-new' && unseenRelease && (
+                    <span className="menu-dot" aria-label="New since you last looked" />
+                  )}
                 </button>
               ),
             )}

@@ -30,6 +30,7 @@ export const ITEMS: Item[] = [
   { label: 'Manage server', path: '/admin', adminOnly: true, ownerOnly: true },
   { label: 'User profile', path: '/profile' },
   { label: 'Preferences', path: '/workspace/preferences' },
-  { label: 'Update', soon: true },
+  // Was a disabled row marked "Soon" from the day this menu was written.
+  { label: "What's new", path: '/whats-new' },
   { label: 'Feedback', action: 'feedback' },
 ];
