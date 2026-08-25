@@ -228,6 +228,24 @@ export interface AdminPluginCatalog {
   events: Record<string, string>;
 }
 
+/** One attempt by an agent to answer a mention. */
+export interface AdminAgentRun {
+  id: string;
+  channelId: string;
+  channelName: string | null;
+  threadRootId: string | null;
+  triggerMessageId: string | null;
+  triggerUserName: string | null;
+  transport: string;
+  /** running | succeeded | failed | interrupted — four, because the run has four ends. */
+  status: string;
+  error: string | null;
+  postCount: number;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+}
+
 export interface AdminPluginDelivery {
   id: string;
   event: string;
@@ -603,6 +621,8 @@ export const api = {
       post<{ botToken: string }>(`/api/admin/plugins/${pluginId}/token`),
     revokePluginTokens: (pluginId: string) =>
       del<{ ok: true }>(`/api/admin/plugins/${pluginId}/tokens`),
+    pluginRuns: (pluginId: string, limit = 20) =>
+      get<{ runs: AdminAgentRun[] }>(`/api/admin/plugins/${pluginId}/runs?limit=${limit}`),
     pluginDeliveries: (pluginId: string, limit = 20) =>
       get<{ deliveries: AdminPluginDelivery[] }>(
         `/api/admin/plugins/${pluginId}/deliveries?limit=${limit}`,

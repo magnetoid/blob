@@ -6,6 +6,7 @@ import {
   ApiError,
   type AdminPlugin,
   type AdminPluginCatalog,
+  type AdminAgentRun,
   type AdminPluginDelivery,
 } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
@@ -48,6 +49,7 @@ function AppsList({
   const [deliveries, setDeliveries] = useState<
     Record<string, AdminPluginDelivery[]>
   >({});
+  const [runs, setRuns] = useState<Record<string, AdminAgentRun[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
   const [uninstalling, setUninstalling] = useState<AdminPlugin | null>(null);
@@ -100,11 +102,22 @@ function AppsList({
     }
   };
 
-  const toggleDeliveries = (pluginId: string) => {
-    setSelectedPluginId((current) => (current === pluginId ? null : pluginId));
-    if (!deliveries[pluginId]) {
-      void loadDeliveries(pluginId);
+  const loadRuns = async (pluginId: string) => {
+    try {
+      const response = await api.admin.pluginRuns(pluginId);
+      setRuns((current) => ({ ...current, [pluginId]: response.runs }));
+    } catch {
+      onError("Could not load recent runs.");
     }
+  };
+
+  // Both, on one click. "Did the app hear us" and "did it manage to reply" are the same
+  // question to whoever is looking, and an app only ever has one of the two logs anyway:
+  // deliveries are for webhook apps, runs for agents.
+  const toggleActivity = (pluginId: string) => {
+    setSelectedPluginId((current) => (current === pluginId ? null : pluginId));
+    if (!deliveries[pluginId]) void loadDeliveries(pluginId);
+    if (!runs[pluginId]) void loadRuns(pluginId);
   };
 
   return (
@@ -473,9 +486,9 @@ function AppsList({
                       </button>
                       <button
                         className="btn btn-ghost"
-                        onClick={() => toggleDeliveries(plugin.id)}
+                        onClick={() => toggleActivity(plugin.id)}
                       >
-                        {expanded ? "Hide deliveries" : "Show deliveries"}
+                        {expanded ? "Hide activity" : "Show activity"}
                       </button>
                       <button
                         className="btn btn-ghost"
@@ -544,6 +557,47 @@ function AppsList({
 
                   {expanded && (
                     <div className="admin-plugin-deliveries">
+                      <h5 className="section-label">Recent runs</h5>
+                      {(runs[plugin.id] ?? []).length > 0 ? (
+                        (runs[plugin.id] ?? []).map((run) => (
+                          <div className="admin-row" key={run.id}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div className="admin-row-title">
+                                {run.channelName ? `#${run.channelName}` : "a channel"}
+                                {/* Not muted for `interrupted`: the agent is waiting for
+                                    a person, which is the one outcome somebody can act
+                                    on, and greying it would read as "nothing to do". */}
+                                <span
+                                  className="role-pill"
+                                  data-muted={
+                                    run.status !== "succeeded" &&
+                                    run.status !== "interrupted"
+                                  }
+                                >
+                                  {run.status}
+                                </span>
+                              </div>
+                              <div className="admin-row-meta">
+                                {run.triggerUserName ?? "someone"} asked ·{" "}
+                                {formatRelative(run.startedAt)}
+                                {run.durationMs !== null &&
+                                  ` · ${run.durationMs} ms`}
+                                {` · ${run.postCount} ${run.postCount === 1 ? "reply" : "replies"}`}
+                                {run.transport === "socket" && " · over its own socket"}
+                                {run.error && ` · ${run.error}`}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="muted">
+                          This app has not been asked anything yet.
+                        </p>
+                      )}
+
+                      <h5 className="section-label" style={{ marginTop: 14 }}>
+                        Deliveries
+                      </h5>
                       {pluginDeliveries.length > 0 ? (
                         pluginDeliveries.map((delivery) => (
                           <div className="admin-row" key={delivery.id}>
