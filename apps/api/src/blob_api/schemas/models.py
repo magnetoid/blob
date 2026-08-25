@@ -136,6 +136,9 @@ class Message(CamelModel):
     reply_user_ids: list[str] = Field(default_factory=list)
     last_reply_at: str | None = None
     mention_user_ids: list[str] = Field(default_factory=list)
+    #: Groups this message named, kept as groups — never flattened into the line
+    #: above, which means "people this message named directly".
+    mention_group_ids: list[str] = Field(default_factory=list)
     mentions_everyone: bool = False
     client_msg_id: str
     edited_at: str | None = None

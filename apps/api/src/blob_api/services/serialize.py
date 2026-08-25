@@ -150,6 +150,7 @@ def to_message(row: Any) -> Message:
         reply_user_ids=list(row.reply_user_ids or []),
         last_reply_at=iso(row.last_reply_at),
         mention_user_ids=list(row.mention_user_ids or []),
+        mention_group_ids=list(row.mention_group_ids or []),
         mentions_everyone=row.mentions_everyone,
         client_msg_id=row.client_msg_id,
         edited_at=iso(row.edited_at),
@@ -253,7 +254,8 @@ def message_event(name: str, message: Message) -> dict[str, Any]:
 MESSAGE_COLUMNS = """
   m.id, m.workspace_id, m.channel_id, m.author_id, m.kind, m.body,
   m.thread_root_id, m.also_in_channel, m.reply_count, m.reply_user_ids,
-  m.last_reply_at, m.mention_user_ids, m.mentions_everyone, m.client_msg_id,
+  m.last_reply_at, m.mention_user_ids, m.mention_group_ids, m.mentions_everyone,
+  m.client_msg_id,
   m.edited_at, m.deleted_at, m.pinned_at, m.pinned_by, m.created_at,
   m.link_preview, m.plugin_id, m.blocks
 """

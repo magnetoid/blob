@@ -375,6 +375,12 @@ class Message(Base):
     mention_user_ids: Mapped[list[str]] = mapped_column(
         ARRAY(UUIDStr), nullable=False, server_default=text("'{}'")
     )
+    #: Groups this message named, kept as groups. Deliberately *not* flattened into
+    #: `mention_user_ids`, which keeps meaning "people this message named directly" —
+    #: five consumers depend on that reading, including the agent dispatcher.
+    mention_group_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(UUIDStr), nullable=False, server_default=text("'{}'")
+    )
     mentions_everyone: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
@@ -491,6 +497,132 @@ class ThreadSubscription(Base):
     last_read_reply_id: Mapped[str | None] = mapped_column(UUIDStr)
     muted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class UserGroup(Base):
+    """A named set of people, mentionable as one handle. Slack's user groups.
+
+    `handle` is what a message says after the `@`, and it is already lowercase — the
+    CHECK keeps it inside the intersection of what both mention parsers can tokenise and
+    what neither markdown renderer will eat.
+    """
+
+    __tablename__ = "user_groups"
+    __table_args__ = (
+        # Every character class here is excluded for a reason that bites:
+        #   * a leading `_` is rejected by `_MENTION_RE`'s `[^\W_]`, so such a handle
+        #     could be created and never mentioned;
+        #   * `_` anywhere collides with `markdown.tsx`'s `_italic_` rule;
+        #   * a space would need the 4-word server limit and the 2-word client one to
+        #     agree, and they do not;
+        #   * `.` and `'` are stripped as trailing punctuation on both sides.
+        CheckConstraint(
+            "handle ~ '^[a-z0-9][a-z0-9-]{1,31}$'",
+            name="user_groups_handle_check",
+        ),
+        # Redundant with `workspace_handles` on purpose: a local guarantee that survives
+        # a future writer forgetting the shared table.
+        UniqueConstraint("workspace_id", "handle", name="user_groups_handle_uniq"),
+        Index("user_groups_workspace", "workspace_id"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    handle: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    #: SET NULL rather than CASCADE: an admin leaving must not delete the groups they set up.
+    created_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class UserGroupMember(Base):
+    """Who is in a group, and whether they have muted it.
+
+    `muted` is an *additional* opt-out, not a replacement for channel mute: `notify.decide`
+    still short-circuits on `notify_level == 'none'` before any mention test runs.
+    """
+
+    __tablename__ = "user_group_members"
+    __table_args__ = (
+        # The pair, so re-adding somebody is `ON CONFLICT DO NOTHING` rather than a read
+        # followed by a write that two admins could both pass.
+        PrimaryKeyConstraint("group_id", "user_id", name="user_group_members_pkey"),
+        # The PK's leading column already answers "who is in these groups"; this answers
+        # "which groups am I in", which every bootstrap asks.
+        Index("user_group_members_user", "user_id"),
+    )
+
+    group_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("user_groups.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    muted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class WorkspaceHandle(Base):
+    """Every mentionable name in a workspace, in one place, decided by one index.
+
+    Group handles and display names share the namespace a mention is resolved against, so
+    the two must not be able to collide. A pair of application checks cannot guarantee
+    that, and not because of a race: `users_display_name_uniq` is partial on
+    `deactivated_at IS NULL`, so a group-create check has to ignore deactivated people —
+    otherwise a departed account holds a name forever, the exact thing the partial index
+    exists to prevent. Deactivate somebody, create a group with their handle, reactivate
+    them, and both checks have passed while the collision exists.
+
+    So the name is *allocated* rather than checked: winning this primary key is what makes
+    a name yours. That is the argument `plugins/manifest.py` and `0014_saved_items` both
+    make — an index decides, not a read followed by a write — applied to the one case
+    where the escape hatch looked unavailable because two tables were involved.
+
+    Rows exist only for **active** users, reproducing the partial index's semantics on
+    purpose: deactivating releases the handle, reactivating re-claims it and fails with the
+    conflict `admin.reactivate` already raises — now covering groups for nothing.
+    """
+
+    __tablename__ = "workspace_handles"
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace_id", "handle_lower", name="workspace_handles_pkey"),
+        # Owned by exactly one thing: nothing means unresolvable, two means ambiguous.
+        CheckConstraint(
+            "num_nonnulls(user_id, group_id) = 1",
+            name="workspace_handles_owner_check",
+        ),
+        # A rename that claims the new name and forgets to release the old one would
+        # leave one person answering to two handles, and mis-ping silently.
+        Index(
+            "workspace_handles_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("user_id IS NOT NULL"),
+        ),
+        Index(
+            "workspace_handles_group",
+            "group_id",
+            unique=True,
+            postgresql_where=text("group_id IS NOT NULL"),
+        ),
+    )
+
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    #: Always written as SQL `lower(...)`, never Python's — see `lib/mentions._simple_lower`.
+    handle_lower: Mapped[str] = mapped_column(Text, nullable=False)
+    user_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE")
+    )
+    group_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("user_groups.id", ondelete="CASCADE")
+    )
 
 
 class SavedItem(Base):

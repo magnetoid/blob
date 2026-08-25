@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 from ..lib.auth import hash_password
 from ..lib.ids import new_id
+from ..services import handles as handle_service
 from ..services import messages as message_service
 from .engine import close_engine, transaction
 
@@ -142,6 +143,9 @@ async def seed() -> None:
                     "role": role,
                 },
             )
+            # The sixth writer of a mentionable name. Seeding without claiming would
+            # leave a demo workspace whose people a group could be named over.
+            await handle_service.claim(session, workspace_id, name, user_id=user_id)
 
         for name, topic in CHANNELS:
             channel_id = new_id()

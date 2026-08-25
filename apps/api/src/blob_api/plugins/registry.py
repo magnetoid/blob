@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..lib.auth import hash_token
 from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import new_id, new_token
+from ..services import handles as handle_service
 from .manifest import CommandDecl, Manifest, Status, new_scopes, validate_manifest
 from .signing import new_secret
 
@@ -169,32 +170,28 @@ async def _create_bot_user(
             "plugin_id": plugin_id,
         },
     )
+    # A bot is a real users row, so its name is mentionable and has to be allocated the
+    # way anybody else's is.
+    await handle_service.claim(session, workspace_id, display_name, user_id=user_id)
     return user_id
 
 
 async def _available_display_name(session: AsyncSession, workspace_id: str, wanted: str) -> str:
-    """Mentions resolve by display name, and the unique index is partial on active users.
+    """Find a mentionable name this bot can have, suffixing until one is free.
 
-    A bot named after a person who already exists would fail the insert, so a suffix is
+    A bot named after somebody who already exists would fail the insert, so a suffix is
     added rather than refusing an otherwise valid install.
+
+    Probes `workspace_handles` rather than `users`, which is the difference between
+    stepping around a person and stepping around anything mentionable: an app whose
+    manifest name matches a *group* handle would otherwise mint a colliding bot on the
+    first attempt. This is the one honest place for a probe — it is picking a free name,
+    not guarding a write, and the claim in `_create_bot_user` is still what decides.
     """
     base = wanted.strip()[:60] or "App"
     for attempt in range(20):
         candidate = base if attempt == 0 else f"{base} {attempt + 1}"
-        clash = (
-            await session.execute(
-                text(
-                    """
-                    SELECT 1 FROM users
-                     WHERE workspace_id = :ws
-                       AND lower(display_name) = lower(:name)
-                       AND deactivated_at IS NULL
-                    """
-                ),
-                {"ws": workspace_id, "name": candidate},
-            )
-        ).fetchone()
-        if clash is None:
+        if not await handle_service.is_taken(session, workspace_id, candidate):
             return candidate
     raise conflict("Could not find a free name for that app's bot.", "name_unavailable")
 

@@ -28,13 +28,14 @@ from ..lib.auth import (
     require_instance_admin,
     require_owner,
 )
-from ..lib.errors import bad_request, conflict, not_found
+from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import new_id, new_token
 from ..lib.redis import redis
 from ..plugins.manifest import SCOPES
 from ..realtime import hub
 from ..schemas.base import CamelModel, iso, require_iso
 from ..services import audit as audit_service
+from ..services import handles as handle_service
 from ..services import policies as policy_service
 from ..services import workspaces as workspace_service
 from ..services.audit import AuditEntry, actor_for
@@ -306,6 +307,11 @@ async def deactivate(
             text("UPDATE users SET deactivated_at = now() WHERE id = :id"), {"id": user_id}
         )
         await session.execute(text("DELETE FROM sessions WHERE user_id = :id"), {"id": user_id})
+        # The display-name index is partial on `deactivated_at IS NULL`, so deactivating
+        # already frees the name. The handle table has to be told, or it would hold a
+        # departed account's name against everybody for ever — the exact hostage problem
+        # the partial index exists to prevent.
+        await handle_service.release_user(session, user_id)
         await audit_service.record(
             session,
             actor_for(request, admin),
@@ -336,24 +342,28 @@ async def reactivate(
     user_id: str, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     async with transaction() as (session, after):
-        # The display-name unique index is partial (WHERE deactivated_at IS NULL), so
-        # reactivating into a name someone took since would raise a raw 23505.
-        clash = (
+        # Re-claiming the handle is the check. It replaces a probe that read `users`
+        # and only `users`, which could not see a *group* that had taken the name in the
+        # meantime — the collision no index spanning one table can catch.
+        name = (
             await session.execute(
-                text(
-                    """
-                    SELECT 1 FROM users active
-                     WHERE active.workspace_id = :ws
-                       AND active.deactivated_at IS NULL
-                       AND lower(active.display_name) =
-                           (SELECT lower(display_name) FROM users WHERE id = :id)
-                    """
-                ),
+                text("SELECT display_name FROM users WHERE id = :id AND workspace_id = :ws"),
                 {"id": user_id, "ws": admin.workspace_id},
             )
         ).fetchone()
-        if clash is not None:
-            raise conflict("Someone else uses that display name now. Rename them first.")
+        if name is None:
+            raise not_found("There is no such person here.")
+        try:
+            await handle_service.claim(
+                session, admin.workspace_id, name.display_name, user_id=user_id
+            )
+        except Exception as exc:
+            if unique_violation(exc):
+                raise conflict(
+                    "That display name is taken now. Rename whoever holds it first.",
+                    "name_taken",
+                ) from exc
+            raise
 
         await session.execute(
             text("UPDATE users SET deactivated_at = NULL WHERE id = :id AND workspace_id = :ws"),

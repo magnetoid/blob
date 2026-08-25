@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request, conflict, not_found
 from ..lib.ids import new_id
+from . import handles
 from .channels import DEFAULT_CHANNELS, add_members
 
 
@@ -192,6 +193,9 @@ async def found(
             "display_name": display_name,
         },
     )
+    # The name has to be allocated as well as stored: it is mentionable, and a group
+    # handle could otherwise be created to match it. See `services/handles`.
+    await handles.claim(session, workspace_id, display_name, user_id=owner_id)
 
     for channel_name in DEFAULT_CHANNELS:
         channel_id = new_id()
@@ -272,4 +276,5 @@ async def add_person(
             "role": role,
         },
     )
+    await handles.claim(session, workspace_id, display_name, user_id=user_id)
     return user_id

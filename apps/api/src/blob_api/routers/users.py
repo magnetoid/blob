@@ -6,10 +6,11 @@ import json
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import not_found
+from ..lib.errors import conflict, not_found, unique_violation
 from ..lib.ids import new_id
 from ..lib.storage import public_file_url
 from ..realtime import hub
@@ -31,6 +32,7 @@ from ..schemas.requests import (
 )
 from ..services import channels as channel_service
 from ..services import commands as command_service
+from ..services import handles as handle_service
 from ..services import messages as message_service
 from ..services import themes as theme_service
 from ..services.serialize import USER_COLUMNS, to_current_user, to_user, to_workspace
@@ -159,41 +161,17 @@ async def update_me(
     given = payload.model_fields_set
 
     async with transaction() as (session, after):
-        await session.execute(
-            text(
-                """
-                UPDATE users
-                   SET display_name = COALESCE(:display_name, display_name),
-                       full_name    = CASE WHEN :has_full_name THEN :full_name
-                                           ELSE full_name END,
-                       title        = CASE WHEN :has_title THEN :title ELSE title END,
-                       timezone     = COALESCE(:timezone, timezone),
-                       status_emoji = CASE WHEN :has_status_emoji THEN :status_emoji
-                                           ELSE status_emoji END,
-                       status_text  = CASE WHEN :has_status_text THEN :status_text
-                                           ELSE status_text END,
-                       status_expires_at = CASE
-                            WHEN :has_status_expires THEN cast(:status_expires_at AS timestamptz)
-                            ELSE status_expires_at END
-                 WHERE id = :id
-                """
-            ),
-            {
-                "id": user.id,
-                "display_name": payload.display_name,
-                "has_full_name": "full_name" in given,
-                "full_name": payload.full_name,
-                "has_title": "title" in given,
-                "title": payload.title,
-                "timezone": payload.timezone,
-                "has_status_emoji": "status_emoji" in given,
-                "status_emoji": payload.status_emoji,
-                "has_status_text": "status_text" in given,
-                "status_text": payload.status_text,
-                "has_status_expires": "status_expires_at" in given,
-                "status_expires_at": payload.status_expires_at,
-            },
-        )
+        # Renaming can lose two indexes — `users_display_name_uniq` and the handle
+        # table's primary key — and both mean the same thing to the person typing.
+        # Neither was caught before: this route imported only `not_found`, so taking a
+        # name somebody else held came back as a 500 from the catch-all handler.
+        try:
+            await _write_profile(session, user, payload, given)
+        except Exception as exc:
+            if unique_violation(exc):
+                raise conflict("That display name is taken.", "name_taken") from exc
+            raise
+
         row = (
             await session.execute(
                 text(f"SELECT {USER_COLUMNS} FROM users WHERE id = :id"), {"id": user.id}
@@ -207,6 +185,56 @@ async def update_me(
         )
 
     return CurrentUserOut(user=to_current_user(row))
+
+
+async def _write_profile(
+    session: AsyncSession,
+    user: SessionUser,
+    payload: UpdateProfileInput,
+    given: set[str],
+) -> None:
+    """The two writes a profile edit makes, so the caller can wrap both in one guard."""
+    await session.execute(
+        text(
+            """
+            UPDATE users
+               SET display_name = COALESCE(:display_name, display_name),
+                   full_name    = CASE WHEN :has_full_name THEN :full_name
+                                       ELSE full_name END,
+                   title        = CASE WHEN :has_title THEN :title ELSE title END,
+                   timezone     = COALESCE(:timezone, timezone),
+                   status_emoji = CASE WHEN :has_status_emoji THEN :status_emoji
+                                       ELSE status_emoji END,
+                   status_text  = CASE WHEN :has_status_text THEN :status_text
+                                       ELSE status_text END,
+                   status_expires_at = CASE
+                        WHEN :has_status_expires THEN cast(:status_expires_at AS timestamptz)
+                        ELSE status_expires_at END
+             WHERE id = :id
+            """
+        ),
+        {
+            "id": user.id,
+            "display_name": payload.display_name,
+            "has_full_name": "full_name" in given,
+            "full_name": payload.full_name,
+            "has_title": "title" in given,
+            "title": payload.title,
+            "timezone": payload.timezone,
+            "has_status_emoji": "status_emoji" in given,
+            "status_emoji": payload.status_emoji,
+            "has_status_text": "status_text" in given,
+            "status_text": payload.status_text,
+            "has_status_expires": "status_expires_at" in given,
+            "status_expires_at": payload.status_expires_at,
+        },
+    )
+    # Only on an actual rename: the UPDATE above COALESCEs, so a None leaves the name
+    # alone and re-claiming it would collide with the row this person already holds.
+    if payload.display_name is not None:
+        await handle_service.rehandle_user(
+            session, user.workspace_id, user.id, payload.display_name
+        )
 
 
 @router.patch("/api/me/prefs", response_model=PrefsOut)

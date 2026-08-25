@@ -36,6 +36,7 @@ from ..schemas.requests import (
     SignupInput,
 )
 from ..services import audit as audit_service
+from ..services import handles as handle_service
 from ..services import workspaces as workspace_service
 from ..services.audit import actor_for
 from ..services.channels import DEFAULT_CHANNELS, add_members
@@ -174,6 +175,12 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
                         "display_name": payload.display_name,
                         "role": role,
                     },
+                )
+                # Inside the same try: the name is mentionable, so it has to be allocated
+                # as well as stored, and losing that index is the same conflict losing the
+                # display-name index already is.
+                await handle_service.claim(
+                    session, workspace_id, payload.display_name, user_id=user_id
                 )
             except Exception as exc:
                 if unique_violation(exc):
