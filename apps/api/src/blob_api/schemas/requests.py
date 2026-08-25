@@ -146,6 +146,11 @@ class SaveInput(CamelModel):
     saved: bool
 
 
+class MarkUnreadInput(CamelModel):
+    #: The message to leave unread. The cursor lands on the one before it.
+    message_id: str
+
+
 class CreateGroupInput(CamelModel):
     #: Validated properly in `services/user_groups.clean_handle`, which also strips a
     #: leading "@" — the shape is enforced by a CHECK, this is only a length floor.

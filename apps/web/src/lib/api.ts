@@ -363,6 +363,11 @@ export const api = {
     setMembership: (id: string, input: { notifyLevel?: NotifyLevel; isStarred?: boolean }) =>
       patch<{ channel: ChannelWithState }>(`/api/channels/${id}/membership`, input),
     pins: (id: string) => get<{ messages: Message[] }>(`/api/channels/${id}/pins`),
+    markUnread: (id: string, messageId: string) =>
+      post<{ readState: { channelId: string; lastReadMessageId: string | null; mentionCount: number } }>(
+        `/api/channels/${id}/unread`,
+        { messageId },
+      ),
     markRead: (id: string, lastReadMessageId: string) =>
       post<{ readState: { channelId: string; lastReadMessageId: string; mentionCount: number } }>(
         `/api/channels/${id}/read`,

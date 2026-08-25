@@ -86,6 +86,7 @@ export const MessageRow = memo(function MessageRow({
   const customEmoji = useStore((s) => s.customEmoji);
   const toggleReaction = useStore((s) => s.toggleReaction);
   const toggleSaved = useStore((s) => s.toggleSaved);
+  const markUnread = useStore((s) => s.markUnread);
   const myGroupIds = useStore((s) => s.myGroupIds);
   const knownNames = useMentionIndex();
   const [copied, setCopied] = useState(false);
@@ -656,6 +657,21 @@ export const MessageRow = memo(function MessageRow({
                 >
                   Copy link
                 </button>
+                {/* Only in the channel, not in a thread: the read cursor is a channel
+                    cursor, so marking a reply unread would move a marker pointing at
+                    something the channel list does not show. */}
+                {!message.threadRootId && (
+                  <button
+                    className="autocomplete-item"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void markUnread(message.channelId, message.id);
+                    }}
+                  >
+                    Mark unread
+                  </button>
+                )}
                 {/* Above pinning, and worded to draw the line between them: this one
                     is yours and tells nobody, pinning is the channel's and tells
                     everybody. Slack orders them the same way. */}

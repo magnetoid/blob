@@ -51,6 +51,89 @@ async def mark_read(
     )
 
 
+async def mark_unread(
+    session: AsyncSession, user_id: str, channel_id: str, message_id: str
+) -> ReadStateOut:
+    """Leave this message, and everything after it, unread.
+
+    A separate verb from `mark_read` on purpose. That one is a ratchet — `GREATEST(...)`,
+    so the cursor only ever moves forward — and the ratchet is load-bearing: two tabs
+    both call it on focus, and a stale one arriving second would otherwise un-read what
+    the other had just read. Rewinding has to be something a person asked for, not
+    something a race can do.
+
+    The cursor lands on the message *before* the target, so the target itself is the
+    first unread one — which is what "mark unread" means when you are marking the message
+    you want to come back to.
+    """
+    previous = (
+        await session.execute(
+            text(
+                """
+                SELECT id FROM messages
+                 WHERE channel_id = :channel_id
+                   AND thread_root_id IS NULL
+                   AND deleted_at IS NULL
+                   AND id < :message_id
+                 ORDER BY id DESC
+                 LIMIT 1
+                """
+            ),
+            {"channel_id": channel_id, "message_id": message_id},
+        )
+    ).fetchone()
+    cursor = previous.id if previous else None
+
+    # Recomputed rather than left at zero. `mark_read` zeroes the badge, so rewinding past
+    # a message that named you would otherwise leave it silently uncounted — the channel
+    # would show unread without saying it wants you specifically.
+    mentions = (
+        await session.execute(
+            text(
+                """
+                SELECT count(*)::int AS count FROM messages m
+                 WHERE m.channel_id = :channel_id
+                   AND m.deleted_at IS NULL
+                   AND m.author_id IS DISTINCT FROM cast(:user_id AS uuid)
+                   AND (cast(:cursor AS uuid) IS NULL OR m.id > cast(:cursor AS uuid))
+                   AND (
+                     cast(:user_id AS uuid) = ANY(m.mention_user_ids)
+                     OR m.mentions_everyone
+                     OR m.mention_group_ids && (
+                          SELECT coalesce(array_agg(group_id), '{}')
+                            FROM user_group_members WHERE user_id = :user_id)
+                   )
+                """
+            ),
+            {"channel_id": channel_id, "user_id": user_id, "cursor": cursor},
+        )
+    ).fetchone()
+    mention_count = mentions.count if mentions else 0
+
+    await session.execute(
+        text(
+            """
+            INSERT INTO read_states
+              (user_id, channel_id, last_read_message_id, mention_count, updated_at)
+            VALUES (:user_id, :channel_id, cast(:cursor AS uuid), :mention_count, now())
+            ON CONFLICT (user_id, channel_id) DO UPDATE
+              SET last_read_message_id = cast(:cursor AS uuid),
+                  mention_count = :mention_count,
+                  updated_at = now()
+            """
+        ),
+        {
+            "user_id": user_id,
+            "channel_id": channel_id,
+            "cursor": cursor,
+            "mention_count": mention_count,
+        },
+    )
+    return ReadStateOut(
+        channel_id=channel_id, last_read_message_id=cursor, mention_count=mention_count
+    )
+
+
 async def advance_for_author(
     session: AsyncSession, user_id: str, channel_id: str, message_id: str
 ) -> None:

@@ -88,6 +88,15 @@ interface State {
   activeThreadRootId: string | null;
   /** Where the "New messages" divider sits, captured when a channel is opened. */
   unreadMarkers: Record<string, string | null>;
+  /**
+   * A channel where you deliberately left something unread.
+   *
+   * Auto-read is aggressive by design — `openChannel` marks read on arrival and every
+   * `message.new` in the channel you are looking at marks read again — so without this,
+   * one arriving message would undo the thing you just asked for. Cleared on the next
+   * channel you open, so coming back reads normally.
+   */
+  suppressReadFor: string | null;
 
   boot: (data: Bootstrap) => void;
   reset: () => void;
@@ -118,6 +127,8 @@ interface State {
   toggleReaction: (message: Message, emoji: string) => Promise<void>;
   toggleSaved: (messageId: string) => Promise<void>;
   markRead: (channelId: string) => Promise<void>;
+  /** Leave a message, and everything after it, unread. */
+  markUnread: (channelId: string, messageId: string) => Promise<void>;
   applyEvent: (event: ServerEvent) => void;
   resync: () => Promise<void>;
   setPrefs: (prefs: Partial<UserPrefs>) => Promise<void>;
@@ -172,6 +183,7 @@ export const useStore = create<State>((set, get) => ({
   activeChannelId: null,
   activeThreadRootId: null,
   unreadMarkers: {},
+  suppressReadFor: null,
 
   boot: (data) =>
     set({
@@ -217,6 +229,7 @@ export const useStore = create<State>((set, get) => ({
       activeChannelId: null,
       activeThreadRootId: null,
       unreadMarkers: {},
+      suppressReadFor: null,
     });
   },
 
@@ -344,6 +357,9 @@ export const useStore = create<State>((set, get) => ({
     const state = get();
     set({
       activeChannelId: channelId,
+      // Cleared on every open, including of the same channel: coming back to something
+      // you left unread is exactly when it should be read again.
+      suppressReadFor: null,
       activeThreadRootId: null,
       // Freeze the unread divider where it was on entry, so it doesn't jump as
       // messages arrive while you're reading.
@@ -599,6 +615,8 @@ export const useStore = create<State>((set, get) => ({
   },
 
   markRead: async (channelId) => {
+    // Somebody asked for this channel to stay unread. Honoured until they open another.
+    if (get().suppressReadFor === channelId) return;
     const list = get().messages[channelId];
     const newest = list?.items.filter((m) => !m.id.startsWith('pending-')).at(-1);
     if (!newest) return;
@@ -606,6 +624,16 @@ export const useStore = create<State>((set, get) => ({
     if (channel && channel.lastReadMessageId === newest.id && channel.mentionCount === 0) return;
 
     await api.channels.markRead(channelId, newest.id);
+  },
+
+  markUnread: async (channelId, messageId) => {
+    const { readState } = await api.channels.markUnread(channelId, messageId);
+    set((s) => ({
+      // The divider moves with the cursor, so the message you marked is the first thing
+      // under "New messages" rather than the app simply forgetting where you were.
+      unreadMarkers: { ...s.unreadMarkers, [channelId]: readState.lastReadMessageId },
+      suppressReadFor: channelId,
+    }));
   },
 
   applyEvent: (event) => {

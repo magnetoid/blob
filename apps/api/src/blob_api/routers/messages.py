@@ -25,6 +25,7 @@ from ..schemas.models import Message, MessageTranslation, ReadStateOut
 from ..schemas.requests import (
     EditMessageInput,
     MarkReadInput,
+    MarkUnreadInput,
     PinInput,
     ReactionInput,
     SaveInput,
@@ -476,6 +477,31 @@ async def mark_read(
         )
         state = await read_state_service.mark_read(
             session, user.id, channel_id, payload.last_read_message_id
+        )
+        after.add(lambda: read_state_service.broadcast(user.id, state))
+    return ReadStateResponse(read_state=state)
+
+
+@router.post("/api/channels/{channel_id}/unread", response_model=ReadStateResponse)
+async def mark_unread(
+    channel_id: str, payload: MarkUnreadInput, user: SessionUser = Depends(current_user)
+) -> ReadStateResponse:
+    """Leave a message, and everything after it, unread.
+
+    Its own route rather than a flag on `/read`, because that one is a ratchet and the
+    ratchet protects something: two tabs both mark read on focus, and a stale one
+    arriving second must not un-read what the other just read. Rewinding is a thing a
+    person asks for, so it says so.
+    """
+    async with transaction() as (session, after):
+        await channel_service.assert_channel_access(
+            session, user.id, channel_id, require_member=True
+        )
+        message = await message_service.by_id(session, payload.message_id)
+        if message is None or message.channel_id != channel_id:
+            raise not_found("That message is gone.")
+        state = await read_state_service.mark_unread(
+            session, user.id, channel_id, payload.message_id
         )
         after.add(lambda: read_state_service.broadcast(user.id, state))
     return ReadStateResponse(read_state=state)
