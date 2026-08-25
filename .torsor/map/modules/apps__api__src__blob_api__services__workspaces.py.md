@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T14:35:36'
-updated: '2026-08-25T14:35:36'
+created: '2026-08-25T16:15:59'
+updated: '2026-08-25T16:15:59'
 ---
 
 # apps/api/src/blob_api/services/workspaces.py
@@ -21,5 +21,5 @@ Symbols in `apps/api/src/blob_api/services/workspaces.py`.
 - L118 `password_hash_for(session: AsyncSession, email: str)` (function) — This person's password, from whichever of their rows still has one.
 - L141 `set_password_everywhere(session: AsyncSession, email: str, password_hash: str)` (function) — Write a new password to every row this person has.
 - L154 `found(session: AsyncSession, *, name: str, email: str, display_name: str, password_hash: str | None, grant_admin: bool=False)` (function) — Create a workspace with its founder, their default channels, and nothing else.
-- L219 `user_row_in(session: AsyncSession, workspace_id: str, email: str)` (function) — This person's account in one workspace, or 404 if they have none there.
-- L244 `add_person(session: AsyncSession, *, workspace_id: str, email: str, display_name: str, role: str='member')` (function) — Put an existing person into another workspace, carrying their password across.
+- L226 `user_row_in(session: AsyncSession, workspace_id: str, email: str)` (function) — This person's account in one workspace, or 404 if they have none there.
+- L251 `add_person(session: AsyncSession, *, workspace_id: str, email: str, display_name: str, role: str='member')` (function) — Put an existing person into another workspace, carrying their password across.

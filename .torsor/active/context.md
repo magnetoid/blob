@@ -280,3 +280,19 @@ Worth knowing before changing the equivalent code:
   `message.new` in the channel you are looking at reads again), so `suppressReadFor` has
   to hold until you next open a channel, or one arriving message undoes what you asked for
   and nothing says so.
+- **Patch a name your module owns, never one it borrows.** The generalisation of the
+  `route_agent_to` trap above, and it bites harder. `lib/llm.py` does `import httpx`, and
+  so does `tests/helpers.py` — it is one module object, so a fixture that patches
+  `llm.httpx.AsyncClient` to inject a fake model transport also replaces the class the
+  *test suite's own client* is built from. Every request to the app under test then goes
+  to the model's mock. Six tests failed in ways that read as bugs in the feature, and
+  nothing pointed at the fixture. Fixture order is what decides whether it happens at all:
+  `model` before `client` in the signature means the client is constructed after the
+  patch. The fix is a named seam the module owns — `llm.open_client()` — which a test can
+  replace with no reach outside the module. Any `monkeypatch.setattr(mod.somelib, ...)`
+  has this shape.
+- **The worker answers mentions; the app only seeds.** A model key set on the API service
+  and not on the worker produces the worst version of the built-in agent: it exists, it is
+  mentionable, and it answers every mention with "no model is configured". Both services
+  in `docker-compose.prod.yml` carry `LLM_*` for this reason, and the same split applies
+  to anything else the agent path will need.

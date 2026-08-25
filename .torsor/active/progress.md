@@ -300,9 +300,26 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   deliberately not stored — the posts are already messages with ids, and keeping the rest
   would make this a transcript store to answer what the counts answer.
 
+- **Blob got an agent of its own** — the gap the plumbing hid. Blob had spoken AG-UI as
+  the *client* the whole time and had no model anywhere: `services/agentic.py` summarises
+  threads with regex, and every agent was somebody else's container holding somebody
+  else's key. So a fresh workspace had no agent at all, and "agent-native" described the
+  architecture rather than the product.
+
+  A fourth runtime, `builtin`, which *is* an AG-UI server that never leaves the process.
+  It yields the same SCREAMING_SNAKE events an external agent sends, so nothing downstream
+  changed — same `Fold`, same 12k split, same ten-message cap, same `agent_runs` row, same
+  real `users` bot. The third transport cost a dozen lines, which is what `plugins/agui.py`
+  being a pure function of events bought.
+
+  It is a plugin rather than a special case: three scopes, disableable, and a manifest off
+  the wire is *refused* if it claims the runtime — that runtime spends the server's key
+  rather than the caller's, so it is a door question, not a scope question. Seeded at
+  founding and reconciled at boot; nothing at all is seeded when no model is configured.
+
 ## In progress
 
-Nothing. 591 backend tests pass with storage up and 218 pass in the browser; ruff, mypy,
+Nothing. 609 backend tests pass with storage up and 218 pass in the browser; ruff, mypy,
 tsc, `alembic check` and `torsor guard` are clean. Two of those 591 skip when no bucket
 is running (the MinIO-backed attachment and snapshot ones — green while proving nothing,
 so bring storage up before trusting them). Counts are worth re-measuring rather than

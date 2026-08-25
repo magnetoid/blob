@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T14:35:36'
-updated: '2026-08-25T14:35:36'
+created: '2026-08-25T16:15:58'
+updated: '2026-08-25T16:15:58'
 ---
 
 # Repository Map
@@ -90,6 +90,9 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0016_agent_runs.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0017_builtin_agent.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 37 symbol(s)
   - `_now()` (function)
   - `Base` (class)
@@ -100,7 +103,7 @@ Modules and their key symbols (ranked by references).
   - `seed()` (function)
   - `main()` (function)
   - `_run()` (function)
-- **apps/api/src/blob_api/jobs/agui.py** — 11 symbol(s)
+- **apps/api/src/blob_api/jobs/agui.py** — 14 symbol(s)
   - `Listener` (class)
   - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None)` (function)
   - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
@@ -139,6 +142,12 @@ Modules and their key symbols (ranked by references).
   - `new_id()` (function)
   - `new_token(nbytes: int=32)` (function)
   - `is_newer(a: str, b: str | None)` (function)
+- **apps/api/src/blob_api/lib/llm.py** — 11 symbol(s)
+  - `LlmError` (class)
+  - `Turn` (class)
+  - `model_name()` (function)
+  - `_collapse(turns: Sequence[Turn])` (function)
+  - `_stream_sse(url: str, headers: Mapping[str, str], body: dict[str, object])` (function)
 - **apps/api/src/blob_api/lib/logbuf.py** — 11 symbol(s)
   - `_discard_client()` (function)
   - `_redis()` (function)
@@ -170,13 +179,4 @@ Modules and their key symbols (ranked by references).
   - `Limit` (class)
   - `consume(name: str, subject: str)` (function)
 - **apps/api/src/blob_api/lib/redis.py** — 4 symbol(s)
-  - `presence_key(user_id: str)` (function)
-  - `close_redis()` (function)
-  - `typing_key(channel_id: str, user_id: str)` (function)
-  - `rate_key(bucket: str, subject: str)` (function)
-- **apps/api/src/blob_api/lib/storage.py** — 12 symbol(s)
-  - `_client()` (function)
-  - `public_file_url(key: str)` (function)
-  - `_build(endpoint: str)` (function)
-  - `_signing_client()` (function)
-  - `presign_download(key: str, filename: str | Non…[truncated]
+  - `presence_key(user_id: st…[truncated]
