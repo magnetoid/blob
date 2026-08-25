@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T03:35:16'
-updated: '2026-08-25T03:35:16'
+created: '2026-08-25T04:30:13'
+updated: '2026-08-25T04:30:13'
 ---
 
 # Repository Map
@@ -133,6 +133,12 @@ Modules and their key symbols (ranked by references).
   - `new_id()` (function)
   - `new_token(nbytes: int=32)` (function)
   - `is_newer(a: str, b: str | None)` (function)
+- **apps/api/src/blob_api/lib/logbuf.py** — 11 symbol(s)
+  - `_discard_client()` (function)
+  - `_redis()` (function)
+  - `close_log_buffer()` (function)
+  - `_entry_for(record: logging.LogRecord)` (function)
+  - `_iso(epoch: float)` (function)
 - **apps/api/src/blob_api/lib/mail.py** — 3 symbol(s)
   - `send_mail(to: str, subject: str, body: str)` (function)
   - `send_invite(to: str, inviter_name: str, url: str, workspace: str)` (function)
@@ -172,10 +178,4 @@ Modules and their key symbols (ranked by references).
   - `_error(status: int, code: str, message: str, field: str | None=None)` (function)
   - `is_allowed_origin(origin: str)` (function)
   - `SessionMiddleware` (class)
-  - `lifespan(app: FastAPI)` (function)
-  - `create_app()` (function)
-- **apps/api/src/blob_api/openapi_dump.py** — 1 symbol(s)
-  - `main()` (function)
-- **apps/api/src/blob_api/plugins/agui.py** — 21 symbol(s)
-  - `Post` (class)
-  - `_message_id(event: Mapping[str…[truncated]
+  - `lifespan(app: F…[truncated]

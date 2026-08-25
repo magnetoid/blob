@@ -4,15 +4,15 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T03:35:16'
-updated: '2026-08-25T03:35:16'
+created: '2026-08-25T04:30:13'
+updated: '2026-08-25T04:30:13'
 ---
 
 # apps/api/tests/conftest.py
 
 Symbols in `apps/api/tests/conftest.py`.
 
-- L40 `_migrate()` (function)
-- L45 `_clean_state()` (function) — Wipe the database and Redis before each test module's fixtures build state.
-- L57 `client()` (function)
-- L63 `_shutdown()` (function)
+- L41 `_migrate()` (function)
+- L46 `_clean_state()` (function) — Wipe the database and Redis before each test module's fixtures build state.
+- L58 `client()` (function)
+- L64 `_shutdown()` (function)

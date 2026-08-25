@@ -103,6 +103,22 @@ Worth knowing before changing the equivalent code:
   with no call site — `api.channels.setMembership`, `addMembers`, `archive`, `leave`,
   `update`, `api.messages.threads`, `auth.forgotPassword` and `resetPassword` were all
   dead at once. Do it after any milestone that lands a batch of routes.
+- **A diagnostics sink must not share a connection pool with anything that matters.**
+  `lib/logbuf`'s handler first used `lib.redis.redis`. A logging handler is called from
+  anywhere — including from code running on an event loop that is about to close — and a
+  redis-py connection belongs to the loop that opened it, so a write scheduled from the
+  wrong place leaves a dead connection in the pool. That pool is presence, rate limiting
+  and the pub/sub bridge, so the thing that exists to *report* failures was able to cause
+  them. It surfaced as `RuntimeError: Event loop is closed` inside `conftest._clean_state`
+  two test files later, which is about how much a production instance of this would have
+  resembled its cause. Own client, discarded and rebuilt on any error; a test asserts it
+  is not the shared one. The same reasoning applies to anything else added on the side of
+  the request path.
+- **A logging handler that stores records over the network can eat itself.** Storing a
+  record can fail; the failure logs; that record is stored; it fails. `logbuf` drops
+  records from `redis.*` and its own logger, and its writer never logs at all — not even
+  about being unable to write. There is also a hard in-flight cap, because the failure
+  mode is unbounded task fan-out and a clever guard is the wrong kind of defence there.
 - **A URL the server builds and the client parses is a contract with no type.**
   `routers/auth.py` composes `f"{PUBLIC_URL}/reset/{token}"` and `features/auth/tokens.ts`
   matches `/^\/reset\/(.+)$/`. Nothing connects them, so a change to either fails no test

@@ -240,11 +240,32 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   labels to show, and a per-user flag on `Message` would mean threading a user id through
   the select every broadcast is built from.
 
+- **What's new, and the errors page** — two things the console could not say.
+
+  **What's new** fills the account-menu row that had said "Update — Soon" since the menu
+  was written. Shipped *with the build* rather than stored in a table: Blob deploys
+  continuously from main, so the bundle somebody is running is the release, and notes
+  compiled into it cannot describe a version they are not looking at. Identified by date,
+  not semver — every package still says 0.1.0 and nothing has ever been tagged, so
+  numbering the last four weeks 0.2 through 0.5 after the fact would be inventing a
+  history. The guarded invariant is the order: `LATEST_RELEASE` is `RELEASES[0]` and the
+  unseen check is a string comparison against its date, so an entry appended at the bottom
+  would silently disable the marker and show the newest update last.
+
+  **Errors and logs** is the instance console's answer to "something happened". A capped
+  Redis list of WARNING and above, written by every process, read newest-first with the
+  traceback and the endpoint. Gated on `instance_admins` rather than workspace admin,
+  because a traceback is about the machine and can name a channel in a workspace the
+  reader is not in. Clearing it is audited — the one action there that destroys evidence.
+  Two traps came out of it and both are in `context.md`: a diagnostics sink must not share
+  a connection pool with anything that matters, and a handler that stores records over the
+  network can eat itself.
+
 ## In progress
 
-Nothing. 489 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
+Nothing. 513 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
 ones, which skip when no bucket is up — green while proving nothing, so bring storage up
-before trusting them); 177 pass in the browser. ruff, mypy, tsc and `alembic check` are
+before trusting them); 199 pass in the browser. ruff, mypy, tsc and `alembic check` are
 clean. Counts are worth re-measuring rather than trusting: this line read "274 and 17"
 for several milestones after both had moved, and "467 and 106" when the browser suite
 had already reached 142.
@@ -256,11 +277,13 @@ had already reached 142.
 Each of these was checked against the source, not assumed. None has a server side, so
 none is an entrance problem — they are genuinely unbuilt.
 
-- **A message has no permalink.** Slack's "Copy link" is how a message gets quoted into
-  another channel or a ticket, and there is no URL that addresses one. `history` already
-  accepts `around`, so the query half exists; what is missing is a route and the
-  scroll-to-and-highlight on arrival, which `PinnedPanel`'s `onJump` already does for a
-  message that happens to be loaded.
+- ~~**A message has no permalink.**~~ **Done.** `/m/<id>`, a Copy link action, and
+  `GET /api/messages/{id}` — the missing verb, needed because a link carries an id and
+  nothing else and because a thread reply is never in channel history.
+- **`also_in_channel` is dormant.** Every send path writes it, it is stored and
+  serialised onto `Message`, and *no query reads it and no component branches on it*. The
+  client never sets it true, so nothing is broken today; a reply sent with it would appear
+  live and vanish on reload. Either wire it into `history`'s filter or delete the column.
 - **Mark as unread.** `POST /api/channels/:id/read` takes a message id and would accept
   an earlier one; nothing offers it. This is how people leave themselves a marker, and
   its absence pushes them to Later for a job Later is not for.

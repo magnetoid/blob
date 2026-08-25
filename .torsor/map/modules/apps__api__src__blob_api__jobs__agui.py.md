@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T03:35:16'
-updated: '2026-08-25T03:35:16'
+created: '2026-08-25T04:30:13'
+updated: '2026-08-25T04:30:13'
 ---
 
 # apps/api/src/blob_api/jobs/agui.py
