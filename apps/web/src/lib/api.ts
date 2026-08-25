@@ -159,6 +159,19 @@ export interface AdminHealth {
   version: string;
 }
 
+/** One captured warning or error from the server, newest first in the list. */
+export interface ServerLogEntry {
+  at: string;
+  level: string;
+  logger: string;
+  message: string;
+  /** Traceback, when the record carried an exception. */
+  detail: string | null;
+  /** The endpoint being served, on records from the unhandled-error handler. */
+  path: string | null;
+  method: string | null;
+}
+
 export interface AdminPlugin {
   id: string;
   slug: string;
@@ -508,6 +521,17 @@ export const api = {
 
     channels: () => get<{ channels: AdminChannel[] }>('/api/admin/channels'),
     archiveChannel: (id: string) => post<{ ok: true }>(`/api/admin/channels/${id}/archive`),
+
+    serverLogs: (params: { level?: string; limit?: number } = {}) => {
+      const query = new URLSearchParams();
+      if (params.level) query.set('level', params.level);
+      if (params.limit) query.set('limit', String(params.limit));
+      const suffix = query.toString() ? `?${query.toString()}` : '';
+      return get<{ entries: ServerLogEntry[]; capacity: number }>(
+        `/api/admin/instance/logs${suffix}`,
+      );
+    },
+    clearServerLogs: () => del<{ ok: true }>('/api/admin/instance/logs'),
 
     audit: (params: { action?: string; actorId?: string } = {}) => {
       const search = new URLSearchParams();

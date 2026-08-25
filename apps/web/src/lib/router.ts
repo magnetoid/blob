@@ -26,6 +26,7 @@ export const ADMIN_SECTIONS = [
   'app-policy',
   'feedback',
   'audit',
+  'logs',
   'health',
 ] as const;
 

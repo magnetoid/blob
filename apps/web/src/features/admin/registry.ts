@@ -227,6 +227,12 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
         keywords: ['events', 'security', 'history', 'forensics'],
       },
       {
+        id: 'logs',
+        label: 'Errors and logs',
+        description: 'What has gone wrong on this server recently.',
+        keywords: ['errors', 'logs', 'exceptions', 'traceback', 'warnings', 'crash'],
+      },
+      {
         id: 'feedback',
         label: 'Feedback',
         description: 'Bugs and requests filed from inside the app.',

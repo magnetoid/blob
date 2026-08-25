@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
+from ..lib import logbuf
 from ..lib.auth import (
     SessionUser,
     hash_token,
@@ -1248,4 +1249,61 @@ async def remove_custom_emoji(
             target_type="emoji",
             metadata={"name": name},
         )
+    return OkOut()
+
+
+# ─── server logs ──────────────────────────────────────────────────────────────
+# Health says whether the parts answer and the audit log says who did what. Neither says
+# what went *wrong*, so until now the only account of a failure was the container's
+# stdout — behind shell access to the host, gone after a restart, and split across
+# processes on a box running more than one. See `lib/logbuf`.
+class ServerLogEntry(CamelModel):
+    at: str
+    level: str
+    logger: str
+    message: str
+    #: Traceback, when the record carried an exception.
+    detail: str | None = None
+    #: The endpoint being served, on records from the unhandled-error handler.
+    path: str | None = None
+    method: str | None = None
+
+
+class ServerLogsOut(CamelModel):
+    entries: list[ServerLogEntry]
+    #: What the buffer holds at most, so the console can say the list is capped rather
+    #: than implying it is the whole history.
+    capacity: int
+
+
+@router.get("/instance/logs", response_model=ServerLogsOut)
+async def list_server_logs(
+    level: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    _admin: SessionUser = Depends(require_instance_admin),
+) -> ServerLogsOut:
+    """Recent warnings and errors, newest first.
+
+    Instance-scoped rather than workspace-scoped, and gated accordingly: a traceback is
+    about the machine, and can easily name a channel or an address belonging to a
+    workspace the reader is not in.
+    """
+    entries = await logbuf.read_logs(limit=limit, level=level.upper() if level else None)
+    return ServerLogsOut(
+        entries=[ServerLogEntry(**entry) for entry in entries],
+        capacity=logbuf.MAX_ENTRIES,
+    )
+
+
+@router.delete("/instance/logs", response_model=OkOut)
+async def clear_server_logs(
+    request: Request, admin: SessionUser = Depends(require_instance_admin)
+) -> OkOut:
+    """Empty the buffer — "I have dealt with these", which is its only state.
+
+    Audited, because it is the one action here that destroys evidence.
+    """
+    await logbuf.clear_logs()
+    async with transaction() as (session, _):
+        await audit_service.record(session, actor_for(request, admin), "server_logs.cleared")
     return OkOut()

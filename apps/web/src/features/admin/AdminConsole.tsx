@@ -29,6 +29,7 @@ import { AccountsSection } from './sections/AccountsSection.tsx';
 import { AuditSection } from './sections/AuditSection.tsx';
 import { FeedbackSection } from './sections/FeedbackSection.tsx';
 import { HealthSection } from './sections/HealthSection.tsx';
+import { LogsSection } from './sections/LogsSection.tsx';
 import { WorkspacesSection } from './sections/WorkspacesSection.tsx';
 
 /** Ties the drawer toggle to the nav it opens, for anything reading the page structure. */
@@ -55,6 +56,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<AdminSectionProps>>
   workspaces: WorkspacesSection,
   feedback: FeedbackSection,
   audit: AuditSection,
+  logs: LogsSection,
   health: HealthSection,
 };
 

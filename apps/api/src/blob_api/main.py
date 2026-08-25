@@ -20,6 +20,7 @@ from .config import settings
 from .db.engine import SessionFactory, close_engine
 from .lib.auth import SESSION_COOKIE, resolve_session
 from .lib.errors import AppError
+from .lib.logbuf import close_log_buffer, install_log_capture
 from .lib.redis import close_redis, redis
 from .realtime import hub
 from .web import mount_web
@@ -116,6 +117,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await hub.start_redis_bridge()
     yield
     await hub.stop_redis_bridge()
+    await close_log_buffer()
     await close_redis()
     await close_engine()
 
@@ -129,6 +131,11 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(SessionMiddleware)
+
+    # Warnings and errors are copied into a capped Redis list so the instance console can
+    # show them. Installed here rather than in `lifespan`, so a failure during startup —
+    # the kind hardest to see from outside — is already being captured.
+    install_log_capture()
 
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
@@ -158,7 +165,14 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
-        log.exception("unhandled error on %s %s", request.method, request.url.path)
+        # The extras are what let the console say *which* endpoint blew up rather than
+        # only that something did; `logbuf` reads them off the record.
+        log.exception(
+            "unhandled error on %s %s",
+            request.method,
+            request.url.path,
+            extra={"request_path": request.url.path, "request_method": request.method},
+        )
         return _error(500, "internal", "Something went wrong on our side.")
 
     @app.get("/healthz")

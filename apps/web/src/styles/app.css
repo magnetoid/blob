@@ -3419,3 +3419,91 @@ button.member-row:hover {
   margin-top: 8px;
   font-size: var(--text-label-size);
 }
+
+/* ─── server logs ─────────────────────────────────────────────────────────── */
+.log-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+/* The filters take the room; the two actions sit at the end. */
+.log-toolbar .chip-row {
+  flex: 1;
+  margin: 0;
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.log-entry {
+  padding: 10px 12px;
+  border: 1px solid var(--hairline-soft);
+  /* The level is the thing being scanned for, so it is a stripe rather than a word to
+     read: an error and a warning have to be tellable apart without stopping. */
+  border-left: 3px solid var(--text-faint);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.log-entry[data-level='error'],
+.log-entry[data-level='critical'] {
+  border-left-color: var(--danger);
+}
+
+.log-entry[data-level='warning'] {
+  border-left-color: var(--presence-away);
+}
+
+.log-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  font-size: var(--text-label-size);
+  color: var(--text-4);
+}
+
+.log-level {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.log-logger,
+.log-route {
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.log-message {
+  margin-top: 5px;
+  font-size: var(--text-row);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.log-toggle {
+  margin-top: 6px;
+  padding-left: 0;
+  padding-right: 0;
+  font-size: var(--text-label-size);
+}
+
+.log-detail {
+  margin: 8px 0 0;
+  padding: 10px;
+  border-radius: 7px;
+  background: var(--surface-hover);
+  color: var(--text-4);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  /* A traceback is wide and must scroll inside its own box rather than stretching the
+     console — the page body must never scroll sideways. */
+  overflow-x: auto;
+  white-space: pre;
+}

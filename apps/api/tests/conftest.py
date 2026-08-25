@@ -21,6 +21,7 @@ import pytest_asyncio
 from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory, close_engine
+from blob_api.lib.logbuf import close_log_buffer
 from blob_api.lib.redis import close_redis, redis
 from blob_api.realtime import hub
 
@@ -62,5 +63,6 @@ async def client() -> Client:
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def _shutdown() -> None:
     yield
+    await close_log_buffer()
     await close_redis()
     await close_engine()

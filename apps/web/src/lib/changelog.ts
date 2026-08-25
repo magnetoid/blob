@@ -68,6 +68,14 @@ export const RELEASES: readonly Release[] = [
       },
       {
         kind: 'added',
+        text: 'This page. Every update, with what it added, changed and fixed — in the account menu, where a row promising it had sat greyed out since the menu was built.',
+      },
+      {
+        kind: 'added',
+        text: 'Errors and logs in the server console: recent warnings and failures from every process, with the traceback and the endpoint that broke. Until now the only account of a problem was the container’s output, which needs shell access to the host and is gone after a restart.',
+      },
+      {
+        kind: 'added',
         text: 'Whoever runs the server can now limit what each workspace may do to it — host agents, reach private addresses, hold an agent socket.',
       },
       {
