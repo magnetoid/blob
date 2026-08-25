@@ -277,7 +277,10 @@ async def set_role(
 
         def broadcast_roles() -> None:
             for updated in updates:
-                hub.to_all({"t": "user.updated", "user": updated.model_dump(by_alias=True)})
+                hub.to_workspace(
+                    owner.workspace_id,
+                    {"t": "user.updated", "user": updated.model_dump(by_alias=True)},
+                )
 
         after.add(broadcast_roles)
 
@@ -330,7 +333,10 @@ async def deactivate(
             for conn in hub.connections_for_user(user_id):
                 conn.close()
             if updated is not None:
-                hub.to_all({"t": "user.updated", "user": updated.model_dump(by_alias=True)})
+                hub.to_workspace(
+                    admin.workspace_id,
+                    {"t": "user.updated", "user": updated.model_dump(by_alias=True)},
+                )
 
         after.add(broadcast)
 
@@ -384,7 +390,10 @@ async def reactivate(
         if row is not None:
             updated = to_user(row)
             after.add(
-                lambda: hub.to_all({"t": "user.updated", "user": updated.model_dump(by_alias=True)})
+                lambda: hub.to_workspace(
+                    admin.workspace_id,
+                    {"t": "user.updated", "user": updated.model_dump(by_alias=True)},
+                )
             )
 
     return OkOut()

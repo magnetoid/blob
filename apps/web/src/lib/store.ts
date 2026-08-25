@@ -815,6 +815,34 @@ export const useStore = create<State>((set, get) => ({
         set((s) => ({ users: { ...s.users, [event.user.id]: event.user } }));
         break;
 
+      // Without these three, a tab open since before a group was created renders
+      // `@platform-team` as plain text for ever — `resync()` does not refetch groups
+      // either, so only a full page load would have picked it up.
+      case 'group.upserted':
+        set((s) => ({ groups: { ...s.groups, [event.group.id]: event.group } }));
+        break;
+
+      case 'group.deleted':
+        set((s) => {
+          const groups = { ...s.groups };
+          delete groups[event.groupId];
+          // Out of both: leaving a deleted group in `myGroupIds` would keep marking old
+          // messages as mentioning you, for a group that no longer exists.
+          const myGroupIds = new Set(s.myGroupIds);
+          myGroupIds.delete(event.groupId);
+          return { groups, myGroupIds };
+        });
+        break;
+
+      case 'group.membership':
+        set((s) => {
+          const myGroupIds = new Set(s.myGroupIds);
+          if (event.isMember) myGroupIds.add(event.groupId);
+          else myGroupIds.delete(event.groupId);
+          return { myGroupIds };
+        });
+        break;
+
       case 'member.joined':
       case 'member.left':
       case 'hello':

@@ -32,6 +32,9 @@ SERVER_EVENTS: frozenset[str] = frozenset(
         "typing",
         "presence",
         "user.updated",
+        "group.upserted",
+        "group.deleted",
+        "group.membership",
         "read_state.updated",
         "error",
     }

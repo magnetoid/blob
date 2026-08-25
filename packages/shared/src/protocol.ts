@@ -13,6 +13,7 @@ import type {
   NotifyLevel,
   PresenceState,
   User,
+  UserGroup,
 } from './types.ts';
 
 /** Frames the server sends. */
@@ -43,6 +44,10 @@ export type ServerEvent =
   | { t: 'typing'; channelId: string; userId: string; threadRootId: string | null }
   | { t: 'presence'; userId: string; state: PresenceState }
   | { t: 'user.updated'; user: User }
+  | { t: 'group.upserted'; group: UserGroup }
+  | { t: 'group.deleted'; groupId: string }
+  /** Per-viewer: whether *you* are in it, which cannot ride a shared payload. */
+  | { t: 'group.membership'; groupId: string; isMember: boolean }
   | {
       t: 'read_state.updated';
       channelId: string;

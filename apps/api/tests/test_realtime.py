@@ -22,6 +22,10 @@ from blob_api.realtime import hub
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up
 
+#: These build connections directly rather than through a socket, so they need a
+#: workspace of their own — `to_workspace` filters on it.
+WS = "00000000-0000-7000-8000-000000000001"
+
 
 @pytest_asyncio.fixture
 async def team(client: Client) -> dict:
@@ -168,8 +172,8 @@ def test_presence_subscriptions_leave_nothing_behind() -> None:
     """
     hub.reset_for_tests()
 
-    watcher = hub.new_connection("conn-1", "watcher")
-    other = hub.new_connection("conn-2", "other")
+    watcher = hub.new_connection("conn-1", "watcher", WS)
+    other = hub.new_connection("conn-2", "other", WS)
     hub.register(watcher)
     hub.register(other)
 
@@ -195,8 +199,8 @@ def test_presence_subscriptions_leave_nothing_behind() -> None:
 def test_presence_reaches_only_the_connections_watching() -> None:
     hub.reset_for_tests()
 
-    watcher = hub.new_connection("conn-1", "watcher")
-    bystander = hub.new_connection("conn-2", "bystander")
+    watcher = hub.new_connection("conn-1", "watcher", WS)
+    bystander = hub.new_connection("conn-2", "bystander", WS)
     hub.register(watcher)
     hub.register(bystander)
     hub.set_presence_subs(watcher, ["alice"])
@@ -241,3 +245,34 @@ async def test_a_client_that_falls_behind_is_dropped_rather_than_left_silent(
 async def _until(predicate: Any) -> None:
     while not predicate():
         await asyncio.sleep(0.02)
+
+
+def test_a_broadcast_stops_at_the_workspace_boundary() -> None:
+    """`to_workspace` is scoped, and the scope is the point.
+
+    It used to be `to_all`, which sent to every connection on the process while its
+    docstring said "workspace-wide". With one workspace those were the same sentence.
+    They stopped being the same sentence when a server could hold several, and nothing
+    failed — a public channel's name and topic, and everybody's display name, title and
+    status, reached clients signed into other workspaces.
+
+    Same shape as the `assert_channel_access` bug already in the traps list: a lookup
+    that was correct until a second workspace existed, and silent afterwards. This is the
+    test that fails if somebody widens it back.
+    """
+    hub.reset_for_tests()
+    other_workspace = "00000000-0000-7000-8000-000000000002"
+
+    insider = hub.new_connection("conn-1", "insider", WS)
+    outsider = hub.new_connection("conn-2", "outsider", other_workspace)
+    hub.register(insider)
+    hub.register(outsider)
+
+    event: Any = {"t": "user.updated", "user": {"id": "u1", "displayName": "Ana"}}
+    hub.to_workspace(WS, event)
+
+    assert insider.outbox.qsize() == 1
+    assert outsider.outbox.qsize() == 0
+
+    hub.unregister(insider)
+    hub.unregister(outsider)

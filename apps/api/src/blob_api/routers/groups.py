@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Request
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, require_admin
 from ..lib.errors import conflict, not_found, unique_violation
+from ..realtime import hub
 from ..schemas.base import CamelModel
 from ..schemas.models import UserGroup
 from ..schemas.requests import CreateGroupInput, MuteGroupInput, UpdateGroupInput
@@ -53,6 +54,23 @@ def _out(group: group_service.Group) -> UserGroup:
     )
 
 
+def _upserted(workspace_id: str, group: UserGroup) -> None:
+    hub.to_workspace(
+        workspace_id, {"t": "group.upserted", "group": group.model_dump(by_alias=True)}
+    )
+
+
+def _membership(user_id: str, group_id: str, is_member: bool) -> None:
+    """Only to the person it is about.
+
+    "Are you in this group" cannot ride the shared payload — it is a different answer for
+    every reader, and putting it on the group would mean broadcasting the roster.
+    """
+    hub.to_users(
+        [user_id], {"t": "group.membership", "groupId": group_id, "isMember": is_member}
+    )
+
+
 @router.get("", response_model=GroupsOut)
 async def list_groups(admin: SessionUser = Depends(require_admin)) -> GroupsOut:
     async with session_scope() as session:
@@ -65,7 +83,7 @@ async def create_group(
     payload: CreateGroupInput, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> GroupOut:
     handle = group_service.clean_handle(payload.handle)
-    async with transaction() as (session, _):
+    async with transaction() as (session, after):
         try:
             group_id = await group_service.create(
                 session,
@@ -92,6 +110,9 @@ async def create_group(
             metadata={"handle": handle, "name": payload.name},
         )
         group = await group_service.by_id(session, admin.workspace_id, group_id)
+        if group is not None:
+            out = _out(group)
+            after.add(lambda: _upserted(admin.workspace_id, out))
     if group is None:
         raise not_found("There is no such group here.")
     return GroupOut(group=_out(group))
@@ -105,7 +126,7 @@ async def update_group(
     admin: SessionUser = Depends(require_admin),
 ) -> GroupOut:
     handle = group_service.clean_handle(payload.handle) if payload.handle is not None else None
-    async with transaction() as (session, _):
+    async with transaction() as (session, after):
         try:
             await group_service.rename(
                 session,
@@ -129,6 +150,9 @@ async def update_group(
             metadata={"handle": handle or "", "name": payload.name or ""},
         )
         group = await group_service.by_id(session, admin.workspace_id, group_id)
+        if group is not None:
+            out = _out(group)
+            after.add(lambda: _upserted(admin.workspace_id, out))
     if group is None:
         raise not_found("There is no such group here.")
     return GroupOut(group=_out(group))
@@ -138,7 +162,7 @@ async def update_group(
 async def delete_group(
     group_id: str, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
-    async with transaction() as (session, _):
+    async with transaction() as (session, after):
         await group_service.delete(session, admin.workspace_id, group_id)
         await audit_service.record(
             session,
@@ -146,6 +170,11 @@ async def delete_group(
             "group.deleted",
             target_type="group",
             target_id=group_id,
+        )
+        after.add(
+            lambda: hub.to_workspace(
+                admin.workspace_id, {"t": "group.deleted", "groupId": group_id}
+            )
         )
     return OkOut()
 
@@ -168,7 +197,7 @@ async def add_member(
     request: Request,
     admin: SessionUser = Depends(require_admin),
 ) -> OkOut:
-    async with transaction() as (session, _):
+    async with transaction() as (session, after):
         await group_service.add_member(session, admin.workspace_id, group_id, user_id)
         await audit_service.record(
             session,
@@ -178,6 +207,11 @@ async def add_member(
             target_id=group_id,
             metadata={"userId": user_id},
         )
+        group = await group_service.by_id(session, admin.workspace_id, group_id)
+        if group is not None:
+            out = _out(group)
+            after.add(lambda: _upserted(admin.workspace_id, out))
+        after.add(lambda: _membership(user_id, group_id, True))
     return OkOut()
 
 
@@ -188,7 +222,7 @@ async def remove_member(
     request: Request,
     admin: SessionUser = Depends(require_admin),
 ) -> OkOut:
-    async with transaction() as (session, _):
+    async with transaction() as (session, after):
         await group_service.remove_member(session, admin.workspace_id, group_id, user_id)
         await audit_service.record(
             session,
@@ -198,6 +232,11 @@ async def remove_member(
             target_id=group_id,
             metadata={"userId": user_id},
         )
+        group = await group_service.by_id(session, admin.workspace_id, group_id)
+        if group is not None:
+            out = _out(group)
+            after.add(lambda: _upserted(admin.workspace_id, out))
+        after.add(lambda: _membership(user_id, group_id, False))
     return OkOut()
 
 
@@ -211,6 +250,8 @@ async def set_mute(
     short-circuits on a muted channel before any mention test runs, so silencing a group
     you are on is an *additional* opt-out rather than a way to reorder that.
     """
+    # No broadcast: muting is your own state, and the only client that needs to know is
+    # the one that just set it and is holding the response.
     async with transaction() as (session, _):
         if not await group_service.set_muted(session, group_id, user.id, payload.muted):
             # Not a member, or no such group. 404 for both: which of the two it is would

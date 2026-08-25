@@ -38,6 +38,9 @@ OUTBOX_LIMIT = 256
 class Connection:
     id: str
     user_id: str
+    #: Which workspace this socket is signed into. A person is a different `users` row
+    #: per workspace, so this is a property of the connection, not of the human.
+    workspace_id: str
     outbox: asyncio.Queue[ServerEvent]
     #: Channels this connection currently receives events for.
     channel_ids: set[str] = field(default_factory=set)
@@ -88,8 +91,13 @@ _by_presence_sub: dict[str, set[Connection]] = {}
 _tasks: set[asyncio.Task[Any]] = set()
 
 
-def new_connection(connection_id: str, user_id: str) -> Connection:
-    return Connection(id=connection_id, user_id=user_id, outbox=asyncio.Queue(OUTBOX_LIMIT))
+def new_connection(connection_id: str, user_id: str, workspace_id: str) -> Connection:
+    return Connection(
+        id=connection_id,
+        user_id=user_id,
+        workspace_id=workspace_id,
+        outbox=asyncio.Queue(OUTBOX_LIMIT),
+    )
 
 
 def register(conn: Connection) -> None:
@@ -147,10 +155,19 @@ def to_users(user_ids: list[str], event: ServerEvent) -> None:
     _publish({"origin": PROCESS_ID, "event": event, "to": {"userIds": user_ids}})
 
 
-def to_all(event: ServerEvent) -> None:
-    """Everyone connected — used for workspace-wide facts like a profile change."""
-    _deliver_local(event, {"all": True})
-    _publish({"origin": PROCESS_ID, "event": event, "to": {"all": True}})
+def to_workspace(workspace_id: str, event: ServerEvent) -> None:
+    """Everyone signed into one workspace — a public channel appearing, a renamed person.
+
+    This used to be `to_all`, which sent to every connection on the process and said
+    "workspace-wide" in its docstring. With one workspace those were the same sentence.
+    They stopped being the same sentence when a server could hold several, and nothing
+    failed: a public channel's name and topic, and everybody's display name, title and
+    status, were being pushed to clients signed into other workspaces. Same shape as the
+    `assert_channel_access` bug — a lookup that was right until a second workspace
+    existed, and silent afterwards.
+    """
+    _deliver_local(event, {"workspace": workspace_id})
+    _publish({"origin": PROCESS_ID, "event": event, "to": {"workspace": workspace_id}})
 
 
 def to_presence_subscribers(user_id: str, event: ServerEvent) -> None:
@@ -188,9 +205,11 @@ def stats() -> dict[str, int]:
 
 
 def _deliver_local(event: ServerEvent, to: dict[str, Any]) -> None:
-    if to.get("all"):
+    workspace_id = to.get("workspace")
+    if workspace_id:
         for conn in list(_by_connection.values()):
-            conn.send(event)
+            if conn.workspace_id == workspace_id:
+                conn.send(event)
         return
     if "channelId" in to:
         for conn in list(_by_channel.get(to["channelId"], set())):

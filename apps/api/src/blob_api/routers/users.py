@@ -196,7 +196,10 @@ async def update_me(
             raise not_found("That account no longer exists.")
         public = to_user(row)
         after.add(
-            lambda: hub.to_all({"t": "user.updated", "user": public.model_dump(by_alias=True)})
+            lambda: hub.to_workspace(
+                user.workspace_id,
+                {"t": "user.updated", "user": public.model_dump(by_alias=True)},
+            )
         )
 
     return CurrentUserOut(user=to_current_user(row))

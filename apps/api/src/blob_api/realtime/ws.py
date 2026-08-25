@@ -40,7 +40,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         return
 
     await websocket.accept()
-    conn = hub.new_connection(new_id(), user.id)
+    conn = hub.new_connection(new_id(), user.id, user.workspace_id)
     hub.register(conn)
 
     async with session_scope() as session:
