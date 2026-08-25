@@ -19,6 +19,7 @@ import type {
   ServerEvent,
   Theme,
   User,
+  UserGroup,
   UserPrefs,
 } from '@blob/shared';
 import { api } from './api.ts';
@@ -60,6 +61,10 @@ interface State {
   customEmoji: CustomEmoji[];
   /** Message ids you have put aside. A Set: the message menu asks per row. */
   savedMessageIds: Set<string>;
+  /** Every group here, by id — a message can name one you are not in. */
+  groups: Record<string, UserGroup>;
+  /** The groups you are in, so a group mention can count as mentioning you. */
+  myGroupIds: Set<string>;
   /** Slash commands this server knows, for the composer's autocomplete. */
   commands: CommandSpec[];
   users: Record<string, User>;
@@ -152,6 +157,8 @@ export const useStore = create<State>((set, get) => ({
   themes: [],
   customEmoji: [],
   savedMessageIds: new Set<string>(),
+  groups: {},
+  myGroupIds: new Set<string>(),
   commands: [],
   users: {},
   channels: {},
@@ -174,6 +181,8 @@ export const useStore = create<State>((set, get) => ({
       themes: data.themes,
       customEmoji: data.customEmoji,
       savedMessageIds: new Set(data.savedMessageIds),
+      groups: Object.fromEntries(data.groups.map((g) => [g.id, g])),
+      myGroupIds: new Set(data.myGroupIds),
       commands: data.commands,
       users: Object.fromEntries(data.users.map((u) => [u.id, u])),
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
@@ -192,6 +201,8 @@ export const useStore = create<State>((set, get) => ({
       themes: [],
       customEmoji: [],
       savedMessageIds: new Set<string>(),
+      groups: {},
+      myGroupIds: new Set<string>(),
       commands: [],
       currentUser: null,
       users: {},

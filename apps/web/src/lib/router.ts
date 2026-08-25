@@ -55,6 +55,7 @@ export const WORKSPACE_SECTIONS = [
   // an admin.
   'general',
   'members',
+  'groups',
   'invitations',
   'channels',
   'apps',
@@ -87,7 +88,14 @@ export function isPersonalSection(section: WorkspaceSection): boolean {
 export const ADMIN_DETAIL_SECTIONS: readonly AdminSection[] = ['users'];
 
 /** Workspace sections with a detail page under them, at /workspace/:section/:id. */
-export const WORKSPACE_DETAIL_SECTIONS: readonly WorkspaceSection[] = ['members', 'apps'];
+// `groups` has one, because editing who is in a group is its own page and somebody
+// will link to it. Without it here, /workspace/groups/<id> falls through to the
+// conversation view and the link looks like it did nothing.
+export const WORKSPACE_DETAIL_SECTIONS: readonly WorkspaceSection[] = [
+  'members',
+  'groups',
+  'apps',
+];
 
 /** Where a bare /admin lands. */
 export const DEFAULT_ADMIN_SECTION: AdminSection = 'users';

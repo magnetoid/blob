@@ -157,6 +157,14 @@ export interface Message {
   replyUserIds: string[];
   lastReplyAt: string | null;
   mentionUserIds: string[];
+  /**
+   * Groups this message named, kept as groups.
+   *
+   * Deliberately not flattened into `mentionUserIds`, which means "people this message
+   * named directly" — the server resolves a group to people at notify time, against
+   * current membership, so an edit cannot rewrite who was pinged.
+   */
+  mentionGroupIds: string[];
   mentionsEveryone: boolean;
   clientMsgId: string;
   editedAt: string | null;
@@ -296,6 +304,20 @@ export interface Bootstrap {
    * is built from, and a broadcast has no single reader to be per-user for.
    */
   savedMessageIds: string[];
+  /** Every group here — a message can name one you are not in, and it still renders. */
+  groups: UserGroup[];
+  /** Which of them are yours, so "mentions you" can include being named as a team. */
+  myGroupIds: string[];
+}
+
+/** A named set of people, mentionable as one handle: `@platform-team`. */
+export interface UserGroup {
+  id: string;
+  /** What a message says after the `@`. Lowercase, no spaces. */
+  handle: string;
+  name: string;
+  description: string | null;
+  memberCount: number;
 }
 
 /** A bug report, feature request or note, filed from the user menu. */

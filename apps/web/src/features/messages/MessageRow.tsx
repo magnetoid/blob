@@ -10,6 +10,7 @@ import type { CustomEmoji, Message, MessageTranslation } from "@blob/shared";
 import { ApiError, api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import { permalinkFor } from "../../lib/navigation.ts";
+import { useMentionIndex } from "./mentionIndex.ts";
 import type { LocalMessageDeliveryStatus } from "../../lib/outbox.ts";
 import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
@@ -85,6 +86,8 @@ export const MessageRow = memo(function MessageRow({
   const customEmoji = useStore((s) => s.customEmoji);
   const toggleReaction = useStore((s) => s.toggleReaction);
   const toggleSaved = useStore((s) => s.toggleSaved);
+  const myGroupIds = useStore((s) => s.myGroupIds);
+  const knownNames = useMentionIndex();
   const [copied, setCopied] = useState(false);
   const [copyFallback, setCopyFallback] = useState<string | null>(null);
 
@@ -129,9 +132,16 @@ export const MessageRow = memo(function MessageRow({
   const grouped = isGrouped(message, previous);
   const pending = deliveryState !== null || message.id.startsWith("pending-");
   const mine = message.authorId === currentUser?.id;
-  const mentionsMe = currentUser
-    ? message.mentionUserIds.includes(currentUser.id)
-    : false;
+  // Being named as part of a team you are on is being named. The author check is a
+  // deliberate change: `notify.decide` has always skipped the author, so a message that
+  // mentioned you *and was yours* notified nobody while still drawing the accent bar.
+  // Group mentions make that disagreement the common case — every "@platform-team
+  // standup in 5" posted by somebody on that team.
+  const mentionsMe =
+    currentUser !== null &&
+    message.authorId !== currentUser.id &&
+    (message.mentionUserIds.includes(currentUser.id) ||
+      message.mentionGroupIds.some((id) => myGroupIds.has(id)));
   const canTranslate =
     !pending &&
     !editing &&
@@ -139,13 +149,6 @@ export const MessageRow = memo(function MessageRow({
     !!message.body.trim() &&
     !!preferredLanguage;
 
-  const knownNames = useMemo(
-    () =>
-      new Map(
-        Object.values(users).map((u) => [u.displayName.toLowerCase(), u.id]),
-      ),
-    [users],
-  );
 
   const rendered = useMemo(
     () =>

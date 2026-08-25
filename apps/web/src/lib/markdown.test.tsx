@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import type { CustomEmoji } from '@blob/shared';
 import { renderMarkdown, type RenderOptions } from './markdown.tsx';
+import type { MentionTarget } from '../features/messages/mentionIndex.ts';
 
 afterEach(cleanup);
 
@@ -26,6 +27,22 @@ function options(customEmoji: CustomEmoji[] = []): RenderOptions {
 
 function draw(body: string, customEmoji: CustomEmoji[] = []) {
   return render(<div>{renderMarkdown(body, options(customEmoji))}</div>).container;
+}
+
+/** People and groups in one map, the way `workspace_handles` holds them server-side. */
+const KNOWN = new Map<string, MentionTarget>([
+  ['ana', { kind: 'user', id: 'u-ana', isMe: false }],
+  ['you', { kind: 'user', id: 'u-me', isMe: true }],
+  ['platform-team', { kind: 'group', id: 'g-platform', isMe: false }],
+  ['designers', { kind: 'group', id: 'g-design', isMe: true }],
+]);
+
+function drawMention(body: string) {
+  return render(
+    <div>
+      {renderMarkdown(body, { knownNames: KNOWN, currentUserId: 'u-me', customEmoji: [] })}
+    </div>,
+  ).container;
 }
 
 describe('custom emoji in a message body', () => {
@@ -70,5 +87,60 @@ describe('custom emoji in a message body', () => {
     const el = draw('http://example.com :tada:');
     expect(el.querySelector('a')).not.toBeNull();
     expect(el.textContent).toContain('🎉');
+  });
+});
+
+
+describe('mentions', () => {
+  it('marks a person it knows', () => {
+    const mention = drawMention('hey @ana').querySelector('.mention');
+    expect(mention?.textContent).toBe('@ana');
+    expect(mention?.getAttribute('data-kind')).toBe('user');
+  });
+
+  it('marks a group as a group', () => {
+    // The distinction the whole storage decision preserves, arriving on screen: a group
+    // is not a person and does not have to pretend to be one.
+    const mention = drawMention('@platform-team standup').querySelector('.mention');
+    expect(mention?.textContent).toBe('@platform-team');
+    expect(mention?.getAttribute('data-kind')).toBe('group');
+  });
+
+  it('leaves a name it does not know as plain text', () => {
+    // The silent-ignore path, asserted so it reads as intentional. Highlighting an
+    // unknown name would promise a notification that the server never sends.
+    const container = drawMention('@nobody hello');
+    expect(container.querySelector('.mention')).toBeNull();
+    expect(container.textContent).toContain('@nobody');
+  });
+
+  it('knows when a mention is about you', () => {
+    expect(drawMention('@you there?').querySelector('.mention')?.getAttribute('data-me')).toBe(
+      'true',
+    );
+    expect(drawMention('@ana there?').querySelector('.mention')?.getAttribute('data-me')).toBe(
+      'false',
+    );
+  });
+
+  it('treats a group you are in as being about you', () => {
+    // Being named as part of a team you are on is being named. `isMe` carries that,
+    // rather than the renderer comparing ids it would have to be given separately.
+    expect(
+      drawMention('@designers ship it').querySelector('.mention')?.getAttribute('data-me'),
+    ).toBe('true');
+    expect(
+      drawMention('@platform-team ship it').querySelector('.mention')?.getAttribute('data-me'),
+    ).toBe('false');
+  });
+
+  it('never mentions anyone from inside code', () => {
+    expect(drawMention('use `@ana` as the flag').querySelector('.mention')).toBeNull();
+  });
+
+  it('keeps trailing punctuation outside the chip', () => {
+    const container = drawMention('thanks @ana!');
+    expect(container.querySelector('.mention')?.textContent).toBe('@ana');
+    expect(container.textContent).toContain('!');
   });
 });

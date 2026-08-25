@@ -66,6 +66,9 @@ export function materializeOutboxMessage(entry: LocalOutboxEntry, authorId: stri
     replyUserIds: [],
     lastReplyAt: null,
     mentionUserIds: [],
+    // Resolved by the server, so an optimistic copy names nobody. It is replaced
+    // by the stored row the moment the send lands.
+    mentionGroupIds: [],
     mentionsEveryone: false,
     clientMsgId: entry.clientMsgId,
     editedAt: null,

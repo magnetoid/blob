@@ -266,6 +266,12 @@ class Bootstrap(CamelModel):
     #: `Message` would mean threading a user id through the select every broadcast is
     #: built from. The Later view fetches the messages themselves.
     saved_message_ids: list[str] = Field(default_factory=list)
+    #: Every group in the workspace — the client needs them all to render a mention,
+    #: since a message can name a group you are not in.
+    groups: list[UserGroup] = Field(default_factory=list)
+    #: Which of them are yours, so "mentions you" can include being named as part of a
+    #: team. Ids only, for the same reason `saved_message_ids` is.
+    my_group_ids: list[str] = Field(default_factory=list)
 
 
 class ReadStateOut(CamelModel):

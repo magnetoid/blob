@@ -22,6 +22,7 @@ from ..schemas.models import (
     CustomEmoji,
     ThemeSummary,
     User,
+    UserGroup,
     UserPrefs,
 )
 from ..schemas.requests import (
@@ -35,6 +36,7 @@ from ..services import commands as command_service
 from ..services import handles as handle_service
 from ..services import messages as message_service
 from ..services import themes as theme_service
+from ..services import user_groups as group_service
 from ..services.serialize import USER_COLUMNS, to_current_user, to_user, to_workspace
 
 router = APIRouter(tags=["users"])
@@ -112,6 +114,8 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
         themes = await theme_service.list_themes(session, user.workspace_id)
         app_commands = await command_service.app_specs(session, user.workspace_id)
         saved_ids = await message_service.saved_message_ids(session, user.id)
+        groups = await group_service.list_for_workspace(session, user.workspace_id)
+        my_group_ids = await group_service.group_ids_for_user(session, user.id)
 
     return Bootstrap(
         workspace=to_workspace(workspace),
@@ -149,6 +153,17 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
             if theme.is_enabled
         ],
         saved_message_ids=saved_ids,
+        groups=[
+            UserGroup(
+                id=g.id,
+                handle=g.handle,
+                name=g.name,
+                description=g.description,
+                member_count=g.member_count,
+            )
+            for g in groups
+        ],
+        my_group_ids=my_group_ids,
     )
 
 

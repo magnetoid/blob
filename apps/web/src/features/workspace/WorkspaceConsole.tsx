@@ -26,6 +26,7 @@ import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
 import { AppsSection } from '../admin/sections/AppsSection.tsx';
 import { ChannelsSection } from '../admin/sections/ChannelsSection.tsx';
 import { EmojiSection } from '../admin/sections/EmojiSection.tsx';
+import { GroupsSection } from '../admin/sections/GroupsSection.tsx';
 import { InvitationsSection } from '../admin/sections/InvitationsSection.tsx';
 import { PeopleSection } from '../admin/sections/PeopleSection.tsx';
 import { ThemesSection } from '../admin/sections/ThemesSection.tsx';
@@ -45,6 +46,7 @@ const SECTION_COMPONENTS: Record<WorkspaceSection, ComponentType<AdminSectionPro
   notifications: NotificationsSection,
   general: GeneralSection,
   members: PeopleSection,
+  groups: GroupsSection,
   invitations: InvitationsSection,
   channels: ChannelsSection,
   apps: AppsSection,

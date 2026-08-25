@@ -9,10 +9,17 @@
 import { Fragment, type ReactNode } from 'react';
 import type { CustomEmoji } from '@blob/shared';
 import { resolveName } from './emoji.ts';
+import type { MentionTarget } from '../features/messages/mentionIndex.ts';
 
 export interface RenderOptions {
-  /** Lowercased display name → user id, for highlighting mentions. */
-  knownNames: Map<string, string>;
+  /**
+   * Lowercased handle → what it names, for highlighting mentions.
+   *
+   * People and groups in one map, mirroring the server's `workspace_handles`. Built by
+   * `features/messages/mentionIndex`, which is also where "is this about me" is decided
+   * — a group mention is about you when you are in the group.
+   */
+  knownNames: Map<string, MentionTarget>;
   currentUserId: string | null;
   /** The workspace's own emoji, for resolving `:name:`. */
   customEmoji: readonly CustomEmoji[];
@@ -172,12 +179,12 @@ const INLINE_RULES: InlineRule[] = [
       const candidates = [raw, raw.split(/\s+/)[0] as string];
       for (const candidate of candidates) {
         const bare = candidate.replace(/[.,!?;:]+$/, '');
-        const id = o.knownNames.get(bare.toLowerCase());
-        if (id) {
+        const target = o.knownNames.get(bare.toLowerCase());
+        if (target) {
           const rest = raw.slice(bare.length);
           return (
             <Fragment key={key}>
-              <span className="mention" data-me={id === o.currentUserId}>
+              <span className="mention" data-me={target.isMe} data-kind={target.kind}>
                 @{bare}
               </span>
               {rest}

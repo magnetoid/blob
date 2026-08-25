@@ -124,6 +124,12 @@ export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
         keywords: ['users', 'people', 'roles', 'admin', 'owner', 'deactivate', 'sessions'],
       },
       {
+        id: 'groups',
+        label: 'User groups',
+        description: 'Teams that can be mentioned as one name, like @platform-team.',
+        keywords: ['team', 'teams', 'user group', '@team', 'mention', 'oncall'],
+      },
+      {
         id: 'invitations',
         label: 'Invitations',
         description: 'Who has been invited, and who has not arrived yet.',

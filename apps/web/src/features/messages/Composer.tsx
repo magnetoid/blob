@@ -16,6 +16,7 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
+import type { User } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { socket } from "../../lib/socket.ts";
@@ -40,6 +41,19 @@ import {
 } from "../../components/Icon.tsx";
 
 
+/**
+ * One row of the `@` autocomplete.
+ *
+ * A discriminated union rather than a loose object with an id that might start with "@".
+ * The old shape worked because a person and a special both happened to have a
+ * `displayName` and an `avatarUrl`; a group has neither, and would have reached `Avatar`
+ * as a silently wrong shape.
+ */
+type MentionCandidate =
+  | { kind: "special"; key: string; label: string; hint?: string; user?: never }
+  | { kind: "group"; key: string; label: string; hint?: string; user?: never }
+  | { kind: "user"; key: string; label: string; hint?: string; user: User };
+
 interface Props {
   channelId: string;
   threadRootId?: string | null;
@@ -54,6 +68,7 @@ export function Composer({
   initialFocus,
 }: Props) {
   const users = useStore((s) => s.users);
+  const groupsById = useStore((s) => s.groups);
   const currentUser = useStore((s) => s.currentUser);
   const sendMessage = useStore((s) => s.sendMessage);
   const applyEvent = useStore((s) => s.applyEvent);
@@ -128,23 +143,30 @@ export function Composer({
     textareaRef.current?.focus();
   }, [initialFocus]);
 
-  const candidates = useMemo(() => {
+  const candidates = useMemo<MentionCandidate[]>(() => {
     if (mentionQuery === null) return [];
     const q = mentionQuery.toLowerCase();
-    const people = Object.values(users)
+
+    const specials: MentionCandidate[] = ["channel", "here"]
+      .filter((s) => s.startsWith(q))
+      .map((name) => ({ kind: "special", key: `@${name}`, label: name }));
+
+    // Not self-filtered, unlike people below. Excluding yourself from a list of people
+    // is right — you do not mention yourself — and exactly wrong for a group you are
+    // on, which is the one you are most likely to be addressing.
+    const groups: MentionCandidate[] = Object.values(groupsById)
+      .filter((g) => g.handle.startsWith(q))
+      .slice(0, 4)
+      .map((g) => ({ kind: "group", key: g.id, label: g.handle, hint: g.name }));
+
+    const people: MentionCandidate[] = Object.values(users)
       .filter((u) => !u.deactivated && u.id !== currentUser?.id)
       .filter((u) => u.displayName.toLowerCase().includes(q))
-      .slice(0, 6);
-    const specials = ["channel", "here"].filter((s) => s.startsWith(q));
-    return [
-      ...specials.map((name) => ({
-        id: `@${name}`,
-        displayName: name,
-        avatarUrl: null,
-      })),
-      ...people,
-    ];
-  }, [mentionQuery, users, currentUser]);
+      .slice(0, 6)
+      .map((u) => ({ kind: "user", key: u.id, label: u.displayName, user: u }));
+
+    return [...specials, ...groups, ...people];
+  }, [mentionQuery, users, groupsById, currentUser]);
 
   /**
    * Commands to offer while the name is half-typed.
@@ -397,7 +419,7 @@ export function Composer({
       if (event.key === "Enter" || event.key === "Tab") {
         event.preventDefault();
         const chosen = candidates[mentionIndex];
-        if (chosen) applyMention(chosen.displayName);
+        if (chosen) applyMention(chosen.label);
         return;
       }
       if (event.key === "Escape") {
@@ -458,20 +480,23 @@ export function Composer({
           <div className="autocomplete" role="listbox">
             {candidates.map((candidate, index) => (
               <button
-                key={candidate.id}
+                key={candidate.key}
                 className="autocomplete-item"
                 data-active={index === mentionIndex}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  applyMention(candidate.displayName);
+                  applyMention(candidate.label);
                 }}
               >
-                {candidate.id.startsWith("@") ? (
-                  <MentionIcon size={16} />
+                {candidate.kind === "user" ? (
+                  <Avatar user={candidate.user} size="sm" />
                 ) : (
-                  <Avatar user={candidate} size="sm" />
+                  <MentionIcon size={16} />
                 )}
-                {candidate.displayName}
+                {candidate.label}
+                {candidate.hint && (
+                  <span className="muted autocomplete-hint">{candidate.hint}</span>
+                )}
               </button>
             ))}
           </div>

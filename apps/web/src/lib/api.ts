@@ -16,6 +16,7 @@ import type {
   SyncResponse,
   ThreadSummary,
   User,
+  UserGroup,
   UserPrefs,
 } from '@blob/shared';
 
@@ -481,6 +482,20 @@ export const api = {
      * machine", which is the instance console's question.
      */
     /** The workspace's own emoji. The picker has always rendered these; now they can be added. */
+    groups: () => get<{ groups: UserGroup[] }>('/api/admin/groups'),
+    createGroup: (input: { handle: string; name: string; description?: string | null }) =>
+      post<{ group: UserGroup }>('/api/admin/groups', input),
+    updateGroup: (
+      id: string,
+      input: { handle?: string; name?: string; description?: string | null },
+    ) => patch<{ group: UserGroup }>(`/api/admin/groups/${id}`, input),
+    deleteGroup: (id: string) => del<{ ok: true }>(`/api/admin/groups/${id}`),
+    groupMembers: (id: string) => get<{ userIds: string[] }>(`/api/admin/groups/${id}/members`),
+    addGroupMember: (id: string, userId: string) =>
+      put<{ ok: true }>(`/api/admin/groups/${id}/members/${userId}`),
+    removeGroupMember: (id: string, userId: string) =>
+      del<{ ok: true }>(`/api/admin/groups/${id}/members/${userId}`),
+
     customEmoji: () => get<{ emoji: WorkspaceEmoji[] }>('/api/admin/emoji'),
     addCustomEmoji: (name: string, attachmentId: string) =>
       post<WorkspaceEmoji>('/api/admin/emoji', { name, attachmentId }),

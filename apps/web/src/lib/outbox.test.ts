@@ -121,6 +121,7 @@ describe('outbox message materialization', () => {
       replyUserIds: [],
       lastReplyAt: null,
       mentionUserIds: [],
+      mentionGroupIds: [],
       mentionsEveryone: false,
       clientMsgId: 'msg-1',
       editedAt: null,

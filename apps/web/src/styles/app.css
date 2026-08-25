@@ -1039,7 +1039,11 @@ button {
   background: none;
 }
 
-.message-body .mention {
+/* Not scoped under .message-body, deliberately. `renderMarkdown` is also what draws a
+   pinned message and an app's blocks, and those were getting no chip at all — the same
+   text styled two ways depending on which panel it happened to be in. `.mention` is only
+   ever emitted by that renderer, so there is nothing else for it to catch. */
+.mention {
   padding: 0 3px;
   border-radius: 4px;
   background: var(--accent-wash);
@@ -1047,9 +1051,28 @@ button {
   font-weight: 600;
 }
 
-.message-body .mention[data-me="true"] {
+.mention[data-me="true"] {
   background: var(--accent);
   color: var(--accent-contrast);
+}
+
+/* A group reads as a group without needing a second colour: an outline says "more than
+   one person" where a filled chip says "a person". */
+.mention[data-kind="group"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--accent-wash);
+}
+
+.mention[data-kind="group"][data-me="true"] {
+  background: var(--accent-wash);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
+}
+
+/* The group's real name, beside its handle in the composer's autocomplete. */
+.autocomplete-hint {
+  margin-left: auto;
+  font-size: var(--text-label-size);
 }
 
 .message-edited {

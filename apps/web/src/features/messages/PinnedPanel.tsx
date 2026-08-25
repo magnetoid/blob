@@ -11,12 +11,13 @@
  * this needs no cache to invalidate.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Message } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { renderMarkdown } from '../../lib/markdown.tsx';
 import { Avatar } from '../../components/Avatar.tsx';
+import { useMentionIndex } from './mentionIndex.ts';
 
 interface Props {
   channelId: string;
@@ -35,11 +36,7 @@ export function PinnedPanel({ channelId, onClose, onJump }: Props) {
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const knownNames = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const user of Object.values(users)) map.set(user.displayName.toLowerCase(), user.id);
-    return map;
-  }, [users]);
+  const knownNames = useMentionIndex();
 
   useEffect(() => {
     let cancelled = false;
