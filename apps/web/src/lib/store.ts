@@ -92,6 +92,7 @@ interface State {
   /** Open your most recent message here for editing. Returns whether there was one. */
   editLastMessage: (channelId: string, threadRootId: string | null) => boolean;
   openChannel: (channelId: string) => Promise<void>;
+  leaveChannel: (channelId: string) => Promise<void>;
   loadOlder: (channelId: string) => Promise<void>;
   openThread: (rootId: string | null) => Promise<void>;
   sendMessage: (
@@ -350,6 +351,34 @@ export const useStore = create<State>((set, get) => ({
       }));
     }
     await get().markRead(channelId);
+  },
+
+  /**
+   * Leave a channel, and stop showing it as one you are in.
+   *
+   * The server unsubscribes the socket and broadcasts `member.left`, but that event is
+   * about somebody leaving *a* channel and carries no view of it — and our own copy
+   * still has `membership` set, so without this the channel would sit in the sidebar
+   * looking joined until the next reload.
+   *
+   * A public channel keeps its row and moves to the browsable list, because it is still
+   * there to be rejoined. A private one is dropped entirely: `assert_channel_access`
+   * refuses it from now on, so keeping it on screen would offer a door that answers 404.
+   */
+  leaveChannel: async (channelId) => {
+    await api.channels.leave(channelId);
+    set((s) => {
+      const channel = s.channels[channelId];
+      if (!channel) return {};
+      const channels = { ...s.channels };
+      if (channel.kind === 'private') delete channels[channelId];
+      else channels[channelId] = { ...channel, membership: null };
+      return {
+        channels,
+        activeChannelId: s.activeChannelId === channelId ? null : s.activeChannelId,
+        activeThreadRootId: s.activeChannelId === channelId ? null : s.activeThreadRootId,
+      };
+    });
   },
 
   loadOlder: async (channelId) => {

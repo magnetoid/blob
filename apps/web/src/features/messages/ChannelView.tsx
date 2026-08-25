@@ -5,8 +5,15 @@ import { useStore } from "../../lib/store.ts";
 import { api } from "../../lib/api.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
-import { HuddleIcon, MembersIcon, PinIcon } from "../../components/Icon.tsx";
+import {
+  ChevronDownIcon,
+  HuddleIcon,
+  MembersIcon,
+  PinIcon,
+} from "../../components/Icon.tsx";
 import { PinnedPanel } from "./PinnedPanel.tsx";
+import { ChannelMenu } from "../channels/ChannelMenu.tsx";
+import { ChannelDetails } from "../channels/ChannelDetails.tsx";
 import { TYPING_TTL_MS } from "@blob/shared";
 
 export function ChannelView() {
@@ -30,6 +37,8 @@ export function ChannelView() {
   const channelTitle = useStore((s) => s.channelTitle);
 
   const [pinsOpen, setPinsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   /**
    * Bring a pinned message into view.
@@ -84,6 +93,21 @@ export function ChannelView() {
   const handleLoadOlder = useCallback(() => {
     if (activeChannelId) void loadOlder(activeChannelId);
   }, [loadOlder, activeChannelId]);
+
+  // Memoised because the details dialog fetches its list in an effect keyed on this.
+  // An inline arrow would be a new function every render, re-running that effect and
+  // fetching the member list on a loop.
+  const reportMemberCount = useCallback(
+    (count: number) => {
+      if (!activeChannelId) return;
+      setMemberCounts((current) =>
+        current[activeChannelId] === count
+          ? current
+          : { ...current, [activeChannelId]: count },
+      );
+    },
+    [activeChannelId],
+  );
 
   const typingNames = useMemo(() => {
     if (!typing) return [];
@@ -148,18 +172,44 @@ export function ChannelView() {
   return (
     <div className="pane">
       <header className="pane-header">
-        <div style={{ minWidth: 0 }}>
+        <div style={{ minWidth: 0, position: "relative" }}>
           <div className="pane-heading">
-            {!isDm && (
-              <span className="pane-prefix" aria-hidden="true">
-                #
-              </span>
-            )}
-            <h1 className="pane-title">{title}</h1>
+            {/* Slack puts the channel's own actions behind its name, and that is
+                where a hand goes looking. Everything in here — mute, star, topic,
+                who is in it, leaving — had a route and no control. */}
+            <button
+              className="pane-name-trigger"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              onClick={(event) => {
+                event.stopPropagation();
+                setMenuOpen((open) => !open);
+              }}
+            >
+              {!isDm && (
+                <span className="pane-prefix" aria-hidden="true">
+                  #
+                </span>
+              )}
+              <h1 className="pane-title">{title}</h1>
+              {channel.membership?.isStarred && (
+                <span className="pane-star" title="Starred">
+                  ★
+                </span>
+              )}
+              <ChevronDownIcon size={13} strokeWidth={2} />
+            </button>
           </div>
           <div className="pane-sub">
             {channel.topic || (isDm ? "Direct message" : "No topic set")}
           </div>
+          {menuOpen && (
+            <ChannelMenu
+              channel={channel}
+              onClose={() => setMenuOpen(false)}
+              onOpenDetails={() => setDetailsOpen(true)}
+            />
+          )}
         </div>
 
         <div className="pane-spacer" />
@@ -195,11 +245,24 @@ export function ChannelView() {
             />
           )}
         </div>
-        <button className="btn btn-ghost" title="Members">
+        <button
+          className="btn btn-ghost"
+          title={isDm ? "Who is in this conversation" : "Members"}
+          disabled={isDm}
+          onClick={() => setDetailsOpen(true)}
+        >
           <MembersIcon size={15} />
           {memberCount ?? "–"}
         </button>
       </header>
+
+      {detailsOpen && !isDm && (
+        <ChannelDetails
+          channel={channel}
+          onClose={() => setDetailsOpen(false)}
+          onMemberCount={reportMemberCount}
+        />
+      )}
 
       {showDeliveryBanner && connectionText && (
         <div className="connection-banner">{connectionText}</div>

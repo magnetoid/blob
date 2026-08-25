@@ -3132,3 +3132,144 @@ select.chip {
     background: transparent;
   }
 }
+
+/* ─── channel menu and details ────────────────────────────────────────────── */
+/* A generic dropdown. The workspace name and the message ••• each grew their own
+   before this existed; those are left alone, and anything new lands here. */
+.menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 232px;
+  padding: 5px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+}
+
+.menu-label {
+  margin: 4px 9px 2px;
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-row);
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.menu-item-danger:hover {
+  color: var(--danger);
+}
+
+/* A fixed gutter, so labels line up whether or not a row is ticked. */
+.menu-check {
+  flex: none;
+  width: 14px;
+  color: var(--accent);
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--hairline-soft);
+}
+
+/* The channel name is a button now. It has to keep looking like a heading. */
+.pane-name-trigger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px 2px 4px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pane-name-trigger:hover {
+  background: var(--surface-hover);
+}
+
+.pane-star {
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.member-list,
+.member-candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.member-candidates {
+  max-height: 200px;
+  padding: 4px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 9px;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-row);
+  text-align: left;
+}
+
+button.member-row {
+  cursor: pointer;
+}
+
+button.member-row:hover {
+  background: var(--surface-hover);
+}
+
+.member-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-status {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
