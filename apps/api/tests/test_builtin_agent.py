@@ -190,10 +190,17 @@ class TestWhatItIsTold:
         assert "#general" in prompt
         assert "Acme" in prompt
 
-    def test_a_personal_agent_is_told_whose_it_is(self) -> None:
-        mine = builtin.Persona(name="Ada's agent", workspace_name="Acme", owner_name="Ada")
+    def test_a_personal_agent_gets_a_different_room_described_to_it(self) -> None:
+        mine = builtin.Persona(name="Blob", workspace_name="Acme", owner_name="Ada")
 
-        assert "Ada's own assistant" in builtin.system_prompt(mine, channel_name="general")
+        prompt = builtin.system_prompt(mine, channel_name="general")
+
+        # Not the channel text with a name swapped in. A DM is described as a DM, or the
+        # agent is told it is in "a group chat" where "everyone can see what you write" —
+        # false, in the one room where a person says things they would not say publicly.
+        # `test_personal_agent.py` covers the rest of that contract.
+        assert "talking privately with Ada" in prompt
+        assert "group chat" not in prompt
 
 
 class TestItIsAPluginLikeAnyOther:

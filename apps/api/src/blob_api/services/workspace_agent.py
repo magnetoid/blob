@@ -168,12 +168,16 @@ async def ensure_everywhere() -> int:
                                AND u.deactivated_at IS NULL
                              ORDER BY u.id LIMIT 1) AS owner_id
                       FROM workspaces w
+                     -- Keyed on the slug, not on the runtime. `ensure` is idempotent by
+                     -- slug, so a runtime test here would silently skip a workspace that
+                     -- has some *other* built-in plugin but not this one — a prefilter
+                     -- that disagrees with the thing it is filtering for.
                      WHERE NOT EXISTS (
                        SELECT 1 FROM plugins p
-                        WHERE p.workspace_id = w.id AND p.runtime = :runtime)
+                        WHERE p.workspace_id = w.id AND p.slug = :slug)
                     """
                 ),
-                {"runtime": builtin.RUNTIME},
+                {"slug": builtin.WORKSPACE_SLUG},
             )
         ).fetchall()
 

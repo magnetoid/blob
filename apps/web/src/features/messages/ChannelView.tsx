@@ -136,6 +136,16 @@ export function ChannelView() {
 
   const isDm = channel.kind === "dm" || channel.kind === "group_dm";
   const title = channel.name ?? channelTitle(channel);
+  // A one-to-one DM whose other member is a bot is the agent's room, and it needs a
+  // different empty state: the standing one says "Nobody else can see this conversation",
+  // which stops being true the moment the other participant is a model.
+  const agent =
+    channel.kind === "dm"
+      ? (channel.memberIds ?? [])
+          .filter((id) => id !== currentUser?.id)
+          .map((id) => users[id])
+          .find((u) => u?.kind === "bot")
+      : undefined;
   const archived = channel.archivedAt !== null;
   const memberCount = memberCounts[activeChannelId] ?? null;
   const queuedCount = Object.values(outbox).filter(
@@ -291,9 +301,11 @@ export function ChannelView() {
               This is the start of {isDm ? title : `#${title}`}
             </div>
             <div className="empty-state-body">
-              {isDm
-                ? "Say hello. Nobody else can see this conversation."
-                : "No messages yet. Set a topic so people know what belongs here, or invite the folks who should be in the loop."}
+              {agent
+                ? `Ask ${agent.displayName} anything — no need to mention it by name here. It can see this conversation and nothing else in the workspace yet.`
+                : isDm
+                  ? "Say hello. Nobody else can see this conversation."
+                  : "No messages yet. Set a topic so people know what belongs here, or invite the folks who should be in the loop."}
             </div>
           </div>
         }

@@ -34,6 +34,28 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-08-26',
+    title: 'Blob has an agent now',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Blob comes with its own assistant. It is already in your public channels — mention @Blob anywhere and it answers in the conversation, not in a panel beside it. Your admin turns it on by setting a model provider; until then nothing changes.',
+      },
+      {
+        kind: 'added',
+        text: 'Message Blob directly for a private conversation of your own. In its DM you do not need to mention it — every message is addressed to it, the way a DM already works with anyone else. It can see only that conversation for now, and it will say so rather than guessing.',
+      },
+      {
+        kind: 'added',
+        text: 'Blob shows as typing while it is thinking, so a slow answer looks like a slow answer rather than nothing happening.',
+      },
+      {
+        kind: 'added',
+        text: 'Admins can see what an agent actually did: every run it made, who asked, how long it took, how many replies it wrote, and what went wrong when something did. Under Apps in the console.',
+      },
+    ],
+  },
+  {
     date: '2026-08-25',
     title: 'Finding your way back to things',
     entries: [

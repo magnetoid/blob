@@ -17,9 +17,12 @@ own, so a failure on the third answer cannot roll back the first two.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
 
@@ -36,7 +39,8 @@ from ..lib.redis import redis
 from ..plugins import agui, builtin, gateway
 from ..plugins import events as plugin_events
 from ..plugins.signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
-from ..realtime import hub
+from ..realtime import hub, presence
+from ..realtime.protocol import TYPING_TTL_MS
 from ..services import agent_runs as agent_run_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
@@ -59,6 +63,10 @@ class Listener:
     #: Only read for the built-in agent, which is told where it works. An external agent
     #: is somebody else's program and is given the channel, not the workspace.
     workspace_name: str = ""
+    #: Set only in a personal-agent DM: the one person on the other side. It is what turns
+    #: the workspace agent into *your* agent, and it is a name rather than an id because
+    #: the only thing downstream does with it is tell the model whose room this is.
+    owner_name: str | None = None
 
     @property
     def dials_in(self) -> bool:
@@ -125,6 +133,80 @@ async def listeners_for(
         )
         for row in rows
     ]
+
+
+async def personal_agent_for(
+    session: AsyncSession, *, workspace_id: str, channel_id: str
+) -> Listener | None:
+    """The built-in agent, if this channel is one person's private room with it.
+
+    A DM with the agent needs no `@Blob`, because there is nobody else it could be
+    addressed to — which is the whole reason a personal agent works without a second
+    identity, a second bot, or a row anywhere. The room is what makes it personal.
+
+    **Every condition is in the statement, and none of them is `kind` alone.** `kind` is
+    set from the member count when a DM is created and never re-derived, while
+    `app_join_channel` can add a bot to a channel with no kind test at all — so a
+    `kind='dm'` row can hold three members, and a design that trusted the label would put
+    a model told "this is your private room with Ada" into a room Bo is also reading. The
+    count is therefore checked directly, in the same query as everything else.
+
+    Scoped to `runtime = 'builtin'` deliberately. Widening the trigger to "any bot in a
+    DM" would hand every installed third-party app a run for every line typed at it, with
+    no manifest opt-in and no way for its author to decline — a change to somebody else's
+    contract, smuggled in as a convenience.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
+                       p.runtime, s.signing_secret, w.name AS workspace_name,
+                       other.display_name AS owner_name
+                  FROM plugins p
+                  JOIN users u ON u.bot_plugin_id = p.id
+                  JOIN plugin_secrets s ON s.plugin_id = p.id
+                  JOIN workspaces w ON w.id = p.workspace_id
+                  JOIN channels c ON c.id = :channel_id
+                                 AND c.workspace_id = p.workspace_id
+                                 AND c.kind = 'dm'
+                  -- The bot is in the room ...
+                  JOIN channel_members bot_m ON bot_m.channel_id = c.id
+                                            AND bot_m.user_id = u.id
+                  -- ... and exactly one other person is, who is a person.
+                  JOIN channel_members other_m ON other_m.channel_id = c.id
+                                              AND other_m.user_id <> u.id
+                  JOIN users other ON other.id = other_m.user_id
+                                  AND other.kind = 'human'
+                                  AND other.deactivated_at IS NULL
+                 WHERE p.workspace_id = :ws
+                   AND p.status = 'enabled'
+                   AND p.runtime = :runtime
+                   AND u.deactivated_at IS NULL
+                   AND EXISTS (
+                     SELECT 1 FROM plugin_grants g
+                      WHERE g.plugin_id = p.id AND g.scope = 'messages:write')
+                   -- Two members and no more. `kind` cannot be trusted for this.
+                   AND (SELECT count(*) FROM channel_members m
+                         WHERE m.channel_id = c.id) = 2
+                """
+            ),
+            {"ws": workspace_id, "channel_id": channel_id, "runtime": builtin.RUNTIME},
+        )
+    ).fetchone()
+    if row is None:
+        return None
+    return Listener(
+        plugin_id=row.id,
+        slug=row.slug,
+        name=row.name,
+        bot_user_id=row.bot_user_id,
+        agui_url=row.agui_url,
+        signing_secret=row.signing_secret,
+        runtime=row.runtime,
+        workspace_name=row.workspace_name,
+        owner_name=row.owner_name,
+    )
 
 
 async def stream_run(
@@ -251,6 +333,54 @@ async def _stream_over_socket(
     return fold, posts, None
 
 
+@asynccontextmanager
+async def _looks_busy(
+    listener: Listener, channel_id: str, thread_root_id: str | None
+) -> AsyncIterator[None]:
+    """Show the agent typing for as long as it is thinking.
+
+    Nothing reaches the client until an answer is *sealed* — `Fold` emits a post on
+    TEXT_MESSAGE_END, not per delta — so a run is up to two minutes of an empty room. In
+    a channel that reads as normal; in a DM, where the person is sitting there waiting,
+    it is indistinguishable from the feature being broken.
+
+    This costs no client change and no protocol change, because the typing indicator is
+    already built, already broadcast per channel, and already rendered — the agent simply
+    starts using the thing people use. It is re-armed inside the TTL rather than set once,
+    since the indicator is deliberately short-lived so that a crashed client stops
+    claiming somebody is typing forever.
+
+    Failures are swallowed on purpose. A cosmetic indicator must never be able to stop an
+    answer from being written.
+    """
+    interval = max(1.0, (TYPING_TTL_MS / 1000) * 0.6)
+
+    async def signal() -> None:
+        try:
+            await presence.set_typing(channel_id, listener.bot_user_id, thread_root_id)
+        except Exception:
+            # A cosmetic indicator must never be able to stop an answer being written.
+            log.debug("could not signal typing", exc_info=True)
+
+    async def beat() -> None:
+        while True:
+            await asyncio.sleep(interval)
+            await signal()
+
+    # Signalled once here rather than only inside the task: `create_task` schedules, it
+    # does not run, so against a fast model the whole run can finish before the loop gets
+    # its first slot and the indicator would never appear at all. The person should see it
+    # the moment the run starts, which is now.
+    await signal()
+    task = asyncio.create_task(beat())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
 async def _stream_builtin(
     listener: Listener, run_input: dict[str, Any]
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
@@ -267,7 +397,11 @@ async def _stream_builtin(
     """
     fold = agui.Fold()
     posts: list[agui.Post] = []
-    persona = builtin.Persona(name=listener.name, workspace_name=listener.workspace_name)
+    persona = builtin.Persona(
+        name=listener.name,
+        workspace_name=listener.workspace_name,
+        owner_name=listener.owner_name,
+    )
 
     seen_events = 0
     try:
@@ -408,12 +542,26 @@ async def _run(message_id: str) -> None:
         if not trigger or trigger.deleted_at or trigger.kind != "user":
             return
         mentioned = list(trigger.mention_user_ids or [])
-        if not mentioned:
-            return
-
-        listeners = await listeners_for(
-            session, workspace_id=trigger.workspace_id, mention_user_ids=mentioned
+        listeners = (
+            await listeners_for(
+                session, workspace_id=trigger.workspace_id, mention_user_ids=mentioned
+            )
+            if mentioned
+            else []
         )
+
+        # A DM with the built-in agent is addressed by the room rather than by a mention:
+        # there is nobody else in it, so making people type `@Blob` at a wall would be
+        # ceremony. Slack's own assistant works this way and so does every DM anyone has
+        # ever sent, which is the point — this is the Slack reflex, not a new one.
+        personal = await personal_agent_for(
+            session, workspace_id=trigger.workspace_id, channel_id=trigger.channel_id
+        )
+        if personal and all(known.plugin_id != personal.plugin_id for known in listeners):
+            # Deduped because mentioning it *inside* its own DM is a thing people do out
+            # of habit, and it must not answer twice for one message.
+            listeners = [*listeners, personal]
+
         if not listeners:
             return
 
@@ -513,7 +661,8 @@ async def _run_one(
             transport=listener.transport,
         )
 
-    fold, posts, transport_error = await stream_run(listener, run_input)
+    async with _looks_busy(listener, channel_id, thread_root_id):
+        fold, posts, transport_error = await stream_run(listener, run_input)
 
     for post in posts:
         await _post_as_bot(

@@ -27,7 +27,6 @@ every other capability, rather than granted implicitly for being ours.
 
 from __future__ import annotations
 
-import textwrap
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -67,38 +66,80 @@ def system_prompt(persona: Persona, *, channel_name: str) -> str:
     the question before answering it, and claiming to have done things it cannot do —
     it has no tools, so "I've filed that" is always a lie and always the first thing a
     chat model reaches for.
+
+    A DM and a channel get genuinely different rooms described to them, not the same
+    text with a name swapped. Telling a private one-to-one conversation that it is "a
+    group chat" where "everyone can see what you write" is not a cosmetic error: it is
+    false, and it makes the agent hedge in the one room where a person is most likely to
+    say something they would not say in #general.
     """
-    who = (
-        f"You are {persona.name}, {persona.owner_name}'s own assistant "
-        f"in the {persona.workspace_name} workspace."
-        if persona.owner_name
-        else f"You are {persona.name}, an assistant in the {persona.workspace_name} workspace."
+    if persona.owner_name:
+        return _personal_prompt(persona, persona.owner_name)
+    return _channel_prompt(persona, channel_name)
+
+
+def _shared_rules() -> str:
+    """The half that does not change between a channel and a DM."""
+    return (
+        "How to write here:\n"
+        "- Be brief. Match the length of the room — usually a sentence or two. Long "
+        "answers are for when someone asks for depth, not for every question.\n"
+        "- Answer first. Do not restate the question or open with pleasantries.\n"
+        "- Plain prose. Reach for a short list only when the answer really is a list, "
+        "and never use a heading in a chat message.\n"
+        "- Say \"I don't know\" when you don't. A guess offered confidently costs the "
+        "team more than an admission.\n"
+        "\n"
+        "What you can and cannot do:\n"
+        "- You cannot send messages elsewhere, create channels, edit anything, call "
+        "other services or take any action in this workspace. You have no tools. Never "
+        "say you have done something, filed something, scheduled something or looked "
+        "something up — if it needs doing, say who should do it."
     )
-    return textwrap.dedent(
-        f"""\
-        {who} You are talking in #{channel_name}, a group chat, and you were mentioned by
-        name. Everyone can see what you write.
 
-        How to write here:
-        - Be brief. Match the length of the room — usually a sentence or two. Long answers
-          are for when someone asks for depth, not for every question.
-        - Answer first. Do not restate the question or open with pleasantries.
-        - Plain prose. Reach for a short list only when the answer really is a list, and
-          never use a heading in a chat message.
-        - Say "I don't know" when you don't. A guess offered confidently costs the team
-          more than an admission.
 
-        What you can and cannot do:
-        - You can read the recent conversation above and answer from it and from what you
-          know.
-        - You cannot send messages elsewhere, create channels, edit anything, call other
-          services or take any action in this workspace. You have no tools. Never say you
-          have done something, filed something, scheduled something or looked something
-          up — if it needs doing, say who should do it.
-        - Several people are talking. Each message is prefixed with who wrote it. Your own
-          earlier replies are unprefixed.
-        """
-    ).strip()
+def _channel_prompt(persona: Persona, channel_name: str) -> str:
+    return "\n\n".join(
+        [
+            f"You are {persona.name}, an assistant in the {persona.workspace_name} "
+            f"workspace. You are talking in #{channel_name}, a group chat, and you were "
+            "mentioned by name. Everyone can see what you write.",
+            _shared_rules(),
+            "- You can read the recent conversation above and answer from it and from "
+            "what you know.\n"
+            "- Several people are talking. Each message is prefixed with who wrote it. "
+            "Your own earlier replies are unprefixed.",
+        ]
+    )
+
+
+def _personal_prompt(persona: Persona, owner_name: str) -> str:
+    """A private, one-to-one room, and it has to be described as one.
+
+    The honesty paragraph is load-bearing rather than decorative. In a DM the natural
+    first questions are "what did I miss?" and "what's waiting on me?", and this agent
+    can see only this conversation — so without being told, a chat model will confabulate
+    a plausible standup summary from nothing at all. Saying plainly that it cannot see the
+    rest of the workspace turns a fabricated answer into an accurate one, and it is the
+    only limit a person can act on today.
+    """
+    return "\n\n".join(
+        [
+            f"You are {persona.name}, talking privately with {owner_name} in the "
+            f"{persona.workspace_name} workspace. This is a direct message: nobody else "
+            "is in this conversation and nobody else can read it. There is no need to be "
+            "mentioned here — every message is addressed to you.",
+            _shared_rules(),
+            f"- You can see only this conversation. You cannot read {owner_name}'s "
+            "channels, their unread messages, their mentions, or anything anyone else "
+            "has written anywhere in the workspace. If they ask what they missed, who is "
+            "waiting on them, or what happened in a channel, say plainly that you cannot "
+            "see it yet — do not invent an answer that sounds right.\n"
+            f"- Speak to {owner_name} directly, as one person to another. Their earlier "
+            "messages are the ones prefixed with their name; your own replies are "
+            "unprefixed.",
+        ]
+    )
 
 
 def turns_from(messages: Sequence[Mapping[str, Any]]) -> list[llm.Turn]:
