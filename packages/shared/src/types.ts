@@ -288,6 +288,14 @@ export interface Bootstrap {
   /** The server owns the command namespace; the client only renders what it is told. */
   commands: CommandSpec[];
   themes: Theme[];
+  /**
+   * Which messages you have put aside — ids only.
+   *
+   * Enough to label one menu item, "Save for later" against "Remove from later",
+   * without a per-user field on `Message` itself: that type is what every broadcast
+   * is built from, and a broadcast has no single reader to be per-user for.
+   */
+  savedMessageIds: string[];
 }
 
 /** A bug report, feature request or note, filed from the user menu. */

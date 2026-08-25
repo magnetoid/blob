@@ -493,6 +493,28 @@ class ThreadSubscription(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class SavedItem(Base):
+    """A message somebody put aside for themselves. Slack's Later.
+
+    Keyed on the pair rather than a surrogate id, so saving twice is settled by
+    `ON CONFLICT DO NOTHING` rather than by a read that two taps could both pass.
+    """
+
+    __tablename__ = "saved_items"
+    __table_args__ = (
+        PrimaryKeyConstraint("user_id", "message_id", name="saved_items_pkey"),
+        Index("saved_items_user_recent", "user_id", text("created_at DESC")),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class ThreadSummary(Base):
     __tablename__ = "thread_summaries"
     __table_args__ = (

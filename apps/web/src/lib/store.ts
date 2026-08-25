@@ -58,6 +58,8 @@ interface State {
   themes: Theme[];
   /** The workspace's own emoji, for the picker and for `:name:` in a body. */
   customEmoji: CustomEmoji[];
+  /** Message ids you have put aside. A Set: the message menu asks per row. */
+  savedMessageIds: Set<string>;
   /** Slash commands this server knows, for the composer's autocomplete. */
   commands: CommandSpec[];
   users: Record<string, User>;
@@ -105,6 +107,7 @@ interface State {
   discardQueuedMessage: (clientMsgId: string) => void;
   messageDeliveryState: (message: Message) => LocalMessageDeliveryStatus | null;
   toggleReaction: (message: Message, emoji: string) => Promise<void>;
+  toggleSaved: (messageId: string) => Promise<void>;
   markRead: (channelId: string) => Promise<void>;
   applyEvent: (event: ServerEvent) => void;
   resync: () => Promise<void>;
@@ -144,6 +147,7 @@ export const useStore = create<State>((set, get) => ({
   workspaceName: '',
   themes: [],
   customEmoji: [],
+  savedMessageIds: new Set<string>(),
   commands: [],
   users: {},
   channels: {},
@@ -165,6 +169,7 @@ export const useStore = create<State>((set, get) => ({
       workspaceName: data.workspace.name,
       themes: data.themes,
       customEmoji: data.customEmoji,
+      savedMessageIds: new Set(data.savedMessageIds),
       commands: data.commands,
       users: Object.fromEntries(data.users.map((u) => [u.id, u])),
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
@@ -182,6 +187,7 @@ export const useStore = create<State>((set, get) => ({
       workspaceName: '',
       themes: [],
       customEmoji: [],
+      savedMessageIds: new Set<string>(),
       commands: [],
       currentUser: null,
       users: {},
@@ -516,6 +522,34 @@ export const useStore = create<State>((set, get) => ({
       await api.messages.unreact(message.id, emoji);
     } else {
       await api.messages.react(message.id, emoji);
+    }
+  },
+
+  /**
+   * Put a message aside, or take it back off the list.
+   *
+   * Optimistic, and unlike a reaction it has to be: nothing is broadcast, so there is no
+   * event to correct the row afterwards — the set in this store *is* what the menu
+   * reads. Rolled back on failure rather than left hopeful, or the label would claim a
+   * message is saved when the server never heard about it.
+   */
+  toggleSaved: async (messageId) => {
+    const saved = !get().savedMessageIds.has(messageId);
+    const optimistic = new Set(get().savedMessageIds);
+    if (saved) optimistic.add(messageId);
+    else optimistic.delete(messageId);
+    set({ savedMessageIds: optimistic });
+
+    try {
+      await api.messages.save(messageId, saved);
+    } catch (error) {
+      set((s) => {
+        const reverted = new Set(s.savedMessageIds);
+        if (saved) reverted.delete(messageId);
+        else reverted.add(messageId);
+        return { savedMessageIds: reverted };
+      });
+      throw error;
     }
   },
 

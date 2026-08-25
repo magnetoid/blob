@@ -15,6 +15,9 @@ describe('parseRoute', () => {
     expect(parseRoute('/')).toEqual({ view: 'messages' });
     expect(parseRoute('/search')).toEqual({ view: 'search' });
     expect(parseRoute('/threads')).toEqual({ view: 'threads' });
+    // The path is /later and the view is 'saved': the nav word is Slack's, the
+    // code word matches the table and the endpoint.
+    expect(parseRoute('/later')).toEqual({ view: 'saved' });
     // Preferences are a section of the workspace page now, not a view of their own.
     expect(parseRoute('/settings')).toEqual({ view: 'workspace', section: 'preferences' });
   });
@@ -120,6 +123,7 @@ describe('pathForRoute', () => {
       { view: 'messages' },
       { view: 'search' },
       { view: 'threads' },
+      { view: 'saved' },
       ...WORKSPACE_SECTIONS.map((section) => ({ view: 'workspace' as const, section })),
       ...ADMIN_SECTIONS.map((section) => ({ view: 'admin' as const, section })),
       ...ADMIN_DETAIL_SECTIONS.map((section) => ({

@@ -142,6 +142,10 @@ class PinInput(CamelModel):
     pinned: bool
 
 
+class SaveInput(CamelModel):
+    saved: bool
+
+
 class UpdateProfileInput(CamelModel):
     display_name: DisplayName | None = None
     full_name: str | None = Field(default=None, max_length=80)

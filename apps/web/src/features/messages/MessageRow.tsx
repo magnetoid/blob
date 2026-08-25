@@ -83,6 +83,10 @@ export const MessageRow = memo(function MessageRow({
   const currentUser = useStore((s) => s.currentUser);
   const customEmoji = useStore((s) => s.customEmoji);
   const toggleReaction = useStore((s) => s.toggleReaction);
+  const toggleSaved = useStore((s) => s.toggleSaved);
+  // Subscribed to the boolean rather than the Set, so saving one message does not
+  // re-render every other row in a channel that is already virtualised for that reason.
+  const saved = useStore((s) => s.savedMessageIds.has(message.id));
   const retryQueuedMessage = useStore((s) => s.retryQueuedMessage);
   const discardQueuedMessage = useStore((s) => s.discardQueuedMessage);
   const deliveryState = useStore((s) => s.messageDeliveryState(message));
@@ -614,6 +618,19 @@ export const MessageRow = memo(function MessageRow({
                   width: 160,
                 }}
               >
+                {/* Above pinning, and worded to draw the line between them: this one
+                    is yours and tells nobody, pinning is the channel's and tells
+                    everybody. Slack orders them the same way. */}
+                <button
+                  className="autocomplete-item"
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void toggleSaved(message.id);
+                  }}
+                >
+                  {saved ? "Remove from later" : "Save for later"}
+                </button>
                 <button
                   className="autocomplete-item"
                   type="button"

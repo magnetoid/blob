@@ -31,6 +31,7 @@ from ..schemas.requests import (
 )
 from ..services import channels as channel_service
 from ..services import commands as command_service
+from ..services import messages as message_service
 from ..services import themes as theme_service
 from ..services.serialize import USER_COLUMNS, to_current_user, to_user, to_workspace
 
@@ -108,6 +109,7 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
         channels = await channel_service.list_for_user(session, user.id, user.workspace_id)
         themes = await theme_service.list_themes(session, user.workspace_id)
         app_commands = await command_service.app_specs(session, user.workspace_id)
+        saved_ids = await message_service.saved_message_ids(session, user.id)
 
     return Bootstrap(
         workspace=to_workspace(workspace),
@@ -144,6 +146,7 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
             for theme in themes
             if theme.is_enabled
         ],
+        saved_message_ids=saved_ids,
     )
 
 

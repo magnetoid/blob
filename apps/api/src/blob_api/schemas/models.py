@@ -249,6 +249,10 @@ class Bootstrap(CamelModel):
     custom_emoji: list[CustomEmoji]
     commands: list[CommandSpec]
     themes: list[ThemeSummary]
+    #: Ids only. Which messages you saved is per-user state, and putting the flag on
+    #: `Message` would mean threading a user id through the select every broadcast is
+    #: built from. The Later view fetches the messages themselves.
+    saved_message_ids: list[str] = Field(default_factory=list)
 
 
 class ReadStateOut(CamelModel):

@@ -27,6 +27,7 @@ from ..schemas.requests import (
     MarkReadInput,
     PinInput,
     ReactionInput,
+    SaveInput,
     SendMessageInput,
     TranslateMessageInput,
     WebhookPostInput,
@@ -335,6 +336,39 @@ async def pin_message(
             lambda: hub.to_channel(message.channel_id, message_event("message.updated", message))
         )
     return MessageOut(message=message)
+
+
+@router.put("/api/messages/{message_id}/save", response_model=OkOut)
+async def save_message(
+    message_id: str, payload: SaveInput, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    """Put a message aside for yourself. Slack's Later.
+
+    Membership, but not writability: pinning needs a channel you can still post in
+    because it changes the channel, and this changes nothing anybody else can see. A
+    message in an archived channel is exactly the kind you want to keep hold of.
+
+    Nothing is broadcast. There is no second reader — the list is one person's, and an
+    event would be a delivery path with a single subscriber who already holds the
+    response. `/api/commands` settled the same question the same way.
+    """
+    async with transaction() as (session, _):
+        existing = await message_service.by_id(session, message_id)
+        if existing is None or existing.deleted_at is not None:
+            raise not_found("That message is gone.")
+        await channel_service.assert_channel_access(
+            session, user.id, existing.channel_id, require_member=True
+        )
+        await message_service.set_saved(session, message_id, user.id, payload.saved)
+    return OkOut()
+
+
+@router.get("/api/saved", response_model=MessagesOut)
+async def list_saved(user: SessionUser = Depends(current_user)) -> MessagesOut:
+    """Everything put aside, newest first — the Later view."""
+    async with session_scope() as session:
+        messages = await message_service.list_saved(session, user.id)
+    return MessagesOut(messages=messages)
 
 
 # ─── reactions ────────────────────────────────────────────────────────────────

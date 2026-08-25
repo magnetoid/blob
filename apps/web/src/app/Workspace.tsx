@@ -17,6 +17,7 @@ import { Rail } from '../features/channels/Rail.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadsView } from '../features/messages/ThreadsView.tsx';
+import { SavedView } from '../features/messages/SavedView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
@@ -191,6 +192,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
       {view === 'messages' && <ChannelView />}
       {view === 'threads' && <ThreadsView />}
+      {view === 'saved' && <SavedView />}
       {view === 'search' && <SearchView />}
       {view === 'profile' && <ProfileView />}
 

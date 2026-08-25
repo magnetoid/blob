@@ -3273,3 +3273,29 @@ button.member-row:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ─── later ──────────────────────────────────────────────────────────────── */
+/* A saved row is a search result with a Done button on the end, so the body is the
+   button and the row is not. */
+.saved-row {
+  cursor: default;
+}
+
+.saved-body {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The count of things you put aside is a reminder, not an alert — it must not read
+   like an unread mention. */
+.badge-quiet {
+  background: var(--surface-hover);
+  color: var(--text-4);
+}

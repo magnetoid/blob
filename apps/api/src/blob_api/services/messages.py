@@ -484,6 +484,94 @@ async def list_pinned(session: AsyncSession, channel_id: str) -> list[Message]:
     return [to_message(row) for row in rows]
 
 
+async def set_saved(session: AsyncSession, message_id: str, user_id: str, saved: bool) -> None:
+    """Put a message aside, or take it back off the list.
+
+    Idempotent in both directions by construction: the primary key is the pair, so a
+    second save conflicts into nothing and a second unsave deletes nothing. Neither
+    needs a read first, which is what keeps two taps on a phone from racing.
+    """
+    if saved:
+        await session.execute(
+            text(
+                """
+                INSERT INTO saved_items (user_id, message_id)
+                VALUES (cast(:user_id AS uuid), cast(:message_id AS uuid))
+                ON CONFLICT DO NOTHING
+                """
+            ),
+            {"user_id": user_id, "message_id": message_id},
+        )
+    else:
+        await session.execute(
+            text(
+                """
+                DELETE FROM saved_items
+                 WHERE user_id = cast(:user_id AS uuid)
+                   AND message_id = cast(:message_id AS uuid)
+                """
+            ),
+            {"user_id": user_id, "message_id": message_id},
+        )
+
+
+async def list_saved(session: AsyncSession, user_id: str, limit: int = 100) -> list[Message]:
+    """Somebody's saved messages, newest save first.
+
+    The join against `channel_members` is the security boundary and is exactly the one
+    `search` uses, for the same reason and with the same consequence: leaving a channel
+    takes its messages out of your list. Saving cannot be a way to keep reading a
+    conversation you were removed from, and a row in this table is not permission.
+    """
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                SELECT {MESSAGE_SELECT} FROM messages m
+                  JOIN saved_items s
+                    ON s.message_id = m.id AND s.user_id = :user_id
+                  JOIN channel_members cm
+                    ON cm.channel_id = m.channel_id
+                   AND cm.user_id = :user_id          -- the security boundary
+                 WHERE m.deleted_at IS NULL
+                 ORDER BY s.created_at DESC
+                 LIMIT :limit
+                """
+            ),
+            {"user_id": user_id, "limit": limit},
+        )
+    ).fetchall()
+    return [to_message(row) for row in rows]
+
+
+async def saved_message_ids(session: AsyncSession, user_id: str, limit: int = 500) -> list[str]:
+    """Just the ids, for the boot payload.
+
+    The client needs these to label one menu item — "Save for later" against "Remove
+    from later" — and putting a per-user flag on `Message` itself would mean threading a
+    user id through `MESSAGE_SELECT`, which is also what every broadcast is built from
+    and has no single reader. Per-user state belongs with the other per-user state.
+
+    Deliberately not access-filtered: an id is not content, this runs on every boot, and
+    the list that renders them is. A stale id costs one wrong menu label until the next
+    boot, which is the correct amount of machinery for the problem.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT message_id FROM saved_items
+                 WHERE user_id = :user_id
+                 ORDER BY created_at DESC
+                 LIMIT :limit
+                """
+            ),
+            {"user_id": user_id, "limit": limit},
+        )
+    ).fetchall()
+    return [str(row.message_id) for row in rows]
+
+
 async def add_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str) -> bool:
     rows = (
         await session.execute(

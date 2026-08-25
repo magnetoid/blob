@@ -8,7 +8,13 @@ import { useStore } from '../../lib/store.ts';
 import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
-import { ChevronDownIcon, PlusIcon, ReplyIcon, SearchIcon } from '../../components/Icon.tsx';
+import {
+  ChevronDownIcon,
+  PinIcon,
+  PlusIcon,
+  ReplyIcon,
+  SearchIcon,
+} from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 
 interface Props {
@@ -25,6 +31,7 @@ export function Sidebar({ onOpenSearch }: Props) {
   const channelTitle = useStore((s) => s.channelTitle);
   const drafts = useStore((s) => s.drafts);
   const activeView = parseRoute(usePath()).view;
+  const savedCount = useStore((s) => s.savedMessageIds.size);
 
   const [creating, setCreating] = useState(false);
 
@@ -120,6 +127,17 @@ export function Sidebar({ onOpenSearch }: Props) {
               <ReplyIcon size={13} strokeWidth={1.8} />
             </span>
             <span className="channel-name">Threads</span>
+          </button>
+          <button
+            className="channel-row"
+            aria-current={activeView === 'saved'}
+            onClick={() => navigate('/later')}
+          >
+            <span className="channel-hash" aria-hidden="true">
+              <PinIcon size={13} strokeWidth={1.8} />
+            </span>
+            <span className="channel-name">Later</span>
+            {savedCount > 0 && <span className="badge badge-quiet">{savedCount}</span>}
           </button>
         </section>
 
