@@ -146,3 +146,13 @@ export const MenuIcon = (p: IconProps) => (
     <path d="M4 7h16M4 12h16M4 17h16" />
   </Svg>
 );
+
+/** A lifebuoy: report a problem, ask for something. Not a "?" — that reads as
+ *  documentation, and this opens a form somebody on the other end answers. */
+export const FeedbackIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="3.6" />
+    <path d="M5.7 5.7l3.8 3.8M14.5 14.5l3.8 3.8M18.3 5.7l-3.8 3.8M9.5 14.5l-3.8 3.8" />
+  </Svg>
+);

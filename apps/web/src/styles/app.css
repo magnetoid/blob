@@ -3299,3 +3299,17 @@ button.member-row:hover {
   background: var(--surface-hover);
   color: var(--text-4);
 }
+
+/* ─── feedback, in the corner ─────────────────────────────────────────────── */
+.topbar-feedback {
+  margin-right: 6px;
+  gap: 7px;
+}
+
+/* On a narrow window the icon carries it alone; the account menu beside it is the
+   thing that must not be squeezed. */
+@media (max-width: 900px) {
+  .topbar-feedback-label {
+    display: none;
+  }
+}

@@ -12,7 +12,7 @@ import { useStore } from '../../lib/store.ts';
 import { navigate, usePath } from '../../lib/router.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.tsx';
-import { ChevronDownIcon } from '../../components/Icon.tsx';
+import { ChevronDownIcon, FeedbackIcon } from '../../components/Icon.tsx';
 import { ITEMS } from './menu.ts';
 
 
@@ -64,6 +64,21 @@ export function TopBar({ onFeedback }: { onFeedback: () => void }) {
     <header className="topbar">
       <WorkspaceSwitcher name={workspaceName} />
       <div className="topbar-spacer" />
+
+      {/* Its own control, in the corner, rather than the last row of the account menu
+          under a disabled "Update — Soon". Everything a ticket is worth — the console
+          log, the page as it stood, the URL and the viewport — is captured the moment
+          this opens, so a report costs a click at the moment the thing went wrong.
+          Buried one menu deep, that moment passes. The menu row stays: this adds a way
+          in, the way Administration did in the sidebar, it does not move the old one. */}
+      <button
+        className="btn btn-ghost topbar-feedback"
+        onClick={onFeedback}
+        title="Report a bug or send feedback"
+      >
+        <FeedbackIcon size={15} />
+        <span className="topbar-feedback-label">Feedback</span>
+      </button>
 
       <div className="user-menu" ref={menuRef}>
         <button
