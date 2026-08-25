@@ -135,12 +135,9 @@ async def test_logout_others_keeps_the_current_session(client: Client) -> None:
     assert (await second_device.get("/api/auth/sessions")).status == 401
 
 
-async def test_password_reset_signs_out_every_session(client: Client) -> None:
-    await sign_up(client, "Owner")
-    # The endpoint always reports success, so a stranger cannot enumerate accounts.
-    assert (
-        await client.post("/api/auth/forgot-password", {"email": "ghost@example.com"})
-    ).status == 200
+# Password recovery lives in test_password_reset.py. The test that stood here claimed to
+# cover signing out every session and only checked that a forgotten address answers 200 —
+# the reset itself ran nowhere.
 
 
 @pytest.mark.parametrize(

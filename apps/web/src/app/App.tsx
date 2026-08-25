@@ -6,11 +6,17 @@ import { connectStoreToSocket, useStore } from '../lib/store.ts';
 import { flushDrafts } from '../lib/drafts.ts';
 import { applyTheme, pickTheme } from '../lib/theme.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
+import { resetTokenFromUrl } from '../features/auth/tokens.ts';
 import { Workspace } from './Workspace.tsx';
 
 type Phase = 'loading' | 'signed-out' | 'signed-in';
 
 export function App() {
+  // Read once, before anything can navigate: a reset link has to win over a live
+  // session. Resetting deletes every session this address holds, so the person
+  // following the link from their inbox may well still have a valid cookie in this
+  // tab — and booting them into the workspace would swallow the only token they have.
+  const [resetToken, setResetToken] = useState(resetTokenFromUrl);
   const [phase, setPhase] = useState<Phase>('loading');
   const [needsSetup, setNeedsSetup] = useState(false);
   const boot = useStore((s) => s.boot);
@@ -92,12 +98,15 @@ export function App() {
     );
   }
 
-  if (phase === 'signed-out') {
+  if (phase === 'signed-out' || resetToken) {
     return (
       <AuthScreen
         needsSetup={needsSetup}
         onSignedIn={async () => {
           boot(await api.bootstrap());
+          // Spent, and it has to stop forcing this screen or a completed reset would
+          // sign you in and then show you the form it just satisfied.
+          setResetToken(null);
           setPhase('signed-in');
         }}
       />
