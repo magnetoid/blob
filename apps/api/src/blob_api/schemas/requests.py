@@ -146,6 +146,24 @@ class SaveInput(CamelModel):
     saved: bool
 
 
+class CreateGroupInput(CamelModel):
+    #: Validated properly in `services/user_groups.clean_handle`, which also strips a
+    #: leading "@" — the shape is enforced by a CHECK, this is only a length floor.
+    handle: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=280)
+
+
+class UpdateGroupInput(CamelModel):
+    handle: str | None = Field(default=None, max_length=40)
+    name: str | None = Field(default=None, max_length=80)
+    description: str | None = Field(default=None, max_length=280)
+
+
+class MuteGroupInput(CamelModel):
+    muted: bool
+
+
 class UpdateProfileInput(CamelModel):
     display_name: DisplayName | None = None
     full_name: str | None = Field(default=None, max_length=80)

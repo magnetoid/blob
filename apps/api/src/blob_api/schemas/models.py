@@ -242,6 +242,16 @@ class MessageTranslation(CamelModel):
     updated_at: str
 
 
+class UserGroup(CamelModel):
+    """A named set of people, mentionable as one handle."""
+
+    id: str
+    handle: str
+    name: str
+    description: str | None = None
+    member_count: int = 0
+
+
 class Bootstrap(CamelModel):
     """Everything the client needs on boot, in one round trip."""
 

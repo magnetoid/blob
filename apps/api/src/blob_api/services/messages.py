@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request, forbidden, not_found
 from ..lib.ids import new_id
-from ..lib.mentions import mention_lookup_phrases, parse_mentions
+from ..lib.mentions import MentionTarget, mention_lookup_phrases, parse_mentions
 from ..schemas.models import Message
 from .serialize import MESSAGE_SELECT, to_message
 
@@ -52,10 +52,19 @@ class SendResult:
     thread_update: ThreadUpdate | None
 
 
-async def display_name_matches(
+async def mention_targets(
     session: AsyncSession, workspace_id: str, body: str
-) -> dict[str, str]:
-    """Lowercased display name → user id for names this body could actually mention."""
+) -> dict[str, MentionTarget]:
+    """Lowercased handle → what it names, for handles this body could actually mention.
+
+    One statement against `workspace_handles` rather than one against `users`, which is
+    what makes a group mentionable at all — and what makes a collision impossible rather
+    than merely unlikely, since a handle is owned by exactly one row there.
+
+    The keys are `handle_lower`, which Postgres lowered. `parse_mentions` offers both
+    Python's and Postgres' lowercasing on the lookup side to meet them; see the note
+    there about "İ".
+    """
     phrases = mention_lookup_phrases(body)
     if not phrases:
         return {}
@@ -64,16 +73,21 @@ async def display_name_matches(
         await session.execute(
             text(
                 """
-                SELECT id, display_name FROM users
+                SELECT handle_lower, user_id, group_id FROM workspace_handles
                  WHERE workspace_id = :ws
-                   AND deactivated_at IS NULL
-                   AND lower(display_name) = ANY(cast(:display_names AS text[]))
+                   AND handle_lower = ANY(cast(:handles AS text[]))
                 """
             ),
-            {"ws": workspace_id, "display_names": phrases},
+            {"ws": workspace_id, "handles": phrases},
         )
     ).fetchall()
-    return {row.display_name.lower(): row.id for row in rows}
+    targets: dict[str, MentionTarget] = {}
+    for row in rows:
+        if row.group_id is not None:
+            targets[row.handle_lower] = ("group", str(row.group_id))
+        elif row.user_id is not None:
+            targets[row.handle_lower] = ("user", str(row.user_id))
+    return targets
 
 
 async def send(
@@ -95,7 +109,7 @@ async def send(
 ) -> SendResult:
     message_id = new_id()
     attachment_ids = attachment_ids or []
-    mentions = parse_mentions(body, await display_name_matches(session, workspace_id, body))
+    mentions = parse_mentions(body, await mention_targets(session, workspace_id, body))
 
     if thread_root_id:
         root = (
@@ -114,11 +128,12 @@ async def send(
                 """
                 INSERT INTO messages (
                   id, workspace_id, channel_id, author_id, kind, body, thread_root_id,
-                  also_in_channel, mention_user_ids, mentions_everyone, client_msg_id,
-                  plugin_id, blocks)
+                  also_in_channel, mention_user_ids, mention_group_ids,
+                  mentions_everyone, client_msg_id, plugin_id, blocks)
                 VALUES (
                   :id, :ws, :channel_id, :author_id, :kind, :body, :thread_root_id,
-                  :also_in_channel, cast(:mention_user_ids AS uuid[]), :mentions_everyone,
+                  :also_in_channel, cast(:mention_user_ids AS uuid[]),
+                  cast(:mention_group_ids AS uuid[]), :mentions_everyone,
                   :client_msg_id, :plugin_id, cast(:blocks AS jsonb))
                 ON CONFLICT (channel_id, author_id, client_msg_id) DO NOTHING
                 RETURNING id
@@ -134,6 +149,7 @@ async def send(
                 "thread_root_id": thread_root_id,
                 "also_in_channel": also_in_channel,
                 "mention_user_ids": mentions.user_ids,
+                "mention_group_ids": mentions.group_ids,
                 "mentions_everyone": mentions.everyone,
                 "client_msg_id": client_msg_id,
                 "plugin_id": plugin_id,
@@ -378,13 +394,14 @@ async def edit(
     if existing.author_id != user_id:
         raise forbidden("You can only edit your own messages.")
 
-    mentions = parse_mentions(body, await display_name_matches(session, workspace_id, body))
+    mentions = parse_mentions(body, await mention_targets(session, workspace_id, body))
     await session.execute(
         text(
             """
             UPDATE messages
                SET body = :body, edited_at = now(),
                    mention_user_ids = cast(:mention_user_ids AS uuid[]),
+                   mention_group_ids = cast(:mention_group_ids AS uuid[]),
                    mentions_everyone = :mentions_everyone
              WHERE id = :id
             """
@@ -393,6 +410,7 @@ async def edit(
             "id": message_id,
             "body": body,
             "mention_user_ids": mentions.user_ids,
+            "mention_group_ids": mentions.group_ids,
             "mentions_everyone": mentions.everyone,
         },
     )
@@ -432,7 +450,8 @@ async def remove(
             """
             UPDATE messages
                SET deleted_at = now(), body = '',
-                   mention_user_ids = '{}', mentions_everyone = false
+                   mention_user_ids = '{}', mention_group_ids = '{}',
+                   mentions_everyone = false
              WHERE id = :id
             """
         ),

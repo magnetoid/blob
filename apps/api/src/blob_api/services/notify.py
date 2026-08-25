@@ -22,7 +22,9 @@ from ..lib.mentions import matches_keywords
 from ..schemas.models import UserPrefs
 
 NotifyLevel = Literal["all", "mentions", "none"]
-NotifyReason = Literal["dm", "mention", "everyone", "keyword", "all_activity", "thread"]
+NotifyReason = Literal[
+    "dm", "mention", "group", "everyone", "keyword", "all_activity", "thread"
+]
 
 
 @dataclass(slots=True)
@@ -41,6 +43,9 @@ class NotifiableMessage:
     author_id: str | None
     body: str
     mention_user_ids: list[str] = field(default_factory=list)
+    #: Groups this message named. Kept as groups: resolving them to people happens here,
+    #: at notify time, against *current* membership — not frozen into the message row.
+    mention_group_ids: list[str] = field(default_factory=list)
     mentions_everyone: bool = False
     thread_root_id: str | None = None
 
@@ -58,9 +63,14 @@ def decide(
     recipients: list[Recipient],
     now: datetime | None = None,
     thread_subscribers: set[str] | None = None,
+    group_recipients: set[str] | None = None,
 ) -> list[Decision]:
     now = now or datetime.now(UTC)
     thread_subscribers = thread_subscribers or set()
+    # Members of the groups this message named, already filtered to those who have not
+    # muted the group. Resolved by the caller, because that is a query and this stays a
+    # pure function — the same arrangement `thread_subscribers` uses.
+    group_recipients = group_recipients or set()
     decisions: list[Decision] = []
 
     for recipient in recipients:
@@ -78,6 +88,12 @@ def decide(
             decisions.append(Decision(recipient.user_id, "dm", True))
         elif mentioned:
             decisions.append(Decision(recipient.user_id, "mention", True))
+        elif recipient.user_id in group_recipients:
+            # Badge-strength, because being named as part of a team you are on is being
+            # named — but labelled apart from "mention" so the two can ever be told
+            # apart downstream. Below a direct mention: somebody named personally *and*
+            # via a group has been named personally.
+            decisions.append(Decision(recipient.user_id, "group", True))
         elif message.mentions_everyone:
             # Muted channels already returned above, so reaching here means they opted in.
             decisions.append(Decision(recipient.user_id, "everyone", True))
@@ -156,6 +172,34 @@ async def load_recipients(session: AsyncSession, channel_id: str) -> list[Recipi
         )
         for row in rows
     ]
+
+
+async def load_group_recipients(session: AsyncSession, group_ids: list[str]) -> set[str]:
+    """Everyone in these groups who has not muted them.
+
+    Resolved here rather than frozen into the message when it was sent, which is the
+    decision the whole design turns on. Membership at *send* time is what a flattened
+    array would have preserved, and it is the wrong answer: editing a typo re-resolves
+    mentions, so an edit would silently rewrite who had been pinged.
+
+    A muted group is silent, and that is a different switch from muting the channel —
+    `decide` short-circuits on `notify_level == "none"` before any of this runs, so the
+    two compose rather than one standing in for the other.
+    """
+    if not group_ids:
+        return set()
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT DISTINCT user_id FROM user_group_members
+                 WHERE group_id = ANY(cast(:ids AS uuid[])) AND muted = false
+                """
+            ),
+            {"ids": group_ids},
+        )
+    ).fetchall()
+    return {str(row.user_id) for row in rows}
 
 
 async def load_thread_subscribers(session: AsyncSession, thread_root_id: str) -> set[str]:

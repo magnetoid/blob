@@ -11,7 +11,12 @@ from datetime import UTC, datetime
 import pytest
 
 from blob_api.jobs.unfurl import first_url
-from blob_api.lib.mentions import matches_keywords, mention_lookup_phrases, parse_mentions
+from blob_api.lib.mentions import (
+    MentionTarget,
+    matches_keywords,
+    mention_lookup_phrases,
+    parse_mentions,
+)
 from blob_api.lib.net import is_private_address
 from blob_api.schemas.models import UserPrefs
 from blob_api.services.notify import (
@@ -22,7 +27,14 @@ from blob_api.services.notify import (
     is_snoozed,
 )
 
-NAMES = {"ana": "user-ana", "ana maria": "user-ana-maria", "marko": "user-marko"}
+# A handle names a person or a group, in one namespace — that is the whole point of
+# `workspace_handles`, and why the value is a discriminated pair rather than a bare id.
+NAMES: dict[str, MentionTarget] = {
+    "ana": ("user", "user-ana"),
+    "ana maria": ("user", "user-ana-maria"),
+    "marko": ("user", "user-marko"),
+    "platform-team": ("group", "group-platform"),
+}
 
 
 def message(**overrides) -> NotifiableMessage:

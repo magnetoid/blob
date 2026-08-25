@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Literal
 
 EVERYONE_TOKENS = ("channel", "everyone")
 HERE_TOKEN = "here"
@@ -21,10 +22,21 @@ _INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 _TRAILING_PUNCT_RE = re.compile(r"[.,!?;:]+$")
 
 
+#: What a handle resolves to: a person, or a group of them.
+#:
+#: A tuple rather than two maps, because the whole point is that both live in *one*
+#: namespace — two maps would let a handle appear in each and reintroduce exactly the
+#: ambiguity `workspace_handles` exists to make impossible.
+MentionTarget = tuple[Literal["user", "group"], str]
+
+
 @dataclass(slots=True)
 class MentionResult:
-    #: Ids of users named directly.
+    #: Ids of users named directly. Never contains a group's members: five things read
+    #: this as "people this message named", including the agent dispatcher.
     user_ids: list[str] = field(default_factory=list)
+    #: Ids of groups named. Resolved to people at notify time, not here.
+    group_ids: list[str] = field(default_factory=list)
     #: True when @channel or @here appeared.
     everyone: bool = False
     #: True specifically for @here (notify only active members).
@@ -79,14 +91,23 @@ def mention_lookup_phrases(body: str) -> list[str]:
     return list(phrases)
 
 
-def parse_mentions(body: str, name_to_id: dict[str, str]) -> MentionResult:
+def parse_mentions(body: str, targets: dict[str, MentionTarget]) -> MentionResult:
     """Extract mentions from raw markdown.
 
-    `name_to_id` keys must be lowercased display names. Names may contain spaces, so we
-    match greedily against the known-name set rather than by regex alone.
+    `targets` maps a lowercased handle to what it names. Names may contain spaces, so we
+    match greedily against the known set rather than by regex alone.
+
+    Both lowercasings of a phrase are tried, and that is load-bearing rather than
+    defensive. The keys come from `workspace_handles.handle_lower`, which Postgres
+    lowered — and Postgres applies the *simple* case mapping while Python applies the
+    full one, so "İvan" is `ivan` on one side and a two-code-point `i̇van` on the other.
+    Looking up only `phrase.lower()` would miss such a name entirely: a mention that
+    resolves to nobody, with nothing logged. `mention_lookup_phrases` already offers both
+    spellings to the SQL filter for the same reason; this is the other half of it.
     """
     text = strip_code(body)
-    user_ids: dict[str, None] = {}  # ordered set
+    user_ids: dict[str, None] = {}  # ordered sets
+    group_ids: dict[str, None] = {}
     everyone = False
     here_only = False
 
@@ -98,13 +119,21 @@ def parse_mentions(body: str, name_to_id: dict[str, str]) -> MentionResult:
 
         # Prefer the longest matching name: "@Ana Maria" beats "@Ana".
         for take in range(len(words), 0, -1):
-            phrase = " ".join(words[:take]).lower()
-            bare = _TRAILING_PUNCT_RE.sub("", phrase)
-            user_id = name_to_id.get(bare)
-            if user_id is not None:
-                user_ids[user_id] = None
+            joined = " ".join(words[:take])
+            target = None
+            for spelling in (joined.lower(), _simple_lower(joined)):
+                target = targets.get(_TRAILING_PUNCT_RE.sub("", spelling))
+                if target is not None:
+                    break
+            if target is not None:
+                kind, target_id = target
+                if kind == "group":
+                    group_ids[target_id] = None
+                else:
+                    user_ids[target_id] = None
                 break
             if take == 1:
+                bare = _TRAILING_PUNCT_RE.sub("", joined.lower())
                 if bare in EVERYONE_TOKENS:
                     everyone = True
                 elif bare == HERE_TOKEN:
@@ -112,7 +141,12 @@ def parse_mentions(body: str, name_to_id: dict[str, str]) -> MentionResult:
                     here_only = True
                 break
 
-    return MentionResult(user_ids=list(user_ids), everyone=everyone, here_only=here_only)
+    return MentionResult(
+        user_ids=list(user_ids),
+        group_ids=list(group_ids),
+        everyone=everyone,
+        here_only=here_only,
+    )
 
 
 def matches_keywords(body: str, keywords: list[str]) -> bool:

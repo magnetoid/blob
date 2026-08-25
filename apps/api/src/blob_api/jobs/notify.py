@@ -47,7 +47,8 @@ async def handle_notify(message_id: str) -> None:
                     """
                     SELECT m.id, m.channel_id, c.kind AS channel_kind, c.name AS channel_name,
                            m.author_id, u.display_name AS author_name, m.body,
-                           m.mention_user_ids, m.mentions_everyone, m.thread_root_id
+                           m.mention_user_ids, m.mention_group_ids, m.mentions_everyone,
+                           m.thread_root_id
                       FROM messages m
                       JOIN channels c ON c.id = m.channel_id
                       LEFT JOIN users u ON u.id = m.author_id
@@ -67,6 +68,14 @@ async def handle_notify(message_id: str) -> None:
             else set()
         )
 
+        # Intersected with channel membership for free: `decide` iterates only the
+        # recipients loaded above, so a group member who is not in this channel is never
+        # considered. That bound is the privacy posture — a notification carries the
+        # channel name and a body preview, and tapping it would 404.
+        group_recipients = await notify_service.load_group_recipients(
+            session, list(message.mention_group_ids or [])
+        )
+
         decisions = notify_service.decide(
             notify_service.NotifiableMessage(
                 id=message.id,
@@ -75,11 +84,13 @@ async def handle_notify(message_id: str) -> None:
                 author_id=message.author_id,
                 body=message.body,
                 mention_user_ids=list(message.mention_user_ids or []),
+                mention_group_ids=list(message.mention_group_ids or []),
                 mentions_everyone=message.mentions_everyone,
                 thread_root_id=message.thread_root_id,
             ),
             recipients,
             thread_subscribers=subscribers,
+            group_recipients=group_recipients,
         )
         if not decisions:
             return
