@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-24T22:47:56'
-updated: '2026-08-24T22:47:56'
+created: '2026-08-25T01:55:21'
+updated: '2026-08-25T01:55:21'
 ---
 
 # apps/api/tests/helpers.py
@@ -30,3 +30,5 @@ Symbols in `apps/api/tests/helpers.py`.
 - L151 `invite_and_sign_up(owner: Client, display_name: str, role: str='member')` (function) — Mint an invite as the owner, then accept it on a fresh client.
 - L159 `client_msg_id()` (function)
 - L163 `send_message(client: Client, channel_id: str, body: str, **extra: Any)` (function)
+- L168 `allow_policy(workspace_id: str, **fields: object)` (function) — Open a capability for a workspace, straight into the table.
+- L209 `workspace_id_of(client: Client)` (function) — The workspace this client is signed into.

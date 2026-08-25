@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-24T22:47:56'
-updated: '2026-08-24T22:47:56'
+created: '2026-08-25T01:55:20'
+updated: '2026-08-25T01:55:20'
 ---
 
 # Repository Map
@@ -78,7 +78,10 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0012_socket_agents.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 31 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0013_workspace_policies.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 32 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -116,7 +119,7 @@ Modules and their key symbols (ranked by references).
   - `current_user(request: Request)` (function)
   - `require_admin(request: Request)` (function)
   - `hash_token(token: str)` (function)
-  - `hash_password(plain: str)` (function)
+  - `require_instance_admin(request: Request)` (function)
 - **apps/api/src/blob_api/lib/errors.py** — 9 symbol(s)
   - `bad_request(message: str, code: str='bad_request')` (function)
   - `not_found(message: str="That doesn't exist.")` (function)
@@ -176,7 +179,4 @@ Modules and their key symbols (ranked by references).
   - `_interrupt_prompt(event: Mapping[str, Any])` (function)
   - `SseDecoder` (class)
   - `__init__(self)` (method)
-- **apps/api/src/blob_api/plugins/auth.py** — 6 symbol(s)
-  - `BotCaller` (class)
-  - `requires(scope: str)` (function)
-  - `current_bot(request: Request)` (function)…[truncated]
+- **a…[truncated]
