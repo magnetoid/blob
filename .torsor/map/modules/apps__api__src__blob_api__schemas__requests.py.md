@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T01:55:20'
-updated: '2026-08-25T01:55:20'
+created: '2026-08-25T03:35:16'
+updated: '2026-08-25T03:35:16'
 ---
 
 # apps/api/src/blob_api/schemas/requests.py
@@ -32,17 +32,18 @@ Symbols in `apps/api/src/blob_api/schemas/requests.py`.
 - L133 `ReactionInput` (class)
 - L137 `MarkReadInput` (class)
 - L141 `PinInput` (class)
-- L145 `UpdateProfileInput` (class)
-- L155 `UpdatePrefsInput` (class)
-- L168 `UploadRequestInput` (class)
-- L174 `UploadCompleteInput` (class)
-- L179 `PushSubscriptionKeys` (class)
-- L184 `PushSubscriptionInput` (class)
-- L189 `PushUnsubscribeInput` (class)
-- L193 `AddMembersInput` (class)
-- L197 `WebhookPostInput` (class)
-- L202 `CreateAgentTaskInput` (class)
-- L212 `UpdateAgentTaskInput` (class)
-- L221 `TranslateMessageInput` (class)
-- L226 `FeedbackInput` (class)
-- L237 `FeedbackStatusInput` (class)
+- L145 `SaveInput` (class)
+- L149 `UpdateProfileInput` (class)
+- L159 `UpdatePrefsInput` (class)
+- L172 `UploadRequestInput` (class)
+- L178 `UploadCompleteInput` (class)
+- L183 `PushSubscriptionKeys` (class)
+- L188 `PushSubscriptionInput` (class)
+- L193 `PushUnsubscribeInput` (class)
+- L197 `AddMembersInput` (class)
+- L201 `WebhookPostInput` (class)
+- L206 `CreateAgentTaskInput` (class)
+- L216 `UpdateAgentTaskInput` (class)
+- L225 `TranslateMessageInput` (class)
+- L230 `FeedbackInput` (class)
+- L241 `FeedbackStatusInput` (class)

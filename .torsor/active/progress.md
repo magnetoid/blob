@@ -201,15 +201,79 @@ Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
   new endpoint only names the result. The name pattern is deliberately the same one
   `markdown.tsx` matches, or an admin could add an emoji no message is able to reference.
 
+- **The missing entrances, swept** — a scan for typed client methods with no call site
+  turned up eight at once, and every one of them was a finished server feature nobody
+  could reach. They are grouped here because the *pattern* is the finding; see the first
+  trap in `context.md`.
+
+  **Password recovery was the serious one.** The server mints a reset token, hashes it,
+  rate-limits the request, answers an unknown address exactly the way it answers a known
+  one so the endpoint cannot enumerate accounts, and emails a link to
+  `PUBLIC_URL/reset/<token>`. `parseRoute` had no `/reset/` case, so the link fell
+  through to the conversation view and the token was discarded in silence: somebody who
+  forgot their password was locked out of a self-hosted workspace permanently, holding an
+  email that appeared to be broken. There was also no test of the reset half —
+  `test_password_reset_signs_out_every_session` signed somebody up and asserted only that
+  a forgotten address answers 200. A reset link now outranks a live session, because
+  resetting deletes every session the address holds and the person following the link may
+  still have a valid cookie in that tab.
+
+  **The channel had no controls.** `channel_members` has carried `notify_level` and
+  `is_starred` since the baseline; `notify.decide` honours the first and the sidebar
+  *sorts* by the second — so starred channels floated to the top of a list in which
+  nothing could star one. Leaving was reachable by typing `/leave`, a topic by `/topic`,
+  and the Members button was a count that did nothing when pressed. All of it now hangs
+  off the channel name, where a hand coming from Slack reaches.
+
+  **Threads.** `threads_for_user` joins `thread_subscriptions`, honours `muted` and
+  orders by `last_reply_at`; its docstring says "the sidebar's Threads view". There was
+  none. It sits above Channels and answers ⌘⇧T, both Slack's.
+
+- **Later** — the one Slack habit with no server side either, so this is a whole slice:
+  migration 0014, two routes, a boot field, a view. Pinning is the channel's memory and
+  is visible to everybody; this is one person's and visible to nobody, which is the whole
+  distinction. The primary key is (user_id, message_id), so saving twice is settled by
+  `ON CONFLICT DO NOTHING` rather than by a read two taps could both pass. `list_saved`
+  joins `channel_members` exactly as `search` does, and that join is the point: a row in
+  `saved_items` is a bookmark, never a grant, so leaving a channel takes its messages out
+  of your list. The boot payload carries ids only — the menu needs to know which of two
+  labels to show, and a per-user flag on `Message` would mean threading a user id through
+  the select every broadcast is built from.
+
 ## In progress
 
-Nothing. 467 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
+Nothing. 489 backend tests pass and 2 skip (the MinIO-backed attachment and snapshot
 ones, which skip when no bucket is up — green while proving nothing, so bring storage up
-before trusting them); 106 pass in the browser. ruff, mypy, tsc and `alembic check` are
+before trusting them); 177 pass in the browser. ruff, mypy, tsc and `alembic check` are
 clean. Counts are worth re-measuring rather than trusting: this line read "274 and 17"
-for several milestones after both had moved.
+for several milestones after both had moved, and "467 and 106" when the browser suite
+had already reached 142.
 
 ## Next
+
+### Still short of Slack, measured against the code rather than the roadmap
+
+Each of these was checked against the source, not assumed. None has a server side, so
+none is an entrance problem — they are genuinely unbuilt.
+
+- **A message has no permalink.** Slack's "Copy link" is how a message gets quoted into
+  another channel or a ticket, and there is no URL that addresses one. `history` already
+  accepts `around`, so the query half exists; what is missing is a route and the
+  scroll-to-and-highlight on arrival, which `PinnedPanel`'s `onJump` already does for a
+  message that happens to be loaded.
+- **Mark as unread.** `POST /api/channels/:id/read` takes a message id and would accept
+  an earlier one; nothing offers it. This is how people leave themselves a marker, and
+  its absence pushes them to Later for a job Later is not for.
+- **Scheduled send**, **user groups (`@team`)** and **channel bookmarks** — all three
+  absent end to end. User groups are the one with real depth: `parse_mentions` resolves
+  display names against a map, so a group is a new kind of key in that map plus a
+  membership table, and `notify.decide` would need to know a group mention is not an
+  `@channel`.
+- **Somebody's status is set in Preferences and read almost nowhere.** `statusEmoji` and
+  `statusText` have been on `User` and settable the whole time; until the member list
+  landed, no screen displayed either. The message row and the sidebar still do not.
+
+## Next (from the build plan)
 
 - **Multi-workspace, the rest** — what shipped is creating, listing, switching and
   keeping workspaces apart. Still missing: naming and deleting a workspace from the

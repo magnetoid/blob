@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T01:55:20'
-updated: '2026-08-25T01:55:20'
+created: '2026-08-25T03:35:16'
+updated: '2026-08-25T03:35:16'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -31,16 +31,17 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L448 `CustomEmoji` (class)
 - L463 `ReadState` (class)
 - L478 `ThreadSubscription` (class)
-- L496 `ThreadSummary` (class)
-- L537 `MessageTranslation` (class)
-- L564 `AgentTask` (class)
-- L623 `PushSubscription` (class)
-- L637 `Webhook` (class)
-- L656 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
-- L684 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
-- L741 `PluginCommand` (class) — A slash command an app provides.
-- L767 `PluginSecret` (class)
-- L777 `PluginGrant` (class)
-- L791 `BotToken` (class)
-- L805 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
-- L837 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
+- L496 `SavedItem` (class) — A message somebody put aside for themselves. Slack's Later.
+- L518 `ThreadSummary` (class)
+- L559 `MessageTranslation` (class)
+- L586 `AgentTask` (class)
+- L645 `PushSubscription` (class)
+- L659 `Webhook` (class)
+- L678 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
+- L706 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
+- L763 `PluginCommand` (class) — A slash command an app provides.
+- L789 `PluginSecret` (class)
+- L799 `PluginGrant` (class)
+- L813 `BotToken` (class)
+- L827 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
+- L859 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.

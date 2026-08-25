@@ -8,6 +8,14 @@ tags: [active]
 
 ## Current focus
 
+**The entrances, systematically.** A sweep for client methods and server routes with no
+control found five more of what pins and custom emoji had already been twice: password
+recovery (the server emailed a link to a path the router did not parse), star and mute,
+leave, rename and set-topic, the member list, and the Threads view. All are built now,
+and **Later** — the one Slack habit with no server either — was built end to end. The
+lesson is in the traps list below: this codebase's characteristic bug is a feature that
+is complete apart from the way in, and it is invisible from the server side.
+
 Milestone 16 (external apps) shipped and now has a working admin Apps console. The
 agentic workspace slice is also in place: thread summaries, human/agent tasks, durable
 offline outbox replay, and multilingual message translation are all implemented.
@@ -82,6 +90,36 @@ supplies only a *name* — never a URL — so a message cannot aim an `<img>` an
 ## Traps this codebase has already sprung
 
 Worth knowing before changing the equivalent code:
+
+- **This codebase's characteristic bug is a feature complete apart from its entrance,
+  and the server cannot see it.** It has happened five times now: custom emoji (table,
+  bootstrap field and picker, no way to add one), pins (route and typed client method,
+  no viewer), password recovery (tokens minted, hashed, rate-limited and *emailed* to
+  `/reset/<token>` — a path `parseRoute` did not match, so the link opened the app and
+  did nothing), star and mute (`notify_level` honoured by `notify.decide`, `is_starred`
+  *sorted on* by the sidebar, nothing writing either), and the Threads view (whose
+  service docstring reads "the sidebar's Threads view"). Every one had green tests: the
+  server was right in all five. The cheap check is a scan for exported client methods
+  with no call site — `api.channels.setMembership`, `addMembers`, `archive`, `leave`,
+  `update`, `api.messages.threads`, `auth.forgotPassword` and `resetPassword` were all
+  dead at once. Do it after any milestone that lands a batch of routes.
+- **A URL the server builds and the client parses is a contract with no type.**
+  `routers/auth.py` composes `f"{PUBLIC_URL}/reset/{token}"` and `features/auth/tokens.ts`
+  matches `/^\/reset\/(.+)$/`. Nothing connects them, so a change to either fails no test
+  anywhere and breaks every reset email already in an inbox. Both sides now assert the
+  shape — `test_password_reset.py` and `AuthScreen.test.tsx` — which is the same argument
+  `test_protocol_parity.py` makes about event names.
+- **`store.openChannel` deliberately does not navigate, so every user-initiated open
+  must.** It is also what the shell calls on arrival to pick a channel to start on, and
+  navigating there would discard a deep link to `/search`. The sidebar and the search
+  results both omitted it, so clicking a channel from another view loaded it behind a
+  screen that stayed put and the click appeared to do nothing. `lib/navigation.ts`
+  ::`showChannel` is the one that navigates; use it for anything a person clicked.
+- **A menu that owns a dialog cannot dismiss on every click.** `ChannelMenu` renders its
+  confirm dialogs beside itself, so the workspace menu's "any click closes" contract
+  would unmount the menu, and the dialog with it, on the click that asked for one. Use
+  PinnedPanel's contract — clicks outside only, by `ref.contains` — and suspend it while
+  a dialog is up, since every click in the dialog is "outside" by that test.
 
 - **Anything that finds a row by id must also check the workspace.**
   `assert_channel_access` looked a channel up by id alone and let `is_public` grant the

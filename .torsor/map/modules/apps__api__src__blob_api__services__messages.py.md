@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T01:55:20'
-updated: '2026-08-25T01:55:20'
+created: '2026-08-25T03:35:16'
+updated: '2026-08-25T03:35:16'
 ---
 
 # apps/api/src/blob_api/services/messages.py
@@ -24,6 +24,9 @@ Symbols in `apps/api/src/blob_api/services/messages.py`.
 - L406 `remove(session: AsyncSession, message_id: str, user_id: str, is_admin: bool)` (function) — Soft delete.
 - L451 `set_pinned(session: AsyncSession, message_id: str, user_id: str, pinned: bool)` (function)
 - L469 `list_pinned(session: AsyncSession, channel_id: str)` (function)
-- L487 `add_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str)` (function)
-- L503 `remove_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str)` (function)
-- L519 `threads_for_user(session: AsyncSession, user_id: str, limit: int=30)` (function) — Threads the user started or replied to, most recently active first.
+- L487 `set_saved(session: AsyncSession, message_id: str, user_id: str, saved: bool)` (function) — Put a message aside, or take it back off the list.
+- L518 `list_saved(session: AsyncSession, user_id: str, limit: int=100)` (function) — Somebody's saved messages, newest save first.
+- L547 `saved_message_ids(session: AsyncSession, user_id: str, limit: int=500)` (function) — Just the ids, for the boot payload.
+- L575 `add_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str)` (function)
+- L591 `remove_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str)` (function)
+- L607 `threads_for_user(session: AsyncSession, user_id: str, limit: int=30)` (function) — Threads the user started or replied to, most recently active first.

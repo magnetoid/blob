@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T01:55:21'
-updated: '2026-08-25T01:55:21'
+created: '2026-08-25T03:35:16'
+updated: '2026-08-25T03:35:16'
 ---
 
 # apps/api/tests/test_auth.py
@@ -21,5 +21,4 @@ Symbols in `apps/api/tests/test_auth.py`.
 - L91 `test_login_and_logout(client: Client)` (function)
 - L106 `test_login_gives_one_message_for_wrong_email_or_wrong_password(client: Client)` (function)
 - L123 `test_logout_others_keeps_the_current_session(client: Client)` (function)
-- L138 `test_password_reset_signs_out_every_session(client: Client)` (function)
-- L160 `test_invalid_signup_reports_400_with_the_offending_field(client: Client, payload: dict, field: str)` (function)
+- L157 `test_invalid_signup_reports_400_with_the_offending_field(client: Client, payload: dict, field: str)` (function)

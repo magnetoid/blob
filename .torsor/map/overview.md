@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T01:55:20'
-updated: '2026-08-25T01:55:20'
+created: '2026-08-25T03:35:16'
+updated: '2026-08-25T03:35:16'
 ---
 
 # Repository Map
@@ -81,7 +81,10 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0013_workspace_policies.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 32 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0014_saved_items.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 33 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -175,8 +178,4 @@ Modules and their key symbols (ranked by references).
   - `main()` (function)
 - **apps/api/src/blob_api/plugins/agui.py** — 21 symbol(s)
   - `Post` (class)
-  - `_message_id(event: Mapping[str, Any])` (function)
-  - `_interrupt_prompt(event: Mapping[str, Any])` (function)
-  - `SseDecoder` (class)
-  - `__init__(self)` (method)
-- **a…[truncated]
+  - `_message_id(event: Mapping[str…[truncated]

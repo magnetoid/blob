@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T01:55:20'
-updated: '2026-08-25T01:55:20'
+created: '2026-08-25T03:35:16'
+updated: '2026-08-25T03:35:16'
 ---
 
 # apps/api/src/blob_api/schemas/models.py
@@ -32,5 +32,5 @@ Symbols in `apps/api/src/blob_api/schemas/models.py`.
 - L209 `AgentTask` (class)
 - L229 `MessageTranslation` (class)
 - L242 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
-- L254 `ReadStateOut` (class)
-- L260 `FeedbackTicket` (class)
+- L258 `ReadStateOut` (class)
+- L264 `FeedbackTicket` (class)
