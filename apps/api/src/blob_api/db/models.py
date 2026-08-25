@@ -646,7 +646,9 @@ class AgentRun(Base):
             "status IN ('running', 'succeeded', 'failed', 'interrupted')",
             name="agent_runs_status_check",
         ),
-        CheckConstraint("transport IN ('http', 'socket')", name="agent_runs_transport_check"),
+        CheckConstraint(
+            "transport IN ('http', 'socket', 'builtin')", name="agent_runs_transport_check"
+        ),
         # The console reads one app's runs, newest first, which is the only query here.
         Index("agent_runs_plugin_recent", "plugin_id", text("started_at DESC")),
         Index("agent_runs_workspace_recent", "workspace_id", text("started_at DESC")),
@@ -895,7 +897,7 @@ class Plugin(Base):
     __tablename__ = "plugins"
     __table_args__ = (
         CheckConstraint(
-            "runtime IN ('local', 'external', 'container', 'socket')",
+            "runtime IN ('local', 'external', 'container', 'socket', 'builtin')",
             name="plugins_runtime_check",
         ),
         CheckConstraint(

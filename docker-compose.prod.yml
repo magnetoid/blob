@@ -63,6 +63,17 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
+      # The agent Blob runs itself. Set LLM_PROVIDER and LLM_API_KEY and every workspace
+      # gets @Blob in its public channels; leave them and nothing is seeded.
+      #
+      # **Both services need these, not just this one.** The app seeds the agent at boot,
+      # but a mention is answered in the *worker* — so a key set here and not there
+      # produces the worst version of the feature: an agent that exists, is mentionable,
+      # and answers every mention with "no model is configured".
+      - LLM_PROVIDER=${LLM_PROVIDER:-disabled}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_MODEL=${LLM_MODEL:-}
       # Hosting agents means calling the runner's API. Reach it through the host gateway
       # rather than by joining the runner's own Docker network: that network has a
       # container aliased `postgres` too, so joining it makes this app's `postgres`
@@ -148,6 +159,12 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
+      # A mention is answered here, not in the app. Same values as the app service; see
+      # the note there for what happens when only one of the two has them.
+      - LLM_PROVIDER=${LLM_PROVIDER:-disabled}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_MODEL=${LLM_MODEL:-}
     networks:
       - default
       - agents

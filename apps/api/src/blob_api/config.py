@@ -60,6 +60,25 @@ class Settings(BaseSettings):
     TRANSLATION_API_KEY: str | None = None
     TRANSLATION_TIMEOUT_SEC: float = 10.0
 
+    # The model behind the agent Blob runs itself. Every other agent brings its own key,
+    # because every other agent is somebody else's program; this one is Blob's, so the
+    # key is the server's.
+    #
+    # "disabled" is the default and a supported way to run: a workspace with no model
+    # keeps every agent it installed and simply has no built-in one. Nothing about that
+    # is an error state, so nothing degraded is offered in the UI and nothing 500s.
+    LLM_PROVIDER: Literal["disabled", "anthropic", "openai"] = "disabled"
+    LLM_API_KEY: str | None = None
+    #: Override for a proxy or an OpenAI-compatible server run locally. The provider
+    #: still decides the request shape; this only moves the host.
+    LLM_BASE_URL: str | None = None
+    #: Empty means the provider's default in `lib/llm.py`, which is a current model
+    #: rather than a cheap one — the built-in agent is the product's first impression.
+    LLM_MODEL: str | None = None
+    LLM_MAX_TOKENS: int = 2_048
+    LLM_TIMEOUT_SEC: float = 120.0
+    LLM_READ_TIMEOUT_SEC: float = 60.0
+
     # Hosting an agent from a repository. Disabled means agents can still be registered
     # as external apps — only the "and run it for me" half is off. Blob never holds the
     # Docker socket itself; the runner is whatever already owns that privilege.

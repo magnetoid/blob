@@ -27,7 +27,13 @@ from ..schemas.base import CamelModel
 #: making a request to an address; a socket agent has no address to give — it runs on
 #: somebody's laptop, behind NAT, on a network this server cannot see — so it opens a
 #: connection *to* Blob and holds it, and runs are written down that pipe. See ADR 0012.
-Runtime = Literal["local", "external", "container", "socket"]
+#:
+#: "builtin" is the agent Blob runs itself: an AG-UI server that never leaves the
+#: process, so there is no address at either end. It is a plugin like any other on
+#: purpose — same scopes, same bot row, same run log, and an admin can disable it —
+#: because the one agent that ships turned on is the last one that should be exempt from
+#: the permission system. Registered by Blob, never by a manifest off the wire.
+Runtime = Literal["local", "external", "container", "socket", "builtin"]
 Status = Literal["enabled", "disabled", "needs_review", "failed"]
 
 #: Every permission a plugin can hold. Granted as a set at install, one row each, so a
@@ -162,7 +168,10 @@ class Manifest(CamelModel):
 
 
 def validate_manifest(
-    manifest: Manifest, *, reserved_commands: frozenset[str] = frozenset()
+    manifest: Manifest,
+    *,
+    reserved_commands: frozenset[str] = frozenset(),
+    trusted: bool = False,
 ) -> None:
     """Reject what would otherwise fail later, at delivery time, in a background job.
 
@@ -170,7 +179,19 @@ def validate_manifest(
     `services.commands`, and this layer is below that one — `plugins/` importing a
     service would invert the dependency that keeps the plugin layer independent of it.
     Every install site supplies the same set.
+
+    `trusted` says the manifest came from Blob rather than off the wire, and it defaults
+    to false so that a new call site is refused rather than admitted. Only the built-in
+    agent's own seeding sets it.
     """
+    # The built-in runtime runs against the *server's* model key. A manifest that could
+    # claim it would let anyone who can register an app spend that budget, which is not a
+    # scope question — no grant is involved — so it is refused by runtime, at the door.
+    if manifest.runtime == "builtin" and not trusted:
+        raise bad_request(
+            "That runtime is Blob's own and cannot be registered.", code="runtime_reserved"
+        )
+
     unknown_scopes = sorted(set(manifest.scopes) - set(SCOPES))
     if unknown_scopes:
         raise bad_request(f"Unknown scope: {', '.join(unknown_scopes)}.", code="unknown_scope")

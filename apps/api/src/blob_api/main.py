@@ -23,6 +23,7 @@ from .lib.errors import AppError
 from .lib.logbuf import close_log_buffer, install_log_capture
 from .lib.redis import close_redis, redis
 from .realtime import hub
+from .services import workspace_agent
 from .web import mount_web
 
 log = logging.getLogger("blob")
@@ -115,6 +116,18 @@ class SessionMiddleware:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await hub.start_redis_bridge()
+    # Every workspace that has no built-in agent gets one, which is a no-op on all but
+    # the first boot after a model is configured. It lives here because `LLM_PROVIDER`
+    # arrives as an environment variable, so the moment it changes *is* a restart —
+    # putting the reconcile anywhere else would mean a server that has been running for a
+    # month gains the feature for new workspaces and not for the ones already using it.
+    # It never raises: a workspace that cannot seed its agent must not stop the boot.
+    try:
+        seeded = await workspace_agent.ensure_everywhere()
+        if seeded:
+            log.info("seeded the built-in agent into %d workspace(s)", seeded)
+    except Exception:
+        log.exception("could not reconcile built-in agents")
     yield
     await hub.stop_redis_bridge()
     await close_log_buffer()

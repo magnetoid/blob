@@ -29,10 +29,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
+from ..lib import sse
 from ..lib.errors import AppError
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.redis import redis
-from ..plugins import agui, gateway
+from ..plugins import agui, builtin, gateway
 from ..plugins import events as plugin_events
 from ..plugins.signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
 from ..realtime import hub
@@ -55,10 +56,23 @@ class Listener:
     agui_url: str | None
     signing_secret: str
     runtime: str = "external"
+    #: Only read for the built-in agent, which is told where it works. An external agent
+    #: is somebody else's program and is given the channel, not the workspace.
+    workspace_name: str = ""
 
     @property
     def dials_in(self) -> bool:
         return self.runtime == "socket"
+
+    @property
+    def runs_here(self) -> bool:
+        return self.runtime == builtin.RUNTIME
+
+    @property
+    def transport(self) -> str:
+        if self.runs_here:
+            return "builtin"
+        return "socket" if self.dials_in else "http"
 
 
 async def listeners_for(
@@ -77,16 +91,17 @@ async def listeners_for(
             text(
                 """
                 SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
-                       p.runtime, s.signing_secret
+                       p.runtime, s.signing_secret, w.name AS workspace_name
                   FROM plugins p
                   JOIN users u ON u.bot_plugin_id = p.id
                   JOIN plugin_secrets s ON s.plugin_id = p.id
+                  JOIN workspaces w ON w.id = p.workspace_id
                  WHERE p.workspace_id = :ws
                    AND p.status = 'enabled'
-                   -- An address, or a connection it opened itself. A socket agent has no
-                   -- agui_url and answering a mention is exactly what it is here for, so
-                   -- the URL test alone would filter out every one of them.
-                   AND (p.agui_url IS NOT NULL OR p.runtime = 'socket')
+                   -- An address, a connection it opened itself, or no network at all.
+                   -- A socket agent has no agui_url and the built-in agent has neither
+                   -- end, so the URL test alone would filter out every one of both.
+                   AND (p.agui_url IS NOT NULL OR p.runtime IN ('socket', 'builtin'))
                    AND u.id = ANY(cast(:ids AS uuid[]))
                    AND u.deactivated_at IS NULL
                    AND EXISTS (
@@ -106,6 +121,7 @@ async def listeners_for(
             agui_url=row.agui_url,
             signing_secret=row.signing_secret,
             runtime=row.runtime,
+            workspace_name=row.workspace_name,
         )
         for row in rows
     ]
@@ -127,6 +143,8 @@ async def stream_run(
     scheme — so an app that already verifies Blob's deliveries verifies this with the
     code it has.
     """
+    if listener.runs_here:
+        return await _stream_builtin(listener, run_input)
     if listener.dials_in:
         return await _stream_over_socket(listener, run_input)
 
@@ -137,7 +155,7 @@ async def stream_run(
         # unreachable rather than merely unlikely — it is here because the type says the
         # field is optional and silently POSTing to None is the worse way to find out.
         return fold, posts, "that agent has no endpoint to call"
-    decoder = agui.SseDecoder()
+    decoder = sse.SseDecoder()
     body = json.dumps(run_input).encode()
     timestamp = int(time.time())
     headers = {
@@ -228,6 +246,47 @@ async def _stream_over_socket(
         # because "it said nothing" and "it never woke up" want different apologies.
         posts.extend(fold.finish())
         return fold, posts, "the agent did not answer in time"
+
+    posts.extend(fold.finish())
+    return fold, posts, None
+
+
+async def _stream_builtin(
+    listener: Listener, run_input: dict[str, Any]
+) -> tuple[agui.Fold, list[agui.Post], str | None]:
+    """The same run, against a model, without leaving the process.
+
+    A third transport for the third time, and it costs the same as the second one did:
+    the same `Fold`, the same caps, the same treatment of a stream that stops early.
+    `plugins/agui.py` being a pure function of events is what keeps adding one to this
+    list a dozen lines rather than a parallel path — and it is why the run log, the 12k
+    split and the ten-message cap all applied to this agent before it existed.
+
+    No signature and no SSRF guard, because there is no request. Both of those exist to
+    make a hop across a network safe, and this one has no hop.
+    """
+    fold = agui.Fold()
+    posts: list[agui.Post] = []
+    persona = builtin.Persona(name=listener.name, workspace_name=listener.workspace_name)
+
+    seen_events = 0
+    try:
+        async for event in builtin.stream(run_input, persona):
+            seen_events += 1
+            if seen_events > settings.AGUI_MAX_EVENTS:
+                posts.extend(fold.finish())
+                return fold, posts, "the agent sent more events than we will read"
+            posts.extend(fold.feed(event))
+            if fold.finished:
+                return fold, posts, None
+    except Exception as error:
+        # `builtin.stream` turns a model failure into RUN_ERROR itself, so reaching here
+        # means a bug rather than a refusal. It still must not take the worker down: a
+        # broken built-in agent degrades to a run that failed with a reason, like any
+        # other agent that misbehaves.
+        log.exception("the built-in agent failed")
+        posts.extend(fold.finish())
+        return fold, posts, f"the agent failed: {error}"
 
     posts.extend(fold.finish())
     return fold, posts, None
@@ -451,7 +510,7 @@ async def _run_one(
             thread_root_id=thread_root_id,
             trigger_message_id=trigger_id,
             trigger_user_id=trigger_user_id,
-            transport="socket" if listener.dials_in else "http",
+            transport=listener.transport,
         )
 
     fold, posts, transport_error = await stream_run(listener, run_input)

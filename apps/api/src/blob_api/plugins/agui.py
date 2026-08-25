@@ -11,7 +11,9 @@ that pushes into somebody else's inbox, so making the agent push would recreate 
 the bespoke glue this exists to delete.
 
 Nothing here does I/O. It takes bytes and returns what Blob should write, which is what
-makes the protocol's ordering rules testable without a server on the other end.
+makes the protocol's ordering rules testable without a server on the other end. The SSE
+decoding lives in `lib/sse.py`: it was here until a model provider's stream needed the
+same wire format, and it never knew anything about AG-UI.
 
 Three details cost more to rediscover than to record:
 
@@ -27,8 +29,7 @@ Three details cost more to rediscover than to record:
 
 from __future__ import annotations
 
-import json
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -46,61 +47,6 @@ TOOL_LINE_LIMIT = 5
 
 #: Roles AG-UI allows on a text message. "tool" is deliberately not among them.
 _TEXT_ROLES = frozenset({"developer", "system", "assistant", "user"})
-
-
-class SseDecoder:
-    """Splits a `text/event-stream` byte stream into the JSON objects it carries.
-
-    Records end at a blank line, and only `data:` lines are read. `event:`, `id:` and
-    `retry:` are ignored on purpose: AG-UI's discriminator is the JSON `type` field, not
-    the SSE event name, and an agent that sets both must not be able to disagree with
-    itself.
-
-    Feeding is incremental because a record routinely straddles a chunk boundary — the
-    decoder holds a partial line until the rest arrives.
-    """
-
-    def __init__(self) -> None:
-        self._buffer = ""
-        self._data: list[str] = []
-
-    def feed(self, chunk: bytes) -> Iterator[dict[str, Any]]:
-        # errors="replace" rather than strict: a malformed byte should cost one garbled
-        # character, not the remainder of an answer.
-        self._buffer += chunk.decode("utf-8", errors="replace")
-        while "\n" in self._buffer:
-            line, self._buffer = self._buffer.split("\n", 1)
-            yield from self._line(line.rstrip("\r"))
-
-    def close(self) -> Iterator[dict[str, Any]]:
-        """Flush whatever arrived without a trailing blank line."""
-        if self._buffer:
-            line, self._buffer = self._buffer, ""
-            yield from self._line(line.rstrip("\r"))
-        yield from self._dispatch()
-
-    def _line(self, line: str) -> Iterator[dict[str, Any]]:
-        if not line:
-            yield from self._dispatch()
-            return
-        if line.startswith(":"):
-            return  # A comment, and the usual shape of a keep-alive.
-        name, _, value = line.partition(":")
-        if name == "data":
-            self._data.append(value[1:] if value.startswith(" ") else value)
-
-    def _dispatch(self) -> Iterator[dict[str, Any]]:
-        if not self._data:
-            return
-        raw, self._data = "\n".join(self._data), []
-        if not raw.strip():
-            return
-        try:
-            parsed = json.loads(raw)
-        except ValueError:
-            return  # Not our business to police; the run continues.
-        if isinstance(parsed, dict):
-            yield parsed
 
 
 @dataclass(slots=True)

@@ -24,7 +24,7 @@ from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
-from blob_api.lib import net
+from blob_api.lib import net, sse
 from blob_api.plugins import agui
 from blob_api.plugins.signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, verify
 
@@ -55,7 +55,7 @@ def frame(**event: Any) -> bytes:
 
 def fold_bytes(*chunks: bytes) -> list[agui.Post]:
     """Feed raw bytes through the decoder and the reducer, as the job does."""
-    decoder, reducer = agui.SseDecoder(), agui.Fold()
+    decoder, reducer = sse.SseDecoder(), agui.Fold()
     posts: list[agui.Post] = []
     for chunk in chunks:
         for event in decoder.feed(chunk):

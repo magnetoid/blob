@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request, conflict, not_found
 from ..lib.ids import new_id
-from . import handles
+from . import handles, workspace_agent
 from .channels import DEFAULT_CHANNELS, add_members
 
 
@@ -212,6 +212,13 @@ async def found(
 
     if grant_admin:
         await grant_instance_admin(session, email)
+
+    # Seeded here rather than offered later. A team is promised an agentic workspace, and
+    # that promise is kept or broken in the first minute: either the agent is already in
+    # #general when the founder arrives, or it is a setup task they may never do. Silently
+    # a no-op when no model is configured, because an agent that can only apologise is
+    # worse than an absent one.
+    await workspace_agent.ensure(session, workspace_id, installed_by=owner_id)
 
     return Founded(workspace_id=workspace_id, slug=slug, owner_user_id=owner_id)
 

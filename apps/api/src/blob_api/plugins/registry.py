@@ -80,8 +80,11 @@ async def install(
     source_ref: str | None = None,
     #: Names the built-ins already hold. Passed in because those live a layer above.
     reserved_commands: frozenset[str] = frozenset(),
+    #: True only when Blob is seeding its own agent. Defaults to false so that a route
+    #: reaching this without thinking about it gets the refusal rather than the exemption.
+    trusted: bool = False,
 ) -> Installed:
-    validate_manifest(manifest, reserved_commands=reserved_commands)
+    validate_manifest(manifest, reserved_commands=reserved_commands, trusted=trusted)
 
     taken = (
         await session.execute(
