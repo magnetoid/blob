@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
+import { showChannel } from "../../lib/navigation.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { SearchIcon } from "../../components/Icon.tsx";
 import { formatRelative } from "../messages/messageFormatting.ts";
@@ -22,7 +23,6 @@ const FILTERS = [
 export function SearchView() {
   const users = useStore((s) => s.users);
   const channels = useStore((s) => s.channels);
-  const openChannel = useStore((s) => s.openChannel);
   const channelTitle = useStore((s) => s.channelTitle);
 
   const [query, setQuery] = useState("");
@@ -126,7 +126,7 @@ export function SearchView() {
                   key={message.id}
                   className="search-result"
                   type="button"
-                  onClick={() => void openChannel(message.channelId)}
+                  onClick={() => void showChannel(message.channelId)}
                 >
                   <Avatar user={author} size="lg" />
                   <div style={{ flex: 1, minWidth: 0 }}>

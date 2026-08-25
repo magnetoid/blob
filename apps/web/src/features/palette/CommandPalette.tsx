@@ -8,8 +8,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api.ts";
-import { navigate } from "../../lib/router.ts";
 import { useStore } from "../../lib/store.ts";
+import { showChannel } from "../../lib/navigation.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 
 interface Item {
@@ -24,7 +24,6 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const channels = useStore((s) => s.channels);
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
-  const openChannel = useStore((s) => s.openChannel);
   const setPrefs = useStore((s) => s.setPrefs);
   const channelTitle = useStore((s) => s.channelTitle);
 
@@ -51,7 +50,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               channels: { ...s.channels, [joined.id]: joined },
             }));
           }
-          await openChannel(channel.id);
+          await showChannel(channel.id);
         },
       }));
 
@@ -66,7 +65,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           useStore.setState((s) => ({
             channels: { ...s.channels, [channel.id]: channel },
           }));
-          await openChannel(channel.id);
+          await showChannel(channel.id);
         },
       }));
 
@@ -95,7 +94,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ];
 
     return [...channelItems, ...peopleItems, ...actionItems];
-  }, [channels, users, currentUser, openChannel, setPrefs, channelTitle]);
+  }, [channels, users, currentUser, setPrefs, channelTitle]);
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase().replace(/^[#@]/, "");
@@ -111,11 +110,11 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   async function choose(item: Item | undefined) {
     if (!item) return;
     onClose();
+    // Channels and people go through `showChannel`, which navigates. That used to be a
+    // special case here — the palette was the only place that had noticed opening a
+    // channel from another view changed what was behind it and nothing else. The
+    // sidebar and the search results had the same bug and no such line.
     await item.run();
-    // Opening a channel while the console (or search, or preferences) is on screen used
-    // to change what was behind the palette and nothing else. Picking a conversation
-    // means "take me to it".
-    if (item.kind === "Channel" || item.kind === "Person") navigate("/");
   }
 
   return (

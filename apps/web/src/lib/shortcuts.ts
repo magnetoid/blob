@@ -51,6 +51,16 @@ export const SHORTCUTS: readonly Shortcut[] = [
     whileTyping: true,
   },
   {
+    id: 'threads',
+    label: 'Threads you are in',
+    group: 'Navigation',
+    // Slack's chord for it, unchanged.
+    key: 't',
+    meta: true,
+    shift: true,
+    whileTyping: true,
+  },
+  {
     id: 'next-unread',
     label: 'Next channel with unread messages',
     group: 'Navigation',

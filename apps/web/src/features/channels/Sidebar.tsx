@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { api } from '../../lib/api.ts';
-import { navigate } from '../../lib/router.ts';
+import { navigate, parseRoute, usePath } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
+import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
-import { ChevronDownIcon, PlusIcon, SearchIcon } from '../../components/Icon.tsx';
+import { ChevronDownIcon, PlusIcon, ReplyIcon, SearchIcon } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 
 interface Props {
@@ -21,9 +22,9 @@ export function Sidebar({ onOpenSearch }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
   const activeChannelId = useStore((s) => s.activeChannelId);
-  const openChannel = useStore((s) => s.openChannel);
   const channelTitle = useStore((s) => s.channelTitle);
   const drafts = useStore((s) => s.drafts);
+  const activeView = parseRoute(usePath()).view;
 
   const [creating, setCreating] = useState(false);
 
@@ -57,7 +58,7 @@ export function Sidebar({ onOpenSearch }: Props) {
   async function openDm(userId: string) {
     const { channel } = await api.dms.open([userId]);
     useStore.setState((s) => ({ channels: { ...s.channels, [channel.id]: channel } }));
-    await openChannel(channel.id);
+    await showChannel(channel.id);
   }
 
   function ChannelRow({ channel }: { channel: ChannelWithState }) {
@@ -73,7 +74,7 @@ export function Sidebar({ onOpenSearch }: Props) {
         className="channel-row"
         aria-current={active}
         data-unread={channel.hasUnread && !active}
-        onClick={() => void openChannel(channel.id)}
+        onClick={() => void showChannel(channel.id)}
       >
         {otherId ? (
           <AvatarWithPresence user={users[otherId]} state={presence[otherId] ?? 'offline'} />
@@ -107,6 +108,21 @@ export function Sidebar({ onOpenSearch }: Props) {
       </div>
 
       <div className="sidebar-scroll">
+        {/* Above the channel list, where Slack keeps it. `GET /api/threads` has been
+            answering this question since the port; nothing asked it. */}
+        <section className="sidebar-section">
+          <button
+            className="channel-row"
+            aria-current={activeView === 'threads'}
+            onClick={() => navigate('/threads')}
+          >
+            <span className="channel-hash" aria-hidden="true">
+              <ReplyIcon size={13} strokeWidth={1.8} />
+            </span>
+            <span className="channel-name">Threads</span>
+          </button>
+        </section>
+
         <section className="sidebar-section">
           <h2 className="section-label">Channels</h2>
           {joined.map((channel) => (
@@ -129,7 +145,7 @@ export function Sidebar({ onOpenSearch }: Props) {
                     useStore.setState((s) => ({
                       channels: { ...s.channels, [joinedChannel.id]: joinedChannel },
                     }));
-                    await openChannel(joinedChannel.id);
+                    await showChannel(joinedChannel.id);
                   }}
                 >
                   <span className="channel-hash" aria-hidden="true">

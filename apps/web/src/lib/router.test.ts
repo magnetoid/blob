@@ -14,6 +14,7 @@ describe('parseRoute', () => {
   it('reads the top-level views', () => {
     expect(parseRoute('/')).toEqual({ view: 'messages' });
     expect(parseRoute('/search')).toEqual({ view: 'search' });
+    expect(parseRoute('/threads')).toEqual({ view: 'threads' });
     // Preferences are a section of the workspace page now, not a view of their own.
     expect(parseRoute('/settings')).toEqual({ view: 'workspace', section: 'preferences' });
   });
@@ -118,6 +119,7 @@ describe('pathForRoute', () => {
     const routes: Route[] = [
       { view: 'messages' },
       { view: 'search' },
+      { view: 'threads' },
       ...WORKSPACE_SECTIONS.map((section) => ({ view: 'workspace' as const, section })),
       ...ADMIN_SECTIONS.map((section) => ({ view: 'admin' as const, section })),
       ...ADMIN_DETAIL_SECTIONS.map((section) => ({

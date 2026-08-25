@@ -93,6 +93,7 @@ export const DEFAULT_ADMIN_SECTION: AdminSection = 'users';
 
 export type Route =
   | { view: 'messages' }
+  | { view: 'threads' }
   | { view: 'search' }
   | { view: 'profile' }
   | { view: 'workspace'; section: WorkspaceSection; detailId?: string }
@@ -104,6 +105,7 @@ export type View = Route['view'];
 export function parseRoute(path: string): Route {
   const clean = path.replace(/\/+$/, '') || '/';
 
+  if (clean === '/threads') return { view: 'threads' };
   if (clean === '/search') return { view: 'search' };
   if (clean === '/profile') return { view: 'profile' };
 
@@ -165,6 +167,8 @@ export function parseRoute(path: string): Route {
 /** The canonical path for a route. Round-trips with `parseRoute`. */
 export function pathForRoute(route: Route): string {
   switch (route.view) {
+    case 'threads':
+      return '/threads';
     case 'search':
       return '/search';
     case 'profile':

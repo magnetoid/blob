@@ -16,6 +16,7 @@ import {
 import { Rail } from '../features/channels/Rail.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
+import { ThreadsView } from '../features/messages/ThreadsView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
@@ -99,6 +100,10 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         case 'search':
           event.preventDefault();
           navigate('/search');
+          return;
+        case 'threads':
+          event.preventDefault();
+          navigate('/threads');
           return;
         case 'help':
           event.preventDefault();
@@ -185,6 +190,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       <Sidebar onOpenSearch={() => navigate('/search')} />
 
       {view === 'messages' && <ChannelView />}
+      {view === 'threads' && <ThreadsView />}
       {view === 'search' && <SearchView />}
       {view === 'profile' && <ProfileView />}
 
