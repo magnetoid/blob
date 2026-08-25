@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T16:15:58'
-updated: '2026-08-25T16:15:58'
+created: '2026-08-25T17:52:26'
+updated: '2026-08-25T17:52:26'
 ---
 
 # apps/api/src/blob_api/schemas/base.py

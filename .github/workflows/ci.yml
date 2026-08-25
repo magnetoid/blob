@@ -149,3 +149,48 @@ jobs:
       # Not on PyPI — it lives in its own repo.
       - run: uv tool install git+https://github.com/magnetoid/torsor-helper
       - run: torsor guard --strict --severity error $(git ls-files '*.py')
+
+  # Deploy, once everything above has passed.
+  #
+  # This exists because push-to-deploy was believed to be working and was not: the repo
+  # had no webhook of any kind, so Coolify was never told a push had happened, and 43
+  # commits sat on GitHub while the server kept serving a build from four days earlier.
+  # Nothing failed — nothing was ever asked to run.
+  #
+  # Wiring it here rather than as a Coolify webhook on the repository is the better half
+  # of fixing that, and deliberately so. A webhook fires on the push itself, which means
+  # a red build deploys exactly as eagerly as a green one. `needs:` makes the gate a
+  # precondition: the image has already been built and the production stack has already
+  # been booted against a real Postgres by the `image` job, so by the time this runs the
+  # thing being deployed is known to start.
+  #
+  # Skipped, not failed, when the secret is absent. A fork and a pull request must not
+  # deploy anything, and someone who has not set this up should not get a red tick for a
+  # step that was never theirs to run.
+  deploy:
+    needs: [check, image, intent]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask Coolify to deploy
+        env:
+          # The full URL from Coolify: Applications → the app → Webhooks → Deploy Webhook.
+          # It carries the resource uuid, so it identifies what to deploy on its own.
+          HOOK: ${{ secrets.COOLIFY_DEPLOY_HOOK }}
+          # Coolify's API token, sent as a bearer. Separate secret because the URL is not
+          # itself a credential and gets pasted around; the token is.
+          TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "COOLIFY_DEPLOY_HOOK is not set — skipping the deploy."
+            echo "Add it under Settings → Secrets and variables → Actions."
+            exit 0
+          fi
+          # --fail-with-body so a 401 or a wrong uuid fails the job *and* prints what
+          # Coolify said. A deploy step that swallows the body is how "it says it
+          # deployed" and "nothing happened" coexist, which is the bug being fixed here.
+          curl --fail-with-body -sS -X POST "$HOOK" \
+            ${TOKEN:+-H "Authorization: Bearer $TOKEN"} \
+            -H 'Accept: application/json' \
+            --max-time 60 \
+            -w '\nHTTP %{http_code}\n'

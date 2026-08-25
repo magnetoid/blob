@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T16:15:59'
-updated: '2026-08-25T16:15:59'
+created: '2026-08-25T17:52:27'
+updated: '2026-08-25T17:52:27'
 ---
 
 # apps/api/tests/test_builtin_agent.py
@@ -29,14 +29,14 @@ Symbols in `apps/api/tests/test_builtin_agent.py`.
 - L172 `test_no_model_is_a_reason_rather_than_a_traceback(self, monkeypatch: pytest.MonkeyPatch)` (method)
 - L183 `TestWhatItIsTold` (class)
 - L184 `test_it_is_told_it_has_no_tools(self)` (method)
-- L193 `test_a_personal_agent_is_told_whose_it_is(self)` (method)
-- L199 `TestItIsAPluginLikeAnyOther` (class)
-- L200 `test_a_manifest_cannot_claim_the_builtin_runtime(self, team: dict)` (method)
-- L216 `test_it_is_seeded_into_a_new_workspace(self, model: dict, client: Client)` (method)
-- L224 `test_it_is_in_the_public_channels_already(self, model: dict, client: Client)` (method)
-- L235 `test_nothing_is_seeded_without_a_model(self, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)
-- L245 `test_seeding_twice_installs_once(self, model: dict, client: Client)` (method)
-- L267 `TestAnsweringInAChannel` (class)
-- L268 `test_it_answers_when_mentioned(self, model: dict, client: Client)` (method)
-- L279 `test_the_run_is_logged_as_running_here(self, model: dict, client: Client)` (method)
-- L295 `test_a_disabled_agent_stops_answering(self, model: dict, client: Client)` (method)
+- L193 `test_a_personal_agent_gets_a_different_room_described_to_it(self)` (method)
+- L206 `TestItIsAPluginLikeAnyOther` (class)
+- L207 `test_a_manifest_cannot_claim_the_builtin_runtime(self, team: dict)` (method)
+- L223 `test_it_is_seeded_into_a_new_workspace(self, model: dict, client: Client)` (method)
+- L231 `test_it_is_in_the_public_channels_already(self, model: dict, client: Client)` (method)
+- L242 `test_nothing_is_seeded_without_a_model(self, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)
+- L252 `test_seeding_twice_installs_once(self, model: dict, client: Client)` (method)
+- L274 `TestAnsweringInAChannel` (class)
+- L275 `test_it_answers_when_mentioned(self, model: dict, client: Client)` (method)
+- L286 `test_the_run_is_logged_as_running_here(self, model: dict, client: Client)` (method)
+- L302 `test_a_disabled_agent_stops_answering(self, model: dict, client: Client)` (method)

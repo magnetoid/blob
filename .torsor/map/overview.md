@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-25T16:15:58'
-updated: '2026-08-25T16:15:58'
+created: '2026-08-25T17:52:26'
+updated: '2026-08-25T17:52:26'
 ---
 
 # Repository Map
@@ -103,12 +103,12 @@ Modules and their key symbols (ranked by references).
   - `seed()` (function)
   - `main()` (function)
   - `_run()` (function)
-- **apps/api/src/blob_api/jobs/agui.py** — 14 symbol(s)
+- **apps/api/src/blob_api/jobs/agui.py** — 16 symbol(s)
   - `Listener` (class)
   - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None)` (function)
   - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
+  - `personal_agent_for(session: AsyncSession, *, workspace_id: str, channel_id: str)` (function)
   - `stream_run(listener: Listener, run_input: dict[str, Any], *, transport: httpx.AsyncBaseTransport | None=None)` (function)
-  - `_stream_over_socket(listener: Listener, run_input: dict[str, Any])` (function)
 - **apps/api/src/blob_api/jobs/notify.py** — 4 symbol(s)
   - `_broadcast_later(user_id: str, state: ReadStateOut)` (function)
   - `_preview(body: str)` (function)
@@ -179,4 +179,4 @@ Modules and their key symbols (ranked by references).
   - `Limit` (class)
   - `consume(name: str, subject: str)` (function)
 - **apps/api/src/blob_api/lib/redis.py** — 4 symbol(s)
-  - `presence_key(user_id: st…[truncated]
+  - `presence_k…[truncated]
