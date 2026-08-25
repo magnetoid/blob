@@ -146,8 +146,48 @@ async def member_ids(session: AsyncSession, channel_id: str) -> list[str]:
 
 
 async def add_members(session: AsyncSession, channel_id: str, user_ids: list[str]) -> None:
+    """Put people in a channel, refusing anybody who is not in its workspace.
+
+    The check is here rather than at the six call sites, and it is derived from the
+    *channel's* workspace inside the query rather than passed in — because a parameter is
+    something a call site can forget, which is the reasoning `assert_channel_access` was
+    rewritten around after it let one workspace read another's public channels by id.
+
+    Without it this was `INSERT ... SELECT unnest(:user_ids)` with two independent foreign
+    keys and no composite constraint, so any member of any channel could plant a `users`
+    row from another workspace. `users.id` is a global primary key, so the FK was
+    satisfied. That row is not cosmetic: the after-commit broadcast subscribes every live
+    socket of the planted id to the channel, and `_by_channel` delivery does not consult
+    a connection's workspace — so every message, edit, reaction and typing frame in a
+    *private* channel would have been written to a socket signed into another tenant, and
+    `ws.py` re-armed it on each reconnect from the same unscoped query.
+
+    `POST /api/dms` two handlers away in `routers/channels` had this exact check all
+    along, which is what makes the omission an omission rather than a policy.
+    """
     if not user_ids:
         return
+    wanted = list(dict.fromkeys(user_ids))
+    valid = (
+        await session.execute(
+            text(
+                """
+                SELECT count(*)::int AS count
+                  FROM users u
+                  JOIN channels c ON c.id = :channel_id
+                 WHERE u.id = ANY(cast(:user_ids AS uuid[]))
+                   AND u.workspace_id = c.workspace_id
+                   AND u.deactivated_at IS NULL
+                """
+            ),
+            {"channel_id": channel_id, "user_ids": wanted},
+        )
+    ).fetchone()
+    if (valid.count if valid else 0) != len(wanted):
+        # 404 and the same words `open_dm` uses: whether that account exists somewhere
+        # else on this server is not the caller's business.
+        raise not_found("One of those people is unavailable.")
+
     await session.execute(
         text(
             """

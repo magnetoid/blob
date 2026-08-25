@@ -695,12 +695,15 @@ async def health(admin: SessionUser = Depends(require_admin)) -> HealthOut:
                 await session.execute(
                     text(
                         """
-                        SELECT (SELECT count(*) FROM messages WHERE deleted_at IS NULL)::int
+                        SELECT (SELECT count(*) FROM messages
+                                  WHERE workspace_id = :ws AND deleted_at IS NULL)::int
                                  AS messages,
-                               (SELECT COALESCE(sum(size_bytes), 0) FROM attachments)::bigint
+                               (SELECT COALESCE(sum(size_bytes), 0) FROM attachments
+                                  WHERE workspace_id = :ws)::bigint
                                  AS storage
                         """
-                    )
+                    ),
+                    {"ws": admin.workspace_id},
                 )
             ).fetchone()
             if row:
@@ -716,7 +719,7 @@ async def health(admin: SessionUser = Depends(require_admin)) -> HealthOut:
     except Exception:
         redis_ok = False
 
-    stats = hub.stats()
+    stats = hub.stats(admin.workspace_id)
     return HealthOut(
         database=database,
         redis=redis_ok,

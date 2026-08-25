@@ -223,10 +223,14 @@ async def test_a_client_that_falls_behind_is_dropped_rather_than_left_silent(
     person at the keyboard the app looked connected and simply stopped receiving, with
     nothing to reconnect from. This asserts the drop is observable.
     """
+    workspace_id = (await team["owner"].get("/api/bootstrap")).body["workspace"]["id"]
+
     async with socket_for(team["owner"]) as ws:
         await receive_until(ws, "hello")
 
-        before = hub.stats()["connections"]
+        # Counts are per workspace now: server-wide totals were reaching any workspace
+        # admin through /api/admin/health.
+        before = hub.stats(workspace_id)["connections"]
         assert before >= 1
 
         # Fill the outbox past OUTBOX_LIMIT without reading, the way a throttled tab or
@@ -239,7 +243,9 @@ async def test_a_client_that_falls_behind_is_dropped_rather_than_left_silent(
         assert conn.closed_event.is_set() is True
 
         # The endpoint is waiting on that event; give it a moment to tear down.
-        await asyncio.wait_for(_until(lambda: hub.stats()["connections"] < before), timeout=3.0)
+        await asyncio.wait_for(
+            _until(lambda: hub.stats(workspace_id)["connections"] < before), timeout=3.0
+        )
 
 
 async def _until(predicate: Any) -> None:

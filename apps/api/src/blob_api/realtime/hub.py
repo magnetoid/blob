@@ -196,11 +196,18 @@ def connections_for_user(user_id: str) -> list[Connection]:
     return list(_by_user.get(user_id, set()))
 
 
-def stats() -> dict[str, int]:
+def stats(workspace_id: str) -> dict[str, int]:
+    """Live socket counts for one workspace.
+
+    Counted process-wide before this, which published another tenant's connection and
+    online-user counts to any workspace admin — the same shape as the `to_all` bug, in
+    a read rather than a write.
+    """
+    conns = [c for c in _by_connection.values() if c.workspace_id == workspace_id]
     return {
-        "connections": len(_by_connection),
-        "users": len(_by_user),
-        "channels": len(_by_channel),
+        "connections": len(conns),
+        "users": len({c.user_id for c in conns}),
+        "channels": len({channel_id for c in conns for channel_id in c.channel_ids}),
     }
 
 

@@ -44,10 +44,22 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     hub.register(conn)
 
     async with session_scope() as session:
+        # Joined to `channels` on the session's workspace, not keyed on user id alone.
+        # A `channel_members` row can only be created for the channel's own workspace
+        # now, but rows planted before that check existed cannot be removed by the person
+        # they were planted on — `leave` 404s them, and there is no admin route for it.
+        # This is what stops such a row ever becoming a live feed again.
         rows = (
             await session.execute(
-                text("SELECT channel_id FROM channel_members WHERE user_id = :user_id"),
-                {"user_id": user.id},
+                text(
+                    """
+                    SELECT cm.channel_id
+                      FROM channel_members cm
+                      JOIN channels c ON c.id = cm.channel_id
+                     WHERE cm.user_id = :user_id AND c.workspace_id = :workspace_id
+                    """
+                ),
+                {"user_id": user.id, "workspace_id": user.workspace_id},
             )
         ).fetchall()
     hub.subscribe_channels(conn, [row.channel_id for row in rows])
@@ -117,7 +129,15 @@ async def _reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)
             await presence.mark_active(user.id)
 
         elif kind == "presence.sub":
-            user_ids = [str(uid) for uid in frame.get("userIds", [])][:MAX_PRESENCE_SUBS]
+            # Resolved against the caller's workspace before anything is watched. The
+            # frame is a raw list of ids from the client, and ids are not secret — they
+            # ride in message payloads and survive being removed from a workspace. Without
+            # this, a session could watch up to 500 people in other tenants and receive
+            # every active/away/offline transition: attendance telemetry on named
+            # strangers. Silently dropped rather than refused, because whether an id names
+            # anybody is exactly what must not be answered.
+            asked = [str(uid) for uid in frame.get("userIds", [])][:MAX_PRESENCE_SUBS]
+            user_ids = await _visible_users(asked, user.workspace_id) if asked else []
             hub.set_presence_subs(conn, user_ids)
             states = await presence.get_presence(user_ids)
             for subject, state in states.items():
@@ -140,6 +160,28 @@ async def _reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)
 
         if time.monotonic() - last_seen > DEAD_AFTER_SEC:
             return
+
+
+async def _visible_users(user_ids: list[str], workspace_id: str) -> list[str]:
+    """Which of these ids the caller is allowed to know anything about.
+
+    Scoped inside the query rather than by comparing afterwards, so there is one place
+    the boundary lives. Returns a subset — never an error — because refusing a specific
+    id would confirm it names somebody.
+    """
+    async with session_scope() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id FROM users
+                     WHERE id = ANY(cast(:ids AS uuid[])) AND workspace_id = :ws
+                    """
+                ),
+                {"ids": user_ids, "ws": workspace_id},
+            )
+        ).fetchall()
+    return [str(row.id) for row in rows]
 
 
 def _now_iso() -> str:
