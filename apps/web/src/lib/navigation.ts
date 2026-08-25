@@ -12,11 +12,74 @@
  * what turned three scattered omissions into one named thing.
  */
 
+import { api } from './api.ts';
 import { navigate } from './router.ts';
 import { useStore } from './store.ts';
+
+/** How long a jumped-to message stays highlighted. Matches the CSS animation. */
+const FLASH_MS = 1600;
 
 /** Open a channel and show it — what a click on a channel, person or result means. */
 export async function showChannel(channelId: string): Promise<void> {
   await useStore.getState().openChannel(channelId);
   navigate('/');
+}
+
+/**
+ * Bring a message into view and mark it, if it is on screen.
+ *
+ * An attribute rather than an `id`, because the same message renders in the list and in
+ * a thread at once and duplicate ids would make the first one win at random.
+ *
+ * Returns whether it found anything, so a caller that has just loaded a page around the
+ * message can tell "not rendered yet" from "not here at all" instead of guessing.
+ */
+export function scrollToMessage(messageId: string): boolean {
+  const node = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (!node) return false;
+  node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  node.classList.add('message-flash');
+  setTimeout(() => node.classList.remove('message-flash'), FLASH_MS);
+  return true;
+}
+
+/**
+ * Follow a permalink: /m/<messageId>.
+ *
+ * Three steps, and the order is forced. The message has to be fetched first because the
+ * link carries nothing else — not the channel, and not the thread. Then the channel is
+ * loaded *around* the target rather than at its newest page, since a link worth sending
+ * is usually to something old. Only then can the thread be opened, because the panel
+ * renders beside the conversation.
+ *
+ * A thread reply is never in channel history — `history` filters `thread_root_id IS
+ * NULL` in all three of its modes — so for a reply the channel is centred on the thread
+ * *root* and the reply itself is found in the panel.
+ *
+ * Scrolling is retried on the next two frames. React has not committed the new list on
+ * the frame the fetch resolves, so a single attempt reliably finds nothing.
+ */
+export async function showMessage(messageId: string): Promise<boolean> {
+  const store = useStore.getState();
+  const { message } = await api.messages.get(messageId);
+
+  await store.openChannel(message.channelId, message.threadRootId ?? message.id);
+  if (message.threadRootId) await store.openThread(message.threadRootId);
+  navigate('/');
+
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const tick = () => {
+      if (scrollToMessage(messageId)) return resolve(true);
+      attempts += 1;
+      if (attempts > 2) return resolve(false);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+/** The address of one message, for pasting somewhere else. */
+export function permalinkFor(messageId: string): string {
+  return `${window.location.origin}/m/${messageId}`;
 }

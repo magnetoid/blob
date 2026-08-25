@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import type { CustomEmoji, Message, MessageTranslation } from "@blob/shared";
 import { ApiError, api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
+import { permalinkFor } from "../../lib/navigation.ts";
 import type { LocalMessageDeliveryStatus } from "../../lib/outbox.ts";
 import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
@@ -84,6 +85,16 @@ export const MessageRow = memo(function MessageRow({
   const customEmoji = useStore((s) => s.customEmoji);
   const toggleReaction = useStore((s) => s.toggleReaction);
   const toggleSaved = useStore((s) => s.toggleSaved);
+  const [copied, setCopied] = useState(false);
+  const [copyFallback, setCopyFallback] = useState<string | null>(null);
+
+  // Clears itself. A confirmation that stays is indistinguishable from a stuck one, and
+  // this row can live for as long as the channel is open.
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(timer);
+  }, [copied]);
   // Subscribed to the boolean rather than the Set, so saving one message does not
   // re-render every other row in a channel that is already virtualised for that reason.
   const saved = useStore((s) => s.savedMessageIds.has(message.id));
@@ -597,6 +608,11 @@ export const MessageRow = memo(function MessageRow({
               <ReplyIcon size={15} />
             </button>
           )}
+          {copied && (
+            <span className="copied-note" role="status">
+              Link copied
+            </span>
+          )}
           <div style={{ position: "relative" }}>
             <button
               className="message-action"
@@ -618,6 +634,25 @@ export const MessageRow = memo(function MessageRow({
                   width: 160,
                 }}
               >
+                {/* First, because it is the one people reach for most: a message is
+                    quoted into another channel or a ticket far more often than it is
+                    pinned or saved. `navigator.clipboard` needs a secure context, so
+                    on plain http over a LAN this falls back to showing the URL for
+                    somebody to copy by hand rather than failing silently. */}
+                <button
+                  className="autocomplete-item"
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    const url = permalinkFor(message.id);
+                    void navigator.clipboard?.writeText(url).then(
+                      () => setCopied(true),
+                      () => setCopyFallback(url),
+                    );
+                  }}
+                >
+                  Copy link
+                </button>
                 {/* Above pinning, and worded to draw the line between them: this one
                     is yours and tells nobody, pinning is the channel's and tells
                     everybody. Slack orders them the same way. */}
@@ -672,6 +707,30 @@ export const MessageRow = memo(function MessageRow({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* No clipboard API: a secure context is required, and a self-hosted workspace
+          reached over plain http on a LAN does not have one. Showing the link to copy
+          by hand is the honest fallback — the alternative is a menu item that silently
+          does nothing on exactly the deployments this project is built for. */}
+      {copyFallback && (
+        <div className="copy-fallback">
+          <label className="field" style={{ margin: 0 }}>
+            <span className="field-label">Copy this link</span>
+            <input
+              className="input"
+              readOnly
+              value={copyFallback}
+              onFocus={(event) => event.currentTarget.select()}
+              /* eslint-disable-next-line jsx-a11y/no-autofocus -- it exists to be
+                 selected; anything else is a step the person did not ask for. */
+              autoFocus
+            />
+          </label>
+          <button className="btn" onClick={() => setCopyFallback(null)}>
+            Done
+          </button>
         </div>
       )}
     </article>

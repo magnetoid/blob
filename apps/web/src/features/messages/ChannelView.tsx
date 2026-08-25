@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "../../lib/store.ts";
+import { scrollToMessage } from "../../lib/navigation.ts";
 import { api } from "../../lib/api.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
@@ -33,6 +34,7 @@ export function ChannelView() {
   const status = useStore((s) => s.status);
   const unreadMarkers = useStore((s) => s.unreadMarkers);
   const loadOlder = useStore((s) => s.loadOlder);
+  const openChannel = useStore((s) => s.openChannel);
   const openThread = useStore((s) => s.openThread);
   const channelTitle = useStore((s) => s.channelTitle);
 
@@ -43,17 +45,16 @@ export function ChannelView() {
   /**
    * Bring a pinned message into view.
    *
-   * Only works when it is on screen already — a pin can be older than the loaded page,
-   * and paging back to find it is a different feature. When it is not there the panel
-   * simply closes, which is honest; flashing an error for "that message is further up"
-   * would be worse than nothing.
+   * This used to work only when the message was already rendered, and a pin is very
+   * often older than the loaded page — so the common case was a click that closed the
+   * panel and did nothing. Permalinks needed a page fetched *around* a message anyway,
+   * so the pin jump now falls back to the same thing rather than giving up.
    */
-  function jumpToMessage(messageId: string) {
-    const node = document.querySelector(`[data-message-id="${messageId}"]`);
-    if (!node) return;
-    node.scrollIntoView({ behavior: "smooth", block: "center" });
-    node.classList.add("message-flash");
-    setTimeout(() => node.classList.remove("message-flash"), 1600);
+  async function jumpToMessage(messageId: string) {
+    if (scrollToMessage(messageId) || !activeChannelId) return;
+    await openChannel(activeChannelId, messageId);
+    // React has not committed the new list on the frame the fetch resolves.
+    requestAnimationFrame(() => scrollToMessage(messageId));
   }
 
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
@@ -241,7 +242,7 @@ export function ChannelView() {
             <PinnedPanel
               channelId={activeChannelId}
               onClose={() => setPinsOpen(false)}
-              onJump={jumpToMessage}
+              onJump={(id) => void jumpToMessage(id)}
             />
           )}
         </div>

@@ -3313,3 +3313,25 @@ button.member-row:hover {
     display: none;
   }
 }
+
+/* ─── permalinks ──────────────────────────────────────────────────────────── */
+.copied-note {
+  align-self: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface-hover);
+  color: var(--text-4);
+  font-size: var(--text-label-size);
+  white-space: nowrap;
+}
+
+.copy-fallback {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  background: var(--surface);
+}

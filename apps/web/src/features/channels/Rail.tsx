@@ -5,7 +5,7 @@ import { navigate, pathForRoute, type View } from '../../lib/router.ts';
 import { MembersIcon, MessagesIcon, SearchIcon, SettingsIcon } from '../../components/Icon.tsx';
 
 /** Views the rail can switch to. Profile has no rail button; it lives in the user menu. */
-export type RailView = Exclude<View, 'profile'>;
+export type RailView = Exclude<View, 'profile' | 'permalink'>;
 
 interface Props {
   /** The whole app's view, so a screen the rail cannot reach simply presses nothing. */

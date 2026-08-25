@@ -95,6 +95,8 @@ export type Route =
   | { view: 'messages' }
   | { view: 'threads' }
   | { view: 'saved' }
+  /** A permalink to one message. Resolved, then replaced by the conversation. */
+  | { view: 'permalink'; messageId: string }
   | { view: 'search' }
   | { view: 'profile' }
   | { view: 'workspace'; section: WorkspaceSection; detailId?: string }
@@ -108,6 +110,8 @@ export function parseRoute(path: string): Route {
 
   if (clean === '/threads') return { view: 'threads' };
   if (clean === '/later') return { view: 'saved' };
+  const permalink = clean.match(/^\/m\/([^/]+)$/);
+  if (permalink) return { view: 'permalink', messageId: permalink[1] as string };
   if (clean === '/search') return { view: 'search' };
   if (clean === '/profile') return { view: 'profile' };
 
@@ -173,6 +177,8 @@ export function pathForRoute(route: Route): string {
       return '/threads';
     case 'saved':
       return '/later';
+    case 'permalink':
+      return `/m/${route.messageId}`;
     case 'search':
       return '/search';
     case 'profile':
@@ -190,7 +196,15 @@ export function pathForRoute(route: Route): string {
   }
 }
 
-export function pathForView(view: View): string {
+/**
+ * Views that are a place you can be, as opposed to a link that resolves and leaves.
+ *
+ * A permalink carries a message id and is replaced by the conversation as soon as it is
+ * followed, so there is no "go to the permalink view" for a button to mean.
+ */
+export type StableView = Exclude<View, 'permalink'>;
+
+export function pathForView(view: StableView): string {
   if (view === 'admin') return pathForRoute({ view, section: DEFAULT_ADMIN_SECTION });
   if (view === 'workspace') return pathForRoute({ view, section: DEFAULT_WORKSPACE_SECTION });
   return pathForRoute({ view });

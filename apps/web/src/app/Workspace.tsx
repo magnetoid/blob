@@ -28,6 +28,7 @@ import { TopBar } from '../features/shell/TopBar.tsx';
 import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
 import { ShortcutHelp } from '../components/ShortcutHelp.tsx';
 import { isTypingTarget, matchShortcut } from '../lib/shortcuts.ts';
+import { showMessage } from '../lib/navigation.ts';
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
@@ -46,6 +47,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  // Held with the id it belongs to, so following a second link shows no error without
+  // an effect having to clear one — a synchronous reset in the effect below would be a
+  // cascading render for a value that can simply be derived.
+  const [permalinkError, setPermalinkError] = useState<{ id: string; message: string } | null>(
+    null,
+  );
 
   // Two jobs, one effect: send a member who typed /admin back to the conversation, and
   // rewrite a stale or misspelt URL to the route it actually resolved to, so the address
@@ -69,14 +76,43 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     if (canonical !== path) navigate(canonical, { replace: true });
   }, [path, isAdmin]);
 
-  // Open something on arrival so the app never starts on an empty pane.
+  /**
+   * Follow a permalink, then let it replace itself with the conversation.
+   *
+   * Keyed on the id rather than the whole route, so re-rendering while the fetch is in
+   * flight does not start a second one. `showMessage` navigates to / on success, which
+   * is what takes this effect out of scope.
+   */
+  const permalinkId = route.view === 'permalink' ? route.messageId : null;
   useEffect(() => {
-    if (activeChannelId) return;
+    if (!permalinkId) return undefined;
+    let cancelled = false;
+    void showMessage(permalinkId).catch(() => {
+      // 404 covers deleted and no-access alike, deliberately — so this cannot say which
+      // it was, and stays on this screen rather than dumping somebody in a channel with
+      // no explanation of why the link did nothing.
+      if (!cancelled) {
+        setPermalinkError({
+          id: permalinkId,
+          message: 'That message is gone, or it is somewhere you cannot see.',
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [permalinkId]);
+  const permalinkFailure = permalinkError?.id === permalinkId ? permalinkError.message : null;
+
+  // Open something on arrival so the app never starts on an empty pane. Not while a
+  // permalink is resolving: that would race it and land on #general instead.
+  useEffect(() => {
+    if (activeChannelId || route.view === 'permalink') return;
     const first =
       Object.values(channels).find((c) => c.name === 'general' && c.membership) ??
       Object.values(channels).find((c) => c.membership);
     if (first) void openChannel(first.id);
-  }, [channels, activeChannelId, openChannel]);
+  }, [channels, activeChannelId, openChannel, route.view]);
 
   // Presence is push-on-subscribe: tell the server whose dots we're showing.
   useEffect(() => {
@@ -190,6 +226,21 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       <Rail view={view} onChange={(next) => navigate(pathForView(next))} />
       <Sidebar onOpenSearch={() => navigate('/search')} />
 
+      {view === 'permalink' && (
+        <div className="pane">
+          <div className="empty-state">
+            <div className="empty-state-title">
+              {permalinkFailure ? 'That link did not open' : 'Finding that message…'}
+            </div>
+            {permalinkFailure && <div className="empty-state-body">{permalinkFailure}</div>}
+            {permalinkFailure && (
+              <button className="btn" onClick={() => navigate('/')} style={{ marginTop: 12 }}>
+                Back to the conversation
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {view === 'messages' && <ChannelView />}
       {view === 'threads' && <ThreadsView />}
       {view === 'saved' && <SavedView />}

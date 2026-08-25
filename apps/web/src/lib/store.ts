@@ -93,7 +93,11 @@ interface State {
   setEditingMessage: (messageId: string | null) => void;
   /** Open your most recent message here for editing. Returns whether there was one. */
   editLastMessage: (channelId: string, threadRootId: string | null) => boolean;
-  openChannel: (channelId: string) => Promise<void>;
+  /**
+   * Open a channel. With `around`, load the page containing that message instead of the
+   * newest one — what a permalink to something months old needs.
+   */
+  openChannel: (channelId: string, around?: string) => Promise<void>;
   leaveChannel: (channelId: string) => Promise<void>;
   loadOlder: (channelId: string) => Promise<void>;
   openThread: (rootId: string | null) => Promise<void>;
@@ -325,7 +329,7 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
-  openChannel: async (channelId) => {
+  openChannel: async (channelId, around) => {
     const state = get();
     set({
       activeChannelId: channelId,
@@ -338,6 +342,36 @@ export const useStore = create<State>((set, get) => ({
       },
     });
     socket.send({ t: 'channel.focus', channelId });
+
+    // A permalink names a specific message, which is very often not on the newest page.
+    // This has to run even when the channel is already loaded — that is the ordinary
+    // case, following a link to a channel you are sitting in — so it cannot hide behind
+    // the `loaded` check the way the first page does.
+    if (around) {
+      set((s) => ({
+        messages: {
+          ...s.messages,
+          [channelId]: { ...(s.messages[channelId] ?? emptyMessages()), loading: true },
+        },
+      }));
+      const { messages } = await api.messages.history(channelId, { around, limit: 50 });
+      set((s) => ({
+        messages: {
+          ...s.messages,
+          [channelId]: {
+            items: overlayChannelOutbox(s.currentUser, s.outbox, channelId, messages),
+            // Both ends are truncated by an `around` fetch, so there is always more in
+            // at least one direction. Claiming otherwise would disable paging back.
+            hasMore: true,
+            loading: false,
+            loaded: true,
+          },
+        },
+      }));
+      // Deliberately no markRead: arriving at an old message must not mark everything
+      // after it as read. The divider stays where entering the channel put it.
+      return;
+    }
 
     if (!state.messages[channelId]?.loaded) {
       set((s) => ({

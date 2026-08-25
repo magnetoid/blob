@@ -163,6 +163,27 @@ async def send_message(
     return MessageOut(message=result.message)
 
 
+@router.get("/api/messages/{message_id}", response_model=MessageOut)
+async def get_message(message_id: str, user: SessionUser = Depends(current_user)) -> MessageOut:
+    """One message by id — what a permalink resolves against.
+
+    The missing verb in this file: a message could be edited, deleted, pinned, reacted
+    to and read as a thread, but not simply fetched. A link has to be resolvable before
+    the client knows which channel to open, and a thread reply is never in channel
+    history — `history` filters `thread_root_id IS NULL` in all three of its modes — so
+    the reply's own row is the only thing that can say which thread to open.
+
+    404 for deleted and for no access alike, which is the rule everywhere here: whether
+    a message exists is not something a link should be able to probe.
+    """
+    async with session_scope() as session:
+        message = await message_service.by_id(session, message_id)
+        if message is None or message.deleted_at is not None:
+            raise not_found("That message is gone.")
+        await channel_service.assert_channel_access(session, user.id, message.channel_id)
+    return MessageOut(message=message)
+
+
 @router.get("/api/messages/{message_id}/thread", response_model=MessagesOut)
 async def get_thread(message_id: str, user: SessionUser = Depends(current_user)) -> MessagesOut:
     async with session_scope() as session:

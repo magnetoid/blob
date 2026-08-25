@@ -398,6 +398,7 @@ export const api = {
         forceRefresh?: boolean;
       } = {},
     ) => post<{ translation: MessageTranslation }>(`/api/messages/${id}/translate`, input),
+    get: (id: string) => get<{ message: Message }>(`/api/messages/${id}`),
     thread: (rootId: string) => get<{ messages: Message[] }>(`/api/messages/${rootId}/thread`),
     threads: () => get<{ messages: Message[] }>('/api/threads'),
     pin: (id: string, pinned: boolean) => put<{ message: Message }>(`/api/messages/${id}/pin`, { pinned }),

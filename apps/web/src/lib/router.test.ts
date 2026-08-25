@@ -18,6 +18,7 @@ describe('parseRoute', () => {
     // The path is /later and the view is 'saved': the nav word is Slack's, the
     // code word matches the table and the endpoint.
     expect(parseRoute('/later')).toEqual({ view: 'saved' });
+    expect(parseRoute('/m/abc123')).toEqual({ view: 'permalink', messageId: 'abc123' });
     // Preferences are a section of the workspace page now, not a view of their own.
     expect(parseRoute('/settings')).toEqual({ view: 'workspace', section: 'preferences' });
   });
@@ -42,6 +43,9 @@ describe('parseRoute', () => {
     expect(parseRoute('/admin/nonsense')).toEqual({ view: 'messages' });
     expect(parseRoute('/join/some-token')).toEqual({ view: 'messages' });
     expect(parseRoute('/nope')).toEqual({ view: 'messages' });
+    // A permalink is exactly two segments; anything else is a mangled paste.
+    expect(parseRoute('/m')).toEqual({ view: 'messages' });
+    expect(parseRoute('/m/abc/extra')).toEqual({ view: 'messages' });
   });
 
   it('reads a detail page under a section that has one', () => {
@@ -124,6 +128,7 @@ describe('pathForRoute', () => {
       { view: 'search' },
       { view: 'threads' },
       { view: 'saved' },
+      { view: 'permalink', messageId: 'abc123' },
       ...WORKSPACE_SECTIONS.map((section) => ({ view: 'workspace' as const, section })),
       ...ADMIN_SECTIONS.map((section) => ({ view: 'admin' as const, section })),
       ...ADMIN_DETAIL_SECTIONS.map((section) => ({
