@@ -31,7 +31,8 @@ from ..lib.net import check_outbound_url
 from ..plugins import registry
 from ..plugins.env import validate_env
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
-from ..schemas.base import CamelModel, iso
+from ..schemas.base import CamelModel, iso, require_iso
+from ..services import agent_runs as agent_run_service
 from ..services import agents as agent_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
@@ -501,6 +502,72 @@ async def revoke_tokens(
             target_id=plugin_id,
         )
     return OkOut()
+
+
+class AgentRunOut(CamelModel):
+    id: str
+    channel_id: str
+    channel_name: str | None = None
+    thread_root_id: str | None = None
+    trigger_message_id: str | None = None
+    trigger_user_name: str | None = None
+    transport: str
+    status: str
+    error: str | None = None
+    post_count: int
+    started_at: str
+    finished_at: str | None = None
+    #: Milliseconds, computed here so the console does not do date arithmetic to show
+    #: the one number that says whether an agent is slow.
+    duration_ms: int | None = None
+
+
+class AgentRunsOut(CamelModel):
+    runs: list[AgentRunOut]
+
+
+@router.get("/{plugin_id}/runs", response_model=AgentRunsOut)
+async def list_runs(
+    plugin_id: str,
+    limit: Annotated[int, Query(ge=1, le=100)] = 30,
+    admin: SessionUser = Depends(require_admin),
+) -> AgentRunsOut:
+    """What happened the last few times this agent was asked something.
+
+    The delivery log answers "did the app hear us"; this answers "did it manage to
+    reply, and if not why". Before it existed the only record was `plugins.last_error`,
+    which the next failure overwrote — so a run that failed, one that finished quietly
+    and said nothing, and one that never started were indistinguishable.
+    """
+    async with session_scope() as session:
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        runs = await agent_run_service.list_for_plugin(
+            session, admin.workspace_id, plugin_id, limit=limit
+        )
+    return AgentRunsOut(
+        runs=[
+            AgentRunOut(
+                id=run.id,
+                channel_id=run.channel_id,
+                channel_name=run.channel_name,
+                thread_root_id=run.thread_root_id,
+                trigger_message_id=run.trigger_message_id,
+                trigger_user_name=run.trigger_user_name,
+                transport=run.transport,
+                status=run.status,
+                error=run.error,
+                post_count=run.post_count,
+                started_at=require_iso(run.started_at),
+                finished_at=iso(run.finished_at),
+                duration_ms=(
+                    int((run.finished_at - run.started_at).total_seconds() * 1000)
+                    if run.finished_at
+                    else None
+                ),
+            )
+            for run in runs
+        ]
+    )
 
 
 @router.get("/{plugin_id}/deliveries", response_model=DeliveriesOut)

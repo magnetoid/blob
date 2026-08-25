@@ -20,6 +20,7 @@ from ..lib.redis import close_redis
 from ..lib.storage import delete_object
 from ..plugins import delivery as plugin_delivery
 from ..realtime import hub
+from ..services import agent_runs as agent_run_service
 from .agui import handle_agui_run
 from .notify import handle_notify
 from .unfurl import handle_unfurl
@@ -45,6 +46,20 @@ async def agui_run(_ctx: dict[str, Any], message_id: str) -> None:
     runs, and re-running an agent an hour late is worse than not running it at all.
     """
     await handle_agui_run(message_id)
+
+
+async def sweep_agent_runs(_ctx: dict[str, Any]) -> None:
+    """Retention for the agent run log.
+
+    Every mention of an agent writes a row and nothing else would ever remove one, so
+    this table is unbounded by construction. The sweep also closes runs still marked
+    `running` well past any timeout — a process killed mid-call leaves one, and a row
+    that claims to still be going is worse than one that admits it never finished.
+    """
+    async with transaction() as (session, _):
+        removed = await agent_run_service.sweep(session)
+    if removed:
+        log.info("swept %d agent run(s)", removed)
 
 
 async def sweep_orphans(_ctx: dict[str, Any]) -> None:
@@ -98,10 +113,18 @@ async def shutdown(_ctx: dict[str, Any]) -> None:
 
 
 class WorkerSettings:
-    functions = [notify, unfurl, agui_run, sweep_orphans, deliver_plugin_events]
+    functions = [
+        notify,
+        unfurl,
+        agui_run,
+        sweep_orphans,
+        sweep_agent_runs,
+        deliver_plugin_events,
+    ]
     # arq's stub types cron() more narrowly than it accepts at runtime.
     cron_jobs = [
         cron(sweep_orphans, hour=4, minute=0),  # type: ignore[arg-type]
+        cron(sweep_agent_runs, hour=4, minute=10),  # type: ignore[arg-type]
         # The safety net under the enqueue: retries that came due, and anything whose
         # enqueue was lost, go out within the minute.
         cron(deliver_plugin_events, second=0),  # type: ignore[arg-type]

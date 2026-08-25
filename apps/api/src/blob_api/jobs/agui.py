@@ -36,6 +36,7 @@ from ..plugins import agui, gateway
 from ..plugins import events as plugin_events
 from ..plugins.signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
 from ..realtime import hub
+from ..services import agent_runs as agent_run_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
@@ -376,6 +377,7 @@ async def _run(message_id: str) -> None:
             channel_id=trigger.channel_id,
             thread_root_id=trigger.thread_root_id,
             trigger_id=trigger.id,
+            trigger_user_id=trigger.author_id,
             asker=asker or "someone",
             channel_name=channel_name or "a conversation",
         )
@@ -388,6 +390,7 @@ async def _run_one(
     channel_id: str,
     thread_root_id: str | None,
     trigger_id: str,
+    trigger_user_id: str | None,
     asker: str,
     channel_name: str,
 ) -> None:
@@ -436,6 +439,21 @@ async def _run_one(
         trigger_user=asker,
     )
 
+    # Written before the call, not after: a run that never returns — a process killed
+    # mid-call, an agent that hangs past every timeout — is exactly the case with nothing
+    # to show for it, and the `running` row is what says so.
+    async with transaction() as (session, _):
+        run_id = await agent_run_service.start(
+            session,
+            workspace_id=workspace_id,
+            plugin_id=listener.plugin_id,
+            channel_id=channel_id,
+            thread_root_id=thread_root_id,
+            trigger_message_id=trigger_id,
+            trigger_user_id=trigger_user_id,
+            transport="socket" if listener.dials_in else "http",
+        )
+
     fold, posts, transport_error = await stream_run(listener, run_input)
 
     for post in posts:
@@ -450,6 +468,18 @@ async def _run_one(
         )
 
     reason = transport_error or fold.error
+    # Four outcomes, matching what this function already does with them. Collapsing
+    # `interrupted` into `failed` would lose the one an operator can act on, and
+    # collapsing silence into failure would call a legitimate answer a fault.
+    async with transaction() as (session, _):
+        await agent_run_service.finish(
+            session,
+            run_id,
+            status="failed" if reason else "interrupted" if fold.interrupt else "succeeded",
+            error=reason,
+            post_count=len(posts),
+        )
+
     if reason:
         await _record_error(listener.plugin_id, reason)
         await _post_as_bot(

@@ -625,6 +625,60 @@ class WorkspaceHandle(Base):
     )
 
 
+class AgentRun(Base):
+    """One attempt by an agent to answer a mention.
+
+    A run left no trace before this beyond overwriting `plugins.last_error`, so the
+    question people actually ask — "I mentioned the agent and nothing happened, why?" —
+    had no answer anywhere. The previous failure was gone the moment a second one
+    happened, and a run that quietly said nothing was indistinguishable from one that
+    never started.
+
+    Four outcomes, because the code already has four: it posted something, it finished
+    cleanly and said nothing (silence is a legitimate answer here), it failed, or it came
+    back asking for a decision. Collapsing the last two into "failed" would lose the one
+    an operator can act on.
+    """
+
+    __tablename__ = "agent_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('running', 'succeeded', 'failed', 'interrupted')",
+            name="agent_runs_status_check",
+        ),
+        CheckConstraint("transport IN ('http', 'socket')", name="agent_runs_transport_check"),
+        # The console reads one app's runs, newest first, which is the only query here.
+        Index("agent_runs_plugin_recent", "plugin_id", text("started_at DESC")),
+        Index("agent_runs_workspace_recent", "workspace_id", text("started_at DESC")),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    thread_root_id: Mapped[str | None] = mapped_column(UUIDStr)
+    #: SET NULL rather than CASCADE: deleting the message that started a run must not
+    #: delete the record that it ran.
+    trigger_message_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="SET NULL")
+    )
+    trigger_user_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    transport: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'running'"))
+    error: Mapped[str | None] = mapped_column(Text)
+    post_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    started_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    finished_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
 class SavedItem(Base):
     """A message somebody put aside for themselves. Slack's Later.
 
