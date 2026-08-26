@@ -44,3 +44,42 @@ that repository the way they trust any container they run. The docs say so.
 The sentence the docs use: *"Deploying an agent runs someone else's code on your server,
 in its own container with only the scopes you granted. It cannot reach the workspace
 except through the API every app uses."*
+
+## Amendment: an operator may open a shell in their own agent
+
+The original decision left an operator able to deploy an agent, redeploy it and read its
+logs — and unable to do anything else to it. That turned out to be too little. Not every
+part of setting an agent up is declarative: a device-code login prints a URL and waits for
+an approval that completes on another machine, a broken install needs looking at, a prompt
+file needs editing. On a laptop that work is a shell, and requiring one here was not a
+preference but the shape of the problem.
+
+So the console gained a terminal. **Blob still does not hold the Docker socket**, and the
+"no" in the decision above stands unchanged — what is added is narrower than the thing it
+refused.
+
+Blob holds an SSH key whose power is decided at the far end by a forced command in
+`authorized_keys`. sshd runs that wrapper whatever the client asks for, so Blob does not
+send a *command*; it sends an *argument*, and the only argument the wrapper accepts is a
+deployment id. The wrapper refuses anything that is not one, refuses Blob's own
+deployment, refuses a stack with more than one container rather than guessing, and execs a
+shell in that container and nothing else. The blast radius of the credential is one
+`docker exec` into one agent.
+
+That distinction is the whole amendment. The socket would have granted "do anything to
+anything on this host, forever". This grants "open a shell in a container that passes
+these checks", and the checks run on the host — so the confinement does not depend on this
+application being correct, which was the property the original decision was protecting.
+
+The host key is required and there is no way to skip verifying it. Without one this is an
+authenticated root shell handed to whoever answers on that address, and a flag labelled
+"skip host key checking" is the flag that ends up switched on in production. A server
+missing any of the settings simply has the feature off.
+
+Every session is audited on the way in as well as the way out, because the sessions worth
+having a record of are the ones that did not end tidily — and an open with no close says
+that on its own. Idle and absolute timeouts both apply: one catches an operator who walked
+away, the other a tab kept alive by something that is not a person.
+
+See [docs/agent-terminal.md](../../../docs/agent-terminal.md) for the wrapper, the key and
+the settings.

@@ -100,6 +100,30 @@ class Settings(BaseSettings):
     COOLIFY_ENVIRONMENT: str = "production"
     AGENT_DEPLOY_TIMEOUT_SEC: float = 30.0
 
+    # A terminal inside a hosted agent's container, for the setup that is not a form: a
+    # device-code login, a prompt file, a broken install. Blob never holds the Docker
+    # socket for this — it holds an SSH key that the far end's forced command confines to
+    # one `docker exec`. See plugins/shell.py and docs/agent-terminal.md.
+    AGENT_SHELL: Literal["disabled", "ssh"] = "disabled"
+    AGENT_SHELL_HOST: str | None = None
+    AGENT_SHELL_PORT: int = 22
+    AGENT_SHELL_USER: str = "root"
+    #: The private key, inline. Escaped newlines are accepted, because a key pasted into
+    #: a dashboard field arrives that way about half the time.
+    AGENT_SHELL_KEY: str | None = None
+    #: What the host must prove it is: an `ssh-keyscan` line, or the `type key` half of
+    #: one. Required — see the module docstring for why there is no way to skip it.
+    AGENT_SHELL_HOST_KEY: str | None = None
+    AGENT_SHELL_CONNECT_TIMEOUT_SEC: float = 15.0
+    #: A terminal nobody is typing at is a held connection and an open root shell. Closed
+    #: after this long with no input, which is a session an operator walked away from.
+    AGENT_SHELL_IDLE_SEC: float = 900.0
+    #: Wall clock, regardless of activity. A long-running job belongs in the agent, not in
+    #: a browser tab that has to stay open.
+    AGENT_SHELL_MAX_SEC: float = 4 * 60 * 60.0
+    #: Concurrent terminals per process. Each is an SSH connection and a PTY.
+    AGENT_SHELL_MAX_SESSIONS: int = 8
+
     # An AG-UI agent is called when it is mentioned and answers over an event stream.
     # Every one of these is a containment bound rather than a tuning knob: a mentioned
     # agent runs in the worker, so an agent that hangs or floods must cost a bounded
@@ -139,6 +163,9 @@ class Settings(BaseSettings):
         "COOLIFY_PROJECT_UUID",
         "COOLIFY_SERVER_UUID",
         "COOLIFY_DESTINATION_UUID",
+        "AGENT_SHELL_HOST",
+        "AGENT_SHELL_KEY",
+        "AGENT_SHELL_HOST_KEY",
     )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:
@@ -166,6 +193,19 @@ class Settings(BaseSettings):
                 self.COOLIFY_PROJECT_UUID,
                 self.COOLIFY_SERVER_UUID,
             )
+        )
+
+    @property
+    def agent_shell_enabled(self) -> bool:
+        """All four, or off.
+
+        The host key is in here rather than checked at connect time so that a server
+        missing it reports "the terminal is not set up" — which is true and actionable —
+        instead of offering a button that fails with a host-key error every time, which
+        reads as an attack rather than as a blank field.
+        """
+        return self.AGENT_SHELL == "ssh" and all(
+            (self.AGENT_SHELL_HOST, self.AGENT_SHELL_KEY, self.AGENT_SHELL_HOST_KEY)
         )
 
     @property

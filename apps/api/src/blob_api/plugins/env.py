@@ -25,6 +25,25 @@ KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 #: token or callback host somewhere else, so the names are refused rather than merged.
 RESERVED_PREFIX = "BLOB_"
 
+#: Everything Blob writes into a hosted agent's environment, by name.
+#:
+#: The prefix rule covers the credentials. `PORT` is the one that needs saying separately:
+#: it is not prefixed, and it is the number the runner was told to point its proxy at. An
+#: agent that binds a different one is unreachable, which presents as an agent that failed
+#: to start — so it is refused here rather than debugged later.
+#:
+#: Listed rather than inferred so the console can show these as fixed. A name missing from
+#: a form with no explanation reads as the form having lost it.
+RESERVED_NAMES = frozenset(
+    {
+        "BLOB_BASE_URL",
+        "BLOB_BOT_TOKEN",
+        "BLOB_SIGNING_SECRET",
+        "BLOB_PLUGIN_SLUG",
+        "PORT",
+    }
+)
+
 #: Reserved for values this module passes to the runner out of band.
 INTERNAL_PREFIX = "__"
 
@@ -51,7 +70,11 @@ def validate_env(raw: dict[str, str] | None) -> dict[str, str]:
         # here rather than resting on the shape of the regex below, which is not what
         # anyone would think to re-check after loosening it.
         upper = name.upper()
-        if upper.startswith(RESERVED_PREFIX) or upper.startswith(INTERNAL_PREFIX):
+        if (
+            upper.startswith(RESERVED_PREFIX)
+            or upper.startswith(INTERNAL_PREFIX)
+            or upper in RESERVED_NAMES
+        ):
             raise AppError(
                 400, "reserved_env_key", f'"{name}" is set by Blob and cannot be overridden.', key
             )
@@ -66,12 +89,17 @@ def validate_env(raw: dict[str, str] | None) -> dict[str, str]:
         if not isinstance(value, str) or not value:
             raise AppError(400, "empty_env_value", f'"{name}" needs a value.', key)
         if len(value.encode()) > MAX_VALUE_BYTES:
-            raise AppError(
-                400, "env_value_too_long", f'The value for "{name}" is too long.', key
-            )
+            raise AppError(400, "env_value_too_long", f'The value for "{name}" is too long.', key)
         checked[name] = value
 
     return checked
 
 
-__all__ = ["KEY_RE", "MAX_VALUE_BYTES", "MAX_VARS", "RESERVED_PREFIX", "validate_env"]
+__all__ = [
+    "KEY_RE",
+    "MAX_VALUE_BYTES",
+    "MAX_VARS",
+    "RESERVED_NAMES",
+    "RESERVED_PREFIX",
+    "validate_env",
+]

@@ -21,6 +21,10 @@ dependencies = [
     "httpx>=0.28",
     "orjson>=3.10",
     "python-multipart>=0.0.20",
+    # A terminal in a hosted agent's container. Pure-Python SSH with a real asyncio API,
+    # so a PTY is a stream this event loop already knows how to wait on rather than a
+    # subprocess to babysit — and no OpenSSH binary has to exist in the image.
+    "asyncssh>=2.19",
 ]
 
 [dependency-groups]

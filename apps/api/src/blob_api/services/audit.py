@@ -65,6 +65,12 @@ ACTIONS = (
     "plugin.uninstalled",
     "plugin.redeployed",
     "plugin.stopped",
+    "plugin.env_updated",
+    # A root shell inside an agent's container. Recorded on the way in as well as the way
+    # out, because the sessions worth having a log of are the ones that did not end
+    # tidily — and an open with no close says that on its own.
+    "plugin.shell_opened",
+    "plugin.shell_closed",
     "feedback.status_changed",
     "feedback.deleted",
 )
