@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:44:10'
-updated: '2026-08-26T05:44:10'
+created: '2026-08-26T05:49:02'
+updated: '2026-08-26T05:49:02'
 ---
 
 # apps/api/src/blob_api/plugins/runner.py
@@ -31,8 +31,9 @@ Symbols in `apps/api/src/blob_api/plugins/runner.py`.
 - L186 `status(self, deployment_id: str)` (method)
 - L194 `logs(self, deployment_id: str, lines: int=200)` (method) — Whatever the container has written lately.
 - L208 `stop(self, deployment_id: str)` (method)
-- L215 `env(self, deployment_id: str)` (method) — Everything configured on the application, duplicates included.
-- L241 `set_env(self, deployment_id: str, key: str, value: str)` (method) — Make `key` hold exactly `value`, by removing every row for it and writing one.
-- L271 `unset_env(self, deployment_id: str, key: str)` (method) — Remove a key entirely — every row of it, for the same reason.
-- L279 `_call(self, method: str, path: str, body: dict[str, Any] | None=None)` (method)
-- L300 `current_runner()` (function) — The configured runner, or a clear refusal.
+- L215 `env(self, deployment_id: str)` (method) — What the running container is configured with — duplicates included.
+- L250 `set_env(self, deployment_id: str, key: str, value: str)` (method) — Make `key` hold exactly `value`, by removing every row for it and writing one.
+- L278 `unset_env(self, deployment_id: str, key: str)` (method) — Remove a key entirely — every row of it, preview twins included.
+- L283 `_env_row_ids(self, deployment_id: str, key: str)` (method) — Every stored row for a key, unfiltered — what a rewrite has to clear.
+- L293 `_call(self, method: str, path: str, body: dict[str, Any] | None=None)` (method)
+- L314 `current_runner()` (function) — The configured runner, or a clear refusal.
