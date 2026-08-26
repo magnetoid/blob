@@ -20,19 +20,25 @@ import { useState } from 'react';
 interface Props {
   agentName: string;
   botToken: string;
+  /** The secret the bridge signs runs with, and the agent verifies them against. */
+  signingSecret: string | null;
 }
 
 /** Where Janus serves AG-UI when it runs locally. Any AG-UI server works; this is the
  * one the person asking is most likely to be running. */
 const DEFAULT_AGENT_URL = 'http://127.0.0.1:8642/v1/agui';
 
-export function DesktopAgentSetup({ agentName, botToken }: Props) {
+export function DesktopAgentSetup({ agentName, botToken, signingSecret }: Props) {
   const [agentUrl, setAgentUrl] = useState(DEFAULT_AGENT_URL);
   const [copied, setCopied] = useState(false);
 
   const command = [
     `export BLOB_URL=${window.location.origin}`,
     `export BLOB_BOT_TOKEN=${botToken}`,
+    // Not optional in practice. The bridge signs each run with this and the agent checks
+    // it; some agents will not even expose their AG-UI route without a secret configured,
+    // so an omitted line here is an agent that answers nothing and says why to nobody.
+    ...(signingSecret ? [`export BLOB_SIGNING_SECRET=${signingSecret}`] : []),
     `export AGENT_AGUI_URL=${agentUrl}`,
     `export AGENT_NAME=${JSON.stringify(agentName)}`,
     '',
@@ -98,6 +104,18 @@ export function DesktopAgentSetup({ agentName, botToken }: Props) {
       <p className="pref-hint" style={{ margin: '10px 0 0' }}>
         Leave it running. It reconnects on its own when the machine wakes or the network
         changes, and the agent answers whenever it is mentioned.
+      </p>
+
+      {/* The one thing that makes a correctly-connected agent look broken. Mentions
+          resolve by handle across the whole workspace, so `@name` in a channel the bot
+          has not joined starts a run that stops at the access check and says nothing at
+          all — no message, no error, not even a row in the run log. Anyone who hits it
+          concludes the feature does not work. */}
+      <p className="pref-hint" style={{ margin: '10px 0 0' }}>
+        <strong>Add {agentName} to a channel before you mention it.</strong> Open the
+        agent's <em>Channels</em> tab below. Mentioning it somewhere it has not been added
+        looks identical to it being offline — it stays silent rather than telling you it
+        cannot see the conversation.
       </p>
     </div>
   );

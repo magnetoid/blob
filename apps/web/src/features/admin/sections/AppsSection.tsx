@@ -180,6 +180,7 @@ function AppsList({
           <DesktopAgentSetup
             agentName={secretNotice.pluginName}
             botToken={secretNotice.botToken}
+            signingSecret={secretNotice.signingSecret ?? null}
           />
         )}
 
@@ -195,11 +196,12 @@ function AppsList({
         <ConnectAgentForm
           scopeCatalog={catalog?.scopes ?? {}}
           onError={onError}
-          onConnected={(pluginName, botToken) => {
-            // No signing secret: nothing is going to POST to this agent, so there is
-            // nothing for it to verify. The token is both how it connects and how it
-            // calls back.
-            setSecretNotice({ pluginName, botToken, desktop: true });
+          onConnected={(pluginName, botToken, signingSecret) => {
+            // Both secrets, and they do different jobs. The token is how the agent's
+            // bridge authenticates *to* Blob; the signing secret is how the bridge proves
+            // to the agent that a run came from Blob. Showing only the token was the bug:
+            // the setup it produced could not work against an agent that verifies.
+            setSecretNotice({ pluginName, botToken, signingSecret, desktop: true });
             load();
           }}
         />
@@ -434,6 +436,23 @@ function AppsList({
                         {plugin.botUserId && ` · bot user ${plugin.botUserId}`}
                       </div>
                       <div className="chip-row" style={{ marginTop: 10 }}>
+                        {/* Only ever shown for an agent that dials in, where it is the
+                            difference between "set up wrong" and "the laptop is asleep".
+                            Until this existed the only way to find out was to mention the
+                            agent and see whether anything came back. */}
+                        {plugin.online !== null && plugin.online !== undefined && (
+                          <span
+                            className="role-pill"
+                            data-muted={!plugin.online}
+                            title={
+                              plugin.online
+                                ? "Holding a connection to Blob"
+                                : "Not connected — start the bridge next to the agent"
+                            }
+                          >
+                            {plugin.online ? "connected" : "not connected"}
+                          </span>
+                        )}
                         {plugin.events.map((eventName) => (
                           <span className="chip" key={eventName}>
                             {eventName}
@@ -458,6 +477,7 @@ function AppsList({
                       {plugin.runtime === "container" && (
                         <AgentDeployment
                           pluginId={plugin.id}
+                          agentName={plugin.name}
                           repo={plugin.sourceRepo ?? null}
                           gitRef={plugin.sourceRef ?? null}
                           onError={onError}

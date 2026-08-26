@@ -62,7 +62,11 @@ PING_INTERVAL_SEC = 25.0
 #: How long to wait for the local agent, end to end. The server gives up at
 #: `AGUI_TIMEOUT_SEC + AGUI_READ_TIMEOUT_SEC` (150s by default); finishing first means the
 #: person gets the agent's own error rather than a generic timeout.
-AGENT_TIMEOUT_SEC = 140.0
+#:
+#: Overridable, because the relationship is what matters and the default only holds against
+#: the server's default. An operator who lowers theirs inverts it, and then every slow run
+#: ends in a generic server timeout instead of the agent saying what went wrong.
+AGENT_TIMEOUT_SEC = float(os.getenv("AGENT_TIMEOUT_SEC", "") or 140.0)
 
 #: How many runs may be in flight at once. A laptop is not a server, and an agent asked
 #: five questions in five seconds should queue rather than thrash.
@@ -88,10 +92,17 @@ class Config:
 
     @property
     def socket_url(self) -> str:
-        """The `/ws/agent` URL, with the scheme swapped for its WebSocket equivalent."""
+        """The `/ws/agent` URL, with the scheme swapped for its WebSocket equivalent.
+
+        Any path on `BLOB_URL` is kept and `/ws/agent` appended to it, because a Blob
+        served under a sub-path is a real deployment and discarding the prefix produced a
+        URL that 404s — reported as the token being wrong, since a refused upgrade looks
+        the same either way.
+        """
         parts = urlsplit(self.blob_url)
         scheme = "wss" if parts.scheme == "https" else "ws"
-        return urlunsplit((scheme, parts.netloc, "/ws/agent", "", ""))
+        prefix = parts.path.rstrip("/")
+        return urlunsplit((scheme, parts.netloc, f"{prefix}/ws/agent", "", ""))
 
 
 def _require(name: str) -> str:

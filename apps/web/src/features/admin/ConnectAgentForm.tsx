@@ -17,7 +17,7 @@ import { api, ApiError } from '../../lib/api.ts';
 
 interface Props {
   scopeCatalog: Record<string, string>;
-  onConnected: (name: string, botToken: string) => void;
+  onConnected: (name: string, botToken: string, signingSecret: string) => void;
   onError: (message: string | null) => void;
 }
 
@@ -61,7 +61,12 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
         events: [],
         scopes,
       });
-      onConnected(installed.plugin.name, installed.botToken);
+      // The signing secret matters here, and it used to be dropped on the floor. The
+      // bridge runs beside the agent and POSTs runs to it, signed with this — and a real
+      // agent verifies. Janus goes further and does not even *register* its AG-UI route
+      // without the secret configured, so an unsigned bridge gets a 404 or a 401 on every
+      // run, which reaches the person as "the agent could not be reached".
+      onConnected(installed.plugin.name, installed.botToken, installed.signingSecret);
       setName('');
       setScopes(DEFAULT_SCOPES);
       setOpen(false);
