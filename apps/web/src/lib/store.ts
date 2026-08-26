@@ -68,6 +68,8 @@ interface State {
   groups: Record<string, UserGroup>;
   /** The groups you are in, so a group mention can count as mentioning you. */
   myGroupIds: Set<string>;
+  /** The groups you silenced; the notifications screen renders the switch from this. */
+  mutedGroupIds: Set<string>;
   /** Slash commands this server knows, for the composer's autocomplete. */
   commands: CommandSpec[];
   users: Record<string, User>;
@@ -91,6 +93,8 @@ interface State {
   activeThreadRootId: string | null;
   /** Where the "New messages" divider sits, captured when a channel is opened. */
   unreadMarkers: Record<string, string | null>;
+  /** Bumped on member.joined/left so member-list caches know to refetch. */
+  membershipVersion: Record<string, number>;
   /**
    * A channel where you deliberately left something unread.
    *
@@ -123,6 +127,7 @@ interface State {
     body: string,
     threadRootId?: string | null,
     attachmentIds?: string[],
+    alsoInChannel?: boolean,
   ) => Promise<void>;
   retryQueuedMessage: (clientMsgId: string) => Promise<void>;
   discardQueuedMessage: (clientMsgId: string) => void;
@@ -185,6 +190,7 @@ export const useStore = create<State>((set, get) => ({
   savedMessageIds: new Set<string>(),
   groups: {},
   myGroupIds: new Set<string>(),
+  mutedGroupIds: new Set<string>(),
   commands: [],
   users: {},
   channels: {},
@@ -198,6 +204,7 @@ export const useStore = create<State>((set, get) => ({
   activeChannelId: null,
   activeThreadRootId: null,
   unreadMarkers: {},
+  membershipVersion: {},
   suppressReadFor: null,
 
   boot: (data) =>
@@ -210,6 +217,7 @@ export const useStore = create<State>((set, get) => ({
       savedMessageIds: new Set(data.savedMessageIds),
       groups: Object.fromEntries(data.groups.map((g) => [g.id, g])),
       myGroupIds: new Set(data.myGroupIds),
+      mutedGroupIds: new Set(data.mutedGroupIds),
       commands: data.commands,
       users: Object.fromEntries(data.users.map((u) => [u.id, u])),
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
@@ -551,7 +559,7 @@ export const useStore = create<State>((set, get) => ({
     }));
   },
 
-  sendMessage: async (channelId, body, threadRootId = null, attachmentIds = []) => {
+  sendMessage: async (channelId, body, threadRootId = null, attachmentIds = [], alsoInChannel = false) => {
     const user = get().currentUser;
     if (!user) return;
 
@@ -578,6 +586,7 @@ export const useStore = create<State>((set, get) => ({
         clientMsgId,
         threadRootId,
         attachmentIds,
+        alsoInChannel: alsoInChannel && threadRootId !== null,
       });
       setOutbox(set, get, (outbox) => {
         const next = { ...outbox };
@@ -901,7 +910,15 @@ export const useStore = create<State>((set, get) => ({
         break;
 
       case 'user.updated':
-        set((s) => ({ users: { ...s.users, [event.user.id]: event.user } }));
+        set((s) => ({
+          users: { ...s.users, [event.user.id]: event.user },
+          // Your own row rides the same event; the profile preview and the avatar in
+          // the top bar read currentUser, which would otherwise show the old face.
+          currentUser:
+            s.currentUser && s.currentUser.id === event.user.id
+              ? { ...s.currentUser, ...event.user }
+              : s.currentUser,
+        }));
         break;
 
       // Without these three, a tab open since before a group was created renders
@@ -933,7 +950,36 @@ export const useStore = create<State>((set, get) => ({
         break;
 
       case 'member.joined':
-      case 'member.left':
+      case 'member.left': {
+        // Keep what we already hold truthful — DM titles derive from memberIds — and
+        // bump a version so screens holding their own member caches know to refetch.
+        const joined = event.t === 'member.joined';
+        set((s) => {
+          const channel = s.channels[event.channelId];
+          const withMembers =
+            channel?.memberIds !== undefined
+              ? {
+                  channels: {
+                    ...s.channels,
+                    [event.channelId]: {
+                      ...channel,
+                      memberIds: joined
+                        ? [...new Set([...(channel.memberIds ?? []), event.userId])]
+                        : (channel.memberIds ?? []).filter((id) => id !== event.userId),
+                    },
+                  },
+                }
+              : {};
+          return {
+            ...withMembers,
+            membershipVersion: {
+              ...s.membershipVersion,
+              [event.channelId]: (s.membershipVersion[event.channelId] ?? 0) + 1,
+            },
+          };
+        });
+        break;
+      }
       case 'hello':
       case 'pong':
       case 'error':

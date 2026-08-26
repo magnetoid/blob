@@ -4,10 +4,12 @@
  * workspace sees — the name on your messages, what you do, and where you are.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { Avatar } from '../../components/Avatar.tsx';
+import { uploadFile } from '../../lib/attachments.ts';
+import { showError } from '../../lib/toasts.ts';
 
 export function ProfileView() {
   const currentUser = useStore((s) => s.currentUser);
@@ -19,6 +21,8 @@ export function ProfileView() {
   const [statusEmoji, setStatusEmoji] = useState(currentUser?.statusEmoji ?? '');
   const [statusText, setStatusText] = useState(currentUser?.statusText ?? '');
   const [busy, setBusy] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +84,54 @@ export function ProfileView() {
               <div className="profile-preview-meta">
                 {[statusEmoji, statusText].filter(Boolean).join(' ') || title || 'No status set'}
               </div>
+            </div>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                hidden
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (!file) return;
+                  setUploadingAvatar(true);
+                  try {
+                    const attachmentId = await uploadFile(file, file.type || 'image/png');
+                    const { user } = await api.me.update({ avatarAttachmentId: attachmentId });
+                    applyEvent({ t: 'user.updated', user });
+                  } catch (err) {
+                    showError(err);
+                  } finally {
+                    setUploadingAvatar(false);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn"
+                disabled={uploadingAvatar}
+                onClick={() => avatarInputRef.current?.click()}
+              >
+                {uploadingAvatar ? 'Uploading…' : currentUser.avatarUrl ? 'Change photo' : 'Add a photo'}
+              </button>
+              {currentUser.avatarUrl && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={uploadingAvatar}
+                  onClick={async () => {
+                    try {
+                      const { user } = await api.me.update({ avatarAttachmentId: null });
+                      applyEvent({ t: 'user.updated', user });
+                    } catch (err) {
+                      showError(err);
+                    }
+                  }}
+                >
+                  Remove
+                </button>
+              )}
             </div>
           </div>
 

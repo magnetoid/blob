@@ -105,6 +105,7 @@ export type Route =
   /** One conversation, addressable: /c/:channelId, optionally with an open thread. */
   | { view: 'channel'; channelId: string; threadRootId?: string }
   | { view: 'threads' }
+  | { view: 'tasks' }
   | { view: 'saved' }
   | { view: 'changelog' }
   /** A permalink to one message. Resolved, then replaced by the conversation. */
@@ -127,6 +128,7 @@ export function parseRoute(path: string): Route {
       : { view: 'channel', channelId: channel[1] as string };
   }
   if (clean === '/threads') return { view: 'threads' };
+  if (clean === '/tasks') return { view: 'tasks' };
   if (clean === '/later') return { view: 'saved' };
   if (clean === '/whats-new') return { view: 'changelog' };
   const permalink = clean.match(/^\/m\/([^/]+)$/);
@@ -196,6 +198,8 @@ export function pathForRoute(route: Route): string {
       return pathForChannel(route.channelId, route.threadRootId);
     case 'threads':
       return '/threads';
+    case 'tasks':
+      return '/tasks';
     case 'saved':
       return '/later';
     case 'changelog':

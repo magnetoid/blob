@@ -9,7 +9,9 @@
  * below it are not, and `WorkspaceConsole` is what draws that line.
  */
 
-import { api } from '../../lib/api.ts';
+import { useEffect, useState } from 'react';
+import { api, type AuthSession } from '../../lib/api.ts';
+import { showError } from '../../lib/toasts.ts';
 import { useStore } from '../../lib/store.ts';
 import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
 
@@ -197,6 +199,11 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
       </div>
 
       <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+        Where you’re signed in
+      </h2>
+      <DevicesPanel />
+
+      <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
         Account
       </h2>
       <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
@@ -213,4 +220,96 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
       </div>
     </section>
   );
+}
+
+/**
+ * Every session this account holds — the standard "was that me?" control. The server
+ * has answered `/api/auth/sessions` since the port; this is its first caller.
+ */
+function DevicesPanel() {
+  const [sessions, setSessions] = useState<AuthSession[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api.auth
+      .sessions()
+      .then((r) => {
+        if (!cancelled) setSessions(r.sessions);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not load your sessions.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [revoking]);
+
+  if (error) return <p className="error-text">{error}</p>;
+  if (sessions === null) return <p className="pref-hint">Loading…</p>;
+
+  const others = sessions.filter((s) => !s.current);
+  return (
+    <div style={{ marginTop: 12 }}>
+      {sessions.map((session) => (
+        <div key={session.id} className="pref-row" style={{ padding: '10px 0' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="pref-label">
+              {describeAgent(session.userAgent)}
+              {session.current && ' — this device'}
+            </div>
+            <div className="pref-hint">
+              {session.ip ? `${session.ip} · ` : ''}last seen{' '}
+              {new Date(session.lastSeenAt).toLocaleString()}
+            </div>
+          </div>
+        </div>
+      ))}
+      {others.length > 0 && (
+        <button
+          className="btn"
+          disabled={revoking}
+          onClick={async () => {
+            setRevoking(true);
+            try {
+              await api.auth.logoutOthers();
+            } catch (err) {
+              showError(err);
+            } finally {
+              setRevoking(false);
+            }
+          }}
+        >
+          Sign out everywhere else
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** "Chrome on macOS", best effort, because a raw user-agent string helps nobody. */
+function describeAgent(userAgent: string | null): string {
+  if (!userAgent) return 'Unknown device';
+  const browser = userAgent.includes('Firefox/')
+    ? 'Firefox'
+    : userAgent.includes('Edg/')
+      ? 'Edge'
+      : userAgent.includes('Chrome/')
+        ? 'Chrome'
+        : userAgent.includes('Safari/')
+          ? 'Safari'
+          : 'Browser';
+  const os = userAgent.includes('Mac OS X')
+    ? 'macOS'
+    : userAgent.includes('Windows')
+      ? 'Windows'
+      : userAgent.includes('Android')
+        ? 'Android'
+        : /iPhone|iPad/.test(userAgent)
+          ? 'iOS'
+          : userAgent.includes('Linux')
+            ? 'Linux'
+            : '';
+  return os ? `${browser} on ${os}` : browser;
 }

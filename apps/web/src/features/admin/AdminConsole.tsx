@@ -17,12 +17,11 @@
  * with an admin page.
  */
 
-import { useState, type ComponentType } from 'react';
+import type { ComponentType } from 'react';
 import { MenuIcon } from '../../components/Icon.tsx';
 import { useStore } from '../../lib/store.ts';
 import type { AdminSection } from '../../lib/router.ts';
-import { TopBar } from '../shell/TopBar.tsx';
-import { AdminNav } from './AdminNav.tsx';
+import { ConsoleShell } from './ConsoleShell.tsx';
 import { ADMIN_NAV, sectionEntry } from './registry.ts';
 import { AppPolicySection } from './sections/AppPolicySection.tsx';
 import { AccountsSection } from './sections/AccountsSection.tsx';
@@ -32,7 +31,6 @@ import { HealthSection } from './sections/HealthSection.tsx';
 import { LogsSection } from './sections/LogsSection.tsx';
 import { WorkspacesSection } from './sections/WorkspacesSection.tsx';
 
-/** Ties the drawer toggle to the nav it opens, for anything reading the page structure. */
 const NAV_ID = 'admin-console-nav';
 
 export interface AdminSectionProps {
@@ -72,70 +70,33 @@ export function AdminConsole({
   const currentUser = useStore((s) => s.currentUser);
   const isOwner = currentUser?.role === 'owner';
 
-  const [error, setError] = useState<string | null>(null);
-  const [navOpen, setNavOpen] = useState(false);
-
-  // An error belongs to the page that produced it. Clearing during render rather than in
-  // an effect avoids showing the previous page's failure for one frame — including when
-  // the Back button is what moved you.
-  const [shownFor, setShownFor] = useState(`${section}/${detailId ?? ''}`);
-  const key = `${section}/${detailId ?? ''}`;
-  if (shownFor !== key) {
-    setShownFor(key);
-    setError(null);
-  }
-
   const entry = sectionEntry(section);
   const Body = SECTION_COMPONENTS[section];
 
   return (
-    <div className="admin-shell" data-nav={navOpen ? 'open' : 'closed'}>
-      <TopBar onFeedback={onFeedback} view="admin" />
-      <AdminNav
-        id={NAV_ID}
-        groups={ADMIN_NAV}
-        section={section}
-        isOwner={isOwner}
-        onNavigate={() => setNavOpen(false)}
-        basePath="/admin"
-        title="This server"
-        subtitle="Every workspace on this instance."
-      />
-      <button
-        className="admin-nav-scrim"
-        aria-label="Close the section menu"
-        onClick={() => setNavOpen(false)}
-      />
-
-      <main className="admin-main">
-        <div className="admin-page">
-          <header className="admin-page-header">
-            <button
-              className="icon-btn admin-nav-toggle"
-              aria-label="Console sections"
-              aria-expanded={navOpen}
-              aria-controls={NAV_ID}
-              onClick={() => setNavOpen(true)}
-            >
-              <MenuIcon size={18} />
-            </button>
-            <div>
-              <h1 className="admin-page-title">{entry.label}</h1>
-              {entry.description && <p className="admin-page-sub">{entry.description}</p>}
-            </div>
-          </header>
-
-          {error && (
-            <p className="error-text" style={{ marginTop: 16 }}>
-              {error}
-            </p>
-          )}
-
-          <div className="admin-page-body">
-            <Body onError={setError} isOwner={isOwner} detailId={detailId} />
-          </div>
-        </div>
-      </main>
-    </div>
+    <ConsoleShell
+      view="admin"
+      navId={NAV_ID}
+      nav={{
+        groups: ADMIN_NAV,
+        basePath: '/admin',
+        title: 'This server',
+        subtitle: 'Every workspace on this instance.',
+      }}
+      section={section}
+      isOwner={isOwner}
+      title={entry.label}
+      description={entry.description}
+      toggle={{
+        className: 'icon-btn admin-nav-toggle',
+        label: 'Console sections',
+        icon: <MenuIcon size={18} />,
+      }}
+      // An error belongs to the page — section and detail — that produced it.
+      resetKey={`${section}/${detailId ?? ''}`}
+      onFeedback={onFeedback}
+    >
+      {(onError) => <Body onError={onError} isOwner={isOwner} detailId={detailId} />}
+    </ConsoleShell>
   );
 }

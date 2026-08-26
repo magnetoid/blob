@@ -34,6 +34,7 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   const [inviteWorkspace, setInviteWorkspace] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -212,9 +213,12 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
         {needsEmail && (
           <label className="field">
             <span className="field-label">Email</span>
+            {/* Only on login: first-run and invites open in signup, where the
+                workspace-name field already takes focus. */}
             <input
               className="input"
               type="email"
+              autoFocus={mode === "login"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -224,30 +228,50 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
         )}
 
         {needsPassword && (
-          <label className="field">
-            <span className="field-label">
+          <div className="field">
+            {/* Explicit association: with the show/hide button inside an implicit
+                label, the label labelled two controls and screen readers (and tests)
+                could not tell which one was the password. */}
+            <label className="field-label" htmlFor="auth-password">
               {mode === "reset" ? "New password" : "Password"}
+            </label>
+            <span style={{ display: "flex", gap: 6 }}>
+              <input
+                id="auth-password"
+                className="input"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={mode === "login" ? 1 : 10}
+                autoComplete={
+                  mode === "login" ? "current-password" : "new-password"
+                }
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
             </span>
-            <input
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={mode === "login" ? 1 : 10}
-              autoComplete={
-                mode === "login" ? "current-password" : "new-password"
-              }
-            />
             {mode !== "login" && (
               <span className="muted" style={{ fontSize: 13 }}>
                 At least 10 characters.
               </span>
             )}
-          </label>
+          </div>
         )}
 
-        {error && <p className="error-text">{error}</p>}
+        {error && (
+          <p className="error-text" aria-live="polite">
+            {error}
+          </p>
+        )}
 
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {busy

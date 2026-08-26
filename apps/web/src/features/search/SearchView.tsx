@@ -8,11 +8,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
-import { useStore } from "../../lib/store.ts";
 import { showMessage } from "../../lib/navigation.ts";
-import { Avatar } from "../../components/Avatar.tsx";
 import { SearchIcon } from "../../components/Icon.tsx";
-import { formatRelative } from "../messages/messageFormatting.ts";
+import { MessageResultRow } from "../messages/MessageResultRow.tsx";
 
 const FILTERS = [
   { label: "All", value: "" },
@@ -21,10 +19,6 @@ const FILTERS = [
 ] as const;
 
 export function SearchView() {
-  const users = useStore((s) => s.users);
-  const channels = useStore((s) => s.channels);
-  const channelTitle = useStore((s) => s.channelTitle);
-
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<string>("");
   const [results, setResults] = useState<Message[] | null>(null);
@@ -128,40 +122,18 @@ export function SearchView() {
         ) : (
           <>
             <div className="search-count">
-              {total} {total === 1 ? "result" : "results"}
+              {total > results.length
+                ? `Showing ${results.length} of ${total}`
+                : `${total} ${total === 1 ? "result" : "results"}`}
             </div>
-            {results.map((message) => {
-              const author = message.authorId
-                ? users[message.authorId]
-                : undefined;
-              const channel = channels[message.channelId];
-              return (
-                <button
-                  key={message.id}
-                  className="search-result"
-                  type="button"
-                  onClick={() => void showMessage(message.id)}
-                >
-                  <Avatar user={author} size="lg" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="search-result-head">
-                      <span className="search-result-author">
-                        {author?.displayName ?? "Someone"}
-                      </span>
-                      <span className="search-result-meta">
-                        {channel
-                          ? channel.name
-                            ? `#${channel.name}`
-                            : channelTitle(channel)
-                          : "Unknown"}{" "}
-                        · {formatRelative(message.createdAt)}
-                      </span>
-                    </div>
-                    <div className="search-result-text">{message.body}</div>
-                  </div>
-                </button>
-              );
-            })}
+            {results.map((message) => (
+              <MessageResultRow
+                key={message.id}
+                message={message}
+                timestamp={message.createdAt}
+                onOpen={() => void showMessage(message.id)}
+              />
+            ))}
           </>
         )}
       </div>

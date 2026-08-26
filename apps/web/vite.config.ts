@@ -12,5 +12,19 @@ export default defineConfig({
       '/ws': { target: 'ws://localhost:3000', ws: true },
     },
   },
-  build: { outDir: 'dist', sourcemap: true },
+  build: {
+    outDir: 'dist',
+    // 'hidden' keeps the maps for a debugging operator without advertising them in
+    // every served bundle.
+    sourcemap: 'hidden',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React changes on a different cadence from the app; a separate chunk means
+          // an app deploy doesn't re-download the framework.
+          react: ['react', 'react-dom'],
+        },
+      },
+    },
+  },
 });

@@ -38,6 +38,11 @@ vi.mock('../../lib/router.ts', () => ({
 const storeState = {
   users: { u1: { id: 'u1', displayName: 'Ana', avatarUrl: null } },
   channels: { c1: { id: 'c1', name: 'eng', kind: 'public' } },
+  // The rows render markdown now, and the mention index reads these three.
+  groups: {},
+  myGroupIds: new Set<string>(),
+  currentUser: null,
+  customEmoji: [],
   activeChannelId: null,
   openChannel,
   openThread,

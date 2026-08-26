@@ -1,6 +1,6 @@
 /** The signed-in shell: top bar, sidebar, main view, optional thread panel. */
 
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { useStore } from '../lib/store.ts';
 import { socket } from '../lib/socket.ts';
@@ -16,19 +16,29 @@ import {
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadsView } from '../features/messages/ThreadsView.tsx';
+import { TasksView } from '../features/agentic/TasksView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
-import { AdminConsole } from '../features/admin/AdminConsole.tsx';
-import { WorkspaceConsole } from '../features/workspace/WorkspaceConsole.tsx';
+// Lazy: the consoles are ~3,000 lines of JSX an ordinary member never renders,
+// and they were arriving in everyone's first paint.
+const AdminConsole = lazy(() =>
+  import('../features/admin/AdminConsole.tsx').then((m) => ({ default: m.AdminConsole })),
+);
+const WorkspaceConsole = lazy(() =>
+  import('../features/workspace/WorkspaceConsole.tsx').then((m) => ({
+    default: m.WorkspaceConsole,
+  })),
+);
 import { ProfileView } from '../features/settings/ProfileView.tsx';
 import { TopBar } from '../features/shell/TopBar.tsx';
 import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
 import { ShortcutHelp } from '../components/ShortcutHelp.tsx';
 import { isTypingTarget, matchShortcut } from '../lib/shortcuts.ts';
 import { closeThread, showChannel, showMessage } from '../lib/navigation.ts';
+import { updateBadge } from '../lib/badge.ts';
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
@@ -45,6 +55,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // The channel drawer on narrow viewports. Closed on every conversation change so
+  // picking a channel dismisses it, the way every mobile drawer behaves.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   // Held with the id it belongs to, so following a second link shows no error without
@@ -130,6 +143,19 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     }
   }, [channels, activeChannelId, openChannel, route.view]);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [activeChannelId, view]);
+
+  // The tab title carries the unread state a backgrounded tab cannot show any
+  // other way; the OS badge rides along where the app is installed.
+  useEffect(() => {
+    const rows = Object.values(channels);
+    const mentions = rows.reduce((sum, c) => sum + (c.mentionCount ?? 0), 0);
+    const hasUnread = rows.some((c) => c.hasUnread);
+    updateBadge(mentions, hasUnread);
+  }, [channels]);
+
   // Presence is push-on-subscribe: tell the server whose dots we're showing.
   useEffect(() => {
     const userIds = Object.keys(users);
@@ -180,6 +206,18 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           else if (feedbackOpen) setFeedbackOpen(false);
           else if (paletteOpen) setPaletteOpen(false);
           else if (activeThreadRootId) closeThread();
+          else if (activeChannelId) {
+            // Nothing left to close: Slack's Esc — the channel is read. Deliberately
+            // clears a mark-unread first, or the ratchet's suppression would swallow
+            // the most explicit read gesture there is.
+            useStore.setState((s) =>
+              s.suppressReadFor === activeChannelId ? { suppressReadFor: null } : s,
+            );
+            void useStore.getState().markRead(activeChannelId).catch(() => undefined);
+            useStore.setState((s) => ({
+              unreadMarkers: { ...s.unreadMarkers, [activeChannelId]: null },
+            }));
+          }
           return;
       }
     }
@@ -208,12 +246,14 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   if (route.view === 'workspace') {
     return (
       <>
-        <WorkspaceConsole
-          section={route.section}
-          detailId={route.detailId}
-          onFeedback={() => setFeedbackOpen(true)}
-          onSignedOut={onSignedOut}
-        />
+        <Suspense fallback={<div className="auth"><p className="muted">Loading…</p></div>}>
+          <WorkspaceConsole
+            section={route.section}
+            detailId={route.detailId}
+            onFeedback={() => setFeedbackOpen(true)}
+            onSignedOut={onSignedOut}
+          />
+        </Suspense>
         {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
         {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
         {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
@@ -224,11 +264,13 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   if (route.view === 'admin' && isAdmin) {
     return (
       <>
-        <AdminConsole
-          section={route.section}
-          detailId={route.detailId}
-          onFeedback={() => setFeedbackOpen(true)}
-        />
+        <Suspense fallback={<div className="auth"><p className="muted">Loading…</p></div>}>
+          <AdminConsole
+            section={route.section}
+            detailId={route.detailId}
+            onFeedback={() => setFeedbackOpen(true)}
+          />
+        </Suspense>
         {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
         {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
         {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
@@ -237,9 +279,25 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   }
 
   return (
-    <div className="shell" data-panel={panelOpen ? 'open' : 'closed'}>
-      <TopBar onFeedback={() => setFeedbackOpen(true)} view={view} />
+    <div
+      className="shell"
+      data-panel={panelOpen ? 'open' : 'closed'}
+      data-sidebar={sidebarOpen ? 'open' : 'closed'}
+    >
+      <TopBar
+        onFeedback={() => setFeedbackOpen(true)}
+        onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        view={view}
+      />
       <Sidebar onOpenSearch={() => navigate('/search')} />
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="drawer-scrim"
+          aria-label="Close channel list"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {view === 'permalink' && (
         <div className="pane">
@@ -258,6 +316,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       )}
       {(view === 'messages' || view === 'channel') && <ChannelView />}
       {view === 'threads' && <ThreadsView />}
+      {view === 'tasks' && <TasksView />}
       {view === 'saved' && <SavedView />}
       {view === 'changelog' && <WhatsNewView />}
       {view === 'search' && <SearchView />}

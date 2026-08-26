@@ -11,9 +11,9 @@
  * this needs no cache to invalidate.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import type { Message } from '@blob/shared';
+import { useEffect, useRef } from 'react';
 import { api } from '../../lib/api.ts';
+import { useFetch } from '../../lib/useFetch.ts';
 import { useStore } from '../../lib/store.ts';
 import { renderMarkdown } from '../../lib/markdown.tsx';
 import { Avatar } from '../../components/Avatar.tsx';
@@ -32,26 +32,14 @@ export function PinnedPanel({ channelId, onClose, onJump }: Props) {
   const customEmoji = useStore((s) => s.customEmoji);
   const displayNameOf = useStore((s) => s.displayNameOf);
 
-  const [pins, setPins] = useState<Message[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const knownNames = useMentionIndex();
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { messages } = await api.channels.pins(channelId);
-        if (!cancelled) setPins(messages);
-      } catch {
-        if (!cancelled) setError('Those could not be loaded.');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [channelId]);
+  const { data: pins, error } = useFetch(
+    async () => (await api.channels.pins(channelId)).messages,
+    [channelId],
+  );
 
   // The same dismissal contract as every other panel here: a click anywhere else, or
   // Escape. Capture phase, so a click that lands on another control closes this first.
@@ -74,7 +62,7 @@ export function PinnedPanel({ channelId, onClose, onJump }: Props) {
     <div className="pinned-panel" ref={panelRef} role="dialog" aria-label="Pinned messages">
       <h2 className="section-label">Pinned</h2>
 
-      {error && <p className="error-text">{error}</p>}
+      {error && <p className="error-text">Those could not be loaded.</p>}
       {!error && pins === null && <p className="muted">Loading…</p>}
       {pins?.length === 0 && (
         <p className="muted">

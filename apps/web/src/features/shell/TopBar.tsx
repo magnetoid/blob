@@ -15,10 +15,11 @@
  * changes is where the eye finds them, not what they do.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useStore } from '../../lib/store.ts';
 import { navigate, pathForRoute, pathForView, usePath, type View } from '../../lib/router.ts';
 import { Avatar } from '../../components/Avatar.tsx';
+import { Menu } from '../../components/Menu.tsx';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.tsx';
 import {
   ChevronDownIcon,
@@ -26,6 +27,7 @@ import {
   MembersIcon,
   MessagesIcon,
   SearchIcon,
+  MenuIcon,
   SettingsIcon,
 } from '../../components/Icon.tsx';
 import { ITEMS } from './menu.ts';
@@ -33,38 +35,20 @@ import { hasUnseenRelease } from '../../lib/changelog.ts';
 
 interface Props {
   onFeedback: () => void;
+  /** Narrow viewports only (CSS hides it elsewhere): opens the channel drawer. */
+  onToggleSidebar?: () => void;
   /** The whole app's view, so a screen the bar cannot reach simply presses nothing. */
   view: View;
 }
 
-export function TopBar({ onFeedback, view }: Props) {
+export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
   const status = useStore((s) => s.status);
   const path = usePath();
   const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
-
-  // Close on any click outside and on Escape. Capture phase, so a click that lands on
-  // another control dismisses this first rather than leaving two menus open.
-  useEffect(() => {
-    if (!open) return undefined;
-    const onClick = (event: MouseEvent) => {
-      if (menuRef.current?.contains(event.target as Node)) return;
-      setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('click', onClick, true);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('click', onClick, true);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
 
   // Navigating away should not leave the menu hanging open behind the new screen.
   // Adjusted during render rather than in an effect, which avoids the extra pass.
@@ -88,6 +72,16 @@ export function TopBar({ onFeedback, view }: Props) {
 
   return (
     <header className="topbar">
+      {onToggleSidebar && (
+        <button
+          type="button"
+          className="topbar-hamburger"
+          aria-label="Channels"
+          onClick={onToggleSidebar}
+        >
+          <MenuIcon size={18} strokeWidth={1.8} />
+        </button>
+      )}
       <WorkspaceSwitcher name={workspaceName} />
 
       {/* The bar does its own navigating. Every call site passed the identical callback,
@@ -151,12 +145,17 @@ export function TopBar({ onFeedback, view }: Props) {
         <span className="topbar-feedback-label">Feedback</span>
       </button>
 
-      <div className="user-menu" ref={menuRef}>
+      <div className="user-menu">
         <button
           className="user-menu-trigger"
           aria-expanded={open}
           aria-haspopup="menu"
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => {
+            // The panel's capture-phase outside-click dismissal runs before this
+            // handler, so a click here while open has already closed the menu —
+            // only opening is left to do. A plain toggle would reopen it.
+            if (!open) setOpen(true);
+          }}
           title={currentUser.displayName}
         >
           <span className="user-menu-avatar">
@@ -174,47 +173,45 @@ export function TopBar({ onFeedback, view }: Props) {
           <ChevronDownIcon size={13} strokeWidth={2} />
         </button>
 
-        {open && (
-          <div className="user-menu-panel" role="menu">
-            <div className="user-menu-header">
-              <div className="user-menu-header-name">{currentUser.displayName}</div>
-              <div className="user-menu-header-email">{currentUser.email}</div>
-            </div>
-
-            {visible.map((item) =>
-              item.soon ? (
-                <button
-                  key={item.label}
-                  className="user-menu-item"
-                  role="menuitem"
-                  disabled
-                  title="Not built yet"
-                >
-                  {item.label}
-                  <span className="user-menu-soon">Soon</span>
-                </button>
-              ) : (
-                <button
-                  key={item.label}
-                  className="user-menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    setOpen(false);
-                    // The snapshot must be of the page behind the menu, so the menu
-                    // closes before the dialog opens and the capture runs.
-                    if (item.action === 'feedback') onFeedback();
-                    else navigate(item.path as string);
-                  }}
-                >
-                  {item.label}
-                  {item.path === '/whats-new' && unseenRelease && (
-                    <span className="menu-dot" aria-label="New since you last looked" />
-                  )}
-                </button>
-              ),
-            )}
+        <Menu open={open} onClose={() => setOpen(false)} className="user-menu-panel">
+          <div className="user-menu-header">
+            <div className="user-menu-header-name">{currentUser.displayName}</div>
+            <div className="user-menu-header-email">{currentUser.email}</div>
           </div>
-        )}
+
+          {visible.map((item) =>
+            item.soon ? (
+              <button
+                key={item.label}
+                className="user-menu-item"
+                role="menuitem"
+                disabled
+                title="Not built yet"
+              >
+                {item.label}
+                <span className="user-menu-soon">Soon</span>
+              </button>
+            ) : (
+              <button
+                key={item.label}
+                className="user-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  // The snapshot must be of the page behind the menu, so the menu
+                  // closes before the dialog opens and the capture runs.
+                  if (item.action === 'feedback') onFeedback();
+                  else navigate(item.path as string);
+                }}
+              >
+                {item.label}
+                {item.path === '/whats-new' && unseenRelease && (
+                  <span className="menu-dot" aria-label="New since you last looked" />
+                )}
+              </button>
+            ),
+          )}
+        </Menu>
       </div>
     </header>
   );

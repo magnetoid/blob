@@ -23,6 +23,12 @@ import { socket } from "../../lib/socket.ts";
 import { api } from "../../lib/api.ts";
 import { commandQuery, matchCommands, parseCommand } from "../../lib/commands.ts";
 import {
+  SHORTCUTS,
+  describeKeys,
+  isMac,
+  matchShortcut,
+} from "../../lib/shortcuts.ts";
+import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   describeSize,
   newPendingAttachment,
@@ -54,11 +60,24 @@ type MentionCandidate =
   | { kind: "group"; key: string; label: string; hint?: string; user?: never }
   | { kind: "user"; key: string; label: string; hint?: string; user: User };
 
+/**
+ * A toolbar tooltip's chord, read from the same declarations `⌘/` renders — so the
+ * toolbar cannot advertise a binding the keyboard layer doesn't have.
+ */
+function chordFor(id: string): string {
+  const shortcut = SHORTCUTS.find((s) => s.id === id);
+  return shortcut ? describeKeys(shortcut).join(isMac() ? "" : "+") : "";
+}
+
 interface Props {
   channelId: string;
   threadRootId?: string | null;
   placeholder: string;
   initialFocus?: boolean;
+  /** Asked at the moment of sending — "should this reply also post to the channel?"
+   * A function rather than a boolean so the owner can reset its checkbox in the same
+   * breath, which is Slack's contract: the tick applies to one message. */
+  consumeAlsoInChannel?: () => boolean;
 }
 
 export function Composer({
@@ -66,6 +85,7 @@ export function Composer({
   threadRootId = null,
   placeholder,
   initialFocus,
+  consumeAlsoInChannel,
 }: Props) {
   const users = useStore((s) => s.users);
   const groupsById = useStore((s) => s.groups);
@@ -363,6 +383,7 @@ export function Composer({
         body,
         threadRootId,
         ready.map((item) => item.attachmentId as string),
+        consumeAlsoInChannel?.() ?? false,
       );
     } catch (err) {
       const message =
@@ -385,7 +406,92 @@ export function Composer({
     });
   }
 
+  /**
+   * Wrap the selection in a Markdown marker, or strip the marker if it is already
+   * there — whether the markers sit inside the selection (`**bold**` selected) or
+   * just around it (`bold` selected inside `**bold**`). The selection is restored
+   * on the next frame, once React has written the new value — setting it
+   * synchronously targets the old one.
+   */
+  function toggleWrap(before: string, after = before) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selected = draft.slice(start, end);
+
+    let next: string;
+    let selStart: number;
+    let selEnd: number;
+
+    if (
+      selected.length >= before.length + after.length &&
+      selected.startsWith(before) &&
+      selected.endsWith(after)
+    ) {
+      const inner = selected.slice(before.length, selected.length - after.length);
+      next = draft.slice(0, start) + inner + draft.slice(end);
+      selStart = start;
+      selEnd = start + inner.length;
+    } else if (
+      start >= before.length &&
+      draft.slice(start - before.length, start) === before &&
+      draft.slice(end, end + after.length) === after
+    ) {
+      next =
+        draft.slice(0, start - before.length) +
+        selected +
+        draft.slice(end + after.length);
+      selStart = start - before.length;
+      selEnd = selStart + selected.length;
+    } else {
+      next = draft.slice(0, start) + before + selected + after + draft.slice(end);
+      selStart = start + before.length;
+      selEnd = selStart + selected.length;
+    }
+
+    setDraft(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(selStart, selEnd);
+    });
+  }
+
+  // Inline code cannot hold a newline — the renderer's rule is `[^`\n]+` — so a
+  // selection spanning lines becomes a fenced block instead.
+  function toggleCode() {
+    const el = textareaRef.current;
+    if (!el) return;
+    const selected = draft.slice(el.selectionStart, el.selectionEnd);
+    if (selected.includes("\n")) toggleWrap("```\n", "\n```");
+    else toggleWrap("`");
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    // Bound through the same declarations `⌘/` renders. Anything matched that is not
+    // a formatting chord falls through to the window listener in Workspace.
+    const shortcut = matchShortcut(event, { typing: true });
+    switch (shortcut?.id) {
+      case "format-bold":
+        event.preventDefault();
+        toggleWrap("**");
+        return;
+      case "format-italic":
+        // The renderer parses *x* and _x_ alike; `_` is what survives sitting
+        // directly inside a ** wrap.
+        event.preventDefault();
+        toggleWrap("_");
+        return;
+      case "format-code":
+        event.preventDefault();
+        toggleCode();
+        return;
+      case "format-strike":
+        event.preventDefault();
+        toggleWrap("~~");
+        return;
+    }
+
     if (commandMatches.length > 0) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -397,7 +503,7 @@ export function Composer({
         setCommandIndex((i) => (i - 1 + commandMatches.length) % commandMatches.length);
         return;
       }
-      if (event.key === "Tab") {
+      if (event.key === "Enter" || event.key === "Tab") {
         event.preventDefault();
         const chosen = commandMatches[commandIndex];
         if (chosen) applyCommand(chosen.name);
@@ -554,6 +660,57 @@ export function Composer({
         )}
 
         <div className="composer-box">
+          <div className="composer-toolbar" role="toolbar" aria-label="Formatting">
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Bold"
+              title={`Bold (${chordFor("format-bold")})`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleWrap("**");
+              }}
+            >
+              <strong>B</strong>
+            </button>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Italic"
+              title={`Italic (${chordFor("format-italic")})`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleWrap("_");
+              }}
+            >
+              <em>I</em>
+            </button>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Code"
+              title={`Code (${chordFor("format-code")})`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleCode();
+              }}
+            >
+              <code>{"</>"}</code>
+            </button>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Strikethrough"
+              title={`Strikethrough (${chordFor("format-strike")})`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleWrap("~~");
+              }}
+            >
+              <s>S</s>
+            </button>
+          </div>
+
           {attachments.length > 0 && (
             <ul className="attachment-tray">
               {attachments.map((item) => (

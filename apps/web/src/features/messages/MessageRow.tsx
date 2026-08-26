@@ -5,9 +5,9 @@
  * one avatar and header; the exact time then appears in the gutter on hover.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
-import type { CustomEmoji, Message, MessageTranslation } from "@blob/shared";
-import { ApiError, api } from "../../lib/api.ts";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
+import type { CustomEmoji, Message } from "@blob/shared";
+import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { permalinkFor } from "../../lib/navigation.ts";
@@ -15,10 +15,14 @@ import { useMentionIndex } from "./mentionIndex.ts";
 import type { LocalMessageDeliveryStatus } from "../../lib/outbox.ts";
 import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
+import { MessageEditor } from "./MessageEditor.tsx";
+import { MessageMenu } from "./MessageMenu.tsx";
+import { MessageTranslation } from "./MessageTranslation.tsx";
 import { formatRelative, formatTime } from "./messageFormatting.ts";
 import { Avatar } from "../../components/Avatar.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
-import { FileIcon, MoreIcon, ReplyIcon } from "../../components/Icon.tsx";
+import { FileIcon, ReplyIcon } from "../../components/Icon.tsx";
 import { resolveReaction } from "../../lib/emoji.ts";
 
 /** Offered directly in the hover toolbar; the rest come from the picker. */
@@ -60,12 +64,6 @@ function ReactionFace({
   return <>{resolved?.char ?? value}</>;
 }
 
-const translationCache = new Map<string, MessageTranslation>();
-
-function translationCacheKey(message: Message, targetLanguage: string): string {
-  return `${message.id}:${message.editedAt ?? message.createdAt}:${targetLanguage}`;
-}
-
 function isGrouped(message: Message, previous: Message | null): boolean {
   if (!previous) return false;
   if (previous.authorId !== message.authorId) return false;
@@ -86,8 +84,6 @@ export const MessageRow = memo(function MessageRow({
   const currentUser = useStore((s) => s.currentUser);
   const customEmoji = useStore((s) => s.customEmoji);
   const toggleReaction = useStore((s) => s.toggleReaction);
-  const toggleSaved = useStore((s) => s.toggleSaved);
-  const markUnread = useStore((s) => s.markUnread);
   const myGroupIds = useStore((s) => s.myGroupIds);
   const knownNames = useMentionIndex();
   const [copied, setCopied] = useState(false);
@@ -100,9 +96,6 @@ export const MessageRow = memo(function MessageRow({
     const timer = setTimeout(() => setCopied(false), 1600);
     return () => clearTimeout(timer);
   }, [copied]);
-  // Subscribed to the boolean rather than the Set, so saving one message does not
-  // re-render every other row in a channel that is already virtualised for that reason.
-  const saved = useStore((s) => s.savedMessageIds.has(message.id));
   const retryQueuedMessage = useStore((s) => s.retryQueuedMessage);
   const discardQueuedMessage = useStore((s) => s.discardQueuedMessage);
   const deliveryState = useStore((s) => s.messageDeliveryState(message));
@@ -114,21 +107,9 @@ export const MessageRow = memo(function MessageRow({
   const setEditingMessage = useStore((s) => s.setEditingMessage);
   const editing = editingMessageId === message.id;
   const setEditing = (open: boolean) => setEditingMessage(open ? message.id : null);
-  const [draft, setDraft] = useState(message.body);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const preferredLanguage = currentUser?.prefs.language ?? null;
-  const autoTranslate = Boolean(
-    currentUser?.prefs.autoTranslate && preferredLanguage,
-  );
-  const [translation, setTranslation] = useState<MessageTranslation | null>(
-    null,
-  );
-  const [translationBusy, setTranslationBusy] = useState(false);
-  const [translationError, setTranslationError] = useState<string | null>(null);
-  const [translationVisible, setTranslationVisible] = useState(false);
-  const editRef = useRef<HTMLTextAreaElement>(null);
 
   const author = message.authorId ? users[message.authorId] : undefined;
   const grouped = isGrouped(message, previous);
@@ -144,13 +125,6 @@ export const MessageRow = memo(function MessageRow({
     message.authorId !== currentUser.id &&
     (message.mentionUserIds.includes(currentUser.id) ||
       message.mentionGroupIds.some((id) => myGroupIds.has(id)));
-  const canTranslate =
-    !pending &&
-    !editing &&
-    !message.deletedAt &&
-    !!message.body.trim() &&
-    !!preferredLanguage;
-
 
   const rendered = useMemo(
     () =>
@@ -181,82 +155,16 @@ export const MessageRow = memo(function MessageRow({
     };
   }, [pickerOpen]);
 
-  useEffect(() => {
-    if (!preferredLanguage) {
-      setTranslation(null);
-      setTranslationVisible(false);
-      setTranslationError(null);
-      return;
-    }
-    const cached =
-      translationCache.get(translationCacheKey(message, preferredLanguage)) ??
-      null;
-    setTranslation(cached);
-    setTranslationVisible((current) =>
-      cached !== null ? autoTranslate || current : false,
+  // `navigator.clipboard` needs a secure context, so on plain http over a LAN this
+  // falls back to showing the URL for somebody to copy by hand rather than failing
+  // silently.
+  const copyLink = () => {
+    const url = permalinkFor(message.id);
+    void navigator.clipboard?.writeText(url).then(
+      () => setCopied(true),
+      () => setCopyFallback(url),
     );
-    setTranslationError(null);
-  }, [autoTranslate, message, preferredLanguage]);
-
-  const requestTranslation = useCallback(
-    async (forceRefresh = false) => {
-      if (!preferredLanguage || !canTranslate) return;
-      setTranslationBusy(true);
-      setTranslationError(null);
-      try {
-        const { translation: next } = await api.messages.translate(message.id, {
-          targetLanguage: preferredLanguage,
-          forceRefresh,
-        });
-        translationCache.set(
-          translationCacheKey(message, preferredLanguage),
-          next,
-        );
-        setTranslation(next);
-        setTranslationVisible(true);
-      } catch (error) {
-        const nextError =
-          error instanceof ApiError
-            ? error.message
-            : error instanceof Error
-              ? error.message
-              : "That translation couldn't be loaded.";
-        setTranslationError(nextError);
-      } finally {
-        setTranslationBusy(false);
-      }
-    },
-    [canTranslate, message, preferredLanguage],
-  );
-
-  useEffect(() => {
-    if (
-      !autoTranslate ||
-      !canTranslate ||
-      mine ||
-      translation ||
-      translationBusy
-    )
-      return;
-    void requestTranslation();
-  }, [
-    autoTranslate,
-    canTranslate,
-    mine,
-    requestTranslation,
-    translation,
-    translationBusy,
-  ]);
-
-  useEffect(() => {
-    if (!editing) return;
-    // Seeded here rather than only at mount. Editing can now be opened by ↑ from the
-    // composer, long after this row rendered, and `useState(message.body)` would hand
-    // back whatever the body was then — so an edit made in between would be undone by
-    // saving a stale draft.
-    setDraft(message.body);
-    editRef.current?.focus();
-  }, [editing, message.body]);
+  };
 
   if (message.deletedAt) {
     return (
@@ -317,57 +225,7 @@ export const MessageRow = memo(function MessageRow({
         )}
 
         {editing ? (
-          <form
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const trimmed = draft.trim();
-              if (!trimmed) return;
-              try {
-                await api.messages.edit(message.id, trimmed);
-              } catch (err) {
-                // Keep the editor open with the text intact; closing it would
-                // discard the words along with the failure.
-                showError(err);
-                return;
-              }
-              setEditing(false);
-            }}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              marginTop: 4,
-            }}
-          >
-            <textarea
-              ref={editRef}
-              className="input"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={Math.min(10, draft.split("\n").length + 1)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setDraft(message.body);
-                  setEditing(false);
-                }
-              }}
-            />
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn btn-primary" type="submit">
-                Save
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => {
-                  setDraft(message.body);
-                  setEditing(false);
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+          <MessageEditor message={message} onClose={() => setEditing(false)} />
         ) : (
           <div className="message-body">
             {rendered}
@@ -454,60 +312,11 @@ export const MessageRow = memo(function MessageRow({
           </a>
         )}
 
-        {canTranslate && (
-          <div className="message-translation-actions">
-            <button
-              className="btn btn-ghost"
-              type="button"
-              onClick={() => {
-                if (translation) {
-                  setTranslationVisible((visible) => !visible);
-                  return;
-                }
-                void requestTranslation();
-              }}
-              disabled={translationBusy}
-            >
-              {translationBusy
-                ? "Translating…"
-                : translationVisible
-                  ? "Hide translation"
-                  : translation
-                    ? "Show translation"
-                    : "Translate"}
-            </button>
-            {translation && (
-              <button
-                className="btn btn-ghost"
-                type="button"
-                onClick={() => void requestTranslation(true)}
-                disabled={translationBusy}
-              >
-                Refresh
-              </button>
-            )}
-            {translationError && (
-              <span className="message-translation-error">
-                {translationError}
-              </span>
-            )}
-          </div>
-        )}
-
-        {translationVisible && translation && (
-          <div className="message-translation-card">
-            <div className="message-translation-meta">
-              {translation.sourceLanguage
-                ? `Translated from ${displayLanguage(translation.sourceLanguage)} to ${displayLanguage(translation.targetLanguage)}`
-                : `Translated to ${displayLanguage(translation.targetLanguage)}`}
-              {" · "}
-              {translation.provider}
-            </div>
-            <div className="message-translation-text">
-              {translation.translatedText}
-            </div>
-          </div>
-        )}
+        <MessageTranslation
+          message={message}
+          pending={pending}
+          editing={editing}
+        />
 
         {deliveryState && (
           <div className="message-delivery" data-state={deliveryState}>
@@ -632,115 +441,31 @@ export const MessageRow = memo(function MessageRow({
               Link copied
             </span>
           )}
-          <div style={{ position: "relative" }}>
-            <button
-              className="message-action"
-              type="button"
-              onClick={() => setMenuOpen((open) => !open)}
-              title="More"
-              aria-expanded={menuOpen}
-            >
-              <MoreIcon size={15} />
-            </button>
-            {menuOpen && (
-              <div
-                className="autocomplete"
-                style={{
-                  bottom: "auto",
-                  top: 32,
-                  left: "auto",
-                  right: 0,
-                  width: 160,
-                }}
-              >
-                {/* First, because it is the one people reach for most: a message is
-                    quoted into another channel or a ticket far more often than it is
-                    pinned or saved. `navigator.clipboard` needs a secure context, so
-                    on plain http over a LAN this falls back to showing the URL for
-                    somebody to copy by hand rather than failing silently. */}
-                <button
-                  className="autocomplete-item"
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    const url = permalinkFor(message.id);
-                    void navigator.clipboard?.writeText(url).then(
-                      () => setCopied(true),
-                      () => setCopyFallback(url),
-                    );
-                  }}
-                >
-                  Copy link
-                </button>
-                {/* Only in the channel, not in a thread: the read cursor is a channel
-                    cursor, so marking a reply unread would move a marker pointing at
-                    something the channel list does not show. */}
-                {!message.threadRootId && (
-                  <button
-                    className="autocomplete-item"
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      void markUnread(message.channelId, message.id).catch(showError);
-                    }}
-                  >
-                    Mark unread
-                  </button>
-                )}
-                {/* Above pinning, and worded to draw the line between them: this one
-                    is yours and tells nobody, pinning is the channel's and tells
-                    everybody. Slack orders them the same way. */}
-                <button
-                  className="autocomplete-item"
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    void toggleSaved(message.id).catch(showError);
-                  }}
-                >
-                  {saved ? "Remove from later" : "Save for later"}
-                </button>
-                <button
-                  className="autocomplete-item"
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    void api.messages
-                      .pin(message.id, message.pinnedAt === null)
-                      .catch(showError);
-                  }}
-                >
-                  {message.pinnedAt ? "Unpin" : "Pin to channel"}
-                </button>
-                {mine && (
-                  <button
-                    className="autocomplete-item"
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setEditing(true);
-                    }}
-                  >
-                    Edit message
-                  </button>
-                )}
-                {mine && (
-                  <button
-                    className="autocomplete-item"
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      if (confirm("Delete this message?"))
-                        void api.messages.remove(message.id).catch(showError);
-                    }}
-                  >
-                    Delete message
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+          <MessageMenu
+            message={message}
+            mine={mine}
+            onCopyLink={copyLink}
+            onEdit={() => setEditing(true)}
+            onDelete={() => setDeleting(true)}
+          />
         </div>
+      )}
+
+      {/* At the article level, not inside the menu: `.message-actions` is
+          display:none unless the row is hovered or has focus within, and a dialog
+          opened from the keyboard must not depend on where the pointer sits. */}
+      {deleting && (
+        <ConfirmDialog
+          title="Delete this message?"
+          body="It disappears for everyone. There is no undo."
+          confirmLabel="Delete"
+          danger
+          onClose={() => setDeleting(false)}
+          onConfirm={() => {
+            setDeleting(false);
+            void api.messages.remove(message.id).catch(showError);
+          }}
+        />
       )}
 
       {/* No clipboard API: a secure context is required, and a self-hosted workspace
@@ -795,16 +520,5 @@ function deliveryStatusHint(status: LocalMessageDeliveryStatus): string {
       return "Queued to send when your connection is back.";
     case "failed":
       return "That send was rejected. Retry it or discard this draft.";
-  }
-}
-
-function displayLanguage(code: string): string {
-  try {
-    const display = new Intl.DisplayNames(undefined, { type: "language" }).of(
-      code,
-    );
-    return display ?? code.toUpperCase();
-  } catch {
-    return code.toUpperCase();
   }
 }

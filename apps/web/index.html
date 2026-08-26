@@ -4,12 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400&display=swap"
-    />
+    <!-- Self-hosted: a workspace must not block first paint on a font CDN, nor tell
+         one who opens it and when. See public/fonts/fonts.css. -->
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="theme-color" content="#1f5c3d" />
     <title>Blob</title>
     <script>
       // Runs before first paint: the server's answer is a round trip away, so the last

@@ -281,6 +281,12 @@ export interface AdminPluginDelivery {
   deliveredAt: string | null;
 }
 
+export interface AdminPluginDeliveryDetail extends AdminPluginDelivery {
+  nextAttemptAt: string | null;
+  /** The body the app was (or will be) sent. */
+  payload: Record<string, unknown>;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -340,6 +346,15 @@ const patch = <T>(path: string, body?: unknown) => request<T>('PATCH', path, bod
 const put = <T>(path: string, body?: unknown) => request<T>('PUT', path, body);
 const del = <T>(path: string, body?: unknown) => request<T>('DELETE', path, body);
 
+export interface AuthSession {
+  id: string;
+  current: boolean;
+  userAgent: string | null;
+  ip: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+}
+
 export const api = {
   auth: {
     state: () => get<{ needsSetup: boolean }>('/api/auth/state'),
@@ -353,6 +368,8 @@ export const api = {
     login: (email: string, password: string) =>
       post<{ user: CurrentUser }>('/api/auth/login', { email, password }),
     logout: () => post<{ ok: true }>('/api/auth/logout'),
+    sessions: () => get<{ sessions: AuthSession[] }>('/api/auth/sessions'),
+    logoutOthers: () => post<{ ok: true }>('/api/auth/logout-others'),
     invite: (token: string) => get<{ email: string | null; workspace: string }>(`/api/invites/${token}`),
     createInvite: (input: { email?: string; role?: 'member' | 'admin'; expiresInDays?: number }) =>
       post<{ url: string; expiresAt: string }>('/api/invites', input),
@@ -366,10 +383,21 @@ export const api = {
   me: {
     update: (input: Record<string, unknown>) => patch<{ user: CurrentUser }>('/api/me', input),
     prefs: (input: Partial<UserPrefs>) => patch<{ prefs: UserPrefs }>('/api/me/prefs', input),
+    pushPublicKey: () => get<{ key: string | null }>('/api/me/push-public-key'),
+    subscribePush: (subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+      post<{ ok: true }>('/api/me/push-subscription', subscription),
+    unsubscribePush: (endpoint: string) =>
+      del<{ ok: true }>('/api/me/push-subscription', { endpoint }),
+    pushTest: () => post<{ ok: true; sent: number }>('/api/me/push-test'),
   },
 
   users: {
     list: () => get<{ users: User[] }>('/api/users'),
+  },
+
+  groups: {
+    setMuted: (groupId: string, muted: boolean) =>
+      put<{ ok: true }>(`/api/groups/${groupId}/mute`, { muted }),
   },
 
   workspaces: {
@@ -595,10 +623,11 @@ export const api = {
     },
     clearServerLogs: () => del<{ ok: true }>('/api/admin/instance/logs'),
 
-    audit: (params: { action?: string; actorId?: string } = {}) => {
+    audit: (params: { action?: string; actorId?: string; before?: string } = {}) => {
       const search = new URLSearchParams();
       if (params.action) search.set('action', params.action);
       if (params.actorId) search.set('actor_id', params.actorId);
+      if (params.before) search.set('before', params.before);
       return get<{ events: AuditEvent[] }>(`/api/admin/audit?${search}`);
     },
 
@@ -650,6 +679,10 @@ export const api = {
     pluginDeliveries: (pluginId: string, limit = 20) =>
       get<{ deliveries: AdminPluginDelivery[] }>(
         `/api/admin/plugins/${pluginId}/deliveries?limit=${limit}`,
+      ),
+    pluginDelivery: (pluginId: string, deliveryId: string) =>
+      get<AdminPluginDeliveryDetail>(
+        `/api/admin/plugins/${pluginId}/deliveries/${deliveryId}`,
       ),
     uninstallPlugin: (pluginId: string) => del<{ ok: true }>(`/api/admin/plugins/${pluginId}`),
 

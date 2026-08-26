@@ -33,6 +33,8 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<UserGroup | null>(null);
+  const [renaming, setRenaming] = useState<UserGroup | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
 
   const load = useCallback(() => api.admin.groups(), []);
   const { data, reload } = useAdminData(load, [], onError, 'Could not load the groups.');
@@ -119,7 +121,38 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
                 <td>
                   <code>@{group.handle}</code>
                 </td>
-                <td>{group.name}</td>
+                <td>
+                  {renaming?.id === group.id ? (
+                    <form
+                      style={{ display: 'flex', gap: 6 }}
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const trimmed = renameDraft.trim();
+                        setRenaming(null);
+                        if (!trimmed || trimmed === group.name) return;
+                        void act(async () => {
+                          await api.admin.updateGroup(group.id, { name: trimmed });
+                        });
+                      }}
+                    >
+                      <input
+                        className="input"
+                        value={renameDraft}
+                        maxLength={80}
+                        autoFocus
+                        onChange={(e) => setRenameDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setRenaming(null);
+                        }}
+                      />
+                      <button className="btn" type="submit">
+                        Save
+                      </button>
+                    </form>
+                  ) : (
+                    group.name
+                  )}
+                </td>
                 <td className="muted">{group.memberCount}</td>
                 <td>
                   <button
@@ -135,6 +168,15 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
                     }
                   >
                     Members
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      setRenaming(group);
+                      setRenameDraft(group.name);
+                    }}
+                  >
+                    Rename
                   </button>
                   <button className="btn btn-ghost" onClick={() => setRemoving(group)}>
                     Delete

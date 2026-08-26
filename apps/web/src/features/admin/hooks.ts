@@ -5,8 +5,9 @@
  * copies meant eight chances to forget the stale guard — and two of them had.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { ApiError } from '../../lib/api.ts';
+import { useFetch } from '../../lib/useFetch.ts';
 
 /**
  * Wraps a mutation so a failure is a message rather than a dead click, and so the list
@@ -45,39 +46,10 @@ export function useAdminData<T>(
   failMessage: string,
   options: { debounceMs?: number } = {},
 ): { data: T | null; loading: boolean; reload: () => void } {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [epoch, setEpoch] = useState(0);
-  const { debounceMs = 0 } = options;
-
-  useEffect(() => {
-    let current = true;
-    const timer = setTimeout(() => {
-      // Inside the timer rather than beside it: a debounced reload should not flash
-      // "Loading…" on every keystroke, only once the request is actually going out.
-      setLoading(true);
-      void (async () => {
-        try {
-          const result = await load();
-          if (current) setData(result);
-        } catch (err) {
-          if (current) onError(err instanceof ApiError ? err.message : failMessage);
-        } finally {
-          if (current) setLoading(false);
-        }
-      })();
-    }, debounceMs);
-
-    return () => {
-      current = false;
-      clearTimeout(timer);
-    };
-    // `load` is rebuilt every render by callers that close over local state, so the
-    // caller's own `deps` are the honest dependency list. Spreading them is what makes
-    // this reusable at all.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, epoch, debounceMs]);
-
-  const reload = useCallback(() => setEpoch((e) => e + 1), []);
+  const { data, loading, reload } = useFetch(load, deps, {
+    ...options,
+    // Console sections show one error line, so the failure becomes a message here.
+    onError: (err) => onError(err instanceof ApiError ? err.message : failMessage),
+  });
   return { data, loading, reload };
 }

@@ -48,7 +48,7 @@ beforeEach(() => {
     threads: {},
     activeChannelId: null,
     activeThreadRootId: null,
-    outbox: [],
+    outbox: {},
   });
   useToasts.setState({ toasts: [] });
 });

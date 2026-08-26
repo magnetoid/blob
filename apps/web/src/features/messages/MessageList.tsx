@@ -7,7 +7,7 @@
  * load above.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Message } from "@blob/shared";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { MessageRow } from "./MessageRow.tsx";
@@ -43,6 +43,21 @@ export function MessageList({
   onRetry,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [jumpBarDismissed, setJumpBarDismissed] = useState(false);
+
+  const firstUnreadIndex = useMemo(
+    () =>
+      unreadAfterId === null
+        ? -1
+        : messages.findIndex((message) => message.id > unreadAfterId),
+    [messages, unreadAfterId],
+  );
+  const unreadCount = firstUnreadIndex === -1 ? 0 : messages.length - firstUnreadIndex;
+
+  useEffect(() => {
+    setJumpBarDismissed(false);
+  }, [unreadAfterId]);
+
   const wasAtBottom = useRef(true);
   const previousMetrics = useRef({
     firstId: null as string | null,
@@ -182,6 +197,29 @@ export function MessageList({
       aria-live="polite"
       aria-relevant="additions"
     >
+      {unreadCount > 0 && !jumpBarDismissed && !inThread && (
+        <div className="unread-jump-bar">
+          <button
+            type="button"
+            className="unread-jump-action"
+            onClick={() => {
+              const target = messages[firstUnreadIndex];
+              if (!target) return;
+              virtualizer.scrollToIndex(firstUnreadIndex, { align: "center" });
+            }}
+          >
+            {unreadCount === 1 ? "1 new message" : `${unreadCount} new messages`} — jump
+          </button>
+          <button
+            type="button"
+            className="unread-jump-dismiss"
+            aria-label="Dismiss"
+            onClick={() => setJumpBarDismissed(true)}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {hasMore && (
         <div style={{ padding: "8px 22px" }}>
           <button

@@ -12,11 +12,12 @@
  * attention on every message read in between.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ChannelWithState, NotifyLevel } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
+import { Menu } from '../../components/Menu.tsx';
 
 interface Props {
   channel: ChannelWithState;
@@ -42,30 +43,6 @@ export function ChannelMenu({ channel, onClose, onOpenDetails }: Props) {
   const level = channel.membership?.notifyLevel ?? 'mentions';
   const starred = channel.membership?.isStarred ?? false;
 
-  // Dismissed by a click *outside* it, the way PinnedPanel is — not by any click at
-  // all, which is what the workspace menu does. The difference matters here because
-  // this menu owns the confirm dialogs below: closing on every click would unmount
-  // the menu, and the dialog with it, on the very click that asked for one.
-  //
-  // Suspended entirely while a dialog is up. The dialog renders beside the menu
-  // rather than inside it, so every click in it is "outside" by this test.
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (confirming) return undefined;
-    const onClick = (event: globalThis.MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) onClose();
-    };
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('click', onClick, true);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('click', onClick, true);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [onClose, confirming]);
-
   /** The server echoes the channel to this user's own sockets, so there is nothing to
    *  write here — `channel.updated` arrives and the store applies it. */
   async function setMembership(input: { notifyLevel?: NotifyLevel; isStarred?: boolean }) {
@@ -80,7 +57,11 @@ export function ChannelMenu({ channel, onClose, onOpenDetails }: Props) {
 
   return (
     <>
-      <div className="menu" role="menu" ref={menuRef}>
+      {/* The confirm dialogs below render beside this menu, not inside it, so every
+          click in one is "outside" by the dismissal's contains test — dismissal has
+          to sit out while a dialog is up, or the click that asked for the dialog
+          would unmount it along with the menu. */}
+      <Menu open onClose={onClose} className="menu" suspendDismiss={confirming !== null}>
         {!isDm && (
           <>
             <p className="menu-label">Notifications</p>
@@ -157,7 +138,7 @@ export function ChannelMenu({ channel, onClose, onOpenDetails }: Props) {
             {error}
           </p>
         )}
-      </div>
+      </Menu>
 
       {confirming === 'leave' && (
         <ConfirmDialog

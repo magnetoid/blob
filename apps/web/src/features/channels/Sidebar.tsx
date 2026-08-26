@@ -1,6 +1,6 @@
 /** Channel and DM navigation. */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { showError } from '../../lib/toasts.ts';
@@ -11,11 +11,13 @@ import { channelHasDraft } from '../../lib/drafts.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import {
   ChevronDownIcon,
+  FileIcon,
   PinIcon,
   PlusIcon,
   ReplyIcon,
   SearchIcon,
 } from '../../components/Icon.tsx';
+import { Menu } from '../../components/Menu.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 
 interface Props {
@@ -94,6 +96,16 @@ export function Sidebar({ onOpenSearch }: Props) {
               <ReplyIcon size={13} strokeWidth={1.8} />
             </span>
             <span className="channel-name">Threads</span>
+          </button>
+          <button
+            className="channel-row"
+            aria-current={activeView === 'tasks'}
+            onClick={() => navigate('/tasks')}
+          >
+            <span className="channel-hash" aria-hidden="true">
+              <FileIcon size={13} strokeWidth={1.8} />
+            </span>
+            <span className="channel-name">Tasks</span>
           </button>
           <button
             className="channel-row"
@@ -188,21 +200,6 @@ function WorkspaceMenu({ name, memberCount }: { name: string; memberCount: numbe
   const [open, setOpen] = useState(false);
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = (event: MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent && event.key !== 'Escape') return;
-      setOpen(false);
-    };
-    // Capture, so a click landing on any control still dismisses the menu first.
-    window.addEventListener('click', close, true);
-    window.addEventListener('keydown', close);
-    return () => {
-      window.removeEventListener('click', close, true);
-      window.removeEventListener('keydown', close);
-    };
-  }, [open]);
-
   const go = (path: string) => {
     setOpen(false);
     navigate(path);
@@ -226,18 +223,16 @@ function WorkspaceMenu({ name, memberCount }: { name: string; memberCount: numbe
         {memberCount} {memberCount === 1 ? 'member' : 'members'}
       </div>
 
-      {open && (
-        <div className="workspace-menu" role="menu">
-          {isAdmin && (
-            <button className="workspace-menu-item" role="menuitem" onClick={() => go('/admin')}>
-              Administration
-            </button>
-          )}
-          <button className="workspace-menu-item" role="menuitem" onClick={() => go('/workspace/preferences')}>
-            Preferences
+      <Menu open={open} onClose={() => setOpen(false)} className="workspace-menu">
+        {isAdmin && (
+          <button className="workspace-menu-item" role="menuitem" onClick={() => go('/admin')}>
+            Administration
           </button>
-        </div>
-      )}
+        )}
+        <button className="workspace-menu-item" role="menuitem" onClick={() => go('/workspace/preferences')}>
+          Preferences
+        </button>
+      </Menu>
     </div>
   );
 }

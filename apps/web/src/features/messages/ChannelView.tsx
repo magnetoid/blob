@@ -67,6 +67,20 @@ export function ChannelView() {
     return () => clearInterval(timer);
   }, [typing]);
 
+  const membershipVersion = useStore(
+    (s) => (s.activeChannelId ? (s.membershipVersion[s.activeChannelId] ?? 0) : 0),
+  );
+  useEffect(() => {
+    // Version changes drop the cached count so the fetch below re-runs.
+    if (!activeChannelId || membershipVersion === 0) return;
+    setMemberCounts((current) => {
+      if (current[activeChannelId] === undefined) return current;
+      const rest = { ...current };
+      delete rest[activeChannelId];
+      return rest;
+    });
+  }, [activeChannelId, membershipVersion]);
+
   useEffect(() => {
     if (!activeChannelId || memberCounts[activeChannelId] !== undefined) return;
     void api.channels

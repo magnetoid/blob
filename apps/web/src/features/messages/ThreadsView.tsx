@@ -12,41 +12,22 @@
  * thread where it lives, which is where you were going anyway.
  */
 
-import { useEffect, useState } from 'react';
 import type { Message } from '@blob/shared';
 import { api } from '../../lib/api.ts';
-import { useStore } from '../../lib/store.ts';
+import { useFetch } from '../../lib/useFetch.ts';
 import { showThread } from '../../lib/navigation.ts';
-import { Avatar } from '../../components/Avatar.tsx';
 import { ReplyIcon } from '../../components/Icon.tsx';
-import { formatRelative } from './messageFormatting.ts';
+import { MessageResultRow } from './MessageResultRow.tsx';
 
 export function ThreadsView() {
-  const users = useStore((s) => s.users);
-  const channels = useStore((s) => s.channels);
-  const channelTitle = useStore((s) => s.channelTitle);
-
-  const [threads, setThreads] = useState<Message[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   // Fetched on arrival, not held in the store. The list is a query over subscriptions
   // ordered by last reply, so keeping it fresh would mean recomputing that order on
   // every `message.new` in every thread anyone is in — for a screen nobody is looking
   // at. Opening it is the moment it needs to be right.
-  useEffect(() => {
-    let cancelled = false;
-    void api.messages
-      .threads()
-      .then((r) => {
-        if (!cancelled) setThreads(r.messages);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Those could not be loaded.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: threads, error } = useFetch(
+    async () => (await api.messages.threads()).messages,
+    [],
+  );
 
   async function go(message: Message) {
     // Channel first: the thread panel renders beside the conversation, so opening the
@@ -66,7 +47,7 @@ export function ThreadsView() {
       </header>
 
       <div className="search-results">
-        {error && <p className="error-text">{error}</p>}
+        {error && <p className="error-text">Those could not be loaded.</p>}
         {!error && threads === null && <p className="muted">Loading…</p>}
 
         {threads?.length === 0 && (
@@ -82,39 +63,19 @@ export function ThreadsView() {
           </div>
         )}
 
-        {threads?.map((message) => {
-          const author = message.authorId ? users[message.authorId] : undefined;
-          const channel = channels[message.channelId];
-          return (
-            <button
-              key={message.id}
-              className="search-result"
-              type="button"
-              onClick={() => void go(message)}
-            >
-              <Avatar user={author} size="lg" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="search-result-head">
-                  <span className="search-result-author">
-                    {author?.displayName ?? 'Someone'}
-                  </span>
-                  <span className="search-result-meta">
-                    {channel
-                      ? channel.name
-                        ? `#${channel.name}`
-                        : channelTitle(channel)
-                      : 'Unknown'}
-                    {message.lastReplyAt && ` · ${formatRelative(message.lastReplyAt)}`}
-                  </span>
-                </div>
-                <div className="search-result-text">{message.body}</div>
-                <div className="search-result-meta">
-                  {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
-                </div>
+        {threads?.map((message) => (
+          <MessageResultRow
+            key={message.id}
+            message={message}
+            timestamp={message.lastReplyAt}
+            onOpen={() => void go(message)}
+            footer={
+              <div className="search-result-meta">
+                {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
               </div>
-            </button>
-          );
-        })}
+            }
+          />
+        ))}
       </div>
     </div>
   );

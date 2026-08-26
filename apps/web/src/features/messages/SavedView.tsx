@@ -10,39 +10,21 @@
  * because the message menu has to know which label to show — but the messages do not.
  */
 
-import { useEffect, useState } from 'react';
-import type { Message } from '@blob/shared';
 import { api } from '../../lib/api.ts';
+import { useFetch } from '../../lib/useFetch.ts';
 import { useStore } from '../../lib/store.ts';
 import { showMessage } from '../../lib/navigation.ts';
-import { Avatar } from '../../components/Avatar.tsx';
 import { PinIcon } from '../../components/Icon.tsx';
-import { formatRelative } from './messageFormatting.ts';
+import { MessageResultRow } from './MessageResultRow.tsx';
 
 export function SavedView() {
-  const users = useStore((s) => s.users);
-  const channels = useStore((s) => s.channels);
   const savedMessageIds = useStore((s) => s.savedMessageIds);
   const toggleSaved = useStore((s) => s.toggleSaved);
-  const channelTitle = useStore((s) => s.channelTitle);
 
-  const [messages, setMessages] = useState<Message[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void api.messages
-      .saved()
-      .then((r) => {
-        if (!cancelled) setMessages(r.messages);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Those could not be loaded.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: messages, error } = useFetch(
+    async () => (await api.messages.saved()).messages,
+    [],
+  );
 
   // Removed from the list here rather than refetched. The server has already forgotten
   // it, and a list that reorders under the hand that just tapped it is worse than one
@@ -61,7 +43,7 @@ export function SavedView() {
       </header>
 
       <div className="search-results">
-        {error && <p className="error-text">{error}</p>}
+        {error && <p className="error-text">Those could not be loaded.</p>}
         {!error && messages === null && <p className="muted">Loading…</p>}
 
         {messages !== null && visible.length === 0 && (
@@ -77,32 +59,13 @@ export function SavedView() {
           </div>
         )}
 
-        {visible.map((message) => {
-          const author = message.authorId ? users[message.authorId] : undefined;
-          const channel = channels[message.channelId];
-          return (
-            <div key={message.id} className="search-result saved-row">
-              <Avatar user={author} size="lg" />
-              <button
-                className="saved-body"
-                type="button"
-                onClick={() => void showMessage(message.id)}
-              >
-                <div className="search-result-head">
-                  <span className="search-result-author">
-                    {author?.displayName ?? 'Someone'}
-                  </span>
-                  <span className="search-result-meta">
-                    {channel
-                      ? channel.name
-                        ? `#${channel.name}`
-                        : channelTitle(channel)
-                      : 'Unknown'}{' '}
-                    · {formatRelative(message.createdAt)}
-                  </span>
-                </div>
-                <div className="search-result-text">{message.body}</div>
-              </button>
+        {visible.map((message) => (
+          <MessageResultRow
+            key={message.id}
+            message={message}
+            timestamp={message.createdAt}
+            onOpen={() => void showMessage(message.id)}
+            action={
               <button
                 className="btn btn-ghost"
                 onClick={() => void toggleSaved(message.id)}
@@ -110,9 +73,9 @@ export function SavedView() {
               >
                 Done
               </button>
-            </div>
-          );
-        })}
+            }
+          />
+        ))}
       </div>
     </div>
   );

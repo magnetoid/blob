@@ -308,6 +308,7 @@ export interface Bootstrap {
   groups: UserGroup[];
   /** Which of them are yours, so "mentions you" can include being named as a team. */
   myGroupIds: string[];
+  mutedGroupIds: string[];
 }
 
 /** A named set of people, mentionable as one handle: `@platform-team`. */

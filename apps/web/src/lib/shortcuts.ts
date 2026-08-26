@@ -78,6 +78,43 @@ export const SHORTCUTS: readonly Shortcut[] = [
     // with moving the caret through what you are already writing.
     whileTyping: true,
   },
+  // The formatting chords are handled by the composer, which owns the textarea and its
+  // selection — like `edit-last`, they are listed here so `⌘/` documents them and the
+  // toolbar tooltips can never advertise a chord the keyboard layer doesn't have.
+  {
+    id: 'format-bold',
+    label: 'Bold the selection',
+    group: 'Conversation',
+    key: 'b',
+    meta: true,
+    whileTyping: true,
+  },
+  {
+    id: 'format-italic',
+    label: 'Italicize the selection',
+    group: 'Conversation',
+    key: 'i',
+    meta: true,
+    whileTyping: true,
+  },
+  {
+    id: 'format-code',
+    label: 'Format the selection as code',
+    group: 'Conversation',
+    key: 'c',
+    meta: true,
+    shift: true,
+    whileTyping: true,
+  },
+  {
+    id: 'format-strike',
+    label: 'Strike through the selection',
+    group: 'Conversation',
+    key: 'x',
+    meta: true,
+    shift: true,
+    whileTyping: true,
+  },
   {
     id: 'close',
     label: 'Close the thread, dialog, or panel',

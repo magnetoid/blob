@@ -33,6 +33,7 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
 
+  const membershipVersion = useStore((s) => s.membershipVersion[channel.id] ?? 0);
   const [memberIds, setMemberIds] = useState<string[] | null>(null);
   const [topic, setTopic] = useState(channel.topic ?? '');
   const [savingTopic, setSavingTopic] = useState(false);
@@ -58,7 +59,7 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [channel.id, onMemberCount]);
+  }, [channel.id, onMemberCount, membershipVersion]);
 
   const members = useMemo(
     () =>

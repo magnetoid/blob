@@ -9,8 +9,8 @@
  * The instance console is the other half, and it keeps only what is genuinely about the
  * machine: every account on it, every workspace on it, and whether it is healthy.
  *
- * Same nav component and the same markup as that console deliberately: two rooms of one
- * product, not two apps.
+ * Same nav component and the same markup as that console deliberately — two rooms of one
+ * product, not two apps — which is why both render through `ConsoleShell`.
  */
 
 import { useCallback, useState, type ComponentType } from 'react';
@@ -18,8 +18,7 @@ import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { MenuIcon } from '../../components/Icon.tsx';
 import type { WorkspaceSection } from '../../lib/router.ts';
-import { TopBar } from '../shell/TopBar.tsx';
-import { AdminNav } from '../admin/AdminNav.tsx';
+import { ConsoleShell } from '../admin/ConsoleShell.tsx';
 import { WORKSPACE_NAV, workspaceEntry } from '../admin/registry.ts';
 import { useAdminAction, useAdminData } from '../admin/hooks.ts';
 import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
@@ -34,7 +33,6 @@ import { WebhooksSection } from '../admin/sections/WebhooksSection.tsx';
 import { PreferencesSection } from '../../features/settings/PreferencesSection.tsx';
 import { NotificationsSection } from '../../features/settings/NotificationsSection.tsx';
 
-/** Ties the drawer toggle to the nav it opens, for anything reading the page structure. */
 const NAV_ID = 'workspace-console-nav';
 
 /**
@@ -66,8 +64,6 @@ export function WorkspaceConsole({
   onFeedback: () => void;
   onSignedOut: () => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [navOpen, setNavOpen] = useState(false);
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
   const isOwner = currentUser?.role === 'owner';
@@ -79,66 +75,35 @@ export function WorkspaceConsole({
   const Body = SECTION_COMPONENTS[section];
 
   return (
-    <div className="admin-shell" data-nav={navOpen ? 'open' : 'closed'}>
-      <TopBar onFeedback={onFeedback} view="workspace" />
-      <AdminNav
-        id={NAV_ID}
-        groups={WORKSPACE_NAV}
-        section={section}
-        isOwner={isOwner}
-        isAdmin={isAdmin}
-        onNavigate={() => setNavOpen(false)}
-        basePath="/workspace"
-        title="Workspace"
-        subtitle={
-          isOwner
-            ? 'You own this workspace.'
-            : isAdmin
-              ? 'You are an admin of this workspace.'
-              : `Your settings in ${workspaceName}.`
-        }
-      />
-      <button
-        className="admin-nav-scrim"
-        aria-label="Close the section menu"
-        onClick={() => setNavOpen(false)}
-      />
-
-      <main className="admin-main">
-        <div className="admin-page">
-          <header className="admin-page-header">
-            <button
-              className="admin-nav-toggle"
-              aria-label="Open the section menu"
-              aria-controls={NAV_ID}
-              aria-expanded={navOpen}
-              onClick={() => setNavOpen(true)}
-            >
-              <MenuIcon size={16} strokeWidth={2} />
-            </button>
-            <div>
-              <h1 className="admin-page-title">{entry.label}</h1>
-              <p className="admin-page-sub">{entry.description}</p>
-            </div>
-          </header>
-
-          {error && (
-            <p className="error-text" style={{ marginTop: 16 }}>
-              {error}
-            </p>
-          )}
-
-          <div className="admin-page-body">
-            <Body
-              onError={setError}
-              isOwner={isOwner}
-              detailId={detailId}
-              onSignedOut={onSignedOut}
-            />
-          </div>
-        </div>
-      </main>
-    </div>
+    <ConsoleShell
+      view="workspace"
+      navId={NAV_ID}
+      nav={{
+        groups: WORKSPACE_NAV,
+        basePath: '/workspace',
+        title: 'Workspace',
+        subtitle: isOwner
+          ? 'You own this workspace.'
+          : isAdmin
+            ? 'You are an admin of this workspace.'
+            : `Your settings in ${workspaceName}.`,
+        isAdmin,
+      }}
+      section={section}
+      isOwner={isOwner}
+      title={entry.label}
+      description={entry.description}
+      toggle={{
+        className: 'admin-nav-toggle',
+        label: 'Open the section menu',
+        icon: <MenuIcon size={16} strokeWidth={2} />,
+      }}
+      onFeedback={onFeedback}
+    >
+      {(onError) => (
+        <Body onError={onError} isOwner={isOwner} detailId={detailId} onSignedOut={onSignedOut} />
+      )}
+    </ConsoleShell>
   );
 }
 
