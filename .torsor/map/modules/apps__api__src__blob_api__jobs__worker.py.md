@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/src/blob_api/jobs/worker.py
@@ -20,4 +20,4 @@ Symbols in `apps/api/src/blob_api/jobs/worker.py`.
 - L91 `deliver_plugin_events(_ctx: dict[str, Any])` (function) — Drain the plugin outbox.
 - L103 `startup(_ctx: dict[str, Any])` (function)
 - L109 `shutdown(_ctx: dict[str, Any])` (function)
-- L115 `WorkerSettings` (class)
+- L117 `WorkerSettings` (class)

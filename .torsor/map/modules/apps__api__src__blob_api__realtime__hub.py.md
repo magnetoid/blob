@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/src/blob_api/realtime/hub.py
@@ -26,16 +26,19 @@ Symbols in `apps/api/src/blob_api/realtime/hub.py`.
 - L158 `to_workspace(workspace_id: str, event: ServerEvent)` (function) — Everyone signed into one workspace — a public channel appearing, a renamed person.
 - L173 `to_presence_subscribers(user_id: str, event: ServerEvent)` (function) — Presence updates go only to connections that asked about this user.
 - L179 `_deliver_presence(user_id: str, event: ServerEvent)` (function)
-- L184 `is_user_online(user_id: str)` (function)
-- L188 `focused_channels(user_id: str)` (function) — Which channel each of a user's connections is currently focused on.
-- L195 `connections_for_user(user_id: str)` (function)
-- L199 `stats(workspace_id: str)` (function) — Live socket counts for one workspace.
-- L214 `_deliver_local(event: ServerEvent, to: dict[str, Any])` (function)
-- L235 `_publish(envelope: dict[str, Any])` (function)
-- L246 `_publish_async(envelope: dict[str, Any])` (function)
-- L250 `_forget(task: asyncio.Task[Any])` (function) — Drop the reference and surface any error the publish raised.
-- L273 `start_redis_bridge()` (function) — Re-broadcast events published by sibling processes to our local connections.
-- L327 `stop_redis_bridge()` (function)
-- L335 `reset_for_tests()` (function)
-- L342 `_add(mapping: dict[str, set[Connection]], key: str, value: Connection)` (function)
-- L346 `_remove(mapping: dict[str, set[Connection]], key: str, value: Connection)` (function)
+- L184 `connections_for_user(user_id: str)` (function)
+- L197 `subscribe_users(user_ids: list[str], channel_ids: list[str])` (function) — Attach these users' live connections to channels — here and on every sibling.
+- L202 `unsubscribe_users(user_ids: list[str], channel_ids: list[str])` (function)
+- L206 `close_users(user_ids: list[str])` (function) — Drop every connection these users hold — a revocation must reach all processes.
+- L211 `_control(control: dict[str, Any])` (function)
+- L216 `_apply_control(control: dict[str, Any])` (function)
+- L230 `stats(workspace_id: str)` (function) — Live socket counts for one workspace.
+- L245 `_deliver_local(event: ServerEvent, to: dict[str, Any])` (function)
+- L266 `_publish(envelope: dict[str, Any])` (function)
+- L277 `_publish_async(envelope: dict[str, Any])` (function)
+- L281 `_forget(task: asyncio.Task[Any])` (function) — Drop the reference and surface any error the publish raised.
+- L304 `start_redis_bridge()` (function) — Re-broadcast events published by sibling processes to our local connections.
+- L363 `stop_redis_bridge()` (function)
+- L371 `reset_for_tests()` (function)
+- L378 `_add(mapping: dict[str, set[Connection]], key: str, value: Connection)` (function)
+- L382 `_remove(mapping: dict[str, set[Connection]], key: str, value: Connection)` (function)

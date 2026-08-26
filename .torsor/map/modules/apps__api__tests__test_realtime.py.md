@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/tests/test_realtime.py
@@ -28,3 +28,10 @@ Symbols in `apps/api/tests/test_realtime.py`.
 - L215 `test_a_client_that_falls_behind_is_dropped_rather_than_left_silent(team: dict)` (function) — The connection has to actually go away, not just be marked gone.
 - L251 `_until(predicate: Any)` (function)
 - L256 `test_a_broadcast_stops_at_the_workspace_boundary()` (function) — `to_workspace` is scoped, and the scope is the point.
+- L287 `TestCrossProcess` (class) — The Redis bridge carries control frames, not just events.
+- L295 `test_a_relayed_subscribe_reaches_local_connections(self, team: dict)` (method)
+- L312 `test_a_relayed_close_drops_the_connection(self, team: dict)` (method)
+- L320 `test_subscribe_users_applies_locally_and_publishes(self, team: dict)` (method)
+- L329 `TestPresenceRegistry` (class)
+- L330 `test_a_sibling_processes_connection_keeps_a_user_online(self, team: dict)` (method)
+- L354 `test_the_focus_registry_answers_across_processes(self, team: dict)` (method)

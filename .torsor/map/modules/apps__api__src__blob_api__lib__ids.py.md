@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/src/blob_api/lib/ids.py
@@ -13,5 +13,4 @@ updated: '2026-08-26T05:49:02'
 Symbols in `apps/api/src/blob_api/lib/ids.py`.
 
 - L15 `new_id()` (function)
-- L19 `is_newer(a: str, b: str | None)` (function) — UUIDv7s compare chronologically as strings, which is why unread math is cheap.
-- L26 `new_token(nbytes: int=32)` (function) — URL-safe opaque token for sessions, invites, resets and webhooks.
+- L19 `new_token(nbytes: int=32)` (function) — URL-safe opaque token for sessions, invites, resets and webhooks.

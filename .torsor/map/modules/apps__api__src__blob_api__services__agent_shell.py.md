@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/src/blob_api/services/agent_shell.py
@@ -14,5 +14,5 @@ Symbols in `apps/api/src/blob_api/services/agent_shell.py`.
 
 - L36 `Target` (class) — The agent a terminal was asked for, once it is established there is one.
 - L44 `resolve(actor: Actor, plugin_id: str)` (function) — The agent, or the reason there is no terminal for it.
-- L74 `open_session(actor: Actor, target: Target, *, cols: int, rows: int)` (function) — A terminal, bracketed by the record that it existed.
-- L96 `_record(actor: Actor, target: Target, action: str, extra: dict[str, object])` (function) — Append to the log, and never let failing to do so end the session.
+- L79 `open_session(actor: Actor, target: Target, *, cols: int, rows: int)` (function) — A terminal, bracketed by the record that it existed.
+- L101 `_record(actor: Actor, target: Target, action: str, extra: dict[str, object])` (function) — Append to the log, and never let failing to do so end the session.

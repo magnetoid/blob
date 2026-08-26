@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # Repository Map
@@ -93,6 +93,9 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0017_builtin_agent.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0018_file_key_indexes.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 37 symbol(s)
   - `_now()` (function)
   - `Base` (class)
@@ -103,17 +106,16 @@ Modules and their key symbols (ranked by references).
   - `seed()` (function)
   - `main()` (function)
   - `_run()` (function)
-- **apps/api/src/blob_api/jobs/agui.py** — 17 symbol(s)
-  - `Listener` (class)
+- **apps/api/src/blob_api/jobs/agui.py** — 9 symbol(s)
   - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None)` (function)
   - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
   - `personal_agent_for(session: AsyncSession, *, workspace_id: str, channel_id: str)` (function)
-  - `stream_run(listener: Listener, run_input: dict[str, Any], *, transport: httpx.AsyncBaseTransport | None=None)` (function)
-- **apps/api/src/blob_api/jobs/notify.py** — 4 symbol(s)
+  - `_looks_busy(listener: Listener, channel_id: str, thread_root_id: str | None)` (function)
+  - `_record_error(plugin_id: str, reason: str)` (function)
+- **apps/api/src/blob_api/jobs/notify.py** — 3 symbol(s)
   - `_broadcast_later(user_id: str, state: ReadStateOut)` (function)
   - `_preview(body: str)` (function)
   - `handle_notify(message_id: str)` (function)
-  - `_send_push(subs: Sequence[Any], payload: dict[str, Any])` (function)
 - **apps/api/src/blob_api/jobs/unfurl.py** — 6 symbol(s)
   - `_meta(html: str, prop: str)` (function)
   - `_decode_entities(value: str)` (function)
@@ -138,10 +140,9 @@ Modules and their key symbols (ranked by references).
   - `AppError` (class)
   - `forbidden(message: str="You don't have access to that.")` (function)
   - `conflict(message: str, code: str='conflict')` (function)
-- **apps/api/src/blob_api/lib/ids.py** — 3 symbol(s)
+- **apps/api/src/blob_api/lib/ids.py** — 2 symbol(s)
   - `new_id()` (function)
   - `new_token(nbytes: int=32)` (function)
-  - `is_newer(a: str, b: str | None)` (function)
 - **apps/api/src/blob_api/lib/llm.py** — 11 symbol(s)
   - `LlmError` (class)
   - `Turn` (class)
@@ -166,17 +167,16 @@ Modules and their key symbols (ranked by references).
   - `mention_lookup_phrases(body: str)` (function)
 - **apps/api/src/blob_api/lib/net.py** — 4 symbol(s)
   - `is_private_host(hostname: str)` (function)
-  - `check_outbound_url(raw_url: str, *, require_https: bool)` (function)
   - `assert_outbound_url(raw_url: str, *, require_https: bool, code: str)` (function)
   - `is_private_address(address: str)` (function)
+  - `check_outbound_url(raw_url: str, *, require_https: bool)` (function)
 - **apps/api/src/blob_api/lib/queue.py** — 5 symbol(s)
   - `fire_and_forget(coro: Coroutine[Any, Any, None])` (function)
   - `enqueue(job: str, *args: Any)` (function)
   - `redis_settings()` (function)
-  - `get_pool()` (function)
   - `close_queue()` (function)
+  - `get_pool()` (function)
 - **apps/api/src/blob_api/lib/rate_limit.py** — 2 symbol(s)
   - `Limit` (class)
   - `consume(name: str, subject: str)` (function)
-- **apps/api/src/blob_api/lib/redis.py** — 4 symbol(s)
-  - `presence_…[truncated]
+- **apps/api/src/blob_api/lib/redis.py** —…[truncated]

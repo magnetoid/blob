@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/src/blob_api/services/notify.py
@@ -19,5 +19,5 @@ Symbols in `apps/api/src/blob_api/services/notify.py`.
 - L108 `is_snoozed(recipient: Recipient, now: datetime)` (function) — Manual snooze, or outside the user's configured working hours.
 - L139 `_local_parts(moment: datetime, timezone: str)` (function)
 - L148 `load_recipients(session: AsyncSession, channel_id: str)` (function) — Load the notification-relevant state for every member of a channel.
-- L175 `load_group_recipients(session: AsyncSession, group_ids: list[str])` (function) — Everyone in these groups who has not muted them.
-- L203 `load_thread_subscribers(session: AsyncSession, thread_root_id: str)` (function)
+- L181 `load_group_recipients(session: AsyncSession, group_ids: list[str])` (function) — Everyone in these groups who has not muted them.
+- L209 `load_thread_subscribers(session: AsyncSession, thread_root_id: str)` (function)

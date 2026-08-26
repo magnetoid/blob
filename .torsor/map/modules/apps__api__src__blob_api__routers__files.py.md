@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/src/blob_api/routers/files.py
@@ -17,3 +17,4 @@ Symbols in `apps/api/src/blob_api/routers/files.py`.
 - L57 `create_upload(payload: UploadRequestInput, user: SessionUser=Depends(current_user))` (function) — Step 1: ask for somewhere to put the file.
 - L99 `complete_upload(attachment_id: str, payload: UploadCompleteInput | None=None, user: SessionUser=Depends(current_user))` (function) — Step 2: tell us the upload finished (and, for images, how big it is).
 - L134 `download(object_key: str, user: SessionUser=Depends(current_user))` (function) — Stable download URL.
+- L192 `_redirect(url: str)` (function) — The 302 itself is cacheable even though the presigned URL behind it expires.

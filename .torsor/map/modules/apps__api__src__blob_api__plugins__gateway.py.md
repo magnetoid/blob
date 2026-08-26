@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/src/blob_api/plugins/gateway.py
@@ -18,7 +18,7 @@ Symbols in `apps/api/src/blob_api/plugins/gateway.py`.
 - L80 `claim_key(run_id: str)` (function)
 - L87 `is_online(plugin_id: str)` (function) — Whether any process currently holds this agent's connection.
 - L92 `stream_events(plugin_id: str, run_input: dict[str, Any], *, timeout_sec: float)` (function) — Ask the agent to run, and yield the AG-UI events it sends back.
-- L154 `live_connections()` (function) — How many agent sockets this process is currently holding.
+- L154 `live_connections()` (function) — How many agent sockets this process is holding. The socket-leak test's probe.
 - L159 `AgentConnection` (class) — One live agent socket, and the pump that feeds it runs from other processes.
 - L172 `__init__(self, plugin_id: str, send: Any)` (method)
 - L177 `__aenter__(self)` (method)

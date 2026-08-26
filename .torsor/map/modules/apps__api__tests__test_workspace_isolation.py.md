@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/tests/test_workspace_isolation.py
@@ -25,3 +25,6 @@ Symbols in `apps/api/tests/test_workspace_isolation.py`.
 - L180 `test_no_state_comes_back_for_one(self, two_workspaces: dict)` (method)
 - L200 `TestHealth` (class)
 - L201 `test_the_totals_count_only_this_workspace(self, two_workspaces: dict)` (method)
+- L220 `TestSessionRevocation` (class)
+- L221 `test_an_admin_cannot_revoke_another_workspaces_sessions(self, two_workspaces: dict)` (method)
+- L254 `test_revoking_within_the_workspace_still_works(self, two_workspaces: dict)` (method)

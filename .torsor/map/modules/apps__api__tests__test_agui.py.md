@@ -4,54 +4,54 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/tests/test_agui.py
 
 Symbols in `apps/api/tests/test_agui.py`.
 
-- L52 `frame(**event: Any)` (function)
-- L56 `fold_bytes(*chunks: bytes)` (function) — Feed raw bytes through the decoder and the reducer, as the job does.
-- L69 `test_a_record_split_across_chunks_is_reassembled()` (function)
-- L81 `test_the_wire_uses_screaming_snake_not_the_docs_headings()` (function)
-- L95 `test_two_messages_can_interleave()` (function)
-- L107 `test_an_unknown_event_type_does_not_kill_the_run()` (function)
-- L117 `test_a_stream_that_never_closes_its_message_still_yields_it()` (function)
-- L126 `test_content_without_a_start_opens_the_message()` (function)
-- L134 `test_reasoning_is_never_posted()` (function)
-- L148 `test_an_empty_delta_is_not_an_empty_message()` (function)
-- L159 `test_a_long_body_is_split_into_parts_rather_than_truncated()` (function)
-- L172 `test_tool_names_become_a_context_block()` (function)
-- L185 `test_a_chunk_event_carries_text_like_the_triad_does()` (function)
-- L195 `test_a_run_error_is_recorded_and_stops_the_run()` (function)
-- L206 `test_an_interrupt_becomes_a_question_not_an_error()` (function)
-- L218 `test_the_run_input_is_camel_case_and_complete()` (function)
-- L228 `test_history_casts_the_listening_bot_as_the_assistant()` (function)
-- L252 `_resolve_the_example_host(monkeypatch: pytest.MonkeyPatch)` (function)
-- L262 `team(client: Client)` (function)
-- L269 `install(owner: Client, **overrides: object)` (function)
-- L275 `agent_speaks(*chunks: bytes, status: int=200)` (function) — A fake AG-UI agent, plus the requests it was sent.
-- L295 `route_agent_to(monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport)` (function)
-- L305 `join_channel(owner: Client, app_body: dict, channel_id: str)` (function)
-- L314 `messages_in(channel_id: str)` (function)
-- L339 `TestRoundTrip` (class)
-- L340 `test_a_mention_makes_the_agent_answer_in_the_channel(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L355 `test_running_the_job_twice_posts_one_message(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L372 `test_the_request_is_signed_the_way_a_delivery_is(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L391 `test_the_agent_is_given_the_conversation_oldest_first(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L408 `test_a_bot_message_never_triggers_a_run(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L425 `test_a_disabled_app_is_not_called(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L442 `test_a_bot_outside_the_channel_says_nothing_at_all(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L457 `test_a_run_error_tells_the_person_and_records_it(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L482 `test_a_non_2xx_does_not_raise_into_the_worker(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L496 `test_a_silent_run_posts_nothing(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L514 `TestRegistration` (class)
-- L515 `test_an_app_with_only_an_agui_url_installs(self, team: dict)` (method)
-- L519 `test_an_external_app_with_neither_url_is_refused(self, team: dict)` (method)
-- L526 `test_the_agui_url_goes_through_the_ssrf_guard(self, team: dict)` (method)
-- L535 `TestPrivateEndpoints` (class) — An agent one hop away should not need public DNS and a certificate.
-- L546 `test_a_private_endpoint_is_refused_by_default(self, team: dict)` (method)
-- L554 `test_the_operator_can_allow_one(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L570 `test_nonsense_is_still_refused_when_allowed(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L53 `frame(**event: Any)` (function)
+- L57 `fold_bytes(*chunks: bytes)` (function) — Feed raw bytes through the decoder and the reducer, as the job does.
+- L70 `test_a_record_split_across_chunks_is_reassembled()` (function)
+- L82 `test_the_wire_uses_screaming_snake_not_the_docs_headings()` (function)
+- L96 `test_two_messages_can_interleave()` (function)
+- L108 `test_an_unknown_event_type_does_not_kill_the_run()` (function)
+- L118 `test_a_stream_that_never_closes_its_message_still_yields_it()` (function)
+- L127 `test_content_without_a_start_opens_the_message()` (function)
+- L135 `test_reasoning_is_never_posted()` (function)
+- L149 `test_an_empty_delta_is_not_an_empty_message()` (function)
+- L160 `test_a_long_body_is_split_into_parts_rather_than_truncated()` (function)
+- L173 `test_tool_names_become_a_context_block()` (function)
+- L186 `test_a_chunk_event_carries_text_like_the_triad_does()` (function)
+- L196 `test_a_run_error_is_recorded_and_stops_the_run()` (function)
+- L207 `test_an_interrupt_becomes_a_question_not_an_error()` (function)
+- L219 `test_the_run_input_is_camel_case_and_complete()` (function)
+- L229 `test_history_casts_the_listening_bot_as_the_assistant()` (function)
+- L253 `_resolve_the_example_host(monkeypatch: pytest.MonkeyPatch)` (function)
+- L263 `team(client: Client)` (function)
+- L270 `install(owner: Client, **overrides: object)` (function)
+- L276 `agent_speaks(*chunks: bytes, status: int=200)` (function) — A fake AG-UI agent, plus the requests it was sent.
+- L296 `route_agent_to(monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport)` (function)
+- L308 `join_channel(owner: Client, app_body: dict, channel_id: str)` (function)
+- L317 `messages_in(channel_id: str)` (function)
+- L342 `TestRoundTrip` (class)
+- L343 `test_a_mention_makes_the_agent_answer_in_the_channel(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L358 `test_running_the_job_twice_posts_one_message(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L375 `test_the_request_is_signed_the_way_a_delivery_is(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L394 `test_the_agent_is_given_the_conversation_oldest_first(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L411 `test_a_bot_message_never_triggers_a_run(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L428 `test_a_disabled_app_is_not_called(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L445 `test_a_bot_outside_the_channel_says_nothing_at_all(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L460 `test_a_run_error_tells_the_person_and_records_it(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L485 `test_a_non_2xx_does_not_raise_into_the_worker(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L499 `test_a_silent_run_posts_nothing(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L517 `TestRegistration` (class)
+- L518 `test_an_app_with_only_an_agui_url_installs(self, team: dict)` (method)
+- L522 `test_an_external_app_with_neither_url_is_refused(self, team: dict)` (method)
+- L529 `test_the_agui_url_goes_through_the_ssrf_guard(self, team: dict)` (method)
+- L538 `TestPrivateEndpoints` (class) — An agent one hop away should not need public DNS and a certificate.
+- L549 `test_a_private_endpoint_is_refused_by_default(self, team: dict)` (method)
+- L557 `test_the_operator_can_allow_one(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L573 `test_nonsense_is_still_refused_when_allowed(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)

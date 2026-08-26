@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T05:49:02'
-updated: '2026-08-26T05:49:02'
+created: '2026-08-27T01:08:40'
+updated: '2026-08-27T01:08:40'
 ---
 
 # apps/api/src/blob_api/services/user_groups.py
@@ -25,4 +25,5 @@ Symbols in `apps/api/src/blob_api/services/user_groups.py`.
 - L237 `list_for_workspace(session: AsyncSession, workspace_id: str)` (function)
 - L256 `member_ids(session: AsyncSession, group_id: str)` (function)
 - L274 `group_ids_for_user(session: AsyncSession, user_id: str)` (function) — Which groups this person is in — for the boot payload, so the client can tell
-- L286 `_to_group(row: Any)` (function)
+- L286 `muted_group_ids_for_user(session: AsyncSession, user_id: str)` (function) — Which of those groups this person has silenced — so the toggle can show truth.
+- L297 `_to_group(row: Any)` (function)
