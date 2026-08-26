@@ -303,15 +303,19 @@ Worth knowing before changing the equivalent code:
   despite a 73-character value being configured, while `ANTHROPIC_API_KEY` happened to get
   the non-empty twin. Nothing reports this: the app boots, and the agent is simply unable
   to reach a provider it appears to be configured for. Anything Blob builds on top of this
-  API must read the list, delete every row for the key by `uuid`, then `POST` once.
-  Probed against the live API rather than the docs, because three of the four obvious
-  moves are wrong: `POST` appends; `PATCH /envs` with an existing key **also appends** and
-  answers `201`; `PATCH /envs/{env_uuid}` is a `404`, so there is no update-by-uuid at all;
-  `PATCH /envs/bulk` does update in place but touches only one row of a duplicated key and
-  leaves the rest — which is the trap rather than the way out of it. Delete-then-create is
-  the only deterministic write, and it repairs existing duplicates as a side effect, so the
-  fix reaches an already-broken agent by someone using the feature rather than by a
-  migration. `plugins/runner.py:set_env`.
+  API must read the list, delete every row for the key by `uuid`, then `POST` once — and
+  a later, cleaner probe corrected the first one, so measure before trusting either of
+  these paragraphs on a new Coolify version. What actually holds on 4.3.11: **every
+  variable has a hidden `is_preview` twin**, so the raw list shows each key twice even on
+  a healthy app — reading it without filtering flags every agent as broken, and the first
+  probe misread exactly this. One `POST` creates the prod row *and* the preview twin.
+  `POST` for a key that exists anywhere is refused with "use PATCH" — so deleting only
+  the prod row leaves a preview row that blocks the rewrite. `PATCH /envs` updates prod
+  in place *when there is one prod row*; rows written by older Coolify versions exist
+  genuinely duplicated within prod (the disagreeing API-key twins were real), and PATCH
+  touches one of such a pair. Delete-every-row-then-POST is the one write that lands in
+  the same state from any starting shape. `plugins/runner.py:set_env`, and `env()` must
+  filter `is_preview` or the console cries wolf on every key.
 - **A `docker compose` network declared `external` is not necessarily joined.** The janus
   stack declares `agents: {external: true, name: blob-agents}` and its container is on its
   own Coolify network only — the compose change shipped but nothing redeployed it. So

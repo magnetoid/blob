@@ -213,17 +213,26 @@ class CoolifyRunner:
         await self._call("POST", f"/api/v1/applications/{deployment_id}/stop")
 
     async def env(self, deployment_id: str) -> list[EnvVar]:
-        """Everything configured on the application, duplicates included.
+        """What the running container is configured with — duplicates included.
 
-        Duplicates are not hypothetical and are not filtered out here — see `set_env`.
-        The console shows them, because a key listed twice with two different values is
-        the explanation for an agent that is ignoring the key you just set.
+        Two filters, and the first is the one that was nearly missed. Coolify holds a
+        **preview** copy of every variable beside the production one (`is_preview`), so
+        the raw list shows every key exactly twice with the same timestamp — which is
+        indistinguishable from the append bug this module exists to repair. Reading the
+        raw list would have flagged every healthy agent as broken. Only production rows
+        are the container's environment; only they are shown or written.
+
+        Genuine duplicates *within* production are kept, not filtered: a key listed
+        twice with two values is the explanation for an agent ignoring the value the
+        console displays.
         """
         payload = await self._call("GET", f"/api/v1/applications/{deployment_id}/envs")
         rows = payload if isinstance(payload, list) else []
         out: list[EnvVar] = []
         for row in rows:
             if not isinstance(row, dict) or not row.get("key"):
+                continue
+            if row.get("is_preview"):
                 continue
             key = str(row["key"])
             out.append(
@@ -241,40 +250,45 @@ class CoolifyRunner:
     async def set_env(self, deployment_id: str, key: str, value: str) -> None:
         """Make `key` hold exactly `value`, by removing every row for it and writing one.
 
-        Delete-then-create rather than update, because **Coolify's env API does not
-        upsert**. `POST` appends. `PATCH` with a key that already exists *also* appends —
-        it answers 201 and creates a second row. `PATCH /envs/{env_uuid}` does not exist.
-        `PATCH /envs/bulk` does update in place, but only touches one of the rows sharing
-        a key and leaves the rest, which is the trap rather than the way out of it.
+        Delete-then-create, and the deletes cover **every** row for the key — preview
+        rows included, which `env()` deliberately hides. Probed against the live API
+        rather than read from its docs, because the semantics have to be measured:
 
-        This was not read out of the documentation. It is what an agent on this server was
-        actually doing: twelve keys duplicated, and the two that disagreed were an API key
-        set in one row and empty in the other. Docker takes one of them and nothing says
-        which. Every run failed authentication against a key the console showed as
-        correct.
+        - `POST` creates a production row *and* a preview twin in one call.
+        - `POST` with a key that exists anywhere is refused with "use PATCH" — so
+          deleting only the production row leaves a preview row that blocks the rewrite,
+          and every save would fail against configuration the console does not show.
+        - `PATCH /envs` updates the production row in place on this version (4.3.11),
+          but rows written by earlier versions exist duplicated *within* production —
+          an agent here carried disagreeing twins of its API key, Docker took the empty
+          one, and every run failed against a value the dashboard showed as correct.
+          PATCH touches one row of such a pair and leaves the rest.
 
-        So a write here removes what is there first. Blob never adds a second row for a
-        key, and repairs any it finds — a key that was already duplicated comes out of
-        this with one row, which is why the fix arrives by using the feature rather than
-        by a migration somebody has to run.
+        Delete-everything-then-create is the one write that lands in the same state from
+        any starting shape, and it repairs legacy duplicates as a side effect — the fix
+        reaches a broken agent by someone using the feature, not by a migration.
         """
-        for existing in await self.env(deployment_id):
-            if existing.key == key and existing.id:
-                await self._call(
-                    "DELETE", f"/api/v1/applications/{deployment_id}/envs/{existing.id}"
-                )
+        for row_id in await self._env_row_ids(deployment_id, key):
+            await self._call("DELETE", f"/api/v1/applications/{deployment_id}/envs/{row_id}")
 
         await self._call(
             "POST", f"/api/v1/applications/{deployment_id}/envs", {"key": key, "value": value}
         )
 
     async def unset_env(self, deployment_id: str, key: str) -> None:
-        """Remove a key entirely — every row of it, for the same reason."""
-        for existing in await self.env(deployment_id):
-            if existing.key == key and existing.id:
-                await self._call(
-                    "DELETE", f"/api/v1/applications/{deployment_id}/envs/{existing.id}"
-                )
+        """Remove a key entirely — every row of it, preview twins included."""
+        for row_id in await self._env_row_ids(deployment_id, key):
+            await self._call("DELETE", f"/api/v1/applications/{deployment_id}/envs/{row_id}")
+
+    async def _env_row_ids(self, deployment_id: str, key: str) -> list[str]:
+        """Every stored row for a key, unfiltered — what a rewrite has to clear."""
+        payload = await self._call("GET", f"/api/v1/applications/{deployment_id}/envs")
+        rows = payload if isinstance(payload, list) else []
+        return [
+            str(row["uuid"])
+            for row in rows
+            if isinstance(row, dict) and row.get("key") == key and row.get("uuid")
+        ]
 
     async def _call(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         try:
