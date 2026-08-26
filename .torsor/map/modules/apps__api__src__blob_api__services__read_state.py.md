@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:43:02'
-updated: '2026-08-26T03:43:02'
+created: '2026-08-26T03:50:54'
+updated: '2026-08-26T03:50:54'
 ---
 
 # apps/api/src/blob_api/services/read_state.py

@@ -296,3 +296,26 @@ Worth knowing before changing the equivalent code:
   mentionable, and it answers every mention with "no model is configured". Both services
   in `docker-compose.prod.yml` carry `LLM_*` for this reason, and the same split applies
   to anything else the agent path will need.
+- **Coolify's env API creates duplicate keys, and which one reaches the container is a
+  coin flip.** `POST /api/v1/applications/{uuid}/envs` does not upsert — it appends, and
+  so does a `PATCH` that does not match. Every key on the janus-agui app had two entries;
+  two of them disagreed, and the running container had `OPENROUTER_API_KEY` **empty**
+  despite a 73-character value being configured, while `ANTHROPIC_API_KEY` happened to get
+  the non-empty twin. Nothing reports this: the app boots, and the agent is simply unable
+  to reach a provider it appears to be configured for. Anything Blob builds on top of this
+  API must read the list, match on `uuid`, and `PATCH` that uuid — never write by key —
+  and should refuse to save while a key has disagreeing duplicates.
+- **A `docker compose` network declared `external` is not necessarily joined.** The janus
+  stack declares `agents: {external: true, name: blob-agents}` and its container is on its
+  own Coolify network only — the compose change shipped but nothing redeployed it. So
+  `blob-agents` held Blob's app and worker and no agent at all, and the container-to-
+  container path everyone assumed was available did not exist. Check
+  `docker network inspect blob-agents` rather than the compose file.
+- **Blob's SSH key for the agent shell is confined by a forced command, not by trust.**
+  `authorized_keys` pins it to `/usr/local/bin/blob-agent-exec`, so sshd runs that whatever
+  the client asks for: the client cannot choose a command, only supply a deployment uuid.
+  The wrapper refuses anything that is not a 24-character id, refuses Blob's own uuid so
+  the key can never reach the database holding every message, refuses a deployment with
+  more than one container rather than guessing, and logs every session to syslog. That is
+  how ADR 0010's reasoning survives being overruled — the blast radius of the credential
+  is one `docker exec` into one agent container.
