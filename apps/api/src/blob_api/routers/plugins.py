@@ -16,6 +16,7 @@ to the server. This endpoint registers external apps only.
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlparse
@@ -28,10 +29,11 @@ from sqlalchemy import text
 from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, require_admin
-from ..lib.errors import bad_request, not_found
+from ..lib.errors import AppError, bad_request, not_found
 from ..lib.net import check_outbound_url
-from ..plugins import registry
-from ..plugins.env import validate_env
+from ..plugins import gateway, registry, runner
+from ..plugins.env import RESERVED_NAMES as RESERVED_ENV_NAMES
+from ..plugins.env import RESERVED_PREFIX, validate_env
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
 from ..schemas.base import CamelModel, iso, require_iso
 from ..services import agent_runs as agent_run_service
@@ -70,6 +72,14 @@ class PluginOut(CamelModel):
     source_repo: str | None = None
     source_ref: str | None = None
     deployment_status: str | None = None
+    #: Whether a dial-in agent is holding a connection right now. `None` for every other
+    #: runtime, where the question is meaningless and a `false` would read as "broken".
+    #:
+    #: Until this existed there was no way to tell a connected agent from one whose laptop
+    #: had closed — the only signal was mentioning it and waiting to see whether anything
+    #: happened, and the reply on failure ("that agent is not connected right now") arrives
+    #: in a channel rather than in the console where it would be acted on.
+    online: bool | None = None
 
 
 class AppChannel(CamelModel):
@@ -132,6 +142,36 @@ class DeploymentOut(CamelModel):
 
 class LogsOut(CamelModel):
     logs: str
+
+
+class EnvVarOut(CamelModel):
+    key: str
+    #: Present only for a value that is not a secret. See `_env_out` for the rule.
+    value: str | None = None
+    #: What a secret looks like without being one: how long it is, and its last four
+    #: characters. Enough to tell "the key I pasted" from "the key that is still empty",
+    #: which is the question anyone opening this screen is actually asking.
+    hint: str | None = None
+    secret: bool = False
+    managed: bool = False
+    #: True when the runner holds more than one row for this key — the failure that makes
+    #: an agent ignore the value the console is showing.
+    duplicated: bool = False
+
+
+class EnvOut(CamelModel):
+    env: list[EnvVarOut]
+    #: Names Blob sets itself, echoed so the console can show them as fixed rather than
+    #: appearing to have lost them.
+    reserved: list[str]
+
+
+class EnvInput(CamelModel):
+    set: dict[str, str] = {}
+    remove: list[str] = []
+    #: Restart afterwards. Environment only reaches the container on the next start, so
+    #: without this the console would be showing a value the running agent does not have.
+    restart: bool = False
 
 
 class DeliveryOut(CamelModel):
@@ -221,6 +261,10 @@ async def _to_plugin(session: Any, row: Any) -> PluginOut:
         deployment_status=getattr(row, "deployment_status", None),
         request_url=row.request_url,
         agui_url=getattr(row, "agui_url", None),
+        # Asked across the whole cluster, not of this process: the socket is held by
+        # whichever API process the agent happened to dial, and `gateway.live_connections`
+        # only ever knew about this one. The Redis presence key is the shared answer.
+        online=await gateway.is_online(row.id) if row.runtime == "socket" else None,
         events=list(row.events or []),
         scopes=scopes,
         bot_user_id=bot_id,
@@ -398,6 +442,23 @@ async def update_plugin(
         # Not the app count: an update does not add one, and refusing to *edit* an app
         # because the workspace is at its limit would strand it at whatever it was.
         _assert_scopes_allowed(policy, manifest.scopes)
+        existing = await registry.by_id(session, plugin_id, admin.workspace_id)
+
+    # The same two guards `install_plugin` applies, which this route did not. `runtime` is
+    # immutable — `registry.update` does not write it — so the runtime that matters is the
+    # stored one, not whatever the body claims. Without this an admin could PUT a URL onto
+    # a socket agent, leaving a row that answers "where is it?" twice, and a workspace
+    # whose socket capability had been revoked could still edit its socket agents.
+    if existing.runtime == "socket":
+        if not policy.may_connect_socket_agents:
+            raise policy_service.refuse_socket_agent()
+        if manifest.request_url or manifest.agui_url:
+            raise bad_request(
+                "An agent that connects to Blob does not declare a URL — it dials in "
+                "with its token.",
+                code="url_not_allowed",
+            )
+
     await _assert_reachable(manifest.request_url, policy)
     await _assert_reachable(manifest.agui_url, policy)
     async with transaction() as (session, _after):
@@ -853,6 +914,84 @@ async def stop_agent(
 ) -> OkOut:
     await agent_service.stop(actor_for(request, admin), plugin_id)
     return OkOut()
+
+
+#: Name fragments that mean "do not put this on a screen". A heuristic, and treated as
+#: one: it is tidiness rather than a boundary, because the same admin can read the real
+#: value out of the agent's own environment through the terminal. What it buys is that a
+#: console left open, screen-shared or screenshotted does not have an API key on it.
+SECRET_HINTS = ("KEY", "SECRET", "TOKEN", "PASSWORD", "PASS", "CREDENTIAL", "AUTH", "PRIVATE")
+
+
+def _env_out(values: list[runner.EnvVar]) -> list[EnvVarOut]:
+    seen = Counter(item.key for item in values)
+    out: list[EnvVarOut] = []
+    # Sorted by name: the runner returns insertion order, which puts the value somebody
+    # added last at the bottom of a list of twenty-five and nowhere near the one it
+    # duplicates.
+    for item in sorted(values, key=lambda v: v.key):
+        secret = any(hint in item.key.upper() for hint in SECRET_HINTS)
+        out.append(
+            EnvVarOut(
+                key=item.key,
+                value=None if secret else item.value,
+                hint=_hint(item.value) if secret else None,
+                secret=secret,
+                managed=item.managed,
+                duplicated=seen[item.key] > 1,
+            )
+        )
+    return out
+
+
+def _hint(value: str) -> str:
+    """Enough of a secret to recognise it, never enough to use it."""
+    if not value:
+        return "not set"
+    return f"{len(value)} characters, ending {value[-4:]}" if len(value) > 8 else "set"
+
+
+@router.get("/{plugin_id}/env", response_model=EnvOut)
+async def agent_env(plugin_id: str, admin: SessionUser = Depends(require_admin)) -> EnvOut:
+    """What a hosted agent is configured with.
+
+    The form half of setting an agent up. The other half is the terminal, and the split
+    is not arbitrary: a value an agent declares it needs belongs in a field, while a
+    device-code login — which prints a URL, waits, and completes somewhere else entirely —
+    cannot be expressed as one no matter how the form is drawn.
+    """
+    values = await agent_service.env(admin.workspace_id, plugin_id)
+    return EnvOut(env=_env_out(values), reserved=sorted(RESERVED_ENV_NAMES))
+
+
+@router.put("/{plugin_id}/env", response_model=EnvOut)
+async def update_agent_env(
+    plugin_id: str,
+    payload: EnvInput,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> EnvOut:
+    actor = actor_for(request, admin)
+    values = validate_env(payload.set)
+
+    removing = [name.strip() for name in payload.remove if name.strip()]
+    for name in removing:
+        # Checked on the way out as well as the way in. Nothing else stops an admin
+        # deleting the bot token the agent authenticates with and turning a working agent
+        # into one that fails every callback with no explanation.
+        if name.upper().startswith(RESERVED_PREFIX):
+            raise AppError(
+                400, "reserved_env_key", f'"{name}" is set by Blob and cannot be removed.', name
+            )
+
+    await agent_service.set_env(actor, plugin_id, values, removing)
+    if payload.restart:
+        await agent_service.redeploy(actor, plugin_id)
+
+    return EnvOut(
+        env=_env_out(await agent_service.env(admin.workspace_id, plugin_id)),
+        reserved=sorted(RESERVED_ENV_NAMES),
+    )
 
 
 __all__ = ["router"]

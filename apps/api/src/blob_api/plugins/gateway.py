@@ -236,7 +236,13 @@ class AgentConnection:
                     if not isinstance(run_id, str) or not isinstance(run_input, dict):
                         continue
                     # Fan-out means a second holder may see this too. Exactly one runs it.
-                    if not await redis.set(claim_key(run_id), "1", nx=True, ex=CLAIM_TTL_SEC):
+                    #
+                    # The value is the claiming plugin's id rather than a placeholder, and
+                    # that is what makes the return path checkable: `relay_event` reads it
+                    # back to confirm the agent sending events is the one that was asked.
+                    if not await redis.set(
+                        claim_key(run_id), self.plugin_id, nx=True, ex=CLAIM_TTL_SEC
+                    ):
                         continue
                     await self._send({"t": "run", "runId": run_id, "input": run_input})
             except asyncio.CancelledError:
@@ -253,6 +259,29 @@ class AgentConnection:
                     await pubsub.aclose()  # type: ignore[no-untyped-call]
             await asyncio.sleep(delay)
             delay = min(delay * 2, 30.0)
+
+
+async def owns_run(plugin_id: str, run_id: str) -> bool:
+    """Whether this agent is the one that was asked to do this run.
+
+    The check the return path was missing. Runs are addressed by id on a shared Redis
+    channel, and nothing tied a `{"t":"event"}` frame to the agent that received the run —
+    so any authenticated bot, in any workspace, could publish into another agent's run:
+    fabricated `TEXT_MESSAGE_*` posted as *that* agent's reply, or a `RUN_ERROR` to kill
+    it. A UUIDv7 run id is unguessable, which made it improbable rather than prevented,
+    and "improbable" is not the property to rest a cross-tenant boundary on.
+
+    The claim is the natural place to look: it is already written, already scoped to one
+    run, and already expires. Reading it costs one Redis GET per event frame.
+    """
+    claimed = await redis.get(claim_key(run_id))
+    if claimed is None:
+        # Expired, or a run this process never saw claimed. Refused rather than allowed:
+        # a run whose claim has lapsed is past its deadline and nobody is listening.
+        return False
+    if isinstance(claimed, bytes):
+        claimed = claimed.decode()
+    return str(claimed) == plugin_id
 
 
 async def relay_event(run_id: str, event: dict[str, Any]) -> None:

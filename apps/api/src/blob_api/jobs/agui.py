@@ -21,7 +21,7 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
@@ -286,6 +286,26 @@ async def stream_run(
     return fold, posts, None
 
 
+def _rough_size(event: Mapping[str, Any]) -> int:
+    """About how big this event was, without paying to re-serialise it.
+
+    The HTTP path counts the bytes it actually read. Here the frame was already decoded
+    by the time it arrived, so the choice is between re-encoding every event to be exact
+    or estimating. This is a containment bound, not accounting: the text deltas are what
+    grow without limit and this counts them, and being off by the JSON punctuation on a
+    2 MiB budget changes nothing anyone can observe.
+    """
+    total = 0
+    for value in event.values():
+        if isinstance(value, str):
+            total += len(value)
+        elif isinstance(value, list | dict):
+            total += len(str(value))
+        else:
+            total += 8
+    return total
+
+
 async def _stream_over_socket(
     listener: Listener, run_input: dict[str, Any]
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
@@ -308,6 +328,7 @@ async def _stream_over_socket(
         return fold, posts, "that agent is not connected right now"
 
     seen_events = 0
+    seen_bytes = 0
     try:
         async for event in gateway.stream_events(
             listener.plugin_id, run_input, timeout_sec=gateway.run_timeout_sec()
@@ -316,6 +337,14 @@ async def _stream_over_socket(
             if seen_events > settings.AGUI_MAX_EVENTS:
                 posts.extend(fold.finish())
                 return fold, posts, "the agent sent more events than we will read"
+            # The HTTP path caps bytes as well as events and this did not, which left the
+            # ceiling at events times frame size — half a megabyte each, gigabytes
+            # through the worker for one run. Both caps exist because an agent can be
+            # wrong in either direction: many tiny events, or few enormous ones.
+            seen_bytes += _rough_size(event)
+            if seen_bytes > settings.AGUI_MAX_BYTES:
+                posts.extend(fold.finish())
+                return fold, posts, "the agent sent more than we will read"
             posts.extend(fold.feed(event))
             if fold.finished:
                 return fold, posts, None

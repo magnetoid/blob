@@ -150,7 +150,10 @@ async def _read_loop(
 ) -> None:
     while True:
         raw = await websocket.receive_text()
-        if len(raw) > gateway.MAX_FRAME_BYTES:
+        # Bytes, not characters. `len()` on a str counts code points, so a frame of
+        # non-ASCII text — which is most of the world's — could be several times the cap
+        # and still pass a limit named in bytes.
+        if len(raw.encode()) > gateway.MAX_FRAME_BYTES:
             await send({"t": "error", "message": "That frame is larger than we will read."})
             continue
         try:
@@ -186,12 +189,20 @@ async def _read_loop(
         elif kind == "event":
             run_id = frame.get("runId")
             event = frame.get("event")
-            if isinstance(run_id, str) and isinstance(event, dict):
+            # Ownership, not just shape. Without it an authenticated bot could publish
+            # into any run id it named — posting text as another agent's reply, or a
+            # RUN_ERROR to end its run. Dropped in silence: a bot naming a run that is not
+            # its own is either confused or hostile, and neither is owed an explanation.
+            if (
+                isinstance(run_id, str)
+                and isinstance(event, dict)
+                and await gateway.owns_run(bot.plugin_id, run_id)
+            ):
                 await gateway.relay_event(run_id, event)
 
         elif kind == "done":
             run_id = frame.get("runId")
-            if isinstance(run_id, str):
+            if isinstance(run_id, str) and await gateway.owns_run(bot.plugin_id, run_id):
                 await gateway.relay_end(run_id)
 
         else:

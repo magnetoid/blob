@@ -27,12 +27,18 @@ from blob_api.realtime import hub
 
 from .helpers import Client, build_client, migrate_test_db
 
+#: `instance_admins` is keyed on an email rather than on a user, so it is the one table
+#: that survives its workspace being deleted — and it was surviving the reset too. The
+#: first person to found a workspace becomes the instance admin, so a stale row meant
+#: "who is the instance admin?" depended on which test file happened to sign up first.
+#: Tests asserting that a member is refused passed or failed on the alphabetical position
+#: of unrelated files, which is how adding a test file broke three others.
 TRUNCATE = """
 TRUNCATE workspaces, users, sessions, invites, password_resets, channels,
          channel_members, messages, reactions, attachments, custom_emoji,
          read_states, thread_subscriptions, push_subscriptions, webhooks,
          audit_events, workspace_settings, themes, plugins, plugin_secrets,
-         plugin_grants, plugin_deliveries, bot_tokens
+         plugin_grants, plugin_deliveries, bot_tokens, instance_admins
 RESTART IDENTITY CASCADE
 """
 
