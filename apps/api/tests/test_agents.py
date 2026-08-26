@@ -42,12 +42,32 @@ class StubRunner:
         self.fail = fail
         self.deployed: dict[str, Any] | None = None
         self.stopped: list[str] = []
+        self.env: dict[str, list[tuple[str, str]]] = {}
 
-    async def deploy(self, *, slug: str, repo: str, ref: str, env: dict[str, str]) -> Deployment:
+    async def deploy(
+        self,
+        *,
+        slug: str,
+        repo: str,
+        ref: str,
+        env: dict[str, str],
+        port: int = 3000,
+        compose_path: str | None = None,
+    ) -> Deployment:
         if self.fail:
             raise AppError(502, "runner_failed", "The runner refused that: no capacity")
-        self.deployed = {"slug": slug, "repo": repo, "ref": ref, "env": dict(env)}
-        return Deployment(id="dep-1", status="deploying", url="agent-standup.example.com")
+        self.deployed = {
+            "slug": slug,
+            "repo": repo,
+            "ref": ref,
+            "env": dict(env),
+            "port": port,
+            "compose_path": compose_path,
+        }
+        # No URL, which is what the real runner does: Coolify answers the create before it
+        # has assigned a hostname, and only `status` reads one back. A stub that returned
+        # one here would hide the very gap the install path now closes.
+        return Deployment(id="dep-1", status="deploying")
 
     async def redeploy(self, deployment_id: str) -> Deployment:
         return Deployment(id=deployment_id, status="deploying")
@@ -60,6 +80,9 @@ class StubRunner:
 
     async def stop(self, deployment_id: str) -> None:
         self.stopped.append(deployment_id)
+
+    async def env_of(self, deployment_id: str) -> list[tuple[str, str]]:
+        return self.env.get(deployment_id, [])
 
 
 @pytest.fixture(autouse=True)
@@ -196,9 +219,7 @@ async def test_stopping_an_agent_disables_it(client: Client, hosted: StubRunner)
     assert plugins[0]["status"] == "disabled"
 
 
-async def test_an_app_that_is_not_hosted_here_says_so(
-    client: Client, hosted: StubRunner
-) -> None:
+async def test_an_app_that_is_not_hosted_here_says_so(client: Client, hosted: StubRunner) -> None:
     owner = await hosting_owner(client)
     installed = await owner.post(
         "/api/admin/plugins",
@@ -248,9 +269,7 @@ def test_the_manifest_is_read_as_a_container_regardless_of_what_it_claims() -> N
 
 
 # ─── configuration an agent needs ─────────────────────────────────────────────
-async def test_an_agent_can_be_given_the_key_it_needs(
-    client: Client, hosted: StubRunner
-) -> None:
+async def test_an_agent_can_be_given_the_key_it_needs(client: Client, hosted: StubRunner) -> None:
     """Without this, no agent that talks to a model provider is installable at all.
 
     Blob creates the container, so Blob is the only thing positioned to hand over a

@@ -22,6 +22,18 @@ from .manifest import Manifest, validate_manifest
 
 MANIFEST_NAME = "blob-app.json"
 
+#: How the runner should build the repository.
+#:
+#: `dockercompose` is not a convenience. An image whose ENTRYPOINT starts an interactive
+#: CLI needs its command overridden to become a server, and neither nixpacks nor the
+#: Dockerfile pack can do that — Coolify applies no start command to a Dockerfile-built
+#: app. A compose file is the only place that `command:` can live, so for a whole class of
+#: agents it is the difference between a running server and a chat prompt nothing is
+#: attached to.
+BUILD_PACKS = frozenset({"nixpacks", "dockerfile", "dockercompose"})
+
+DEFAULT_COMPOSE_PATH = "/docker-compose.yml"
+
 #: A manifest is a small JSON document. Anything larger is not one, and reading it would
 #: be a way to make this process fetch something big on request.
 MANIFEST_MAX_BYTES = 64 * 1024
@@ -39,6 +51,10 @@ class RepoSource:
     #: nixpacks reads the repository and infers the build; a repo that ships a Dockerfile
     #: says so in its manifest and gets built by it instead.
     build_pack: str
+    #: Which compose file, for `dockercompose`. Only a compose deploy can override the
+    #: image's command, which is the difference between a server and an idle shell for any
+    #: image whose entrypoint starts an interactive CLI.
+    compose_path: str | None = None
 
 
 def raw_manifest_url(repo_url: str, ref: str) -> str:
@@ -76,9 +92,7 @@ async def read_manifest(repo_url: str, ref: str = "main") -> RepoSource:
         ) as client:
             response = await client.get(url)
     except httpx.HTTPError as exc:
-        raise bad_request(
-            "That repository could not be reached.", code="repo_unreachable"
-        ) from exc
+        raise bad_request("That repository could not be reached.", code="repo_unreachable") from exc
 
     if response.status_code == 404:
         raise bad_request(
@@ -100,16 +114,26 @@ async def read_manifest(repo_url: str, ref: str = "main") -> RepoSource:
         raise bad_request(f"{MANIFEST_NAME} must be an object.", code="manifest_invalid")
 
     build_pack = str(document.pop("build", "nixpacks")).lower()
-    if build_pack not in {"nixpacks", "dockerfile"}:
+    if build_pack not in BUILD_PACKS:
         raise bad_request(
-            'A manifest\'s "build" must be "nixpacks" or "dockerfile".', code="manifest_invalid"
+            'A manifest\'s "build" must be "nixpacks", "dockerfile" or "dockercompose".',
+            code="manifest_invalid",
         )
+
+    compose_path = _compose_path(document, build_pack)
 
     # Hosted agents are reached over HTTP like any external app. The URL is not known
     # until the runner has assigned one, so the manifest neither carries it nor needs to.
     document["runtime"] = "container"
     document.pop("requestUrl", None)
     document.pop("request_url", None)
+    # `aguiUrl` goes the same way, and this is a guard rather than tidiness. It used to
+    # survive: `install_from_repo` never calls `_assert_reachable`, so a repository
+    # declaring `"aguiUrl": "http://169.254.169.254/latest/meta-data"` installed cleanly
+    # and had this server POST to it on every mention — the SSRF the manual registration
+    # path refuses outright. `aguiPath` is the field that replaced the honest use of it.
+    document.pop("aguiUrl", None)
+    document.pop("agui_url", None)
 
     manifest = Manifest.model_validate(document)
     validate_manifest(manifest)
@@ -119,7 +143,31 @@ async def read_manifest(repo_url: str, ref: str = "main") -> RepoSource:
         ref=ref,
         manifest=manifest,
         build_pack=build_pack,
+        compose_path=compose_path,
     )
 
 
-__all__ = ["MANIFEST_NAME", "RepoSource", "raw_manifest_url", "read_manifest"]
+def _compose_path(document: dict[str, object], build_pack: str) -> str | None:
+    """Which compose file to build, checked here so a bad one fails before the deploy."""
+    raw = document.pop("composePath", None) or document.pop("compose_path", None)
+    if build_pack != "dockercompose":
+        return None
+
+    path = str(raw or DEFAULT_COMPOSE_PATH).strip()
+    if not path.startswith("/") or ".." in path:
+        raise bad_request(
+            'A manifest\'s "composePath" is a path inside the repository, like '
+            '"/docker-compose.yml".',
+            code="manifest_invalid",
+        )
+    return path
+
+
+__all__ = [
+    "BUILD_PACKS",
+    "DEFAULT_COMPOSE_PATH",
+    "MANIFEST_NAME",
+    "RepoSource",
+    "raw_manifest_url",
+    "read_manifest",
+]

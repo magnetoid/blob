@@ -144,6 +144,20 @@ class Manifest(CamelModel):
     #: answer a mention — Blob calls it and writes what comes back. Validated against the
     #: same SSRF guard as `request_url`.
     agui_url: str | None = None
+    #: Where AG-UI lives *on* the agent, for an agent whose address Blob assigns.
+    #:
+    #: A hosted agent cannot declare `agui_url`: the runner invents the hostname at deploy
+    #: time, so at the moment the manifest is written there is no URL to write. Until this
+    #: existed that was fatal rather than awkward — `listeners_for` admits a plugin only
+    #: when `agui_url IS NOT NULL` or the runtime dials in, so a deployed AG-UI agent was
+    #: never a listener and every mention of it did nothing, silently. A path is knowable
+    #: in advance; Blob joins it to the base the runner hands back.
+    agui_path: str | None = None
+    #: What the agent listens on inside its container. Told to the runner so its proxy
+    #: routes there, and to the agent as PORT so it need not guess what we told the proxy.
+    #: Declared because agents disagree: Janus serves 8642, and an agent reached on the
+    #: wrong port is indistinguishable from one that failed to start.
+    port: int | None = Field(default=None, ge=1, le=65535)
     events: list[str] = Field(default_factory=list)
     scopes: list[str] = Field(default_factory=list)
     #: Slash commands this app answers. Names are unique per workspace, which is enforced
@@ -165,6 +179,27 @@ class Manifest(CamelModel):
         if not _VERSION_RE.match(value):
             raise ValueError("Version must look like 1.2.3.")
         return value
+
+    @field_validator("agui_path")
+    @classmethod
+    def _check_agui_path(cls, value: str | None) -> str | None:
+        """A path, and only a path.
+
+        The whole point is that the agent does not choose its own host. Accepting
+        anything with a scheme or an authority would hand back the ability this field
+        exists to remove — `//evil.example/x` is a protocol-relative URL, not a path, and
+        is the shape that slips past a check for `http`.
+        """
+        if value is None:
+            return None
+        path = value.strip()
+        if not path:
+            return None
+        if not path.startswith("/") or path.startswith("//"):
+            raise ValueError('An AG-UI path starts with "/" and names no host, e.g. "/v1/agui".')
+        if "://" in path or "\\" in path:
+            raise ValueError("An AG-UI path is a path, not a URL.")
+        return path.rstrip("/") or "/"
 
 
 def validate_manifest(
@@ -214,6 +249,25 @@ def validate_manifest(
     # else's contract.
     if manifest.runtime == "external" and not (manifest.request_url or manifest.agui_url):
         raise bad_request("An external app needs a request URL.", code="url_required")
+
+    # A dial-in agent holds one socket that carries runs and their answers. There is no
+    # frame for a webhook delivery and no frame for a slash command, so both of these
+    # install perfectly and then do nothing at all — subscriptions pile up `pending`
+    # deliveries forever, and a command *squats its name* workspace-wide (the name is
+    # unique per workspace) while refusing to answer. Refused at the door instead, because
+    # a dead subscription is indistinguishable from a broken one.
+    if manifest.runtime == "socket":
+        if manifest.events:
+            raise bad_request(
+                "An agent that connects to Blob cannot subscribe to events — it is sent "
+                "runs when it is mentioned, and there is nothing to deliver a webhook to.",
+                code="events_not_supported",
+            )
+        if manifest.commands:
+            raise bad_request(
+                "An agent that connects to Blob cannot provide slash commands. Mention it instead.",
+                code="commands_not_supported",
+            )
 
     if manifest.commands:
         if "commands" not in granted:

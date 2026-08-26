@@ -65,9 +65,32 @@ def normalize_fqdn(value: object) -> str | None:
     return f"https://{first.rstrip('/')}"
 
 
+@dataclass(slots=True)
+class EnvVar:
+    """One configured value, as the runner holds it.
+
+    `id` is the runner's handle for this particular row, which matters more than it
+    looks: see `set_env` for why a key is not a usable address.
+    """
+
+    id: str
+    key: str
+    value: str
+    #: Set by the runner itself — a generated hostname, a service URL. Shown but not
+    #: editable, because the runner rewrites them and an edit would be lost silently.
+    managed: bool = False
+
+
 class AgentRunner(Protocol):
     async def deploy(
-        self, *, slug: str, repo: str, ref: str, env: dict[str, str]
+        self,
+        *,
+        slug: str,
+        repo: str,
+        ref: str,
+        env: dict[str, str],
+        port: int = AGENT_PORT,
+        compose_path: str | None = None,
     ) -> Deployment: ...
 
     async def redeploy(self, deployment_id: str) -> Deployment: ...
@@ -77,6 +100,12 @@ class AgentRunner(Protocol):
     async def logs(self, deployment_id: str, lines: int) -> str: ...
 
     async def stop(self, deployment_id: str) -> None: ...
+
+    async def env(self, deployment_id: str) -> list[EnvVar]: ...
+
+    async def set_env(self, deployment_id: str, key: str, value: str) -> None: ...
+
+    async def unset_env(self, deployment_id: str, key: str) -> None: ...
 
 
 class CoolifyRunner:
@@ -90,11 +119,21 @@ class CoolifyRunner:
         self._base = (settings.COOLIFY_API_URL or "").rstrip("/")
         self._token = settings.COOLIFY_TOKEN or ""
 
-    async def deploy(self, *, slug: str, repo: str, ref: str, env: dict[str, str]) -> Deployment:
+    async def deploy(
+        self,
+        *,
+        slug: str,
+        repo: str,
+        ref: str,
+        env: dict[str, str],
+        port: int = AGENT_PORT,
+        compose_path: str | None = None,
+    ) -> Deployment:
         # A repository URL is operator-supplied and reaches out from this process, so it
         # goes through the same guard registration uses. It resolves DNS, hence the await.
         await assert_outbound_url(repo, require_https=True, code="bad_repo_url")
 
+        build_pack = env.pop("__build_pack__", "nixpacks")
         payload: dict[str, Any] = {
             "project_uuid": settings.COOLIFY_PROJECT_UUID,
             "server_uuid": settings.COOLIFY_SERVER_UUID,
@@ -104,14 +143,20 @@ class CoolifyRunner:
             # nixpacks reads the repository and works out how to build it, which covers
             # an ordinary Python or Node agent with no Dockerfile. A repo that ships one
             # is better served by it, and says so in its manifest.
-            "build_pack": env.pop("__build_pack__", "nixpacks"),
+            "build_pack": build_pack,
             "name": f"agent-{slug}",
             # Which port the proxy should route to. Without it the runner guesses, and
             # an agent that guessed differently is unreachable — which looks exactly
             # like an agent that failed to start.
-            "ports_exposes": str(AGENT_PORT),
+            "ports_exposes": str(port),
             "instant_deploy": False,
         }
+        if build_pack == "dockercompose":
+            # The path is relative to the repository root and Coolify wants it with the
+            # leading slash. Sent under the name Coolify uses rather than a tidier one:
+            # an unrecognised key is ignored silently, and the symptom would be a compose
+            # app that built the wrong file.
+            payload["docker_compose_location"] = compose_path or "/docker-compose.yml"
         # Sent only when configured: a server with one destination does not need it, and
         # a server with several refuses the create rather than choosing for us.
         if settings.COOLIFY_DESTINATION_UUID:
@@ -167,6 +212,70 @@ class CoolifyRunner:
         # calling the live API: every stop an admin asked for failed as runner_failed.
         await self._call("POST", f"/api/v1/applications/{deployment_id}/stop")
 
+    async def env(self, deployment_id: str) -> list[EnvVar]:
+        """Everything configured on the application, duplicates included.
+
+        Duplicates are not hypothetical and are not filtered out here — see `set_env`.
+        The console shows them, because a key listed twice with two different values is
+        the explanation for an agent that is ignoring the key you just set.
+        """
+        payload = await self._call("GET", f"/api/v1/applications/{deployment_id}/envs")
+        rows = payload if isinstance(payload, list) else []
+        out: list[EnvVar] = []
+        for row in rows:
+            if not isinstance(row, dict) or not row.get("key"):
+                continue
+            key = str(row["key"])
+            out.append(
+                EnvVar(
+                    id=str(row.get("uuid") or ""),
+                    key=key,
+                    value=str(row.get("value") or ""),
+                    # Coolify generates its own SERVICE_* values and rewrites them on
+                    # every deploy, so an edit to one is lost without ever failing.
+                    managed=bool(row.get("is_coolify")) or key.startswith("SERVICE_"),
+                )
+            )
+        return out
+
+    async def set_env(self, deployment_id: str, key: str, value: str) -> None:
+        """Make `key` hold exactly `value`, by removing every row for it and writing one.
+
+        Delete-then-create rather than update, because **Coolify's env API does not
+        upsert**. `POST` appends. `PATCH` with a key that already exists *also* appends —
+        it answers 201 and creates a second row. `PATCH /envs/{env_uuid}` does not exist.
+        `PATCH /envs/bulk` does update in place, but only touches one of the rows sharing
+        a key and leaves the rest, which is the trap rather than the way out of it.
+
+        This was not read out of the documentation. It is what an agent on this server was
+        actually doing: twelve keys duplicated, and the two that disagreed were an API key
+        set in one row and empty in the other. Docker takes one of them and nothing says
+        which. Every run failed authentication against a key the console showed as
+        correct.
+
+        So a write here removes what is there first. Blob never adds a second row for a
+        key, and repairs any it finds — a key that was already duplicated comes out of
+        this with one row, which is why the fix arrives by using the feature rather than
+        by a migration somebody has to run.
+        """
+        for existing in await self.env(deployment_id):
+            if existing.key == key and existing.id:
+                await self._call(
+                    "DELETE", f"/api/v1/applications/{deployment_id}/envs/{existing.id}"
+                )
+
+        await self._call(
+            "POST", f"/api/v1/applications/{deployment_id}/envs", {"key": key, "value": value}
+        )
+
+    async def unset_env(self, deployment_id: str, key: str) -> None:
+        """Remove a key entirely — every row of it, for the same reason."""
+        for existing in await self.env(deployment_id):
+            if existing.key == key and existing.id:
+                await self._call(
+                    "DELETE", f"/api/v1/applications/{deployment_id}/envs/{existing.id}"
+                )
+
     async def _call(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         try:
             async with httpx.AsyncClient(timeout=settings.AGENT_DEPLOY_TIMEOUT_SEC) as client:
@@ -209,6 +318,7 @@ __all__ = [
     "AgentRunner",
     "CoolifyRunner",
     "Deployment",
+    "EnvVar",
     "current_runner",
     "normalize_fqdn",
 ]
