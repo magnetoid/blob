@@ -59,8 +59,8 @@ async def search_messages(
         "from": parsed.author,
         "in": parsed.channel,
         "has": parsed.has,
-        "before": parsed.before,
-        "after": parsed.after,
+        "before": parsed.before.date().isoformat() if parsed.before else None,
+        "after": parsed.after.date().isoformat() if parsed.after else None,
     }
 
     if not parsed.text:

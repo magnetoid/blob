@@ -224,6 +224,9 @@ class AddMembersInput(CamelModel):
 class WebhookPostInput(CamelModel):
     text: str = Field(min_length=1, max_length=MESSAGE_MAX_LENGTH)
     username: str | None = Field(default=None, max_length=40)
+    #: Lets a CI system retry a timed-out POST without duplicating the message. When
+    #: absent the server mints one, which keeps the write idempotent in name only.
+    client_msg_id: str | None = Field(default=None, min_length=8, max_length=64)
 
 
 class CreateAgentTaskInput(CamelModel):

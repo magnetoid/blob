@@ -330,8 +330,7 @@ async def deactivate(
         updated = to_user(row) if row else None
 
         def broadcast() -> None:
-            for conn in hub.connections_for_user(user_id):
-                conn.close()
+            hub.close_users([user_id])
             if updated is not None:
                 hub.to_workspace(
                     admin.workspace_id,
@@ -405,6 +404,16 @@ async def revoke_sessions(
 ) -> OkOut:
     """Sign someone out of every device without disabling their account."""
     async with transaction() as (session, after):
+        # The workspace check must precede the delete: an admin's reach ends at their
+        # own workspace, and a bare user id would let them sign out anyone on the server.
+        target = (
+            await session.execute(
+                text("SELECT 1 FROM users WHERE id = :id AND workspace_id = :ws"),
+                {"id": user_id, "ws": admin.workspace_id},
+            )
+        ).fetchone()
+        if target is None:
+            raise not_found("There is no such person here.")
         await session.execute(text("DELETE FROM sessions WHERE user_id = :id"), {"id": user_id})
         await audit_service.record(
             session,
@@ -415,8 +424,7 @@ async def revoke_sessions(
         )
 
         def disconnect() -> None:
-            for conn in hub.connections_for_user(user_id):
-                conn.close()
+            hub.close_users([user_id])
 
         after.add(disconnect)
     return OkOut()

@@ -11,10 +11,12 @@ there is a test that fails if it is removed.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..lib.errors import bad_request
 from ..schemas.models import Message
 from .serialize import MESSAGE_SELECT, to_message
 
@@ -31,8 +33,8 @@ class ParsedQuery:
     author: str | None = None
     channel: str | None = None
     has: str | None = None
-    before: str | None = None
-    after: str | None = None
+    before: datetime | None = None
+    after: datetime | None = None
 
 
 def parse_query(raw: str) -> ParsedQuery:
@@ -54,14 +56,31 @@ def parse_query(raw: str) -> ParsedQuery:
                 if value in ("link", "file"):
                     parsed.has = value
             case "before":
-                parsed.before = value
+                parsed.before = _day_start(value)
             case "after":
-                parsed.after = value
+                # Slack's `after:` excludes the named day, so the boundary is the
+                # start of the day after it.
+                parsed.after = _day_start(value) + timedelta(days=1)
             case _:
                 words.append(token)
 
     parsed.text = " ".join(words).strip()
     return parsed
+
+
+def _day_start(value: str) -> datetime:
+    """A date the SQL parameter will accept, refused as input rather than as a 500.
+
+    The value lands in `CAST(:x AS timestamptz)`, for which asyncpg insists on a real
+    datetime — a string here raised before the query even reached Postgres, so *every*
+    dated search was a `500 internal`, and a typo'd one doubly so. A caller's typo is
+    a 400 by contract.
+    """
+    try:
+        day = date.fromisoformat(value)
+    except ValueError:
+        raise bad_request(f"'{value}' is not a date. Use YYYY-MM-DD.") from None
+    return datetime(day.year, day.month, day.day, tzinfo=UTC)
 
 
 async def search(
@@ -72,8 +91,8 @@ async def search(
     query: str,
     author_id: str | None = None,
     channel_id: str | None = None,
-    before: str | None = None,
-    after: str | None = None,
+    before: datetime | None = None,
+    after: datetime | None = None,
     has: str | None = None,
     limit: int = 25,
 ) -> tuple[list[Message], int]:

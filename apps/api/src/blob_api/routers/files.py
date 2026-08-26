@@ -177,15 +177,25 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
             ).fetchone()
             if shared is None:
                 raise not_found("No such file.")
-            return RedirectResponse(presign_download(key, mime="image/png"), status_code=302)
+            return _redirect(presign_download(key, mime="image/png"))
 
     allowed = file.channel_member is not None if file.message_id else file.uploader_id == user.id
     if not allowed:
         raise not_found("No such file.")
 
-    return RedirectResponse(
-        presign_download(key, filename=file.filename, mime=file.mime), status_code=302
-    )
+    return _redirect(presign_download(key, filename=file.filename, mime=file.mime))
+
+
+def _redirect(url: str) -> RedirectResponse:
+    """The 302 itself is cacheable even though the presigned URL behind it expires.
+
+    A channel with twenty images re-requests every one of them on each visit without
+    this; `private` keeps a shared proxy from serving one person's authorization
+    decision to another.
+    """
+    response = RedirectResponse(url, status_code=302)
+    response.headers["Cache-Control"] = "private, max-age=300"
+    return response
 
 
 __all__ = ["router"]

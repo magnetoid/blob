@@ -181,19 +181,50 @@ def _deliver_presence(user_id: str, event: ServerEvent) -> None:
         conn.send(event)
 
 
-def is_user_online(user_id: str) -> bool:
-    return bool(_by_user.get(user_id))
-
-
-def focused_channels(user_id: str) -> set[str]:
-    """Which channel each of a user's connections is currently focused on."""
-    return {
-        conn.focused_channel_id for conn in _by_user.get(user_id, set()) if conn.focused_channel_id
-    }
-
-
 def connections_for_user(user_id: str) -> list[Connection]:
     return list(_by_user.get(user_id, set()))
+
+
+# ─── cross-process connection control ─────────────────────────────────────────
+#
+# Events already traverse the Redis bridge, but a Connection's *subscriptions* are
+# process-local state — and a membership change is decided by whichever process took
+# the REST call, which is not necessarily the process holding the socket. These three
+# apply locally and relay the same instruction to every sibling, so "a second container
+# needs no code change" is true of joins, leaves and revocations, not just of events.
+
+
+def subscribe_users(user_ids: list[str], channel_ids: list[str]) -> None:
+    """Attach these users' live connections to channels — here and on every sibling."""
+    _control({"op": "subscribe", "userIds": user_ids, "channelIds": channel_ids})
+
+
+def unsubscribe_users(user_ids: list[str], channel_ids: list[str]) -> None:
+    _control({"op": "unsubscribe", "userIds": user_ids, "channelIds": channel_ids})
+
+
+def close_users(user_ids: list[str]) -> None:
+    """Drop every connection these users hold — a revocation must reach all processes."""
+    _control({"op": "close", "userIds": user_ids})
+
+
+def _control(control: dict[str, Any]) -> None:
+    _apply_control(control)
+    _publish({"origin": PROCESS_ID, "control": control})
+
+
+def _apply_control(control: dict[str, Any]) -> None:
+    op = control.get("op")
+    channel_ids = [str(c) for c in control.get("channelIds", [])]
+    for user_id in control.get("userIds", []):
+        for conn in connections_for_user(str(user_id)):
+            if op == "subscribe":
+                subscribe_channels(conn, channel_ids)
+            elif op == "unsubscribe":
+                for channel_id in channel_ids:
+                    unsubscribe_channel(conn, channel_id)
+            elif op == "close":
+                conn.close()
 
 
 def stats(workspace_id: str) -> dict[str, int]:
@@ -299,6 +330,11 @@ async def start_redis_bridge() -> None:
                     except (ValueError, TypeError):
                         continue
                     if envelope.get("origin") == PROCESS_ID:
+                        continue
+
+                    control = envelope.get("control")
+                    if control:
+                        _apply_control(control)
                         continue
 
                     to = envelope.get("to", {})

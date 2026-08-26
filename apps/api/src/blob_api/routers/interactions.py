@@ -14,6 +14,7 @@ person's click hang.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from pydantic import Field
 from sqlalchemy import text
 
 from ..db.engine import transaction
@@ -21,6 +22,7 @@ from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, not_found
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
+from ..lib.redis import redis
 from ..plugins import events as plugin_events
 from ..plugins.blocks import action_ids_of
 from ..schemas.base import CamelModel
@@ -34,6 +36,10 @@ class InteractionInput(CamelModel):
     action_id: str
     #: What the element carried — a button's value, or the option a select chose.
     value: str = ""
+    #: Client-minted, so a double-click or an offline replay delivers one interaction,
+    #: not two — the same contract every other write in the API honours. Optional
+    #: because a bare curl is still a legitimate caller.
+    client_action_id: str | None = Field(default=None, max_length=64)
 
 
 class OkOut(CamelModel):
@@ -43,6 +49,8 @@ class OkOut(CamelModel):
 @router.post("/api/interactions", response_model=OkOut)
 async def interact(payload: InteractionInput, user: SessionUser = Depends(current_user)) -> OkOut:
     await consume("interaction", user.id)
+    if payload.client_action_id and not await _first_delivery(user.id, payload):
+        return OkOut()
 
     async with transaction() as (session, after):
         row = (
@@ -93,3 +101,18 @@ async def interact(payload: InteractionInput, user: SessionUser = Depends(curren
 
 
 __all__ = ["router"]
+
+
+async def _first_delivery(user_id: str, payload: InteractionInput) -> bool:
+    """True the first time this click is seen; fails open when Redis is away.
+
+    Interactions are fire-and-forget from the client's side, so the dedupe window only
+    needs to outlast a retry burst, not history.
+    """
+    key = (
+        f"interaction:{user_id}:{payload.message_id}:{payload.action_id}:{payload.client_action_id}"
+    )
+    try:
+        return bool(await redis.set(key, "1", nx=True, ex=300))
+    except Exception:
+        return True

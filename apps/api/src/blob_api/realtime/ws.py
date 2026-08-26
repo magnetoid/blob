@@ -65,6 +65,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     hub.subscribe_channels(conn, [row.channel_id for row in rows])
 
     conn.send({"t": "hello", "userId": user.id, "serverTime": _now_iso()})
+    await presence.track_connection(user.id, conn.id)
     await presence.mark_active(user.id)
 
     writer = asyncio.create_task(_writer(websocket, conn))
@@ -90,6 +91,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         # client's onclose fires and its existing reconnect-and-resync path runs.
         with contextlib.suppress(RuntimeError, WebSocketDisconnect):
             await websocket.close()
+        # Deregister before the offline check, or our own entry keeps us "online".
+        await presence.untrack_connection(user.id, conn.id)
         await presence.mark_offline(user.id)
 
 
@@ -126,6 +129,7 @@ async def _reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)
 
         if kind == "ping":
             conn.send({"t": "pong"})
+            await presence.refresh_connection(user.id, conn.id)
             await presence.mark_active(user.id)
 
         elif kind == "presence.sub":
@@ -157,6 +161,7 @@ async def _reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)
 
         elif kind == "channel.focus":
             conn.focused_channel_id = frame.get("channelId")
+            await presence.set_focus(user.id, conn.id, conn.focused_channel_id)
 
         if time.monotonic() - last_seen > DEAD_AFTER_SEC:
             return

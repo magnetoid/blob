@@ -83,9 +83,7 @@ async def create_channel(
                 hub.to_workspace(user.workspace_id, _channel_event("channel.created", channel))
             else:
                 hub.to_users(members, _channel_event("channel.created", channel))
-            for member_id in members:
-                for conn in hub.connections_for_user(member_id):
-                    hub.subscribe_channels(conn, [channel_id])
+            hub.subscribe_users(members, [channel_id])
 
         after.add(broadcast)
 
@@ -180,9 +178,9 @@ async def join_channel(channel_id: str, user: SessionUser = Depends(current_user
             hub.to_channel(
                 channel_id, {"t": "member.joined", "channelId": channel_id, "userId": user.id}
             )
-            # Existing sockets need to start receiving the channel's events.
-            for conn in hub.connections_for_user(user.id):
-                hub.subscribe_channels(conn, [channel_id])
+            # Existing sockets need to start receiving the channel's events —
+            # wherever they are held; the join may have landed on a sibling process.
+            hub.subscribe_users([user.id], [channel_id])
 
         after.add(broadcast)
 
@@ -201,8 +199,7 @@ async def leave_channel(channel_id: str, user: SessionUser = Depends(current_use
         await channel_service.leave(session, channel_id, user.id)
 
         def broadcast() -> None:
-            for conn in hub.connections_for_user(user.id):
-                hub.unsubscribe_channel(conn, channel_id)
+            hub.unsubscribe_users([user.id], [channel_id])
             hub.to_channel(
                 channel_id, {"t": "member.left", "channelId": channel_id, "userId": user.id}
             )
@@ -234,8 +231,7 @@ async def add_members(
                     channel_id,
                     {"t": "member.joined", "channelId": channel_id, "userId": member_id},
                 )
-                for conn in hub.connections_for_user(member_id):
-                    hub.subscribe_channels(conn, [channel_id])
+                hub.subscribe_users([member_id], [channel_id])
                 if view is not None:
                     hub.to_users([member_id], _channel_event("channel.created", view))
 
@@ -327,8 +323,7 @@ async def open_dm(payload: CreateDmInput, user: SessionUser = Depends(current_us
 
             def broadcast() -> None:
                 for member_id, view in views.items():
-                    for conn in hub.connections_for_user(member_id):
-                        hub.subscribe_channels(conn, [channel_id])
+                    hub.subscribe_users([member_id], [channel_id])
                     if view is not None:
                         hub.to_users([member_id], _channel_event("channel.created", view))
 

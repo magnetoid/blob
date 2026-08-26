@@ -77,6 +77,12 @@ class User(Base):
             unique=True,
             postgresql_where=text("bot_plugin_id IS NOT NULL"),
         ),
+        # Avatars resolve through the same /api/files/<key> lookup as attachments.
+        Index(
+            "users_avatar_key",
+            "avatar_key",
+            postgresql_where=text("avatar_key IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
@@ -428,6 +434,9 @@ class Attachment(Base):
         Index("attachments_message", "message_id"),
         # Sweeper target: uploads never bound to a message.
         Index("attachments_orphans", "created_at", postgresql_where=text("message_id IS NULL")),
+        # Every image in every channel renders as GET /api/files/<object_key>; without
+        # this the hottest read in the app is a sequential scan.
+        Index("attachments_object_key", "object_key"),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)

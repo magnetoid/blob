@@ -7,9 +7,10 @@ to that user, which is the change that cut Slack's presence traffic fivefold.
 
 from __future__ import annotations
 
-from typing import Literal
+from collections.abc import Awaitable
+from typing import Literal, cast
 
-from ..lib.redis import presence_key, redis, typing_key
+from ..lib.redis import focus_key, presence_conns_key, presence_key, redis, typing_key
 from . import hub
 from .protocol import TYPING_TTL_MS
 
@@ -17,6 +18,11 @@ PresenceState = Literal["active", "away", "offline"]
 
 #: Presence keys expire after two missed heartbeats.
 PRESENCE_TTL_SEC = 60
+
+#: The connection and focus registries outlive a heartbeat gap but not a dead process:
+#: refreshed on every ping, they expire on their own when a process crashes without
+#: unregistering — the cost of that crash is a user reading as online for this long.
+CONNS_TTL_SEC = 90
 
 
 async def mark_active(user_id: str) -> None:
@@ -34,11 +40,67 @@ async def mark_away(user_id: str) -> None:
 
 
 async def mark_offline(user_id: str) -> None:
-    """Called when a user's last connection drops."""
-    if hub.is_user_online(user_id):
+    """Called when a user's last local connection drops.
+
+    The liveness check reads the cross-process registry, not this process's tables: a
+    person with a socket on a sibling container is still online, and announcing them
+    offline because *this* process lost its copy was the multi-process bug.
+    """
+    # cast: redis-py types the sync and async clients with one signature.
+    if await cast("Awaitable[int]", redis.scard(presence_conns_key(user_id))) > 0:
         return
     await redis.delete(presence_key(user_id))
     _announce(user_id, "offline")
+
+
+# ─── the cross-process connection registry ────────────────────────────────────
+
+
+async def track_connection(user_id: str, conn_id: str) -> None:
+    async with redis.pipeline(transaction=False) as pipe:
+        pipe.sadd(presence_conns_key(user_id), conn_id)
+        pipe.expire(presence_conns_key(user_id), CONNS_TTL_SEC)
+        await pipe.execute()
+
+
+async def refresh_connection(user_id: str, conn_id: str) -> None:
+    """Keep the registries alive; called on every heartbeat.
+
+    Re-adds rather than merely re-expiring, so a connection that outlived a Redis
+    restart re-registers itself instead of staying invisible until it reconnects.
+    """
+    async with redis.pipeline(transaction=False) as pipe:
+        pipe.sadd(presence_conns_key(user_id), conn_id)
+        pipe.expire(presence_conns_key(user_id), CONNS_TTL_SEC)
+        pipe.expire(focus_key(user_id), CONNS_TTL_SEC)
+        await pipe.execute()
+
+
+async def untrack_connection(user_id: str, conn_id: str) -> None:
+    async with redis.pipeline(transaction=False) as pipe:
+        pipe.srem(presence_conns_key(user_id), conn_id)
+        pipe.hdel(focus_key(user_id), conn_id)
+        await pipe.execute()
+
+
+async def set_focus(user_id: str, conn_id: str, channel_id: str | None) -> None:
+    """Record which channel one connection is looking at, visible to every process.
+
+    The worker consults this to skip pushing at someone already reading the channel —
+    and the worker holds no sockets, which is why this cannot live in the hub.
+    """
+    async with redis.pipeline(transaction=False) as pipe:
+        if channel_id is None:
+            pipe.hdel(focus_key(user_id), conn_id)
+        else:
+            pipe.hset(focus_key(user_id), conn_id, channel_id)
+            pipe.expire(focus_key(user_id), CONNS_TTL_SEC)
+        await pipe.execute()
+
+
+async def focused_channels(user_id: str) -> set[str]:
+    """Every channel this user has on screen right now, on any device, any process."""
+    return set(await cast("Awaitable[list[str]]", redis.hvals(focus_key(user_id))))
 
 
 async def get_presence(user_ids: list[str]) -> dict[str, PresenceState]:

@@ -8,6 +8,7 @@ fetches a message the database hasn't committed yet.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager
 from typing import Any
@@ -51,6 +52,8 @@ def _register_codecs(dbapi_connection: Any, _record: Any) -> None:
     await_only(setup())
 
 
+log = logging.getLogger("blob.db.engine")
+
 SessionFactory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
 
 
@@ -64,8 +67,14 @@ class AfterCommit:
         self._callbacks.append(fn)
 
     def drain(self) -> None:
+        # Each callback is on its own. The write has already committed by the time
+        # these run, so a broadcast that raises must not turn a successful request
+        # into a 500 — and must not eat the broadcasts queued behind it.
         for fn in self._callbacks:
-            fn()
+            try:
+                fn()
+            except Exception:
+                log.exception("after-commit callback failed")
         self._callbacks.clear()
 
 

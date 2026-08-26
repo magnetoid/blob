@@ -544,8 +544,9 @@ async def incoming_webhook(token: str, payload: WebhookPostInput) -> OkOut:
             author_id=hook.created_by,
             kind="bot",
             body=body,
-            # Each webhook post is its own message; the idempotency key is per-call.
-            client_msg_id=f"hook-{new_id()}",
+            # A caller that supplies its own id can retry a timed-out POST safely;
+            # one that doesn't gets a fresh id, and each such call is its own message.
+            client_msg_id=f"hook-{payload.client_msg_id or new_id()}",
         )
         await session.execute(
             text("UPDATE webhooks SET last_used_at = now() WHERE id = :id"), {"id": hook.id}

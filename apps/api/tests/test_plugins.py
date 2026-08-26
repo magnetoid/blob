@@ -225,20 +225,33 @@ async def test_installing_is_audited(team: dict) -> None:
     "url",
     [
         "http://apps.example.com/hook",  # plain HTTP carries the payload in the clear
+        "ftp://apps.example.com/hook",
+        "not-a-url",
+    ],
+)
+async def test_a_malformed_request_url_is_refused_as_input(team: dict, url: str) -> None:
+    response = await team["owner"].post("/api/admin/plugins", {**APP, "requestUrl": url})
+    assert response.status == 400, url
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
         "https://127.0.0.1/hook",
         "https://localhost/hook",
         "https://10.0.0.5/hook",
         "https://192.168.1.1/hook",
         "https://169.254.169.254/latest/meta-data/",  # the cloud metadata endpoint
         "https://[::1]/hook",
-        "ftp://apps.example.com/hook",
-        "not-a-url",
     ],
 )
-async def test_a_request_url_pointing_inward_is_refused(team: dict, url: str) -> None:
+async def test_a_private_address_is_a_policy_refusal_not_a_typo(team: dict, url: str) -> None:
+    # These URLs are perfectly well-formed; what stands in their way is the server
+    # administrator's setting. Reporting them as "not a valid URL" sent the admin to
+    # fix the wrong thing, and the client branches on the code.
     response = await team["owner"].post("/api/admin/plugins", {**APP, "requestUrl": url})
-    assert response.status == 400, url
-    assert response.body["error"]["code"] in {"bad_request_url", "url_required"}
+    assert response.status == 403, url
+    assert response.body["error"]["code"] == "policy_forbidden"
 
 
 async def test_a_local_plugin_cannot_be_installed_over_http(team: dict) -> None:

@@ -215,3 +215,48 @@ class TestHealth:
         # Whole-server totals told an ordinary workspace admin another tenant's message
         # and upload rate, and that other tenants existed at all.
         assert after == before, f"{after} != {before}: another workspace's messages counted"
+
+
+class TestSessionRevocation:
+    async def test_an_admin_cannot_revoke_another_workspaces_sessions(
+        self, two_workspaces: dict
+    ) -> None:
+        # The route's DELETE found sessions by user id alone, so an admin holding any
+        # user id — and ids ride in every message payload — could sign that account out
+        # of every device on the server, with the audit row landing in the *attacker's*
+        # workspace where the victim would never see it.
+        owner = two_workspaces["owner"]
+        foreign = two_workspaces["foreign_user_id"]
+
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO sessions (id, user_id, token_hash, expires_at)
+                    VALUES (gen_random_uuid(), :user_id, :hash, now() + interval '1 day')
+                    """
+                ),
+                {"user_id": foreign, "hash": "isolation-test-hash"},
+            )
+
+        response = await owner.post(f"/api/admin/users/{foreign}/revoke-sessions")
+        assert response.status == 404, response.body
+
+        async with SessionFactory() as session:
+            survived = (
+                await session.execute(
+                    text("SELECT count(*) AS n FROM sessions WHERE user_id = :id"),
+                    {"id": foreign},
+                )
+            ).scalar_one()
+        assert survived == 1, "the foreign user's session should have survived"
+
+    async def test_revoking_within_the_workspace_still_works(self, two_workspaces: dict) -> None:
+        owner = two_workspaces["owner"]
+        member = two_workspaces["member"]
+
+        response = await owner.post(f"/api/admin/users/{member.user_id}/revoke-sessions")
+        assert response.status == 200, response.body
+
+        # The member's cookie is dead; the next request bounces.
+        assert (await member.get("/api/bootstrap")).status == 401

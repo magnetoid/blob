@@ -30,7 +30,7 @@ from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, require_admin
 from ..lib.errors import AppError, bad_request, not_found
-from ..lib.net import check_outbound_url
+from ..lib import net
 from ..plugins import gateway, registry, runner
 from ..plugins.env import RESERVED_NAMES as RESERVED_ENV_NAMES
 from ..plugins.env import RESERVED_PREFIX, validate_env
@@ -406,9 +406,17 @@ async def _assert_reachable(url: str | None, policy: policy_service.Policy) -> N
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
             raise bad_request("That is not a valid URL.", code="bad_request_url")
         return
-    reason = await check_outbound_url(url, require_https=True)
-    if reason:
-        raise bad_request(reason, code="bad_request_url")
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise bad_request("The URL must start with https://.", code="bad_request_url")
+    if not parsed.hostname:
+        raise bad_request("The URL needs a hostname.", code="bad_request_url")
+    if await net.is_private_host(parsed.hostname):
+        # A private address here is not a malformed URL — it is the thing the server
+        # administrator turned off. The client branches on the code, and telling an
+        # admin "that is not a valid URL" about a URL that is perfectly valid sent
+        # them to the wrong fix.
+        raise policy_service.refuse_private_endpoint()
 
 
 def _assert_scopes_allowed(policy: policy_service.Policy, scopes: list[str]) -> None:

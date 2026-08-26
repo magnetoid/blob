@@ -118,8 +118,7 @@ async def run_command(
             if result.left_channel:
                 # Unsubscribe first: the member.left that follows is for the people still
                 # in the channel, and this connection is no longer one of them.
-                for conn in hub.connections_for_user(user.id):
-                    hub.unsubscribe_channel(conn, channel_id)
+                hub.unsubscribe_users([user.id], [channel_id])
                 hub.to_channel(
                     channel_id,
                     {"t": "member.left", "channelId": channel_id, "userId": user.id},

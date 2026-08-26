@@ -24,6 +24,16 @@ def presence_key(user_id: str) -> str:
     return f"presence:{user_id}"
 
 
+def presence_conns_key(user_id: str) -> str:
+    """The set of live connection ids a user holds, across every app process."""
+    return f"presence:conns:{user_id}"
+
+
+def focus_key(user_id: str) -> str:
+    """Hash of connection id -> the channel that connection is looking at."""
+    return f"focus:{user_id}"
+
+
 def typing_key(channel_id: str, user_id: str) -> str:
     return f"typing:{channel_id}:{user_id}"
 

@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import transaction
-from ..realtime import hub
+from ..realtime import presence
 from ..schemas.models import ReadStateOut
 from ..services import notify as notify_service
 from ..services import read_state as read_state_service
@@ -102,43 +102,58 @@ async def handle_notify(message_id: str) -> None:
         for user_id, state in zip(mention_ids, states, strict=False):
             after.add(_broadcast_later(user_id, state))
 
-        # Someone looking at this very channel has already seen it; don't push at them.
-        push_targets = [
-            d.user_id
-            for d in decisions
-            if message.channel_id not in hub.focused_channels(d.user_id)
-        ]
-        if push_targets and settings.push_enabled:
-            is_dm = message.channel_kind in ("dm", "group_dm")
-            title = (
-                (message.author_name or "New message")
-                if is_dm
-                else f"#{message.channel_name or 'channel'}"
-            )
-            prefix = f"{message.author_name}: " if message.author_name else ""
-            payload = {
-                "title": title,
-                "body": f"{prefix}{_preview(message.body)}",
-                "url": f"/c/{message.channel_id}",
-                "tag": message.channel_id,
-            }
+        subs: Sequence[Any] = []
+        if settings.push_enabled:
             subs = (
                 await session.execute(
                     text(
                         """
-                        SELECT id, endpoint, p256dh, auth FROM push_subscriptions
+                        SELECT id, user_id, endpoint, p256dh, auth FROM push_subscriptions
                          WHERE user_id = ANY(cast(:ids AS uuid[]))
                         """
                     ),
-                    {"ids": push_targets},
+                    {"ids": [d.user_id for d in decisions]},
                 )
             ).fetchall()
-            dead = await _send_push(subs, payload)
-            if dead:
-                await session.execute(
-                    text("DELETE FROM push_subscriptions WHERE id = ANY(cast(:ids AS uuid[]))"),
-                    {"ids": dead},
-                )
+
+    # The transaction above is closed on purpose: push is a fan-out of remote calls,
+    # and holding a Postgres connection open across them blocks vacuum and ties up the
+    # pool for however long the slowest push provider feels like taking.
+    if not subs:
+        return
+
+    # Someone looking at this very channel has already seen it; don't push at them.
+    # The focus registry lives in Redis because this code runs in the worker, which
+    # holds no sockets — the process-local answer here is always "nobody is looking".
+    targets = []
+    focused: dict[str, bool] = {}
+    for sub in subs:
+        user_id = str(sub.user_id)
+        if user_id not in focused:
+            focused[user_id] = message.channel_id in await presence.focused_channels(user_id)
+        if not focused[user_id]:
+            targets.append(sub)
+    if not targets:
+        return
+
+    is_dm = message.channel_kind in ("dm", "group_dm")
+    title = (
+        (message.author_name or "New message") if is_dm else f"#{message.channel_name or 'channel'}"
+    )
+    prefix = f"{message.author_name}: " if message.author_name else ""
+    payload = {
+        "title": title,
+        "body": f"{prefix}{_preview(message.body)}",
+        "url": f"/c/{message.channel_id}",
+        "tag": message.channel_id,
+    }
+    dead = await _send_push(targets, payload)
+    if dead:
+        async with transaction() as (session, _after):
+            await session.execute(
+                text("DELETE FROM push_subscriptions WHERE id = ANY(cast(:ids AS uuid[]))"),
+                {"ids": dead},
+            )
 
 
 async def _send_push(subs: Sequence[Any], payload: dict[str, Any]) -> list[str]:

@@ -282,3 +282,89 @@ def test_a_broadcast_stops_at_the_workspace_boundary() -> None:
 
     hub.unregister(insider)
     hub.unregister(outsider)
+
+
+class TestCrossProcess:
+    """The Redis bridge carries control frames, not just events.
+
+    A membership change is decided by whichever process took the REST call, which is
+    not necessarily the process holding the socket — before the control relay, a join
+    on process A left the socket on process B deaf to the new channel until reconnect.
+    """
+
+    async def test_a_relayed_subscribe_reaches_local_connections(self, team: dict) -> None:
+        owner = team["owner"]
+        async with socket_for(owner) as ws:
+            await receive_until(ws, "hello")
+            conn = next(iter(hub.connections_for_user(owner.user_id)))
+
+            # What the bridge does with a sibling's envelope, minus the wire.
+            hub._apply_control(
+                {"op": "subscribe", "userIds": [owner.user_id], "channelIds": ["chan-relayed"]}
+            )
+            assert "chan-relayed" in conn.channel_ids
+
+            hub._apply_control(
+                {"op": "unsubscribe", "userIds": [owner.user_id], "channelIds": ["chan-relayed"]}
+            )
+            assert "chan-relayed" not in conn.channel_ids
+
+    async def test_a_relayed_close_drops_the_connection(self, team: dict) -> None:
+        owner = team["owner"]
+        async with socket_for(owner) as ws:
+            await receive_until(ws, "hello")
+            conn = next(iter(hub.connections_for_user(owner.user_id)))
+            hub._apply_control({"op": "close", "userIds": [owner.user_id]})
+            assert conn.closed
+
+    async def test_subscribe_users_applies_locally_and_publishes(self, team: dict) -> None:
+        owner = team["owner"]
+        async with socket_for(owner) as ws:
+            await receive_until(ws, "hello")
+            conn = next(iter(hub.connections_for_user(owner.user_id)))
+            hub.subscribe_users([owner.user_id], ["chan-direct"])
+            assert "chan-direct" in conn.channel_ids
+
+
+class TestPresenceRegistry:
+    async def test_a_sibling_processes_connection_keeps_a_user_online(self, team: dict) -> None:
+        # A user with sockets on two processes was announced offline the moment either
+        # one dropped, because the liveness check read this process's tables.
+        from blob_api.lib.redis import presence_conns_key, redis
+        from blob_api.realtime import presence
+
+        owner = team["owner"]
+        await redis.delete(presence_conns_key(owner.user_id))
+        await presence.track_connection(owner.user_id, "conn-on-sibling")
+        await presence.track_connection(owner.user_id, "conn-here")
+
+        await presence.untrack_connection(owner.user_id, "conn-here")
+        await presence.mark_active(owner.user_id)  # seed a presence key
+        await presence.mark_offline(owner.user_id)
+
+        from blob_api.lib.redis import presence_key
+
+        # The sibling's entry held the door: presence survives.
+        assert await redis.get(presence_key(owner.user_id)) == "active"
+
+        await presence.untrack_connection(owner.user_id, "conn-on-sibling")
+        await presence.mark_offline(owner.user_id)
+        assert await redis.get(presence_key(owner.user_id)) is None
+
+    async def test_the_focus_registry_answers_across_processes(self, team: dict) -> None:
+        # The worker consults this to skip pushing at someone already reading the
+        # channel; before it lived in Redis the worker's answer was always "nobody".
+        from blob_api.lib.redis import focus_key, redis
+        from blob_api.realtime import presence
+
+        owner = team["owner"]
+        await redis.delete(focus_key(owner.user_id))
+        await presence.set_focus(owner.user_id, "conn-a", "chan-1")
+        await presence.set_focus(owner.user_id, "conn-b", "chan-2")
+        assert await presence.focused_channels(owner.user_id) == {"chan-1", "chan-2"}
+
+        await presence.set_focus(owner.user_id, "conn-a", None)
+        assert await presence.focused_channels(owner.user_id) == {"chan-2"}
+
+        await presence.untrack_connection(owner.user_id, "conn-b")
+        assert await presence.focused_channels(owner.user_id) == set()

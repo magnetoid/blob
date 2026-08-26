@@ -288,30 +288,41 @@ async def find_or_create_dm(
         return existing.id, False
 
     channel_id = new_id()
-    await session.execute(
-        text(
-            """
-            INSERT INTO channels (id, workspace_id, kind, dm_key, created_by)
-            VALUES (:id, :ws, :kind, :key, :created_by)
-            ON CONFLICT (workspace_id, dm_key) WHERE dm_key IS NOT NULL DO NOTHING
-            """
-        ),
-        {
-            "id": channel_id,
-            "ws": workspace_id,
-            "kind": kind,
-            "key": key,
-            "created_by": members[0],
-        },
-    )
-    await add_members(session, channel_id, members)
-
-    # Another request may have won the race; re-read to get the surviving row.
-    row = (
+    inserted = (
         await session.execute(
-            text("SELECT id FROM channels WHERE workspace_id = :ws AND dm_key = :key"),
-            {"ws": workspace_id, "key": key},
+            text(
+                """
+                INSERT INTO channels (id, workspace_id, kind, dm_key, created_by)
+                VALUES (:id, :ws, :kind, :key, :created_by)
+                ON CONFLICT (workspace_id, dm_key) WHERE dm_key IS NOT NULL DO NOTHING
+                RETURNING id
+                """
+            ),
+            {
+                "id": channel_id,
+                "ws": workspace_id,
+                "kind": kind,
+                "key": key,
+                "created_by": members[0],
+            },
         )
     ).fetchone()
-    surviving = row.id if row else channel_id
-    return surviving, surviving == channel_id
+
+    if inserted is None:
+        # Another request won the race between our SELECT and our INSERT. Resolve the
+        # winner *before* touching membership: adding members to the id we minted —
+        # which the old code did — hit a channel row that does not exist, and surfaced
+        # to the person as a baffling "One of those people is unavailable."
+        row = (
+            await session.execute(
+                text("SELECT id FROM channels WHERE workspace_id = :ws AND dm_key = :key"),
+                {"ws": workspace_id, "key": key},
+            )
+        ).fetchone()
+        if row is None:
+            # The winner rolled back after beating us; the field is clear again.
+            return await find_or_create_dm(session, workspace_id, user_ids)
+        return row.id, False
+
+    await add_members(session, channel_id, members)
+    return channel_id, True

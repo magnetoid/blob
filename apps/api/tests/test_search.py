@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 import pytest_asyncio
 
@@ -45,7 +47,7 @@ async def team(client: Client) -> dict:
         ("in:#eng deploy", {"text": "deploy", "channel": "eng"}),
         ("has:link deploy", {"text": "deploy", "has": "link"}),
         ("has:nonsense deploy", {"text": "deploy"}),
-        ("before:2026-01-01 deploy", {"text": "deploy", "before": "2026-01-01"}),
+        ("before:2026-01-01 deploy", {"text": "deploy", "before": datetime(2026, 1, 1, tzinfo=UTC)}),
         ("weird:thing deploy", {"text": "weird:thing deploy"}),
     ],
 )
@@ -134,3 +136,17 @@ async def test_sync_without_cursors_replays_nothing(team: dict) -> None:
     assert response.body["messages"] == []
     # It still returns the channel list, which is how the client refreshes its sidebar.
     assert len(response.body["channels"]) > 0
+
+
+class TestDateModifiers:
+    async def test_a_bad_date_is_refused_as_input(self, team: dict) -> None:
+        # `before:` lands in a `CAST(:x AS timestamptz)`; anything Postgres cannot
+        # parse there was an asyncpg DataError, which the catch-all made a 500. The
+        # contract says a caller's typo is a 400.
+        response = await team["owner"].get("/api/search?q=before:tuesday")
+        assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "bad_request"
+
+    async def test_a_real_date_still_narrows(self, team: dict) -> None:
+        response = await team["owner"].get("/api/search?q=pineapple after:2020-01-01")
+        assert response.status == 200, response.body

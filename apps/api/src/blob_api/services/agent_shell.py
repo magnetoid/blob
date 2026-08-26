@@ -50,7 +50,12 @@ async def resolve(actor: Actor, plugin_id: str) -> Target:
 
     async with session_scope() as session:
         plugin = await registry.by_id(session, plugin_id, actor.workspace_id)
-        policy = await policy_service.effective_for(session, actor.workspace_id)
+        # `stored_for`, not `effective_for`, for the same reason `from-repo` reads it:
+        # the environment ceiling for the terminal is the AGENT_SHELL settings, and
+        # `current_shell()` above already refused with the message that names the
+        # missing half. Folding in the *runner* ceiling here would tell an operator
+        # whose agent is already running "ask an administrator" — who is them.
+        policy = await policy_service.stored_for(session, actor.workspace_id)
 
     if not policy.may_host_agents:
         # The capability that governs deploying an agent governs getting inside one. They

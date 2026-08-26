@@ -1,12 +1,21 @@
-"""Sliding-window rate limiting in Redis using sorted sets."""
+"""Sliding-window rate limiting in Redis using sorted sets.
+
+The limiter fails open: when Redis is unreachable the request proceeds unlimited
+rather than erroring. A guard must never become the outage — a Redis blip that
+500s every message send, login and search would take the workspace down to protect
+it from load it is not receiving.
+"""
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import NamedTuple
 
 from .errors import too_many_requests
 from .redis import rate_key, redis
+
+log = logging.getLogger(__name__)
 
 
 class Limit(NamedTuple):
@@ -46,13 +55,19 @@ async def consume(name: str, subject: str) -> None:
     now_ns = time.time_ns()
     window_start = now - limit.window_sec
 
-    async with redis.pipeline(transaction=True) as pipe:
-        pipe.zremrangebyscore(key, 0, window_start)
-        pipe.zcard(key)
-        pipe.zadd(key, {str(now_ns): now})
-        pipe.expire(key, limit.window_sec)
-        results = await pipe.execute()
+    try:
+        async with redis.pipeline(transaction=True) as pipe:
+            pipe.zremrangebyscore(key, 0, window_start)
+            pipe.zcard(key)
+            pipe.zadd(key, {str(now_ns): now})
+            pipe.expire(key, limit.window_sec)
+            results = await pipe.execute()
+        count = results[1]
+    except Exception:
+        # Fail open, the same posture as `queue.enqueue`: the limiter is a guard on
+        # the write path, not part of it, and its failure must stay its own.
+        log.warning("rate limiter unavailable; letting %s through", name, exc_info=True)
+        return
 
-    count = results[1]
     if count >= limit.max:
         raise too_many_requests("Too many attempts. Try again in a moment.")
