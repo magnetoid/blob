@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import type { Message } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
-import { showChannel } from '../../lib/navigation.ts';
+import { showMessage } from '../../lib/navigation.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { PinIcon } from '../../components/Icon.tsx';
 import { formatRelative } from './messageFormatting.ts';
@@ -86,7 +86,7 @@ export function SavedView() {
               <button
                 className="saved-body"
                 type="button"
-                onClick={() => void showChannel(message.channelId)}
+                onClick={() => void showMessage(message.id)}
               >
                 <div className="search-result-head">
                   <span className="search-result-author">

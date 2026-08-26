@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import type { Message } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
-import { navigate } from '../../lib/router.ts';
+import { showThread } from '../../lib/navigation.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { ReplyIcon } from '../../components/Icon.tsx';
 import { formatRelative } from './messageFormatting.ts';
@@ -24,8 +24,6 @@ import { formatRelative } from './messageFormatting.ts';
 export function ThreadsView() {
   const users = useStore((s) => s.users);
   const channels = useStore((s) => s.channels);
-  const openChannel = useStore((s) => s.openChannel);
-  const openThread = useStore((s) => s.openThread);
   const channelTitle = useStore((s) => s.channelTitle);
 
   const [threads, setThreads] = useState<Message[] | null>(null);
@@ -53,9 +51,7 @@ export function ThreadsView() {
   async function go(message: Message) {
     // Channel first: the thread panel renders beside the conversation, so opening the
     // thread without its channel would put a panel next to somebody else's channel.
-    await openChannel(message.channelId);
-    await openThread(message.id);
-    navigate('/');
+    await showThread(message.channelId, message.id);
   }
 
   return (

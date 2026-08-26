@@ -22,7 +22,7 @@ vi.mock('./api.ts', async (importOriginal) => {
 });
 
 vi.mock('./socket.ts', () => ({
-  socket: { send: vi.fn(), connect: vi.fn(), close: vi.fn(), onEvent: vi.fn(), onStatus: vi.fn() },
+  socket: { send: vi.fn(), sendControl: vi.fn(), connect: vi.fn(), close: vi.fn(), onEvent: vi.fn(), onStatus: vi.fn() },
 }));
 
 const { useStore } = await import('./store.ts');

@@ -9,6 +9,7 @@ import {
   isPersonalSection,
   navigate,
   parseRoute,
+  pathForChannel,
   pathForRoute,
   usePath,
 } from '../lib/router.ts';
@@ -27,7 +28,7 @@ import { TopBar } from '../features/shell/TopBar.tsx';
 import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
 import { ShortcutHelp } from '../components/ShortcutHelp.tsx';
 import { isTypingTarget, matchShortcut } from '../lib/shortcuts.ts';
-import { showMessage } from '../lib/navigation.ts';
+import { closeThread, showChannel, showMessage } from '../lib/navigation.ts';
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
@@ -103,20 +104,36 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   }, [permalinkId]);
   const permalinkFailure = permalinkError?.id === permalinkId ? permalinkError.message : null;
 
-  // Open something on arrival so the app never starts on an empty pane. Not while a
-  // permalink is resolving: that would race it and land on #general instead.
+  // The URL names a conversation; make the store agree. Interactions go the other way
+  // (navigation.ts navigates after opening), so this only acts on a *difference* —
+  // a deep link, a reload, or the Back button — and never double-fetches.
+  const routeChannelId = route.view === 'channel' ? route.channelId : null;
+  const routeThreadRootId = route.view === 'channel' ? (route.threadRootId ?? null) : null;
   useEffect(() => {
-    if (activeChannelId || route.view === 'permalink') return;
+    if (!routeChannelId) return;
+    const store = useStore.getState();
+    if (store.activeChannelId !== routeChannelId) void store.openChannel(routeChannelId);
+    if (store.activeThreadRootId !== routeThreadRootId) void store.openThread(routeThreadRootId);
+  }, [routeChannelId, routeThreadRootId]);
+
+  // Open something on arrival so the app never starts on an empty pane. Not while a
+  // permalink is resolving: that would race it and land on #general instead. The URL
+  // is rewritten to the channel's real address, so a reload comes back here.
+  useEffect(() => {
+    if (activeChannelId || route.view !== 'messages') return;
     const first =
       Object.values(channels).find((c) => c.name === 'general' && c.membership) ??
       Object.values(channels).find((c) => c.membership);
-    if (first) void openChannel(first.id);
+    if (first) {
+      void openChannel(first.id);
+      navigate(pathForChannel(first.id), { replace: true });
+    }
   }, [channels, activeChannelId, openChannel, route.view]);
 
   // Presence is push-on-subscribe: tell the server whose dots we're showing.
   useEffect(() => {
     const userIds = Object.keys(users);
-    if (userIds.length > 0) socket.send({ t: 'presence.sub', userIds });
+    if (userIds.length > 0) socket.sendControl({ t: 'presence.sub', userIds });
   }, [users]);
 
   // Every binding comes from `lib/shortcuts`, which is also what ⌘/ renders — so the
@@ -148,7 +165,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         case 'next-unread': {
           event.preventDefault();
           const next = nextUnreadChannelId(channels, activeChannelId);
-          if (next) void openChannel(next);
+          if (next) void showChannel(next);
           return;
         }
         case 'edit-last':
@@ -162,7 +179,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           if (helpOpen) setHelpOpen(false);
           else if (feedbackOpen) setFeedbackOpen(false);
           else if (paletteOpen) setPaletteOpen(false);
-          else if (activeThreadRootId) void openThread(null);
+          else if (activeThreadRootId) closeThread();
           return;
       }
     }
@@ -180,7 +197,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   ]);
 
   // The thread panel belongs to the conversation view only.
-  const panelOpen = view === 'messages' && Boolean(activeThreadRootId);
+  const panelOpen = (view === 'messages' || view === 'channel') && Boolean(activeThreadRootId);
 
   // Administration takes the whole window. The rail and channel list are navigation for
   // a conversation, and none of it helps someone reading an audit log. What does stay is
@@ -239,7 +256,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           </div>
         </div>
       )}
-      {view === 'messages' && <ChannelView />}
+      {(view === 'messages' || view === 'channel') && <ChannelView />}
       {view === 'threads' && <ThreadsView />}
       {view === 'saved' && <SavedView />}
       {view === 'changelog' && <WhatsNewView />}

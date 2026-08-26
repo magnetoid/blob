@@ -22,6 +22,9 @@ interface Props {
   unreadAfterId: string | null;
   emptyState?: React.ReactNode;
   inThread?: boolean;
+  /** The last fetch failed; offer a retry instead of claiming the channel is new. */
+  error?: boolean;
+  onRetry?: () => void;
 }
 
 /** Within this many pixels of the bottom counts as "at the bottom". */
@@ -36,6 +39,8 @@ export function MessageList({
   unreadAfterId,
   emptyState,
   inThread = false,
+  error = false,
+  onRetry,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const wasAtBottom = useRef(true);
@@ -125,12 +130,48 @@ export function MessageList({
     return () => node.removeEventListener("scroll", onScroll);
   }, [hasMore, loading, onLoadOlder]);
 
-  if (messages.length === 0 && emptyState) {
-    return (
-      <div className="message-list" ref={scrollRef}>
-        {emptyState}
-      </div>
-    );
+  if (messages.length === 0) {
+    if (error) {
+      return (
+        <div className="message-list" ref={scrollRef}>
+          <div className="empty-state">
+            <div className="empty-state-title">Couldn’t load messages</div>
+            <div className="empty-state-body">The server didn’t answer. Nothing is lost.</div>
+            {onRetry && (
+              <button type="button" className="btn btn-primary" onClick={onRetry}>
+                Try again
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+    if (loading) {
+      // A skeleton, not the empty state: "This is the start of #channel" is a claim
+      // about history, and while the fetch is in flight nobody knows yet.
+      return (
+        <div className="message-list" ref={scrollRef} aria-busy="true">
+          <div className="message-skeleton">
+            {[72, 55, 84, 40, 66].map((width, index) => (
+              <div key={index} className="message-skeleton-row">
+                <span className="message-skeleton-avatar" />
+                <span className="message-skeleton-lines">
+                  <span className="message-skeleton-line" style={{ width: "120px" }} />
+                  <span className="message-skeleton-line" style={{ width: `${width}%` }} />
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (emptyState) {
+      return (
+        <div className="message-list" ref={scrollRef}>
+          {emptyState}
+        </div>
+      );
+    }
   }
 
   return (

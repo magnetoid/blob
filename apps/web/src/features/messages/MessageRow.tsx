@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import type { CustomEmoji, Message, MessageTranslation } from "@blob/shared";
 import { ApiError, api } from "../../lib/api.ts";
+import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { permalinkFor } from "../../lib/navigation.ts";
 import { useMentionIndex } from "./mentionIndex.ts";
@@ -271,6 +272,13 @@ export const MessageRow = memo(function MessageRow({
   return (
     <article
       className="message"
+      // Focusable so the hover toolbar is reachable without a mouse: the reveal rule
+      // is :focus-within, and a plain-text message contains nothing focusable — so
+      // without a tab stop on the row itself, react/reply/menu simply did not exist
+      // for a keyboard user. The lint rule guards against *meaningless* tab stops;
+      // this one is the only route to three actions.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+      tabIndex={0}
       // The anchor the pinned panel jumps to. An attribute rather than an `id`, because
       // the same message can render in the list and in a thread at once and duplicate
       // ids would make `getElementById` pick whichever the DOM happened to hold first.
@@ -314,7 +322,14 @@ export const MessageRow = memo(function MessageRow({
               event.preventDefault();
               const trimmed = draft.trim();
               if (!trimmed) return;
-              await api.messages.edit(message.id, trimmed);
+              try {
+                await api.messages.edit(message.id, trimmed);
+              } catch (err) {
+                // Keep the editor open with the text intact; closing it would
+                // discard the words along with the failure.
+                showError(err);
+                return;
+              }
               setEditing(false);
             }}
             style={{
@@ -530,7 +545,7 @@ export const MessageRow = memo(function MessageRow({
                     : false
                 }
                 type="button"
-                onClick={() => void toggleReaction(message, reaction.emoji)}
+                onClick={() => void toggleReaction(message, reaction.emoji).catch(showError)}
                 title={reaction.userIds
                   .map((id) => users[id]?.displayName ?? "Someone")
                   .join(", ")}
@@ -572,7 +587,7 @@ export const MessageRow = memo(function MessageRow({
               className="message-action"
               data-emoji="true"
               type="button"
-              onClick={() => void toggleReaction(message, emoji)}
+              onClick={() => void toggleReaction(message, emoji).catch(showError)}
               title={`React ${emoji}`}
             >
               {emoji}
@@ -596,7 +611,7 @@ export const MessageRow = memo(function MessageRow({
                 onClose={() => setPickerOpen(false)}
                 onPick={(value) => {
                   setPickerOpen(false);
-                  void toggleReaction(message, value);
+                  void toggleReaction(message, value).catch(showError);
                 }}
               />
             )}
@@ -666,7 +681,7 @@ export const MessageRow = memo(function MessageRow({
                     type="button"
                     onClick={() => {
                       setMenuOpen(false);
-                      void markUnread(message.channelId, message.id);
+                      void markUnread(message.channelId, message.id).catch(showError);
                     }}
                   >
                     Mark unread
@@ -680,7 +695,7 @@ export const MessageRow = memo(function MessageRow({
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
-                    void toggleSaved(message.id);
+                    void toggleSaved(message.id).catch(showError);
                   }}
                 >
                   {saved ? "Remove from later" : "Save for later"}
@@ -690,10 +705,9 @@ export const MessageRow = memo(function MessageRow({
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
-                    void api.messages.pin(
-                      message.id,
-                      message.pinnedAt === null,
-                    );
+                    void api.messages
+                      .pin(message.id, message.pinnedAt === null)
+                      .catch(showError);
                   }}
                 >
                   {message.pinnedAt ? "Unpin" : "Pin to channel"}
@@ -717,7 +731,7 @@ export const MessageRow = memo(function MessageRow({
                     onClick={() => {
                       setMenuOpen(false);
                       if (confirm("Delete this message?"))
-                        void api.messages.remove(message.id);
+                        void api.messages.remove(message.id).catch(showError);
                     }}
                   >
                     Delete message

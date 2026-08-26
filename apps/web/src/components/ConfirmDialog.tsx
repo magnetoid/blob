@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef } from "react";
+import { trapFocus } from "../lib/focusTrap.ts";
 
 export function ConfirmDialog({
   title,
@@ -45,6 +46,9 @@ export function ConfirmDialog({
   useEffect(() => {
     dialogRef.current?.focus();
   }, []);
+
+  // After the deliberate self-focus above, so the trap keeps rather than moves it.
+  useEffect(() => trapFocus(dialogRef.current), []);
 
   return (
     <div

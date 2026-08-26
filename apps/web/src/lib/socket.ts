@@ -27,6 +27,15 @@ class Socket {
   private status: SocketStatus = 'offline';
   /** Fired after a reconnect so the app can fetch the delta it missed. */
   onReconnect: (() => void) | null = null;
+  /**
+   * The latest control frame of each kind, replayed on every open. A control frame
+   * declares desired state — "watch these users' presence", "I'm looking at this
+   * channel" — which the server keeps per *connection* and forgets with it. Sending
+   * such a frame before the socket opens used to silently drop it (`send` requires
+   * OPEN), and a reconnect started with an empty subscription set: presence dots were
+   * dead from the first render and froze for good after any network blip.
+   */
+  private controlFrames = new Map<string, ClientFrame>();
 
   connect(): void {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
@@ -44,6 +53,9 @@ class Socket {
       this.attempt = 0;
       this.setStatus('online');
       this.startHeartbeat();
+      // Restate desired state first, so the resync that follows finds the server
+      // already watching the right things.
+      for (const frame of this.controlFrames.values()) this.send(frame);
       if (reconnected) this.onReconnect?.();
     };
 
@@ -79,6 +91,13 @@ class Socket {
 
   send(frame: ClientFrame): void {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(frame));
+  }
+
+  /** Send now if possible, and again on every future open. For frames that declare
+   * state rather than report an event — the server holds them per connection. */
+  sendControl(frame: ClientFrame): void {
+    this.controlFrames.set(frame.t, frame);
+    this.send(frame);
   }
 
   subscribe(listener: Listener): () => void {

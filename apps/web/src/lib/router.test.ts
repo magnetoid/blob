@@ -8,6 +8,7 @@ import {
   pathForRoute,
   pathForView,
   type Route,
+  pathForChannel,
 } from './router.ts';
 
 describe('parseRoute', () => {
@@ -152,5 +153,39 @@ describe('pathForRoute', () => {
     expect(pathForView('admin')).toBe('/admin/users');
     expect(pathForView('workspace')).toBe('/workspace/general');
     expect(pathForView('messages')).toBe('/');
+  });
+});
+
+describe('channel routes', () => {
+  it('reads a channel address', () => {
+    expect(parseRoute('/c/abc-123')).toEqual({ view: 'channel', channelId: 'abc-123' });
+  });
+
+  it('reads a channel with an open thread', () => {
+    expect(parseRoute('/c/abc/t/root-9')).toEqual({
+      view: 'channel',
+      channelId: 'abc',
+      threadRootId: 'root-9',
+    });
+  });
+
+  it('round-trips through pathForRoute', () => {
+    for (const route of [
+      { view: 'channel', channelId: 'c1' } as const,
+      { view: 'channel', channelId: 'c1', threadRootId: 't1' } as const,
+    ]) {
+      expect(parseRoute(pathForRoute(route))).toEqual(route);
+    }
+  });
+
+  it('emits the same paths pathForChannel does', () => {
+    expect(pathForChannel('c1')).toBe('/c/c1');
+    expect(pathForChannel('c1', 't2')).toBe('/c/c1/t/t2');
+  });
+
+  it('a malformed channel path falls back to the conversation', () => {
+    expect(parseRoute('/c/')).toEqual({ view: 'messages' });
+    expect(parseRoute('/c/a/b')).toEqual({ view: 'messages' });
+    expect(parseRoute('/c/a/t/')).toEqual({ view: 'messages' });
   });
 });

@@ -96,7 +96,7 @@ export function TopBar({ onFeedback, view }: Props) {
       <nav className="topbar-nav" aria-label="Views">
         <button
           className="topbar-nav-btn"
-          aria-pressed={view === 'messages'}
+          aria-pressed={view === 'messages' || view === 'channel'}
           onClick={() => navigate(pathForView('messages'))}
           title="Messages"
         >

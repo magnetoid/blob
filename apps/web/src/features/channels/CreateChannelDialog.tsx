@@ -1,13 +1,17 @@
 /** Create a channel. */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { trapFocus } from "../../lib/focusTrap.ts";
 import { channelNameSchema } from "@blob/shared";
 import { api, ApiError } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
+import { showChannel } from "../../lib/navigation.ts";
 
 export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
-  const openChannel = useStore((s) => s.openChannel);
   const nameRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => trapFocus(dialogRef.current), []);
 
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
@@ -38,7 +42,7 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
       useStore.setState((s) => ({
         channels: { ...s.channels, [channel.id]: channel },
       }));
-      await openChannel(channel.id);
+      await showChannel(channel.id);
       onClose();
     } catch (err) {
       setError(
@@ -74,6 +78,7 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
       <form
         className="dialog"
         onSubmit={submit}
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Create a channel"

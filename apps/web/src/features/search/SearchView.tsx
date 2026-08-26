@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
-import { showChannel } from "../../lib/navigation.ts";
+import { showMessage } from "../../lib/navigation.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { SearchIcon } from "../../components/Icon.tsx";
 import { formatRelative } from "../messages/messageFormatting.ts";
@@ -30,6 +30,7 @@ export function SearchView() {
   const [results, setResults] = useState<Message[] | null>(null);
   const [total, setTotal] = useState(0);
   const [searching, setSearching] = useState(false);
+  const [failed, setFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function SearchView() {
         setResults(null);
         setTotal(0);
         setSearching(false);
+        setFailed(false);
         return;
       }
       setSearching(true);
@@ -51,9 +53,13 @@ export function SearchView() {
         const result = await api.search(term);
         setResults(result.messages);
         setTotal(result.total);
+        setFailed(false);
       } catch {
-        setResults([]);
+        // A failed request is not "no results" — telling someone nothing matched
+        // when the server errored sends them away believing the message is gone.
+        setResults(null);
         setTotal(0);
+        setFailed(true);
       } finally {
         setSearching(false);
       }
@@ -90,7 +96,15 @@ export function SearchView() {
       </div>
 
       <div className="search-results">
-        {results === null ? (
+        {failed ? (
+          <div className="empty-state">
+            <div className="empty-state-title">Search didn’t answer</div>
+            <div className="empty-state-body">
+              The server errored or couldn’t be reached — your messages are still
+              there. Adjust the query or try again in a moment.
+            </div>
+          </div>
+        ) : results === null ? (
           <div className="empty-state">
             <div className="empty-state-mark">
               <SearchIcon size={19} />
@@ -126,7 +140,7 @@ export function SearchView() {
                   key={message.id}
                   className="search-result"
                   type="button"
-                  onClick={() => void showChannel(message.channelId)}
+                  onClick={() => void showMessage(message.id)}
                 >
                   <Avatar user={author} size="lg" />
                   <div style={{ flex: 1, minWidth: 0 }}>

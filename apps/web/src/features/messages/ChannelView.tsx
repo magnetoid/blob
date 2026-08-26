@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "../../lib/store.ts";
 import { scrollToMessage } from "../../lib/navigation.ts";
 import { api } from "../../lib/api.ts";
+import { showThread } from "../../lib/navigation.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
 import {
@@ -35,7 +36,6 @@ export function ChannelView() {
   const unreadMarkers = useStore((s) => s.unreadMarkers);
   const loadOlder = useStore((s) => s.loadOlder);
   const openChannel = useStore((s) => s.openChannel);
-  const openThread = useStore((s) => s.openThread);
   const channelTitle = useStore((s) => s.channelTitle);
 
   const [pinsOpen, setPinsOpen] = useState(false);
@@ -88,8 +88,10 @@ export function ChannelView() {
   // when the list rendered once; now that it virtualises, the parent re-renders on
   // scroll, so the wasted work lands exactly where it is felt.
   const handleOpenThread = useCallback(
-    (rootId: string) => void openThread(rootId),
-    [openThread],
+    (rootId: string) => {
+      if (activeChannelId) void showThread(activeChannelId, rootId);
+    },
+    [activeChannelId],
   );
   const handleLoadOlder = useCallback(() => {
     if (activeChannelId) void loadOlder(activeChannelId);
@@ -294,6 +296,8 @@ export function ChannelView() {
         onLoadOlder={handleLoadOlder}
         onOpenThread={handleOpenThread}
         unreadAfterId={unreadMarkers[activeChannelId] ?? null}
+        error={messages?.error ?? false}
+        onRetry={() => void openChannel(activeChannelId)}
         emptyState={
           <div className="empty-state">
             <div className="empty-state-mark">{isDm ? "@" : "#"}</div>

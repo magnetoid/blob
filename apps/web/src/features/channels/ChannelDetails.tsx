@@ -11,7 +11,8 @@
  * arrives on the socket for anyone who needs to react to it.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { trapFocus } from '../../lib/focusTrap.ts';
 import type { ChannelWithState } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
@@ -26,6 +27,9 @@ interface Props {
 }
 
 export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => trapFocus(dialogRef.current), []);
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
 
@@ -127,6 +131,7 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
     >
       <div
         className="dialog"
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={`About #${channel.name}`}

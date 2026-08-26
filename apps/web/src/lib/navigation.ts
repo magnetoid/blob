@@ -13,7 +13,7 @@
  */
 
 import { api } from './api.ts';
-import { navigate } from './router.ts';
+import { navigate, pathForChannel } from './router.ts';
 import { useStore } from './store.ts';
 
 /** How long a jumped-to message stays highlighted. Matches the CSS animation. */
@@ -22,7 +22,22 @@ const FLASH_MS = 1600;
 /** Open a channel and show it — what a click on a channel, person or result means. */
 export async function showChannel(channelId: string): Promise<void> {
   await useStore.getState().openChannel(channelId);
-  navigate('/');
+  navigate(pathForChannel(channelId));
+}
+
+/** Open a thread beside its conversation, loading the conversation first if needed. */
+export async function showThread(channelId: string, rootId: string): Promise<void> {
+  const store = useStore.getState();
+  if (store.activeChannelId !== channelId) await store.openChannel(channelId);
+  await store.openThread(rootId);
+  navigate(pathForChannel(channelId, rootId));
+}
+
+/** Close the thread panel. A push, not a replace: Back reopens the thread. */
+export function closeThread(): void {
+  const store = useStore.getState();
+  void store.openThread(null);
+  if (store.activeChannelId) navigate(pathForChannel(store.activeChannelId));
 }
 
 /**
@@ -65,7 +80,7 @@ export async function showMessage(messageId: string): Promise<boolean> {
 
   await store.openChannel(message.channelId, message.threadRootId ?? message.id);
   if (message.threadRootId) await store.openThread(message.threadRootId);
-  navigate('/');
+  navigate(pathForChannel(message.channelId, message.threadRootId ?? undefined));
 
   return new Promise((resolve) => {
     let attempts = 0;

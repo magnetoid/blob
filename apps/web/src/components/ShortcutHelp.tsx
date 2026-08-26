@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { trapFocus } from '../lib/focusTrap.ts';
 import { describeKeys, groupedShortcuts, isMac } from '../lib/shortcuts.ts';
 
 export function ShortcutHelp({ onClose }: { onClose: () => void }) {
@@ -18,6 +19,8 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     dialogRef.current?.focus();
   }, []);
+
+  useEffect(() => trapFocus(dialogRef.current), []);
 
   return (
     <div

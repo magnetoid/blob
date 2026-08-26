@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { api } from '../../lib/api.ts';
+import { showError } from '../../lib/toasts.ts';
 import { navigate, parseRoute, usePath } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
 import { showChannel } from '../../lib/navigation.ts';
@@ -27,9 +28,6 @@ export function Sidebar({ onOpenSearch }: Props) {
   const presence = useStore((s) => s.presence);
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
-  const activeChannelId = useStore((s) => s.activeChannelId);
-  const channelTitle = useStore((s) => s.channelTitle);
-  const drafts = useStore((s) => s.drafts);
   const activeView = parseRoute(usePath()).view;
   const savedCount = useStore((s) => s.savedMessageIds.size);
 
@@ -63,44 +61,13 @@ export function Sidebar({ onOpenSearch }: Props) {
   const memberCount = Object.values(users).filter((u) => !u.deactivated).length;
 
   async function openDm(userId: string) {
-    const { channel } = await api.dms.open([userId]);
-    useStore.setState((s) => ({ channels: { ...s.channels, [channel.id]: channel } }));
-    await showChannel(channel.id);
-  }
-
-  function ChannelRow({ channel }: { channel: ChannelWithState }) {
-    const active = channel.id === activeChannelId;
-    const isDm = channel.kind === 'dm' || channel.kind === 'group_dm';
-    const otherId =
-      channel.kind === 'dm'
-        ? (channel.memberIds ?? []).find((id) => id !== currentUser?.id)
-        : undefined;
-
-    return (
-      <button
-        className="channel-row"
-        aria-current={active}
-        data-unread={channel.hasUnread && !active}
-        onClick={() => void showChannel(channel.id)}
-      >
-        {otherId ? (
-          <AvatarWithPresence user={users[otherId]} state={presence[otherId] ?? 'offline'} />
-        ) : (
-          <span className="channel-hash" aria-hidden="true">
-            {isDm ? '•' : '#'}
-          </span>
-        )}
-        <span className="channel-name">{channel.name ?? channelTitle(channel)}</span>
-        {/* A draft you cannot see is a draft you forget you left. Suppressed on the
-            channel you are looking at, where the text is already on screen. */}
-        {!active && channelHasDraft(drafts, channel.id) && (
-          <span className="channel-draft" title="You have an unsent draft here">
-            draft
-          </span>
-        )}
-        {channel.mentionCount > 0 && <span className="badge">{channel.mentionCount}</span>}
-      </button>
-    );
+    try {
+      const { channel } = await api.dms.open([userId]);
+      useStore.setState((s) => ({ channels: { ...s.channels, [channel.id]: channel } }));
+      await showChannel(channel.id);
+    } catch (err) {
+      showError(err);
+    }
   }
 
   return (
@@ -159,11 +126,15 @@ export function Sidebar({ onOpenSearch }: Props) {
                   key={channel.id}
                   className="channel-row"
                   onClick={async () => {
-                    const { channel: joinedChannel } = await api.channels.join(channel.id);
-                    useStore.setState((s) => ({
-                      channels: { ...s.channels, [joinedChannel.id]: joinedChannel },
-                    }));
-                    await showChannel(joinedChannel.id);
+                    try {
+                      const { channel: joinedChannel } = await api.channels.join(channel.id);
+                      useStore.setState((s) => ({
+                        channels: { ...s.channels, [joinedChannel.id]: joinedChannel },
+                      }));
+                      await showChannel(joinedChannel.id);
+                    } catch (err) {
+                      showError(err);
+                    }
                   }}
                 >
                   <span className="channel-hash" aria-hidden="true">
@@ -268,5 +239,53 @@ function WorkspaceMenu({ name, memberCount }: { name: string; memberCount: numbe
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * One row in the channel list. At module scope on purpose: defined inside `Sidebar`
+ * it was a brand-new component *type* on every render, so React unmounted and
+ * remounted every row on every presence tick and every draft keystroke. It reads its
+ * own store slices, so a presence flip re-renders rows rather than rebuilding them.
+ */
+function ChannelRow({ channel }: { channel: ChannelWithState }) {
+  const activeChannelId = useStore((s) => s.activeChannelId);
+  const currentUserId = useStore((s) => s.currentUser?.id ?? null);
+  const users = useStore((s) => s.users);
+  const presence = useStore((s) => s.presence);
+  const drafts = useStore((s) => s.drafts);
+  const channelTitle = useStore((s) => s.channelTitle);
+
+  const active = channel.id === activeChannelId;
+  const isDm = channel.kind === 'dm' || channel.kind === 'group_dm';
+  const otherId =
+    channel.kind === 'dm'
+      ? (channel.memberIds ?? []).find((id) => id !== currentUserId)
+      : undefined;
+
+  return (
+    <button
+      className="channel-row"
+      aria-current={active}
+      data-unread={channel.hasUnread && !active}
+      onClick={() => void showChannel(channel.id)}
+    >
+      {otherId ? (
+        <AvatarWithPresence user={users[otherId]} state={presence[otherId] ?? 'offline'} />
+      ) : (
+        <span className="channel-hash" aria-hidden="true">
+          {isDm ? '•' : '#'}
+        </span>
+      )}
+      <span className="channel-name">{channel.name ?? channelTitle(channel)}</span>
+      {/* A draft you cannot see is a draft you forget you left. Suppressed on the
+          channel you are looking at, where the text is already on screen. */}
+      {!active && channelHasDraft(drafts, channel.id) && (
+        <span className="channel-draft" title="You have an unsent draft here">
+          draft
+        </span>
+      )}
+      {channel.mentionCount > 0 && <span className="badge">{channel.mentionCount}</span>}
+    </button>
   );
 }

@@ -8,8 +8,10 @@ import { applyTheme, pickTheme } from '../lib/theme.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
 import { resetTokenFromUrl } from '../features/auth/tokens.ts';
 import { Workspace } from './Workspace.tsx';
+import { Toasts } from '../components/Toasts.tsx';
+import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
 
-type Phase = 'loading' | 'signed-out' | 'signed-in';
+type Phase = 'loading' | 'signed-out' | 'signed-in' | 'unreachable';
 
 export function App() {
   // Read once, before anything can navigate: a reset link has to win over a live
@@ -25,6 +27,7 @@ export function App() {
   const prefs = useStore((s) => s.currentUser?.prefs);
   const themes = useStore((s) => s.themes);
 
+  const [bootAttempt, setBootAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
 
@@ -42,7 +45,10 @@ export function App() {
           setNeedsSetup(state.needsSetup);
           setPhase('signed-out');
         } else {
-          setPhase('signed-out');
+          // A 500 or an unreachable server is not "signed out": showing the login
+          // form there invites credentials that will also fail, with no hint that
+          // the server is the problem.
+          setPhase('unreachable');
         }
       }
     })();
@@ -50,7 +56,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [boot]);
+  }, [boot, bootAttempt]);
 
   // Connect the socket only while signed in.
   useEffect(() => {
@@ -98,6 +104,30 @@ export function App() {
     );
   }
 
+  if (phase === 'unreachable') {
+    return (
+      <div className="auth">
+        <div className="auth-card">
+          <h1>Can’t reach the server</h1>
+          <p className="muted">
+            The workspace didn’t answer. It may be restarting, or something between you
+            and it may be down.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              setPhase('loading');
+              setBootAttempt((n) => n + 1);
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (phase === 'signed-out' || resetToken) {
     return (
       <AuthScreen
@@ -113,5 +143,10 @@ export function App() {
     );
   }
 
-  return <Workspace onSignedOut={() => setPhase('signed-out')} />;
+  return (
+    <ErrorBoundary>
+      <Workspace onSignedOut={() => setPhase('signed-out')} />
+      <Toasts />
+    </ErrorBoundary>
+  );
 }

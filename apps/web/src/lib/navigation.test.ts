@@ -35,7 +35,11 @@ vi.mock('./api.ts', async (importOriginal) => {
   };
 });
 
-vi.mock('./router.ts', () => ({ navigate: (p: string) => navigate(p) }));
+vi.mock('./router.ts', () => ({
+  navigate: (p: string) => navigate(p),
+  pathForChannel: (channelId: string, threadRootId?: string) =>
+    threadRootId ? `/c/${channelId}/t/${threadRootId}` : `/c/${channelId}`,
+}));
 
 vi.mock('./store.ts', () => ({
   useStore: { getState: () => ({ openChannel, openThread }) },
@@ -83,7 +87,7 @@ describe('showMessage', () => {
     getMessage.mockResolvedValueOnce({ message: message() });
     await showMessage('m1');
 
-    expect(calls).toEqual(['channel:c1@m1', 'navigate:/']);
+    expect(calls).toEqual(['channel:c1@m1', 'navigate:/c/c1']);
   });
 
   it('centres on the thread root for a reply, and opens the thread after the channel', async () => {
@@ -92,7 +96,7 @@ describe('showMessage', () => {
 
     // Around the *root*: the reply is not in channel history at all, so asking for a
     // window around it would centre on an id the query cannot see.
-    expect(calls).toEqual(['channel:c1@m1', 'thread:m1', 'navigate:/']);
+    expect(calls).toEqual(['channel:c1@m1', 'thread:m1', 'navigate:/c/c1/t/m1']);
   });
 
   it('reports that it could not reach the row rather than throwing', async () => {

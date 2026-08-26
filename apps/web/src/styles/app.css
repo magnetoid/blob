@@ -3639,3 +3639,108 @@ button.member-row:hover {
   background: none;
   padding: 0;
 }
+
+/* ─── toasts ─────────────────────────────────────────────────────────────── */
+
+.toast-stack {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 110; /* above dialogs: a failure notice must survive an open modal */
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline-popover);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-popover);
+  pointer-events: auto;
+}
+
+.toast-error {
+  border-color: var(--danger);
+}
+
+.toast-text {
+  font-size: var(--text-body);
+  line-height: 1.35;
+}
+
+.toast-dismiss {
+  border: 0;
+  background: none;
+  color: var(--text-4);
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.toast-dismiss:hover {
+  color: var(--text);
+}
+
+/* ─── loading skeleton ───────────────────────────────────────────────────── */
+
+.message-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px 20px;
+}
+
+.message-skeleton-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.message-skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--surface-hover);
+  flex: none;
+}
+
+.message-skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  padding-top: 3px;
+}
+
+.message-skeleton-line {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface-hover);
+  animation: skeleton-breathe 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-skeleton-line {
+    animation: none;
+  }
+}

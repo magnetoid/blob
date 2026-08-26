@@ -102,6 +102,8 @@ export const DEFAULT_ADMIN_SECTION: AdminSection = 'users';
 
 export type Route =
   | { view: 'messages' }
+  /** One conversation, addressable: /c/:channelId, optionally with an open thread. */
+  | { view: 'channel'; channelId: string; threadRootId?: string }
   | { view: 'threads' }
   | { view: 'saved' }
   | { view: 'changelog' }
@@ -118,6 +120,12 @@ export type View = Route['view'];
 export function parseRoute(path: string): Route {
   const clean = path.replace(/\/+$/, '') || '/';
 
+  const channel = clean.match(/^\/c\/([^/]+)(?:\/t\/([^/]+))?$/);
+  if (channel) {
+    return channel[2] !== undefined
+      ? { view: 'channel', channelId: channel[1] as string, threadRootId: channel[2] }
+      : { view: 'channel', channelId: channel[1] as string };
+  }
   if (clean === '/threads') return { view: 'threads' };
   if (clean === '/later') return { view: 'saved' };
   if (clean === '/whats-new') return { view: 'changelog' };
@@ -184,6 +192,8 @@ export function parseRoute(path: string): Route {
 /** The canonical path for a route. Round-trips with `parseRoute`. */
 export function pathForRoute(route: Route): string {
   switch (route.view) {
+    case 'channel':
+      return pathForChannel(route.channelId, route.threadRootId);
     case 'threads':
       return '/threads';
     case 'saved':
@@ -215,7 +225,12 @@ export function pathForRoute(route: Route): string {
  * A permalink carries a message id and is replaced by the conversation as soon as it is
  * followed, so there is no "go to the permalink view" for a button to mean.
  */
-export type StableView = Exclude<View, 'permalink'>;
+export type StableView = Exclude<View, 'permalink' | 'channel'>;
+
+/** The address of a conversation — what the sidebar, results and push payloads link. */
+export function pathForChannel(channelId: string, threadRootId?: string): string {
+  return threadRootId ? `/c/${channelId}/t/${threadRootId}` : `/c/${channelId}`;
+}
 
 export function pathForView(view: StableView): string {
   if (view === 'admin') return pathForRoute({ view, section: DEFAULT_ADMIN_SECTION });

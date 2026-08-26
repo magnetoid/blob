@@ -7,7 +7,9 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { trapFocus } from "../../lib/focusTrap.ts";
 import { api } from "../../lib/api.ts";
+import { showError } from '../../lib/toasts.ts';
 import { useStore } from "../../lib/store.ts";
 import { showChannel } from "../../lib/navigation.ts";
 import { Avatar } from "../../components/Avatar.tsx";
@@ -30,6 +32,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => trapFocus(dialogRef.current), []);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -110,11 +115,17 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   async function choose(item: Item | undefined) {
     if (!item) return;
     onClose();
+    // The palette is gone by the time the action settles; a failure after this line
+    // has no UI left to land in except a toast.
     // Channels and people go through `showChannel`, which navigates. That used to be a
     // special case here — the palette was the only place that had noticed opening a
     // channel from another view changed what was behind it and nothing else. The
     // sidebar and the search results had the same bug and no such line.
-    await item.run();
+    try {
+      await item.run();
+    } catch (err) {
+      showError(err);
+    }
   }
 
   return (
@@ -140,6 +151,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     >
       <div
         className="palette"
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Jump to"

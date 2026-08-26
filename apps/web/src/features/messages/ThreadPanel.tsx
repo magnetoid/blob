@@ -9,6 +9,7 @@ import type {
 } from "@blob/shared";
 import { ApiError, api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
+import { closeThread } from "../../lib/navigation.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
 import { CloseIcon, PlusIcon } from "../../components/Icon.tsx";
@@ -68,7 +69,6 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
   const channels = useStore((s) => s.channels);
   const currentUser = useStore((s) => s.currentUser);
   const users = useStore((s) => s.users);
-  const openThread = useStore((s) => s.openThread);
   const channelTitle = useStore((s) => s.channelTitle);
 
   const [summary, setSummary] = useState<ThreadSummary | null>(null);
@@ -267,7 +267,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
         </div>
         <button
           className="icon-btn"
-          onClick={() => void openThread(null)}
+          onClick={() => closeThread()}
           title="Close thread"
         >
           <CloseIcon size={15} />

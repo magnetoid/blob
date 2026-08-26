@@ -23,6 +23,7 @@ import type {
   UserPrefs,
 } from '@blob/shared';
 import { api } from './api.ts';
+import { showError } from './toasts.ts';
 import {
   draftKey,
   flushDrafts,
@@ -49,6 +50,8 @@ export interface ChannelMessages {
   loading: boolean;
   /** True once we've fetched at least one page. */
   loaded: boolean;
+  /** The last fetch failed; the view offers a retry instead of "start of #channel". */
+  error?: boolean;
 }
 
 interface State {
@@ -141,7 +144,19 @@ const emptyMessages = (): ChannelMessages => ({
   hasMore: true,
   loading: false,
   loaded: false,
+  error: false,
 });
+
+let resyncRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** One pending retry at a time, however many resyncs failed. */
+function scheduleResyncRetry(run: () => void): void {
+  if (resyncRetryTimer) return;
+  resyncRetryTimer = setTimeout(() => {
+    resyncRetryTimer = null;
+    run();
+  }, 5000);
+}
 
 /** Insert or replace a message, keeping the list sorted by id. */
 function upsert(items: Message[], message: Message): Message[] {
@@ -368,7 +383,7 @@ export const useStore = create<State>((set, get) => ({
         [channelId]: state.channels[channelId]?.lastReadMessageId ?? null,
       },
     });
-    socket.send({ t: 'channel.focus', channelId });
+    socket.sendControl({ t: 'channel.focus', channelId });
 
     // A permalink names a specific message, which is very often not on the newest page.
     // This has to run even when the channel is already loaded — that is the ordinary
@@ -378,10 +393,30 @@ export const useStore = create<State>((set, get) => ({
       set((s) => ({
         messages: {
           ...s.messages,
-          [channelId]: { ...(s.messages[channelId] ?? emptyMessages()), loading: true },
+          [channelId]: {
+            ...(s.messages[channelId] ?? emptyMessages()),
+            loading: true,
+            error: false,
+          },
         },
       }));
-      const { messages } = await api.messages.history(channelId, { around, limit: 50 });
+      let messages: Message[];
+      try {
+        ({ messages } = await api.messages.history(channelId, { around, limit: 50 }));
+      } catch (err) {
+        showError(err);
+        set((s) => ({
+          messages: {
+            ...s.messages,
+            [channelId]: {
+              ...(s.messages[channelId] ?? emptyMessages()),
+              loading: false,
+              error: true,
+            },
+          },
+        }));
+        return;
+      }
       set((s) => ({
         messages: {
           ...s.messages,
@@ -392,6 +427,7 @@ export const useStore = create<State>((set, get) => ({
             hasMore: true,
             loading: false,
             loaded: true,
+            error: false,
           },
         },
       }));
@@ -404,7 +440,22 @@ export const useStore = create<State>((set, get) => ({
       set((s) => ({
         messages: { ...s.messages, [channelId]: { ...emptyMessages(), loading: true } },
       }));
-      const { messages, hasMore } = await api.messages.history(channelId, { limit: 50 });
+      let messages: Message[];
+      let hasMore: boolean;
+      try {
+        ({ messages, hasMore } = await api.messages.history(channelId, { limit: 50 }));
+      } catch (err) {
+        // Without this, `loading` stuck at true forever and the empty state claimed
+        // "This is the start of #channel" about a channel full of history.
+        showError(err);
+        set((s) => ({
+          messages: {
+            ...s.messages,
+            [channelId]: { ...emptyMessages(), loading: false, error: true },
+          },
+        }));
+        return;
+      }
       set((s) => ({
         messages: {
           ...s.messages,
@@ -413,6 +464,7 @@ export const useStore = create<State>((set, get) => ({
             hasMore,
             loading: false,
             loaded: true,
+            error: false,
           },
         },
       }));
@@ -484,7 +536,16 @@ export const useStore = create<State>((set, get) => ({
   openThread: async (rootId) => {
     set({ activeThreadRootId: rootId });
     if (!rootId) return;
-    const { messages } = await api.messages.thread(rootId);
+    let messages: Message[];
+    try {
+      ({ messages } = await api.messages.thread(rootId));
+    } catch (err) {
+      // Close the panel rather than leave it open and blank: an empty panel with no
+      // words is indistinguishable from a thread with no replies.
+      showError(err);
+      set({ activeThreadRootId: null });
+      return;
+    }
     set((s) => ({
       threads: { ...s.threads, [rootId]: overlayThreadOutbox(s.currentUser, s.outbox, rootId, messages) },
     }));
@@ -889,7 +950,17 @@ export const useStore = create<State>((set, get) => ({
       if (newest) cursors[channelId] = newest.id;
     }
 
-    const result = await api.sync(cursors);
+    let result: Awaited<ReturnType<typeof api.sync>>;
+    try {
+      result = await api.sync(cursors);
+    } catch {
+      // The reconnect very often races the server coming back up, so a failed
+      // catch-up is ordinary. Queued sends still deserve their retry now; the
+      // catch-up itself retries shortly instead of silently never.
+      await get().flushOutbox();
+      scheduleResyncRetry(() => void get().resync());
+      return;
+    }
 
     set((s) => ({
       channels: Object.fromEntries(result.channels.map((c) => [c.id, c])),
@@ -909,7 +980,16 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setPrefs: async (prefs) => {
-    const { prefs: updated } = await api.me.prefs(prefs);
+    // Toasted here rather than at the dozen toggle call sites: a preference switch
+    // renders its on-state from the store, so a failed write leaves the control
+    // truthful — but only if somebody says the write failed.
+    let updated: UserPrefs;
+    try {
+      ({ prefs: updated } = await api.me.prefs(prefs));
+    } catch (err) {
+      showError(err);
+      return;
+    }
     set((s) => (s.currentUser ? { currentUser: { ...s.currentUser, prefs: updated } } : {}));
   },
 

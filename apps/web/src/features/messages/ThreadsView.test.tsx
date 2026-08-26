@@ -29,18 +29,27 @@ vi.mock('../../lib/api.ts', async (importOriginal) => {
   return { ...actual, api: { messages: { threads: () => threads() } } };
 });
 
-vi.mock('../../lib/router.ts', () => ({ navigate: (p: string) => navigate(p) }));
-
-vi.mock('../../lib/store.ts', () => ({
-  useStore: (select: (state: unknown) => unknown) =>
-    select({
-      users: { u1: { id: 'u1', displayName: 'Ana', avatarUrl: null } },
-      channels: { c1: { id: 'c1', name: 'eng', kind: 'public' } },
-      openChannel,
-      openThread,
-      channelTitle: () => 'eng',
-    }),
+vi.mock('../../lib/router.ts', () => ({
+  navigate: (p: string) => navigate(p),
+  pathForChannel: (channelId: string, threadRootId?: string) =>
+    threadRootId ? `/c/${channelId}/t/${threadRootId}` : `/c/${channelId}`,
 }));
+
+const storeState = {
+  users: { u1: { id: 'u1', displayName: 'Ana', avatarUrl: null } },
+  channels: { c1: { id: 'c1', name: 'eng', kind: 'public' } },
+  activeChannelId: null,
+  openChannel,
+  openThread,
+  channelTitle: () => 'eng',
+};
+
+vi.mock('../../lib/store.ts', () => {
+  const useStore = (select: (state: unknown) => unknown) => select(storeState);
+  // `showThread` goes through the store imperatively, the way navigation.ts does.
+  useStore.getState = () => storeState;
+  return { useStore };
+});
 
 const { ThreadsView } = await import('./ThreadsView.tsx');
 
@@ -94,7 +103,7 @@ describe('the threads list', () => {
     // The panel renders beside the conversation. Opening the thread first would put it
     // next to whichever channel was already active.
     await waitFor(() =>
-      expect(calls).toEqual(['channel:c1', 'thread:m1', 'navigate:/']),
+      expect(calls).toEqual(['channel:c1', 'thread:m1', 'navigate:/c/c1/t/m1']),
     );
   });
 

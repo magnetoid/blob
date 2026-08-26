@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { trapFocus } from "../../lib/focusTrap.ts";
 import { api } from "../../lib/api.ts";
 import {
   capturePageSnapshot,
@@ -29,6 +30,9 @@ const KINDS: { id: Kind; label: string; hint: string }[] = [
 
 export function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const titleRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => trapFocus(dialogRef.current), []);
   const [kind, setKind] = useState<Kind>("bug");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -106,6 +110,7 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
       <form
         className="dialog"
         onSubmit={submit}
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Send feedback"
