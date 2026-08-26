@@ -23,6 +23,8 @@ import pytest
 from blob_api.plugins import signing
 from blob_api.tools import agent_bridge
 
+from .test_agui import team  # noqa: F401 — a fixture, used by name
+
 
 @pytest.fixture
 def config(monkeypatch: pytest.MonkeyPatch) -> agent_bridge.Config:
@@ -236,3 +238,24 @@ def _answers_then_fails(
         raise RuntimeError("the stream died")
 
     _install(monkeypatch, bridge, fake)
+
+
+class TestServingTheBridge:
+    """The download an admin gets, so a laptop needs two commands rather than a checkout.
+
+    Serving the file is the difference between "install Blob on your desktop to run one
+    script" and a link. It is admin-only because it is served alongside the tokens it is
+    used with — not because the source is secret; it is in a public repository.
+    """
+
+    async def test_an_admin_gets_the_script(self, team: dict) -> None:  # noqa: F811
+        response = await team["owner"].get("/api/admin/plugins/bridge")
+
+        assert response.status == 200
+        body = response.body if isinstance(response.body, str) else ""
+        # The real file, not a placeholder: these are the two things a bridge must do.
+        assert "BLOB_BOT_TOKEN" in body
+        assert '"t": "done"' in body or '{"t": "done"' in body
+
+    async def test_a_member_does_not(self, team: dict) -> None:  # noqa: F811
+        assert (await team["member"].get("/api/admin/plugins/bridge")).status == 403

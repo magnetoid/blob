@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
 import { AgentDeployment } from "../AgentDeployment.tsx";
 import { ConnectAgentForm } from "../ConnectAgentForm.tsx";
+import { DesktopAgentSetup } from "../DesktopAgentSetup.tsx";
 import { DeployAgentForm } from "../DeployAgentForm.tsx";
 import { useAdminAction } from "../hooks.ts";
 import { AppSettings } from "./AppSettings.tsx";
@@ -57,6 +58,9 @@ function AppsList({
     pluginName: string;
     signingSecret?: string;
     botToken?: string;
+    //: Set for a socket agent, whose token is not just a credential to keep but the
+    //: thing you paste into the bridge. Only that path gets the setup instructions.
+    desktop?: boolean;
   } | null>(null);
   const [form, setForm] = useState({
     slug: "",
@@ -172,6 +176,13 @@ function AppsList({
           </div>
         )}
 
+        {secretNotice?.desktop && secretNotice.botToken && (
+          <DesktopAgentSetup
+            agentName={secretNotice.pluginName}
+            botToken={secretNotice.botToken}
+          />
+        )}
+
         <DeployAgentForm
           scopeCatalog={catalog?.scopes ?? {}}
           onError={onError}
@@ -188,7 +199,7 @@ function AppsList({
             // No signing secret: nothing is going to POST to this agent, so there is
             // nothing for it to verify. The token is both how it connects and how it
             // calls back.
-            setSecretNotice({ pluginName, botToken });
+            setSecretNotice({ pluginName, botToken, desktop: true });
             load();
           }}
         />

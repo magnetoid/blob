@@ -16,10 +16,12 @@ to the server. This endpoint registers external apps only.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import Field
 from sqlalchemy import text
 
@@ -39,6 +41,7 @@ from ..services import channels as channel_service
 from ..services import commands as command_service
 from ..services import policies as policy_service
 from ..services.audit import actor_for
+from ..tools import agent_bridge
 
 router = APIRouter(tags=["admin"], prefix="/api/admin/plugins")
 
@@ -227,6 +230,29 @@ async def _to_plugin(session: Any, row: Any) -> PluginOut:
         pending_deliveries=int(counts.pending if counts else 0),
         failed_deliveries=int(counts.failed if counts else 0),
     )
+
+
+@router.get("/bridge", response_class=PlainTextResponse)
+async def agent_bridge_source(_admin: SessionUser = Depends(require_admin)) -> str:
+    """The bridge script, so a desktop agent can be connected with two commands.
+
+    A socket agent needs a client holding the connection, and `tools/agent_bridge.py` is
+    it — but telling someone to clone this repo onto a laptop to run one file is a setup
+    step most people abandon. The file already ships inside the image, so serving it is
+    the difference between "install Blob on your desktop" and `curl`.
+
+    Read from disk on each request rather than cached: it is a few kilobytes, this is an
+    admin route nobody hits in a loop, and a stale copy served after an upgrade would be
+    a bridge speaking a protocol the server has moved past.
+
+    Admin-only, because it is served alongside the tokens it is used with — not because
+    the source is a secret. It is in a public repository.
+    """
+    source = Path(agent_bridge.__file__)
+    try:
+        return source.read_text(encoding="utf-8")
+    except OSError as error:  # pragma: no cover — only if the image is broken
+        raise not_found("The bridge script is not available on this server.") from error
 
 
 @router.get("/catalog", response_model=CatalogOut)

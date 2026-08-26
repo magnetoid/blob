@@ -3530,3 +3530,27 @@ button.member-row:hover {
   overflow-x: auto;
   white-space: pre;
 }
+
+/* The commands that connect a desktop agent.
+ *
+ * A block someone is going to select and paste, so it scrolls sideways rather than
+ * wrapping: a wrapped `export` line looks like two commands and pastes as one broken one.
+ */
+.admin-command-block {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-sunken, var(--bg));
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  user-select: all;
+}
+
+.admin-command-block code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  background: none;
+  padding: 0;
+}
