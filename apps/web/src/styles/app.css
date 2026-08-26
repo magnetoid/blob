@@ -272,7 +272,10 @@ button {
 /* ─── shell ──────────────────────────────────────────────────────────────── */
 .shell {
   display: grid;
-  grid-template-columns: var(--rail-width) var(--sidebar-width) minmax(0, 1fr);
+  /* No rail column. Switching views moved into the bar, which was already spanning the
+     full width with an empty middle — so four buttons stopped costing a 64px column for
+     the entire height of the window. */
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   /* A row for the bar, then the rest. The bar spans every column, so the user menu is
      reachable from the conversation, search, preferences and administration alike. */
   grid-template-rows: var(--topbar-height) minmax(0, 1fr);
@@ -284,9 +287,7 @@ button {
 }
 
 .shell[data-panel="open"] {
-  grid-template-columns:
-    var(--rail-width) var(--sidebar-width)
-    minmax(0, 1fr) var(--panel-width);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
 }
 
 /* ─── top bar ────────────────────────────────────────────────────────────── */
@@ -442,55 +443,43 @@ button {
   color: var(--text-4);
 }
 
-/* ─── rail ───────────────────────────────────────────────────────────────── */
-.rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 16px 0;
-  background: var(--bg-rail);
-  border-right: 1px solid var(--hairline);
-}
-
-.rail-mark {
-  width: 32px;
-  height: 32px;
-  margin-bottom: 14px;
-  border-radius: 9px;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: var(--text-title);
-  letter-spacing: -0.02em;
-}
-
-.rail-btn {
+/* ─── view switching, in the bar ──────────────────────────────────────────── */
+.topbar-nav {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  gap: 2px;
+  /* Set off from the workspace name without a divider: the bar is short and a rule at
+     this height reads as a seam in the chrome rather than as a grouping. */
+  margin-left: 10px;
+}
+
+.topbar-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
   color: var(--text-rail);
+  white-space: nowrap;
   transition:
     background 120ms ease,
     color 120ms ease;
 }
 
-.rail-btn:hover {
+.topbar-nav-btn:hover {
   background: var(--surface-hover-deep);
 }
 
-.rail-btn[aria-pressed="true"] {
+.topbar-nav-btn[aria-pressed="true"] {
   background: var(--accent-wash-rail);
   color: var(--accent);
 }
 
-.rail-spacer {
-  flex: 1;
+.topbar-nav-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .rail-avatar {
@@ -2847,6 +2836,89 @@ select.chip {
   white-space: pre-wrap;
 }
 
+/* ─── an agent's configuration ───────────────────────────────────────────── */
+.agent-config {
+  margin-top: 12px;
+}
+
+.agent-config-warning {
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  /* Bordered rather than filled: this is a diagnosis of something already wrong, not a
+     destructive action being confirmed, and a solid red block reads as the latter. */
+  color: var(--text-2);
+}
+
+.agent-config-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.agent-config-table td {
+  padding: 4px 8px 4px 0;
+  vertical-align: middle;
+}
+
+/* Struck through rather than removed on click: a row that vanishes gives nothing to
+   undo, and the change has not been saved yet. */
+.agent-config-table tr[data-removed="true"] .agent-config-key code {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.agent-config-key {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 1%;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.agent-config-actions {
+  width: 1%;
+  text-align: right;
+}
+
+.agent-config-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* ─── an agent's terminal ────────────────────────────────────────────────── */
+.agent-terminal {
+  margin-top: 12px;
+}
+
+.agent-terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.agent-terminal-problem {
+  margin-bottom: 8px;
+  color: var(--danger);
+}
+
+.agent-terminal-screen {
+  height: 380px;
+  padding: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  /* Fixed rather than themed. A terminal renders its own colours and an ANSI palette
+     tuned for a dark background is unreadable on a light one, so the surface stays dark
+     in both themes — which is also what every other terminal on the machine does. */
+  background: #11141a;
+  overflow: hidden;
+}
+
 /* ─── emoji: the picker, and custom emoji wherever they render ───────────── */
 
 /* Sized to the line it sits on rather than to a fixed pixel count, so a custom
@@ -3334,6 +3406,19 @@ button.member-row:hover {
 @media (max-width: 900px) {
   .topbar-feedback-label {
     display: none;
+  }
+
+  /* Icons only. The bar has to hold the workspace name, four views, feedback and the
+     user menu on one line, and the labels are the part that can go: every button keeps
+     its `title`, so the name is a hover away rather than gone. */
+  .topbar-nav-label {
+    display: none;
+  }
+
+  .topbar-nav-btn {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
   }
 }
 

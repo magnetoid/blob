@@ -9,9 +9,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, type AgentDeployment as Deployment } from '../../lib/api.ts';
+import { AgentConfig } from './AgentConfig.tsx';
+import { AgentTerminal } from './AgentTerminal.tsx';
 
 interface Props {
   pluginId: string;
+  agentName: string;
   repo: string | null;
   // Not `ref`. React reserves that name and extracts it from props, so a component
   // declaring one is handed undefined and silently loses the branch it was showing.
@@ -19,10 +22,13 @@ interface Props {
   onError: (message: string | null) => void;
 }
 
-export function AgentDeployment({ pluginId, repo, gitRef, onError }: Props) {
+export function AgentDeployment({ pluginId, agentName, repo, gitRef, onError }: Props) {
   const [deployment, setDeployment] = useState<Deployment | null>(null);
   const [logs, setLogs] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // One at a time. Configuration and a terminal are two ways of doing the same job, and
+  // both open at once is a tall row where neither is the thing being read.
+  const [panel, setPanel] = useState<'config' | 'terminal' | null>(null);
 
   const fail = useCallback(
     (err: unknown, fallback: string) => {
@@ -100,6 +106,24 @@ export function AgentDeployment({ pluginId, repo, gitRef, onError }: Props) {
       </div>
 
       <div className="chip-row" style={{ marginTop: 10 }}>
+        {/* Two halves of setting an agent up, side by side because that is what they
+            are: the values it declares it needs, and the session for everything that is
+            not a value. Neither replaces the other — a device-code login is not a field,
+            and an API key is not worth opening a shell for. */}
+        <button
+          className="btn"
+          disabled={busy}
+          onClick={() => setPanel((p) => (p === 'config' ? null : 'config'))}
+        >
+          {panel === 'config' ? 'Hide config' : 'Config'}
+        </button>
+        <button
+          className="btn"
+          disabled={busy}
+          onClick={() => setPanel((p) => (p === 'terminal' ? null : 'terminal'))}
+        >
+          Terminal
+        </button>
         <button className="btn" disabled={busy} onClick={() => void showLogs()}>
           {logs !== null ? 'Hide logs' : 'Logs'}
         </button>
@@ -121,6 +145,16 @@ export function AgentDeployment({ pluginId, repo, gitRef, onError }: Props) {
           Refresh
         </button>
       </div>
+
+      {panel === 'config' && <AgentConfig pluginId={pluginId} onError={onError} />}
+
+      {panel === 'terminal' && (
+        <AgentTerminal
+          pluginId={pluginId}
+          agentName={agentName}
+          onClose={() => setPanel(null)}
+        />
+      )}
 
       {logs !== null && <pre className="agent-logs">{logs}</pre>}
     </div>

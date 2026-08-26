@@ -196,6 +196,11 @@ export interface AdminPlugin {
   sourceRepo?: string | null;
   sourceRef?: string | null;
   deploymentStatus?: string | null;
+  /**
+   * Whether a dial-in agent is holding a connection right now, or `null` for every other
+   * runtime — where the question is meaningless and `false` would read as "broken".
+   */
+  online?: boolean | null;
 }
 
 export interface AgentRepoPreview {
@@ -214,6 +219,25 @@ export interface AgentDeployment {
   deploymentId: string | null;
   status: string;
   url: string | null;
+}
+
+export interface AgentEnvVar {
+  key: string;
+  /** Absent for a secret — see `hint`. */
+  value: string | null;
+  /** How a secret is described instead of shown: its length and last four characters. */
+  hint: string | null;
+  secret: boolean;
+  /** Written by the runner and rewritten on every deploy, so editing it is pointless. */
+  managed: boolean;
+  /** The runner holds more than one row for this key, and they may disagree. */
+  duplicated: boolean;
+}
+
+export interface AgentEnv {
+  env: AgentEnvVar[];
+  /** Names Blob sets itself, shown as fixed rather than appearing to have gone missing. */
+  reserved: string[];
 }
 
 export interface AppChannel {
@@ -659,6 +683,11 @@ export const api = {
     stopAgent: (pluginId: string) => post<{ ok: true }>(`/api/admin/plugins/${pluginId}/stop`),
     deploymentLogs: (pluginId: string) =>
       get<{ logs: string }>(`/api/admin/plugins/${pluginId}/logs`),
+    agentEnv: (pluginId: string) => get<AgentEnv>(`/api/admin/plugins/${pluginId}/env`),
+    saveAgentEnv: (
+      pluginId: string,
+      input: { set?: Record<string, string>; remove?: string[]; restart?: boolean },
+    ) => put<AgentEnv>(`/api/admin/plugins/${pluginId}/env`, input),
   },
 
   interact: (input: { messageId: string; actionId: string; value: string }) =>
