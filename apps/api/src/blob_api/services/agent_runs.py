@@ -141,9 +141,7 @@ async def list_for_plugin(
             channel_id=str(row.channel_id),
             channel_name=row.channel_name,
             thread_root_id=str(row.thread_root_id) if row.thread_root_id else None,
-            trigger_message_id=(
-                str(row.trigger_message_id) if row.trigger_message_id else None
-            ),
+            trigger_message_id=(str(row.trigger_message_id) if row.trigger_message_id else None),
             trigger_user_name=row.trigger_user_name,
             transport=row.transport,
             status=row.status,

@@ -148,9 +148,7 @@ async def test_leave_removes_the_member(team: dict) -> None:
 # ─── access ───────────────────────────────────────────────────────────────────
 async def test_a_command_cannot_reach_a_channel_you_are_not_in(team: dict) -> None:
     private = (
-        await team["owner"].post(
-            "/api/channels", {"name": "secret-plans", "kind": "private"}
-        )
+        await team["owner"].post("/api/channels", {"name": "secret-plans", "kind": "private"})
     ).body["channel"]
 
     response = await team["member"].post(
@@ -163,9 +161,9 @@ async def test_a_command_cannot_reach_a_channel_you_are_not_in(team: dict) -> No
 
 @pytest.mark.parametrize("command", ["/topic nope", "/leave"])
 async def test_direct_messages_refuse_channel_commands(team: dict, command: str) -> None:
-    dm = (
-        await team["owner"].post("/api/dms", {"userIds": [team["member"].user_id]})
-    ).body["channel"]
+    dm = (await team["owner"].post("/api/dms", {"userIds": [team["member"].user_id]})).body[
+        "channel"
+    ]
 
     body = await run(team["owner"], dm["id"], command)
     assert body["message"] is None

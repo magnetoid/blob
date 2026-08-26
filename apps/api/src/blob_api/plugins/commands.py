@@ -68,9 +68,7 @@ def _unb64(value: str) -> bytes:
     return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
 
 
-def response_token(
-    *, plugin_id: str, channel_id: str, user_id: str, now: int | None = None
-) -> str:
+def response_token(*, plugin_id: str, channel_id: str, user_id: str, now: int | None = None) -> str:
     """A bearer URL segment authorising exactly one app to answer exactly one command."""
     payload = {
         "p": plugin_id,
@@ -162,9 +160,7 @@ async def ask(
     }
 
     try:
-        async with httpx.AsyncClient(
-            timeout=REQUEST_TIMEOUT_SEC, follow_redirects=False
-        ) as client:
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SEC, follow_redirects=False) as client:
             response = await client.post(url, content=body, headers=headers)
     except httpx.TimeoutException:
         # Not a failure. A slow app is the case `responseUrl` exists for, and the person

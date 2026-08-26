@@ -126,9 +126,7 @@ class TestItIsYours:
 class TestAccess:
     async def test_a_channel_you_are_not_in_cannot_be_saved_from(self, team: dict) -> None:
         private = (
-            await team["owner"].post(
-                "/api/channels", {"name": "founders", "kind": "private"}
-            )
+            await team["owner"].post("/api/channels", {"name": "founders", "kind": "private"})
         ).body["channel"]
         message_id = str(
             (await send_message(team["owner"], private["id"], "secret")).body["message"]["id"]

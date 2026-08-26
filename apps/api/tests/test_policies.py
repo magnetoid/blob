@@ -70,9 +70,7 @@ async def policy_of(founder: Client, workspace_id: str) -> dict:
 
 
 async def set_policy(founder: Client, workspace_id: str, **fields: object) -> dict:
-    response = await founder.put(
-        f"/api/admin/instance/workspaces/{workspace_id}/policy", fields
-    )
+    response = await founder.put(f"/api/admin/instance/workspaces/{workspace_id}/policy", fields)
     assert response.status == 200, response.body
     return response.body
 
@@ -111,9 +109,7 @@ class TestAuthority:
 
 # ─── defaults ─────────────────────────────────────────────────────────────────
 class TestDefaults:
-    async def test_a_workspace_with_no_row_reads_as_the_defaults(
-        self, founder: Client
-    ) -> None:
+    async def test_a_workspace_with_no_row_reads_as_the_defaults(self, founder: Client) -> None:
         """No row is a documented state, not a missing one.
 
         Migration 0013 seeds the workspaces that existed when it ran, so an upgrade does
@@ -126,9 +122,7 @@ class TestDefaults:
         assert stored.denied_scopes == frozenset()
 
     async def test_a_new_workspace_starts_closed_to_the_host(self, founder: Client) -> None:
-        created = (
-            await founder.post("/api/admin/instance/workspaces", {"name": "Second"})
-        ).body
+        created = (await founder.post("/api/admin/instance/workspaces", {"name": "Second"})).body
 
         policy = await policy_of(founder, created["id"])
         # No row means the column defaults, and the two capabilities that reach the
@@ -181,9 +175,7 @@ class TestTheEnvironmentIsTheCeiling:
 
 # ─── the guards ───────────────────────────────────────────────────────────────
 class TestGuards:
-    async def test_hosting_an_agent_is_refused_when_policy_says_no(
-        self, founder: Client
-    ) -> None:
+    async def test_hosting_an_agent_is_refused_when_policy_says_no(self, founder: Client) -> None:
         workspace_id = await my_workspace_id(founder)
         await set_policy(founder, workspace_id, mayHostAgents=False)
 
@@ -193,9 +185,7 @@ class TestGuards:
         assert response.status == 403
         assert response.body["error"]["code"] == "policy_forbidden"
 
-    async def test_a_socket_agent_is_refused_when_policy_says_no(
-        self, founder: Client
-    ) -> None:
+    async def test_a_socket_agent_is_refused_when_policy_says_no(self, founder: Client) -> None:
         workspace_id = await my_workspace_id(founder)
         await set_policy(founder, workspace_id, mayConnectSocketAgents=False)
 
@@ -231,9 +221,7 @@ class TestGuards:
         workspace_id = await my_workspace_id(founder)
         await set_policy(founder, workspace_id, maxApps=1)
 
-        second = await founder.post(
-            "/api/admin/plugins", {**APP, "slug": "other", "name": "Other"}
-        )
+        second = await founder.post("/api/admin/plugins", {**APP, "slug": "other", "name": "Other"})
         assert second.status == 403
         assert second.body["error"]["code"] == "policy_forbidden"
 
@@ -242,9 +230,7 @@ class TestGuards:
         edit = await founder.put(f"/api/admin/plugins/{installed['plugin']['id']}", APP)
         assert edit.status == 200, edit.body
 
-    async def test_an_unknown_scope_is_refused_rather_than_stored(
-        self, founder: Client
-    ) -> None:
+    async def test_an_unknown_scope_is_refused_rather_than_stored(self, founder: Client) -> None:
         workspace_id = await my_workspace_id(founder)
         response = await founder.put(
             f"/api/admin/instance/workspaces/{workspace_id}/policy",

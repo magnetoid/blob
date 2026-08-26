@@ -80,9 +80,7 @@ async def create_channel(
         def broadcast() -> None:
             # Public channels appear in everyone's browser; private ones only for members.
             if payload.kind == "public":
-                hub.to_workspace(
-                    user.workspace_id, _channel_event("channel.created", channel)
-                )
+                hub.to_workspace(user.workspace_id, _channel_event("channel.created", channel))
             else:
                 hub.to_users(members, _channel_event("channel.created", channel))
             for member_id in members:

@@ -22,9 +22,7 @@ from ..lib.mentions import matches_keywords
 from ..schemas.models import UserPrefs
 
 NotifyLevel = Literal["all", "mentions", "none"]
-NotifyReason = Literal[
-    "dm", "mention", "group", "everyone", "keyword", "all_activity", "thread"
-]
+NotifyReason = Literal["dm", "mention", "group", "everyone", "keyword", "all_activity", "thread"]
 
 
 @dataclass(slots=True)

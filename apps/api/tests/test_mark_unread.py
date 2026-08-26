@@ -43,14 +43,10 @@ class TestWhereTheCursorLands:
         ids = [await say(team, f"m{i}") for i in range(4)]
         channel_id = team["general"]["id"]
         member = team["member"]
-        read = await member.post(
-            f"/api/channels/{channel_id}/read", {"lastReadMessageId": ids[3]}
-        )
+        read = await member.post(f"/api/channels/{channel_id}/read", {"lastReadMessageId": ids[3]})
         assert read.status == 200, read.body
 
-        response = await member.post(
-            f"/api/channels/{channel_id}/unread", {"messageId": ids[2]}
-        )
+        response = await member.post(f"/api/channels/{channel_id}/unread", {"messageId": ids[2]})
         assert response.status == 200, response.body
         # The one *before* it: marking a message unread means coming back to that
         # message, so it has to be the first thing you have not read.
@@ -62,9 +58,7 @@ class TestWhereTheCursorLands:
         member = team["member"]
         await member.post(f"/api/channels/{channel_id}/read", {"lastReadMessageId": ids[1]})
 
-        response = await member.post(
-            f"/api/channels/{channel_id}/unread", {"messageId": ids[0]}
-        )
+        response = await member.post(f"/api/channels/{channel_id}/unread", {"messageId": ids[0]})
         assert response.body["readState"]["lastReadMessageId"] is None
 
     async def test_it_survives_a_reload(self, team: dict) -> None:
@@ -114,9 +108,7 @@ class TestTheBadgeComesBack:
         await member.post(f"/api/channels/{channel_id}/read", {"lastReadMessageId": mention})
         assert (await read_state(member, channel_id))["mentionCount"] == 0
 
-        response = await member.post(
-            f"/api/channels/{channel_id}/unread", {"messageId": mention}
-        )
+        response = await member.post(f"/api/channels/{channel_id}/unread", {"messageId": mention})
         # Recomputed rather than left at zero: `mark_read` zeroes it, so a rewind past a
         # message that named you would otherwise show unread without saying it wanted you.
         assert response.body["readState"]["mentionCount"] == 1
@@ -148,9 +140,7 @@ class TestTheBadgeComesBack:
         mention = await say(team, "@platform-team standup")
         await member.post(f"/api/channels/{channel_id}/read", {"lastReadMessageId": mention})
 
-        response = await member.post(
-            f"/api/channels/{channel_id}/unread", {"messageId": mention}
-        )
+        response = await member.post(f"/api/channels/{channel_id}/unread", {"messageId": mention})
         # Resolved from current membership, the same way the notifier resolves it — the
         # message stores the group, not its members.
         assert response.body["readState"]["mentionCount"] == 1

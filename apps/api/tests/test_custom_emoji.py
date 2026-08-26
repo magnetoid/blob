@@ -68,9 +68,7 @@ class TestAdding:
         names = [e["name"] for e in (await member.get("/api/bootstrap")).body["customEmoji"]]
         assert "party-parrot" in names
 
-    async def test_the_colons_are_optional_and_the_name_is_lowercased(
-        self, owner: Client
-    ) -> None:
+    async def test_the_colons_are_optional_and_the_name_is_lowercased(self, owner: Client) -> None:
         added = await owner.post(
             "/api/admin/emoji", {"name": ":Shipit:", "attachmentId": await an_upload(owner)}
         )
@@ -109,9 +107,7 @@ class TestAdding:
         )
         assert response.status == 400
 
-    async def test_an_upload_from_somewhere_else_is_not_available(
-        self, owner: Client
-    ) -> None:
+    async def test_an_upload_from_somewhere_else_is_not_available(self, owner: Client) -> None:
         other = await invite_and_sign_up(owner, "Member")
         response = await owner.post(
             "/api/admin/emoji", {"name": "borrowed", "attachmentId": await an_upload(other)}

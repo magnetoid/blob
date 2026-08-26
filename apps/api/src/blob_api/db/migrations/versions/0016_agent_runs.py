@@ -56,9 +56,7 @@ def upgrade() -> None:
         sa.Column("thread_root_id", UUID),
         # SET NULL: deleting the message that started a run must not delete the record
         # that it ran, which is the only thing that can explain a silence afterwards.
-        sa.Column(
-            "trigger_message_id", UUID, sa.ForeignKey("messages.id", ondelete="SET NULL")
-        ),
+        sa.Column("trigger_message_id", UUID, sa.ForeignKey("messages.id", ondelete="SET NULL")),
         sa.Column("trigger_user_id", UUID, sa.ForeignKey("users.id", ondelete="SET NULL")),
         sa.Column("transport", sa.Text(), nullable=False),
         sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'running'")),
@@ -75,9 +73,7 @@ def upgrade() -> None:
             "status IN ('running', 'succeeded', 'failed', 'interrupted')",
             name="agent_runs_status_check",
         ),
-        sa.CheckConstraint(
-            "transport IN ('http', 'socket')", name="agent_runs_transport_check"
-        ),
+        sa.CheckConstraint("transport IN ('http', 'socket')", name="agent_runs_transport_check"),
     )
     # The console reads one app's runs, newest first. That is the only query here, and
     # both indexes are ordered to serve it without a sort.

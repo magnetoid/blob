@@ -228,9 +228,7 @@ async def update_message(
             raise not_found("That message is gone.")
         # Editing someone else's message is a different, larger permission.
         if existing.author_id != bot.user_id and not bot.has("messages:moderate"):
-            raise bad_request(
-                "This app can only edit its own messages.", code="not_own_message"
-            )
+            raise bad_request("This app can only edit its own messages.", code="not_own_message")
         await channel_service.assert_channel_access(
             session, bot.user_id, existing.channel_id, require_member=True
         )
@@ -277,9 +275,7 @@ async def delete_message(
             raise not_found("That message is gone.")
         moderating = existing.author_id != bot.user_id
         if moderating and not bot.has("messages:moderate"):
-            raise bad_request(
-                "This app can only delete its own messages.", code="not_own_message"
-            )
+            raise bad_request("This app can only delete its own messages.", code="not_own_message")
         await channel_service.assert_channel_access(
             session, bot.user_id, existing.channel_id, require_member=True
         )

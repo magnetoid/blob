@@ -52,9 +52,7 @@ def upgrade() -> None:
         ),
         # Reaches the host: the repository's code runs as a container on the operator's
         # hardware. Closed by default. See ADR 0010.
-        sa.Column(
-            "may_host_agents", sa.Boolean(), nullable=False, server_default=sa.text("false")
-        ),
+        sa.Column("may_host_agents", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         # Reaches the operator's network: relaxes the SSRF guard that stops a registered
         # app URL pointing at a database or a metadata endpoint. Closed by default.
         sa.Column(

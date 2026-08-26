@@ -315,6 +315,3 @@ async def find_or_create_dm(
     ).fetchone()
     surviving = row.id if row else channel_id
     return surviving, surviving == channel_id
-
-
-

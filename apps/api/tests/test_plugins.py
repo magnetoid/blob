@@ -393,9 +393,7 @@ async def test_only_subscribed_events_are_queued(team: dict) -> None:
     body = await install(team["owner"])  # subscribes to message.created only
     plugin_id = body["plugin"]["id"]
     posted = await send_message(team["owner"], team["general"], "hello")
-    await team["owner"].patch(
-        f"/api/messages/{posted.body['message']['id']}", {"body": "edited"}
-    )
+    await team["owner"].patch(f"/api/messages/{posted.body['message']['id']}", {"body": "edited"})
     assert await queued(plugin_id) == ["message.created"]
 
 
@@ -613,9 +611,7 @@ class TestAnAppHearsOnlyWhatItCouldRead:
     async def test_a_private_channel_is_not_heard(self, team: dict) -> None:
         plugin_id = (await install(team["owner"]))["plugin"]["id"]
         private = (
-            await team["owner"].post(
-                "/api/channels", {"name": "leadership", "kind": "private"}
-            )
+            await team["owner"].post("/api/channels", {"name": "leadership", "kind": "private"})
         ).body["channel"]["id"]
 
         await send_message(team["owner"], private, "not for apps")
@@ -639,9 +635,9 @@ class TestAnAppHearsOnlyWhatItCouldRead:
     async def test_a_direct_message_is_not_heard(self, team: dict) -> None:
         # The most private thing in the product, and it was going to every app.
         plugin_id = (await install(team["owner"]))["plugin"]["id"]
-        dm = (
-            await team["owner"].post("/api/dms", {"userIds": [team["member"].user_id]})
-        ).body["channel"]["id"]
+        dm = (await team["owner"].post("/api/dms", {"userIds": [team["member"].user_id]})).body[
+            "channel"
+        ]["id"]
 
         await send_message(team["owner"], dm, "just between us")
 
@@ -685,9 +681,7 @@ class TestAppChannels:
         assert listed["channels"], "the workspace has a #general to list"
         assert all(not c["joined"] for c in listed["channels"])
 
-    async def test_an_admin_can_put_the_bot_in_a_channel_and_take_it_out(
-        self, team: dict
-    ) -> None:
+    async def test_an_admin_can_put_the_bot_in_a_channel_and_take_it_out(self, team: dict) -> None:
         installed = await install(team["owner"])
         plugin_id = installed["plugin"]["id"]
         general = team["general"]
@@ -709,9 +703,7 @@ class TestAppChannels:
         # would hand an admin a directory of rooms they are not in.
         installed = await install(team["owner"])
         private = (
-            await team["owner"].post(
-                "/api/channels", {"name": "board-only", "kind": "private"}
-            )
+            await team["owner"].post("/api/channels", {"name": "board-only", "kind": "private"})
         ).body["channel"]
 
         listed = (

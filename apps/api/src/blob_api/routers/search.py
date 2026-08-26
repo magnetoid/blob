@@ -22,8 +22,6 @@ from ..services.serialize import MESSAGE_SELECT, to_message
 router = APIRouter(tags=["search"])
 
 
-
-
 class ParsedOut(CamelModel):
     text: str
     from_: str | None = None

@@ -71,9 +71,7 @@ async def release_group(session: AsyncSession, group_id: str) -> None:
     )
 
 
-async def rehandle_user(
-    session: AsyncSession, workspace_id: str, user_id: str, name: str
-) -> None:
+async def rehandle_user(session: AsyncSession, workspace_id: str, user_id: str, name: str) -> None:
     """Move a person onto a new name, releasing the old one in the same statement pair.
 
     Release first: claiming first would collide with the caller's own current handle when

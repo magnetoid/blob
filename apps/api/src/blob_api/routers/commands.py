@@ -156,9 +156,7 @@ async def _run_app_command(
     if not in_channel:
         # Slack's rule, for Slack's reason: an app answering in a channel nobody added it
         # to is a way into a conversation that was never granted.
-        return CommandOut(
-            ephemeral=f"`/{name}` needs its app added to this channel first."
-        )
+        return CommandOut(ephemeral=f"`/{name}` needs its app added to this channel first.")
 
     token = app_transport.response_token(
         plugin_id=app.plugin_id, channel_id=payload.channel_id, user_id=user.id

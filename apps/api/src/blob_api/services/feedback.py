@@ -39,9 +39,7 @@ def _snapshot_key(workspace_id: str, ticket_id: str) -> str:
     return f"{workspace_id}/feedback/{ticket_id}.html"
 
 
-async def create(
-    workspace_id: str, reporter_id: str, payload: FeedbackInput
-) -> FeedbackTicket:
+async def create(workspace_id: str, reporter_id: str, payload: FeedbackInput) -> FeedbackTicket:
     ticket_id = new_id()
     key: str | None = None
     environment = dict(payload.environment)
@@ -62,7 +60,6 @@ async def create(
             # Said on the ticket, not only in the server log: without this an admin
             # cannot tell a reporter who declined diagnostics from storage being down.
             environment["snapshot"] = "not stored — object storage was unreachable"
-
 
     async with transaction() as (session, _):
         row = (
@@ -160,14 +157,10 @@ async def set_status(actor: Actor, ticket_id: str, status: str) -> FeedbackTicke
     return to_feedback_ticket(row)
 
 
-async def snapshot_key_for(
-    session: AsyncSession, workspace_id: str, ticket_id: str
-) -> str:
+async def snapshot_key_for(session: AsyncSession, workspace_id: str, ticket_id: str) -> str:
     row = (
         await session.execute(
-            text(
-                "SELECT snapshot_key FROM feedback_tickets WHERE id = :id AND workspace_id = :ws"
-            ),
+            text("SELECT snapshot_key FROM feedback_tickets WHERE id = :id AND workspace_id = :ws"),
             {"id": ticket_id, "ws": workspace_id},
         )
     ).fetchone()

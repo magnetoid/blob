@@ -207,9 +207,7 @@ class TestAuth:
         body = await install(team["owner"])
         plugin_id = body["plugin"]["id"]
         assert (
-            await team["owner"].post(
-                f"/api/admin/plugins/{plugin_id}/enabled", {"enabled": False}
-            )
+            await team["owner"].post(f"/api/admin/plugins/{plugin_id}/enabled", {"enabled": False})
         ).status == 200
 
         # Which of "unknown", "revoked" and "disabled" it was is not the caller's

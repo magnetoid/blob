@@ -118,9 +118,9 @@ class TestChannelMembership:
     async def test_the_refusal_is_all_or_nothing(self, two_workspaces: dict) -> None:
         owner = two_workspaces["owner"]
         member = two_workspaces["member"]
-        channel = (
-            await owner.post("/api/channels", {"name": "planning", "kind": "private"})
-        ).body["channel"]
+        channel = (await owner.post("/api/channels", {"name": "planning", "kind": "private"})).body[
+            "channel"
+        ]
 
         response = await owner.post(
             f"/api/channels/{channel['id']}/members",

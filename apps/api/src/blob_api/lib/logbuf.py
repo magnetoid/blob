@@ -117,8 +117,8 @@ def _entry_for(record: logging.LogRecord) -> dict[str, Any]:
 def _iso(epoch: float) -> str:
     from datetime import UTC, datetime
 
-    return datetime.fromtimestamp(epoch, UTC).isoformat(timespec="milliseconds").replace(
-        "+00:00", "Z"
+    return (
+        datetime.fromtimestamp(epoch, UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     )
 
 

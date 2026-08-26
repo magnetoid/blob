@@ -69,7 +69,8 @@ async def fake_app() -> AsyncIterator[FakeApp]:
 
             writer.write(
                 f"HTTP/1.1 {app.status} X\r\ncontent-length: {len(app.reply)}\r\n"
-                f"content-type: application/json\r\n\r\n".encode() + app.reply
+                f"content-type: application/json\r\n\r\n".encode()
+                + app.reply
             )
             await writer.drain()
         except (asyncio.IncompleteReadError, ConnectionResetError, asyncio.CancelledError):
@@ -199,9 +200,7 @@ async def test_two_apps_cannot_hold_the_same_command(team: dict, fake_app: FakeA
     assert "/deploy" in caught.value.message
 
 
-async def test_an_app_command_appears_in_the_bootstrap_list(
-    team: dict, fake_app: FakeApp
-) -> None:
+async def test_an_app_command_appears_in_the_bootstrap_list(team: dict, fake_app: FakeApp) -> None:
     await install_app(team["owner"], port=fake_app.port)
 
     boot = (await team["owner"].get("/api/bootstrap")).body
@@ -213,9 +212,7 @@ async def test_an_app_command_appears_in_the_bootstrap_list(
 
 # ─── dispatch ─────────────────────────────────────────────────────────────────
 async def test_an_app_answers_a_command_privately(team: dict, fake_app: FakeApp) -> None:
-    plugin_id = await install_app(
-        team["owner"], port=fake_app.port
-    )
+    plugin_id = await install_app(team["owner"], port=fake_app.port)
     await add_bot_to_channel(plugin_id, team["general"]["id"])
     fake_app.reply = json.dumps({"responseType": "ephemeral", "text": "Deploying web."}).encode()
 
@@ -234,9 +231,7 @@ async def test_an_app_answers_a_command_privately(team: dict, fake_app: FakeApp)
 
 
 async def test_an_app_can_answer_in_the_channel(team: dict, fake_app: FakeApp) -> None:
-    plugin_id = await install_app(
-        team["owner"], port=fake_app.port
-    )
+    plugin_id = await install_app(team["owner"], port=fake_app.port)
     bot_id = await add_bot_to_channel(plugin_id, team["general"]["id"])
     fake_app.reply = json.dumps({"responseType": "in_channel", "text": "Deployed."}).encode()
 
@@ -246,16 +241,14 @@ async def test_an_app_can_answer_in_the_channel(team: dict, fake_app: FakeApp) -
     assert body["message"]["authorId"] == bot_id
     assert body["message"]["kind"] == "bot"
 
-    history = (
-        await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")
-    ).body["messages"]
+    history = (await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")).body[
+        "messages"
+    ]
     assert [m["body"] for m in history] == ["Deployed."]
 
 
 async def test_a_slow_app_is_not_a_broken_one(team: dict, fake_app: FakeApp) -> None:
-    plugin_id = await install_app(
-        team["owner"], port=fake_app.port
-    )
+    plugin_id = await install_app(team["owner"], port=fake_app.port)
     await add_bot_to_channel(plugin_id, team["general"]["id"])
     fake_app.delay = app_transport.REQUEST_TIMEOUT_SEC + 0.5
 
@@ -268,9 +261,7 @@ async def test_a_slow_app_is_not_a_broken_one(team: dict, fake_app: FakeApp) -> 
 async def test_an_app_that_says_nothing_is_told_to_answer_later(
     team: dict, fake_app: FakeApp
 ) -> None:
-    plugin_id = await install_app(
-        team["owner"], port=fake_app.port
-    )
+    plugin_id = await install_app(team["owner"], port=fake_app.port)
     await add_bot_to_channel(plugin_id, team["general"]["id"])
     fake_app.status = 202
 
@@ -281,9 +272,7 @@ async def test_an_app_that_says_nothing_is_told_to_answer_later(
 async def test_rubbish_from_an_app_is_not_shown_to_the_person(
     team: dict, fake_app: FakeApp
 ) -> None:
-    plugin_id = await install_app(
-        team["owner"], port=fake_app.port
-    )
+    plugin_id = await install_app(team["owner"], port=fake_app.port)
     await add_bot_to_channel(plugin_id, team["general"]["id"])
     fake_app.reply = b"<html>500 oh no</html>"
 
@@ -302,9 +291,7 @@ async def test_an_app_not_in_the_channel_is_not_asked(team: dict, fake_app: Fake
 
 
 async def test_a_disabled_app_stops_answering(team: dict, fake_app: FakeApp) -> None:
-    plugin_id = await install_app(
-        team["owner"], port=fake_app.port
-    )
+    plugin_id = await install_app(team["owner"], port=fake_app.port)
     await add_bot_to_channel(plugin_id, team["general"]["id"])
     async with SessionFactory() as session:
         async with session.begin():
@@ -333,18 +320,12 @@ async def test_a_tampered_token_is_refused() -> None:
 
 
 async def test_an_expired_token_is_refused() -> None:
-    token = app_transport.response_token(
-        plugin_id="p", channel_id="c", user_id="u", now=0
-    )
+    token = app_transport.response_token(plugin_id="p", channel_id="c", user_id="u", now=0)
     assert app_transport.verify_response_token(token) is None
 
 
-async def test_an_app_answers_later_through_its_response_url(
-    team: dict, fake_app: FakeApp
-) -> None:
-    plugin_id = await install_app(
-        team["owner"], port=fake_app.port
-    )
+async def test_an_app_answers_later_through_its_response_url(team: dict, fake_app: FakeApp) -> None:
+    plugin_id = await install_app(team["owner"], port=fake_app.port)
     bot_id = await add_bot_to_channel(plugin_id, team["general"]["id"])
     fake_app.status = 202
 
@@ -358,19 +339,15 @@ async def test_an_app_answers_later_through_its_response_url(
     )
     assert late.status == 200
 
-    history = (
-        await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")
-    ).body["messages"]
+    history = (await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")).body[
+        "messages"
+    ]
     assert [m["body"] for m in history] == ["Deployed at last."]
     assert history[0]["authorId"] == bot_id
 
 
-async def test_the_same_deferred_answer_twice_posts_once(
-    team: dict, fake_app: FakeApp
-) -> None:
-    plugin_id = await install_app(
-        team["owner"], port=fake_app.port
-    )
+async def test_the_same_deferred_answer_twice_posts_once(team: dict, fake_app: FakeApp) -> None:
+    plugin_id = await install_app(team["owner"], port=fake_app.port)
     await add_bot_to_channel(plugin_id, team["general"]["id"])
     fake_app.status = 202
 
@@ -381,18 +358,14 @@ async def test_the_same_deferred_answer_twice_posts_once(
     await team["owner"].post(f"/api/hooks/{path}", payload)
     await team["owner"].post(f"/api/hooks/{path}", payload)
 
-    history = (
-        await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")
-    ).body["messages"]
+    history = (await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")).body[
+        "messages"
+    ]
     assert len(history) == 1
 
 
-async def test_two_different_deferred_answers_both_post(
-    team: dict, fake_app: FakeApp
-) -> None:
-    plugin_id = await install_app(
-        team["owner"], port=fake_app.port
-    )
+async def test_two_different_deferred_answers_both_post(team: dict, fake_app: FakeApp) -> None:
+    plugin_id = await install_app(team["owner"], port=fake_app.port)
     await add_bot_to_channel(plugin_id, team["general"]["id"])
     fake_app.status = 202
 
@@ -402,9 +375,9 @@ async def test_two_different_deferred_answers_both_post(
     await team["owner"].post(f"/api/hooks/{path}", {"responseType": "in_channel", "text": "Step 1"})
     await team["owner"].post(f"/api/hooks/{path}", {"responseType": "in_channel", "text": "Step 2"})
 
-    history = (
-        await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")
-    ).body["messages"]
+    history = (await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")).body[
+        "messages"
+    ]
     assert [m["body"] for m in history] == ["Step 1", "Step 2"]
 
 

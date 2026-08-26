@@ -19,7 +19,6 @@ PresenceState = Literal["active", "away", "offline"]
 PRESENCE_TTL_SEC = 60
 
 
-
 async def mark_active(user_id: str) -> None:
     previous = await redis.get(presence_key(user_id))
     await redis.set(presence_key(user_id), "active", ex=PRESENCE_TTL_SEC)

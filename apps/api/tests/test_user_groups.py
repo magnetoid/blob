@@ -98,9 +98,7 @@ class TestTheNamespace:
         await team["owner"].post(f"/api/admin/users/{team['ana'].user_id}/deactivate")
         await make_group(team["owner"], "ana")
 
-        response = await team["owner"].post(
-            f"/api/admin/users/{team['ana'].user_id}/reactivate"
-        )
+        response = await team["owner"].post(f"/api/admin/users/{team['ana'].user_id}/reactivate")
         assert response.status == 409, response.body
 
     async def test_a_deactivated_persons_name_is_free_for_a_group(self, team: dict) -> None:
@@ -125,9 +123,7 @@ class TestTheNamespace:
         # Each exclusion is load-bearing: `_MENTION_RE` rejects a leading underscore,
         # `markdown.tsx` eats `_underscores_`, and the two parsers disagree about how
         # many words a name may have.
-        response = await team["owner"].post(
-            "/api/admin/groups", {"handle": handle, "name": "Nope"}
-        )
+        response = await team["owner"].post("/api/admin/groups", {"handle": handle, "name": "Nope"})
         assert response.status == 400, handle
 
     async def test_capitals_are_normalised_rather_than_refused(self, team: dict) -> None:
@@ -189,9 +185,7 @@ class TestResolution:
 
 
 class TestTheMentionIsNotRewritten:
-    async def test_editing_a_message_does_not_change_who_it_mentioned(
-        self, team: dict
-    ) -> None:
+    async def test_editing_a_message_does_not_change_who_it_mentioned(self, team: dict) -> None:
         """The single most valuable test here.
 
         Editing re-resolves mentions. Had a group mention been flattened into member ids
@@ -200,16 +194,12 @@ class TestTheMentionIsNotRewritten:
         Storing the group keeps an edit meaning what it says.
         """
         group_id = await make_group(team["owner"])
-        await team["owner"].put(
-            f"/api/admin/groups/{group_id}/members/{team['ana'].user_id}"
-        )
+        await team["owner"].put(f"/api/admin/groups/{group_id}/members/{team['ana'].user_id}")
         sent = await send_message(team["owner"], team["general"]["id"], "@platform-team hi")
         message_id = sent.body["message"]["id"]
 
         # Membership changes between the send and the edit.
-        await team["owner"].put(
-            f"/api/admin/groups/{group_id}/members/{team['bruno'].user_id}"
-        )
+        await team["owner"].put(f"/api/admin/groups/{group_id}/members/{team['bruno'].user_id}")
         edited = await team["owner"].patch(
             f"/api/messages/{message_id}", {"body": "@platform-team hi (typo fixed)"}
         )
@@ -239,9 +229,7 @@ class TestTheMentionIsNotRewritten:
 class TestWhoGetsTold:
     async def test_a_group_mention_reaches_its_members(self, team: dict) -> None:
         group_id = await make_group(team["owner"])
-        await team["owner"].put(
-            f"/api/admin/groups/{group_id}/members/{team['ana'].user_id}"
-        )
+        await team["owner"].put(f"/api/admin/groups/{group_id}/members/{team['ana'].user_id}")
 
         async with SessionFactory() as session:
             recipients = await notify_service.load_group_recipients(session, [group_id])
@@ -282,9 +270,7 @@ class TestWhoGetsTold:
 
     async def test_a_muted_group_is_silent(self, team: dict) -> None:
         group_id = await make_group(team["owner"])
-        await team["owner"].put(
-            f"/api/admin/groups/{group_id}/members/{team['ana'].user_id}"
-        )
+        await team["owner"].put(f"/api/admin/groups/{group_id}/members/{team['ana'].user_id}")
         muted = await team["ana"].put(f"/api/groups/{group_id}/mute", {"muted": True})
         assert muted.status == 200, muted.body
 
@@ -363,9 +349,7 @@ class TestMembership:
 
     async def test_removing_somebody_takes_them_out(self, team: dict) -> None:
         group_id = await make_group(team["owner"])
-        await team["owner"].put(
-            f"/api/admin/groups/{group_id}/members/{team['ana'].user_id}"
-        )
+        await team["owner"].put(f"/api/admin/groups/{group_id}/members/{team['ana'].user_id}")
         assert (
             await team["owner"].delete(
                 f"/api/admin/groups/{group_id}/members/{team['ana'].user_id}"
@@ -375,9 +359,7 @@ class TestMembership:
         members = await team["owner"].get(f"/api/admin/groups/{group_id}/members")
         assert members.body["userIds"] == []
 
-    async def test_muting_a_group_you_are_not_in_says_nothing_about_it(
-        self, team: dict
-    ) -> None:
+    async def test_muting_a_group_you_are_not_in_says_nothing_about_it(self, team: dict) -> None:
         group_id = await make_group(team["owner"])
         response = await team["ana"].put(f"/api/groups/{group_id}/mute", {"muted": True})
         # 404 rather than 403: which of "no such group" and "not a member" it is would

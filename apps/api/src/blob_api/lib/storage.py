@@ -152,9 +152,7 @@ async def get_object(key: str) -> bytes:
     Used where the response headers matter — a feedback snapshot is markup captured from
     a browser, and it is served under a CSP this process controls.
     """
-    response = await asyncio.to_thread(
-        _client().get_object, Bucket=settings.S3_BUCKET, Key=key
-    )
+    response = await asyncio.to_thread(_client().get_object, Bucket=settings.S3_BUCKET, Key=key)
     body: bytes = await asyncio.to_thread(response["Body"].read)
     return body
 

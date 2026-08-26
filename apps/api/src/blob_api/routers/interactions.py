@@ -41,9 +41,7 @@ class OkOut(CamelModel):
 
 
 @router.post("/api/interactions", response_model=OkOut)
-async def interact(
-    payload: InteractionInput, user: SessionUser = Depends(current_user)
-) -> OkOut:
+async def interact(payload: InteractionInput, user: SessionUser = Depends(current_user)) -> OkOut:
     await consume("interaction", user.id)
 
     async with transaction() as (session, after):

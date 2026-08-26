@@ -36,9 +36,7 @@ class OkOut(CamelModel):
 
 
 @router.post("/api/feedback", response_model=TicketOut, status_code=201)
-async def submit(
-    payload: FeedbackInput, user: SessionUser = Depends(current_user)
-) -> TicketOut:
+async def submit(payload: FeedbackInput, user: SessionUser = Depends(current_user)) -> TicketOut:
     # Rate limited on the same bucket as uploads: a ticket carries a page snapshot, so a
     # loop filing them is a storage problem as much as a database one.
     await consume("upload", user.id)
@@ -56,9 +54,7 @@ async def listing(
 
 
 @router.get("/api/admin/feedback/{ticket_id}/snapshot", response_class=HTMLResponse)
-async def snapshot(
-    ticket_id: str, user: SessionUser = Depends(require_admin)
-) -> HTMLResponse:
+async def snapshot(ticket_id: str, user: SessionUser = Depends(require_admin)) -> HTMLResponse:
     """The captured page, served for an iframe to render.
 
     Served from here rather than as a redirect to storage so the sandboxing headers are
@@ -90,9 +86,7 @@ async def set_status(
     request: Request,
     user: SessionUser = Depends(require_admin),
 ) -> TicketOut:
-    ticket = await feedback_service.set_status(
-        actor_for(request, user), ticket_id, payload.status
-    )
+    ticket = await feedback_service.set_status(actor_for(request, user), ticket_id, payload.status)
     return TicketOut(ticket=ticket)
 
 

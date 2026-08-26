@@ -60,22 +60,18 @@ class TestResolvingOne:
         assert (await team["member"].get(f"/api/messages/{message_id}")).status == 404
 
     async def test_an_id_that_never_existed_is_a_404_not_a_500(self, team: dict) -> None:
-        response = await team["owner"].get(
-            "/api/messages/01890000-0000-7000-8000-000000000000"
-        )
+        response = await team["owner"].get("/api/messages/01890000-0000-7000-8000-000000000000")
         assert response.status == 404
 
 
 class TestAccess:
-    async def test_a_link_to_a_private_channel_tells_a_stranger_nothing(
-        self, team: dict
-    ) -> None:
+    async def test_a_link_to_a_private_channel_tells_a_stranger_nothing(self, team: dict) -> None:
         private = (
             await team["owner"].post("/api/channels", {"name": "founders", "kind": "private"})
         ).body["channel"]
-        message_id = (
-            await send_message(team["owner"], private["id"], "secret")
-        ).body["message"]["id"]
+        message_id = (await send_message(team["owner"], private["id"], "secret")).body["message"][
+            "id"
+        ]
 
         response = await team["member"].get(f"/api/messages/{message_id}")
         # 404, and the same 404 a deleted message gives: pasting a link somebody was not
@@ -83,18 +79,16 @@ class TestAccess:
         assert response.status == 404
 
     async def test_a_signed_out_stranger_gets_nowhere(self, team: dict) -> None:
-        message_id = (
-            await send_message(team["owner"], team["general"]["id"], "public-ish")
-        ).body["message"]["id"]
+        message_id = (await send_message(team["owner"], team["general"]["id"], "public-ish")).body[
+            "message"
+        ]["id"]
 
         response = await team["owner"].fork().get(f"/api/messages/{message_id}")
         assert response.status == 401
 
 
 class TestJumpingToIt:
-    async def test_history_around_a_message_returns_both_sides_of_it(
-        self, team: dict
-    ) -> None:
+    async def test_history_around_a_message_returns_both_sides_of_it(self, team: dict) -> None:
         ids = []
         for index in range(9):
             sent = await send_message(team["owner"], team["general"]["id"], f"m{index}")

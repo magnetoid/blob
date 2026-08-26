@@ -76,9 +76,7 @@ async def _upgrade() -> None:
                 # Alembic's env.py opens its own event loop, so it has to run off this one.
                 await asyncio.to_thread(command.upgrade, alembic_config(), "head")
             finally:
-                await connection.execute(
-                    text("SELECT pg_advisory_unlock(:key)"), {"key": LOCK_KEY}
-                )
+                await connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": LOCK_KEY})
     finally:
         await engine.dispose()
 

@@ -98,6 +98,5 @@ async def test_message_translation_requires_a_target_language(client: Client) ->
     response = await owner.post(f"/api/messages/{message.body['message']['id']}/translate", {})
     assert response.status == 403
     assert (
-        response.body["error"]["message"]
-        == "Set your preferred language before using translation."
+        response.body["error"]["message"] == "Set your preferred language before using translation."
     )

@@ -91,9 +91,7 @@ class TestWhatIsCaptured:
         ]
 
     @pytest.mark.parametrize("muted", ["redis", "redis.connection", "blob.logbuf"])
-    async def test_the_handlers_own_failures_are_dropped(
-        self, founder: Client, muted: str
-    ) -> None:
+    async def test_the_handlers_own_failures_are_dropped(self, founder: Client, muted: str) -> None:
         logging.getLogger(muted).error("connection refused")
         await drain()
 

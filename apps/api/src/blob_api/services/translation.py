@@ -243,9 +243,7 @@ async def _translate_deepl(
 
 def _translation_error(response_text: str) -> AppError:
     if "429" in response_text:
-        return AppError(
-            503, "translation_unavailable", "The translation provider is rate limited."
-        )
+        return AppError(503, "translation_unavailable", "The translation provider is rate limited.")
     return AppError(
         503, "translation_unavailable", "The translation provider rejected that request."
     )

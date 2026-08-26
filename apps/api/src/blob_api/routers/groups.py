@@ -66,9 +66,7 @@ def _membership(user_id: str, group_id: str, is_member: bool) -> None:
     "Are you in this group" cannot ride the shared payload — it is a different answer for
     every reader, and putting it on the group would mean broadcasting the roster.
     """
-    hub.to_users(
-        [user_id], {"t": "group.membership", "groupId": group_id, "isMember": is_member}
-    )
+    hub.to_users([user_id], {"t": "group.membership", "groupId": group_id, "isMember": is_member})
 
 
 @router.get("", response_model=GroupsOut)
@@ -180,9 +178,7 @@ async def delete_group(
 
 
 @router.get("/{group_id}/members", response_model=MembersOut)
-async def list_members(
-    group_id: str, admin: SessionUser = Depends(require_admin)
-) -> MembersOut:
+async def list_members(group_id: str, admin: SessionUser = Depends(require_admin)) -> MembersOut:
     async with session_scope() as session:
         if not await group_service.exists(session, admin.workspace_id, group_id):
             raise not_found("There is no such group here.")

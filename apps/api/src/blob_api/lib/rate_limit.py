@@ -52,7 +52,7 @@ async def consume(name: str, subject: str) -> None:
         pipe.zadd(key, {str(now_ns): now})
         pipe.expire(key, limit.window_sec)
         results = await pipe.execute()
-        
+
     count = results[1]
     if count >= limit.max:
         raise too_many_requests("Too many attempts. Try again in a moment.")

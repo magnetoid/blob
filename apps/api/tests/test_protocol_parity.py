@@ -19,9 +19,7 @@ import pytest
 
 from blob_api.realtime import protocol
 
-PROTOCOL_TS = (
-    Path(__file__).resolve().parents[3] / "packages" / "shared" / "src" / "protocol.ts"
-)
+PROTOCOL_TS = Path(__file__).resolve().parents[3] / "packages" / "shared" / "src" / "protocol.ts"
 
 
 @pytest.fixture(scope="module")

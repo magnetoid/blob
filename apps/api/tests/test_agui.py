@@ -67,9 +67,11 @@ def fold_bytes(*chunks: bytes) -> list[agui.Post]:
 
 
 def test_a_record_split_across_chunks_is_reassembled() -> None:
-    whole = frame(type="TEXT_MESSAGE_START", messageId="m1") + frame(
-        type="TEXT_MESSAGE_CONTENT", messageId="m1", delta="hello there"
-    ) + frame(type="TEXT_MESSAGE_END", messageId="m1")
+    whole = (
+        frame(type="TEXT_MESSAGE_START", messageId="m1")
+        + frame(type="TEXT_MESSAGE_CONTENT", messageId="m1", delta="hello there")
+        + frame(type="TEXT_MESSAGE_END", messageId="m1")
+    )
 
     # One byte at a time: every possible boundary at once.
     posts = fold_bytes(*[whole[i : i + 1] for i in range(len(whole))])
@@ -80,11 +82,14 @@ def test_the_wire_uses_screaming_snake_not_the_docs_headings() -> None:
     # The published docs head each section with the TypeScript interface name
     # (`TextMessageStart`); the discriminator on the wire is `TEXT_MESSAGE_START`.
     # Matching the headings parses nothing at all, silently.
-    assert fold_bytes(
-        frame(type="TextMessageStart", messageId="m1"),
-        frame(type="TextMessageContent", messageId="m1", delta="hi"),
-        frame(type="TextMessageEnd", messageId="m1"),
-    ) == []
+    assert (
+        fold_bytes(
+            frame(type="TextMessageStart", messageId="m1"),
+            frame(type="TextMessageContent", messageId="m1", delta="hi"),
+            frame(type="TextMessageEnd", messageId="m1"),
+        )
+        == []
+    )
 
 
 def test_two_messages_can_interleave() -> None:
@@ -129,20 +134,26 @@ def test_content_without_a_start_opens_the_message() -> None:
 def test_reasoning_is_never_posted() -> None:
     # An agent's working-out is not its answer, and posting it would be a privacy and a
     # noise problem at once.
-    assert fold_bytes(
-        frame(type="REASONING_START", messageId="r1"),
-        frame(type="REASONING_CONTENT", messageId="r1", delta="let me think"),
-        frame(type="REASONING_END", messageId="r1"),
-        frame(type="THINKING_TEXT_MESSAGE_CONTENT", delta="hmm"),
-    ) == []
+    assert (
+        fold_bytes(
+            frame(type="REASONING_START", messageId="r1"),
+            frame(type="REASONING_CONTENT", messageId="r1", delta="let me think"),
+            frame(type="REASONING_END", messageId="r1"),
+            frame(type="THINKING_TEXT_MESSAGE_CONTENT", delta="hmm"),
+        )
+        == []
+    )
 
 
 def test_an_empty_delta_is_not_an_empty_message() -> None:
-    assert fold_bytes(
-        frame(type="TEXT_MESSAGE_START", messageId="m1"),
-        frame(type="TEXT_MESSAGE_CONTENT", messageId="m1", delta=""),
-        frame(type="TEXT_MESSAGE_END", messageId="m1"),
-    ) == []
+    assert (
+        fold_bytes(
+            frame(type="TEXT_MESSAGE_START", messageId="m1"),
+            frame(type="TEXT_MESSAGE_CONTENT", messageId="m1", delta=""),
+            frame(type="TEXT_MESSAGE_END", messageId="m1"),
+        )
+        == []
+    )
 
 
 def test_a_long_body_is_split_into_parts_rather_than_truncated() -> None:
@@ -172,10 +183,13 @@ def test_tool_names_become_a_context_block() -> None:
 
 
 def test_a_chunk_event_carries_text_like_the_triad_does() -> None:
-    assert [p.body for p in fold_bytes(
-        frame(type="TEXT_MESSAGE_CHUNK", messageId="m1", delta="from a chunk"),
-        frame(type="TEXT_MESSAGE_END", messageId="m1"),
-    )] == ["from a chunk"]
+    assert [
+        p.body
+        for p in fold_bytes(
+            frame(type="TEXT_MESSAGE_CHUNK", messageId="m1", delta="from a chunk"),
+            frame(type="TEXT_MESSAGE_END", messageId="m1"),
+        )
+    ] == ["from a chunk"]
 
 
 def test_a_run_error_is_recorded_and_stops_the_run() -> None:
@@ -216,8 +230,12 @@ def test_history_casts_the_listening_bot_as_the_assistant() -> None:
 
     def message(id_: str, author: str, body: str) -> Message:
         return Message(
-            id=id_, channel_id="c", author_id=author, body=body,
-            client_msg_id=id_, created_at="2026-08-22T10:00:00.000Z",
+            id=id_,
+            channel_id="c",
+            author_id=author,
+            body=body,
+            client_msg_id=id_,
+            created_at="2026-08-22T10:00:00.000Z",
         )
 
     out = agui.to_agui_messages(
