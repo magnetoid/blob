@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:53'
-updated: '2026-08-26T03:50:53'
+created: '2026-08-26T05:44:09'
+updated: '2026-08-26T05:44:09'
 ---
 
 # apps/api/src/blob_api/db/migrations/versions/0013_workspace_policies.py
@@ -13,4 +13,4 @@ updated: '2026-08-26T03:50:53'
 Symbols in `apps/api/src/blob_api/db/migrations/versions/0013_workspace_policies.py`.
 
 - L44 `upgrade()` (function)
-- L108 `downgrade()` (function)
+- L106 `downgrade()` (function)

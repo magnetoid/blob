@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:54'
-updated: '2026-08-26T03:50:54'
+created: '2026-08-26T05:44:10'
+updated: '2026-08-26T05:44:10'
 ---
 
 # apps/api/tests/test_agent_socket.py
@@ -30,15 +30,15 @@ Symbols in `apps/api/tests/test_agent_socket.py`.
 - L193 `test_a_first_frame_works_for_a_client_that_cannot_set_headers(self, team: dict)` (method)
 - L202 `test_a_bad_token_is_refused(self, team: dict)` (method)
 - L206 `test_a_disabled_agent_cannot_hold_a_connection(self, team: dict)` (method)
-- L221 `TestHello` (class)
-- L222 `test_connecting_is_how_an_agent_says_what_it_is(self, team: dict)` (method)
-- L246 `test_an_agent_cannot_grant_itself_a_scope(self, team: dict)` (method) — The consent screen has to mean something.
-- L266 `test_a_field_left_out_keeps_what_was_there(self, team: dict)` (method)
-- L282 `TestPresence` (class)
-- L283 `test_online_only_while_the_socket_is_held(self, team: dict)` (method)
-- L302 `TestRunRouting` (class)
-- L303 `test_a_mention_reaches_the_agent_and_its_answer_lands(self, team: dict)` (method)
-- L328 `test_an_agent_that_is_not_connected_says_so(self, team: dict)` (method)
-- L340 `test_a_run_reaching_two_holders_is_answered_once(self, team: dict)` (method) — Pub/sub is fan-out, and an agent can be connected twice mid-reconnect.
-- L375 `TestStreamEvents` (class)
-- L376 `test_subscribing_happens_before_publishing(self, team: dict)` (method) — The race that makes a working agent look like a hanging one.
+- L219 `TestHello` (class)
+- L220 `test_connecting_is_how_an_agent_says_what_it_is(self, team: dict)` (method)
+- L244 `test_an_agent_cannot_grant_itself_a_scope(self, team: dict)` (method) — The consent screen has to mean something.
+- L264 `test_a_field_left_out_keeps_what_was_there(self, team: dict)` (method)
+- L280 `TestPresence` (class)
+- L281 `test_online_only_while_the_socket_is_held(self, team: dict)` (method)
+- L300 `TestRunRouting` (class)
+- L301 `test_a_mention_reaches_the_agent_and_its_answer_lands(self, team: dict)` (method)
+- L326 `test_an_agent_that_is_not_connected_says_so(self, team: dict)` (method)
+- L338 `test_a_run_reaching_two_holders_is_answered_once(self, team: dict)` (method) — Pub/sub is fan-out, and an agent can be connected twice mid-reconnect.
+- L373 `TestStreamEvents` (class)
+- L374 `test_subscribing_happens_before_publishing(self, team: dict)` (method) — The race that makes a working agent look like a hanging one.

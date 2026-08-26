@@ -4,15 +4,15 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:53'
-updated: '2026-08-26T03:50:53'
+created: '2026-08-26T05:44:09'
+updated: '2026-08-26T05:44:09'
 ---
 
 # Repository Map
 
 Modules and their key symbols (ranked by references).
 
-- **apps/api/src/blob_api/config.py** — 9 symbol(s)
+- **apps/api/src/blob_api/config.py** — 10 symbol(s)
   - `Settings` (class)
   - `get_settings()` (function)
   - `_blank_is_none(cls, value: str | None)` (method)
@@ -103,7 +103,7 @@ Modules and their key symbols (ranked by references).
   - `seed()` (function)
   - `main()` (function)
   - `_run()` (function)
-- **apps/api/src/blob_api/jobs/agui.py** — 16 symbol(s)
+- **apps/api/src/blob_api/jobs/agui.py** — 17 symbol(s)
   - `Listener` (class)
   - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None)` (function)
   - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
@@ -179,4 +179,4 @@ Modules and their key symbols (ranked by references).
   - `Limit` (class)
   - `consume(name: str, subject: str)` (function)
 - **apps/api/src/blob_api/lib/redis.py** — 4 symbol(s)
-  - `presence_k…[truncated]
+  - `presence_…[truncated]

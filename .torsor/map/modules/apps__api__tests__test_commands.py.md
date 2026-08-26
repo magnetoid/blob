@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:54'
-updated: '2026-08-26T03:50:54'
+created: '2026-08-26T05:44:10'
+updated: '2026-08-26T05:44:10'
 ---
 
 # apps/api/tests/test_commands.py
@@ -28,4 +28,4 @@ Symbols in `apps/api/tests/test_commands.py`.
 - L129 `test_topic_with_no_argument_clears_it(team: dict)` (function)
 - L138 `test_leave_removes_the_member(team: dict)` (function)
 - L149 `test_a_command_cannot_reach_a_channel_you_are_not_in(team: dict)` (function)
-- L165 `test_direct_messages_refuse_channel_commands(team: dict, command: str)` (function)
+- L163 `test_direct_messages_refuse_channel_commands(team: dict, command: str)` (function)

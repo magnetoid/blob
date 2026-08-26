@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:53'
-updated: '2026-08-26T03:50:53'
+created: '2026-08-26T05:44:09'
+updated: '2026-08-26T05:44:09'
 ---
 
 # apps/api/src/blob_api/config.py
@@ -13,11 +13,12 @@ updated: '2026-08-26T03:50:53'
 Symbols in `apps/api/src/blob_api/config.py`.
 
 - L16 `Settings` (class)
-- L144 `_blank_is_none(cls, value: str | None)` (method)
-- L148 `is_prod(self)` (method)
-- L152 `is_test(self)` (method)
-- L156 `s3_public_endpoint(self)` (method)
-- L160 `agent_hosting_enabled(self)` (method) — Every piece has to be present, or a deploy fails halfway through.
-- L172 `push_enabled(self)` (method)
-- L176 `sqlalchemy_url(self)` (method) — SQLAlchemy wants the driver named in the scheme; the env carries a plain URL.
-- L187 `get_settings()` (function)
+- L171 `_blank_is_none(cls, value: str | None)` (method)
+- L175 `is_prod(self)` (method)
+- L179 `is_test(self)` (method)
+- L183 `s3_public_endpoint(self)` (method)
+- L187 `agent_hosting_enabled(self)` (method) — Every piece has to be present, or a deploy fails halfway through.
+- L199 `agent_shell_enabled(self)` (method) — All four, or off.
+- L212 `push_enabled(self)` (method)
+- L216 `sqlalchemy_url(self)` (method) — SQLAlchemy wants the driver named in the scheme; the env carries a plain URL.
+- L227 `get_settings()` (function)

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:54'
-updated: '2026-08-26T03:50:54'
+created: '2026-08-26T05:44:10'
+updated: '2026-08-26T05:44:10'
 ---
 
 # apps/api/src/blob_api/services/translation.py
@@ -20,5 +20,5 @@ Symbols in `apps/api/src/blob_api/services/translation.py`.
 - L144 `_translate_libretranslate(text_value: str, *, target_language: str, source_language: str | None)` (function)
 - L190 `_translate_deepl(text_value: str, *, target_language: str, source_language: str | None)` (function)
 - L244 `_translation_error(response_text: str)` (function)
-- L254 `_libre_code(value: str)` (function)
-- L258 `_deepl_code(value: str)` (function)
+- L252 `_libre_code(value: str)` (function)
+- L256 `_deepl_code(value: str)` (function)

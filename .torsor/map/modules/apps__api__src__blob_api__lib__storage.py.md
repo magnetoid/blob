@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:54'
-updated: '2026-08-26T03:50:54'
+created: '2026-08-26T05:44:09'
+updated: '2026-08-26T05:44:09'
 ---
 
 # apps/api/src/blob_api/lib/storage.py
@@ -23,4 +23,4 @@ Symbols in `apps/api/src/blob_api/lib/storage.py`.
 - L136 `public_file_url(key: str)` (function) — Stable URL that routes through the API, which redirects to a fresh presigned GET.
 - L145 `delete_object(key: str)` (function)
 - L149 `get_object(key: str)` (function) — Read an object through the app rather than redirecting the browser to it.
-- L162 `put_object(key: str, body: bytes, mime: str)` (function)
+- L160 `put_object(key: str, body: bytes, mime: str)` (function)

@@ -303,8 +303,15 @@ Worth knowing before changing the equivalent code:
   despite a 73-character value being configured, while `ANTHROPIC_API_KEY` happened to get
   the non-empty twin. Nothing reports this: the app boots, and the agent is simply unable
   to reach a provider it appears to be configured for. Anything Blob builds on top of this
-  API must read the list, match on `uuid`, and `PATCH` that uuid — never write by key —
-  and should refuse to save while a key has disagreeing duplicates.
+  API must read the list, delete every row for the key by `uuid`, then `POST` once.
+  Probed against the live API rather than the docs, because three of the four obvious
+  moves are wrong: `POST` appends; `PATCH /envs` with an existing key **also appends** and
+  answers `201`; `PATCH /envs/{env_uuid}` is a `404`, so there is no update-by-uuid at all;
+  `PATCH /envs/bulk` does update in place but touches only one row of a duplicated key and
+  leaves the rest — which is the trap rather than the way out of it. Delete-then-create is
+  the only deterministic write, and it repairs existing duplicates as a side effect, so the
+  fix reaches an already-broken agent by someone using the feature rather than by a
+  migration. `plugins/runner.py:set_env`.
 - **A `docker compose` network declared `external` is not necessarily joined.** The janus
   stack declares `agents: {external: true, name: blob-agents}` and its container is on its
   own Coolify network only — the compose change shipped but nothing redeployed it. So
@@ -319,3 +326,38 @@ Worth knowing before changing the equivalent code:
   more than one container rather than guessing, and logs every session to syslog. That is
   how ADR 0010's reasoning survives being overruled — the blast radius of the credential
   is one `docker exec` into one agent container.
+- **A hosted AG-UI agent could never be mentioned, and nothing said so.** `listeners_for`
+  admits a plugin only when `agui_url IS NOT NULL` or its runtime dials in. `agui_url` came
+  solely from a manifest, and a manifest is written before the agent has an address —
+  the runner invents the hostname at deploy time. So the one field deciding whether a
+  deployed agent can be spoken to was the one field a deployed agent could never fill in.
+  Every mention produced no reply, no error, no `agent_runs` row and no log line. The fix
+  is `aguiPath` in the manifest — a path *is* knowable in advance — joined to the base the
+  runner reports. When adding a field that gates delivery, check that the runtime which
+  needs it most is able to supply it.
+- **`deploy` answers before the runner has assigned a hostname; only `status` reads one
+  back.** Nothing called `status` except the console rendering the deployment panel, so an
+  agent installed over the API and never clicked on had `request_url` NULL forever —
+  `lease_due` skips those rows, so its events queued with zero attempts and zero errors.
+  A URL that only exists after someone looks at a screen is not a URL.
+- **`len()` on a `str` is not a byte count.** The agent socket's `MAX_FRAME_BYTES` check
+  was `len(raw)` on decoded text, so a frame of non-ASCII could be several times the cap
+  and pass. The socket run path also capped events but not bytes, leaving the real ceiling
+  at events times frame size. Both caps exist because an agent can be wrong in either
+  direction: many tiny events, or few enormous ones.
+- **Runs were addressed by id with no check that the sender owned them.** Any
+  authenticated bot could publish AG-UI events into any run id it named — fabricated text
+  posted as another agent's reply, or a `RUN_ERROR` to end its run. The only obstacle was
+  that a UUIDv7 is unguessable, which is why it had not happened rather than why it could
+  not. The claim key was already there and already scoped to one run; it now holds the
+  claiming plugin's id instead of `"1"`, and `owns_run` reads it back.
+- **Two pytest runs against the same database look exactly like a flaky test suite.**
+  `_clean_state` TRUNCATEs before every test, so a second run truncates mid-test in the
+  first: foreign-key violations on `sessions` during signup, in fixtures with nothing to do
+  with the code under test, moving between files on each run. Before hunting a race in
+  application code, run `ps aux | grep pytest`.
+- **`instance_admins` was not in the test TRUNCATE.** It is keyed on an email rather than a
+  user, so it survived its workspace being deleted and survived the reset — making "who is
+  the instance admin?" depend on which file signed up first. Three unrelated tests failed
+  purely because new test files changed the alphabetical order. A table that outlives the
+  rows it references needs naming in the reset explicitly.

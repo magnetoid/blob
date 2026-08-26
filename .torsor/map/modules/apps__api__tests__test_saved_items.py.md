@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:54'
-updated: '2026-08-26T03:50:54'
+created: '2026-08-26T05:44:10'
+updated: '2026-08-26T05:44:10'
 ---
 
 # apps/api/tests/test_saved_items.py
@@ -28,7 +28,7 @@ Symbols in `apps/api/tests/test_saved_items.py`.
 - L116 `test_unsaving_touches_only_your_own(self, team: dict)` (method)
 - L126 `TestAccess` (class)
 - L127 `test_a_channel_you_are_not_in_cannot_be_saved_from(self, team: dict)` (method)
-- L141 `test_leaving_a_channel_takes_its_messages(self, team: dict)` (method)
-- L159 `TestBootPayload` (class)
-- L160 `test_the_ids_ride_along_so_the_menu_can_label_itself(self, team: dict)` (method)
-- L170 `test_it_is_empty_for_somebody_who_saved_nothing(self, team: dict, saved: bool)` (method)
+- L139 `test_leaving_a_channel_takes_its_messages(self, team: dict)` (method)
+- L157 `TestBootPayload` (class)
+- L158 `test_the_ids_ride_along_so_the_menu_can_label_itself(self, team: dict)` (method)
+- L168 `test_it_is_empty_for_somebody_who_saved_nothing(self, team: dict, saved: bool)` (method)

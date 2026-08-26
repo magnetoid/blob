@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:54'
-updated: '2026-08-26T03:50:54'
+created: '2026-08-26T05:44:10'
+updated: '2026-08-26T05:44:10'
 ---
 
 # apps/api/src/blob_api/plugins/gateway.py
@@ -26,6 +26,7 @@ Symbols in `apps/api/src/blob_api/plugins/gateway.py`.
 - L203 `_spawn(self, coro: Any)` (method)
 - L208 `_refresh_presence(self)` (method)
 - L214 `_pump_runs(self)` (method) — Take run requests off Redis and write them to the agent.
-- L258 `relay_event(run_id: str, event: dict[str, Any])` (function) — Put one AG-UI event from the agent back on the wire to whoever asked for the run.
-- L263 `relay_end(run_id: str)` (function) — Tell the caller the agent considers this run over, so it stops waiting on a clock.
-- L268 `run_timeout_sec()` (function) — The ceiling on a socket run.
+- L264 `owns_run(plugin_id: str, run_id: str)` (function) — Whether this agent is the one that was asked to do this run.
+- L287 `relay_event(run_id: str, event: dict[str, Any])` (function) — Put one AG-UI event from the agent back on the wire to whoever asked for the run.
+- L292 `relay_end(run_id: str)` (function) — Tell the caller the agent considers this run over, so it stops waiting on a clock.
+- L297 `run_timeout_sec()` (function) — The ceiling on a socket run.

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:53'
-updated: '2026-08-26T03:50:53'
+created: '2026-08-26T05:44:09'
+updated: '2026-08-26T05:44:09'
 ---
 
 # apps/api/src/blob_api/db/migrate.py
@@ -15,4 +15,4 @@ Symbols in `apps/api/src/blob_api/db/migrate.py`.
 - L37 `alembic_config()` (function) — The same alembic.ini the CLI uses, found relative to this file.
 - L52 `_wait_for_database(engine: AsyncEngine)` (function)
 - L67 `_upgrade()` (function)
-- L86 `main()` (function)
+- L84 `main()` (function)

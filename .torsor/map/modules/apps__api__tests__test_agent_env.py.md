@@ -4,20 +4,45 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:54'
-updated: '2026-08-26T03:50:54'
+created: '2026-08-26T05:44:10'
+updated: '2026-08-26T05:44:10'
 ---
 
 # apps/api/tests/test_agent_env.py
 
 Symbols in `apps/api/tests/test_agent_env.py`.
 
-- L18 `test_nothing_supplied_is_not_an_error()` (function)
-- L23 `test_a_provider_key_passes_through_untouched()` (function)
-- L28 `test_surrounding_space_in_a_name_is_forgiven()` (function)
-- L36 `test_a_name_that_only_works_in_some_shells_is_refused(key: str)` (function)
-- L45 `test_blobs_own_credentials_cannot_be_overridden(key: str)` (function)
-- L53 `test_the_runners_own_channel_cannot_be_forged()` (function)
-- L61 `test_an_empty_value_is_refused_rather_than_deployed()` (function)
-- L67 `test_a_value_that_is_too_long_is_refused()` (function)
-- L73 `test_there_is_a_ceiling_on_how_much_can_be_supplied()` (function)
+- L44 `Runner` (class) — An environment store with the runner's actual semantics: append, never upsert.
+- L47 `__init__(self)` (method)
+- L52 `add(self, key: str, value: str, *, managed: bool=False)` (method)
+- L58 `deploy(self, *, slug: str, repo: str, ref: str, env: dict[str, str], port: int=3000, compose_path: str | None=None)` (method)
+- L72 `redeploy(self, deployment_id: str)` (method)
+- L75 `status(self, deployment_id: str)` (method)
+- L78 `logs(self, deployment_id: str, lines: int=200)` (method)
+- L81 `stop(self, deployment_id: str)` (method)
+- L84 `env(self, deployment_id: str)` (method)
+- L87 `set_env(self, deployment_id: str, key: str, value: str)` (method)
+- L93 `unset_env(self, deployment_id: str, key: str)` (method)
+- L98 `values_of(self, key: str)` (method)
+- L103 `_resolve_the_example_host(monkeypatch: pytest.MonkeyPatch)` (function)
+- L113 `hosted(monkeypatch: pytest.MonkeyPatch)` (function)
+- L131 `install(client: Client)` (function)
+- L142 `TestWriting` (class)
+- L143 `test_setting_a_key_twice_leaves_one_row(self, hosted: Runner, client: Client)` (method)
+- L154 `test_it_repairs_duplicates_that_were_already_there(self, hosted: Runner, client: Client)` (method)
+- L170 `test_removing_a_key_removes_every_row_of_it(self, hosted: Runner, client: Client)` (method)
+- L181 `test_saving_can_restart_the_agent(self, hosted: Runner, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)
+- L203 `test_it_does_not_restart_unless_asked(self, hosted: Runner, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)
+- L218 `TestWhatIsShown` (class)
+- L219 `test_a_secret_is_described_rather_than_printed(self, hosted: Runner, client: Client)` (method)
+- L233 `test_an_ordinary_value_is_shown(self, hosted: Runner, client: Client)` (method)
+- L243 `test_a_duplicated_key_is_flagged(self, hosted: Runner, client: Client)` (method)
+- L254 `test_the_runners_own_values_are_marked_managed(self, hosted: Runner, client: Client)` (method)
+- L267 `TestWhatBlobKeepsForItself` (class)
+- L268 `test_a_reserved_key_cannot_be_set(self, hosted: Runner, client: Client)` (method)
+- L278 `test_a_reserved_key_cannot_be_removed(self, hosted: Runner, client: Client)` (method)
+- L290 `test_the_port_is_reserved_too(self, hosted: Runner, client: Client)` (method)
+- L300 `test_the_reserved_names_are_listed(self, hosted: Runner, client: Client)` (method)
+- L311 `TestAuthorization` (class)
+- L312 `test_a_member_cannot_read_configuration(self, hosted: Runner, client: Client)` (method)
+- L320 `test_a_member_cannot_write_it(self, hosted: Runner, client: Client)` (method)

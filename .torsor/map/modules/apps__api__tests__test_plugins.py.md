@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-26T03:50:54'
-updated: '2026-08-26T03:50:54'
+created: '2026-08-26T05:44:10'
+updated: '2026-08-26T05:44:10'
 ---
 
 # apps/api/tests/test_plugins.py
@@ -48,30 +48,30 @@ Symbols in `apps/api/tests/test_plugins.py`.
 - L375 `queued(plugin_id: str)` (function)
 - L386 `test_a_message_queues_a_delivery(team: dict)` (function)
 - L392 `test_only_subscribed_events_are_queued(team: dict)` (function)
-- L402 `test_a_disabled_app_is_not_queued_for(team: dict)` (function)
-- L410 `test_a_rejected_send_queues_nothing(team: dict)` (function) — The outbox row and the message commit together, or neither does.
-- L423 `test_an_app_is_not_woken_by_its_own_message(team: dict)` (function)
-- L433 `test_two_apps_each_get_their_own_delivery(team: dict)` (function)
-- L441 `test_deliveries_are_visible_to_an_admin(team: dict)` (function)
-- L450 `test_a_pending_delivery_says_when_it_will_be_tried(team: dict)` (function)
-- L459 `test_the_delivery_detail_returns_the_payload_the_app_was_sent(team: dict)` (function)
-- L472 `test_a_delivery_belonging_to_another_app_is_not_readable(team: dict)` (function)
-- L484 `test_a_member_cannot_read_a_delivery(team: dict)` (function)
-- L495 `test_an_update_that_widens_scopes_waits_for_approval(team: dict)` (function)
-- L518 `test_an_update_that_narrows_scopes_takes_effect_at_once(team: dict)` (function)
-- L535 `test_a_slug_cannot_change_after_install(team: dict)` (function)
-- L544 `test_rotating_the_secret_returns_a_different_one(team: dict)` (function)
-- L552 `test_uninstalling_keeps_what_the_bot_said(team: dict)` (function)
-- L582 `test_uninstalling_stops_the_token(team: dict)` (function)
-- L589 `test_uninstalling_is_audited(team: dict)` (function)
-- L597 `TestAnAppHearsOnlyWhatItCouldRead` (class) — The push side has to agree with the pull side.
-- L607 `test_a_public_channel_is_heard_without_joining(self, team: dict)` (method)
-- L613 `test_a_private_channel_is_not_heard(self, team: dict)` (method)
-- L625 `test_a_private_channel_is_heard_once_the_bot_is_in_it(self, team: dict)` (method)
-- L639 `test_a_direct_message_is_not_heard(self, team: dict)` (method)
-- L651 `test_a_channel_event_without_a_channel_is_refused(team: dict)` (function) — The guard that keeps this fixed.
-- L671 `TestAppChannels` (class) — An installed app is inert until its bot joins a channel.
-- L680 `test_public_channels_are_listed_with_membership(self, team: dict)` (method)
-- L688 `test_an_admin_can_put_the_bot_in_a_channel_and_take_it_out(self, team: dict)` (method)
-- L707 `test_private_channels_are_not_listed(self, team: dict)` (method)
-- L722 `test_a_member_cannot_move_an_app_around(self, team: dict)` (method)
+- L400 `test_a_disabled_app_is_not_queued_for(team: dict)` (function)
+- L408 `test_a_rejected_send_queues_nothing(team: dict)` (function) — The outbox row and the message commit together, or neither does.
+- L421 `test_an_app_is_not_woken_by_its_own_message(team: dict)` (function)
+- L431 `test_two_apps_each_get_their_own_delivery(team: dict)` (function)
+- L439 `test_deliveries_are_visible_to_an_admin(team: dict)` (function)
+- L448 `test_a_pending_delivery_says_when_it_will_be_tried(team: dict)` (function)
+- L457 `test_the_delivery_detail_returns_the_payload_the_app_was_sent(team: dict)` (function)
+- L470 `test_a_delivery_belonging_to_another_app_is_not_readable(team: dict)` (function)
+- L482 `test_a_member_cannot_read_a_delivery(team: dict)` (function)
+- L493 `test_an_update_that_widens_scopes_waits_for_approval(team: dict)` (function)
+- L516 `test_an_update_that_narrows_scopes_takes_effect_at_once(team: dict)` (function)
+- L533 `test_a_slug_cannot_change_after_install(team: dict)` (function)
+- L542 `test_rotating_the_secret_returns_a_different_one(team: dict)` (function)
+- L550 `test_uninstalling_keeps_what_the_bot_said(team: dict)` (function)
+- L580 `test_uninstalling_stops_the_token(team: dict)` (function)
+- L587 `test_uninstalling_is_audited(team: dict)` (function)
+- L595 `TestAnAppHearsOnlyWhatItCouldRead` (class) — The push side has to agree with the pull side.
+- L605 `test_a_public_channel_is_heard_without_joining(self, team: dict)` (method)
+- L611 `test_a_private_channel_is_not_heard(self, team: dict)` (method)
+- L621 `test_a_private_channel_is_heard_once_the_bot_is_in_it(self, team: dict)` (method)
+- L635 `test_a_direct_message_is_not_heard(self, team: dict)` (method)
+- L647 `test_a_channel_event_without_a_channel_is_refused(team: dict)` (function) — The guard that keeps this fixed.
+- L667 `TestAppChannels` (class) — An installed app is inert until its bot joins a channel.
+- L676 `test_public_channels_are_listed_with_membership(self, team: dict)` (method)
+- L684 `test_an_admin_can_put_the_bot_in_a_channel_and_take_it_out(self, team: dict)` (method)
+- L701 `test_private_channels_are_not_listed(self, team: dict)` (method)
+- L714 `test_a_member_cannot_move_an_app_around(self, team: dict)` (method)
