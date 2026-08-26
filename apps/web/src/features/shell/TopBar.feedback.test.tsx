@@ -41,7 +41,7 @@ const { TopBar } = await import('./TopBar.tsx');
 
 function renderBar() {
   const onFeedback = vi.fn();
-  render(<TopBar onFeedback={onFeedback} />);
+  render(<TopBar onFeedback={onFeedback} view="messages" />);
   return { onFeedback };
 }
 

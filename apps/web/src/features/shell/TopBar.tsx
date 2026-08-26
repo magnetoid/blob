@@ -1,23 +1,43 @@
 /**
- * The bar across the top, and the user menu at the right of it.
+ * The bar across the top: workspace, view switching, and the user menu at the right.
  *
  * Slack puts your avatar in the top-right corner and hangs the account menu off it, so
  * that is where this lives. The bar spans every column of the shell, which is what makes
  * the menu reachable from the conversation, search, preferences and administration
  * alike — a menu that only existed in one view would be a menu people could lose.
+ *
+ * **Switching views is here too, and used to be a 64px column down the left.** That rail
+ * held four buttons and a workspace initial, and it charged the full height of the window
+ * for them — beside a 264px sidebar, a third of the screen went to navigation before any
+ * conversation started. The buttons moved into the row that was already spanning the whole
+ * width and already had empty middle. This is a departure from Slack's layout, and a
+ * deliberate one: the icons keep their labels, their order and their shortcuts, so what
+ * changes is where the eye finds them, not what they do.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../lib/store.ts';
-import { navigate, usePath } from '../../lib/router.ts';
+import { navigate, pathForRoute, pathForView, usePath, type View } from '../../lib/router.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.tsx';
-import { ChevronDownIcon, FeedbackIcon } from '../../components/Icon.tsx';
+import {
+  ChevronDownIcon,
+  FeedbackIcon,
+  MembersIcon,
+  MessagesIcon,
+  SearchIcon,
+  SettingsIcon,
+} from '../../components/Icon.tsx';
 import { ITEMS } from './menu.ts';
 import { hasUnseenRelease } from '../../lib/changelog.ts';
 
+interface Props {
+  onFeedback: () => void;
+  /** The whole app's view, so a screen the bar cannot reach simply presses nothing. */
+  view: View;
+}
 
-export function TopBar({ onFeedback }: { onFeedback: () => void }) {
+export function TopBar({ onFeedback, view }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
   const status = useStore((s) => s.status);
@@ -69,6 +89,51 @@ export function TopBar({ onFeedback }: { onFeedback: () => void }) {
   return (
     <header className="topbar">
       <WorkspaceSwitcher name={workspaceName} />
+
+      {/* The bar does its own navigating. Every call site passed the identical callback,
+          which was three chances to wire the same thing differently and no expressiveness
+          in return. */}
+      <nav className="topbar-nav" aria-label="Views">
+        <button
+          className="topbar-nav-btn"
+          aria-pressed={view === 'messages'}
+          onClick={() => navigate(pathForView('messages'))}
+          title="Messages"
+        >
+          <MessagesIcon size={17} strokeWidth={1.7} />
+          <span className="topbar-nav-label">Messages</span>
+        </button>
+        <button
+          className="topbar-nav-btn"
+          aria-pressed={view === 'search'}
+          onClick={() => navigate(pathForView('search'))}
+          title="Search"
+        >
+          <SearchIcon size={17} strokeWidth={1.7} />
+          <span className="topbar-nav-label">Search</span>
+        </button>
+        {isAdmin && (
+          <button
+            className="topbar-nav-btn"
+            aria-pressed={view === 'admin'}
+            onClick={() => navigate(pathForView('admin'))}
+            title="Administration"
+          >
+            <MembersIcon size={17} strokeWidth={1.7} />
+            <span className="topbar-nav-label">Admin</span>
+          </button>
+        )}
+        <button
+          className="topbar-nav-btn"
+          aria-pressed={view === 'workspace'}
+          onClick={() => navigate(pathForRoute({ view: 'workspace', section: 'preferences' }))}
+          title="Preferences"
+        >
+          <SettingsIcon size={17} strokeWidth={1.7} />
+          <span className="topbar-nav-label">Preferences</span>
+        </button>
+      </nav>
+
       <div className="topbar-spacer" />
 
       {/* Its own control, in the corner, rather than the last row of the account menu

@@ -1,4 +1,4 @@
-/** The signed-in shell: top bar, rail, sidebar, main view, optional thread panel. */
+/** The signed-in shell: top bar, sidebar, main view, optional thread panel. */
 
 import { useEffect, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
@@ -10,10 +10,8 @@ import {
   navigate,
   parseRoute,
   pathForRoute,
-  pathForView,
   usePath,
 } from '../lib/router.ts';
-import { Rail } from '../features/channels/Rail.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadsView } from '../features/messages/ThreadsView.tsx';
@@ -223,8 +221,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   return (
     <div className="shell" data-panel={panelOpen ? 'open' : 'closed'}>
-      <TopBar onFeedback={() => setFeedbackOpen(true)} />
-      <Rail view={view} onChange={(next) => navigate(pathForView(next))} />
+      <TopBar onFeedback={() => setFeedbackOpen(true)} view={view} />
       <Sidebar onOpenSearch={() => navigate('/search')} />
 
       {view === 'permalink' && (

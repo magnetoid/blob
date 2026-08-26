@@ -80,7 +80,7 @@ export function WorkspaceConsole({
 
   return (
     <div className="admin-shell" data-nav={navOpen ? 'open' : 'closed'}>
-      <TopBar onFeedback={onFeedback} />
+      <TopBar onFeedback={onFeedback} view="workspace" />
       <AdminNav
         id={NAV_ID}
         groups={WORKSPACE_NAV}

@@ -90,7 +90,7 @@ export function AdminConsole({
 
   return (
     <div className="admin-shell" data-nav={navOpen ? 'open' : 'closed'}>
-      <TopBar onFeedback={onFeedback} />
+      <TopBar onFeedback={onFeedback} view="admin" />
       <AdminNav
         id={NAV_ID}
         groups={ADMIN_NAV}
