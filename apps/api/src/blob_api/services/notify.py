@@ -146,7 +146,12 @@ def _local_parts(moment: datetime, timezone: str) -> dict[str, int]:
 
 
 async def load_recipients(session: AsyncSession, channel_id: str) -> list[Recipient]:
-    """Load the notification-relevant state for every member of a channel."""
+    """Load the notification-relevant state for every member of a channel.
+
+    The LIMIT is a ceiling far above this product's scale, not a policy: an
+    unbounded fan-out with a JSONB column per row is how one enormous channel
+    stalls the worker for everyone.
+    """
     rows = (
         await session.execute(
             text(
@@ -155,6 +160,7 @@ async def load_recipients(session: AsyncSession, channel_id: str) -> list[Recipi
                   FROM channel_members cm
                   JOIN users u ON u.id = cm.user_id
                  WHERE cm.channel_id = :channel_id AND u.deactivated_at IS NULL
+                 LIMIT 5000
                 """
             ),
             {"channel_id": channel_id},

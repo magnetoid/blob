@@ -13,10 +13,10 @@ from .helpers import Client, send_message, sign_up
 class _DeadPipeline:
     """A Redis client whose pipeline fails the way a dead server fails."""
 
-    def pipeline(self, transaction: bool = True) -> "_DeadPipeline":
+    def pipeline(self, transaction: bool = True) -> _DeadPipeline:
         return self
 
-    async def __aenter__(self) -> "_DeadPipeline":
+    async def __aenter__(self) -> _DeadPipeline:
         raise ConnectionError("redis is away")
 
     async def __aexit__(self, *exc: object) -> None:  # pragma: no cover
@@ -35,10 +35,10 @@ async def test_a_redis_outage_does_not_block_the_write(
 
 async def test_a_legitimate_429_still_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     class _FullPipeline:
-        def pipeline(self, transaction: bool = True) -> "_FullPipeline":
+        def pipeline(self, transaction: bool = True) -> _FullPipeline:
             return self
 
-        async def __aenter__(self) -> "_FullPipeline":
+        async def __aenter__(self) -> _FullPipeline:
             return self
 
         async def __aexit__(self, *exc: object) -> None:

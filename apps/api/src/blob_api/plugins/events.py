@@ -34,6 +34,9 @@ log = logging.getLogger("blob.plugins")
 #: every installed app.
 CHANNEL_SCOPED = frozenset(
     {
+        # Even creation: a private channel's existence is itself private, so the
+        # announcement is scoped to the apps that can see it like everything else.
+        "channel.created",
         "message.created",
         "message.updated",
         "message.deleted",
@@ -152,27 +155,3 @@ async def emit(
             },
         )
     return ids
-
-
-async def has_subscribers(session: AsyncSession, workspace_id: str, event: str) -> bool:
-    """Whether emitting is worth the payload construction on a hot path.
-
-    The runtime filter has to match `emit` exactly. A cheaper-looking answer here that
-    disagrees with the query that actually queues deliveries is worse than no shortcut
-    at all: it reports "nobody is listening" for a workspace whose only subscriber is a
-    container agent, and the events are never built.
-    """
-    found = (
-        await session.execute(
-            text(
-                """
-                SELECT 1 FROM plugins
-                 WHERE workspace_id = :ws AND status = 'enabled'
-                   AND runtime IN ('external', 'container') AND :event = ANY(events)
-                 LIMIT 1
-                """
-            ),
-            {"ws": workspace_id, "event": event},
-        )
-    ).fetchone()
-    return found is not None

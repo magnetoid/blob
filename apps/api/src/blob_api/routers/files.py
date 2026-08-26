@@ -159,8 +159,14 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
             )
         ).fetchone()
 
-        if file is None:
-            # Avatars and custom emoji are workspace-wide and have no attachment row.
+        allowed = file is not None and (
+            file.channel_member is not None if file.message_id else file.uploader_id == user.id
+        )
+        if not allowed:
+            # Avatars and custom emoji are workspace-wide. Checked when the attachment
+            # branch says no as well as when there is no attachment row at all: an
+            # avatar keeps its upload row, and answering for the row alone made a
+            # person's own picture a 404 to everyone but them.
             shared = (
                 await session.execute(
                     text(
@@ -179,10 +185,7 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
                 raise not_found("No such file.")
             return _redirect(presign_download(key, mime="image/png"))
 
-    allowed = file.channel_member is not None if file.message_id else file.uploader_id == user.id
-    if not allowed:
-        raise not_found("No such file.")
-
+    assert file is not None  # allowed implies a row
     return _redirect(presign_download(key, filename=file.filename, mime=file.mime))
 
 

@@ -10,6 +10,8 @@ from sqlalchemy import text
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import forbidden, not_found
+from ..lib.queue import enqueue, fire_and_forget
+from ..plugins import events as plugin_events
 from ..realtime import hub
 from ..schemas.base import CamelModel
 from ..schemas.models import ChannelWithState, Message
@@ -76,6 +78,15 @@ async def create_channel(
         if channel is None:
             raise not_found("Could not create that channel.")
         members = await channel_service.member_ids(session, channel_id)
+        # Catalogued in every app's manifest since the beginning; emitted since now.
+        # Scoped by channel, so a private channel is announced only to apps invited in.
+        await plugin_events.emit(
+            session,
+            workspace_id=user.workspace_id,
+            event="channel.created",
+            channel_id=channel_id,
+            payload={"channelId": channel_id, "name": payload.name, "kind": payload.kind},
+        )
 
         def broadcast() -> None:
             # Public channels appear in everyone's browser; private ones only for members.
@@ -84,6 +95,7 @@ async def create_channel(
             else:
                 hub.to_users(members, _channel_event("channel.created", channel))
             hub.subscribe_users(members, [channel_id])
+            fire_and_forget(enqueue("deliver_plugin_events"))
 
         after.add(broadcast)
 
@@ -173,6 +185,16 @@ async def join_channel(channel_id: str, user: SessionUser = Depends(current_user
 
         await channel_service.join(session, channel_id, user.id)
         channel = await channel_service.get_for_user(session, channel_id, user.id)
+        # People joining were never announced to apps — only bots were (bot_api), so an
+        # app subscribed to the catalogued member.joined heard about robots and nobody
+        # else. Same event, same scoping, the missing half of the population.
+        await plugin_events.emit(
+            session,
+            workspace_id=user.workspace_id,
+            event="member.joined",
+            channel_id=channel_id,
+            payload={"channelId": channel_id, "userId": user.id},
+        )
 
         def broadcast() -> None:
             hub.to_channel(
@@ -181,6 +203,7 @@ async def join_channel(channel_id: str, user: SessionUser = Depends(current_user
             # Existing sockets need to start receiving the channel's events —
             # wherever they are held; the join may have landed on a sibling process.
             hub.subscribe_users([user.id], [channel_id])
+            fire_and_forget(enqueue("deliver_plugin_events"))
 
         after.add(broadcast)
 
@@ -197,12 +220,20 @@ async def leave_channel(channel_id: str, user: SessionUser = Depends(current_use
             raise forbidden("You cannot leave a direct message.")
 
         await channel_service.leave(session, channel_id, user.id)
+        await plugin_events.emit(
+            session,
+            workspace_id=user.workspace_id,
+            event="member.left",
+            channel_id=channel_id,
+            payload={"channelId": channel_id, "userId": user.id},
+        )
 
         def broadcast() -> None:
             hub.unsubscribe_users([user.id], [channel_id])
             hub.to_channel(
                 channel_id, {"t": "member.left", "channelId": channel_id, "userId": user.id}
             )
+            fire_and_forget(enqueue("deliver_plugin_events"))
 
         after.add(broadcast)
     return OkOut()
@@ -220,6 +251,14 @@ async def add_members(
             raise forbidden("Start a new group message instead of adding people to this one.")
 
         await channel_service.add_members(session, channel_id, payload.user_ids)
+        for member_id in payload.user_ids:
+            await plugin_events.emit(
+                session,
+                workspace_id=user.workspace_id,
+                event="member.joined",
+                channel_id=channel_id,
+                payload={"channelId": channel_id, "userId": member_id},
+            )
         views = {
             member_id: await channel_service.get_for_user(session, channel_id, member_id)
             for member_id in payload.user_ids
@@ -234,6 +273,7 @@ async def add_members(
                 hub.subscribe_users([member_id], [channel_id])
                 if view is not None:
                     hub.to_users([member_id], _channel_event("channel.created", view))
+            fire_and_forget(enqueue("deliver_plugin_events"))
 
         after.add(broadcast)
     return OkOut()

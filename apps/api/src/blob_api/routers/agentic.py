@@ -224,6 +224,11 @@ async def list_tasks(
 ) -> AgentTasksOut:
     wanted_assignee = user.id if assignee == "me" else assignee
     async with session_scope() as session:
+        # Visibility lives inside the statement, the same predicate the search query
+        # uses: public channels, or ones the caller belongs to. The old shape called
+        # `assert_channel_access` per row, which was one query per task — and, worse,
+        # *raised* on the first task in a private channel the caller cannot see, so a
+        # single foreign task 404'd the whole listing instead of being omitted.
         rows = (
             await session.execute(
                 text(
@@ -231,20 +236,31 @@ async def list_tasks(
                     SELECT t.*, u.kind AS assignee_kind
                       FROM agent_tasks t
                       LEFT JOIN users u ON u.id = t.assignee_user_id
+                      JOIN channels c ON c.id = t.channel_id
                      WHERE t.workspace_id = :ws
+                       AND (
+                         c.kind = 'public'
+                         OR EXISTS (
+                           SELECT 1 FROM channel_members cm
+                            WHERE cm.channel_id = c.id AND cm.user_id = :user_id
+                         )
+                       )
                        AND (
                          cast(:assignee AS uuid) IS NULL
                          OR t.assignee_user_id = cast(:assignee AS uuid)
                        )
                        AND (cast(:status AS text) IS NULL OR t.status = :status)
                      ORDER BY t.updated_at DESC, t.id DESC
+                     LIMIT 200
                     """
                 ),
-                {"ws": user.workspace_id, "assignee": wanted_assignee, "status": status},
+                {
+                    "ws": user.workspace_id,
+                    "user_id": user.id,
+                    "assignee": wanted_assignee,
+                    "status": status,
+                },
             )
         ).fetchall()
-        tasks: list[AgentTask] = []
-        for row in rows:
-            await channel_service.assert_channel_access(session, user.id, row.channel_id)
-            tasks.append(to_agent_task(row))
+        tasks = [to_agent_task(row) for row in rows]
     return AgentTasksOut(tasks=tasks)

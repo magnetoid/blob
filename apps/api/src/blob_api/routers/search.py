@@ -131,6 +131,9 @@ async def sync(cursors: str | None = None, user: SessionUser = Depends(current_u
         resync: list[str] = []
         messages: list[Message] = []
 
+        # Which channels actually have a gap — the UUIDv7 string comparison answers
+        # without touching the messages table at all.
+        behind: list[tuple[str, str]] = []
         for channel in channels:
             if channel.membership is None:
                 continue
@@ -139,28 +142,42 @@ async def sync(cursors: str | None = None, user: SessionUser = Depends(current_u
                 continue
             if channel.last_message_id and channel.last_message_id <= cursor:
                 continue
+            behind.append((channel.id, cursor))
 
+        if behind:
+            # One statement for every gap. This runs on every reconnect for every
+            # user — a deploy used to fan out one query per channel per client.
             rows = (
                 await session.execute(
                     text(
                         f"""
-                        SELECT {MESSAGE_SELECT} FROM messages m
-                         WHERE m.channel_id = :channel_id AND m.id > cast(:cursor AS uuid)
-                         ORDER BY m.id ASC LIMIT :limit
+                        SELECT sub.* FROM unnest(
+                                 cast(:channel_ids AS uuid[]), cast(:cursors AS uuid[])
+                               ) AS gap(channel_id, cursor)
+                          JOIN LATERAL (
+                            SELECT {MESSAGE_SELECT} FROM messages m
+                             WHERE m.channel_id = gap.channel_id AND m.id > gap.cursor
+                             ORDER BY m.id ASC LIMIT :limit
+                          ) sub ON true
+                         ORDER BY sub.channel_id, sub.id
                         """
                     ),
                     {
-                        "channel_id": channel.id,
-                        "cursor": cursor,
+                        "channel_ids": [c for c, _ in behind],
+                        "cursors": [c for _, c in behind],
                         "limit": MAX_REPLAY_PER_CHANNEL + 1,
                     },
                 )
             ).fetchall()
 
-            if len(rows) > MAX_REPLAY_PER_CHANNEL:
-                resync.append(channel.id)
-                continue
-            messages.extend(to_message(row) for row in rows)
+            by_channel: dict[str, list[Any]] = {}
+            for row in rows:
+                by_channel.setdefault(str(row.channel_id), []).append(row)
+            for channel_id, channel_rows in by_channel.items():
+                if len(channel_rows) > MAX_REPLAY_PER_CHANNEL:
+                    resync.append(channel_id)
+                    continue
+                messages.extend(to_message(row) for row in channel_rows)
 
         read_states = await read_state_service.list_for_user(session, user.id)
 

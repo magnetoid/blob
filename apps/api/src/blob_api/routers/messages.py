@@ -11,6 +11,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, hash_token
@@ -84,6 +85,37 @@ def _plugin_drain() -> None:
     """
     fire_and_forget(enqueue("deliver_plugin_events"))
 
+
+
+async def load_message_for(
+    session: AsyncSession,
+    user: SessionUser,
+    message_id: str,
+    *,
+    allow_deleted: bool = False,
+    require_member: bool = False,
+    require_writable: bool = False,
+) -> Message:
+    """The prologue every per-message route performed by hand, seven slightly
+    different times: fetch, refuse the missing and (usually) the deleted, and make the
+    channel answer for who may act. One place now, so "does this route check
+    deleted_at" stops being a per-route accident — three of the seven did, and which
+    three was not a decision anybody had made.
+
+    `allow_deleted` exists for deletion itself: deleting twice stays idempotent
+    rather than answering the second click with a 404.
+    """
+    message = await message_service.by_id(session, message_id)
+    if message is None or (message.deleted_at is not None and not allow_deleted):
+        raise not_found("That message is gone.")
+    await channel_service.assert_channel_access(
+        session,
+        user.id,
+        message.channel_id,
+        require_member=require_member,
+        require_writable=require_writable,
+    )
+    return message
 
 @router.get("/api/channels/{channel_id}/messages", response_model=HistoryOut)
 async def get_history(
@@ -178,20 +210,15 @@ async def get_message(message_id: str, user: SessionUser = Depends(current_user)
     a message exists is not something a link should be able to probe.
     """
     async with session_scope() as session:
-        message = await message_service.by_id(session, message_id)
-        if message is None or message.deleted_at is not None:
-            raise not_found("That message is gone.")
-        await channel_service.assert_channel_access(session, user.id, message.channel_id)
+        message = await load_message_for(session, user, message_id)
     return MessageOut(message=message)
 
 
 @router.get("/api/messages/{message_id}/thread", response_model=MessagesOut)
 async def get_thread(message_id: str, user: SessionUser = Depends(current_user)) -> MessagesOut:
     async with session_scope() as session:
-        root = await message_service.by_id(session, message_id)
-        if root is None:
-            raise not_found("That thread no longer exists.")
-        await channel_service.assert_channel_access(session, user.id, root.channel_id)
+        # A deleted root still anchors its replies, so the thread stays readable.
+        await load_message_for(session, user, message_id, allow_deleted=True)
         messages = await message_service.thread(session, message_id)
     return MessagesOut(messages=messages)
 
@@ -211,10 +238,7 @@ async def translate_message(
     # for a remote call that long blocks vacuum and ties up a pooled connection for
     # something that is not database work.
     async with session_scope() as session:
-        message = await message_service.by_id(session, message_id)
-        if message is None or message.deleted_at is not None:
-            raise not_found("That message is gone.")
-        await channel_service.assert_channel_access(session, user.id, message.channel_id)
+        message = await load_message_for(session, user, message_id)
         prefs_row = (
             await session.execute(text("SELECT prefs FROM users WHERE id = :id"), {"id": user.id})
         ).fetchone()
@@ -266,12 +290,7 @@ async def edit_message(
     message_id: str, payload: EditMessageInput, user: SessionUser = Depends(current_user)
 ) -> MessageOut:
     async with transaction() as (session, after):
-        existing = await message_service.by_id(session, message_id)
-        if existing is None:
-            raise not_found("That message is gone.")
-        await channel_service.assert_channel_access(
-            session, user.id, existing.channel_id, require_member=True
-        )
+        await load_message_for(session, user, message_id, require_member=True)
         message = await message_service.edit(
             session, message_id, user.id, user.workspace_id, payload.body
         )
@@ -296,11 +315,8 @@ async def delete_message(
     message_id: str, request: Request, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     async with transaction() as (session, after):
-        existing = await message_service.by_id(session, message_id)
-        if existing is None:
-            raise not_found("That message is gone.")
-        await channel_service.assert_channel_access(
-            session, user.id, existing.channel_id, require_member=True
+        existing = await load_message_for(
+            session, user, message_id, allow_deleted=True, require_member=True
         )
         moderated = existing.author_id != user.id
         channel_id, thread_root_id = await message_service.remove(
@@ -347,11 +363,8 @@ async def pin_message(
     message_id: str, payload: PinInput, user: SessionUser = Depends(current_user)
 ) -> MessageOut:
     async with transaction() as (session, after):
-        existing = await message_service.by_id(session, message_id)
-        if existing is None:
-            raise not_found("That message is gone.")
-        await channel_service.assert_channel_access(
-            session, user.id, existing.channel_id, require_member=True, require_writable=True
+        await load_message_for(
+            session, user, message_id, require_member=True, require_writable=True
         )
         message = await message_service.set_pinned(session, message_id, user.id, payload.pinned)
         after.add(
@@ -375,12 +388,7 @@ async def save_message(
     response. `/api/commands` settled the same question the same way.
     """
     async with transaction() as (session, _):
-        existing = await message_service.by_id(session, message_id)
-        if existing is None or existing.deleted_at is not None:
-            raise not_found("That message is gone.")
-        await channel_service.assert_channel_access(
-            session, user.id, existing.channel_id, require_member=True
-        )
+        await load_message_for(session, user, message_id, require_member=True)
         await message_service.set_saved(session, message_id, user.id, payload.saved)
     return OkOut()
 
@@ -399,11 +407,8 @@ async def add_reaction(
     message_id: str, payload: ReactionInput, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     async with transaction() as (session, after):
-        existing = await message_service.by_id(session, message_id)
-        if existing is None or existing.deleted_at is not None:
-            raise not_found("That message is gone.")
-        await channel_service.assert_channel_access(
-            session, user.id, existing.channel_id, require_member=True, require_writable=True
+        existing = await load_message_for(
+            session, user, message_id, require_member=True, require_writable=True
         )
         if await message_service.add_reaction(session, message_id, user.id, payload.emoji):
             reaction = {
@@ -435,14 +440,12 @@ async def remove_reaction(
     user: SessionUser = Depends(current_user),
 ) -> OkOut:
     async with transaction() as (session, after):
-        existing = await message_service.by_id(session, message_id)
-        if existing is None:
-            raise not_found("That message is gone.")
-        # The only mutation that skipped this. Removing a reaction can only ever touch
-        # your own, so nothing was destroyable — but answering 200 for a message id in a
-        # channel you cannot see and 404 for one that does not exist told you which
-        # private message ids are real, which is the distinction the 404 exists to hide.
-        await channel_service.assert_channel_access(session, user.id, existing.channel_id)
+        # Removing a reaction can only ever touch your own, so nothing here is
+        # destroyable — the access check exists because answering 200 for a message in
+        # a channel you cannot see and 404 for one that does not exist would say which
+        # private message ids are real, the distinction the 404 hides. Deleted counts
+        # as gone: after deletion the reaction rows are gone with it.
+        existing = await load_message_for(session, user, message_id)
         if await message_service.remove_reaction(session, message_id, user.id, emoji):
             reaction = {
                 "messageId": message_id,

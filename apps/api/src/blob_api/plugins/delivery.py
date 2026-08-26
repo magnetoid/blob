@@ -131,11 +131,33 @@ async def post(url: str, secret: str, payload: dict[str, Any], delivery_id: str)
         "user-agent": "blob-plugins/1.0",
     }
     try:
-        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SEC, follow_redirects=False) as client:
-            response = await client.post(url, content=body, headers=headers)
-            return response.status_code, response.text[:500]
+        response = await open_client().post(url, content=body, headers=headers)
+        return response.status_code, response.text[:500]
     except httpx.HTTPError as exc:
         return 0, str(exc)[:500]
+
+
+_client: httpx.AsyncClient | None = None
+
+
+def open_client() -> httpx.AsyncClient:
+    """The one connection pool every delivery shares.
+
+    A client per delivery meant a TLS handshake per delivery — a backlog of fifty to
+    the same app was fifty handshakes. Owned by this module so tests patch a name it
+    controls rather than reaching into httpx.
+    """
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SEC, follow_redirects=False)
+    return _client
+
+
+async def close_client() -> None:
+    global _client
+    if _client is not None and not _client.is_closed:
+        await _client.aclose()
+    _client = None
 
 
 async def _record(

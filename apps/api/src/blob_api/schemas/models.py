@@ -272,6 +272,7 @@ class Bootstrap(CamelModel):
     #: Which of them are yours, so "mentions you" can include being named as part of a
     #: team. Ids only, for the same reason `saved_message_ids` is.
     my_group_ids: list[str] = Field(default_factory=list)
+    muted_group_ids: list[str] = Field(default_factory=list)
 
 
 class ReadStateOut(CamelModel):

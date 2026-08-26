@@ -510,7 +510,7 @@ async def test_an_update_that_widens_scopes_waits_for_approval(team: dict) -> No
 
     updated = await team["owner"].put(
         f"/api/admin/plugins/{plugin_id}",
-        {**APP, "version": "2.0.0", "scopes": [*APP["scopes"], "users:manage"]},
+        {**APP, "version": "2.0.0", "scopes": [*APP["scopes"], "messages:moderate"]},
     )
     assert updated.status == 200
     assert updated.body["status"] == "needs_review"
@@ -522,7 +522,7 @@ async def test_an_update_that_widens_scopes_waits_for_approval(team: dict) -> No
 
     approved = await team["owner"].post(f"/api/admin/plugins/{plugin_id}/approve")
     assert approved.body["status"] == "enabled"
-    assert "users:manage" in approved.body["scopes"]
+    assert "messages:moderate" in approved.body["scopes"]
     assert (await app.get("/api/v1/auth.test")).status == 200
 
 

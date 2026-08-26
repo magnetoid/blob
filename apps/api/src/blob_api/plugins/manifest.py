@@ -44,23 +44,36 @@ SCOPES: dict[str, str] = {
     "messages:moderate": "Edit and delete anyone's messages",
     "reactions:write": "Add and remove reactions",
     "channels:read": "See channels it belongs to",
-    "channels:write": "Create channels and edit their topics",
     "channels:join": "Join and leave channels",
     "users:read": "See who is in the workspace",
-    "users:read.email": "See people's email addresses",
-    "users:manage": "Change roles and deactivate people",
     "tasks:read": "Read agent task assignments and status",
     "tasks:write": "Create and update agent tasks",
     "summaries:read": "Read thread summaries",
     "summaries:write": "Generate thread summaries",
-    "files:read": "Download attachments",
-    "files:write": "Upload attachments",
-    "admin:read": "Read workspace settings and the audit log",
     "admin:write": "Change workspace settings",
+    # Enforced at manifest validation, not on an endpoint: an app that declares
+    # slash commands must ask for this, so the consent screen says so.
     "commands": "Provide slash commands",
-    "store": "Keep its own private key-value data",
-    "schedule": "Run work on a timer",
 }
+
+#: Scopes the catalogue used to offer with nothing behind them. Every name here was
+#: shown on the consent screen — "Upload attachments", "Run work on a timer" — and
+#: enforced by no endpoint, so approving one was consenting to a capability that did
+#: not exist. They are stripped rather than refused so a manifest written against the
+#: old catalogue still installs; if one of these capabilities is ever built, its scope
+#: comes back here-to-SCOPES with an enforcement site in the same commit.
+RETIRED_SCOPES = frozenset(
+    {
+        "channels:write",
+        "users:read.email",
+        "users:manage",
+        "files:read",
+        "files:write",
+        "admin:read",
+        "store",
+        "schedule",
+    }
+)
 
 #: Events a plugin can subscribe to.
 #:
@@ -226,6 +239,11 @@ def validate_manifest(
         raise bad_request(
             "That runtime is Blob's own and cannot be registered.", code="runtime_reserved"
         )
+
+    retired = [scope for scope in manifest.scopes if scope in RETIRED_SCOPES]
+    if retired:
+        # Tolerated, not granted: the row that results holds only scopes that do things.
+        manifest.scopes = [scope for scope in manifest.scopes if scope not in RETIRED_SCOPES]
 
     unknown_scopes = sorted(set(manifest.scopes) - set(SCOPES))
     if unknown_scopes:

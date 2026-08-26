@@ -20,60 +20,6 @@ from ..lib.ids import new_id
 from ..schemas.base import CamelModel, require_iso
 
 # Actions are dotted and past-tense, so the log reads as a sentence with the actor.
-ACTIONS = (
-    "agent.summary_generated",
-    "agent.task_created",
-    "agent.task_updated",
-    "bot.channel_joined",
-    "bot.message_deleted",
-    "bot.message_posted",
-    "bot.message_updated",
-    "bot.reaction_added",
-    "bot.reaction_removed",
-    "user.role_changed",
-    "user.deactivated",
-    "user.reactivated",
-    "user.profile_edited",
-    "user.sessions_revoked",
-    "user.password_reset_forced",
-    "invite.created",
-    "invite.revoked",
-    "channel.archived",
-    "channel.deleted",
-    "channel.renamed",
-    "message.deleted",
-    "emoji.added",
-    "emoji.deleted",
-    "group.created",
-    "group.renamed",
-    "group.deleted",
-    "group.member_added",
-    "group.member_removed",
-    "webhook.created",
-    "webhook.revoked",
-    "settings.updated",
-    "theme.saved",
-    "theme.deleted",
-    "plugin.installed",
-    "plugin.updated",
-    "plugin.approved",
-    "plugin.enabled",
-    "plugin.disabled",
-    "plugin.secret_rotated",
-    "plugin.token_issued",
-    "plugin.tokens_revoked",
-    "plugin.uninstalled",
-    "plugin.redeployed",
-    "plugin.stopped",
-    "plugin.env_updated",
-    # A root shell inside an agent's container. Recorded on the way in as well as the way
-    # out, because the sessions worth having a log of are the ones that did not end
-    # tidily — and an open with no close says that on its own.
-    "plugin.shell_opened",
-    "plugin.shell_closed",
-    "feedback.status_changed",
-    "feedback.deleted",
-)
 
 
 @dataclass(slots=True)

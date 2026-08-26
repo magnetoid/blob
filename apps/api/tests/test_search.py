@@ -47,7 +47,10 @@ async def team(client: Client) -> dict:
         ("in:#eng deploy", {"text": "deploy", "channel": "eng"}),
         ("has:link deploy", {"text": "deploy", "has": "link"}),
         ("has:nonsense deploy", {"text": "deploy"}),
-        ("before:2026-01-01 deploy", {"text": "deploy", "before": datetime(2026, 1, 1, tzinfo=UTC)}),
+        (
+            "before:2026-01-01 deploy",
+            {"text": "deploy", "before": datetime(2026, 1, 1, tzinfo=UTC)},
+        ),
         ("weird:thing deploy", {"text": "weird:thing deploy"}),
     ],
 )

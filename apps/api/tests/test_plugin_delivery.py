@@ -21,7 +21,6 @@ from sqlalchemy import text
 from blob_api.db.engine import SessionFactory
 from blob_api.lib.ids import new_id
 from blob_api.plugins import delivery, signing
-from blob_api.plugins import events as plugin_events
 
 from .helpers import Client, sign_up
 
@@ -390,18 +389,3 @@ async def test_a_local_plugin_is_still_never_delivered_to(workspace: str) -> Non
     plugin_id = await make_plugin(workspace, 9, runtime="local")
     await queue(plugin_id)
     assert await delivery.drain_once() == 0
-
-
-async def test_has_subscribers_agrees_with_the_drain_about_container_agents(
-    workspace: str, app_server: RecordingApp
-) -> None:
-    """A shortcut that disagrees with the queue is worse than no shortcut.
-
-    `has_subscribers` answers "is building this payload worth it". When it filtered
-    'external' alone it reported "nobody is listening" for a workspace whose only
-    subscriber was a container agent.
-    """
-    await make_plugin(workspace, app_server.port, runtime="container")
-    async with SessionFactory() as session:
-        assert await plugin_events.has_subscribers(session, workspace, "message.created") is True
-        assert await plugin_events.has_subscribers(session, workspace, "message.deleted") is False

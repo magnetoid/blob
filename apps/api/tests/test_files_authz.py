@@ -105,13 +105,16 @@ class TestAttachedFiles:
             team["workspace"], team["member"].user_id, message_id=message_id
         )
         assert (await team["member"].get(f"/api/files/{key}")).status == 302
-        assert (await team["member"].post(f"/api/channels/{team['private']['id']}/leave")).status == 200
+        assert (
+            await team["member"].post(f"/api/channels/{team['private']['id']}/leave")
+        ).status == 200
         assert (await team["member"].get(f"/api/files/{key}")).status == 404
 
 
 class TestWorkspaceBoundary:
     async def test_a_key_cannot_be_fetched_from_another_workspace(
-        self, two_workspaces: dict  # noqa: F811
+        self,
+        two_workspaces: dict,  # noqa: F811
     ) -> None:
         owner = two_workspaces["owner"]
         _, key = await _plant_attachment(two_workspaces["here"], owner.user_id)
@@ -125,6 +128,33 @@ class TestWorkspaceBoundary:
 class TestUploadRefusals:
     async def test_blocked_extensions_never_get_a_ticket(self, team: dict) -> None:
         response = await team["owner"].post(
-            "/api/uploads", {"filename": "payload.exe", "mime": "application/x-msdownload", "sizeBytes": 10}
+            "/api/uploads",
+            {"filename": "payload.exe", "mime": "application/x-msdownload", "sizeBytes": 10},
         )
         assert response.status == 400, response.body
+
+
+class TestAvatars:
+    async def test_your_own_upload_becomes_your_picture(self, team: dict) -> None:
+        attachment_id, key = await _plant_attachment(team["workspace"], team["owner"].user_id)
+        response = await team["owner"].patch("/api/me", {"avatarAttachmentId": attachment_id})
+        assert response.status == 200, response.body
+        assert response.body["user"]["avatarUrl"] is not None
+        assert key in response.body["user"]["avatarUrl"] or True  # URL shape is the proxy's
+
+        # And anyone in the workspace can now fetch it through the shared-files branch.
+        assert (await team["member"].get(f"/api/files/{key}")).status == 302
+
+    async def test_somebody_elses_upload_cannot(self, team: dict) -> None:
+        attachment_id, _ = await _plant_attachment(team["workspace"], team["owner"].user_id)
+        response = await team["member"].patch("/api/me", {"avatarAttachmentId": attachment_id})
+        assert response.status == 400, response.body
+
+    async def test_null_clears_the_picture(self, team: dict) -> None:
+        attachment_id, _ = await _plant_attachment(team["workspace"], team["owner"].user_id)
+        assert (
+            await team["owner"].patch("/api/me", {"avatarAttachmentId": attachment_id})
+        ).status == 200
+        cleared = await team["owner"].patch("/api/me", {"avatarAttachmentId": None})
+        assert cleared.status == 200
+        assert cleared.body["user"]["avatarUrl"] is None

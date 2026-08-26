@@ -354,7 +354,11 @@ async def history(
 
 
 async def thread(session: AsyncSession, root_id: str) -> list[Message]:
-    """A thread: its root plus every reply, oldest first."""
+    """A thread: its root plus every reply, oldest first.
+
+    The LIMIT is a ceiling, not pagination — no real thread approaches it, and an
+    unbounded read is how one pathological row set stalls a worker.
+    """
     rows = (
         await session.execute(
             text(
@@ -362,6 +366,7 @@ async def thread(session: AsyncSession, root_id: str) -> list[Message]:
                 SELECT {MESSAGE_SELECT} FROM messages m
                  WHERE m.id = :root_id OR m.thread_root_id = :root_id
                  ORDER BY m.id ASC
+                 LIMIT 1000
                 """
             ),
             {"root_id": root_id},
@@ -495,6 +500,7 @@ async def list_pinned(session: AsyncSession, channel_id: str) -> list[Message]:
                    AND m.pinned_at IS NOT NULL
                    AND m.deleted_at IS NULL
                  ORDER BY m.pinned_at DESC
+                 LIMIT 200
                 """
             ),
             {"channel_id": channel_id},

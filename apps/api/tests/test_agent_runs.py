@@ -21,6 +21,7 @@ from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
+from blob_api.plugins import streams
 from blob_api.services import agent_runs as agent_run_service
 
 from .helpers import send_message
@@ -79,7 +80,7 @@ async def agent(team: dict, monkeypatch: pytest.MonkeyPatch) -> dict:  # noqa: F
         kwargs.pop("transport", None)
         return real(**kwargs, transport=slot["transport"])
 
-    monkeypatch.setattr(agui_job.httpx, "AsyncClient", fake)
+    monkeypatch.setattr(streams.httpx, "AsyncClient", fake)
     return {"team": team, "app": app_body, "slot": slot}
 
 

@@ -10,34 +10,27 @@ only an owner changes roles, and the last owner cannot be demoted or deactivated
 from __future__ import annotations
 
 import json
-import re
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from pydantic import Field
 from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
-from ..lib import logbuf
 from ..lib.auth import (
     SessionUser,
     hash_token,
     require_admin,
-    require_instance_admin,
     require_owner,
 )
 from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import new_id, new_token
 from ..lib.redis import redis
-from ..plugins.manifest import SCOPES
 from ..realtime import hub
 from ..schemas.base import CamelModel, iso, require_iso
 from ..services import audit as audit_service
 from ..services import handles as handle_service
-from ..services import policies as policy_service
-from ..services import workspaces as workspace_service
 from ..services.audit import AuditEntry, actor_for
 from ..services.serialize import USER_COLUMNS, to_user
 
@@ -482,7 +475,6 @@ async def list_invites(admin: SessionUser = Depends(require_admin)) -> AdminInvi
 
 
 def require_iso_now() -> str:
-    from datetime import UTC, datetime
 
     return require_iso(datetime.now(UTC))
 
@@ -536,7 +528,7 @@ async def list_all_channels(admin: SessionUser = Depends(require_admin)) -> Admi
                              WHERE m.channel_id = c.id) AS last_message_at
                       FROM channels c
                      WHERE c.workspace_id = :ws
-                     ORDER BY c.kind, lower(c.name) NULLS LAST
+                     ORDER BY c.kind, lower(c.name) NULLS LAST LIMIT 1000
                     """
                 ),
                 {"ws": admin.workspace_id},
@@ -749,7 +741,7 @@ async def list_webhooks(admin: SessionUser = Depends(require_admin)) -> Webhooks
                 text(
                     """
                     SELECT id, name, channel_id, created_at, last_used_at
-                      FROM webhooks WHERE workspace_id = :ws ORDER BY id DESC
+                      FROM webhooks WHERE workspace_id = :ws ORDER BY id DESC LIMIT 500
                     """
                 ),
                 {"ws": admin.workspace_id},
@@ -774,7 +766,6 @@ async def create_webhook(
     payload: CreateWebhookInput, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> WebhookOut:
     """The URL comes back once. The raw token is never recoverable afterwards."""
-    from ..config import settings
 
     token = new_token()
     webhook_id = new_id()
@@ -852,488 +843,3 @@ async def revoke_webhook(
 
 
 __all__ = ["router"]
-
-
-# ─── the instance, across every workspace on it ───────────────────────────────
-#
-# Everything above this line is scoped to the caller's workspace, which is what an owner
-# or admin running one workspace needs. These two are not: they answer "what is on this
-# server", which is a different job and, once a server holds more than one workspace, a
-# different person's.
-#
-# Gated on `instance_admins`, which is a fact about a *person* rather than a role inside
-# one workspace — see migration 0011. `owner` stood in for this while there was only ever
-# one workspace to own, and would have been the wrong answer the moment there were two.
-
-
-class InstanceUser(CamelModel):
-    id: str
-    email: str
-    display_name: str
-    role: str
-    kind: str
-    workspace_id: str
-    workspace_name: str
-    deactivated: bool
-    created_at: str
-
-
-class InstanceUsersOut(CamelModel):
-    users: list[InstanceUser]
-
-
-class InstanceWorkspace(CamelModel):
-    id: str
-    name: str
-    slug: str
-    member_count: int
-    channel_count: int
-    app_count: int
-    created_at: str
-
-
-class InstanceWorkspacesOut(CamelModel):
-    workspaces: list[InstanceWorkspace]
-
-
-@router.get("/instance/users", response_model=InstanceUsersOut)
-async def instance_users(
-    _admin: SessionUser = Depends(require_instance_admin),
-) -> InstanceUsersOut:
-    """Every account on the server, whichever workspace it belongs to."""
-    async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT u.id, u.email, u.display_name, u.role, u.kind,
-                           u.workspace_id, w.name AS workspace_name,
-                           u.deactivated_at, u.created_at
-                      FROM users u
-                      JOIN workspaces w ON w.id = u.workspace_id
-                     ORDER BY w.name, lower(u.display_name)
-                    """
-                )
-            )
-        ).fetchall()
-
-    return InstanceUsersOut(
-        users=[
-            InstanceUser(
-                id=row.id,
-                email=row.email,
-                display_name=row.display_name,
-                role=row.role,
-                kind=row.kind,
-                workspace_id=row.workspace_id,
-                workspace_name=row.workspace_name,
-                deactivated=row.deactivated_at is not None,
-                created_at=iso(row.created_at) or "",
-            )
-            for row in rows
-        ]
-    )
-
-
-@router.get("/instance/workspaces", response_model=InstanceWorkspacesOut)
-async def instance_workspaces(
-    _admin: SessionUser = Depends(require_instance_admin),
-) -> InstanceWorkspacesOut:
-    """Every workspace on the server, with enough to tell them apart at a glance.
-
-    Counted in one pass with correlated subqueries rather than three joins and a GROUP BY:
-    at the number of workspaces a self-hosted server holds, clarity is worth more than the
-    query plan, and each count reads as the sentence it answers.
-    """
-    async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT w.id, w.name, w.slug, w.created_at,
-                           (SELECT count(*) FROM users u
-                             WHERE u.workspace_id = w.id
-                               AND u.deactivated_at IS NULL) AS member_count,
-                           (SELECT count(*) FROM channels c
-                             WHERE c.workspace_id = w.id
-                               AND c.kind IN ('public', 'private')) AS channel_count,
-                           (SELECT count(*) FROM plugins p
-                             WHERE p.workspace_id = w.id) AS app_count
-                      FROM workspaces w
-                     ORDER BY w.created_at
-                    """
-                )
-            )
-        ).fetchall()
-
-    return InstanceWorkspacesOut(
-        workspaces=[
-            InstanceWorkspace(
-                id=row.id,
-                name=row.name,
-                slug=row.slug,
-                member_count=row.member_count,
-                channel_count=row.channel_count,
-                app_count=row.app_count,
-                created_at=iso(row.created_at) or "",
-            )
-            for row in rows
-        ]
-    )
-
-
-class CreateWorkspaceInput(CamelModel):
-    name: str = Field(min_length=1, max_length=80)
-
-
-class CreatedWorkspaceOut(CamelModel):
-    id: str
-    name: str
-    slug: str
-
-
-@router.post("/instance/workspaces", response_model=CreatedWorkspaceOut, status_code=201)
-async def create_workspace(
-    payload: CreateWorkspaceInput,
-    request: Request,
-    admin: SessionUser = Depends(require_instance_admin),
-) -> CreatedWorkspaceOut:
-    """Make another workspace, owned by whoever made it.
-
-    The creator gets an owner account in it carrying the password they already have —
-    `services/workspaces` keeps one address to one password across every row, so a new
-    workspace never means a new credential to remember or a prompt to set one.
-
-    They are not added to anyone else's workspace by this, and nobody else is added to
-    theirs. A workspace starts with exactly one person in it, which is what an invitation
-    is for.
-    """
-    async with transaction() as (session, _):
-        password_hash = await workspace_service.password_hash_for(session, admin.email)
-        founded = await workspace_service.found(
-            session,
-            name=payload.name,
-            email=admin.email,
-            display_name=admin.display_name,
-            password_hash=password_hash,
-        )
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "workspace.created",
-            target_type="workspace",
-            target_id=founded.workspace_id,
-            metadata={"name": payload.name.strip(), "slug": founded.slug},
-        )
-
-    return CreatedWorkspaceOut(
-        id=founded.workspace_id, name=payload.name.strip(), slug=founded.slug
-    )
-
-
-class PolicyOut(CamelModel):
-    """A workspace's policy, and what the server permits regardless.
-
-    Both halves are returned because a tick that does nothing is worse than no tick: if
-    the operator has turned hosting off server-wide, the console has to say so rather
-    than show an enabled switch whose value never reaches a guard.
-    """
-
-    workspace_id: str
-    may_host_agents: bool
-    may_use_private_endpoints: bool
-    may_connect_socket_agents: bool
-    denied_scopes: list[str]
-    max_apps: int | None = None
-    #: What the environment allows at all. Policy narrows this and can never widen it.
-    server_allows_hosting: bool
-    server_allows_private_endpoints: bool
-
-
-class PolicyInput(CamelModel):
-    """Every field optional: a PUT that sets one switch should not clear the others."""
-
-    may_host_agents: bool | None = None
-    may_use_private_endpoints: bool | None = None
-    may_connect_socket_agents: bool | None = None
-    denied_scopes: list[str] | None = None
-    max_apps: int | None = Field(default=None, ge=0, le=1000)
-
-
-def _policy_out(workspace_id: str, policy: policy_service.Policy) -> PolicyOut:
-    return PolicyOut(
-        workspace_id=workspace_id,
-        may_host_agents=policy.may_host_agents,
-        may_use_private_endpoints=policy.may_use_private_endpoints,
-        may_connect_socket_agents=policy.may_connect_socket_agents,
-        denied_scopes=sorted(policy.denied_scopes),
-        max_apps=policy.max_apps,
-        server_allows_hosting=settings.AGENT_RUNNER != "disabled",
-        server_allows_private_endpoints=settings.AGENT_ALLOW_PRIVATE_ENDPOINTS,
-    )
-
-
-@router.get("/instance/workspaces/{workspace_id}/policy", response_model=PolicyOut)
-async def read_policy(
-    workspace_id: str, _admin: SessionUser = Depends(require_instance_admin)
-) -> PolicyOut:
-    """What is written down for this workspace — not what the guards compute.
-
-    Deliberately `stored_for` rather than `effective_for`: the console edits the row, and
-    showing it the environment-narrowed value would make a switch appear to turn itself
-    off when the operator saved it.
-    """
-    async with session_scope() as session:
-        return _policy_out(workspace_id, await policy_service.stored_for(session, workspace_id))
-
-
-@router.put("/instance/workspaces/{workspace_id}/policy", response_model=PolicyOut)
-async def write_policy(
-    workspace_id: str,
-    payload: PolicyInput,
-    request: Request,
-    admin: SessionUser = Depends(require_instance_admin),
-) -> PolicyOut:
-    """Set what a workspace may do to this machine.
-
-    Instance admins only. There is no workspace-admin route to this table, and that is
-    the point of the table existing separately from `workspace_settings`.
-    """
-    unknown = sorted(set(payload.denied_scopes or []) - set(SCOPES))
-    if unknown:
-        raise bad_request(f"Unknown scope: {', '.join(unknown)}.", code="unknown_scope")
-
-    fields = payload.model_dump(exclude_none=True)
-    async with transaction() as (session, _):
-        policy = await policy_service.write(
-            session, workspace_id=workspace_id, actor_id=admin.id, **fields
-        )
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "workspace.policy_changed",
-            target_type="workspace",
-            target_id=workspace_id,
-            metadata=fields,
-        )
-    return _policy_out(workspace_id, policy)
-
-
-#: A shortcode without its colons. Deliberately the same shape `markdown.tsx` matches, or
-#: an admin could add an emoji that no message is able to reference.
-EMOJI_NAME_RE = re.compile(r"^[a-z0-9_+-]{2,32}$")
-
-
-class CustomEmojiOut(CamelModel):
-    name: str
-    url: str
-    created_by_name: str | None = None
-    created_at: str
-
-
-class CustomEmojiListOut(CamelModel):
-    emoji: list[CustomEmojiOut]
-
-
-class AddEmojiInput(CamelModel):
-    name: str
-    #: An already-uploaded attachment. Emoji reuse the ordinary upload flow rather than
-    #: having one of their own — same ticket, same presign, same rate limit.
-    attachment_id: str
-
-
-@router.get("/emoji", response_model=CustomEmojiListOut)
-async def list_custom_emoji(admin: SessionUser = Depends(require_admin)) -> CustomEmojiListOut:
-    async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT e.name, e.object_key, e.created_at, u.display_name AS author
-                      FROM custom_emoji e
-                      LEFT JOIN users u ON u.id = e.created_by
-                     WHERE e.workspace_id = :ws
-                     ORDER BY e.name
-                    """
-                ),
-                {"ws": admin.workspace_id},
-            )
-        ).fetchall()
-
-    return CustomEmojiListOut(
-        emoji=[
-            CustomEmojiOut(
-                name=row.name,
-                url=f"/api/files/{row.object_key}",
-                created_by_name=row.author,
-                created_at=iso(row.created_at),
-            )
-            for row in rows
-        ]
-    )
-
-
-@router.post("/emoji", response_model=CustomEmojiOut, status_code=201)
-async def add_custom_emoji(
-    payload: AddEmojiInput, request: Request, admin: SessionUser = Depends(require_admin)
-) -> CustomEmojiOut:
-    """Name an uploaded image so `:name:` resolves to it.
-
-    The workspace has had custom emoji since the beginning — the table, the bootstrap
-    payload, the file route and the picker all existed. There was simply no way to add
-    one, so the feature was complete apart from its entrance.
-    """
-    name = payload.name.strip().strip(":").lower()
-    if not EMOJI_NAME_RE.match(name):
-        raise bad_request(
-            "An emoji name is 2-32 characters: lowercase letters, numbers, "
-            "underscores, plus and hyphen.",
-            code="invalid_input",
-        )
-
-    async with transaction() as (session, _):
-        attachment = (
-            await session.execute(
-                text(
-                    """
-                    SELECT object_key, mime FROM attachments
-                     WHERE id = :id AND workspace_id = :ws AND uploader_id = :uploader
-                    """
-                ),
-                {"id": payload.attachment_id, "ws": admin.workspace_id, "uploader": admin.id},
-            )
-        ).fetchone()
-        if attachment is None:
-            raise not_found("That upload is not available.")
-        if not str(attachment.mime).startswith("image/"):
-            raise bad_request("An emoji has to be an image.", code="invalid_input")
-
-        clash = (
-            await session.execute(
-                text("SELECT 1 FROM custom_emoji WHERE workspace_id = :ws AND name = :name"),
-                {"ws": admin.workspace_id, "name": name},
-            )
-        ).fetchone()
-        if clash is not None:
-            raise conflict(f":{name}: is already taken here.", code="name_taken")
-
-        await session.execute(
-            text(
-                """
-                INSERT INTO custom_emoji (workspace_id, name, object_key, created_by)
-                VALUES (:ws, :name, :key, :by)
-                """
-            ),
-            {
-                "ws": admin.workspace_id,
-                "name": name,
-                "key": attachment.object_key,
-                "by": admin.id,
-            },
-        )
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "emoji.added",
-            target_type="emoji",
-            metadata={"name": name},
-        )
-
-    return CustomEmojiOut(
-        name=name,
-        url=f"/api/files/{attachment.object_key}",
-        created_by_name=admin.display_name,
-        created_at=iso(datetime.now(UTC)),
-    )
-
-
-@router.delete("/emoji/{name}", response_model=OkOut)
-async def remove_custom_emoji(
-    name: str, request: Request, admin: SessionUser = Depends(require_admin)
-) -> OkOut:
-    """Take a name out of circulation.
-
-    The image is left in storage. Reactions already given keep their stored value, and a
-    body that says `:name:` falls back to rendering the text — which is what an unknown
-    shortcode has always done, so removing one degrades rather than breaks.
-    """
-    async with transaction() as (session, _):
-        removed = (
-            await session.execute(
-                text(
-                    """
-                    DELETE FROM custom_emoji
-                     WHERE workspace_id = :ws AND name = :name
-                     RETURNING name
-                    """
-                ),
-                {"ws": admin.workspace_id, "name": name.strip(":").lower()},
-            )
-        ).fetchone()
-        if removed is None:
-            raise not_found("No such emoji.")
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "emoji.removed",
-            target_type="emoji",
-            metadata={"name": name},
-        )
-    return OkOut()
-
-
-# ─── server logs ──────────────────────────────────────────────────────────────
-# Health says whether the parts answer and the audit log says who did what. Neither says
-# what went *wrong*, so until now the only account of a failure was the container's
-# stdout — behind shell access to the host, gone after a restart, and split across
-# processes on a box running more than one. See `lib/logbuf`.
-class ServerLogEntry(CamelModel):
-    at: str
-    level: str
-    logger: str
-    message: str
-    #: Traceback, when the record carried an exception.
-    detail: str | None = None
-    #: The endpoint being served, on records from the unhandled-error handler.
-    path: str | None = None
-    method: str | None = None
-
-
-class ServerLogsOut(CamelModel):
-    entries: list[ServerLogEntry]
-    #: What the buffer holds at most, so the console can say the list is capped rather
-    #: than implying it is the whole history.
-    capacity: int
-
-
-@router.get("/instance/logs", response_model=ServerLogsOut)
-async def list_server_logs(
-    level: str | None = None,
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
-    _admin: SessionUser = Depends(require_instance_admin),
-) -> ServerLogsOut:
-    """Recent warnings and errors, newest first.
-
-    Instance-scoped rather than workspace-scoped, and gated accordingly: a traceback is
-    about the machine, and can easily name a channel or an address belonging to a
-    workspace the reader is not in.
-    """
-    entries = await logbuf.read_logs(limit=limit, level=level.upper() if level else None)
-    return ServerLogsOut(
-        entries=[ServerLogEntry(**entry) for entry in entries],
-        capacity=logbuf.MAX_ENTRIES,
-    )
-
-
-@router.delete("/instance/logs", response_model=OkOut)
-async def clear_server_logs(
-    request: Request, admin: SessionUser = Depends(require_instance_admin)
-) -> OkOut:
-    """Empty the buffer — "I have dealt with these", which is its only state.
-
-    Audited, because it is the one action here that destroys evidence.
-    """
-    await logbuf.clear_logs()
-    async with transaction() as (session, _):
-        await audit_service.record(session, actor_for(request, admin), "server_logs.cleared")
-    return OkOut()

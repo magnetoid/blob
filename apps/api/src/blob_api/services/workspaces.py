@@ -26,7 +26,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import bad_request, conflict, not_found
+from ..lib.errors import bad_request, not_found
 from ..lib.ids import new_id
 from . import handles, workspace_agent
 from .channels import DEFAULT_CHANNELS, add_members
@@ -42,16 +42,6 @@ class Founded:
     workspace_id: str
     slug: str
     owner_user_id: str
-
-
-async def is_instance_admin(session: AsyncSession, email: str) -> bool:
-    """Whether this person administers the server, as opposed to a workspace on it."""
-    row = (
-        await session.execute(
-            text("SELECT 1 FROM instance_admins WHERE email = :email"), {"email": email}
-        )
-    ).fetchone()
-    return row is not None
 
 
 async def grant_instance_admin(session: AsyncSession, email: str) -> None:
@@ -246,42 +236,3 @@ async def user_row_in(session: AsyncSession, workspace_id: str, email: str) -> A
     if row is None:
         raise not_found("You don't have an account in that workspace.")
     return row
-
-
-async def add_person(
-    session: AsyncSession,
-    *,
-    workspace_id: str,
-    email: str,
-    display_name: str,
-    role: str = "member",
-) -> str:
-    """Put an existing person into another workspace, carrying their password across."""
-    existing = (
-        await session.execute(
-            text("SELECT 1 FROM users WHERE workspace_id = :ws AND email = :email"),
-            {"ws": workspace_id, "email": email},
-        )
-    ).fetchone()
-    if existing is not None:
-        raise conflict("They already have an account in that workspace.", "user_exists")
-
-    user_id = new_id()
-    await session.execute(
-        text(
-            """
-            INSERT INTO users (id, workspace_id, email, password_hash, display_name, role)
-            VALUES (:id, :ws, :email, :password_hash, :display_name, :role)
-            """
-        ),
-        {
-            "id": user_id,
-            "ws": workspace_id,
-            "email": email,
-            "password_hash": await password_hash_for(session, email),
-            "display_name": display_name,
-            "role": role,
-        },
-    )
-    await handles.claim(session, workspace_id, display_name, user_id=user_id)
-    return user_id

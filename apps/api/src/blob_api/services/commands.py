@@ -3,7 +3,7 @@
 Two decisions shape this file.
 
 **Dispatch is the server's.** The composer could recognise `/topic` and call the channel
-endpoint itself, and for the five built-ins here that would even be less code. It would
+endpoint itself, and for the built-ins here that would even be less code. It would
 also mean an app-provided command — the half of milestone 19 still to come — needing a
 second, unrelated dispatch path, and the conflict between two apps claiming `/deploy`
 having nowhere to be resolved. One endpoint, one namespace, one place to say no.

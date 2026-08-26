@@ -263,30 +263,6 @@ async def _write_commands(
             ) from exc
 
 
-async def commands_for(session: AsyncSession, workspace_id: str) -> list[Any]:
-    """Every app command in the workspace, for the composer's list and for dispatch.
-
-    Only enabled apps: a disabled one keeps its name reserved — uninstalling is how a
-    name is released — but must not be offered or asked.
-    """
-    return list(
-        (
-            await session.execute(
-                text(
-                    """
-                    SELECT pc.name, pc.usage, pc.summary, pc.plugin_id
-                      FROM plugin_commands pc
-                      JOIN plugins p ON p.id = pc.plugin_id
-                     WHERE pc.workspace_id = :ws AND p.status = 'enabled'
-                     ORDER BY pc.name
-                    """
-                ),
-                {"ws": workspace_id},
-            )
-        ).fetchall()
-    )
-
-
 async def mint_token(session: AsyncSession, plugin_id: str) -> str:
     """A bearer token for the callback API. Only its hash is stored."""
     token = f"blob-bot-{new_token()}"

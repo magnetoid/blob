@@ -54,7 +54,6 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str | None = None
     VAPID_SUBJECT: str = "mailto:admin@example.com"
 
-    PLUGINS_DIR: str = "plugins"
     TRANSLATION_PROVIDER: Literal["disabled", "libretranslate", "deepl"] = "disabled"
     TRANSLATION_BASE_URL: str | None = None
     TRANSLATION_API_KEY: str | None = None

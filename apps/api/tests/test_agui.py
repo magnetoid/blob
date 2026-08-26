@@ -24,6 +24,7 @@ from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
+from blob_api.plugins import streams
 from blob_api.lib import net, sse
 from blob_api.plugins import agui
 from blob_api.plugins.signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, verify
@@ -299,7 +300,9 @@ def route_agent_to(monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTranspo
         kwargs.pop("transport", None)
         return real(**kwargs, transport=transport)
 
-    monkeypatch.setattr(agui_job.httpx, "AsyncClient", fake)
+    # The HTTP transport moved to plugins/streams with the strategies it drives;
+    # patch the name that module owns.
+    monkeypatch.setattr(streams.httpx, "AsyncClient", fake)
 
 
 async def join_channel(owner: Client, app_body: dict, channel_id: str) -> Client:

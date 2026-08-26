@@ -53,15 +53,11 @@ def _fresh_key_text() -> str:
 
 
 class TestClientKey:
-    def test_a_key_with_real_newlines_is_read(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_a_key_with_real_newlines_is_read(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(settings, "AGENT_SHELL_KEY", _fresh_key_text())
         assert shell._client_key() is not None
 
-    def test_a_key_with_escaped_newlines_is_read(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_a_key_with_escaped_newlines_is_read(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # A private key pasted into a dashboard env field arrives with literal \n about
         # half the time. This exact mistake corrupted the live server's env once.
         escaped = _fresh_key_text().strip().replace("\n", "\\n")
@@ -88,22 +84,16 @@ class TestKnownHosts:
     def test_a_bare_type_key_pair_gets_the_host_prepended(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        public = (
-            asyncssh.generate_private_key("ssh-ed25519").export_public_key().decode().strip()
-        )
+        public = asyncssh.generate_private_key("ssh-ed25519").export_public_key().decode().strip()
         monkeypatch.setattr(settings, "AGENT_SHELL_HOST", "agents.test")
         monkeypatch.setattr(settings, "AGENT_SHELL_PORT", 22)
         monkeypatch.setattr(settings, "AGENT_SHELL_HOST_KEY", public)
         assert shell._known_hosts() is not None
 
-    def test_a_nondefault_port_uses_the_bracket_form(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_a_nondefault_port_uses_the_bracket_form(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # known_hosts writes `[host]:2222` for non-default ports; a line written for 22
         # does not match a connection to 2222, and the failure would read as an attack.
-        public = (
-            asyncssh.generate_private_key("ssh-ed25519").export_public_key().decode().strip()
-        )
+        public = asyncssh.generate_private_key("ssh-ed25519").export_public_key().decode().strip()
         monkeypatch.setattr(settings, "AGENT_SHELL_HOST", "agents.test")
         monkeypatch.setattr(settings, "AGENT_SHELL_PORT", 2222)
         monkeypatch.setattr(settings, "AGENT_SHELL_HOST_KEY", public)
@@ -118,9 +108,7 @@ class TestKnownHosts:
 
 
 class TestCurrentShell:
-    def test_off_is_a_normal_state_with_a_name(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_off_is_a_normal_state_with_a_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(settings, "AGENT_SHELL", "disabled")
         with pytest.raises(AppError) as caught:
             shell.current_shell()
@@ -158,7 +146,10 @@ async def _actor_for(owner: Client) -> Actor:
 
 class TestResolve:
     async def test_a_hosted_agent_resolves_to_its_deployment(
-        self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         _enable_shell(monkeypatch)
         owner = await owner_who_may_host(client)
@@ -169,7 +160,10 @@ class TestResolve:
         assert target.deployment_id
 
     async def test_an_unhosted_agent_has_no_terminal(
-        self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         _enable_shell(monkeypatch)
         owner = await owner_who_may_host(client)
@@ -185,7 +179,10 @@ class TestResolve:
         assert caught.value.code == "not_hosted"
 
     async def test_the_hosting_policy_gates_the_terminal_too(
-        self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # Choosing what code runs in a container and getting inside it are the same
         # privilege; the check runs when the terminal opens, not when the console
@@ -200,7 +197,10 @@ class TestResolve:
         assert caught.value.code == "policy_forbidden"
 
     async def test_an_unconfigured_server_answers_before_touching_the_database(
-        self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(settings, "AGENT_SHELL", "disabled")
         owner = await owner_who_may_host(client)
@@ -255,7 +255,10 @@ async def _audit_actions(workspace_id: str) -> list[str]:
 
 class TestAuditBracket:
     async def test_open_and_close_are_both_recorded(
-        self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         _enable_shell(monkeypatch)
         owner = await owner_who_may_host(client)
@@ -274,7 +277,10 @@ class TestAuditBracket:
         ]
 
     async def test_a_session_that_never_opens_still_leaves_its_record(
-        self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # The open is written before the PTY exists, deliberately: the sessions worth a
         # record are the ones that did not end tidily, and an open with no matching

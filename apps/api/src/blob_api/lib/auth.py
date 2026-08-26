@@ -96,8 +96,8 @@ async def resolve_session(token: str) -> SessionUser | None:
             await session.execute(
                 text(
                     """
-                    SELECT s.id AS session_id, u.id, u.workspace_id, u.email,
-                           u.display_name, u.role
+                    SELECT s.id AS session_id, s.last_seen_at, u.id, u.workspace_id,
+                           u.email, u.display_name, u.role
                       FROM sessions s
                       JOIN users u ON u.id = s.user_id
                      WHERE s.token_hash = :token_hash
@@ -112,18 +112,17 @@ async def resolve_session(token: str) -> SessionUser | None:
         if row is None:
             return None
 
-        # Touch last_seen_at at most once a minute; this runs on every request, and the
-        # WHERE clause means it usually matches no rows.
-        await session.execute(
-            text(
-                """
-                UPDATE sessions SET last_seen_at = now()
-                 WHERE id = :id AND last_seen_at < now() - interval '1 minute'
-                """
-            ),
-            {"id": row.session_id},
-        )
-        await session.commit()
+        # Touch last_seen_at at most once a minute. Decided from the row already in
+        # hand rather than by an unconditional UPDATE: this runs on *every* request,
+        # and issuing a write statement plus a COMMIT that usually changes nothing was
+        # a round trip and a write transaction on the hottest path in the app.
+        last_seen = row.last_seen_at
+        if last_seen is None or datetime.now(UTC) - last_seen > timedelta(minutes=1):
+            await session.execute(
+                text("UPDATE sessions SET last_seen_at = now() WHERE id = :id"),
+                {"id": row.session_id},
+            )
+            await session.commit()
 
         return SessionUser(
             id=row.id,

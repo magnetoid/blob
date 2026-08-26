@@ -8,11 +8,13 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import conflict, not_found, unique_violation
+from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import new_id
 from ..lib.storage import public_file_url
+from ..lib.webpush import send_push
 from ..realtime import hub
 from ..schemas.base import CamelModel
 from ..schemas.models import (
@@ -116,6 +118,7 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
         saved_ids = await message_service.saved_message_ids(session, user.id)
         groups = await group_service.list_for_workspace(session, user.workspace_id)
         my_group_ids = await group_service.group_ids_for_user(session, user.id)
+        muted_group_ids = await group_service.muted_group_ids_for_user(session, user.id)
 
     return Bootstrap(
         workspace=to_workspace(workspace),
@@ -164,6 +167,7 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
             for g in groups
         ],
         my_group_ids=my_group_ids,
+        muted_group_ids=muted_group_ids,
     )
 
 
@@ -176,12 +180,36 @@ async def update_me(
     given = payload.model_fields_set
 
     async with transaction() as (session, after):
+        avatar_key: str | None = None
+        if payload.avatar_attachment_id is not None:
+            # The id must name an upload this person made in this workspace — anything
+            # else would let a profile point at somebody else's file, or at a key in
+            # another tenant, and the files route would happily serve it as an avatar.
+            owned = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT object_key FROM attachments
+                         WHERE id = :id AND uploader_id = :uploader
+                           AND workspace_id = :ws AND message_id IS NULL
+                        """
+                    ),
+                    {
+                        "id": payload.avatar_attachment_id,
+                        "uploader": user.id,
+                        "ws": user.workspace_id,
+                    },
+                )
+            ).fetchone()
+            if owned is None:
+                raise bad_request("That upload is not yours to use as a picture.")
+            avatar_key = str(owned.object_key)
         # Renaming can lose two indexes — `users_display_name_uniq` and the handle
         # table's primary key — and both mean the same thing to the person typing.
         # Neither was caught before: this route imported only `not_found`, so taking a
         # name somebody else held came back as a 500 from the catch-all handler.
         try:
-            await _write_profile(session, user, payload, given)
+            await _write_profile(session, user, payload, given, avatar_key)
         except Exception as exc:
             if unique_violation(exc):
                 raise conflict("That display name is taken.", "name_taken") from exc
@@ -210,6 +238,7 @@ async def _write_profile(
     user: SessionUser,
     payload: UpdateProfileInput,
     given: set[str],
+    avatar_key: str | None = None,
 ) -> None:
     """The two writes a profile edit makes, so the caller can wrap both in one guard."""
     await session.execute(
@@ -227,7 +256,9 @@ async def _write_profile(
                                        ELSE status_text END,
                    status_expires_at = CASE
                         WHEN :has_status_expires THEN cast(:status_expires_at AS timestamptz)
-                        ELSE status_expires_at END
+                        ELSE status_expires_at END,
+                   avatar_key   = CASE WHEN :has_avatar THEN :avatar_key
+                                       ELSE avatar_key END
              WHERE id = :id
             """
         ),
@@ -245,6 +276,8 @@ async def _write_profile(
             "status_text": payload.status_text,
             "has_status_expires": "status_expires_at" in given,
             "status_expires_at": payload.status_expires_at,
+            "has_avatar": "avatar_attachment_id" in given,
+            "avatar_key": avatar_key,
         },
     )
     # Only on an actual rename: the UPDATE above COALESCEs, so a None leaves the name
@@ -290,7 +323,7 @@ async def list_users(user: SessionUser = Depends(current_user)) -> UsersOut:
                 text(
                     f"""
                     SELECT {USER_COLUMNS} FROM users
-                     WHERE workspace_id = :ws ORDER BY lower(display_name)
+                     WHERE workspace_id = :ws ORDER BY lower(display_name) LIMIT 1000
                     """
                 ),
                 {"ws": user.workspace_id},
@@ -314,6 +347,72 @@ async def get_user(user_id: str, user: SessionUser = Depends(current_user)) -> U
 
 
 # ─── web push ─────────────────────────────────────────────────────────────────
+class PushKeyOut(CamelModel):
+    #: Null when the server has no VAPID keys — the client shows "not set up" rather
+    #: than a subscribe button that cannot work.
+    key: str | None
+
+
+@router.get("/api/me/push-public-key", response_model=PushKeyOut)
+async def push_public_key(user: SessionUser = Depends(current_user)) -> PushKeyOut:
+    """The VAPID public key a browser needs to subscribe.
+
+    The private half never leaves the server; this is the applicationServerKey handed
+    to `pushManager.subscribe`, and it is not a secret — every subscribed browser
+    holds it. It still sits behind the session cookie like everything else.
+    """
+    return PushKeyOut(key=settings.VAPID_PUBLIC_KEY if settings.push_enabled else None)
+
+
+class PushTestOut(CamelModel):
+    ok: bool = True
+    #: How many of the caller's devices were pushed at. Zero means "subscribe first",
+    #: which the settings screen already prevents by only offering the button when on.
+    sent: int
+
+
+@router.post("/api/me/push-test", response_model=PushTestOut)
+async def push_test(user: SessionUser = Depends(current_user)) -> PushTestOut:
+    """Send yourself a test notification, so "did I set this up right" has a button.
+
+    The push path crosses VAPID keys, a service worker, an OS permission and a
+    third-party push service; when it fails, it fails silently at whichever link is
+    broken. A test the person can trigger is the only way to verify the whole chain.
+    """
+    if not settings.push_enabled:
+        raise bad_request("The server has no push keys configured.")
+    async with session_scope() as session:
+        subs = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id, endpoint, p256dh, auth FROM push_subscriptions
+                     WHERE user_id = :id
+                    """
+                ),
+                {"id": user.id},
+            )
+        ).fetchall()
+    if not subs:
+        return PushTestOut(sent=0)
+    dead = await send_push(
+        subs,
+        {
+            "title": "Blob",
+            "body": "Push works on this device.",
+            "url": "/",
+            "tag": "push-test",
+        },
+    )
+    if dead:
+        async with transaction() as (session, _):
+            await session.execute(
+                text("DELETE FROM push_subscriptions WHERE id = ANY(cast(:ids AS uuid[]))"),
+                {"ids": dead},
+            )
+    return PushTestOut(sent=len(subs) - len(dead))
+
+
 @router.post("/api/me/push-subscription", response_model=OkOut)
 async def add_push_subscription(
     payload: PushSubscriptionInput, user: SessionUser = Depends(current_user)

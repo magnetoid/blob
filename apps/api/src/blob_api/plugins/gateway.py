@@ -152,7 +152,7 @@ _live: weakref.WeakSet[AgentConnection] = weakref.WeakSet()
 
 
 def live_connections() -> int:
-    """How many agent sockets this process is currently holding."""
+    """How many agent sockets this process is holding. The socket-leak test's probe."""
     return len(_live)
 
 

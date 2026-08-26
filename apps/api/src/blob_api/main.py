@@ -21,6 +21,7 @@ from .db.engine import SessionFactory, close_engine
 from .lib.auth import SESSION_COOKIE, resolve_session
 from .lib.errors import AppError
 from .lib.logbuf import close_log_buffer, install_log_capture
+from .lib.queue import close_queue
 from .lib.redis import close_redis, redis
 from .realtime import hub
 from .services import workspace_agent
@@ -131,6 +132,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
     await hub.stop_redis_bridge()
     await close_log_buffer()
+    # The arq pool holds a redis connection bound to this loop; leaving it open at
+    # shutdown is the loop-bound-client hazard everything else here already avoids.
+    await close_queue()
     await close_redis()
     await close_engine()
 
@@ -210,6 +214,8 @@ def create_app() -> FastAPI:
 
     from .realtime.ws import router as ws_router
     from .routers.admin import router as admin_router
+    from .routers.admin_emoji import router as admin_emoji_router
+    from .routers.admin_instance import router as admin_instance_router
     from .routers.agent_shell import router as agent_shell_router
     from .routers.agent_socket import router as agent_socket_router
     from .routers.agentic import router as agentic_router
@@ -223,6 +229,7 @@ def create_app() -> FastAPI:
     from .routers.groups import router as group_router
     from .routers.interactions import router as interaction_router
     from .routers.messages import router as message_router
+    from .routers.plugin_hosting import router as plugin_hosting_router
     from .routers.plugins import router as plugin_router
     from .routers.search import router as search_router
     from .routers.themes import router as theme_router
@@ -241,10 +248,13 @@ def create_app() -> FastAPI:
     app.include_router(feedback_router)
     app.include_router(interaction_router)
     app.include_router(admin_router)
+    app.include_router(admin_instance_router)
+    app.include_router(admin_emoji_router)
     app.include_router(group_router)
     app.include_router(group_member_router)
     app.include_router(theme_router)
     app.include_router(plugin_router)
+    app.include_router(plugin_hosting_router)
     app.include_router(bot_api_router)
     app.include_router(ws_router)
     app.include_router(agent_socket_router)

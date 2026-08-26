@@ -98,6 +98,15 @@ async def run_command(
                 payload=result.message.model_dump(by_alias=True),
             )
 
+        if result.left_channel:
+            await plugin_events.emit(
+                session,
+                workspace_id=user.workspace_id,
+                event="member.left",
+                channel_id=payload.channel_id,
+                payload={"channelId": payload.channel_id, "userId": user.id},
+            )
+
         def broadcast() -> None:
             channel_id = payload.channel_id
 

@@ -198,7 +198,20 @@ def _row_to_theme(row: Any) -> Theme:
 
 
 async def ensure_presets(session: AsyncSession, workspace_id: str) -> None:
-    """Insert the shipped presets once per workspace. Safe to call on every boot."""
+    """Insert the shipped presets once per workspace. Safe to call on every boot.
+
+    The existence check first: this runs on every /api/bootstrap, i.e. every page
+    load, and unconditionally issuing one INSERT per preset opened a write
+    transaction per load that almost always wrote nothing.
+    """
+    count = (
+        await session.execute(
+            text("SELECT count(*) AS n FROM themes WHERE workspace_id = :ws AND is_preset"),
+            {"ws": workspace_id},
+        )
+    ).scalar_one()
+    if count >= len(PRESETS):
+        return
     for preset in PRESETS:
         await session.execute(
             text(
@@ -226,7 +239,7 @@ async def list_themes(session: AsyncSession, workspace_id: str) -> list[Theme]:
                 """
                 SELECT id, slug, name, mode, tokens, is_preset, is_enabled, created_at
                   FROM themes WHERE workspace_id = :ws
-                 ORDER BY is_preset DESC, mode, lower(name)
+                 ORDER BY is_preset DESC, mode, lower(name) LIMIT 100
                 """
             ),
             {"ws": workspace_id},

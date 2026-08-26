@@ -283,6 +283,17 @@ async def group_ids_for_user(session: AsyncSession, user_id: str) -> list[str]:
     return [str(row.group_id) for row in rows]
 
 
+async def muted_group_ids_for_user(session: AsyncSession, user_id: str) -> list[str]:
+    """Which of those groups this person has silenced — so the toggle can show truth."""
+    rows = (
+        await session.execute(
+            text("SELECT group_id FROM user_group_members WHERE user_id = :id AND muted"),
+            {"id": user_id},
+        )
+    ).fetchall()
+    return [str(row.group_id) for row in rows]
+
+
 def _to_group(row: Any) -> Group:
     return Group(
         id=str(row.id),

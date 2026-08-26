@@ -177,6 +177,9 @@ class UpdateProfileInput(CamelModel):
     status_emoji: str | None = Field(default=None, max_length=64)
     status_text: str | None = Field(default=None, max_length=100)
     status_expires_at: str | None = None
+    #: An upload the caller made, by attachment id; null clears the picture. The route
+    #: resolves it to an object key itself — the client never learns storage keys.
+    avatar_attachment_id: str | None = Field(default=None, max_length=64)
 
 
 class UpdatePrefsInput(CamelModel):

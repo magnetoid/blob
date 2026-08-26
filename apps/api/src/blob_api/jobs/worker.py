@@ -15,7 +15,7 @@ from arq import cron
 from sqlalchemy import text
 
 from ..db.engine import close_engine, transaction
-from ..lib.queue import redis_settings
+from ..lib.queue import close_queue, redis_settings
 from ..lib.redis import close_redis
 from ..lib.storage import delete_object
 from ..plugins import delivery as plugin_delivery
@@ -108,6 +108,8 @@ async def startup(_ctx: dict[str, Any]) -> None:
 
 async def shutdown(_ctx: dict[str, Any]) -> None:
     await hub.stop_redis_bridge()
+    await plugin_delivery.close_client()
+    await close_queue()
     await close_redis()
     await close_engine()
 

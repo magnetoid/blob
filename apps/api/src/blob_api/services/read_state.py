@@ -134,25 +134,6 @@ async def mark_unread(
     )
 
 
-async def advance_for_author(
-    session: AsyncSession, user_id: str, channel_id: str, message_id: str
-) -> None:
-    """Advance the author's own cursor so their own message never shows as unread."""
-    await session.execute(
-        text(
-            """
-            INSERT INTO read_states (user_id, channel_id, last_read_message_id, updated_at)
-            VALUES (:user_id, :channel_id, :message_id, now())
-            ON CONFLICT (user_id, channel_id) DO UPDATE
-              SET last_read_message_id = GREATEST(
-                    read_states.last_read_message_id, EXCLUDED.last_read_message_id),
-                  updated_at = now()
-            """
-        ),
-        {"user_id": user_id, "channel_id": channel_id, "message_id": message_id},
-    )
-
-
 async def increment_mentions(
     session: AsyncSession, user_ids: list[str], channel_id: str
 ) -> list[ReadStateOut]:
