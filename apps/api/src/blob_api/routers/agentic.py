@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from contextlib import suppress
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import text
@@ -10,12 +11,16 @@ from sqlalchemy import text
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import forbidden, not_found
+from ..lib.rate_limit import consume
+from ..lib.redis import redis
 from ..plugins import events as plugin_events
 from ..schemas.base import CamelModel
 from ..schemas.models import AgentTask, ThreadSummary
 from ..schemas.requests import CreateAgentTaskInput, UpdateAgentTaskInput
+from ..services import agent_runs as agent_run_service
 from ..services import agentic as agentic_service
 from ..services import audit as audit_service
+from ..services import catchup as catchup_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
 from ..services.audit import actor_for
@@ -264,3 +269,140 @@ async def list_tasks(
         ).fetchall()
         tasks = [to_agent_task(row) for row in rows]
     return AgentTasksOut(tasks=tasks)
+
+
+# ─── catch me up ─────────────────────────────────────────────────────────────
+
+
+class CatchupInput(CamelModel):
+    channel_id: str | None = None
+
+
+class CatchupSummaryOut(CamelModel):
+    channel_id: str
+    channel_name: str | None
+    text: str
+    message_count: int
+    up_to_message_id: str
+
+
+class CatchupOut(CamelModel):
+    summaries: list[CatchupSummaryOut]
+
+
+@router.post("/api/catchup", response_model=CatchupOut)
+async def catch_me_up(
+    payload: CatchupInput, user: SessionUser = Depends(current_user)
+) -> CatchupOut:
+    """Summarise what you haven't read — one channel, or the busiest few.
+
+    Ephemeral by construction: the response is the whole artifact. Nothing is stored,
+    nothing is broadcast, and posting a summary into the channel is the client
+    sending it as you, through the ordinary idempotent send.
+    """
+    await consume("catchup", user.id)
+    if payload.channel_id:
+        async with session_scope() as session:
+            await channel_service.assert_channel_access(session, user.id, payload.channel_id)
+    async with session_scope() as session:
+        summaries = await catchup_service.summarise(
+            session,
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            channel_id=payload.channel_id,
+        )
+    return CatchupOut(
+        summaries=[
+            CatchupSummaryOut(
+                channel_id=s.channel_id,
+                channel_name=s.channel_name,
+                text=s.text,
+                message_count=s.message_count,
+                up_to_message_id=s.up_to_message_id,
+            )
+            for s in summaries
+        ]
+    )
+
+
+# ─── agent runs, as the conversation sees them ───────────────────────────────
+
+
+class AgentRunsOut(CamelModel):
+    runs: list[dict[str, Any]]
+
+
+class OkOut(CamelModel):
+    ok: bool = True
+
+
+@router.get("/api/channels/{channel_id}/agent-runs", response_model=AgentRunsOut)
+async def channel_agent_runs(
+    channel_id: str, user: SessionUser = Depends(current_user)
+) -> AgentRunsOut:
+    """The runs a conversation renders on load: live cards plus the recent tail.
+
+    The socket carries the same shapes while a run streams; this is what a reload —
+    or a client that joined mid-run — folds in first.
+    """
+    async with session_scope() as session:
+        await channel_service.assert_channel_access(session, user.id, channel_id)
+        runs = await agent_run_service.views_for_channel(
+            session, workspace_id=user.workspace_id, channel_id=channel_id
+        )
+    return AgentRunsOut(runs=runs)
+
+
+@router.post("/api/agent-runs/{run_id}/cancel", response_model=OkOut)
+async def cancel_agent_run(
+    run_id: str, request: Request, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    """Stop an in-flight run.
+
+    Anyone who can see the channel can stop a run in it — the same rule as Slack's
+    stop button, and the right one: the person paying attention is rarely the person
+    who asked. The worker hears it two ways, key and publish, because it subscribes
+    before it checks and a Stop pressed in the gap must land on one side or the other.
+    """
+    async with transaction() as (session, _):
+        running = (
+            await session.execute(
+                text(
+                    """
+                    SELECT channel_id FROM agent_runs
+                     WHERE id = :id AND workspace_id = :ws AND status = 'running'
+                    """
+                ),
+                {"id": run_id, "ws": user.workspace_id},
+            )
+        ).fetchone()
+        if running is None:
+            # Finished, cancelled already, or another workspace's — all the same 404,
+            # because which of those it is would answer questions the id holder has
+            # no business asking.
+            raise not_found("That run is not running.")
+        # Access before the mark: a member who cannot see the channel must not be
+        # able to stop what is happening in it — same 404, same reason.
+        channel_id = str(running.channel_id)
+        await channel_service.assert_channel_access(session, user.id, channel_id)
+        marked = await agent_run_service.request_cancel(
+            session, workspace_id=user.workspace_id, run_id=run_id
+        )
+        if marked is None:
+            raise not_found("That run is not running.")
+
+    with suppress(Exception):
+        await redis.set(f"agui:cancel:{run_id}", user.id, nx=True, ex=600)
+    with suppress(Exception):
+        await redis.publish(f"agent:ctl:{run_id}", "cancel")
+
+    async with transaction() as (session, _):
+        await audit_service.record(
+            session,
+            actor_for(request, user),
+            "agent.run_cancelled",
+            target_type="agent_run",
+            target_id=run_id,
+            metadata={"channelId": marked["channelId"]},
+        )
+    return OkOut()

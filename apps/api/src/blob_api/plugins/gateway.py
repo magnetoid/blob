@@ -104,6 +104,7 @@ async def stream_events(
     of what an event *means*.
     """
     run_id = new_id()
+    saw_end = False
     pubsub = redis_sub.pubsub()
     try:
         await pubsub.subscribe(event_channel(run_id))
@@ -112,9 +113,18 @@ async def stream_events(
             json.dumps({"runId": run_id, "input": run_input}),
         )
 
-        deadline = asyncio.get_running_loop().time() + timeout_sec
+        # Idle deadline, reset by every event: an agent that is visibly working —
+        # step events, tool calls, streamed text all count — stays alive, and one that
+        # has gone quiet for `timeout_sec` is done. The hard cap is the only absolute
+        # wall, so long agent runs are bounded by "still talking", not by 150 seconds.
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        idle_deadline = started + timeout_sec
         while True:
-            remaining = deadline - asyncio.get_running_loop().time()
+            now = loop.time()
+            if now - started >= settings.AGUI_MAX_RUN_SEC:
+                return
+            remaining = min(idle_deadline, started + settings.AGUI_MAX_RUN_SEC) - now
             if remaining <= 0:
                 return
             try:
@@ -131,13 +141,22 @@ async def stream_events(
             except (ValueError, TypeError):
                 continue
             if frame.get("t") == "end":
+                saw_end = True
                 return
+            idle_deadline = loop.time() + timeout_sec
             event = frame.get("event")
             if isinstance(event, dict):
                 yield event
     finally:
         with contextlib.suppress(Exception):
             await pubsub.aclose()  # type: ignore[no-untyped-call]
+        # Whatever ended this — a cancel, a timeout, a cap — Blob has stopped
+        # listening, and an agent still mid-run deserves to hear so instead of
+        # spending tokens into a channel with no subscriber. The "end" frame path
+        # sets saw_end and skips this.
+        if not saw_end:
+            with contextlib.suppress(Exception):
+                await redis.publish(run_channel(plugin_id), json.dumps({"cancel": run_id}))
 
 
 # ─── the holder's side: the API process the agent connected to ────────────────
@@ -232,6 +251,15 @@ class AgentConnection:
                     except (ValueError, TypeError):
                         continue
                     run_id = request.get("runId")
+                    cancel_id = request.get("cancel")
+                    if isinstance(cancel_id, str):
+                        # Advisory: the worker has stopped listening either way. Only
+                        # the holder whose agent claimed the run forwards it — and an
+                        # agent that ignores unknown frames loses nothing, per the
+                        # socket contract on both sides.
+                        if await owns_run(self.plugin_id, cancel_id):
+                            await self._send({"t": "cancel", "runId": cancel_id})
+                        continue
                     run_input = request.get("input")
                     if not isinstance(run_id, str) or not isinstance(run_input, dict):
                         continue

@@ -365,3 +365,20 @@ Worth knowing before changing the equivalent code:
   the instance admin?" depend on which file signed up first. Three unrelated tests failed
   purely because new test files changed the alphabetical order. A table that outlives the
   rows it references needs naming in the reset explicitly.
+
+- **The protocol-parity suite also checks emission.** Adding an event name to
+  `realtime/protocol.py` + `protocol.ts` is not enough — `test_protocol_parity` greps the
+  server source for the literal and fails on "declared but never sent". Write the emitter
+  in the same commit as the declaration.
+- **The parity parser ends a TS union at the first depth-0 semicolon** — including one
+  inside a `/** comment */`. Doc comments inside the `ServerEvent` union must not contain
+  `;`.
+- **`test_agui.py` imports the `sse` module; a helper named `sse` shadows it** and every
+  decoder test fails mysteriously. Suffix test helpers (`sse_frame`) instead.
+- **Two pytest processes against one database destroy each other** — `_clean_state`
+  TRUNCATEs per module. Never run a file-scoped pytest while the full suite runs; the
+  failures look like FK violations and policy refusals, not like a collision.
+- **httpx `Timeout(total, read=x)` has no total-run wall for a streaming response** —
+  the first positional is connect/write/pool, and steady chunks under the read gap can
+  stream forever. The absolute bound must be enforced in the read loop
+  (`AGUI_MAX_RUN_SEC`), which is also what run cards rely on.

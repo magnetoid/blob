@@ -337,3 +337,52 @@ export interface FeedbackTicket {
   resolvedAt: string | null;
   resolvedBy: string | null;
 }
+
+// ─── agent runs ──────────────────────────────────────────────────────────────
+
+export type AgentRunStatus =
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'interrupted'
+  | 'cancelled';
+
+/** The live view of what an agent is doing, folded server-side from AG-UI events. */
+export interface AgentRunCard {
+  steps: Array<{ name: string; status: 'running' | 'done' }>;
+  tools: Array<{
+    name: string;
+    status: 'running' | 'done';
+    args: string;
+    result: string | null;
+  }>;
+  activity: string | null;
+  reasoning: string | null;
+  textChars: number;
+  dropped: number;
+}
+
+export interface AgentRunView {
+  id: string;
+  pluginId: string;
+  agentName: string;
+  channelId: string;
+  threadRootId: string | null;
+  triggerMessageId: string | null;
+  status: AgentRunStatus;
+  error: string | null;
+  postCount: number;
+  startedAt: string;
+  finishedAt: string | null;
+  card: AgentRunCard | null;
+}
+
+export type LaterState = 'in_progress' | 'archived' | 'done';
+
+export interface LaterItem {
+  message: Message;
+  state: LaterState;
+  remindAt: string | null;
+  remindedAt: string | null;
+  note: string | null;
+}

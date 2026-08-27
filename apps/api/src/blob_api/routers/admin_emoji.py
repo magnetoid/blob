@@ -189,6 +189,4 @@ async def remove_custom_emoji(
     return OkOut()
 
 
-
-
 __all__ = ["router"]

@@ -7,6 +7,9 @@
  */
 
 import type {
+  AgentRunCard,
+  AgentRunStatus,
+  AgentRunView,
   Channel,
   ChannelWithState,
   Message,
@@ -53,6 +56,20 @@ export type ServerEvent =
       channelId: string;
       lastReadMessageId: string | null;
       mentionCount: number;
+    }
+  /** A reminder you set came due — yours alone, on every device you have open. */
+  | { t: 'reminder.due'; messageId: string; channelId: string; note: string | null }
+  /** An agent began answering — the card that follows renders under its trigger. */
+  | { t: 'agent_run.started'; run: AgentRunView }
+  /** Throttled snapshots of the live card — whole each time, so a reconnect needs no replay. */
+  | { t: 'agent_run.updated'; runId: string; channelId: string; card: AgentRunCard }
+  | {
+      t: 'agent_run.finished';
+      runId: string;
+      channelId: string;
+      status: AgentRunStatus;
+      error: string | null;
+      postCount: number;
     }
   | { t: 'error'; code: string; message: string };
 

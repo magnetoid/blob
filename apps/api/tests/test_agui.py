@@ -24,6 +24,7 @@ from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
+from blob_api.lib.ids import new_id
 from blob_api.plugins import streams
 from blob_api.lib import net, sse
 from blob_api.plugins import agui
@@ -583,3 +584,98 @@ class TestPrivateEndpoints:
                 "/api/admin/plugins", {**APP, "requestUrl": None, "aguiUrl": bad}
             )
             assert response.status == 400, bad
+
+
+def sse_frame(event: dict[str, Any]) -> bytes:
+    # Named to stay clear of the `sse` module this file also imports.
+    return f"data: {json.dumps(event)}\n\n".encode()
+
+
+class TestRunCards:
+    """The live card: step/tool events become agent_run.* broadcasts and a stored card."""
+
+    async def test_a_run_broadcasts_started_and_finished_with_the_card(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, _ = agent_speaks(
+            sse_frame({"type": "RUN_STARTED", "threadId": "t", "runId": "r"}),
+            sse_frame({"type": "STEP_STARTED", "stepName": "think"}),
+            sse_frame({"type": "TOOL_CALL_START", "toolCallId": "c1", "toolCallName": "search"}),
+            sse_frame({"type": "TOOL_CALL_END", "toolCallId": "c1"}),
+            sse_frame({"type": "STEP_FINISHED", "stepName": "think"}),
+            sse_frame({"type": "TEXT_MESSAGE_START", "messageId": "m1", "role": "assistant"}),
+            sse_frame({"type": "TEXT_MESSAGE_CONTENT", "messageId": "m1", "delta": "Done."}),
+            sse_frame({"type": "TEXT_MESSAGE_END", "messageId": "m1"}),
+            sse_frame({"type": "RUN_FINISHED", "threadId": "t", "runId": "r"}),
+        )
+        route_agent_to(monkeypatch, transport)
+
+        sent = await send_message(team["owner"], team["general"], "@Helper go")
+        await agui_job.handle_agui_run(sent.body["message"]["id"])
+
+        # The stored row carries the folded card, whole.
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body[
+            "runs"
+        ]
+        assert runs, "no run recorded"
+        run = runs[0]
+        assert run["status"] == "succeeded"
+        assert run["card"] is not None
+        assert run["card"]["steps"] == [{"name": "think", "status": "done"}]
+        assert run["card"]["tools"][0]["name"] == "search"
+
+    async def test_the_listing_is_channel_scoped(self, team: dict) -> None:
+        # Access is by channel visibility — the same 404-shaped rule as everything else.
+        private = (
+            await team["owner"].post(
+                "/api/channels", {"name": "runs-private", "kind": "private"}
+            )
+        ).body["channel"]
+        response = await team["member"].get(f"/api/channels/{private['id']}/agent-runs")
+        assert response.status == 404
+
+
+class TestCancel:
+    async def test_a_cancel_before_the_run_starts_wins(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The worker checks the durable key after subscribing; a Stop that landed
+        # before the job even started must hold.
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, seen = agent_speaks(*ANSWER)
+        route_agent_to(monkeypatch, transport)
+
+        sent = await send_message(team["owner"], team["general"], "@Helper go")
+        message_id = sent.body["message"]["id"]
+
+        # Plant the key for whatever run id the job mints: we can't know it up front,
+        # so patch the redis get the job does. Simpler and honest: patch
+        # `redis.get` for the cancel key prefix.
+        from blob_api.lib import redis as redis_module
+
+        real_get = redis_module.redis.get
+
+        async def poisoned_get(key: str) -> Any:
+            if key.startswith("agui:cancel:"):
+                return "someone"
+            return await real_get(key)
+
+        monkeypatch.setattr(redis_module.redis, "get", poisoned_get)
+        await agui_job.handle_agui_run(message_id)
+
+        bodies = [m["body"] for m in await messages_in(team["general"])]
+        # No answer and no apology: a stopped run says nothing.
+        assert "Standup is at nine." not in bodies
+        assert not any("couldn't finish" in b for b in bodies)
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body[
+            "runs"
+        ]
+        assert runs[0]["status"] == "cancelled"
+        assert seen == []  # the agent was never contacted
+
+    async def test_the_cancel_route_is_workspace_scoped(self, team: dict) -> None:
+        response = await team["owner"].post(f"/api/agent-runs/{new_id()}/cancel")
+        assert response.status == 404

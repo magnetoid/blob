@@ -650,7 +650,7 @@ class AgentRun(Base):
     __tablename__ = "agent_runs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('running', 'succeeded', 'failed', 'interrupted')",
+            "status IN ('running', 'succeeded', 'failed', 'interrupted', 'cancelled')",
             name="agent_runs_status_check",
         ),
         CheckConstraint(
@@ -686,6 +686,12 @@ class AgentRun(Base):
     post_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     started_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     finished_at: Mapped[Any | None] = mapped_column(Timestamp)
+    #: The live card's final state — plan steps, tool calls, activity — kept so a
+    #: reload renders the same card the stream drew. Null for runs from before cards.
+    card: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    #: When somebody pressed Stop. The worker reads the redis key, not this column;
+    #: this is the durable record of who-asked-when for the log.
+    cancel_requested_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
 class SavedItem(Base):
@@ -698,6 +704,15 @@ class SavedItem(Base):
     __tablename__ = "saved_items"
     __table_args__ = (
         PrimaryKeyConstraint("user_id", "message_id", name="saved_items_pkey"),
+        CheckConstraint(
+            "state IN ('in_progress', 'archived', 'done')", name="saved_items_state_check"
+        ),
+        # The reminder cron's whole working set: due rows not yet fired.
+        Index(
+            "saved_items_due",
+            "remind_at",
+            postgresql_where=text("remind_at IS NOT NULL AND reminded_at IS NULL"),
+        ),
         Index("saved_items_user_recent", "user_id", text("created_at DESC")),
     )
 
@@ -708,6 +723,13 @@ class SavedItem(Base):
         UUIDStr, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
     )
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    #: Slack's Later states. A save starts in progress; done and archived are the
+    #: two ways a thing leaves the front of the list without leaving the record.
+    state: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'in_progress'"))
+    #: When to resurface it, if asked. Fired at most once; `reminded_at` is the ratchet.
+    remind_at: Mapped[Any | None] = mapped_column(Timestamp)
+    note: Mapped[str | None] = mapped_column(Text)
+    reminded_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
 class ThreadSummary(Base):

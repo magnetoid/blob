@@ -13,6 +13,7 @@ dispatching an app command with no transaction open.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -20,8 +21,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.ids import new_id
+from ..schemas.base import require_iso
 
-RunStatus = Literal["running", "succeeded", "failed", "interrupted"]
+RunStatus = Literal["running", "succeeded", "failed", "interrupted", "cancelled"]
 
 
 @dataclass(slots=True)
@@ -92,17 +94,25 @@ async def finish(
     status: RunStatus,
     error: str | None = None,
     post_count: int = 0,
+    card: dict[str, Any] | None = None,
 ) -> None:
     await session.execute(
         text(
             """
             UPDATE agent_runs
                SET status = :status, error = :error,
-                   post_count = :post_count, finished_at = now()
+                   post_count = :post_count, finished_at = now(),
+                   card = COALESCE(cast(:card AS jsonb), card)
              WHERE id = :id
             """
         ),
-        {"id": run_id, "status": status, "error": error, "post_count": post_count},
+        {
+            "id": run_id,
+            "status": status,
+            "error": error,
+            "post_count": post_count,
+            "card": json.dumps(card) if card is not None else None,
+        },
     )
 
 
@@ -187,3 +197,72 @@ async def sweep(session: AsyncSession, keep_days: int = 30) -> int:
         )
     ).fetchall()
     return len(removed)
+
+
+async def views_for_channel(
+    session: AsyncSession, *, workspace_id: str, channel_id: str, limit: int = 10
+) -> list[dict[str, Any]]:
+    """The runs a conversation view renders on load — live ones plus the recent tail.
+
+    Returned as wire-shaped dicts (the AgentRunView the socket events also carry)
+    rather than the console's Run dataclass: the client folds both sources into one
+    store slice, and two shapes for the same thing is how they drift.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT r.id, r.plugin_id, p.name AS agent_name, r.channel_id,
+                       r.thread_root_id, r.trigger_message_id, r.status, r.error,
+                       r.post_count, r.started_at, r.finished_at, r.card
+                  FROM agent_runs r
+                  JOIN plugins p ON p.id = r.plugin_id
+                 WHERE r.workspace_id = :ws AND r.channel_id = :channel_id
+                   AND (r.status = 'running' OR r.started_at > now() - interval '1 hour')
+                 ORDER BY r.started_at DESC
+                 LIMIT :limit
+                """
+            ),
+            {"ws": workspace_id, "channel_id": channel_id, "limit": limit},
+        )
+    ).fetchall()
+    return [
+        {
+            "id": str(row.id),
+            "pluginId": str(row.plugin_id),
+            "agentName": row.agent_name,
+            "channelId": str(row.channel_id),
+            "threadRootId": str(row.thread_root_id) if row.thread_root_id else None,
+            "triggerMessageId": (str(row.trigger_message_id) if row.trigger_message_id else None),
+            "status": row.status,
+            "error": row.error,
+            "postCount": row.post_count,
+            "startedAt": require_iso(row.started_at),
+            "finishedAt": require_iso(row.finished_at) if row.finished_at else None,
+            "card": row.card,
+        }
+        for row in rows
+    ]
+
+
+async def request_cancel(
+    session: AsyncSession, *, workspace_id: str, run_id: str
+) -> dict[str, Any] | None:
+    """Mark the ask durable and return what the publisher needs, or None if no such
+    running run in this workspace — which is also the cross-tenant answer."""
+    row = (
+        await session.execute(
+            text(
+                """
+                UPDATE agent_runs
+                   SET cancel_requested_at = COALESCE(cancel_requested_at, now())
+                 WHERE id = :id AND workspace_id = :ws AND status = 'running'
+                RETURNING id, channel_id
+                """
+            ),
+            {"id": run_id, "ws": workspace_id},
+        )
+    ).fetchone()
+    if row is None:
+        return None
+    return {"id": str(row.id), "channelId": str(row.channel_id)}

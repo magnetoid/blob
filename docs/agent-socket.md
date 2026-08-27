@@ -38,7 +38,8 @@ supports and the first thing every reverse proxy writes to an access log.
 | Close code, unauthenticated | **1008** |
 | Close code, unparseable frame | 1003 |
 | Maximum frame | 512 KiB (`MAX_FRAME_BYTES`) |
-| Run ceiling | `AGUI_TIMEOUT_SEC + AGUI_READ_TIMEOUT_SEC` — 150s by default |
+| Idle ceiling | `AGUI_TIMEOUT_SEC + AGUI_READ_TIMEOUT_SEC` of silence — 150s by default; any event resets it |
+| Hard ceiling | `AGUI_MAX_RUN_SEC` — 600s by default, idle or not |
 
 Comparison is constant-time and the failure is uniform: "unknown token", "revoked" and
 "app disabled" all close the same way, because which one it was is not the caller's
@@ -87,7 +88,7 @@ published docs head each section with the TypeScript interface name, and matchin
 headings parses as nothing, silently.
 
 **`done` ends a run and must always be sent.** Blob holds the run open until it is told
-otherwise, so an agent that fails without saying so costs the person a full 150 seconds of
+otherwise, so an agent that fails without saying so costs the person the full idle window of
 silence — the one outcome worse than an error. Send `RUN_ERROR` as an event and then
 `done`.
 
@@ -120,7 +121,9 @@ What holds today:
 - A run is claimed with Redis `SET NX` before an agent is asked, so a duplicate enqueue
   does not pay for the same run twice, and an agent reconnecting to a second app process
   cannot have one run delivered and answered twice.
-- Runs are bounded by `AGUI_TIMEOUT_SEC + AGUI_READ_TIMEOUT_SEC` and by event and byte
+- Runs are bounded by the idle window (`AGUI_TIMEOUT_SEC + AGUI_READ_TIMEOUT_SEC`,
+  reset by every event — step, tool and activity events count as liveness), by the
+  absolute `AGUI_MAX_RUN_SEC` wall, and by event and byte
   caps, so a flooding agent costs a bounded amount of somebody else's latency.
 - Every post the agent produces is idempotent on a client-supplied id, so a retried
   delivery cannot double-post a message.

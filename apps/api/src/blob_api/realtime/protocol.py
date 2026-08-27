@@ -36,6 +36,10 @@ SERVER_EVENTS: frozenset[str] = frozenset(
         "group.deleted",
         "group.membership",
         "read_state.updated",
+        "reminder.due",
+        "agent_run.started",
+        "agent_run.updated",
+        "agent_run.finished",
         "error",
     }
 )

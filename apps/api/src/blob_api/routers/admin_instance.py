@@ -37,7 +37,6 @@ class OkOut(CamelModel):
     ok: bool = True
 
 
-
 class InstanceUser(CamelModel):
     id: str
     email: str
@@ -289,9 +288,6 @@ async def write_policy(
             metadata=fields,
         )
     return _policy_out(workspace_id, policy)
-
-
-
 
 
 # ─── server logs ──────────────────────────────────────────────────────────────

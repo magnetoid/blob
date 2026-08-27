@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 
@@ -30,8 +30,8 @@ from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError
 from ..lib.queue import enqueue, fire_and_forget
-from ..lib.redis import redis
-from ..plugins import agui, builtin
+from ..lib.redis import redis, redis_sub
+from ..plugins import agui, builtin, run_card
 from ..plugins import events as plugin_events
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub, presence
@@ -43,6 +43,14 @@ from ..services import messages as message_service
 from ..services.serialize import message_event
 
 log = logging.getLogger("blob.jobs.agui")
+
+
+def _now_iso() -> str:
+    from datetime import UTC, datetime
+
+    from ..schemas.base import require_iso
+
+    return require_iso(datetime.now(UTC))
 
 
 async def listeners_for(
@@ -392,6 +400,68 @@ async def _run(message_id: str) -> None:
     )
 
 
+class _CardBroadcaster:
+    """Live snapshots of a run's card, at most ~4 a second.
+
+    The throttle is load-bearing: a chatty agent emits hundreds of deltas a second,
+    and each snapshot fans out to every socket in the channel. Snapshots rather than
+    deltas so a client that reconnects mid-run renders the next one whole. The final
+    state travels with `agent_run.finished`, so nothing is lost to the trailing edge.
+    """
+
+    def __init__(self, run_id: str, channel_id: str, card: run_card.CardFold) -> None:
+        self._run_id = run_id
+        self._channel_id = channel_id
+        self._card = card
+        self._dirty = False
+        self._task: asyncio.Task[None] | None = None
+
+    def on_event(self, event: Mapping[str, Any]) -> None:
+        if not self._card.feed(event):
+            return
+        self._dirty = True
+        if self._task is None:
+            self._task = asyncio.create_task(self._flush_loop())
+
+    async def _flush_loop(self) -> None:
+        while True:
+            await asyncio.sleep(0.25)
+            if not self._dirty:
+                continue
+            self._dirty = False
+            hub.to_channel(
+                self._channel_id,
+                {
+                    "t": "agent_run.updated",
+                    "runId": self._run_id,
+                    "channelId": self._channel_id,
+                    "card": self._card.snapshot(),
+                },
+            )
+
+    async def stop(self) -> None:
+        if self._task is None:
+            return
+        self._task.cancel()
+        with suppress(asyncio.CancelledError):
+            await self._task
+
+
+async def _wait_for_cancel(pubsub: Any) -> None:
+    """Returns when a cancel is published for this run. Runs until cancelled itself."""
+    while True:
+        try:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # A Redis blip must not end the watch — Stop should still work after it.
+            await asyncio.sleep(1.0)
+            continue
+        if message is not None and message.get("type") == "message":
+            return
+
+
 async def _run_one(
     listener: Listener,
     *,
@@ -451,7 +521,7 @@ async def _run_one(
     # Written before the call, not after: a run that never returns — a process killed
     # mid-call, an agent that hangs past every timeout — is exactly the case with nothing
     # to show for it, and the `running` row is what says so.
-    async with transaction() as (session, _):
+    async with transaction() as (session, after):
         run_id = await agent_run_service.start(
             session,
             workspace_id=workspace_id,
@@ -462,9 +532,76 @@ async def _run_one(
             trigger_user_id=trigger_user_id,
             transport=listener.transport,
         )
+        run_view: dict[str, Any] = {
+            "id": run_id,
+            "pluginId": listener.plugin_id,
+            "agentName": listener.name,
+            "channelId": channel_id,
+            "threadRootId": thread_root_id,
+            "triggerMessageId": trigger_id,
+            "status": "running",
+            "error": None,
+            "postCount": 0,
+            "startedAt": _now_iso(),
+            "finishedAt": None,
+            "card": None,
+        }
+        after.add(lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": run_view}))
 
-    async with _looks_busy(listener, channel_id, thread_root_id):
-        fold, posts, transport_error = await stream_run(listener, run_input)
+    card = run_card.CardFold()
+    broadcaster = _CardBroadcaster(run_id, channel_id, card)
+    cancelled = False
+
+    ctl_channel = f"agent:ctl:{run_id}"
+    pubsub = redis_sub.pubsub()
+    try:
+        # Subscribe before reading the key, so a Stop pressed in the gap is caught by
+        # whichever side it lands on — the recorded subscribe-before-publish rule.
+        subscribed = False
+        try:
+            await pubsub.subscribe(ctl_channel)
+            subscribed = True
+        except Exception:
+            log.warning("cancel watch unavailable for run %s", run_id, exc_info=True)
+        already = None
+        with suppress(Exception):
+            already = await redis.get(f"agui:cancel:{run_id}")
+
+        posts: list[agui.Post]
+        if already:
+            fold, posts, transport_error = agui.Fold(), [], None
+            cancelled = True
+        else:
+            async with _looks_busy(listener, channel_id, thread_root_id):
+                stream_task = asyncio.create_task(
+                    stream_run(listener, run_input, on_event=broadcaster.on_event)
+                )
+                waiters: set[asyncio.Task[Any]] = {stream_task}
+                cancel_task: asyncio.Task[None] | None = None
+                if subscribed:
+                    cancel_task = asyncio.create_task(_wait_for_cancel(pubsub))
+                    waiters.add(cancel_task)
+                done, _pending = await asyncio.wait(waiters, return_when=asyncio.FIRST_COMPLETED)
+                if cancel_task is not None and cancel_task in done and stream_task not in done:
+                    stream_task.cancel()
+                    cancelled = True
+                if cancel_task is not None:
+                    cancel_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await cancel_task
+                try:
+                    fold, posts, transport_error = await stream_task
+                except asyncio.CancelledError:
+                    fold, posts, transport_error = agui.Fold(), [], None
+                if cancelled:
+                    # Sealed-but-unposted answers die with the run: the person asked
+                    # for it to stop, and a reply landing after Stop reads as defiance.
+                    posts = []
+                    transport_error = None
+    finally:
+        await broadcaster.stop()
+        with suppress(Exception):
+            await pubsub.aclose()  # type: ignore[no-untyped-call]
 
     for post in posts:
         await _post_as_bot(
@@ -478,17 +615,54 @@ async def _run_one(
         )
 
     reason = transport_error or fold.error
-    # Four outcomes, matching what this function already does with them. Collapsing
+    # Five outcomes, matching what this function already does with them. Collapsing
     # `interrupted` into `failed` would lose the one an operator can act on, and
     # collapsing silence into failure would call a legitimate answer a fault.
-    async with transaction() as (session, _):
+    status: agent_run_service.RunStatus = (
+        "cancelled"
+        if cancelled
+        else "failed"
+        if reason
+        else "interrupted"
+        if fold.interrupt
+        else "succeeded"
+    )
+    final_card = card.snapshot() if card.has_content else None
+    async with transaction() as (session, after):
         await agent_run_service.finish(
             session,
             run_id,
-            status="failed" if reason else "interrupted" if fold.interrupt else "succeeded",
+            status=status,
             error=reason,
             post_count=len(posts),
+            card=final_card,
         )
+        finished_event = {
+            "t": "agent_run.finished",
+            "runId": run_id,
+            "channelId": channel_id,
+            "status": status,
+            "error": reason,
+            "postCount": len(posts),
+        }
+        after.add(lambda: hub.to_channel(channel_id, finished_event))
+        if final_card is not None:
+            # One last snapshot with the final fold, so the finished card is whole
+            # even when the run ended between throttle ticks.
+            after.add(
+                lambda: hub.to_channel(
+                    channel_id,
+                    {
+                        "t": "agent_run.updated",
+                        "runId": run_id,
+                        "channelId": channel_id,
+                        "card": final_card,
+                    },
+                )
+            )
+
+    if cancelled:
+        return  # Stopped on request; no apology, nothing posted.
 
     if reason:
         await _record_error(listener.plugin_id, reason)

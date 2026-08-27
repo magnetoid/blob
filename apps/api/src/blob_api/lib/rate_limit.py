@@ -44,6 +44,10 @@ LIMITS: dict[str, Limit] = {
     # A command can post a message, so it cannot be cheaper than sending one. The window
     # matches `send_message` for that reason rather than by coincidence.
     "command": Limit(30, 60),
+    # Every catch-up can fan out several model calls, each billing a third party.
+    # Safe to gate hard because the limiter fails open — a Redis blip cannot turn
+    # this guard into the outage.
+    "catchup": Limit(10, 300),
 }
 
 

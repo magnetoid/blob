@@ -135,6 +135,11 @@ class Settings(BaseSettings):
     AGUI_HISTORY_LIMIT: int = 30
     AGUI_MAX_EVENTS: int = 5_000
     AGUI_MAX_BYTES: int = 2 * 1024 * 1024
+    #: The hard wall on one run, idle or not. The idle timeouts above catch an agent
+    #: that stopped talking; this catches one that keeps talking forever — and it is
+    #: what lets real multi-minute agent work exist at all, where the old shape made
+    #: AGUI_TIMEOUT_SEC a 120-second ceiling on the whole run.
+    AGUI_MAX_RUN_SEC: float = 600.0
     #: Allow an app endpoint on a private address, over plain HTTP.
     #:
     #: Off by default and it should stay off on anything public: the guard it relaxes is

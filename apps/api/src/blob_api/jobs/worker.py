@@ -23,6 +23,7 @@ from ..realtime import hub
 from ..services import agent_runs as agent_run_service
 from .agui import handle_agui_run
 from .notify import handle_notify
+from .reminders import fire_reminders
 from .unfurl import handle_unfurl
 
 log = logging.getLogger("blob.worker")
@@ -130,6 +131,8 @@ class WorkerSettings:
         # The safety net under the enqueue: retries that came due, and anything whose
         # enqueue was lost, go out within the minute.
         cron(deliver_plugin_events, second=0),  # type: ignore[arg-type]
+        # Reminders are timers; a timer that fires within the minute is on time.
+        cron(fire_reminders, second=30),  # type: ignore[arg-type]
     ]
     on_startup = startup
     on_shutdown = shutdown

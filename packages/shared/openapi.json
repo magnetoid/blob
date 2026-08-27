@@ -502,22 +502,6 @@
         "title": "AgentRunOut",
         "type": "object"
       },
-      "AgentRunsOut": {
-        "properties": {
-          "runs": {
-            "items": {
-              "$ref": "#/components/schemas/AgentRunOut"
-            },
-            "title": "Runs",
-            "type": "array"
-          }
-        },
-        "required": [
-          "runs"
-        ],
-        "title": "AgentRunsOut",
-        "type": "object"
-      },
       "AgentTask": {
         "properties": {
           "assigneeKind": {
@@ -1073,6 +1057,79 @@
           "events"
         ],
         "title": "CatalogOut",
+        "type": "object"
+      },
+      "CatchupInput": {
+        "properties": {
+          "channelId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channelid"
+          }
+        },
+        "title": "CatchupInput",
+        "type": "object"
+      },
+      "CatchupOut": {
+        "properties": {
+          "summaries": {
+            "items": {
+              "$ref": "#/components/schemas/CatchupSummaryOut"
+            },
+            "title": "Summaries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "summaries"
+        ],
+        "title": "CatchupOut",
+        "type": "object"
+      },
+      "CatchupSummaryOut": {
+        "properties": {
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "channelName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channelname"
+          },
+          "messageCount": {
+            "title": "Messagecount",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "upToMessageId": {
+            "title": "Uptomessageid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channelId",
+          "channelName",
+          "text",
+          "messageCount",
+          "upToMessageId"
+        ],
+        "title": "CatchupSummaryOut",
         "type": "object"
       },
       "Channel": {
@@ -2751,6 +2808,125 @@
           "channel"
         ],
         "title": "JoinInput",
+        "type": "object"
+      },
+      "LaterInput": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "remindAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remindat"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "in_progress",
+                  "archived",
+                  "done"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "title": "LaterInput",
+        "type": "object"
+      },
+      "LaterItemOut": {
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "remindAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remindat"
+          },
+          "remindedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remindedat"
+          },
+          "state": {
+            "enum": [
+              "in_progress",
+              "archived",
+              "done"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "state",
+          "remindAt",
+          "remindedAt",
+          "note"
+        ],
+        "title": "LaterItemOut",
+        "type": "object"
+      },
+      "LaterOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LaterItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "LaterOut",
         "type": "object"
       },
       "LinkPreview": {
@@ -5915,6 +6091,23 @@
         "title": "WorkspaceSettingsOut",
         "type": "object"
       },
+      "blob_api__routers__agentic__AgentRunsOut": {
+        "properties": {
+          "runs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "AgentRunsOut",
+        "type": "object"
+      },
       "blob_api__routers__agentic__AgentTaskOut": {
         "properties": {
           "task": {
@@ -6135,6 +6328,22 @@
           "message"
         ],
         "title": "MessageOut",
+        "type": "object"
+      },
+      "blob_api__routers__plugins__AgentRunsOut": {
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/AgentRunOut"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "AgentRunsOut",
         "type": "object"
       },
       "blob_api__routers__users__UsersOut": {
@@ -8165,7 +8374,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentRunsOut"
+                  "$ref": "#/components/schemas/blob_api__routers__plugins__AgentRunsOut"
                 }
               }
             },
@@ -8865,6 +9074,49 @@
         ]
       }
     },
+    "/api/agent-runs/{run_id}/cancel": {
+      "post": {
+        "description": "Stop an in-flight run.\n\nAnyone who can see the channel can stop a run in it \u2014 the same rule as Slack's\nstop button, and the right one: the person paying attention is rarely the person\nwho asked. The worker hears it two ways, key and publish, because it subscribes\nbefore it checks and a Stop pressed in the gap must land on one side or the other.",
+        "operationId": "cancel_agent_run_api_agent_runs__run_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Agent Run",
+        "tags": [
+          "agentic"
+        ]
+      }
+    },
     "/api/auth/forgot-password": {
       "post": {
         "operationId": "forgot_password_api_auth_forgot_password_post",
@@ -9136,6 +9388,48 @@
         ]
       }
     },
+    "/api/catchup": {
+      "post": {
+        "description": "Summarise what you haven't read \u2014 one channel, or the busiest few.\n\nEphemeral by construction: the response is the whole artifact. Nothing is stored,\nnothing is broadcast, and posting a summary into the channel is the client\nsending it as you, through the ordinary idempotent send.",
+        "operationId": "catch_me_up_api_catchup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatchupInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatchupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Catch Me Up",
+        "tags": [
+          "agentic"
+        ]
+      }
+    },
     "/api/channels": {
       "get": {
         "operationId": "list_channels_api_channels_get",
@@ -9285,6 +9579,49 @@
         "summary": "Update Channel",
         "tags": [
           "channels"
+        ]
+      }
+    },
+    "/api/channels/{channel_id}/agent-runs": {
+      "get": {
+        "description": "The runs a conversation renders on load: live cards plus the recent tail.\n\nThe socket carries the same shapes while a run streams; this is what a reload \u2014\nor a client that joined mid-run \u2014 folds in first.",
+        "operationId": "channel_agent_runs_api_channels__channel_id__agent_runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/blob_api__routers__agentic__AgentRunsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Channel Agent Runs",
+        "tags": [
+          "agentic"
         ]
       }
     },
@@ -10309,6 +10646,55 @@
         ]
       }
     },
+    "/api/later": {
+      "get": {
+        "description": "The Later view proper: saved messages with their state and reminder.",
+        "operationId": "list_later_api_later_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "in_progress",
+              "enum": [
+                "in_progress",
+                "archived",
+                "done"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaterOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Later",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/me": {
       "patch": {
         "operationId": "update_me_api_me_patch",
@@ -10973,7 +11359,7 @@
     },
     "/api/saved": {
       "get": {
-        "description": "Everything put aside, newest first \u2014 the Later view.",
+        "description": "Everything put aside, newest first \u2014 the flat form the older client read.",
         "operationId": "list_saved_api_saved_get",
         "responses": {
           "200": {
@@ -10988,6 +11374,59 @@
           }
         },
         "summary": "List Saved",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/saved/{message_id}": {
+      "patch": {
+        "description": "Move a saved item between states, or set a reminder on it.\n\nUpserts the save itself, so \"remind me about this\" from a message's menu is one\ngesture. Setting a reminder re-arms one that already fired.",
+        "operationId": "update_later_api_saved__message_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaterInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Later",
         "tags": [
           "messages"
         ]

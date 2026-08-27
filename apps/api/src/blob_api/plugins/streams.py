@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -61,13 +61,12 @@ class Listener:
         return "socket" if self.dials_in else "http"
 
 
-
-
 async def stream_run(
     listener: Listener,
     run_input: dict[str, Any],
     *,
     transport: httpx.AsyncBaseTransport | None = None,
+    on_event: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
     """Call the agent and fold its stream. Returns (fold, messages to post, error).
 
@@ -80,9 +79,9 @@ async def stream_run(
     code it has.
     """
     if listener.runs_here:
-        return await _stream_builtin(listener, run_input)
+        return await _stream_builtin(listener, run_input, on_event=on_event)
     if listener.dials_in:
-        return await _stream_over_socket(listener, run_input)
+        return await _stream_over_socket(listener, run_input, on_event=on_event)
 
     fold = agui.Fold()
     posts: list[agui.Post] = []
@@ -103,7 +102,12 @@ async def stream_run(
 
     seen_events = 0
     seen_bytes = 0
+    # `AGUI_TIMEOUT_SEC` bounds reaching the agent and each write; the read timeout is
+    # the *idle* gap between chunks — a chunk resets it, which is httpx's semantics
+    # already. The absolute wall is AGUI_MAX_RUN_SEC, checked per chunk below, so a
+    # visibly-working agent can run for minutes without the old 120s total ceiling.
     timeout = httpx.Timeout(settings.AGUI_TIMEOUT_SEC, read=settings.AGUI_READ_TIMEOUT_SEC)
+    started = time.monotonic()
 
     try:
         async with httpx.AsyncClient(timeout=timeout, transport=transport) as client:
@@ -113,6 +117,9 @@ async def stream_run(
                 if response.status_code >= 400:
                     return fold, posts, f"the agent answered {response.status_code}"
                 async for chunk in response.aiter_bytes():
+                    if time.monotonic() - started > settings.AGUI_MAX_RUN_SEC:
+                        posts.extend(fold.finish())
+                        return fold, posts, "the agent ran past the ceiling"
                     seen_bytes += len(chunk)
                     if seen_bytes > settings.AGUI_MAX_BYTES:
                         posts.extend(fold.finish())
@@ -122,10 +129,14 @@ async def stream_run(
                         if seen_events > settings.AGUI_MAX_EVENTS:
                             posts.extend(fold.finish())
                             return fold, posts, "the agent sent more events than we will read"
+                        if on_event is not None:
+                            on_event(event)
                         posts.extend(fold.feed(event))
                         if fold.finished:
                             return fold, posts, None
                 for event in decoder.close():
+                    if on_event is not None:
+                        on_event(event)
                     posts.extend(fold.feed(event))
     except httpx.TimeoutException:
         posts.extend(fold.finish())
@@ -161,7 +172,10 @@ def _rough_size(event: Mapping[str, Any]) -> int:
 
 
 async def _stream_over_socket(
-    listener: Listener, run_input: dict[str, Any]
+    listener: Listener,
+    run_input: dict[str, Any],
+    *,
+    on_event: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
     """The same run, down a connection the agent opened, from a process that is not this one.
 
@@ -199,6 +213,8 @@ async def _stream_over_socket(
             if seen_bytes > settings.AGUI_MAX_BYTES:
                 posts.extend(fold.finish())
                 return fold, posts, "the agent sent more than we will read"
+            if on_event is not None:
+                on_event(event)
             posts.extend(fold.feed(event))
             if fold.finished:
                 return fold, posts, None
@@ -217,7 +233,10 @@ async def _stream_over_socket(
 
 
 async def _stream_builtin(
-    listener: Listener, run_input: dict[str, Any]
+    listener: Listener,
+    run_input: dict[str, Any],
+    *,
+    on_event: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
     """The same run, against a model, without leaving the process.
 
@@ -245,6 +264,8 @@ async def _stream_builtin(
             if seen_events > settings.AGUI_MAX_EVENTS:
                 posts.extend(fold.finish())
                 return fold, posts, "the agent sent more events than we will read"
+            if on_event is not None:
+                on_event(event)
             posts.extend(fold.feed(event))
             if fold.finished:
                 return fold, posts, None

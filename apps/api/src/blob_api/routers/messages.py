@@ -7,15 +7,17 @@ enqueue. Nothing in this file emits inside a transaction.
 from __future__ import annotations
 
 import re
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
+from pydantic import Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, hash_token
-from ..lib.errors import forbidden, not_found
+from ..lib.errors import bad_request, forbidden, not_found
 from ..lib.ids import new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
@@ -86,7 +88,6 @@ def _plugin_drain() -> None:
     fire_and_forget(enqueue("deliver_plugin_events"))
 
 
-
 async def load_message_for(
     session: AsyncSession,
     user: SessionUser,
@@ -116,6 +117,7 @@ async def load_message_for(
         require_writable=require_writable,
     )
     return message
+
 
 @router.get("/api/channels/{channel_id}/messages", response_model=HistoryOut)
 async def get_history(
@@ -395,10 +397,75 @@ async def save_message(
 
 @router.get("/api/saved", response_model=MessagesOut)
 async def list_saved(user: SessionUser = Depends(current_user)) -> MessagesOut:
-    """Everything put aside, newest first — the Later view."""
+    """Everything put aside, newest first — the flat form the older client read."""
     async with session_scope() as session:
         messages = await message_service.list_saved(session, user.id)
     return MessagesOut(messages=messages)
+
+
+class LaterItemOut(CamelModel):
+    message: Message
+    state: Literal["in_progress", "archived", "done"]
+    remind_at: str | None
+    reminded_at: str | None
+    note: str | None
+
+
+class LaterOut(CamelModel):
+    items: list[LaterItemOut]
+
+
+class LaterInput(CamelModel):
+    state: Literal["in_progress", "archived", "done"] | None = None
+    #: ISO timestamp, or explicit null to clear the reminder. Absent leaves it alone.
+    remind_at: str | None = None
+    note: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/api/later", response_model=LaterOut)
+async def list_later(
+    state: Literal["in_progress", "archived", "done"] = "in_progress",
+    user: SessionUser = Depends(current_user),
+) -> LaterOut:
+    """The Later view proper: saved messages with their state and reminder."""
+    async with session_scope() as session:
+        items = await message_service.list_later(session, user.id, state=state)
+    return LaterOut(items=[LaterItemOut(**item) for item in items])
+
+
+@router.patch("/api/saved/{message_id}", response_model=OkOut)
+async def update_later(
+    message_id: str, payload: LaterInput, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    """Move a saved item between states, or set a reminder on it.
+
+    Upserts the save itself, so "remind me about this" from a message's menu is one
+    gesture. Setting a reminder re-arms one that already fired.
+    """
+    given = payload.model_fields_set
+    remind_at: Any = message_service._UNSET
+    if "remind_at" in given:
+        if payload.remind_at is None:
+            remind_at = None
+        else:
+            try:
+                remind_at = datetime.fromisoformat(payload.remind_at.replace("Z", "+00:00"))
+            except ValueError:
+                raise bad_request("That isn't a time.") from None
+            if remind_at <= datetime.now(UTC):
+                raise bad_request("That time has already happened.")
+
+    async with transaction() as (session, _):
+        await load_message_for(session, user, message_id, require_member=True)
+        await message_service.set_later(
+            session,
+            message_id,
+            user.id,
+            state=payload.state,
+            remind_at=remind_at,
+            note=payload.note if "note" in given else message_service._UNSET,
+        )
+    return OkOut()
 
 
 # ─── reactions ────────────────────────────────────────────────────────────────
