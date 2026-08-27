@@ -24,7 +24,9 @@ log = logging.getLogger(__name__)
 
 async def sync_hosted_agents(ctx: dict[str, Any]) -> int:
     """Refresh every hosted agent's deployment record. Returns how many synced."""
-    if not settings.COOLIFY_API_URL:
+    # The same switch the deploy path uses. Hosting off is a normal state; a worker
+    # without the runner's address must stay quiet rather than warn every cycle.
+    if not settings.agent_hosting_enabled:
         return 0
     async with session_scope() as session:
         rows = (

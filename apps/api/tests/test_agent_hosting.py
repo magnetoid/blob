@@ -329,17 +329,27 @@ class TestTheWorkerKeepsLooking:
     a certificate error outlasted the domain fix by exactly that click.
     """
 
+    @staticmethod
+    def _hosting_on(monkeypatch: pytest.MonkeyPatch) -> None:
+        # `agent_hosting_enabled` demands every piece, the way the deploy path does.
+        from blob_api.config import settings
+
+        monkeypatch.setattr(settings, "AGENT_RUNNER", "coolify")
+        monkeypatch.setattr(settings, "COOLIFY_API_URL", "https://coolify.example.com")
+        monkeypatch.setattr(settings, "COOLIFY_TOKEN", "token")
+        monkeypatch.setattr(settings, "COOLIFY_PROJECT_UUID", "project")
+        monkeypatch.setattr(settings, "COOLIFY_SERVER_UUID", "server")
+
     async def test_a_domain_change_heals_the_stored_url(
         self, hosted: Runner, client: Client, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from blob_api.config import settings
         from blob_api.jobs.deployments import sync_hosted_agents
 
         owner = await owner_who_may_host(client)
         plugin_id = await install(owner)
         # The deployment is repointed after install; nobody opens the console.
         hosted.address = "janus.new.example.com"
-        monkeypatch.setattr(settings, "COOLIFY_API_URL", "https://coolify.example.com")
+        self._hosting_on(monkeypatch)
 
         assert await sync_hosted_agents({}) == 1
 
@@ -353,18 +363,17 @@ class TestTheWorkerKeepsLooking:
         from blob_api.config import settings
         from blob_api.jobs.deployments import sync_hosted_agents
 
-        monkeypatch.setattr(settings, "COOLIFY_API_URL", None)
+        monkeypatch.setattr(settings, "AGENT_RUNNER", "disabled")
         assert await sync_hosted_agents({}) == 0
 
     async def test_a_broken_runner_is_logged_and_survived(
         self, hosted: Runner, client: Client, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from blob_api.config import settings
         from blob_api.jobs.deployments import sync_hosted_agents
 
         owner = await owner_who_may_host(client)
         await install(owner)
-        monkeypatch.setattr(settings, "COOLIFY_API_URL", "https://coolify.example.com")
+        self._hosting_on(monkeypatch)
 
         async def broken(deployment_id: str) -> Deployment:
             raise RuntimeError("the runner is down")

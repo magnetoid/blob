@@ -165,9 +165,22 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-}
       - LLM_BASE_URL=${LLM_BASE_URL:-}
       - LLM_MODEL=${LLM_MODEL:-}
+      # The deployment-sync cron runs here, refreshing hosted agents' status and
+      # callback URLs — so the worker talks to the runner exactly as the app does.
+      # Without these the sync silently syncs nothing, and a repointed agent stays
+      # registered at its dead address until somebody opens the deployment card.
+      - COOLIFY_API_URL=${COOLIFY_API_URL:-}
+      - COOLIFY_TOKEN=${COOLIFY_TOKEN:-}
+      - COOLIFY_PROJECT_UUID=${COOLIFY_PROJECT_UUID:-}
+      - COOLIFY_SERVER_UUID=${COOLIFY_SERVER_UUID:-}
+      - COOLIFY_DESTINATION_UUID=${COOLIFY_DESTINATION_UUID:-}
+      - AGENT_RUNNER=${AGENT_RUNNER:-disabled}
     networks:
       - default
       - agents
+    extra_hosts:
+      # Same host-gateway route to the runner's API as the app; see the note there.
+      - "host.docker.internal:host-gateway"
     depends_on:
       app:
         condition: service_healthy
