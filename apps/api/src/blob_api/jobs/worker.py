@@ -22,6 +22,7 @@ from ..plugins import delivery as plugin_delivery
 from ..realtime import hub
 from ..services import agent_runs as agent_run_service
 from .agui import handle_agui_run
+from .deployments import sync_hosted_agents
 from .notify import handle_notify
 from .reminders import fire_reminders
 from .unfurl import handle_unfurl
@@ -133,6 +134,13 @@ class WorkerSettings:
         cron(deliver_plugin_events, second=0),  # type: ignore[arg-type]
         # Reminders are timers; a timer that fires within the minute is on time.
         cron(fire_reminders, second=30),  # type: ignore[arg-type]
+        # At startup because a fresh deploy is exactly when the stored callback URL is
+        # most likely stale, then on a slow cycle so a domain change heals unwatched.
+        cron(
+            sync_hosted_agents,
+            minute={0, 10, 20, 30, 40, 50},
+            run_at_startup=True,
+        ),
     ]
     on_startup = startup
     on_shutdown = shutdown

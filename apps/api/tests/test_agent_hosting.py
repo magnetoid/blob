@@ -318,3 +318,58 @@ class TestWhatAManifestMayNotSay:
         with pytest.raises(AppError) as caught:
             await source_module.read_manifest(REPO, "main")
         assert caught.value.code == "manifest_invalid"
+
+
+class TestTheWorkerKeepsLooking:
+    """The deployment-sync cron: the heal nobody has to click for.
+
+    `status` records the runner's current address, but its only callers were install
+    and the console's deployment card — so a domain change on the runner side healed
+    the stored URL only when a person happened to open the right screen. Found live:
+    a certificate error outlasted the domain fix by exactly that click.
+    """
+
+    async def test_a_domain_change_heals_the_stored_url(
+        self, hosted: Runner, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from blob_api.config import settings
+        from blob_api.jobs.deployments import sync_hosted_agents
+
+        owner = await owner_who_may_host(client)
+        plugin_id = await install(owner)
+        # The deployment is repointed after install; nobody opens the console.
+        hosted.address = "janus.new.example.com"
+        monkeypatch.setattr(settings, "COOLIFY_API_URL", "https://coolify.example.com")
+
+        assert await sync_hosted_agents({}) == 1
+
+        agui_url, request_url = await urls_of(plugin_id)
+        assert agui_url == "https://janus.new.example.com/v1/agui"
+        assert request_url == "https://janus.new.example.com/blob/events"
+
+    async def test_without_a_runner_configured_the_sync_stays_home(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from blob_api.config import settings
+        from blob_api.jobs.deployments import sync_hosted_agents
+
+        monkeypatch.setattr(settings, "COOLIFY_API_URL", None)
+        assert await sync_hosted_agents({}) == 0
+
+    async def test_a_broken_runner_is_logged_and_survived(
+        self, hosted: Runner, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from blob_api.config import settings
+        from blob_api.jobs.deployments import sync_hosted_agents
+
+        owner = await owner_who_may_host(client)
+        await install(owner)
+        monkeypatch.setattr(settings, "COOLIFY_API_URL", "https://coolify.example.com")
+
+        async def broken(deployment_id: str) -> Deployment:
+            raise RuntimeError("the runner is down")
+
+        monkeypatch.setattr(hosted, "status", broken)
+
+        # No exception escapes into the cron, and the count says nothing synced.
+        assert await sync_hosted_agents({}) == 0
