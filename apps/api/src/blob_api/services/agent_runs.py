@@ -87,6 +87,132 @@ async def start(
     return run_id
 
 
+async def check_budget(session: AsyncSession, *, plugin_id: str) -> str | None:
+    """The reason this run must not start, or None.
+
+    The budget is measured in what Blob actually observes — runs begun and wall-clock
+    seconds occupied over the trailing 24 hours — because token counts belong to the
+    agent's own provider and AG-UI does not carry them. A trailing window rather than a
+    calendar day, so the answer never depends on whose midnight.
+
+    Advisory capacity control, not a security boundary: the check and the insert are
+    separate statements, so mentions arriving in the same instant can each pass and
+    overshoot by the concurrency width. A dam, not a turnstile.
+    """
+    budgets = (
+        await session.execute(
+            text("SELECT budget_runs_per_day, budget_seconds_per_day FROM plugins WHERE id = :id"),
+            {"id": plugin_id},
+        )
+    ).fetchone()
+    # The common case — no budget set — costs one primary-key lookup and no aggregate.
+    if budgets is None or (
+        budgets.budget_runs_per_day is None and budgets.budget_seconds_per_day is None
+    ):
+        return None
+
+    usage = (
+        await session.execute(
+            text(
+                """
+                SELECT count(*) AS runs,
+                       COALESCE(SUM(EXTRACT(EPOCH FROM
+                           (COALESCE(finished_at, now()) - started_at))), 0) AS seconds
+                  FROM agent_runs
+                 WHERE plugin_id = :plugin_id AND status <> 'refused'
+                   AND started_at > now() - interval '24 hours'
+                """
+            ),
+            {"plugin_id": plugin_id},
+        )
+    ).fetchone()
+    runs = int(usage.runs) if usage else 0
+    seconds = int(usage.seconds) if usage else 0
+
+    if budgets.budget_runs_per_day is not None and runs >= budgets.budget_runs_per_day:
+        return (
+            f"Daily budget reached: {budgets.budget_runs_per_day} "
+            f"run{'s' if budgets.budget_runs_per_day != 1 else ''} in the last 24 hours."
+        )
+    if budgets.budget_seconds_per_day is not None and seconds >= budgets.budget_seconds_per_day:
+        minutes = max(1, budgets.budget_seconds_per_day // 60)
+        plural = "s" if minutes != 1 else ""
+        return f"Daily budget reached: {minutes} minute{plural} of run time in the last 24 hours."
+    return None
+
+
+async def record_refusal(
+    session: AsyncSession,
+    *,
+    workspace_id: str,
+    plugin_id: str,
+    channel_id: str,
+    thread_root_id: str | None,
+    trigger_message_id: str,
+    trigger_user_id: str | None,
+    transport: str,
+    reason: str,
+) -> str:
+    """A run that was never allowed to begin, written down anyway.
+
+    The question agent_runs exists to answer — "I mentioned the agent and nothing
+    happened, why?" — applies to a budget refusal more than to anything else, so the
+    refusal leaves the same trace a run would. Terminal at birth: refused rows never
+    transition, and the budget aggregate excludes them so being refused costs nothing.
+    """
+    run_id = new_id()
+    await session.execute(
+        text(
+            """
+            INSERT INTO agent_runs
+              (id, workspace_id, plugin_id, channel_id, thread_root_id,
+               trigger_message_id, trigger_user_id, transport, status, error, finished_at)
+            VALUES
+              (:id, :ws, :plugin_id, :channel_id, cast(:thread_root_id AS uuid),
+               cast(:trigger_message_id AS uuid), cast(:trigger_user_id AS uuid),
+               :transport, 'refused', :reason, now())
+            """
+        ),
+        {
+            "id": run_id,
+            "ws": workspace_id,
+            "plugin_id": plugin_id,
+            "channel_id": channel_id,
+            "thread_root_id": thread_root_id,
+            "trigger_message_id": trigger_message_id,
+            "trigger_user_id": trigger_user_id,
+            "transport": transport,
+            "reason": reason,
+        },
+    )
+    return run_id
+
+
+async def usage_by_plugin(
+    session: AsyncSession, plugin_ids: list[str]
+) -> dict[str, tuple[int, int]]:
+    """Trailing-day (runs, seconds) per plugin, for the console list. One statement."""
+    if not plugin_ids:
+        return {}
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT plugin_id, count(*) AS runs,
+                       COALESCE(SUM(EXTRACT(EPOCH FROM
+                           (COALESCE(finished_at, now()) - started_at))), 0) AS seconds
+                  FROM agent_runs
+                 WHERE plugin_id = ANY(cast(:ids AS uuid[])) AND status <> 'refused'
+                   AND started_at > now() - interval '24 hours'
+                 GROUP BY plugin_id
+                """
+            ),
+            {"ids": plugin_ids},
+        )
+    ).fetchall()
+    return {str(row.plugin_id): (int(row.runs), int(row.seconds)) for row in rows}
+
+
 async def finish(
     session: AsyncSession,
     run_id: str,

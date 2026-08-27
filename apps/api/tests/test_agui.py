@@ -24,10 +24,9 @@ from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
-from blob_api.lib.ids import new_id
-from blob_api.plugins import streams
 from blob_api.lib import net, sse
-from blob_api.plugins import agui
+from blob_api.lib.ids import new_id
+from blob_api.plugins import agui, streams
 from blob_api.plugins.signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, verify
 
 from .helpers import (
@@ -616,9 +615,7 @@ class TestRunCards:
         await agui_job.handle_agui_run(sent.body["message"]["id"])
 
         # The stored row carries the folded card, whole.
-        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body[
-            "runs"
-        ]
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body["runs"]
         assert runs, "no run recorded"
         run = runs[0]
         assert run["status"] == "succeeded"
@@ -629,9 +626,7 @@ class TestRunCards:
     async def test_the_listing_is_channel_scoped(self, team: dict) -> None:
         # Access is by channel visibility — the same 404-shaped rule as everything else.
         private = (
-            await team["owner"].post(
-                "/api/channels", {"name": "runs-private", "kind": "private"}
-            )
+            await team["owner"].post("/api/channels", {"name": "runs-private", "kind": "private"})
         ).body["channel"]
         response = await team["member"].get(f"/api/channels/{private['id']}/agent-runs")
         assert response.status == 404
@@ -670,12 +665,122 @@ class TestCancel:
         # No answer and no apology: a stopped run says nothing.
         assert "Standup is at nine." not in bodies
         assert not any("couldn't finish" in b for b in bodies)
-        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body[
-            "runs"
-        ]
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body["runs"]
         assert runs[0]["status"] == "cancelled"
         assert seen == []  # the agent was never contacted
 
     async def test_the_cancel_route_is_workspace_scoped(self, team: dict) -> None:
         response = await team["owner"].post(f"/api/agent-runs/{new_id()}/cancel")
         assert response.status == 404
+
+
+class TestBudget:
+    """The dam: a mention that arrives over budget is refused, visibly, unrun.
+
+    The cap measures what Blob observes — runs begun and wall-clock seconds occupied —
+    over a trailing day, and a refusal writes the same agent_runs row a run would, so
+    "I mentioned it and nothing happened" has an answer in the channel and the console.
+    """
+
+    async def test_a_mention_over_the_run_budget_is_refused_and_the_agent_never_called(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, seen = agent_speaks(*ANSWER)
+        route_agent_to(monkeypatch, transport)
+        plugin_id = app_body["plugin"]["id"]
+
+        capped = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/budget", {"runsPerDay": 1}
+        )
+        assert capped.status == 200, capped.body
+
+        first = await send_message(team["owner"], team["general"], "@Helper one")
+        await agui_job.handle_agui_run(first.body["message"]["id"])
+        assert len(seen) == 1
+
+        second = await send_message(team["owner"], team["general"], "@Helper two")
+        await agui_job.handle_agui_run(second.body["message"]["id"])
+        assert len(seen) == 1, "the agent was called despite an exhausted budget"
+
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body["runs"]
+        refused = [r for r in runs if r["status"] == "refused"]
+        assert len(refused) == 1
+        assert "budget" in (refused[0]["error"] or "").lower()
+        # The card is the refusal's whole voice — the agent answered once, and the
+        # refused mention added no message and no apology.
+        bodies = [m["body"] for m in await messages_in(team["general"])]
+        assert bodies.count("Standup is at nine.") == 1
+
+    async def test_the_seconds_budget_counts_time_not_runs(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, seen = agent_speaks(*ANSWER)
+        route_agent_to(monkeypatch, transport)
+        plugin_id = app_body["plugin"]["id"]
+
+        await team["owner"].post(f"/api/admin/plugins/{plugin_id}/budget", {"secondsPerDay": 60})
+        # One earlier run that took ten minutes, well inside the window: a single run,
+        # but far past a sixty-second allowance.
+        ws = await workspace_id_of(team["owner"])
+        async with SessionFactory() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent_runs
+                      (id, workspace_id, plugin_id, channel_id, transport, status,
+                       started_at, finished_at)
+                    VALUES (:id, :ws, :p, :c, 'http', 'succeeded',
+                            now() - interval '15 minutes', now() - interval '5 minutes')
+                    """
+                ),
+                {"id": new_id(), "ws": ws, "p": plugin_id, "c": team["general"]},
+            )
+            await session.commit()
+
+        sent = await send_message(team["owner"], team["general"], "@Helper hello")
+        await agui_job.handle_agui_run(sent.body["message"]["id"])
+        assert seen == []
+
+    async def test_old_runs_and_refusals_cost_nothing(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A run outside the trailing day has aged out, and a refused row never counted —
+        # so with one of each on the books, a one-run budget still admits this mention.
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, seen = agent_speaks(*ANSWER)
+        route_agent_to(monkeypatch, transport)
+        plugin_id = app_body["plugin"]["id"]
+
+        await team["owner"].post(f"/api/admin/plugins/{plugin_id}/budget", {"runsPerDay": 1})
+        ws = await workspace_id_of(team["owner"])
+        async with SessionFactory() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent_runs
+                      (id, workspace_id, plugin_id, channel_id, transport, status,
+                       started_at, finished_at)
+                    VALUES
+                      (:old, :ws, :p, :c, 'http', 'succeeded',
+                       now() - interval '25 hours', now() - interval '25 hours'),
+                      (:refused, :ws, :p, :c, 'http', 'refused', now(), now())
+                    """
+                ),
+                {
+                    "old": new_id(),
+                    "refused": new_id(),
+                    "ws": ws,
+                    "p": plugin_id,
+                    "c": team["general"],
+                },
+            )
+            await session.commit()
+
+        sent = await send_message(team["owner"], team["general"], "@Helper hello")
+        await agui_job.handle_agui_run(sent.body["message"]["id"])
+        assert len(seen) == 1

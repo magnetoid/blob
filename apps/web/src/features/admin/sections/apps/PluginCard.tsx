@@ -1,5 +1,6 @@
 /** One installed app: its status row, admin actions, and the activity panel. */
 
+import { useState } from "react";
 import {
   api,
   ApiError,
@@ -18,6 +19,7 @@ export function PluginCard({
   deliveries,
   expandedDeliveryId,
   deliveryDetails,
+  scopeCatalog,
   act,
   onError,
   onSecret,
@@ -27,6 +29,8 @@ export function PluginCard({
 }: {
   plugin: AdminPlugin;
   expanded: boolean;
+  /** Scope id → human description, from the catalog. Labels the consent screen. */
+  scopeCatalog: Record<string, string>;
   runs: AdminAgentRun[];
   deliveries: AdminPluginDelivery[];
   expandedDeliveryId: string | null;
@@ -86,7 +90,18 @@ export function PluginCard({
               </span>
             ))}
             {plugin.scopes.map((scope) => (
-              <span className="chip" key={scope}>
+              <span
+                className="chip"
+                key={scope}
+                data-pending={
+                  plugin.pendingScopes.includes(scope) || undefined
+                }
+                title={
+                  plugin.pendingScopes.includes(scope)
+                    ? "Requested by an update, not yet approved"
+                    : (scopeCatalog[scope] ?? undefined)
+                }
+              >
                 {scope}
               </span>
             ))}
@@ -101,6 +116,55 @@ export function PluginCard({
               </span>
             )}
           </div>
+
+          {/* The consent screen: which permissions the update added, in words, with
+              both answers available. Approving blind was the old shape — a "needs
+              review" pill and an Approve button, with the diff only in the audit log.
+              Declining is not disabling: the app keeps running on what it had. */}
+          {plugin.status === "needs_review" &&
+            plugin.pendingScopes.length > 0 && (
+              <div className="admin-consent">
+                <div className="admin-consent-title">
+                  This update asks for new permissions
+                </div>
+                <ul className="admin-consent-list">
+                  {plugin.pendingScopes.map((scope) => (
+                    <li key={scope}>
+                      <code>{scope}</code>
+                      {scopeCatalog[scope] && ` — ${scopeCatalog[scope]}`}
+                    </li>
+                  ))}
+                </ul>
+                <div className="admin-consent-actions">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() =>
+                      void act(() => api.admin.approvePlugin(plugin.id))
+                    }
+                  >
+                    Approve new permissions
+                  </button>
+                  <button
+                    className="btn"
+                    title="The app stays enabled with the permissions it already had"
+                    onClick={() =>
+                      void act(() =>
+                        api.admin.declinePluginScopes(plugin.id),
+                      )
+                    }
+                  >
+                    Keep current permissions
+                  </button>
+                </div>
+              </div>
+            )}
+
+          <BudgetRow
+            key={`${plugin.budgetRunsPerDay ?? "-"}:${plugin.budgetSecondsPerDay ?? "-"}`}
+            plugin={plugin}
+            act={act}
+          />
+
           {plugin.runtime === "container" && (
             <AgentDeployment
               pluginId={plugin.id}
@@ -122,16 +186,19 @@ export function PluginCard({
         </div>
 
         <div className="admin-row-actions admin-plugin-actions">
-          {plugin.status === "needs_review" && (
-            <button
-              className="btn btn-primary"
-              onClick={() =>
-                void act(() => api.admin.approvePlugin(plugin.id))
-              }
-            >
-              Approve
-            </button>
-          )}
+          {/* Only when parked with nothing itemised — rows from before pending scopes
+              were recorded. Otherwise the consent block above holds both buttons. */}
+          {plugin.status === "needs_review" &&
+            plugin.pendingScopes.length === 0 && (
+              <button
+                className="btn btn-primary"
+                onClick={() =>
+                  void act(() => api.admin.approvePlugin(plugin.id))
+                }
+              >
+                Approve
+              </button>
+            )}
           <button
             className="btn"
             onClick={() =>
@@ -320,6 +387,116 @@ export function PluginCard({
             </p>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The meter and the dial on one line: what the trailing day cost, against the caps.
+ *
+ * Budgets are measured in what Blob can observe — runs begun and wall-clock time
+ * occupied — because token counts belong to the agent's own provider. Admins think in
+ * minutes, the server stores seconds; the conversion lives here and nowhere else. The
+ * component is keyed on the saved caps, so a save that comes back from the reload
+ * reseeds the inputs instead of fighting them.
+ */
+function BudgetRow({
+  plugin,
+  act,
+}: {
+  plugin: AdminPlugin;
+  act: (run: () => Promise<unknown>) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [runs, setRuns] = useState(
+    plugin.budgetRunsPerDay !== null ? String(plugin.budgetRunsPerDay) : "",
+  );
+  const [minutes, setMinutes] = useState(
+    plugin.budgetSecondsPerDay !== null
+      ? String(Math.round(plugin.budgetSecondsPerDay / 60))
+      : "",
+  );
+
+  const usedMinutes = Math.round(plugin.secondsLastDay / 60);
+  const capped =
+    plugin.budgetRunsPerDay !== null || plugin.budgetSecondsPerDay !== null;
+  const used =
+    `${plugin.runsLastDay} run${plugin.runsLastDay === 1 ? "" : "s"}` +
+    (plugin.budgetRunsPerDay !== null ? ` of ${plugin.budgetRunsPerDay}` : "") +
+    ` · ${usedMinutes}m` +
+    (plugin.budgetSecondsPerDay !== null
+      ? ` of ${Math.round(plugin.budgetSecondsPerDay / 60)}m`
+      : "");
+
+  const save = () => {
+    const runsNum = runs.trim() === "" ? null : Number(runs);
+    const minutesNum = minutes.trim() === "" ? null : Number(minutes);
+    if (runsNum !== null && (!Number.isInteger(runsNum) || runsNum < 1)) return;
+    if (minutesNum !== null && (!Number.isInteger(minutesNum) || minutesNum < 1))
+      return;
+    void act(() =>
+      api.admin.setPluginBudget(plugin.id, {
+        runsPerDay: runsNum,
+        secondsPerDay: minutesNum !== null ? minutesNum * 60 : null,
+      }),
+    ).then(() => setEditing(false));
+  };
+
+  return (
+    <div className="admin-budget">
+      {editing ? (
+        <>
+          <label className="admin-budget-field">
+            Runs / day
+            <input
+              className="input admin-budget-input"
+              type="number"
+              min={1}
+              placeholder="∞"
+              value={runs}
+              onChange={(e) => setRuns(e.target.value)}
+            />
+          </label>
+          <label className="admin-budget-field">
+            Minutes / day
+            <input
+              className="input admin-budget-input"
+              type="number"
+              min={1}
+              placeholder="∞"
+              value={minutes}
+              onChange={(e) => setMinutes(e.target.value)}
+            />
+          </label>
+          <button className="btn btn-primary" onClick={save}>
+            Save
+          </button>
+          <button className="btn btn-ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="admin-budget-label">
+            {capped ? "Budget" : "Budget: unlimited"}
+          </span>
+          <span className="admin-budget-usage" data-over={
+            (plugin.budgetRunsPerDay !== null &&
+              plugin.runsLastDay >= plugin.budgetRunsPerDay) ||
+            (plugin.budgetSecondsPerDay !== null &&
+              plugin.secondsLastDay >= plugin.budgetSecondsPerDay) ||
+            undefined
+          }>
+            {used} in the last 24h
+          </span>
+          <button
+            className="btn btn-ghost admin-budget-edit"
+            onClick={() => setEditing(true)}
+          >
+            {capped ? "Edit" : "Set a budget"}
+          </button>
+        </>
       )}
     </div>
   );

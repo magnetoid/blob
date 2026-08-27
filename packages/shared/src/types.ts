@@ -345,7 +345,9 @@ export type AgentRunStatus =
   | 'succeeded'
   | 'failed'
   | 'interrupted'
-  | 'cancelled';
+  | 'cancelled'
+  /** Never started: the agent was over its daily budget when the mention arrived. */
+  | 'refused';
 
 /** The live view of what an agent is doing, folded server-side from AG-UI events. */
 export interface AgentRunCard {

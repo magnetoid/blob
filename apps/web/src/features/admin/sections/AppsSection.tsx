@@ -245,6 +245,7 @@ function AppsList({
                 key={plugin.id}
                 plugin={plugin}
                 expanded={selectedPluginId === plugin.id}
+                scopeCatalog={catalog?.scopes ?? {}}
                 runs={runs[plugin.id] ?? []}
                 deliveries={deliveries[plugin.id] ?? []}
                 expandedDeliveryId={expandedDeliveryId}

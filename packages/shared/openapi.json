@@ -1034,6 +1034,35 @@
         "title": "Bootstrap",
         "type": "object"
       },
+      "BudgetInput": {
+        "description": "Daily caps. None lifts one; both None means unlimited, which is the default.",
+        "properties": {
+          "runsPerDay": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runsperday"
+          },
+          "secondsPerDay": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondsperday"
+          }
+        },
+        "title": "BudgetInput",
+        "type": "object"
+      },
       "CatalogOut": {
         "description": "What an app may ask for. Drives the consent screen.",
         "properties": {
@@ -3610,6 +3639,28 @@
             ],
             "title": "Botuserid"
           },
+          "budgetRunsPerDay": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budgetrunsperday"
+          },
+          "budgetSecondsPerDay": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budgetsecondsperday"
+          },
           "createdAt": {
             "title": "Createdat",
             "type": "string"
@@ -3683,6 +3734,14 @@
             "title": "Pendingdeliveries",
             "type": "integer"
           },
+          "pendingScopes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Pendingscopes",
+            "type": "array"
+          },
           "requestUrl": {
             "anyOf": [
               {
@@ -3694,6 +3753,11 @@
             ],
             "title": "Requesturl"
           },
+          "runsLastDay": {
+            "default": 0,
+            "title": "Runslastday",
+            "type": "integer"
+          },
           "runtime": {
             "title": "Runtime",
             "type": "string"
@@ -3704,6 +3768,11 @@
             },
             "title": "Scopes",
             "type": "array"
+          },
+          "secondsLastDay": {
+            "default": 0,
+            "title": "Secondslastday",
+            "type": "integer"
           },
           "slug": {
             "title": "Slug",
@@ -7804,6 +7873,59 @@
         ]
       }
     },
+    "/api/admin/plugins/{plugin_id}/budget": {
+      "post": {
+        "description": "Cap what an agent may spend in a trailing day \u2014 runs begun and seconds occupied.\n\nMeasured in what Blob observes rather than tokens, which belong to the agent's own\nprovider. A capped agent's next mention gets a refused run card in the channel, not\nsilence, so hitting the ceiling is visible where the mention happened.",
+        "operationId": "set_budget_api_admin_plugins__plugin_id__budget_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Budget",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/plugins/{plugin_id}/channels": {
       "get": {
         "description": "Where this app can speak, and where it could.\n\nAn installed app is inert until its bot joins a channel, and until now nothing in\nthe console said so or offered to fix it \u2014 the only route in was the bot calling\n`conversations.join` on its own behalf, which an app that has not been written yet\ncannot do. That is the gap this closes.\n\nPrivate channels and DMs are not listed. A bot belongs in one only if somebody in it\ninvited it, and enumerating them here would hand an admin a directory of private\nrooms they are not in.",
@@ -7942,6 +8064,49 @@
           }
         },
         "summary": "App Join Channel",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/{plugin_id}/decline": {
+      "post": {
+        "description": "Refuse the wider permissions an update asked for; the app keeps what it had.\n\nThe other half of the consent screen. Without it, \"no\" could only be spelled\ndisable or uninstall \u2014 both outages, neither an answer about permissions.",
+        "operationId": "decline_plugin_scopes_api_admin_plugins__plugin_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Plugin Scopes",
         "tags": [
           "admin"
         ]

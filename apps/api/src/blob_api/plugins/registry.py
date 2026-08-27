@@ -289,7 +289,12 @@ async def update(
         raise bad_request("An app's slug cannot change after install.", code="slug_immutable")
 
     previous = await granted_scopes(session, plugin_id)
-    widened = new_scopes(previous, manifest.scopes)
+    already_pending = set(existing.pending_scopes or [])
+    # Measured against what a person approved, not against the grants table: grants
+    # include scopes still awaiting review, and an update that re-requests one of those
+    # must not launder it into "already granted" by having asked twice.
+    approved = sorted(set(previous) - already_pending)
+    widened = new_scopes(approved, manifest.scopes)
 
     # Scopes that were dropped are revoked immediately; new ones wait for approval.
     for scope in set(previous) - set(manifest.scopes):
@@ -311,7 +316,13 @@ async def update(
         commands=manifest.commands,
     )
 
-    status = "needs_review" if widened else existing.status
+    if widened:
+        status = "needs_review"
+    elif existing.status == "needs_review" and already_pending:
+        # The update withdrew the scopes that parked it; nothing is left to review.
+        status = "enabled"
+    else:
+        status = existing.status
     await session.execute(
         text(
             """
@@ -319,6 +330,7 @@ async def update(
                SET name = :name, description = :description, version = :version,
                    request_url = :request_url, agui_url = :agui_url,
                    events = cast(:events AS text[]),
+                   pending_scopes = cast(:pending AS text[]),
                    status = :status, updated_at = now()
              WHERE id = :id
             """
@@ -331,6 +343,7 @@ async def update(
             "request_url": manifest.request_url,
             "agui_url": manifest.agui_url,
             "events": manifest.events,
+            "pending": widened,
             "status": status,
         },
     )
@@ -374,12 +387,83 @@ async def describe(
     )
 
 
-async def approve(session: AsyncSession, plugin_id: str, workspace_id: str) -> None:
-    """Accept an update's widened scopes and let the app run again."""
+async def approve(session: AsyncSession, plugin_id: str, workspace_id: str) -> list[str]:
+    """Accept an update's widened scopes and let the app run again.
+
+    Returns the scopes that were awaiting review, for the audit trail — the record
+    should say what was consented to, not merely that consent happened.
+    """
     plugin = await by_id(session, plugin_id, workspace_id)
     if plugin.status != "needs_review":
         raise bad_request("That app is not waiting for review.", code="not_pending")
+    accepted = list(plugin.pending_scopes or [])
+    await session.execute(
+        text("UPDATE plugins SET pending_scopes = '{}', updated_at = now() WHERE id = :id"),
+        {"id": plugin_id},
+    )
     await set_status(session, plugin_id, workspace_id, "enabled")
+    return accepted
+
+
+async def decline_scopes(session: AsyncSession, plugin_id: str, workspace_id: str) -> list[str]:
+    """Refuse an update's widened scopes; the app runs on with what it had.
+
+    The update itself stands — name, version, URL and events were applied when it
+    landed — but the grants it asked for beyond the approved set are removed, so the
+    callback API refuses them no matter what the app's new code tries. Declining is not
+    disabling: the answer to "no, not those permissions" should not be an outage.
+
+    If `commands` was among the declined scopes, the commands the update registered go
+    with it — they existed only on the strength of the scope being granted.
+    """
+    plugin = await by_id(session, plugin_id, workspace_id)
+    declined = list(plugin.pending_scopes or [])
+    if plugin.status != "needs_review" or not declined:
+        raise bad_request("That app is not waiting for review.", code="not_pending")
+    await session.execute(
+        text(
+            "DELETE FROM plugin_grants"
+            " WHERE plugin_id = :id AND scope = ANY(cast(:scopes AS text[]))"
+        ),
+        {"id": plugin_id, "scopes": declined},
+    )
+    if "commands" in declined:
+        await session.execute(
+            text("DELETE FROM plugin_commands WHERE plugin_id = :id"), {"id": plugin_id}
+        )
+    await session.execute(
+        text("UPDATE plugins SET pending_scopes = '{}', updated_at = now() WHERE id = :id"),
+        {"id": plugin_id},
+    )
+    await set_status(session, plugin_id, workspace_id, "enabled")
+    return declined
+
+
+async def set_budget(
+    session: AsyncSession,
+    plugin_id: str,
+    workspace_id: str,
+    *,
+    runs_per_day: int | None,
+    seconds_per_day: int | None,
+) -> None:
+    """Cap what this agent may spend in a trailing day. NULL lifts the cap.
+
+    Admin-set only, and deliberately not a manifest field — an app that could budget
+    itself by shipping an update would make the cap decorative.
+    """
+    await by_id(session, plugin_id, workspace_id)
+    await session.execute(
+        text(
+            """
+            UPDATE plugins
+               SET budget_runs_per_day = :runs, budget_seconds_per_day = :seconds,
+                   updated_at = now()
+             WHERE id = :id
+            """
+        ),
+        {"id": plugin_id, "runs": runs_per_day, "seconds": seconds_per_day},
+    )
 
 
 async def set_status(

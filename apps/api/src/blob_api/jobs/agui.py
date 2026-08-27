@@ -488,7 +488,13 @@ async def _run_one(
             # announcing "I can't read this" would disclose it.
             return
 
-        if thread_root_id:
+        # The budget answers here — after access, before anything is spent. A refused
+        # mention skips the history read and the agent call both, and a bot that cannot
+        # see the channel said nothing above rather than "over budget".
+        refusal = await agent_run_service.check_budget(session, plugin_id=listener.plugin_id)
+        if refusal is not None:
+            history = []
+        elif thread_root_id:
             history = await message_service.thread(session, thread_root_id)
         else:
             # `history` already returns oldest-first; it sorts the keyset page back
@@ -509,6 +515,42 @@ async def _run_one(
             )
         ).fetchall()
         names: dict[str, str] = {row.id: row.display_name for row in rows}
+
+    if refusal is not None:
+        async with transaction() as (session, after):
+            refused_id = await agent_run_service.record_refusal(
+                session,
+                workspace_id=workspace_id,
+                plugin_id=listener.plugin_id,
+                channel_id=channel_id,
+                thread_root_id=thread_root_id,
+                trigger_message_id=trigger_id,
+                trigger_user_id=trigger_user_id,
+                transport=listener.transport,
+                reason=refusal,
+            )
+            refused_view: dict[str, Any] = {
+                "id": refused_id,
+                "pluginId": listener.plugin_id,
+                "agentName": listener.name,
+                "channelId": channel_id,
+                "threadRootId": thread_root_id,
+                "triggerMessageId": trigger_id,
+                "status": "refused",
+                "error": refusal,
+                "postCount": 0,
+                "startedAt": _now_iso(),
+                "finishedAt": _now_iso(),
+                "card": None,
+            }
+            # `agent_run.started` announces that a run row exists, whatever its status —
+            # the client upserts the whole view, so a run terminal at birth needs no
+            # second event. The card under the mention is the refusal's whole voice: the
+            # agent posts no message, because the agent never ran.
+            after.add(
+                lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": refused_view})
+            )
+        return
 
     run_input = agui.build_run_input(
         thread_id=thread_root_id or channel_id,

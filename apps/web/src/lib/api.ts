@@ -189,12 +189,19 @@ export interface AdminPlugin {
   aguiUrl: string | null;
   events: string[];
   scopes: string[];
+  /** The subset of `scopes` still awaiting approval — what the consent screen lists. */
+  pendingScopes: string[];
   botUserId: string | null;
   lastError: string | null;
   createdAt: string;
   updatedAt: string;
   pendingDeliveries: number;
   failedDeliveries: number;
+  /** Daily caps (null = uncapped) and what the trailing day actually cost. */
+  budgetRunsPerDay: number | null;
+  budgetSecondsPerDay: number | null;
+  runsLastDay: number;
+  secondsLastDay: number;
   /** Set only for an agent Blob deployed from a repository. */
   sourceRepo?: string | null;
   sourceRef?: string | null;
@@ -693,9 +700,13 @@ export const api = {
         input,
       ),
     approvePlugin: (pluginId: string) =>
-      post<{ plugin: AdminPlugin }>(`/api/admin/plugins/${pluginId}/approve`),
+      post<AdminPlugin>(`/api/admin/plugins/${pluginId}/approve`),
+    declinePluginScopes: (pluginId: string) =>
+      post<AdminPlugin>(`/api/admin/plugins/${pluginId}/decline`),
     setPluginEnabled: (pluginId: string, enabled: boolean) =>
-      post<{ plugin: AdminPlugin }>(`/api/admin/plugins/${pluginId}/enabled`, { enabled }),
+      post<AdminPlugin>(`/api/admin/plugins/${pluginId}/enabled`, { enabled }),
+    setPluginBudget: (pluginId: string, budget: { runsPerDay: number | null; secondsPerDay: number | null }) =>
+      post<AdminPlugin>(`/api/admin/plugins/${pluginId}/budget`, budget),
     rotatePluginSecret: (pluginId: string) =>
       post<{ signingSecret: string }>(`/api/admin/plugins/${pluginId}/secret`),
     issuePluginToken: (pluginId: string) =>

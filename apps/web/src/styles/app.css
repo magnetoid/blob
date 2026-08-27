@@ -2342,6 +2342,82 @@ button {
   justify-content: flex-end;
 }
 
+/* The consent screen on an app card: an update's permission diff, itemised, with both
+   answers. Bordered like a run card — it is the same kind of object, a decision the
+   workspace owes a response to. */
+.admin-consent {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--danger);
+  border-radius: 9px;
+  background: var(--surface-muted);
+  max-width: 560px;
+}
+
+.admin-consent-title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.admin-consent-list {
+  margin: 8px 0 10px;
+  padding-left: 18px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+.admin-consent-list li + li {
+  margin-top: 3px;
+}
+
+.admin-consent-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* A scope an update requested that nobody has approved yet. */
+.chip[data-pending] {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+/* The budget meter row on an app card: the dial and the meter on one line. */
+.admin-budget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+
+.admin-budget-label {
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.admin-budget-usage[data-over] {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.admin-budget-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-budget-input {
+  width: 84px;
+}
+
+.admin-budget-edit {
+  padding: 2px 8px;
+}
+
 .admin-plugin-deliveries {
   margin: 0 18px 18px;
   padding: 0 14px;
@@ -3859,7 +3935,8 @@ button.member-row:hover {
   font-size: var(--text-sm);
 }
 
-.agent-run-card[data-status='failed'] {
+.agent-run-card[data-status='failed'],
+.agent-run-card[data-status='refused'] {
   border-left-color: var(--danger);
 }
 

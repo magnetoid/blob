@@ -650,7 +650,7 @@ class AgentRun(Base):
     __tablename__ = "agent_runs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('running', 'succeeded', 'failed', 'interrupted', 'cancelled')",
+            "status IN ('running', 'succeeded', 'failed', 'interrupted', 'cancelled', 'refused')",
             name="agent_runs_status_check",
         ),
         CheckConstraint(
@@ -941,6 +941,14 @@ class Plugin(Base):
             "runtime <> 'container' OR source_repo IS NOT NULL",
             name="plugins_container_needs_repo",
         ),
+        CheckConstraint(
+            "budget_runs_per_day IS NULL OR budget_runs_per_day > 0",
+            name="plugins_budget_runs_positive",
+        ),
+        CheckConstraint(
+            "budget_seconds_per_day IS NULL OR budget_seconds_per_day > 0",
+            name="plugins_budget_seconds_positive",
+        ),
         UniqueConstraint("workspace_id", "slug", name="plugins_slug_uniq"),
     )
 
@@ -972,6 +980,18 @@ class Plugin(Base):
         # was installed by someone. Both sides are nullable so the cycle is fine at
         # runtime; use_alter tells SQLAlchemy how to order the DDL anyway.
         ForeignKey("users.id", ondelete="SET NULL", use_alter=True),
+    )
+    #: Admin-set caps on what this agent may spend in a trailing day, measured in what
+    #: Blob can actually observe: runs begun and wall-clock seconds occupied. NULL means
+    #: unlimited. Set by an admin, never by the manifest — an app must not budget itself.
+    budget_runs_per_day: Mapped[int | None] = mapped_column(Integer)
+    budget_seconds_per_day: Mapped[int | None] = mapped_column(Integer)
+    #: Scopes the latest update asked for that no person has approved yet. Non-empty
+    #: exactly while status is `needs_review` over permissions: the consent screen shows
+    #: this diff rather than asking an admin to approve blind, approving clears it, and
+    #: declining removes these grants while the app keeps running on what it had.
+    pending_scopes: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
     )
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())

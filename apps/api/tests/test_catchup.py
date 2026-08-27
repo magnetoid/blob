@@ -74,9 +74,7 @@ class TestCatchup:
         assert response.body["summaries"] == []
         assert model_speaks == []
 
-    async def test_a_channel_you_cannot_see_is_a_404(
-        self, team: dict, model_speaks: list
-    ) -> None:
+    async def test_a_channel_you_cannot_see_is_a_404(self, team: dict, model_speaks: list) -> None:
         response = await team["outsider"].post("/api/catchup", {"channelId": team["secret"]})
         assert response.status == 404
         assert model_speaks == []

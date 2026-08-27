@@ -543,6 +543,132 @@ async def test_an_update_that_narrows_scopes_takes_effect_at_once(team: dict) ->
     assert response.status == 403
 
 
+async def test_the_consent_screen_lists_exactly_what_the_update_added(team: dict) -> None:
+    body = await install(team["owner"])
+    plugin_id = body["plugin"]["id"]
+
+    updated = await team["owner"].put(
+        f"/api/admin/plugins/{plugin_id}",
+        {**APP, "version": "2.0.0", "scopes": [*APP["scopes"], "messages:moderate"]},
+    )
+    assert updated.body["pendingScopes"] == ["messages:moderate"]
+
+    approved = await team["owner"].post(f"/api/admin/plugins/{plugin_id}/approve")
+    assert approved.body["pendingScopes"] == []
+    assert "messages:moderate" in approved.body["scopes"]
+
+
+async def test_asking_twice_does_not_launder_a_pending_scope(team: dict) -> None:
+    # Update 1 asks for moderate; update 2 asks for moderate and reactions. The second
+    # consent screen must still list moderate — being requested twice is not approval,
+    # and grants written while pending must not become the baseline they are diffed
+    # against.
+    body = await install(team["owner"])
+    plugin_id = body["plugin"]["id"]
+
+    await team["owner"].put(
+        f"/api/admin/plugins/{plugin_id}",
+        {**APP, "version": "2.0.0", "scopes": [*APP["scopes"], "messages:moderate"]},
+    )
+    second = await team["owner"].put(
+        f"/api/admin/plugins/{plugin_id}",
+        {
+            **APP,
+            "version": "2.1.0",
+            "scopes": [*APP["scopes"], "messages:moderate", "reactions:write"],
+        },
+    )
+    assert second.body["pendingScopes"] == ["messages:moderate", "reactions:write"]
+
+
+async def test_declining_keeps_the_app_running_on_its_old_permissions(team: dict) -> None:
+    body = await install(team["owner"])
+    plugin_id = body["plugin"]["id"]
+    app = bot_client(team["owner"], body["botToken"])
+
+    await team["owner"].put(
+        f"/api/admin/plugins/{plugin_id}",
+        {**APP, "version": "2.0.0", "scopes": [*APP["scopes"], "messages:moderate"]},
+    )
+    declined = await team["owner"].post(f"/api/admin/plugins/{plugin_id}/decline")
+    assert declined.status == 200
+    assert declined.body["status"] == "enabled"
+    assert declined.body["pendingScopes"] == []
+    assert "messages:moderate" not in declined.body["scopes"]
+    # Not an outage: the app is back at work immediately, with what it had before.
+    assert (await app.get("/api/v1/auth.test")).status == 200
+
+
+async def test_declining_with_nothing_pending_is_refused(team: dict) -> None:
+    body = await install(team["owner"])
+    response = await team["owner"].post(f"/api/admin/plugins/{body['plugin']['id']}/decline")
+    assert response.status == 400
+    assert response.body["error"]["code"] == "not_pending"
+
+
+async def test_an_update_that_withdraws_its_ask_unparks_the_app(team: dict) -> None:
+    body = await install(team["owner"])
+    plugin_id = body["plugin"]["id"]
+
+    await team["owner"].put(
+        f"/api/admin/plugins/{plugin_id}",
+        {**APP, "version": "2.0.0", "scopes": [*APP["scopes"], "messages:moderate"]},
+    )
+    reverted = await team["owner"].put(
+        f"/api/admin/plugins/{plugin_id}", {**APP, "version": "2.0.1"}
+    )
+    assert reverted.body["status"] == "enabled"
+    assert reverted.body["pendingScopes"] == []
+
+
+async def test_setting_a_budget_shows_on_the_app(team: dict) -> None:
+    body = await install(team["owner"])
+    plugin_id = body["plugin"]["id"]
+
+    response = await team["owner"].post(
+        f"/api/admin/plugins/{plugin_id}/budget", {"runsPerDay": 20, "secondsPerDay": 1800}
+    )
+    assert response.status == 200
+    assert response.body["budgetRunsPerDay"] == 20
+    assert response.body["budgetSecondsPerDay"] == 1800
+
+    lifted = await team["owner"].post(
+        f"/api/admin/plugins/{plugin_id}/budget", {"runsPerDay": None, "secondsPerDay": None}
+    )
+    assert lifted.body["budgetRunsPerDay"] is None
+    assert lifted.body["budgetSecondsPerDay"] is None
+
+
+async def test_a_zero_budget_is_refused_as_input(team: dict) -> None:
+    body = await install(team["owner"])
+    response = await team["owner"].post(
+        f"/api/admin/plugins/{body['plugin']['id']}/budget", {"runsPerDay": 0}
+    )
+    assert response.status == 400
+    assert response.body["error"]["code"] == "invalid_input"
+
+
+async def test_a_budget_cannot_be_set_across_workspaces(team: dict) -> None:
+    # The same person, switched into a second workspace: the plugin id is real, the
+    # session is an admin's, and the answer is still 404 — the row belongs elsewhere.
+    body = await install(team["owner"])
+    created = await team["owner"].post("/api/admin/instance/workspaces", {"name": "Second"})
+    assert created.status in (200, 201), created.body
+    assert (await team["owner"].post(f"/api/workspaces/{created.body['id']}/switch")).status == 200
+    response = await team["owner"].post(
+        f"/api/admin/plugins/{body['plugin']['id']}/budget", {"runsPerDay": 1}
+    )
+    assert response.status == 404
+
+
+async def test_a_member_cannot_set_a_budget(team: dict) -> None:
+    body = await install(team["owner"])
+    response = await team["member"].post(
+        f"/api/admin/plugins/{body['plugin']['id']}/budget", {"runsPerDay": 1}
+    )
+    assert response.status == 403
+
+
 async def test_a_slug_cannot_change_after_install(team: dict) -> None:
     body = await install(team["owner"])
     response = await team["owner"].put(

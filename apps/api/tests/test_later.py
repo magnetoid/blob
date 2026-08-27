@@ -79,18 +79,14 @@ class TestFiring:
 
         async with SessionFactory() as session:
             row = (
-                await session.execute(
-                    text("SELECT reminded_at FROM saved_items LIMIT 1")
-                )
+                await session.execute(text("SELECT reminded_at FROM saved_items LIMIT 1"))
             ).fetchone()
         assert row is not None and row.reminded_at is not None
 
     async def test_quiet_hours_defer_rather_than_drop(self, team: dict) -> None:
         # Snoozed flat-out: the strongest quiet signal there is.
         until = (datetime.now(UTC) + timedelta(hours=2)).isoformat()
-        assert (
-            await team["owner"].patch("/api/me/prefs", {"snoozeUntil": until})
-        ).status == 200
+        assert (await team["owner"].patch("/api/me/prefs", {"snoozeUntil": until})).status == 200
 
         at = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
         await team["owner"].patch(f"/api/saved/{team['message']}", {"remindAt": at})

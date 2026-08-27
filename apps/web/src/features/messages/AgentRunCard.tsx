@@ -107,6 +107,8 @@ function statusLabel(run: AgentRunView): string {
       return run.error ? `failed — ${run.error}` : 'failed';
     case 'cancelled':
       return 'stopped';
+    case 'refused':
+      return run.error ?? 'refused — over its daily budget';
     case 'interrupted':
       return 'needs a decision';
     default:

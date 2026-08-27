@@ -56,6 +56,9 @@ class PluginOut(CamelModel):
     agui_url: str | None = None
     events: list[str]
     scopes: list[str]
+    #: The subset of `scopes` still awaiting a person's approval — what the consent
+    #: screen lists. Non-empty exactly while the app is parked in `needs_review`.
+    pending_scopes: list[str] = []
     bot_user_id: str | None = None
     last_error: str | None = None
     created_at: str
@@ -75,6 +78,12 @@ class PluginOut(CamelModel):
     #: happened, and the reply on failure ("that agent is not connected right now") arrives
     #: in a channel rather than in the console where it would be acted on.
     online: bool | None = None
+    #: Daily caps and what the trailing day actually cost, so the meter and the dial sit
+    #: on the same row of the console. None means uncapped.
+    budget_runs_per_day: int | None = None
+    budget_seconds_per_day: int | None = None
+    runs_last_day: int = 0
+    seconds_last_day: int = 0
 
 
 class AppChannel(CamelModel):
@@ -223,19 +232,27 @@ async def _to_plugins(session: Any, rows: Sequence[Any]) -> list[PluginOut]:
     ).fetchall()
     bots_by = {str(entry.bot_plugin_id): str(entry.id) for entry in bot_rows}
 
+    usage_by = await agent_run_service.usage_by_plugin(session, ids)
+
     return [
         await _build_plugin(
             row,
             scopes=scopes_by.get(str(row.id), []),
             counts=counts_by.get(str(row.id)),
             bot_id=bots_by.get(str(row.id)),
+            usage=usage_by.get(str(row.id)),
         )
         for row in rows
     ]
 
 
 async def _build_plugin(
-    row: Any, *, scopes: list[str], counts: Any, bot_id: str | None
+    row: Any,
+    *,
+    scopes: list[str],
+    counts: Any,
+    bot_id: str | None,
+    usage: tuple[int, int] | None = None,
 ) -> PluginOut:
     return PluginOut(
         id=row.id,
@@ -256,12 +273,17 @@ async def _build_plugin(
         online=await gateway.is_online(row.id) if row.runtime == "socket" else None,
         events=list(row.events or []),
         scopes=scopes,
+        pending_scopes=list(getattr(row, "pending_scopes", None) or []),
         bot_user_id=bot_id,
         last_error=row.last_error,
         created_at=iso(row.created_at),
         updated_at=iso(row.updated_at),
         pending_deliveries=int(counts.pending if counts else 0),
         failed_deliveries=int(counts.failed if counts else 0),
+        budget_runs_per_day=getattr(row, "budget_runs_per_day", None),
+        budget_seconds_per_day=getattr(row, "budget_seconds_per_day", None),
+        runs_last_day=usage[0] if usage else 0,
+        seconds_last_day=usage[1] if usage else 0,
     )
 
 
@@ -485,7 +507,7 @@ async def approve_plugin(
 ) -> PluginOut:
     """Accept the wider permissions an update asked for."""
     async with transaction() as (session, _after):
-        await registry.approve(session, plugin_id, admin.workspace_id)
+        accepted = await registry.approve(session, plugin_id, admin.workspace_id)
         scopes = await registry.granted_scopes(session, plugin_id)
         await audit_service.record(
             session,
@@ -493,7 +515,30 @@ async def approve_plugin(
             "plugin.approved",
             target_type="plugin",
             target_id=plugin_id,
-            metadata={"scopes": scopes},
+            metadata={"scopes": scopes, "newScopes": accepted},
+        )
+        row = await registry.by_id(session, plugin_id, admin.workspace_id)
+        return await _to_plugin(session, row)
+
+
+@router.post("/{plugin_id}/decline", response_model=PluginOut)
+async def decline_plugin_scopes(
+    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+) -> PluginOut:
+    """Refuse the wider permissions an update asked for; the app keeps what it had.
+
+    The other half of the consent screen. Without it, "no" could only be spelled
+    disable or uninstall — both outages, neither an answer about permissions.
+    """
+    async with transaction() as (session, _after):
+        declined = await registry.decline_scopes(session, plugin_id, admin.workspace_id)
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.scopes_declined",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"scopes": declined},
         )
         row = await registry.by_id(session, plugin_id, admin.workspace_id)
         return await _to_plugin(session, row)
@@ -524,6 +569,57 @@ async def set_enabled(
             target_type="plugin",
             target_id=plugin_id,
             metadata={"slug": existing.slug},
+        )
+        row = await registry.by_id(session, plugin_id, admin.workspace_id)
+        return await _to_plugin(session, row)
+
+
+class BudgetInput(CamelModel):
+    """Daily caps. None lifts one; both None means unlimited, which is the default."""
+
+    runs_per_day: int | None = None
+    seconds_per_day: int | None = None
+
+
+@router.post("/{plugin_id}/budget", response_model=PluginOut)
+async def set_budget(
+    plugin_id: str,
+    payload: BudgetInput,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> PluginOut:
+    """Cap what an agent may spend in a trailing day — runs begun and seconds occupied.
+
+    Measured in what Blob observes rather than tokens, which belong to the agent's own
+    provider. A capped agent's next mention gets a refused run card in the channel, not
+    silence, so hitting the ceiling is visible where the mention happened.
+    """
+    for name, value in (
+        ("runsPerDay", payload.runs_per_day),
+        ("secondsPerDay", payload.seconds_per_day),
+    ):
+        if value is not None and not 1 <= value <= 1_000_000:
+            raise bad_request(
+                f"{name} must be between 1 and 1000000, or null.", code="invalid_input"
+            )
+    async with transaction() as (session, _after):
+        await registry.set_budget(
+            session,
+            plugin_id,
+            admin.workspace_id,
+            runs_per_day=payload.runs_per_day,
+            seconds_per_day=payload.seconds_per_day,
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.budget_set",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={
+                "runsPerDay": payload.runs_per_day,
+                "secondsPerDay": payload.seconds_per_day,
+            },
         )
         row = await registry.by_id(session, plugin_id, admin.workspace_id)
         return await _to_plugin(session, row)
