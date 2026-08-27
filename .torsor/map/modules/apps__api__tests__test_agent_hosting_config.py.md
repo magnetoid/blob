@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T02:15:42'
-updated: '2026-08-27T02:15:42'
+created: '2026-08-27T03:38:18'
+updated: '2026-08-27T03:38:18'
 ---
 
 # apps/api/tests/test_agent_hosting_config.py
@@ -24,3 +24,7 @@ Symbols in `apps/api/tests/test_agent_hosting_config.py`.
 - L94 `test_the_first_of_several_domains_wins(self)` (method)
 - L101 `test_nothing_assigned_yet_stays_nothing(self)` (method)
 - L108 `test_what_comes_out_can_always_have_a_path_appended(self)` (method)
+- L119 `TestWhichDomainFieldWins` (class) — `fqdn` is stamped at creation and survives every later domain change, while
+- L125 `test_the_compose_domain_beats_the_stale_fqdn(self)` (method)
+- L134 `test_no_compose_domains_falls_back_to_fqdn(self)` (method)
+- L143 `test_garbage_compose_domains_fall_back_rather_than_fail(self)` (method)

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T02:15:41'
-updated: '2026-08-27T02:15:41'
+created: '2026-08-27T03:38:17'
+updated: '2026-08-27T03:38:17'
 ---
 
 # apps/api/src/blob_api/plugins/registry.py
@@ -23,9 +23,11 @@ Symbols in `apps/api/src/blob_api/plugins/registry.py`.
 - L218 `_write_commands(session: AsyncSession, *, plugin_id: str, workspace_id: str, commands: list[CommandDecl])` (function) — Replace this app's commands with what its manifest now declares.
 - L266 `mint_token(session: AsyncSession, plugin_id: str)` (function) — A bearer token for the callback API. Only its hash is stored.
 - L276 `update(session: AsyncSession, *, plugin_id: str, workspace_id: str, manifest: Manifest, actor_id: str, reserved_commands: frozenset[str]=frozenset())` (function) — Apply a new manifest. Returns scopes that need approval before events resume.
-- L340 `describe(session: AsyncSession, *, plugin_id: str, workspace_id: str, name: str | None=None, description: str | None=None, version: str | None=None)` (function) — Record what a socket agent says it is, on the way in.
-- L377 `approve(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Accept an update's widened scopes and let the app run again.
-- L385 `set_status(session: AsyncSession, plugin_id: str, workspace_id: str, status: Status)` (function)
-- L395 `rotate_secret(session: AsyncSession, plugin_id: str, workspace_id: str)` (function)
-- L411 `uninstall(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Remove the app and retire its bot, keeping everything the bot ever said.
-- L428 `bot_user_id(session: AsyncSession, plugin_id: str)` (function)
+- L353 `describe(session: AsyncSession, *, plugin_id: str, workspace_id: str, name: str | None=None, description: str | None=None, version: str | None=None)` (function) — Record what a socket agent says it is, on the way in.
+- L390 `approve(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Accept an update's widened scopes and let the app run again.
+- L408 `decline_scopes(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Refuse an update's widened scopes; the app runs on with what it had.
+- L442 `set_budget(session: AsyncSession, plugin_id: str, workspace_id: str, *, runs_per_day: int | None, seconds_per_day: int | None)` (function) — Cap what this agent may spend in a trailing day. NULL lifts the cap.
+- L469 `set_status(session: AsyncSession, plugin_id: str, workspace_id: str, status: Status)` (function)
+- L479 `rotate_secret(session: AsyncSession, plugin_id: str, workspace_id: str)` (function)
+- L495 `uninstall(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Remove the app and retire its bot, keeping everything the bot ever said.
+- L512 `bot_user_id(session: AsyncSession, plugin_id: str)` (function)

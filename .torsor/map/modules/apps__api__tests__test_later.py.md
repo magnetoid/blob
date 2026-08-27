@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T02:15:43'
-updated: '2026-08-27T02:15:43'
+created: '2026-08-27T03:38:18'
+updated: '2026-08-27T03:38:18'
 ---
 
 # apps/api/tests/test_later.py
@@ -22,5 +22,5 @@ Symbols in `apps/api/tests/test_later.py`.
 - L64 `_force_due(message_id: str)` (function)
 - L71 `TestFiring` (class)
 - L72 `test_a_due_reminder_fires_once(self, team: dict)` (method)
-- L88 `test_quiet_hours_defer_rather_than_drop(self, team: dict)` (method)
-- L107 `test_setting_a_new_reminder_rearms_a_fired_one(self, team: dict)` (method)
+- L86 `test_quiet_hours_defer_rather_than_drop(self, team: dict)` (method)
+- L103 `test_setting_a_new_reminder_rearms_a_fired_one(self, team: dict)` (method)

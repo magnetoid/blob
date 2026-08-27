@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T02:15:40'
-updated: '2026-08-27T02:15:40'
+created: '2026-08-27T03:38:17'
+updated: '2026-08-27T03:38:17'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -43,9 +43,9 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L876 `Webhook` (class)
 - L895 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
 - L923 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
-- L980 `PluginCommand` (class) — A slash command an app provides.
-- L1006 `PluginSecret` (class)
-- L1016 `PluginGrant` (class)
-- L1030 `BotToken` (class)
-- L1044 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
-- L1076 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
+- L1000 `PluginCommand` (class) — A slash command an app provides.
+- L1026 `PluginSecret` (class)
+- L1036 `PluginGrant` (class)
+- L1050 `BotToken` (class)
+- L1064 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
+- L1096 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.

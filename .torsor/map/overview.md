@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T02:15:40'
-updated: '2026-08-27T02:15:40'
+created: '2026-08-27T03:38:17'
+updated: '2026-08-27T03:38:17'
 ---
 
 # Repository Map
@@ -102,6 +102,12 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0020_later.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0021_agent_budgets.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0022_pending_scopes.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 37 symbol(s)
   - `_now()` (function)
   - `Base` (class)
@@ -113,8 +119,8 @@ Modules and their key symbols (ranked by references).
   - `main()` (function)
   - `_run()` (function)
 - **apps/api/src/blob_api/jobs/agui.py** — 16 symbol(s)
-  - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None)` (function)
   - `_now_iso()` (function)
+  - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None)` (function)
   - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
   - `personal_agent_for(session: AsyncSession, *, workspace_id: str, channel_id: str)` (function)
   - `_looks_busy(listener: Listener, channel_id: str, thread_root_id: str | None)` (function)
@@ -173,9 +179,4 @@ Modules and their key symbols (ranked by references).
   - `strip_code(body: str)` (function)
   - `MentionResult` (class)
   - `_simple_lower(value: str)` (function)
-  - `parse_mentions(body: str, targets: dict[str, MentionTarget])` (function)
-  - `mention_lookup_phrases(body: str)` (function)
-- **apps/api/src/blob_api/lib/net.py** — 4 symbol(s)
-  - `is_private_host(hostname: str)` (function)
-  - `assert_outbound_url(raw_url: str, *, require_https: bool, code: str)` (function)
-  - `is_private_address(address: str)` (function)…[truncated]
+  - `parse_mentions(body: str, targets: dict[str, MentionTarget])` (function)…[truncated]
