@@ -382,3 +382,12 @@ Worth knowing before changing the equivalent code:
   the first positional is connect/write/pool, and steady chunks under the read gap can
   stream forever. The absolute bound must be enforced in the read loop
   (`AGUI_MAX_RUN_SEC`), which is also what run cards rely on.
+
+- **Coolify deploys compose apps from its stored `docker_compose_raw`, not the repo
+  file.** The build uses git, the `up` uses a snapshot captured at app creation — so a
+  committed change to `docker-compose.prod.yml` ships the new *image* while the stack
+  keeps the old service definitions, env lines included. Found when the worker's new
+  `COOLIFY_*` env block never arrived. The API refuses to PATCH `docker_compose_raw`;
+  the sync is a psql UPDATE on Coolify's own DB (`applications` table, backup first) or
+  the UI's reload-compose button. After any compose change: update the snapshot, then
+  deploy.
