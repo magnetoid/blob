@@ -131,6 +131,18 @@ class TestWhichDomainFieldWins:
         }
         assert _reported_domain(payload) == "https://janus.example.com"
 
+    def test_a_compose_domain_port_names_the_container_not_the_public_side(self) -> None:
+        # Coolify's `https://host:8642` means "route this host to container port 8642";
+        # publicly the app answers on 443. Keeping the suffix aimed the callback at a
+        # port nothing listens on.
+        from blob_api.plugins.runner import _reported_domain
+
+        payload = {
+            "fqdn": "abc.sslip.io:8642",
+            "docker_compose_domains": ('{"gateway":{"domain":"https://janus.example.com:8642"}}'),
+        }
+        assert _reported_domain(payload) == "https://janus.example.com"
+
     def test_no_compose_domains_falls_back_to_fqdn(self) -> None:
         from blob_api.plugins.runner import _reported_domain
 

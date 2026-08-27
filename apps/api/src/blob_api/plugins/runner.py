@@ -60,10 +60,28 @@ def _reported_domain(payload: dict[str, Any]) -> object:
             for entry in (domains or {}).values():
                 domain = (entry or {}).get("domain")
                 if domain:
-                    return domain
+                    return _strip_container_port(str(domain))
         except (ValueError, AttributeError, TypeError):
             pass
     return payload.get("fqdn")
+
+
+def _strip_container_port(domain: str) -> str:
+    """Drop the `:port` suffix from a Coolify compose domain.
+
+    In Coolify's domain syntax the port names the *container* port the proxy should
+    route to — `https://janus.example.com:8642` is served publicly on 443, and 8642 is
+    where traffic lands inside. Keeping it would aim the callback at a public port
+    nothing listens on. Only the suffix goes; a port that is part of no scheme'd URL
+    (the legacy `fqdn` shapes) never reaches here.
+    """
+    scheme, _, rest = domain.partition("://")
+    if not rest:
+        return domain
+    host = rest.split("/", 1)[0]
+    if ":" in host and host.rsplit(":", 1)[1].isdigit():
+        return f"{scheme}://{host.rsplit(':', 1)[0]}"
+    return domain
 
 
 def normalize_fqdn(value: object) -> str | None:
