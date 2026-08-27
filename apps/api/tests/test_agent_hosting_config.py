@@ -114,3 +114,35 @@ class TestTheHostnameTheRunnerReports:
             url = f"{base}/blob/events"
             assert url.count("://") == 1, url
             assert url.endswith("/blob/events")
+
+
+class TestWhichDomainFieldWins:
+    """`fqdn` is stamped at creation and survives every later domain change, while
+    `docker_compose_domains` is what the proxy routes today. An agent whose domain was
+    repointed kept being called on the dead hostname because the runner read the stale
+    field — found live, when a certificate error outlasted the domain fix."""
+
+    def test_the_compose_domain_beats_the_stale_fqdn(self) -> None:
+        from blob_api.plugins.runner import _reported_domain
+
+        payload = {
+            "fqdn": "abc.65.21.238.89.sslip.io:8642",
+            "docker_compose_domains": '{"gateway":{"domain":"https://janus.example.com"}}',
+        }
+        assert _reported_domain(payload) == "https://janus.example.com"
+
+    def test_no_compose_domains_falls_back_to_fqdn(self) -> None:
+        from blob_api.plugins.runner import _reported_domain
+
+        assert _reported_domain({"fqdn": "abc.sslip.io:3000"}) == "abc.sslip.io:3000"
+        assert (
+            _reported_domain({"fqdn": "abc.sslip.io", "docker_compose_domains": ""})
+            == "abc.sslip.io"
+        )
+
+    def test_garbage_compose_domains_fall_back_rather_than_fail(self) -> None:
+        from blob_api.plugins.runner import _reported_domain
+
+        for garbage in ("not json", '{"gateway": null}', '{"gateway": {"domain": ""}}', "[1,2]"):
+            payload = {"fqdn": "abc.sslip.io", "docker_compose_domains": garbage}
+            assert _reported_domain(payload) == "abc.sslip.io", garbage

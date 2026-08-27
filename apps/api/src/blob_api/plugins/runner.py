@@ -12,6 +12,7 @@ follow the same four methods.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -39,6 +40,30 @@ class Deployment:
     status: str
     #: An absolute base URL including scheme, or None until one has been assigned.
     url: str | None = None
+
+
+def _reported_domain(payload: dict[str, Any]) -> object:
+    """The address the proxy actually answers on, out of the two Coolify offers.
+
+    For a compose application `fqdn` is stale metadata: it is stamped at creation and
+    survives every later domain change, which is how an agent kept being called on a
+    hostname whose route was long gone. `docker_compose_domains` is what the proxy
+    serves today, so it wins when present — the field arrives as a JSON string mapping
+    service name to {"domain": ...}, and an agent ships one routed service, so the
+    first domain is the one. Anything unparseable falls back to `fqdn` rather than
+    failing a status poll over an address format.
+    """
+    raw = payload.get("docker_compose_domains")
+    if raw:
+        try:
+            domains = json.loads(raw) if isinstance(raw, str) else raw
+            for entry in (domains or {}).values():
+                domain = (entry or {}).get("domain")
+                if domain:
+                    return domain
+        except (ValueError, AttributeError, TypeError):
+            pass
+    return payload.get("fqdn")
 
 
 def normalize_fqdn(value: object) -> str | None:
@@ -188,7 +213,7 @@ class CoolifyRunner:
         return Deployment(
             id=deployment_id,
             status=str(payload.get("status") or "unknown"),
-            url=normalize_fqdn(payload.get("fqdn")),
+            url=normalize_fqdn(_reported_domain(payload)),
         )
 
     async def logs(self, deployment_id: str, lines: int = 200) -> str:
