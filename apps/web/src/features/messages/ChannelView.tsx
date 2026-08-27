@@ -1,6 +1,7 @@
 /** The centre pane: channel header, messages, composer. */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { AgentRunView } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
 import { scrollToMessage } from "../../lib/navigation.ts";
 import { api } from "../../lib/api.ts";
@@ -36,6 +37,21 @@ export function ChannelView() {
   const unreadMarkers = useStore((s) => s.unreadMarkers);
   const loadOlder = useStore((s) => s.loadOlder);
   const openChannel = useStore((s) => s.openChannel);
+  const agentRuns = useStore((s) => s.agentRuns);
+
+  // Runs anchored under their trigger. Thread replies carry threadRootId and anchor in
+  // the thread panel instead — the trigger row is not in channel history there.
+  const runsByMessageId = useMemo(() => {
+    if (!activeChannelId) return undefined;
+    const map: Record<string, AgentRunView[]> = {};
+    for (const run of Object.values(agentRuns)) {
+      if (run.channelId !== activeChannelId || run.threadRootId || !run.triggerMessageId) {
+        continue;
+      }
+      (map[run.triggerMessageId] ??= []).push(run);
+    }
+    return map;
+  }, [agentRuns, activeChannelId]);
   const channelTitle = useStore((s) => s.channelTitle);
 
   const [pinsOpen, setPinsOpen] = useState(false);
@@ -249,6 +265,13 @@ export function ChannelView() {
           <HuddleIcon size={15} />
           Huddle
         </button>
+        <button
+          className="btn btn-ghost"
+          title="Summarise what you haven't read here"
+          onClick={() => useStore.setState({ catchupScope: 'channel' })}
+        >
+          Catch up
+        </button>
         <div style={{ position: "relative" }}>
           <button
             className="btn btn-ghost"
@@ -310,6 +333,7 @@ export function ChannelView() {
         onLoadOlder={handleLoadOlder}
         onOpenThread={handleOpenThread}
         unreadAfterId={unreadMarkers[activeChannelId] ?? null}
+        runsByMessageId={runsByMessageId}
         error={messages?.error ?? false}
         onRetry={() => void openChannel(activeChannelId)}
         emptyState={

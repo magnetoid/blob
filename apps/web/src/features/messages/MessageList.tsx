@@ -8,9 +8,10 @@
  */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Message } from "@blob/shared";
+import type { AgentRunView, Message } from "@blob/shared";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { MessageRow } from "./MessageRow.tsx";
+import { AgentRunCard } from "./AgentRunCard.tsx";
 
 interface Props {
   messages: Message[];
@@ -25,6 +26,8 @@ interface Props {
   /** The last fetch failed; offer a retry instead of claiming the channel is new. */
   error?: boolean;
   onRetry?: () => void;
+  /** Agent runs keyed by their trigger message, rendered under that message. */
+  runsByMessageId?: Record<string, AgentRunView[]>;
 }
 
 /** Within this many pixels of the bottom counts as "at the bottom". */
@@ -41,6 +44,7 @@ export function MessageList({
   inThread = false,
   error = false,
   onRetry,
+  runsByMessageId,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [jumpBarDismissed, setJumpBarDismissed] = useState(false);
@@ -265,6 +269,9 @@ export function MessageList({
                 onOpenThread={onOpenThread}
                 inThread={inThread}
               />
+              {runsByMessageId?.[message.id]?.map((run) => (
+                <AgentRunCard key={run.id} run={run} />
+              ))}
             </div>
           );
         })}

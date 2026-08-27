@@ -1,6 +1,9 @@
 /** Typed HTTP client. Every call goes through here so error shapes stay consistent. */
 
 import type {
+  LaterItem,
+  LaterState,
+  AgentRunView,
   AgentTask,
   AgentTaskPriority,
   AgentTaskStatus,
@@ -395,6 +398,21 @@ export const api = {
     list: () => get<{ users: User[] }>('/api/users'),
   },
 
+  later: {
+    list: (state: LaterState = 'in_progress') =>
+      get<{ items: LaterItem[] }>(`/api/later?state=${state}`),
+    update: (
+      messageId: string,
+      input: { state?: LaterState; remindAt?: string | null; note?: string | null },
+    ) => patch<{ ok: true }>(`/api/saved/${messageId}`, input),
+  },
+
+  agentRuns: {
+    forChannel: (channelId: string) =>
+      get<{ runs: AgentRunView[] }>(`/api/channels/${channelId}/agent-runs`),
+    cancel: (runId: string) => post<{ ok: true }>(`/api/agent-runs/${runId}/cancel`),
+  },
+
   groups: {
     setMuted: (groupId: string, muted: boolean) =>
       put<{ ok: true }>(`/api/groups/${groupId}/mute`, { muted }),
@@ -499,6 +517,16 @@ export const api = {
   },
 
   agentic: {
+    catchup: (channelId: string | null) =>
+      post<{
+        summaries: Array<{
+          channelId: string;
+          channelName: string | null;
+          text: string;
+          messageCount: number;
+          upToMessageId: string;
+        }>;
+      }>('/api/catchup', { channelId }),
     getThreadSummary: (messageId: string) =>
       get<{ summary: ThreadSummary | null }>(`/api/threads/${messageId}/summary`),
     refreshThreadSummary: (messageId: string) =>

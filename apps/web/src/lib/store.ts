@@ -9,6 +9,7 @@
 
 import { create, type StateCreator } from 'zustand';
 import type {
+  AgentRunView,
   Bootstrap,
   ChannelWithState,
   CommandSpec,
@@ -23,7 +24,7 @@ import type {
   UserPrefs,
 } from '@blob/shared';
 import { api } from './api.ts';
-import { showError } from './toasts.ts';
+import { showError, useToasts } from './toasts.ts';
 import {
   draftKey,
   flushDrafts,
@@ -95,6 +96,12 @@ interface State {
   unreadMarkers: Record<string, string | null>;
   /** Bumped on member.joined/left so member-list caches know to refetch. */
   membershipVersion: Record<string, number>;
+  /** Which Catch Me Up is open — one channel, everything, or neither. Lives in the
+   * store so the palette (rendered anywhere) can open a panel the shell renders. */
+  catchupScope: 'channel' | 'all' | null;
+  /** Live and recent agent runs, keyed by run id. Fed by socket events and the
+   * per-channel fetch on open; the card under a trigger message renders from this. */
+  agentRuns: Record<string, AgentRunView>;
   /**
    * A channel where you deliberately left something unread.
    *
@@ -205,6 +212,8 @@ export const useStore = create<State>((set, get) => ({
   activeThreadRootId: null,
   unreadMarkers: {},
   membershipVersion: {},
+  agentRuns: {},
+  catchupScope: null,
   suppressReadFor: null,
 
   boot: (data) =>
@@ -392,6 +401,21 @@ export const useStore = create<State>((set, get) => ({
       },
     });
     socket.sendControl({ t: 'channel.focus', channelId });
+
+    // Live and recent runs, so a reload or a mid-run join renders the same card the
+    // stream drew. Non-fatal: a conversation without its run cards is still a
+    // conversation.
+    void api.agentRuns
+      .forChannel(channelId)
+      .then(({ runs }) =>
+        set((s) => ({
+          agentRuns: {
+            ...s.agentRuns,
+            ...Object.fromEntries(runs.map((run) => [run.id, run])),
+          },
+        })),
+      )
+      .catch(() => undefined);
 
     // A permalink names a specific message, which is very often not on the newest page.
     // This has to run even when the channel is already loaded — that is the ordinary
@@ -946,6 +970,45 @@ export const useStore = create<State>((set, get) => ({
           if (event.isMember) myGroupIds.add(event.groupId);
           else myGroupIds.delete(event.groupId);
           return { myGroupIds };
+        });
+        break;
+
+      case 'reminder.due':
+        // A reminder is a toast plus the Later badge; the message itself is one
+        // click away in the view the toast names.
+        useToasts
+          .getState()
+          .push('info', event.note ? `Reminder: ${event.note}` : 'A reminder came due — it’s in Later.');
+        break;
+
+      case 'agent_run.started':
+        set((s) => ({ agentRuns: { ...s.agentRuns, [event.run.id]: event.run } }));
+        break;
+
+      case 'agent_run.updated':
+        set((s) => {
+          const run = s.agentRuns[event.runId];
+          if (!run) return s;
+          return { agentRuns: { ...s.agentRuns, [event.runId]: { ...run, card: event.card } } };
+        });
+        break;
+
+      case 'agent_run.finished':
+        set((s) => {
+          const run = s.agentRuns[event.runId];
+          if (!run) return s;
+          return {
+            agentRuns: {
+              ...s.agentRuns,
+              [event.runId]: {
+                ...run,
+                status: event.status,
+                error: event.error,
+                postCount: event.postCount,
+                finishedAt: new Date().toISOString(),
+              },
+            },
+          };
         });
         break;
 

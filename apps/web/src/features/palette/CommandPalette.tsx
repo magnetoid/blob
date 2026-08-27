@@ -85,6 +85,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         run: () => setPrefs({ theme: theme === "dark" ? "light" : "dark" }),
       },
       {
+        id: "a-catchup",
+        label: "Catch me up — summarise what I haven't read",
+        kind: "Action",
+        run: () => useStore.setState({ catchupScope: "all" }),
+      },
+      {
         id: "a-density",
         label:
           density === "compact"

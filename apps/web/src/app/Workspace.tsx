@@ -34,6 +34,7 @@ const WorkspaceConsole = lazy(() =>
 );
 import { ProfileView } from '../features/settings/ProfileView.tsx';
 import { TopBar } from '../features/shell/TopBar.tsx';
+import { CatchUpPanel } from '../features/messages/CatchUpPanel.tsx';
 import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
 import { ShortcutHelp } from '../components/ShortcutHelp.tsx';
 import { isTypingTarget, matchShortcut } from '../lib/shortcuts.ts';
@@ -46,6 +47,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const currentUser = useStore((s) => s.currentUser);
   const activeChannelId = useStore((s) => s.activeChannelId);
   const activeThreadRootId = useStore((s) => s.activeThreadRootId);
+  const catchupScope = useStore((s) => s.catchupScope);
   const openChannel = useStore((s) => s.openChannel);
   const openThread = useStore((s) => s.openThread);
 
@@ -326,6 +328,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+      {catchupScope && (
+        <CatchUpPanel
+          channelId={catchupScope === 'channel' ? activeChannelId : null}
+          onClose={() => useStore.setState({ catchupScope: null })}
+        />
+      )}
     </div>
   );
 }

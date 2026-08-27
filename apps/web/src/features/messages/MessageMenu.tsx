@@ -11,6 +11,31 @@ import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { MoreIcon } from "../../components/Icon.tsx";
 
+/** Slack's set, because those are the ones in people's fingers. */
+const REMIND_PRESETS: Array<{ label: string; at: () => Date }> = [
+  { label: 'In 20 minutes', at: () => new Date(Date.now() + 20 * 60_000) },
+  { label: 'In 1 hour', at: () => new Date(Date.now() + 60 * 60_000) },
+  { label: 'In 3 hours', at: () => new Date(Date.now() + 3 * 60 * 60_000) },
+  {
+    label: 'Tomorrow at 9:00',
+    at: () => {
+      const at = new Date();
+      at.setDate(at.getDate() + 1);
+      at.setHours(9, 0, 0, 0);
+      return at;
+    },
+  },
+  {
+    label: 'Next week',
+    at: () => {
+      const at = new Date();
+      at.setDate(at.getDate() + 7);
+      at.setHours(9, 0, 0, 0);
+      return at;
+    },
+  },
+];
+
 interface Props {
   message: Message;
   /** Edit and delete are offered only on your own messages. */
@@ -28,6 +53,7 @@ export function MessageMenu({
   onDelete,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [remindOpen, setRemindOpen] = useState(false);
   const markUnread = useStore((s) => s.markUnread);
   const toggleSaved = useStore((s) => s.toggleSaved);
   // Subscribed to the boolean rather than the Set, so saving one message does not
@@ -100,6 +126,36 @@ export function MessageMenu({
           >
             {saved ? "Remove from later" : "Save for later"}
           </button>
+          <button
+            className="autocomplete-item"
+            type="button"
+            aria-expanded={remindOpen}
+            onClick={() => setRemindOpen((v) => !v)}
+          >
+            Remind me…
+          </button>
+          {remindOpen &&
+            REMIND_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                className="autocomplete-item remind-preset"
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setRemindOpen(false);
+                  void api.later
+                    .update(message.id, { remindAt: preset.at().toISOString() })
+                    .then(() =>
+                      useStore.setState((s) => ({
+                        savedMessageIds: new Set(s.savedMessageIds).add(message.id),
+                      })),
+                    )
+                    .catch(showError);
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
           <button
             className="autocomplete-item"
             type="button"

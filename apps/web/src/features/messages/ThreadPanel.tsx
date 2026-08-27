@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type {
+  AgentRunView,
   AgentTask,
   AgentTaskPriority,
   AgentTaskStatus,
@@ -103,6 +104,16 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
 
   const [alsoSend, setAlsoSend] = useState(false);
   // The send wrapper below runs outside render and needs the current checkbox value.
+  const agentRuns = useStore((s) => s.agentRuns);
+  const runsByMessageId = useMemo(() => {
+    const map: Record<string, AgentRunView[]> = {};
+    for (const run of Object.values(agentRuns)) {
+      if (run.threadRootId !== rootId || !run.triggerMessageId) continue;
+      (map[run.triggerMessageId] ??= []).push(run);
+    }
+    return map;
+  }, [agentRuns, rootId]);
+
   const alsoSendRef = useRef(alsoSend);
   useEffect(() => {
     alsoSendRef.current = alsoSend;
@@ -619,6 +630,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
 
       <MessageList
         messages={thread ?? []}
+        runsByMessageId={runsByMessageId}
         hasMore={false}
         loading={!thread}
         onLoadOlder={() => {}}
