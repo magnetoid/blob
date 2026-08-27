@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T01:08:40'
-updated: '2026-08-27T01:08:40'
+created: '2026-08-27T02:15:43'
+updated: '2026-08-27T02:15:43'
 ---
 
 # apps/api/tests/test_permalinks.py

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T01:08:40'
-updated: '2026-08-27T01:08:40'
+created: '2026-08-27T02:15:40'
+updated: '2026-08-27T02:15:40'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -35,17 +35,17 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L552 `UserGroupMember` (class) — Who is in a group, and whether they have muted it.
 - L579 `WorkspaceHandle` (class) — Every mentionable name in a workspace, in one place, decided by one index.
 - L635 `AgentRun` (class) — One attempt by an agent to answer a mention.
-- L691 `SavedItem` (class) — A message somebody put aside for themselves. Slack's Later.
-- L713 `ThreadSummary` (class)
-- L754 `MessageTranslation` (class)
-- L781 `AgentTask` (class)
-- L840 `PushSubscription` (class)
-- L854 `Webhook` (class)
-- L873 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
-- L901 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
-- L958 `PluginCommand` (class) — A slash command an app provides.
-- L984 `PluginSecret` (class)
-- L994 `PluginGrant` (class)
-- L1008 `BotToken` (class)
-- L1022 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
-- L1054 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
+- L697 `SavedItem` (class) — A message somebody put aside for themselves. Slack's Later.
+- L735 `ThreadSummary` (class)
+- L776 `MessageTranslation` (class)
+- L803 `AgentTask` (class)
+- L862 `PushSubscription` (class)
+- L876 `Webhook` (class)
+- L895 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
+- L923 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
+- L980 `PluginCommand` (class) — A slash command an app provides.
+- L1006 `PluginSecret` (class)
+- L1016 `PluginGrant` (class)
+- L1030 `BotToken` (class)
+- L1044 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
+- L1076 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
