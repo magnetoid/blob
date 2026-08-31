@@ -20,6 +20,7 @@ import { TasksView } from '../features/agentic/TasksView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
+import { AgentTerminalPanel } from '../features/agentic/AgentTerminalPanel.tsx';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
 // Lazy: the consoles are ~3,000 lines of JSX an ordinary member never renders,
@@ -48,6 +49,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const activeChannelId = useStore((s) => s.activeChannelId);
   const activeThreadRootId = useStore((s) => s.activeThreadRootId);
   const catchupScope = useStore((s) => s.catchupScope);
+  const terminalTarget = useStore((s) => s.terminalTarget);
   const openChannel = useStore((s) => s.openChannel);
   const openThread = useStore((s) => s.openThread);
 
@@ -236,8 +238,10 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     openChannel,
   ]);
 
-  // The thread panel belongs to the conversation view only.
-  const panelOpen = (view === 'messages' || view === 'channel') && Boolean(activeThreadRootId);
+  // The right-hand column belongs to the conversation view only, and holds one thing at
+  // a time: a thread, or a terminal in the agent this DM is with.
+  const inConversation = view === 'messages' || view === 'channel';
+  const panelOpen = inConversation && Boolean(activeThreadRootId || terminalTarget);
 
   // Administration takes the whole window. The rail and channel list are navigation for
   // a conversation, and none of it helps someone reading an audit log. What does stay is
@@ -324,7 +328,15 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {view === 'search' && <SearchView />}
       {view === 'profile' && <ProfileView />}
 
-      {panelOpen && <ThreadPanel rootId={activeThreadRootId as string} />}
+      {panelOpen &&
+        (terminalTarget ? (
+          <AgentTerminalPanel
+            pluginId={terminalTarget.pluginId}
+            agentName={terminalTarget.agentName}
+          />
+        ) : (
+          <ThreadPanel rootId={activeThreadRootId as string} />
+        ))}
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}

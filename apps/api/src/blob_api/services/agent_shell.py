@@ -21,6 +21,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
+from sqlalchemy import text
+
 from ..db.engine import session_scope, transaction
 from ..lib.errors import bad_request
 from ..plugins import registry, shell
@@ -39,6 +41,40 @@ class Target:
     plugin_id: str
     name: str
     deployment_id: str
+
+
+async def resolve_for_bot_user(actor: Actor, user_id: str) -> Target:
+    """The agent behind a bot's user row, or the reason there is no terminal for it.
+
+    A conversation names the agent the way a person does — by who it is, not by which
+    plugin installed it. `users.bot_plugin_id` is that link, and it is the only extra
+    step: everything after it is `resolve`, so a terminal opened from a DM is gated by
+    exactly the checks a terminal opened from the console is. There is deliberately no
+    second policy path here to drift out of step with the first.
+    """
+    async with session_scope() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT bot_plugin_id FROM users
+                     WHERE id = :id AND workspace_id = :ws AND kind = 'bot'
+                    """
+                ),
+                {"id": user_id, "ws": actor.workspace_id},
+            )
+        ).fetchone()
+
+    # Same answer for "no such user", "a person, not an agent" and "an agent from
+    # another workspace": which of those is true is not this caller's business.
+    if row is None or not row.bot_plugin_id:
+        raise bad_request(
+            "There is no agent behind that conversation, so there is nothing to open a "
+            "terminal in.",
+            code="not_hosted",
+        )
+
+    return await resolve(actor, str(row.bot_plugin_id))
 
 
 async def resolve(actor: Actor, plugin_id: str) -> Target:

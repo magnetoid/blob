@@ -21,7 +21,13 @@ import { useStore } from "../../lib/store.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { socket } from "../../lib/socket.ts";
 import { api } from "../../lib/api.ts";
-import { commandQuery, matchCommands, parseCommand } from "../../lib/commands.ts";
+import {
+  commandQuery,
+  localCommand,
+  matchAllCommands,
+  parseCommand,
+  type LocalCommandContext,
+} from "../../lib/commands.ts";
 import {
   SHORTCUTS,
   describeKeys,
@@ -35,6 +41,7 @@ import {
   uploadFile,
   type PendingAttachment,
 } from "../../lib/attachments.ts";
+import { openAgentTerminal } from "../../lib/agentTerminal.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import {
@@ -88,6 +95,7 @@ export function Composer({
   consumeAlsoInChannel,
 }: Props) {
   const users = useStore((s) => s.users);
+  const channels = useStore((s) => s.channels);
   const groupsById = useStore((s) => s.groups);
   const currentUser = useStore((s) => s.currentUser);
   const sendMessage = useStore((s) => s.sendMessage);
@@ -195,11 +203,30 @@ export function Composer({
    * thread would put its answer somewhere the person could not see it. In a thread a
    * leading slash is ordinary text, which is also the only way to send one as text.
    */
+  /**
+   * Who this conversation is with, for the commands the client answers itself.
+   *
+   * Only a one-to-one DM: a group DM has no single agent to open a terminal in, and a
+   * channel an agent is a member of is not a conversation *with* it.
+   */
+  const localContext = useMemo<LocalCommandContext>(() => {
+    const channel = channels[channelId];
+    const otherId =
+      channel?.kind === "dm"
+        ? (channel.memberIds ?? []).find((id) => id !== currentUser?.id)
+        : undefined;
+    const other = otherId ? users[otherId] : undefined;
+    return {
+      botUserId: other?.kind === "bot" ? other.id : null,
+      isAdmin: currentUser?.role === "admin" || currentUser?.role === "owner",
+    };
+  }, [channels, channelId, users, currentUser]);
+
   const commandMatches = useMemo(() => {
     if (threadRootId) return [];
     const query = commandQuery(draft);
-    return query === null ? [] : matchCommands(query, commands);
-  }, [draft, commands, threadRootId]);
+    return query === null ? [] : matchAllCommands(query, commands, localContext);
+  }, [draft, commands, threadRootId, localContext]);
 
   /**
    * Put an emoji where the caret is, not at the end.
@@ -345,6 +372,18 @@ export function Composer({
     // and what comes back is either a real message the socket will also deliver, or a
     // note only this person sees. Threads are excluded — see `commandMatches`.
     const parsed = threadRootId ? null : parseCommand(body);
+
+    // Answered here, so it never reaches `/api/commands`: what it does is open a panel
+    // on this screen, and the server has nothing to add to that.
+    const botUserId = localContext.botUserId;
+    if (parsed && botUserId && localCommand(parsed.name, localContext)) {
+      setDraft("");
+      setEphemeral(null);
+      setError(null);
+      void openAgentTerminal(botUserId);
+      return;
+    }
+
     if (parsed) {
       setSending(true);
       setDraft("");

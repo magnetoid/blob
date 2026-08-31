@@ -99,6 +99,10 @@ interface State {
   /** Which Catch Me Up is open — one channel, everything, or neither. Lives in the
    * store so the palette (rendered anywhere) can open a panel the shell renders. */
   catchupScope: 'channel' | 'all' | null;
+  /** The agent whose terminal is open in the right-hand panel, or null.
+   *  Same reason as `catchupScope`: `/cli` is handled in the composer, and the panel
+   *  that answers it is rendered by the shell. */
+  terminalTarget: { pluginId: string; agentName: string } | null;
   /** Live and recent agent runs, keyed by run id. Fed by socket events and the
    * per-channel fetch on open; the card under a trigger message renders from this. */
   agentRuns: Record<string, AgentRunView>;
@@ -214,6 +218,7 @@ export const useStore = create<State>((set, get) => ({
   membershipVersion: {},
   agentRuns: {},
   catchupScope: null,
+  terminalTarget: null,
   suppressReadFor: null,
 
   boot: (data) =>

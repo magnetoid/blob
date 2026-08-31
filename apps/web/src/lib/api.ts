@@ -523,6 +523,13 @@ export const api = {
       del<{ ok: true }>(`/api/messages/${id}/reactions?emoji=${encodeURIComponent(emoji)}`),
   },
 
+  agents: {
+    /** Which agent `/cli` would open a terminal into, or a typed refusal saying why
+     *  there isn't one (`not_hosted` for an agent Blob does not host). */
+    terminalTarget: (userId: string) =>
+      get<{ pluginId: string; agentName: string }>(`/api/agents/terminal/${userId}`),
+  },
+
   agentic: {
     catchup: (channelId: string | null) =>
       post<{

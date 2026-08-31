@@ -2937,6 +2937,32 @@ select.chip {
   margin-top: 12px;
 }
 
+/* The same terminal in the conversation's panel column. On the settings page it is a
+   fixed box in a scrolling form; here the column is the window, so the screen takes
+   whatever height is left. The component fits itself on mount, which is after the panel
+   has its final width, so nothing needs to tell it the size. */
+.panel-terminal {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0 12px 12px;
+}
+
+.panel-terminal .agent-terminal {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.panel-terminal .agent-terminal-screen {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
 .agent-terminal-bar {
   display: flex;
   align-items: center;

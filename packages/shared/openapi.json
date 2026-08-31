@@ -1,3 +1,7 @@
+
+> @blob/api@0.1.0 openapi /Users/magnetoid/c/blob/apps/api
+> uv run python -m blob_api.openapi_dump
+
 {
   "components": {
     "schemas": {
@@ -9280,6 +9284,50 @@
         "tags": [
           "agentic"
         ]
+      }
+    },
+    "/api/agents/terminal/{user_id}": {
+      "get": {
+        "description": "Which agent a DM's terminal would open into, or why there isn't one.\n\n`/cli` needs an answer before it opens anything: a panel that appears and then shows\na close code is worse than a command that says why it did nothing. The socket\nre-resolves this at connect time \u2014 this is the same question asked early, never the\nauthority for it, so nothing here is a place to get the gate wrong once.",
+        "operationId": "agent_terminal_target_api_agents_terminal__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Agent Terminal Target Api Agents Terminal  User Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Terminal Target"
       }
     },
     "/api/auth/forgot-password": {

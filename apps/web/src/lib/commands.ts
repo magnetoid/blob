@@ -61,3 +61,65 @@ export function commandQuery(draft: string): string | null {
 export function matchCommands(query: string, commands: readonly CommandSpec[]): CommandSpec[] {
   return commands.filter((c) => c.name.startsWith(query));
 }
+
+/**
+ * Commands the client answers itself.
+ *
+ * Every other command is the server's: it is POSTed to `/api/commands` and what comes
+ * back is a message or a note. These have nothing to say and nothing to persist — they
+ * open something on this screen — so a round trip would only be a slower way to reach
+ * the same place, and the server would have to answer with an instruction to the client
+ * rather than with a result.
+ *
+ * They are *offered* conditionally. `/cli` in a channel, or to somebody who could not
+ * use it, is a command that autocompletes and then refuses, which teaches people the
+ * feature is broken rather than that it is not for here.
+ */
+export interface LocalCommand extends CommandSpec {
+  /** Whether to offer and accept it in the conversation currently open. */
+  available: (context: LocalCommandContext) => boolean;
+}
+
+export interface LocalCommandContext {
+  /** The bot this conversation is with, when it is a DM with one. */
+  botUserId: string | null;
+  /** Whether the person typing may open a terminal at all. */
+  isAdmin: boolean;
+}
+
+export const LOCAL_COMMANDS: readonly LocalCommand[] = [
+  {
+    name: 'cli',
+    usage: '',
+    summary: 'Open a terminal in this agent',
+    available: ({ botUserId, isAdmin }) => Boolean(botUserId) && isAdmin,
+  },
+];
+
+/** The local command by that name, if it is one and it applies here. */
+export function localCommand(
+  name: string,
+  context: LocalCommandContext,
+): LocalCommand | null {
+  return LOCAL_COMMANDS.find((c) => c.name === name && c.available(context)) ?? null;
+}
+
+/**
+ * Autocomplete over both namespaces, local first.
+ *
+ * Local ones lead because they act on what is on screen: in a DM with an agent, `/cli`
+ * is the more likely intent than a plugin command that happens to share the prefix.
+ */
+export function matchAllCommands(
+  query: string,
+  commands: readonly CommandSpec[],
+  context: LocalCommandContext,
+): CommandSpec[] {
+  const local = LOCAL_COMMANDS.filter(
+    (c) => c.available(context) && c.name.startsWith(query),
+  );
+  const remote = matchCommands(query, commands).filter(
+    (c) => !local.some((l) => l.name === c.name),
+  );
+  return [...local, ...remote];
+}
