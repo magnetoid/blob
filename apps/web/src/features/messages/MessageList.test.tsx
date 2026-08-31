@@ -105,6 +105,22 @@ describe('MessageList', () => {
     expect(parseFloat(viewport.style.height)).toBeGreaterThan(1000);
   });
 
+  it('estimates a row close to what a row measures', () => {
+    // The estimate is what the virtualizer believes before it has measured anything, and
+    // every scroll decision taken in that window is wrong by the difference. It used to
+    // say 148px for rows that measure about 47, so a freshly opened channel thought it
+    // was three times taller than it was and the "go to the newest message" scroll
+    // landed hundreds of pixels short — you opened a busy channel in the middle of it.
+    // 500 messages so the unmeasured ones dominate the reserved height: only the
+    // window plus overscan is ever measured, and it is the estimate that decides the
+    // rest. With 40 messages nearly all of them measure and the estimate barely shows.
+    const { container } = renderList({ messages: makeMessages(500) });
+    const viewport = container.querySelector('.message-list-viewport') as HTMLElement;
+
+    const reservedPerRow = parseFloat(viewport.style.height) / 500;
+    expect(reservedPerRow).toBeLessThan(ROW_PX * 2);
+  });
+
   it('shows the empty state instead of a viewport when there is nothing to show', () => {
     const { container } = renderList({
       messages: [],

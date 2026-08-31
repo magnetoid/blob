@@ -99,7 +99,11 @@ export function MessageList({
     getScrollElement: () => scrollRef.current,
     getItemKey: (index) =>
       decoratedMessages[index]?.message.id ?? `row-${index}`,
-    estimateSize: () => (inThread ? 120 : 148),
+    // Close to what rows actually measure — 47px on average in a channel, less in a
+    // thread. It was 120/148, which made the virtualizer think a 32-message channel
+    // was 4,700px tall when it was 1,500, and everything keyed on scrollHeight before
+    // measurement was wrong by the difference.
+    estimateSize: () => (inThread ? 44 : 52),
     overscan: 10,
   });
 
@@ -122,8 +126,13 @@ export function MessageList({
     if (prependedOlderPage && previous.scrollHeight > 0) {
       // Older page prepended: keep the reader looking at the same message.
       node.scrollTop += node.scrollHeight - previous.scrollHeight;
-    } else if (wasAtBottom.current) {
-      node.scrollTop = node.scrollHeight;
+    } else if (wasAtBottom.current && messages.length > 0) {
+      // Through the virtualizer, not `scrollTop = scrollHeight`. At this point rows
+      // are still estimated, so scrollHeight is a guess; setting scrollTop to it lands
+      // wherever the browser clamps once the real heights arrive, which is how opening
+      // a busy channel dropped you into the middle of it. scrollToIndex keeps
+      // adjusting as measurement comes in.
+      virtualizer.scrollToIndex(messages.length - 1, { align: "end" });
     }
 
     previousMetrics.current = {
@@ -131,6 +140,10 @@ export function MessageList({
       lastId: nextLastId,
       scrollHeight: node.scrollHeight,
     };
+    // `virtualizer` is deliberately not a dependency: TanStack returns a fresh object
+    // every render, so listing it would turn an effect keyed on the message list into
+    // one that runs on every render and re-pins the scroll while you are reading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   useEffect(() => {
