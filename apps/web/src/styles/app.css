@@ -3694,7 +3694,7 @@ button.member-row:hover {
   padding: 14px 16px;
   border: 1px solid var(--hairline);
   border-radius: 12px;
-  background: var(--surface-sunken, var(--bg));
+  background: var(--surface-muted);
   overflow-x: auto;
   font-size: 13px;
   line-height: 1.6;
@@ -3740,8 +3740,15 @@ button.member-row:hover {
   border-color: var(--danger);
 }
 
+/* The other half of ToastKind. Without this rule an info notice was styled as a bare
+   toast, which is not wrong so much as unsaid — it reads the same as a failure whose
+   colour did not load. */
+.toast-info {
+  border-color: var(--accent-border);
+}
+
 .toast-text {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   line-height: 1.35;
 }
 
@@ -4149,7 +4156,7 @@ button.member-row:hover {
 
 .catchup-text {
   margin: 6px 0 8px;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   line-height: 1.45;
   white-space: pre-wrap;
 }
