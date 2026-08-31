@@ -127,6 +127,28 @@ insert is a sorted-position insert and "unread?" is a string comparison — the 
 the server uses), a typed `api.ts`, a localStorage outbox for offline replay, and a
 hand-rolled `router.ts` because there are no nested layouts or loaders to justify more.
 
+**The design layer.** `styles/tokens.css` is the whole vocabulary and `styles/app.css`
+spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
+(`--radius-xs..full`), motion (`--dur-*`, `--ease-*`, `--motion-*`) and a stacking ladder
+(`--z-raised` … `--z-toast`). Three rules the file will not tell you on its own:
+
+* **The 46 colour names are a contract with the server.** `services/themes.py` allowlists
+  them by string and slices that tuple *by index* to group the theme editor, so renaming
+  or reordering one breaks stored themes and the editor's grouping at once. Everything
+  else in tokens.css is structure and is free. A themed *value* can only be hex or
+  `rgb()` — the grammar refuses `color-mix()` and `oklch()`, though app.css may use them.
+* **Elevation carries its own border.** Every `--elev-*` opens with a `0 0 0 1px` ring, so
+  an elevated surface sets `box-shadow` and no `border`. Setting both is how four
+  different popover treatments drifted apart before.
+* **Overlays enter; only menus leave.** `Menu` holds its panel through the exit with
+  `lib/usePresence.ts`; the dialogs are `{open && <X/>}` in their parents and run a focus
+  trap, an autofocus and (CatchUpPanel) a request on mount, so rendering them always —
+  which is what an exit animation needs — would fire all of that at start-up.
+
+Reduced motion is a token policy, not a blanket clamp: distances and scale go to zero and
+fades keep their duration. Anything sized for a pointer gets a 44px minimum under
+`@media (pointer: coarse)`. Both live in `app.css` near the top.
+
 ### Non-negotiable principles
 - **Open source, and agent-native.** Blob is an open-source AI agentic work-team
   communication platform. Every feature ships in this repo under one licence, with nothing

@@ -391,3 +391,27 @@ Worth knowing before changing the equivalent code:
   the sync is a psql UPDATE on Coolify's own DB (`applications` table, backup first) or
   the UI's reload-compose button. After any compose change: update the snapshot, then
   deploy.
+
+- **`MAX(uuid)` does not exist in Postgres.** There is no max aggregate for the type, so
+  "the newest message per channel" is `DISTINCT ON (channel_id) … ORDER BY channel_id,
+  id DESC`, which also walks the existing index rather than aggregating the table.
+  `GREATEST(uuid, uuid)` *does* work — it needs only the btree comparison — which is why
+  `mark_read`'s ratchet has always been fine. Hit while writing mark-all-read.
+- **The 46 themeable token names are sliced by index, not looked up.** `TOKEN_GROUPS` in
+  `services/themes.py` is `THEMEABLE_TOKENS[0:10]`, `[10:14]`, and so on, so *reordering*
+  tokens.css silently regroups the theme editor while every name still validates. Add new
+  token families below the colours and never inside them.
+- **A custom property's computed value is resolved, not literal.** `getComputedStyle`
+  returns `#141614` for `--bg: var(--dark-bg)`, which is what lets the dark palette be
+  written once and aliased twice — and what stops `ThemesSection`'s colour-input
+  normaliser choking on a `var()`. Verified in a browser before relying on it.
+- **`justify-content` and `display` cannot be transitioned; `visibility` can.** The switch
+  knob teleported because its position was a flex-alignment flip, and the message hover
+  toolbar could not animate at all because it was `display: none`. Reveal with
+  opacity + `visibility` (co-transitioned) rather than opacity alone — opacity 0 leaves
+  every control clickable and in the tab order, which is the same bug the mobile drawer
+  had with a bare `transform`.
+- **A vitest worker can time out under load and still report "passed".** `pnpm check`
+  exited 1 with `[vitest-worker]: Timeout calling "fetch"` and one test *file* never
+  collected, while the summary line said 258 passed. Compare the file count against a
+  known-good run before believing a green summary.
