@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
+from functools import partial
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
@@ -575,6 +576,24 @@ async def mark_unread(
         )
         after.add(lambda: read_state_service.broadcast(user.id, state))
     return ReadStateResponse(read_state=state)
+
+
+@router.post("/api/read-states/all", response_model=ReadStatesOut)
+async def mark_all_read(user: SessionUser = Depends(current_user)) -> ReadStatesOut:
+    """Slack's Shift+Esc: everything, everywhere, read.
+
+    Broadcasts one event per channel that actually moved rather than a single
+    "all read" event, so the other tabs apply it through the same reducer every
+    other read-state change goes through — a second kind of event would be a
+    second path to keep in step with the first.
+    """
+    async with transaction() as (session, after):
+        states = await read_state_service.mark_all_read(session, user.id)
+        for state in states:
+            # partial rather than a closure: these run past COMMIT, by which point a
+            # lambda over the loop variable would broadcast the last state N times.
+            after.add(partial(read_state_service.broadcast, user.id, state))
+    return ReadStatesOut(read_states=states, total_mentions=0)
 
 
 @router.get("/api/read-states", response_model=ReadStatesOut)

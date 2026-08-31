@@ -3,6 +3,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { useStore } from '../lib/store.ts';
+import { showError } from '../lib/toasts.ts';
 import { socket } from '../lib/socket.ts';
 import {
   DEFAULT_MEMBER_SECTION,
@@ -202,6 +203,13 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           // Handled by the composer, which is the only thing that knows whether the box
           // is empty. Listed here so `⌘/` documents it and this switch stays the whole
           // vocabulary.
+          return;
+        case 'read-all':
+          event.preventDefault();
+          void useStore
+            .getState()
+            .markAllRead()
+            .catch(showError);
           return;
         case 'close':
           // Innermost first: closing a thread while a dialog is open over it would leave

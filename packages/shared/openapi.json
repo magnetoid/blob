@@ -11570,6 +11570,28 @@
         ]
       }
     },
+    "/api/read-states/all": {
+      "post": {
+        "description": "Slack's Shift+Esc: everything, everywhere, read.\n\nBroadcasts one event per channel that actually moved rather than a single\n\"all read\" event, so the other tabs apply it through the same reducer every\nother read-state change goes through \u2014 a second kind of event would be a\nsecond path to keep in step with the first.",
+        "operationId": "mark_all_read_api_read_states_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadStatesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mark All Read",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/saved": {
       "get": {
         "description": "Everything put aside, newest first \u2014 the flat form the older client read.",

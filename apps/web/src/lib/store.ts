@@ -148,6 +148,8 @@ interface State {
   markRead: (channelId: string) => Promise<void>;
   /** Leave a message, and everything after it, unread. */
   markUnread: (channelId: string, messageId: string) => Promise<void>;
+  /** Slack's Shift+Esc: every channel's cursor to its newest message. */
+  markAllRead: () => Promise<void>;
   applyEvent: (event: ServerEvent) => void;
   resync: () => Promise<void>;
   setPrefs: (prefs: Partial<UserPrefs>) => Promise<void>;
@@ -723,6 +725,31 @@ export const useStore = create<State>((set, get) => ({
     if (channel && channel.lastReadMessageId === newest.id && channel.mentionCount === 0) return;
 
     await api.channels.markRead(channelId, newest.id);
+  },
+
+  markAllRead: async () => {
+    const { readStates } = await api.channels.markAllRead();
+    set((s) => {
+      const channels = { ...s.channels };
+      for (const state of readStates) {
+        const channel = channels[state.channelId];
+        if (!channel) continue;
+        channels[state.channelId] = {
+          ...channel,
+          lastReadMessageId: state.lastReadMessageId,
+          mentionCount: state.mentionCount,
+        };
+      }
+      return {
+        channels,
+        // A channel someone asked to keep unread is not exempt — they just asked for
+        // the opposite of this, and this is the more recent and more explicit request.
+        suppressReadFor: null,
+        // The dividers go with the cursors. Leaving them would show "New messages"
+        // above a channel that just said it had none.
+        unreadMarkers: {},
+      };
+    });
   },
 
   markUnread: async (channelId, messageId) => {

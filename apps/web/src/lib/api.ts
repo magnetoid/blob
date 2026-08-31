@@ -468,6 +468,12 @@ export const api = {
         `/api/channels/${id}/read`,
         { lastReadMessageId },
       ),
+    /** Everything, everywhere. Answers with only the channels that actually moved. */
+    markAllRead: () =>
+      post<{ readStates: Array<{ channelId: string; lastReadMessageId: string; mentionCount: number }> }>(
+        '/api/read-states/all',
+        {},
+      ),
   },
 
   dms: {

@@ -51,6 +51,66 @@ async def mark_read(
     )
 
 
+async def mark_all_read(session: AsyncSession, user_id: str) -> list[ReadStateOut]:
+    """Move every membership's cursor to the newest message in its channel.
+
+    One statement rather than a loop over channels: the set of channels is exactly the
+    set of memberships, the newest id per channel is a grouped max over an index that
+    already exists, and doing it per channel would be one round trip per row for the
+    person most likely to have hundreds of them.
+
+    The workspace boundary rides in on `channel_members` — a membership only exists for
+    a channel in the member's own workspace — so it is inside the statement rather than
+    checked beside it. The GREATEST is what makes it safe to run twice, and safe against
+    a stale ack racing it from another tab.
+
+    Returns only the rows that actually moved, because those are the ones worth
+    broadcasting; a channel that was already read has nothing to tell the other tabs.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                WITH newest AS (
+                    -- DISTINCT ON rather than MAX(id): uuid has no max aggregate, and
+                    -- this walks the (channel_id, id) index backwards one row per
+                    -- channel instead of aggregating the table.
+                    SELECT DISTINCT ON (m.channel_id) m.channel_id, m.id AS message_id
+                      FROM messages m
+                      JOIN channel_members cm
+                        ON cm.channel_id = m.channel_id AND cm.user_id = :user_id
+                     WHERE m.deleted_at IS NULL
+                     ORDER BY m.channel_id, m.id DESC
+                )
+                INSERT INTO read_states
+                  (user_id, channel_id, last_read_message_id, mention_count, updated_at)
+                SELECT :user_id, newest.channel_id, newest.message_id, 0, now()
+                  FROM newest
+                ON CONFLICT (user_id, channel_id) DO UPDATE
+                  SET last_read_message_id = GREATEST(
+                        read_states.last_read_message_id, EXCLUDED.last_read_message_id),
+                      mention_count = 0,
+                      updated_at = now()
+                WHERE read_states.last_read_message_id IS DISTINCT FROM
+                        EXCLUDED.last_read_message_id
+                   OR read_states.mention_count <> 0
+                RETURNING channel_id, last_read_message_id, mention_count
+                """
+            ),
+            {"user_id": user_id},
+        )
+    ).fetchall()
+
+    return [
+        ReadStateOut(
+            channel_id=str(row.channel_id),
+            last_read_message_id=str(row.last_read_message_id),
+            mention_count=row.mention_count,
+        )
+        for row in rows
+    ]
+
+
 async def mark_unread(
     session: AsyncSession, user_id: str, channel_id: str, message_id: str
 ) -> ReadStateOut:

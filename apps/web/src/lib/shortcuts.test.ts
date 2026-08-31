@@ -126,3 +126,32 @@ describe('how keys are written', () => {
     expect(describeKeys(shortcut('next-unread'), true)).toEqual(['⌘', '⇧', 'J']);
   });
 });
+
+describe('marking everything read', () => {
+  it('is Shift+Escape, and plain Escape is still just close', () => {
+    // They share a key and are told apart by Shift alone, so this is the pair most
+    // likely to swallow each other.
+    const shifted = matchShortcut(
+      { key: 'Escape', metaKey: false, ctrlKey: false, shiftKey: true, altKey: false },
+      { typing: false },
+    );
+    const plain = matchShortcut(
+      { key: 'Escape', metaKey: false, ctrlKey: false, shiftKey: false, altKey: false },
+      { typing: false },
+    );
+
+    expect(shifted?.id).toBe('read-all');
+    expect(plain?.id).toBe('close');
+  });
+
+  it('still fires while a composer has focus', () => {
+    // Escape and its chords are the exception to the typing rule; a shortcut you can
+    // only use after clicking away is one nobody reaches for.
+    const match = matchShortcut(
+      { key: 'Escape', metaKey: false, ctrlKey: false, shiftKey: true, altKey: false },
+      { typing: true },
+    );
+
+    expect(match?.id).toBe('read-all');
+  });
+});

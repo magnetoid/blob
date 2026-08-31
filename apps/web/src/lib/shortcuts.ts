@@ -123,6 +123,17 @@ export const SHORTCUTS: readonly Shortcut[] = [
     whileTyping: true,
   },
   {
+    // Slack's chord, unchanged. It shares Escape with `close` and is told apart by
+    // Shift, which the matcher compares exactly rather than loosely — so plain Escape
+    // never answers this and this never answers plain Escape.
+    id: 'read-all',
+    label: 'Mark everything read',
+    group: 'Conversation',
+    key: 'Escape',
+    shift: true,
+    whileTyping: true,
+  },
+  {
     id: 'help',
     label: 'Show this list',
     group: 'Application',
