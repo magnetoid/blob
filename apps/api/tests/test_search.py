@@ -153,3 +153,63 @@ class TestDateModifiers:
     async def test_a_real_date_still_narrows(self, team: dict) -> None:
         response = await team["owner"].get("/api/search?q=pineapple after:2020-01-01")
         assert response.status == 200, response.body
+
+
+class TestAModifierThatNamesNobody:
+    """A filter that matches nothing must narrow the search to nothing.
+
+    `author_id=None` means "no filter" to the service, so an unresolved name used to fall
+    through to the *unfiltered* result set — `from:@nobody` answered with every message
+    in the workspace, and `from:@Marko`, when the display name was "Marko Ilic", answered
+    as though Marko had written all of them. Widening a search in response to a narrowing
+    term is the one answer that cannot be right.
+    """
+
+    async def test_an_unknown_person_finds_nothing(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "kumquatzephyr sighted")
+        everything = await team["owner"].get("/api/search?q=kumquatzephyr")
+        assert everything.body["total"] >= 1
+
+        answer = await team["owner"].get("/api/search?q=from:@nobodyatall kumquatzephyr")
+
+        assert answer.body["messages"] == []
+        assert answer.body["total"] == 0
+        assert "from:nobodyatall" in answer.body["parsed"]["unresolved"]
+
+    async def test_an_unknown_channel_finds_nothing(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "kumquatzephyr again")
+
+        answer = await team["owner"].get("/api/search?q=in:%23nosuchchannel kumquatzephyr")
+
+        assert answer.body["messages"] == []
+        assert "in:nosuchchannel" in answer.body["parsed"]["unresolved"]
+
+    async def test_a_first_name_finds_the_person(self, team: dict) -> None:
+        # Display names are full names and people type what they say out loud.
+        joiner = await invite_and_sign_up(team["owner"], "Marko Ilic")
+        await team["owner"].post(
+            f"/api/channels/{team['general']['id']}/members", {"userIds": [joiner.user_id]}
+        )
+        await send_message(joiner, team["general"]["id"], "zanzibarquince")
+
+        answer = await team["owner"].get("/api/search?q=from:@Marko zanzibarquince")
+
+        assert answer.body["messages"], answer.body
+        assert all(m["authorId"] == joiner.user_id for m in answer.body["messages"])
+
+    async def test_an_ambiguous_first_name_finds_nothing_rather_than_guessing(
+        self, team: dict
+    ) -> None:
+        # Two people share the prefix; picking the first would answer a question nobody
+        # asked, and answer it differently as the workspace grows.
+        one = await invite_and_sign_up(team["owner"], "Sam Carter")
+        await invite_and_sign_up(team["owner"], "Sam Delgado")
+        await team["owner"].post(
+            f"/api/channels/{team['general']['id']}/members", {"userIds": [one.user_id]}
+        )
+        await send_message(one, team["general"]["id"], "yttriumbadger")
+
+        answer = await team["owner"].get("/api/search?q=from:@Sam yttriumbadger")
+
+        assert answer.body["messages"] == []
+        assert "from:Sam" in answer.body["parsed"]["unresolved"]

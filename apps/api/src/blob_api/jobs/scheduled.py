@@ -32,9 +32,7 @@ async def send_scheduled(_ctx: dict[str, Any]) -> None:
             # the live send path relies on.
             async with transaction() as (session, _after):
                 result = await scheduled_service.deliver(session, item)
-                await scheduled_service.mark_sent(
-                    session, str(item["id"]), result.message.id
-                )
+                await scheduled_service.mark_sent(session, str(item["id"]), result.message.id)
             sent += 1
         except AppError as refusal:
             # An expected no: the channel is gone, or the author is no longer in it.

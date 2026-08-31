@@ -85,9 +85,7 @@ async def schedule(
             code="invalid_input",
         )
 
-    await channel_service.assert_channel_access(
-        session, author_id, channel_id, require_member=True
-    )
+    await channel_service.assert_channel_access(session, author_id, channel_id, require_member=True)
 
     row = (
         await session.execute(
@@ -235,8 +233,7 @@ async def mark_failed(session: AsyncSession, scheduled_id: str, reason: str) -> 
     """
     await session.execute(
         text(
-            "UPDATE scheduled_messages SET canceled_at = now(), last_error = :reason"
-            " WHERE id = :id"
+            "UPDATE scheduled_messages SET canceled_at = now(), last_error = :reason WHERE id = :id"
         ),
         {"id": scheduled_id, "reason": reason[:500]},
     )

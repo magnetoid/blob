@@ -341,9 +341,7 @@ class TestResolveFromADm:
         await install(owner)
 
         with pytest.raises(AppError) as caught:
-            await agent_shell_service.resolve_for_bot_user(
-                await _actor_for(owner), owner.user_id
-            )
+            await agent_shell_service.resolve_for_bot_user(await _actor_for(owner), owner.user_id)
 
         assert caught.value.code == "not_hosted"
 

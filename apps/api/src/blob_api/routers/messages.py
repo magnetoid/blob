@@ -649,9 +649,7 @@ async def list_scheduled(user: SessionUser = Depends(current_user)) -> Scheduled
 
 
 @router.delete("/api/scheduled/{scheduled_id}", response_model=OkOut)
-async def cancel_scheduled(
-    scheduled_id: str, user: SessionUser = Depends(current_user)
-) -> OkOut:
+async def cancel_scheduled(scheduled_id: str, user: SessionUser = Depends(current_user)) -> OkOut:
     async with transaction() as (session, _):
         await scheduled_service.cancel(session, user.id, scheduled_id)
     return OkOut()

@@ -68,19 +68,41 @@ async def search_messages(
 
     async with session_scope() as session:
         author_id = channel_id = None
+        # A modifier that names nobody must narrow the search to nothing, not widen it
+        # back to everything. Passing None to the service means "no filter", so an
+        # unresolved name used to hand back the whole unfiltered result set — a search
+        # for `from:@nobody` answered with every message in the workspace, and one for
+        # `from:@Marko` answered as if Marko had written all of them.
+        unresolved: list[str] = []
         if parsed.author:
-            row = (
+            candidates = (
                 await session.execute(
                     text(
                         """
                         SELECT id FROM users
-                         WHERE workspace_id = :ws AND lower(display_name) = lower(:name)
+                         WHERE workspace_id = :ws
+                           AND deactivated_at IS NULL
+                           AND (lower(display_name) = lower(:name)
+                                -- People type the name they say out loud, and display
+                                -- names are full names. Exact wins; a prefix is only
+                                -- accepted when it names exactly one person, because
+                                -- guessing between two would answer a question nobody
+                                -- asked.
+                                OR lower(display_name) LIKE lower(:name) || ' %')
+                         ORDER BY (lower(display_name) = lower(:name)) DESC
+                         LIMIT 2
                         """
                     ),
                     {"ws": user.workspace_id, "name": parsed.author},
                 )
-            ).fetchone()
-            author_id = row.id if row else None
+            ).fetchall()
+            # LIMIT 2 exists to tell "one person" from "more than one" without
+            # counting the whole table. Anything but exactly one is unresolved: zero
+            # names nobody, and two means the first is only first by sort order.
+            if len(candidates) == 1:
+                author_id = candidates[0].id
+            else:
+                unresolved.append(f"from:{parsed.author}")
         if parsed.channel:
             row = (
                 await session.execute(
@@ -94,6 +116,15 @@ async def search_messages(
                 )
             ).fetchone()
             channel_id = row.id if row else None
+            if channel_id is None:
+                unresolved.append(f"in:{parsed.channel}")
+
+        if unresolved:
+            # Nothing matches a person or channel that does not exist. Said plainly, so
+            # the client can explain the empty result rather than implying silence.
+            return SearchOut(
+                messages=[], total=0, parsed={**parsed_payload, "unresolved": unresolved}
+            )
 
         messages, total = await search(
             session,

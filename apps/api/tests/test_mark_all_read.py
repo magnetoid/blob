@@ -56,12 +56,8 @@ class TestMarkingEverythingRead:
         general = next(c for c in team["channels"] if c["name"] == "general")
         channel_id = general["id"]
         mention = await say(owner, channel_id, "@Member could you look?")
-        await member.post(
-            f"/api/channels/{channel_id}/read", {"lastReadMessageId": mention}
-        )
-        rewound = await member.post(
-            f"/api/channels/{channel_id}/unread", {"messageId": mention}
-        )
+        await member.post(f"/api/channels/{channel_id}/read", {"lastReadMessageId": mention})
+        rewound = await member.post(f"/api/channels/{channel_id}/unread", {"messageId": mention})
         assert rewound.body["readState"]["mentionCount"] == 1
 
         await member.post("/api/read-states/all", {})
@@ -96,13 +92,9 @@ class TestMarkingEverythingRead:
 
         assert after[channel_id]["lastReadMessageId"] != later
 
-    async def test_it_cannot_reach_a_channel_the_person_is_not_in(
-        self, team: dict
-    ) -> None:
+    async def test_it_cannot_reach_a_channel_the_person_is_not_in(self, team: dict) -> None:
         member, owner = team["member"], team["owner"]
-        private = await owner.post(
-            "/api/channels", {"name": "owners-only", "kind": "private"}
-        )
+        private = await owner.post("/api/channels", {"name": "owners-only", "kind": "private"})
         assert private.status == 200, private.body
         private_id = private.body["channel"]["id"]
         await say(owner, private_id, "not for you")

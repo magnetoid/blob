@@ -37,9 +37,7 @@ class TestWhatTheDirectoryShows:
         assert general["joined"] is True
 
     async def test_a_channel_you_are_not_in_is_offered_to_join(self, team: dict) -> None:
-        made = await team["owner"].post(
-            "/api/channels", {"name": "watercooler", "kind": "public"}
-        )
+        made = await team["owner"].post("/api/channels", {"name": "watercooler", "kind": "public"})
         assert made.status == 200, made.body
 
         listed = await browse(team["member"], "watercooler")
@@ -79,9 +77,7 @@ class TestWhatItMustNotShow:
 
         assert listed == []
 
-    async def test_a_private_channel_you_are_in_is_not_listed_either(
-        self, team: dict
-    ) -> None:
+    async def test_a_private_channel_you_are_in_is_not_listed_either(self, team: dict) -> None:
         # It is already in their sidebar; repeating it here is noise, not discovery.
         await team["owner"].post("/api/channels", {"name": "owners-den", "kind": "private"})
 
