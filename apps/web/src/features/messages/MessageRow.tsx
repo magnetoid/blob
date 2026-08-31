@@ -18,6 +18,7 @@ import { BlockRenderer } from "./BlockRenderer.tsx";
 import { MessageEditor } from "./MessageEditor.tsx";
 import { MessageMenu } from "./MessageMenu.tsx";
 import { ForwardDialog } from "./ForwardDialog.tsx";
+import { moveFocusBetweenMessages } from "./arrowNavigation.ts";
 import { MessageTranslation } from "./MessageTranslation.tsx";
 import { formatRelative, formatTime } from "./messageFormatting.ts";
 import { Avatar } from "../../components/Avatar.tsx";
@@ -180,6 +181,11 @@ export const MessageRow = memo(function MessageRow({
   }
 
   return (
+    // Both rules object to the same deliberate decision, made once: this row is a
+    // focusable, keyboard-driven element even though ARIA has no role for "an article
+    // in a log that you arrow through". The alternative — role="option" — would be a
+    // lie about the list, which is a `log` because it is a live feed.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <article
       className="message"
       // Focusable so the hover toolbar is reachable without a mouse: the reveal rule
@@ -198,6 +204,7 @@ export const MessageRow = memo(function MessageRow({
       data-mentions-me={mentionsMe}
       data-pending={pending}
       data-delivery-state={deliveryState ?? undefined}
+      onKeyDown={moveFocusBetweenMessages}
     >
       <div className="message-gutter">
         {grouped ? (
