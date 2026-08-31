@@ -21,6 +21,7 @@ import { useStore } from "../../lib/store.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { socket } from "../../lib/socket.ts";
 import { api } from "../../lib/api.ts";
+import { showError, useToasts } from "../../lib/toasts.ts";
 import {
   commandQuery,
   localCommand,
@@ -42,6 +43,8 @@ import {
   type PendingAttachment,
 } from "../../lib/attachments.ts";
 import { openAgentTerminal } from "../../lib/agentTerminal.ts";
+import { Menu } from "../../components/Menu.tsx";
+import { presetsFor } from "./schedulePresets.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import {
@@ -51,6 +54,7 @@ import {
   FileIcon,
   MentionIcon,
   SendIcon,
+  ClockIcon,
 } from "../../components/Icon.tsx";
 
 
@@ -115,6 +119,7 @@ export function Composer({
     [writeDraft, channelId, threadRootId],
   );
   const [sending, setSending] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
@@ -265,6 +270,35 @@ export function Composer({
     if (value.trim() && now - lastTypingRef.current > 3000) {
       lastTypingRef.current = now;
       socket.send({ t: "typing", channelId, threadRootId });
+    }
+  }
+
+  async function scheduleFor(when: Date) {
+    setScheduleOpen(false);
+    const body = draft;
+    setSending(true);
+    try {
+      await api.channels.schedule(channelId, {
+        body,
+        sendAt: when.toISOString(),
+        clientMsgId: crypto.randomUUID(),
+        threadRootId: threadRootId ?? null,
+      });
+      // Cleared only once the server has it: a draft dropped on a failed request is a
+      // message somebody has to write twice.
+      setDraft("");
+      useToasts.getState().push(
+        'info',
+        `Scheduled for ${when.toLocaleString(undefined, {
+          weekday: 'short',
+          hour: 'numeric',
+          minute: '2-digit',
+        })}`,
+      );
+    } catch (err) {
+      showError(err);
+    } finally {
+      setSending(false);
     }
   }
 
@@ -891,6 +925,43 @@ export function Composer({
             >
               <SendIcon size="md" />
             </button>
+            {/* Beside Send rather than in the ⋯ menu: the decision "now or later" is
+                made at the moment of sending, with the message already written. */}
+            <div className="schedule-wrap">
+              <button
+                className="icon-btn schedule-trigger"
+                type="button"
+                aria-label="Schedule this message"
+                aria-haspopup="menu"
+                aria-expanded={scheduleOpen}
+                data-tooltip="Send later"
+                data-tooltip-place="top"
+                disabled={!ready || sending}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setScheduleOpen((open) => !open);
+                }}
+              >
+                <ClockIcon size="md" />
+              </button>
+              <Menu
+                open={scheduleOpen}
+                onClose={() => setScheduleOpen(false)}
+                className="menu schedule-menu"
+              >
+                {presetsFor(new Date()).map((preset) => (
+                  <button
+                    key={preset.id}
+                    className="menu-item"
+                    role="menuitem"
+                    type="button"
+                    onClick={() => void scheduleFor(preset.at(new Date()))}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </Menu>
+            </div>
           </div>
         </div>
 

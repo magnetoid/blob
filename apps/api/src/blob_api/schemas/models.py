@@ -103,6 +103,19 @@ class BrowsableChannel(CamelModel):
     joined: bool
 
 
+class ScheduledMessage(CamelModel):
+    """A message waiting to be sent. Only ever the author's own."""
+
+    id: str
+    channel_id: str
+    body: str
+    thread_root_id: str | None = None
+    send_at: str
+    created_at: str
+    #: Why it did not go, when it did not go.
+    last_error: str | None = None
+
+
 class Membership(CamelModel):
     notify_level: NotifyLevel
     is_starred: bool

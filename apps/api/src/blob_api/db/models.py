@@ -732,6 +732,58 @@ class SavedItem(Base):
     reminded_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
+class ScheduledMessage(Base):
+    """A message written now and sent later. Slack's "Schedule message".
+
+    The row carries the whole message rather than pointing at a draft: a draft lives in
+    the author's browser, and a message that exists only in one browser cannot be sent by
+    a worker. `client_msg_id` rides along so the eventual send goes through the same
+    idempotency the live path uses — a sweep that retries after a partial failure cannot
+    post the same message twice.
+    """
+
+    __tablename__ = "scheduled_messages"
+    __table_args__ = (
+        # The sweep's whole working set: due, unsent, uncancelled.
+        Index(
+            "scheduled_messages_due",
+            "send_at",
+            postgresql_where=text("sent_at IS NULL AND canceled_at IS NULL"),
+        ),
+        Index(
+            "scheduled_messages_by_author",
+            "author_id",
+            "send_at",
+            postgresql_where=text("sent_at IS NULL AND canceled_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    author_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    thread_root_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE")
+    )
+    client_msg_id: Mapped[str] = mapped_column(Text, nullable=False)
+    send_at: Mapped[Any] = mapped_column(Timestamp, nullable=False)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    #: Set once it has gone out. With `canceled_at`, the two ways a row stops being due.
+    sent_at: Mapped[Any | None] = mapped_column(Timestamp)
+    sent_message_id: Mapped[str | None] = mapped_column(Text)
+    canceled_at: Mapped[Any | None] = mapped_column(Timestamp)
+    #: Kept rather than retried forever: an author who comes back to a message that did
+    #: not send deserves to know why.
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+
 class ThreadSummary(Base):
     __tablename__ = "thread_summaries"
     __table_args__ = (

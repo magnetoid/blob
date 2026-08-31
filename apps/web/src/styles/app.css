@@ -3353,6 +3353,21 @@ select.chip {
   animation: message-flash 1.6s ease-out;
 }
 
+/* ─── scheduling ─────────────────────────────────────────────────────────── */
+.schedule-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Hangs above the composer, which sits at the bottom of the window. */
+.schedule-menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  min-width: 180px;
+}
+
 /* ─── forwarding ─────────────────────────────────────────────────────────── */
 .forward-list {
   display: flex;

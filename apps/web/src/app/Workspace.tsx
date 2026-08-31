@@ -22,6 +22,7 @@ import { SavedView } from '../features/messages/SavedView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
 import { BrowseChannels } from '../features/channels/BrowseChannels.tsx';
+import { ScheduledView } from '../features/messages/ScheduledView.tsx';
 import { AgentTerminalPanel } from '../features/agentic/AgentTerminalPanel.tsx';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
@@ -338,6 +339,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {view === 'tasks' && <TasksView />}
       {view === 'saved' && <SavedView />}
       {view === 'browse' && <BrowseChannels />}
+      {view === 'scheduled' && <ScheduledView />}
       {view === 'changelog' && <WhatsNewView />}
       {view === 'search' && <SearchView />}
       {view === 'profile' && <ProfileView />}

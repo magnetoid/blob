@@ -25,7 +25,7 @@ from ..lib.rate_limit import consume
 from ..plugins import events as plugin_events
 from ..realtime import hub
 from ..schemas.base import CamelModel
-from ..schemas.models import Message, MessageTranslation, ReadStateOut
+from ..schemas.models import Message, MessageTranslation, ReadStateOut, ScheduledMessage
 from ..schemas.requests import (
     EditMessageInput,
     MarkReadInput,
@@ -41,6 +41,7 @@ from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
 from ..services import read_state as read_state_service
+from ..services import scheduled as scheduled_service
 from ..services import translation as translation_service
 from ..services.audit import actor_for
 from ..services.serialize import message_event
@@ -594,6 +595,66 @@ async def mark_all_read(user: SessionUser = Depends(current_user)) -> ReadStates
             # lambda over the loop variable would broadcast the last state N times.
             after.add(partial(read_state_service.broadcast, user.id, state))
     return ReadStatesOut(read_states=states, total_mentions=0)
+
+
+# ─── scheduled messages ───────────────────────────────────────────────────────
+class ScheduleInput(CamelModel):
+    body: str = Field(min_length=1, max_length=12_000)
+    send_at: str
+    client_msg_id: str = Field(min_length=1, max_length=200)
+    thread_root_id: str | None = None
+
+
+class ScheduledOut(CamelModel):
+    scheduled: ScheduledMessage
+
+
+class ScheduledListOut(CamelModel):
+    scheduled: list[ScheduledMessage]
+
+
+@router.post("/api/channels/{channel_id}/schedule", response_model=ScheduledOut)
+async def schedule_message(
+    channel_id: str, payload: ScheduleInput, user: SessionUser = Depends(current_user)
+) -> ScheduledOut:
+    """Write it now, send it then."""
+    try:
+        send_at = datetime.fromisoformat(payload.send_at.replace("Z", "+00:00"))
+    except ValueError:
+        raise bad_request("That isn't a time.", "invalid_input") from None
+    if send_at.tzinfo is None:
+        # Without an offset there is no way to know whose midnight was meant.
+        raise bad_request("That time needs a time zone.", "invalid_input")
+
+    async with transaction() as (session, _):
+        scheduled = await scheduled_service.schedule(
+            session,
+            workspace_id=user.workspace_id,
+            channel_id=channel_id,
+            author_id=user.id,
+            body=payload.body,
+            send_at=send_at,
+            client_msg_id=payload.client_msg_id,
+            thread_root_id=payload.thread_root_id,
+        )
+    return ScheduledOut(scheduled=scheduled)
+
+
+@router.get("/api/scheduled", response_model=ScheduledListOut)
+async def list_scheduled(user: SessionUser = Depends(current_user)) -> ScheduledListOut:
+    """Only ever your own: a scheduled message is private until it is sent."""
+    async with session_scope() as session:
+        scheduled = await scheduled_service.list_for_author(session, user.id)
+    return ScheduledListOut(scheduled=scheduled)
+
+
+@router.delete("/api/scheduled/{scheduled_id}", response_model=OkOut)
+async def cancel_scheduled(
+    scheduled_id: str, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    async with transaction() as (session, _):
+        await scheduled_service.cancel(session, user.id, scheduled_id)
+    return OkOut()
 
 
 @router.get("/api/read-states", response_model=ReadStatesOut)

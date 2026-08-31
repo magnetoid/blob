@@ -2,6 +2,7 @@
 
 import type {
   BrowsableChannel,
+  ScheduledMessage,
   LaterItem,
   LaterState,
   AgentRunView,
@@ -473,6 +474,10 @@ export const api = {
         `/api/channels/${id}/read`,
         { lastReadMessageId },
       ),
+    schedule: (
+      channelId: string,
+      input: { body: string; sendAt: string; clientMsgId: string; threadRootId?: string | null },
+    ) => post<{ scheduled: ScheduledMessage }>(`/api/channels/${channelId}/schedule`, input),
     /** Everything, everywhere. Answers with only the channels that actually moved. */
     markAllRead: () =>
       post<{ readStates: Array<{ channelId: string; lastReadMessageId: string; mentionCount: number }> }>(
@@ -532,6 +537,11 @@ export const api = {
     react: (id: string, emoji: string) => put<{ ok: true }>(`/api/messages/${id}/reactions`, { emoji }),
     unreact: (id: string, emoji: string) =>
       del<{ ok: true }>(`/api/messages/${id}/reactions?emoji=${encodeURIComponent(emoji)}`),
+  },
+
+  scheduled: {
+    list: () => get<{ scheduled: ScheduledMessage[] }>('/api/scheduled'),
+    cancel: (id: string) => del<{ ok: true }>(`/api/scheduled/${id}`),
   },
 
   agents: {

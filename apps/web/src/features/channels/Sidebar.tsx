@@ -10,6 +10,7 @@ import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import {
+  ClockIcon,
   FileIcon,
   PinIcon,
   PlusIcon,
@@ -104,6 +105,16 @@ export function Sidebar() {
             </span>
             <span className="channel-name">Later</span>
             {savedCount > 0 && <span className="badge badge-quiet">{savedCount}</span>}
+          </button>
+          <button
+            className="channel-row"
+            aria-current={activeView === 'scheduled'}
+            onClick={() => navigate('/scheduled')}
+          >
+            <span className="channel-hash" aria-hidden="true">
+              <ClockIcon size="sm" />
+            </span>
+            <span className="channel-name">Scheduled</span>
           </button>
         </section>
 

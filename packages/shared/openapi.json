@@ -4527,6 +4527,128 @@
         "title": "SaveThemeInput",
         "type": "object"
       },
+      "ScheduleInput": {
+        "properties": {
+          "body": {
+            "maxLength": 12000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "clientMsgId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Clientmsgid",
+            "type": "string"
+          },
+          "sendAt": {
+            "title": "Sendat",
+            "type": "string"
+          },
+          "threadRootId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threadrootid"
+          }
+        },
+        "required": [
+          "body",
+          "sendAt",
+          "clientMsgId"
+        ],
+        "title": "ScheduleInput",
+        "type": "object"
+      },
+      "ScheduledListOut": {
+        "properties": {
+          "scheduled": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduledMessage"
+            },
+            "title": "Scheduled",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scheduled"
+        ],
+        "title": "ScheduledListOut",
+        "type": "object"
+      },
+      "ScheduledMessage": {
+        "description": "A message waiting to be sent. Only ever the author's own.",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "sendAt": {
+            "title": "Sendat",
+            "type": "string"
+          },
+          "threadRootId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threadrootid"
+          }
+        },
+        "required": [
+          "id",
+          "channelId",
+          "body",
+          "sendAt",
+          "createdAt"
+        ],
+        "title": "ScheduledMessage",
+        "type": "object"
+      },
+      "ScheduledOut": {
+        "properties": {
+          "scheduled": {
+            "$ref": "#/components/schemas/ScheduledMessage"
+          }
+        },
+        "required": [
+          "scheduled"
+        ],
+        "title": "ScheduledOut",
+        "type": "object"
+      },
       "SearchOut": {
         "properties": {
           "messages": {
@@ -10499,6 +10621,59 @@
         ]
       }
     },
+    "/api/channels/{channel_id}/schedule": {
+      "post": {
+        "description": "Write it now, send it then.",
+        "operationId": "schedule_message_api_channels__channel_id__schedule_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Schedule Message",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/channels/{channel_id}/unread": {
       "post": {
         "description": "Leave a message, and everything after it, unread.\n\nIts own route rather than a flag on `/read`, because that one is a ratchet and the\nratchet protects something: two tabs both mark read on focus, and a stale one\narriving second must not un-read what the other just read. Rewinding is a thing a\nperson asks for, so it says so.",
@@ -11806,6 +11981,70 @@
           }
         },
         "summary": "Update Later",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/scheduled": {
+      "get": {
+        "description": "Only ever your own: a scheduled message is private until it is sent.",
+        "operationId": "list_scheduled_api_scheduled_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Scheduled",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/scheduled/{scheduled_id}": {
+      "delete": {
+        "operationId": "cancel_scheduled_api_scheduled__scheduled_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduled_id",
+            "required": true,
+            "schema": {
+              "title": "Scheduled Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Scheduled",
         "tags": [
           "messages"
         ]
