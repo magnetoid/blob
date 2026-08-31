@@ -56,7 +56,7 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
         Signed in as {currentUser.displayName} · {currentUser.email}
       </p>
 
-      <h2 className="section-label" style={{ marginTop: 24, paddingLeft: 0 }}>
+      <h2 className="section-label" style={{ marginTop: 24 }}>
         Theme
       </h2>
       <div className="chip-row">
@@ -72,7 +72,7 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
         ))}
       </div>
 
-      <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+      <h2 className="section-label" style={{ marginTop: 26 }}>
         Light palette
       </h2>
       <div className="chip-row">
@@ -91,7 +91,7 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
           ))}
       </div>
 
-      <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+      <h2 className="section-label" style={{ marginTop: 26 }}>
         Dark palette
       </h2>
       <div className="chip-row">
@@ -110,7 +110,7 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
           ))}
       </div>
 
-      <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+      <h2 className="section-label" style={{ marginTop: 26 }}>
         Density
       </h2>
       <div className="chip-row">
@@ -126,7 +126,7 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
         ))}
       </div>
 
-      <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+      <h2 className="section-label" style={{ marginTop: 26 }}>
         Language and input
       </h2>
 
@@ -198,12 +198,12 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
         </button>
       </div>
 
-      <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+      <h2 className="section-label" style={{ marginTop: 26 }}>
         Where you’re signed in
       </h2>
       <DevicesPanel />
 
-      <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+      <h2 className="section-label" style={{ marginTop: 26 }}>
         Account
       </h2>
       <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>

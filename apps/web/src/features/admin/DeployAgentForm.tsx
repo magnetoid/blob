@@ -135,7 +135,7 @@ export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
             </p>
           )}
 
-          <h3 className="section-label" style={{ paddingLeft: 0, marginTop: 14 }}>
+          <h3 className="section-label" style={{ marginTop: 14 }}>
             It is asking for
           </h3>
           {preview.scopes.length === 0 ? (
@@ -157,7 +157,7 @@ export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
             </p>
           )}
 
-          <h3 className="section-label" style={{ paddingLeft: 0, marginTop: 16 }}>
+          <h3 className="section-label" style={{ marginTop: 16 }}>
             Configuration
           </h3>
           <p className="pref-hint" style={{ margin: '0 0 10px' }}>

@@ -66,7 +66,7 @@ export function AppSettings({ pluginId, onError }: Props) {
       )}
 
       <div>
-        <h3 className="section-label" style={{ paddingLeft: 0 }}>
+        <h3 className="section-label">
           Endpoint
         </h3>
         <div className="pref-hint" style={{ wordBreak: 'break-all' }}>
@@ -75,7 +75,7 @@ export function AppSettings({ pluginId, onError }: Props) {
       </div>
 
       <div>
-        <h3 className="section-label" style={{ paddingLeft: 0 }}>
+        <h3 className="section-label">
           Channels
         </h3>
         <div className="pref-hint" style={{ marginBottom: 10 }}>
@@ -112,7 +112,7 @@ export function AppSettings({ pluginId, onError }: Props) {
       </div>
 
       <div>
-        <h3 className="section-label" style={{ paddingLeft: 0 }}>
+        <h3 className="section-label">
           Permissions
         </h3>
         <div className="pref-hint">

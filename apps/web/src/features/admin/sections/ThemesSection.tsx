@@ -145,7 +145,7 @@ export function ThemesSection({ onError }: { onError: (message: string | null) =
 
         {editableGroups.map(([group, groupTokens]) => (
           <div key={group} style={{ marginTop: 18 }}>
-            <h3 className="section-label" style={{ paddingLeft: 0 }}>
+            <h3 className="section-label">
               {group}
             </h3>
             <div className="token-grid">

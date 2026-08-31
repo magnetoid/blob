@@ -105,7 +105,7 @@ function PolicyEditor({
 
   return (
     <>
-      <h2 className="section-label" style={{ marginTop: 26, paddingLeft: 0 }}>
+      <h2 className="section-label" style={{ marginTop: 26 }}>
         What this workspace may do
       </h2>
 

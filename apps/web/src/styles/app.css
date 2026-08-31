@@ -226,12 +226,24 @@ button {
 }
 
 .section-label {
-  padding: 8px 10px 4px;
+  /* Flush by default. This carried the sidebar's 10px inset, and thirteen of its
+     nineteen other call sites existed only to cancel it — a shared class written for
+     one context and argued with everywhere else. The inset belongs to the contexts
+     whose rows are inset, so it lives with them. */
+  padding: 8px 0 4px;
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--text-label);
+}
+
+/* Where the rows beneath are inset, the label lines up with them. */
+.sidebar .section-label,
+.admin-nav .section-label,
+.pinned-panel .section-label,
+.shortcut-help .section-label {
+  padding-left: 10px;
 }
 
 /* ─── auth ───────────────────────────────────────────────────────────────── */
@@ -407,32 +419,6 @@ button {
   font-size: var(--text-2xs);
   color: var(--text-4);
   text-overflow: ellipsis;
-}
-
-.user-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 7px 9px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-row);
-  text-align: left;
-  cursor: pointer;
-}
-
-.user-menu-item:hover:not(:disabled) {
-  background: var(--surface-hover);
-}
-
-.user-menu-item:disabled {
-  color: var(--disabled-fg);
-  cursor: default;
 }
 
 .user-menu-soon {
@@ -3545,7 +3531,8 @@ select.chip {
   color: var(--text-4);
 }
 
-.menu-item {
+.menu-item,
+.user-menu-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3561,8 +3548,23 @@ select.chip {
   cursor: pointer;
 }
 
-.menu-item:hover {
+/* Only what differs from a menu row: these push a "Soon" pill to the far end. The
+   shared thirteen declarations live with .menu-item. */
+.user-menu-item {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.menu-item:hover:not(:disabled),
+.user-menu-item:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+
+/* Both menus can hold an inert row; only the account menu did anything about it. */
+.menu-item:disabled,
+.user-menu-item:disabled {
+  color: var(--disabled-fg);
+  cursor: default;
 }
 
 .menu-item-danger:hover {
