@@ -74,8 +74,8 @@
   --knob: #ffffff;
   --backdrop: rgb(26 29 27 / 32%);
 
-  --shadow-popover: 0 4px 14px -6px rgb(26 29 27 / 18%);
-  --shadow-menu: 0 6px 20px -8px rgb(26 29 27 / 16%);
+  /* The toggle knob keeps a shadow of its own: it is a 16px control on a coloured
+     track, not a surface, and none of the elevation levels describe it. */
   --shadow-knob: 0 1px 3px rgb(26 29 27 / 20%);
 
   /* ─── type ─────────────────────────────────────────────────────────────── */
@@ -110,7 +110,6 @@
      only what floats; the ink is --text rather than black, so the shade belongs to
      the palette instead of sitting on top of it. */
   --shadow-ink: 26 29 27;
-  --elev-0: none;
   --elev-1:
     0 0 0 1px var(--hairline),
     0 1px 2px rgb(var(--shadow-ink) / 6%),
@@ -123,7 +122,6 @@
     0 0 0 1px var(--hairline-popover),
     0 12px 32px -8px rgb(var(--shadow-ink) / 16%),
     0 24px 64px -16px rgb(var(--shadow-ink) / 20%);
-  --elev-inset: inset 0 1px 2px rgb(var(--shadow-ink) / 6%);
 
   /* The ladder elevation climbs in dark mode, where a shadow on a dark ground is
      nearly invisible and lighter surfaces do the work instead. Both are --surface
@@ -142,16 +140,14 @@
   --radius-full: 9999px;
 
   /* ─── motion ───────────────────────────────────────────────────────────── */
-  /* Enter slower than exit: arriving is information, leaving is getting out of the
-     way. --dur-fast is the 120ms that nineteen rules had each written out. */
-  --dur-instant: 0ms;
+  /* --dur-fast is the 120ms that nineteen rules had each written out. There is no
+     exit duration yet: every overlay is conditionally rendered, so it leaves the DOM
+     before it could animate out. Add one with the hook that holds them mounted. */
   --dur-fast: 120ms;
-  --dur-base: 150ms;
   --dur-open: 200ms;
   --dur-modal: 250ms;
   --dur-panel: 300ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-color: ease;
   --motion-scale-in: 0.96;
@@ -293,13 +289,7 @@
     --elev-3:
       0 0 0 1px rgb(255 255 255 / 10%),
       0 16px 48px -12px rgb(0 0 0 / 60%);
-    --elev-inset: inset 0 1px 2px rgb(0 0 0 / 40%);
 
-    /* The pre-elevation names, at their original values. They are migrated to
-       --elev-* a surface at a time; changing them here instead would restyle every
-       popover in the app in the same commit that introduced the scale. */
-    --shadow-popover: 0 4px 14px -6px rgb(0 0 0 / 55%);
-    --shadow-menu: 0 6px 20px -8px rgb(0 0 0 / 55%);
     --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
   }
 }
@@ -366,12 +356,6 @@
     --elev-3:
       0 0 0 1px rgb(255 255 255 / 10%),
       0 16px 48px -12px rgb(0 0 0 / 60%);
-    --elev-inset: inset 0 1px 2px rgb(0 0 0 / 40%);
 
-    /* The pre-elevation names, at their original values. They are migrated to
-       --elev-* a surface at a time; changing them here instead would restyle every
-       popover in the app in the same commit that introduced the scale. */
-    --shadow-popover: 0 4px 14px -6px rgb(0 0 0 / 55%);
-    --shadow-menu: 0 6px 20px -8px rgb(0 0 0 / 55%);
     --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
 }

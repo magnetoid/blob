@@ -54,7 +54,7 @@ button {
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 3px solid transparent;
   background-clip: content-box;
 }
@@ -66,15 +66,35 @@ button {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 6px;
+  /* Follow the element rather than impose a corner on it: this rule reaches buttons,
+     pills and cards whose own radii span 4px to 12px, and a fixed value drew a
+     differently-cornered ring around each of them. */
+  border-radius: inherit;
 }
 
+/* The policy is *reduce*, not remove. What makes people ill is movement — things
+   flying, zooming, parallaxing — not a surface fading in. So the travel distances and
+   the scale go to nothing while the fades keep their duration, which is what the
+   accessibility guidance asks for and what keeps an appearing panel locatable.
+
+   This replaces a blanket `animation-duration: 0.01ms !important` on every element.
+   That reset is a blunt instrument: it does not distinguish a 300px slide from a
+   150ms cross-fade, it deletes both, and it overrides any rule written to degrade
+   gracefully — including the fade-only variants below, which it made unreachable.
+
+   Loops still stop: an infinite animation clamped to a tiny duration is a strobe,
+   which is worse for the person who asked for less motion than the animation was. */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-scale-in: 1;
+    --motion-slide: 0px;
+    --motion-slide-lg: 0px;
+  }
+
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
   }
 }
@@ -88,15 +108,15 @@ button {
   height: 34px;
   padding: 0 14px;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   font-size: var(--text-ui);
   font-weight: 500;
   color: var(--text);
   transition:
-    border-color 120ms ease,
-    color 120ms ease,
-    background 120ms ease;
+    border-color var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color),
+    background var(--dur-fast) var(--ease-color);
 }
 
 .btn:hover:not(:disabled) {
@@ -153,11 +173,11 @@ button {
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: var(--text-3);
   transition:
-    background 120ms ease,
-    color 120ms ease;
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color);
 }
 
 .icon-btn:hover {
@@ -169,7 +189,7 @@ button {
   width: 100%;
   padding: 11px 14px;
   border: 1px solid var(--hairline);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   font-size: var(--text-base);
   color: var(--text);
@@ -227,13 +247,13 @@ button {
   padding: 34px;
   background: var(--surface);
   border: 1px solid var(--hairline);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 .auth-mark {
   width: 34px;
   height: 34px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--accent-contrast);
   display: grid;
@@ -322,7 +342,7 @@ button {
   gap: 8px;
   padding: 4px 8px 4px 4px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: none;
   color: inherit;
   font: inherit;
@@ -335,7 +355,7 @@ button {
 
 .user-menu-trigger svg {
   color: var(--text-4);
-  transition: transform 120ms ease;
+  transition: transform var(--dur-fast) var(--ease-color);
 }
 
 .user-menu-trigger[aria-expanded="true"] svg {
@@ -357,15 +377,14 @@ button {
 
 .user-menu-panel {
   position: absolute;
-  z-index: 60;
+  z-index: var(--z-menu);
   top: calc(100% + 6px);
   right: 0;
   min-width: 232px;
   padding: 5px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow-menu);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
 }
 
 .user-menu-header {
@@ -394,7 +413,7 @@ button {
   width: 100%;
   padding: 7px 9px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--text);
   font: inherit;
@@ -414,7 +433,7 @@ button {
 
 .user-menu-soon {
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-muted);
   font-size: var(--text-2xs);
   color: var(--text-4);
@@ -428,7 +447,7 @@ button {
   margin: 24px 0 20px;
   padding: 14px 16px;
   border: 1px solid var(--hairline-soft);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--surface-muted);
 }
 
@@ -459,12 +478,12 @@ button {
   gap: 7px;
   height: 30px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-rail);
   white-space: nowrap;
   transition:
-    background 120ms ease,
-    color 120ms ease;
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color);
 }
 
 .topbar-nav-btn:hover {
@@ -532,13 +551,13 @@ button {
   gap: 9px;
   width: 100%;
   padding: 7px 10px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: var(--text-2);
   font-size: var(--text-row);
   text-align: left;
   transition:
-    background 120ms ease,
-    color 120ms ease;
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color);
 }
 
 .channel-row:hover {
@@ -590,7 +609,7 @@ button {
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--accent-contrast);
   font-size: var(--text-2xs);
@@ -607,7 +626,7 @@ button {
   width: 100%;
   margin-top: 14px;
   padding: 8px 10px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: var(--text-4);
   font-size: var(--text-ui);
   text-align: left;
@@ -626,7 +645,7 @@ button {
   flex: none;
   width: 30px;
   height: 30px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--avatar-bg);
   color: var(--accent);
   font-size: var(--text-2xs);
@@ -650,7 +669,7 @@ button {
 .avatar[data-size="lg"] {
   width: 36px;
   height: 36px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   font-size: var(--text-label-size);
 }
 
@@ -667,7 +686,7 @@ button {
   bottom: -2px;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--presence-offline);
   border: 2px solid var(--bg-sidebar);
 }
@@ -925,7 +944,7 @@ button {
 
 .message-body code {
   padding: 1px 5px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--surface-icon);
   font-family: var(--font-mono);
   font-size: 0.9em;
@@ -935,7 +954,7 @@ button {
   margin: 0 0 8px;
   padding: 12px;
   border: 1px solid var(--hairline);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   overflow-x: auto;
 }
@@ -951,7 +970,7 @@ button {
    ever emitted by that renderer, so there is nothing else for it to catch. */
 .mention {
   padding: 0 3px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--accent-wash);
   color: var(--accent);
   font-weight: 600;
@@ -1034,7 +1053,7 @@ button {
   min-width: 28px;
   height: 28px;
   padding: 0 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-3);
   font-size: var(--text-ui);
 }
@@ -1072,11 +1091,11 @@ button {
   height: 24px;
   padding: 0 8px;
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
   transition:
-    border-color 120ms ease,
-    background 120ms ease;
+    border-color var(--dur-fast) var(--ease-color),
+    background var(--dur-fast) var(--ease-color);
 }
 
 .reaction span:first-child {
@@ -1110,7 +1129,7 @@ button {
   margin-top: 9px;
   padding: 4px 8px 4px 4px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: var(--accent);
   font-size: var(--text-meta);
   font-weight: 600;
@@ -1137,7 +1156,7 @@ button {
   max-width: 360px;
   max-height: 320px;
   border: 1px solid var(--hairline);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   display: block;
 }
 
@@ -1148,7 +1167,7 @@ button {
   padding: 10px 13px;
   background: var(--surface);
   border: 1px solid var(--hairline);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: var(--text);
 }
 
@@ -1162,7 +1181,7 @@ button {
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--surface-icon);
   color: var(--text-3);
 }
@@ -1185,7 +1204,7 @@ button {
   padding: 10px 13px;
   border: 1px solid var(--hairline);
   border-left: 3px solid var(--accent);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -1227,7 +1246,7 @@ button {
 .typing-dots i {
   width: 5px;
   height: 5px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--text-faint);
 }
 
@@ -1253,9 +1272,9 @@ button {
 
 .composer-box {
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
-  transition: border-color 120ms ease;
+  transition: border-color var(--dur-fast) var(--ease-color);
 }
 
 .composer-box:focus-within {
@@ -1302,12 +1321,12 @@ button {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--disabled-bg);
   color: var(--disabled-fg);
   transition:
-    background 120ms ease,
-    color 120ms ease;
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color);
 }
 
 .send-btn[data-ready="true"] {
@@ -1324,7 +1343,7 @@ button {
   padding: 8px 10px;
   background: var(--surface-muted);
   border: 1px solid var(--hairline-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: var(--text-meta);
   font-weight: 500;
 }
@@ -1357,7 +1376,7 @@ button {
   max-width: 260px;
   padding: 5px 5px 5px 6px;
   border: 1px solid var(--hairline);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -1376,7 +1395,7 @@ button {
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   background: var(--surface-icon);
   color: var(--text-4);
@@ -1413,7 +1432,7 @@ button {
   width: 22px;
   height: 22px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--text-4);
   cursor: pointer;
@@ -1432,11 +1451,10 @@ button {
   max-height: 240px;
   overflow-y: auto;
   padding: 4px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow-menu);
-  z-index: 20;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+  z-index: var(--z-menu);
 }
 
 .autocomplete-item {
@@ -1445,7 +1463,7 @@ button {
   gap: 9px;
   width: 100%;
   padding: 7px 10px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: var(--text-row);
   text-align: left;
 }
@@ -1498,7 +1516,7 @@ button {
 .agentic-card {
   padding: 14px;
   border: 1px solid var(--hairline);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
 }
 
@@ -1605,7 +1623,7 @@ button {
 .task-card {
   padding: 12px;
   border: 1px solid var(--hairline-soft);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--surface-muted);
 }
 
@@ -1636,7 +1654,7 @@ button {
   align-items: center;
   height: 22px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface);
   border: 1px solid var(--hairline);
   font-size: var(--text-xs);
@@ -1691,12 +1709,18 @@ button {
   padding: 11px 14px;
   background: var(--surface);
   border: 1px solid var(--hairline-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
+}
+
+.search-field:focus-within {
+  border-color: var(--accent);
 }
 
 .search-field input {
   flex: 1;
   border: 0;
+  /* The ring moves to the wrapper, which is the visible control — the same trick
+     .composer-box uses. Without this the field had no focus indicator of any kind. */
   outline: none;
   background: transparent;
   font-size: var(--text-base);
@@ -1724,9 +1748,9 @@ button {
   padding: 14px;
   background: var(--surface);
   border: 1px solid var(--hairline-soft);
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   text-align: left;
-  transition: border-color 120ms ease;
+  transition: border-color var(--dur-fast) var(--ease-color);
 }
 
 .search-result:hover {
@@ -1764,7 +1788,7 @@ button {
 .palette-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-modal);
   display: flex;
   justify-content: center;
   padding-top: 12vh;
@@ -1777,16 +1801,22 @@ button {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: 14px;
-  box-shadow: var(--shadow-menu);
+  background: var(--surface-3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-3);
+}
+
+.palette-input:focus {
+  border-bottom-color: var(--accent);
 }
 
 .palette-input {
   padding: 16px 18px;
   border: 0;
   border-bottom: 1px solid var(--hairline-soft);
+  /* The palette autofocuses this input and traps focus, so a ring around it would
+     draw a box around the whole top of the dialog for no information. The bottom
+     rule turning accent is the indicator. */
   outline: none;
   background: transparent;
   font-size: var(--text-title);
@@ -1804,7 +1834,7 @@ button {
   gap: 10px;
   width: 100%;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: var(--text-row);
   text-align: left;
 }
@@ -1834,7 +1864,7 @@ button {
 .dialog-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: var(--z-modal);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -1847,10 +1877,9 @@ button {
   flex-direction: column;
   gap: 18px;
   padding: 26px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: 14px;
-  box-shadow: var(--shadow-menu);
+  background: var(--surface-3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-3);
 }
 
 .dialog-title {
@@ -1892,10 +1921,10 @@ button {
   width: 40px;
   height: 23px;
   padding: 2px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--track-off);
   justify-content: flex-start;
-  transition: background 140ms ease;
+  transition: background var(--dur-fast) var(--ease-color);
 }
 
 .toggle[aria-pressed="true"] {
@@ -1907,7 +1936,7 @@ button {
   display: block;
   width: 19px;
   height: 19px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--knob);
   box-shadow: var(--shadow-knob);
 }
@@ -1923,7 +1952,7 @@ button {
   height: 30px;
   padding: 0 12px;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   font-size: var(--text-meta);
   color: var(--text-3);
@@ -1951,7 +1980,7 @@ button {
   width: 44px;
   height: 44px;
   margin: 0 auto 18px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--accent-wash-soft);
   color: var(--accent);
   font-size: var(--text-lg);
@@ -1991,7 +2020,7 @@ button {
   margin-top: 10px;
   padding: 6px 10px;
   border: 1px solid var(--hairline-soft);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-muted);
   font-size: var(--text-meta);
   color: var(--text-3);
@@ -2010,7 +2039,7 @@ button {
   margin-top: 8px;
   padding: 11px 13px;
   border: 1px solid var(--accent-border-soft);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--accent-wash-soft);
 }
 
@@ -2079,7 +2108,7 @@ button {
   margin-bottom: 12px;
   color: var(--text-4);
   font-size: var(--text-ui);
-  transition: color 120ms ease;
+  transition: color var(--dur-fast) var(--ease-color);
 }
 
 .admin-back:hover {
@@ -2173,7 +2202,7 @@ button {
 .admin-plugin-card,
 .admin-plugin-deliveries {
   border: 1px solid var(--hairline);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
 }
 
@@ -2235,7 +2264,7 @@ button {
   gap: 10px;
   padding: 11px 12px;
   border: 1px solid var(--hairline-soft);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -2297,7 +2326,7 @@ button {
   padding: 10px 12px;
   border: 1px solid var(--hairline);
   border-left: 3px solid var(--danger);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
   max-width: 560px;
 }
@@ -2399,7 +2428,7 @@ button {
 .role-pill {
   padding: 1px 7px;
   border: 1px solid var(--accent-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--accent-wash);
   color: var(--accent);
   font-size: var(--text-xs);
@@ -2424,7 +2453,7 @@ button {
 .stat {
   padding: 12px 14px;
   border: 1px solid var(--hairline);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -2457,7 +2486,7 @@ button {
   .admin-nav {
     position: fixed;
     inset: 0 auto 0 0;
-    z-index: 80;
+    z-index: var(--z-drawer);
     width: min(300px, 85vw);
     transform: translateX(-100%);
     /* Hidden, not merely moved. A transform leaves every control in the tab order, so
@@ -2466,9 +2495,15 @@ button {
        "Back to workspace" before anything they can see. */
     visibility: hidden;
     transition:
-      transform 160ms ease,
-      visibility 160ms ease;
-    box-shadow: var(--shadow-menu);
+      transform var(--dur-panel) var(--ease-standard),
+      visibility var(--dur-panel) var(--ease-standard);
+    box-shadow: var(--elev-3);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .admin-nav {
+      transition: none;
+    }
   }
 
   .admin-shell[data-nav="open"] .admin-nav {
@@ -2479,7 +2514,7 @@ button {
   .admin-nav-scrim {
     position: fixed;
     inset: 0;
-    z-index: 70;
+    z-index: var(--z-scrim);
     background: var(--backdrop);
   }
 
@@ -2537,7 +2572,7 @@ select.chip {
   width: 11px;
   height: 11px;
   margin-right: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--hairline-strong);
   display: inline-block;
   vertical-align: -1px;
@@ -2556,7 +2591,7 @@ select.chip {
   gap: 9px;
   padding: 7px 9px;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -2565,7 +2600,7 @@ select.chip {
   height: 26px;
   padding: 0;
   border: 1px solid var(--hairline);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: none;
   cursor: pointer;
   flex: none;
@@ -2586,7 +2621,7 @@ select.chip {
   flex: none;
   padding: 2px 8px;
   border: 1px solid var(--hairline);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-muted);
   font-size: var(--text-2xs);
   text-transform: capitalize;
@@ -2609,7 +2644,7 @@ select.chip {
   margin-top: 14px;
   padding: 14px 16px;
   border: 1px solid var(--hairline-soft);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -2645,7 +2680,7 @@ select.chip {
   padding: 12px;
   overflow: auto;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--bg);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
@@ -2660,7 +2695,7 @@ select.chip {
   height: 460px;
   margin-top: 14px;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--bg);
 }
 
@@ -2674,7 +2709,7 @@ select.chip {
   margin-top: 16px;
   padding: 14px 16px;
   border: 1px solid var(--accent-border-soft);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--accent-wash-soft);
 }
 
@@ -2751,7 +2786,7 @@ select.chip {
 
 .block-image {
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .block-actions {
@@ -2791,7 +2826,7 @@ select.chip {
   margin-top: 12px;
   padding: 12px 14px;
   border: 1px solid var(--hairline-soft);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -2817,7 +2852,7 @@ select.chip {
   padding: 12px;
   overflow: auto;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--bg);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
@@ -2834,7 +2869,7 @@ select.chip {
   margin-bottom: 12px;
   padding: 9px 11px;
   border: 1px solid var(--danger);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   /* Bordered rather than filled: this is a diagnosis of something already wrong, not a
      destructive action being confirmed, and a solid red block reads as the latter. */
   color: var(--text-2);
@@ -2926,7 +2961,7 @@ select.chip {
   height: 380px;
   padding: 8px;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   /* Fixed rather than themed. A terminal renders its own colours and an ANSI palette
      tuned for a dark background is unreadable on a light one, so the surface stays dark
      in both themes — which is also what every other terminal on the machine does. */
@@ -2954,7 +2989,7 @@ select.chip {
 
 .emoji-picker {
   position: absolute;
-  z-index: 95;
+  z-index: var(--z-popover);
   top: calc(100% + 6px);
   right: 0;
   display: flex;
@@ -2962,10 +2997,9 @@ select.chip {
   width: 312px;
   max-height: 332px;
   padding: 8px;
-  border: 1px solid var(--hairline-popover);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow-popover);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
 }
 
 /* In the composer the panel hangs above the box rather than below a trigger. */
@@ -2985,7 +3019,7 @@ select.chip {
   height: 30px;
   padding: 0 9px;
   border: 1px solid var(--hairline);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text-2);
   font-family: var(--font-ui);
@@ -3029,7 +3063,7 @@ select.chip {
   justify-content: center;
   aspect-ratio: 1;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   font-size: var(--text-lg);
   line-height: 1;
@@ -3081,7 +3115,7 @@ select.chip {
   padding: 9px 11px;
   border: 1px solid var(--hairline);
   border-left: 3px solid var(--accent-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -3172,7 +3206,7 @@ select.chip {
   min-width: 20px;
   padding: 2px 6px;
   border: 1px solid var(--hairline-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--surface-hover);
   font-family: var(--font-ui);
   font-size: var(--text-xs);
@@ -3185,15 +3219,14 @@ select.chip {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 40;
+  z-index: var(--z-popover);
   width: min(380px, 90vw);
   max-height: 60vh;
   overflow-y: auto;
   padding: 12px;
-  border: 1px solid var(--hairline-popover);
-  border-radius: 10px;
-  background: var(--bg);
-  box-shadow: var(--shadow-popover);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
 }
 
 .pinned-item {
@@ -3202,7 +3235,7 @@ select.chip {
   width: 100%;
   padding: 8px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: none;
   color: inherit;
   text-align: left;
@@ -3234,6 +3267,70 @@ select.chip {
   animation: message-flash 1.6s ease-out;
 }
 
+/* ─── overlay motion ─────────────────────────────────────────────────────────
+   Enter only, and deliberately so. Every overlay in the app is conditionally
+   rendered — `{open && <X/>}` — so it is gone from the DOM the instant it closes
+   and there is nothing left to animate out. Giving them exits means holding each
+   one mounted through its transition, which is a change to the components rather
+   than to this file. An enter that is right is most of the benefit; an exit that
+   is missing reads as "fast", where an enter that is missing reads as "cheap".
+
+   The palette is the exception that gets nothing: it is opened dozens of times a
+   day from the keyboard, and a launcher that makes you wait is a launcher you
+   stop reaching for. */
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--motion-slide))) scale(var(--motion-scale-in));
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes panel-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-slide-lg));
+  }
+}
+
+.menu,
+.user-menu-panel,
+.autocomplete,
+.emoji-picker,
+.pinned-panel {
+  transform-origin: top center;
+  animation: overlay-in var(--dur-open) var(--ease-out);
+}
+
+/* Anchored bottom-left, so it should grow from there rather than from the top. */
+.autocomplete {
+  transform-origin: bottom left;
+}
+
+.user-menu-panel {
+  transform-origin: top right;
+}
+
+.dialog-backdrop,
+.palette-backdrop {
+  animation: backdrop-in var(--dur-open) var(--ease-out);
+}
+
+.dialog {
+  animation: overlay-in var(--dur-modal) var(--ease-out);
+}
+
+.toast {
+  animation: panel-slide-in var(--dur-open) var(--ease-out);
+}
+
+
 @keyframes message-flash {
   from {
     background: var(--accent-wash);
@@ -3248,15 +3345,14 @@ select.chip {
    before this existed; those are left alone, and anything new lands here. */
 .menu {
   position: absolute;
-  z-index: 40;
+  z-index: var(--z-menu);
   top: calc(100% + 4px);
   left: 0;
   min-width: 232px;
   padding: 5px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow-menu);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
 }
 
 .menu-label {
@@ -3275,7 +3371,7 @@ select.chip {
   width: 100%;
   padding: 7px 9px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--text);
   font: inherit;
@@ -3313,7 +3409,7 @@ select.chip {
   padding: 2px 6px 2px 4px;
   margin-left: -4px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: none;
   color: inherit;
   font: inherit;
@@ -3342,7 +3438,7 @@ select.chip {
   max-height: 200px;
   padding: 4px;
   border: 1px solid var(--hairline-soft);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
 }
 
 .member-row {
@@ -3352,7 +3448,7 @@ select.chip {
   width: 100%;
   padding: 6px 7px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--text);
   font: inherit;
@@ -3441,7 +3537,7 @@ button.member-row:hover {
 .copied-note {
   align-self: center;
   padding: 2px 7px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface-hover);
   color: var(--text-4);
   font-size: var(--text-label-size);
@@ -3455,7 +3551,7 @@ button.member-row:hover {
   margin-top: 8px;
   padding: 10px;
   border: 1px solid var(--hairline);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -3464,7 +3560,7 @@ button.member-row:hover {
 .menu-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--accent);
   flex: none;
 }
@@ -3570,7 +3666,7 @@ button.member-row:hover {
   /* The level is the thing being scanned for, so it is a stripe rather than a word to
      read: an error and a warning have to be tellable apart without stopping. */
   border-left: 3px solid var(--text-faint);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -3619,7 +3715,7 @@ button.member-row:hover {
 .log-detail {
   margin: 8px 0 0;
   padding: 10px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--surface-hover);
   color: var(--text-4);
   font-family: var(--font-mono, ui-monospace, monospace);
@@ -3640,7 +3736,7 @@ button.member-row:hover {
   margin: 0 0 12px;
   padding: 14px 16px;
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--surface-muted);
   overflow-x: auto;
   font-size: 13px;
@@ -3665,7 +3761,7 @@ button.member-row:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 110; /* above dialogs: a failure notice must survive an open modal */
+  z-index: var(--z-toast); /* above dialogs: a failure notice must survive an open modal */
   pointer-events: none;
 }
 
@@ -3675,11 +3771,10 @@ button.member-row:hover {
   gap: 10px;
   max-width: 420px;
   padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--hairline-popover);
-  background: var(--surface);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
   color: var(--text);
-  box-shadow: var(--shadow-popover);
+  box-shadow: var(--elev-2);
   pointer-events: auto;
 }
 
@@ -3731,7 +3826,7 @@ button.member-row:hover {
 .message-skeleton-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-hover);
   flex: none;
 }
@@ -3746,7 +3841,7 @@ button.member-row:hover {
 
 .message-skeleton-line {
   height: 10px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--surface-hover);
   animation: skeleton-breathe 1.4s ease-in-out infinite;
 }
@@ -3772,15 +3867,15 @@ button.member-row:hover {
 .unread-jump-bar {
   position: sticky;
   top: 6px;
-  z-index: 20;
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   width: fit-content;
   margin: 0 auto;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--accent-contrast);
-  box-shadow: var(--shadow-popover);
+  box-shadow: var(--elev-1);
 }
 
 .unread-jump-action {
@@ -3820,7 +3915,7 @@ button.member-row:hover {
   background: none;
   color: var(--text-rail);
   padding: 6px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
@@ -3851,22 +3946,22 @@ button.member-row:hover {
     bottom: 0;
     left: 0;
     width: min(82vw, 300px);
-    z-index: 60;
+    z-index: var(--z-drawer);
     transform: translateX(-105%);
-    transition: transform 160ms ease;
+    transition: transform var(--dur-panel) var(--ease-standard);
     box-shadow: none;
   }
 
   .shell[data-sidebar='open'] .sidebar {
     transform: translateX(0);
-    box-shadow: var(--shadow-popover);
+    box-shadow: var(--elev-3);
   }
 
   .shell[data-sidebar='open'] .drawer-scrim {
     display: block;
     position: fixed;
     inset: var(--topbar-height) 0 0 0;
-    z-index: 50;
+    z-index: var(--z-scrim);
     border: 0;
     padding: 0;
     background: var(--backdrop);
@@ -3881,7 +3976,7 @@ button.member-row:hover {
     bottom: 0;
     left: 0;
     width: auto;
-    z-index: 40;
+    z-index: var(--z-panel);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -3909,7 +4004,7 @@ button.member-row:hover {
   padding: 10px 12px;
   border: 1px solid var(--hairline);
   border-left: 3px solid var(--accent-border);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
   max-width: 560px;
   font-size: var(--text-sm);
@@ -3930,7 +4025,7 @@ button.member-row:hover {
 .agent-run-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--presence-offline);
   flex: none;
 }
@@ -4026,7 +4121,7 @@ button.member-row:hover {
 .agent-run-io {
   margin: 6px 0 4px;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   border: 1px solid var(--hairline-soft);
   font-size: var(--text-xs);
@@ -4064,7 +4159,7 @@ button.member-row:hover {
 
 .later-chip {
   border: 1px solid var(--hairline-soft);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   padding: 1px 8px;
   white-space: nowrap;
 }
