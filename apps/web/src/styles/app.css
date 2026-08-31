@@ -4142,6 +4142,24 @@ button.member-row:hover {
     display: none;
   }
 
+  /* Two more things go once the controls are finger-sized: at 390px the bar wanted
+     572px, and the user menu was the part falling off the end. The workspace name is
+     the drawer's own heading, and the account name sits inside the menu this avatar
+     opens — neither is lost, both are one tap away, and the avatar is the part people
+     aim at. */
+  .topbar-brand,
+  .user-menu-name,
+  .user-menu-trigger svg {
+    display: none;
+  }
+
+  /* The gaps were sized for a bar with labels in it. With five icon buttons and an
+     avatar they are the last few pixels between fitting and not. */
+  .topbar {
+    gap: 6px;
+    padding: 0 8px;
+  }
+
   .sidebar {
     position: fixed;
     top: var(--topbar-height);
@@ -4194,6 +4212,53 @@ button.member-row:hover {
     .sidebar {
       transition: none;
     }
+  }
+}
+
+/* Touch targets.
+ *
+ * Every control in the app is sized for a pointer: 30px icon buttons, 31px channel
+ * rows, a 32px send button. A fingertip is about 9mm, which is why WCAG 2.2 asks for
+ * 44px, and on a phone all of these were under it — the hamburger and the four bar
+ * buttons most of all, since they are the first things anyone taps.
+ *
+ * Keyed on `pointer: coarse` rather than a width, because this is about what is doing
+ * the pointing: a touchscreen laptop at 1400px needs the bigger targets and a narrow
+ * desktop window does not. The message hover toolbar is left alone deliberately — it
+ * is revealed by hover, so it is a pointer affordance that a touch device barely
+ * reaches anyway, and making it 44px would give a phone a 264px-wide toolbar to solve
+ * a problem it does not have. Reaching it properly on touch is a long-press action
+ * sheet, which is a feature rather than a size. */
+@media (pointer: coarse) {
+  .icon-btn,
+  .topbar-nav-btn,
+  .topbar-hamburger,
+  .send-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .btn,
+  .channel-row,
+  .sidebar-add,
+  .user-menu-trigger,
+  .menu-item,
+  .user-menu-item,
+  .pane-name-trigger,
+  .thread-summary {
+    min-height: 44px;
+  }
+
+  /* A .btn whose label is hidden at this width is as narrow as its icon — the
+     feedback button in the bar comes out 37px across. */
+  .btn {
+    min-width: 44px;
+  }
+
+  /* A reaction chip is a small thing by nature and there can be a row of them, so it
+     grows to a comfortable tap rather than to the full 44. */
+  .reaction {
+    min-height: 32px;
   }
 }
 
