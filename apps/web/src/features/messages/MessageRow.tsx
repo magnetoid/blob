@@ -17,6 +17,7 @@ import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
 import { MessageEditor } from "./MessageEditor.tsx";
 import { MessageMenu } from "./MessageMenu.tsx";
+import { ForwardDialog } from "./ForwardDialog.tsx";
 import { MessageTranslation } from "./MessageTranslation.tsx";
 import { formatRelative, formatTime } from "./messageFormatting.ts";
 import { Avatar } from "../../components/Avatar.tsx";
@@ -108,6 +109,7 @@ export const MessageRow = memo(function MessageRow({
   const editing = editingMessageId === message.id;
   const setEditing = (open: boolean) => setEditingMessage(open ? message.id : null);
   const [deleting, setDeleting] = useState(false);
+  const [forwarding, setForwarding] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -451,6 +453,7 @@ export const MessageRow = memo(function MessageRow({
             message={message}
             mine={mine}
             onCopyLink={copyLink}
+            onForward={() => setForwarding(true)}
             onEdit={() => setEditing(true)}
             onDelete={() => setDeleting(true)}
           />
@@ -460,6 +463,10 @@ export const MessageRow = memo(function MessageRow({
       {/* At the article level, not inside the menu: `.message-actions` is
           display:none unless the row is hovered or has focus within, and a dialog
           opened from the keyboard must not depend on where the pointer sits. */}
+      {forwarding && (
+        <ForwardDialog message={message} onClose={() => setForwarding(false)} />
+      )}
+
       {deleting && (
         <ConfirmDialog
           title="Delete this message?"

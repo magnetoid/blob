@@ -29,6 +29,7 @@ function open() {
       message={MESSAGE}
       mine
       onCopyLink={vi.fn()}
+      onForward={vi.fn()}
       onEdit={vi.fn()}
       onDelete={vi.fn()}
     />,

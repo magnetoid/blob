@@ -42,6 +42,7 @@ interface Props {
   /** Edit and delete are offered only on your own messages. */
   mine: boolean;
   onCopyLink: () => void;
+  onForward: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -50,6 +51,7 @@ export function MessageMenu({
   message,
   mine,
   onCopyLink,
+  onForward,
   onEdit,
   onDelete,
 }: Props) {
@@ -93,6 +95,19 @@ export function MessageMenu({
             }}
           >
             Copy link
+          </button>
+          {/* Beside Copy link because they answer the same question — "send this
+              somewhere else" — and differ only in who does the walking. */}
+          <button
+            className="menu-item"
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              onForward();
+            }}
+          >
+            Forward…
           </button>
           {/* Only in the channel, not in a thread: the read cursor is a channel
               cursor, so marking a reply unread would move a marker pointing at
