@@ -1038,6 +1038,95 @@
         "title": "Bootstrap",
         "type": "object"
       },
+      "BrowsableChannel": {
+        "description": "A public channel as the directory lists it.\n\nDeliberately not `ChannelWithState`: the directory answers a different question \u2014\n\"what is there, how busy is it, am I in it\" \u2014 and folding a member count into the\nsidebar's own query would make every bootstrap pay for a number only this screen\nshows.",
+        "properties": {
+          "archivedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archivedat"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "joined": {
+            "title": "Joined",
+            "type": "boolean"
+          },
+          "memberCount": {
+            "title": "Membercount",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "memberCount",
+          "joined"
+        ],
+        "title": "BrowsableChannel",
+        "type": "object"
+      },
+      "BrowseOut": {
+        "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/BrowsableChannel"
+            },
+            "title": "Channels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "channels"
+        ],
+        "title": "BrowseOut",
+        "type": "object"
+      },
       "BudgetInput": {
         "description": "Daily caps. None lifts one; both None means unlimited, which is the default.",
         "properties": {
@@ -9698,6 +9787,61 @@
           }
         },
         "summary": "Create Channel",
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/channels/browse": {
+      "get": {
+        "description": "The channel directory.\n\nPublic channels only, so nothing here can reveal that a private channel exists \u2014\nthe same reason opening one you are not in answers 404 rather than 403.",
+        "operationId": "browse_channels_api_channels_browse_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Browse Channels",
         "tags": [
           "channels"
         ]

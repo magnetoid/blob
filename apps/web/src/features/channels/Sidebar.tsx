@@ -14,6 +14,7 @@ import {
   PinIcon,
   PlusIcon,
   ReplyIcon,
+  SearchIcon,
 } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 
@@ -112,37 +113,22 @@ export function Sidebar() {
             <ChannelRow key={channel.id} channel={channel} />
           ))}
 
-          {browsable.length > 0 && (
-            <details>
-              <summary className="channel-row" style={{ listStyle: 'none' }}>
-                <span className="channel-name muted">
-                  {browsable.length} more you can join
-                </span>
-              </summary>
-              {browsable.map((channel) => (
-                <button
-                  key={channel.id}
-                  className="channel-row"
-                  onClick={async () => {
-                    try {
-                      const { channel: joinedChannel } = await api.channels.join(channel.id);
-                      useStore.setState((s) => ({
-                        channels: { ...s.channels, [joinedChannel.id]: joinedChannel },
-                      }));
-                      await showChannel(joinedChannel.id);
-                    } catch (err) {
-                      showError(err);
-                    }
-                  }}
-                >
-                  <span className="channel-hash" aria-hidden="true">
-                    #
-                  </span>
-                  <span className="channel-name">{channel.name}</span>
-                </button>
-              ))}
-            </details>
-          )}
+          {/* A link to the directory rather than the directory itself. This was a
+              <details> of bare names, which answers "what is it called" and nothing
+              else — no description, no member count, no search. Fine for four
+              channels, useless for fifty. */}
+          <button
+            className="channel-row"
+            aria-current={activeView === 'browse'}
+            onClick={() => navigate('/channels')}
+          >
+            <span className="channel-hash" aria-hidden="true">
+              <SearchIcon size={13} strokeWidth={1.8} />
+            </span>
+            <span className="channel-name muted">
+              {browsable.length > 0 ? `Browse ${browsable.length} more` : 'Browse channels'}
+            </span>
+          </button>
 
           <button className="sidebar-add" onClick={() => setCreating(true)}>
             <PlusIcon size={14} />

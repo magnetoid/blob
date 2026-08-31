@@ -1,6 +1,7 @@
 /** Typed HTTP client. Every call goes through here so error shapes stay consistent. */
 
 import type {
+  BrowsableChannel,
   LaterItem,
   LaterState,
   AgentRunView,
@@ -458,6 +459,10 @@ export const api = {
     setMembership: (id: string, input: { notifyLevel?: NotifyLevel; isStarred?: boolean }) =>
       patch<{ channel: ChannelWithState }>(`/api/channels/${id}/membership`, input),
     pins: (id: string) => get<{ messages: Message[] }>(`/api/channels/${id}/pins`),
+    browse: (query: string, archived: boolean) =>
+      get<{ channels: BrowsableChannel[] }>(
+        `/api/channels/browse?q=${encodeURIComponent(query)}&archived=${archived}`,
+      ),
     markUnread: (id: string, messageId: string) =>
       post<{ readState: { channelId: string; lastReadMessageId: string | null; mentionCount: number } }>(
         `/api/channels/${id}/unread`,

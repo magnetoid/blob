@@ -86,6 +86,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         run: () => setPrefs({ theme: theme === "dark" ? "light" : "dark" }),
       },
       {
+        id: "a-browse",
+        label: "Browse channels…",
+        kind: "Action",
+        run: () => navigate("/channels"),
+      },
+      {
         // The sidebar used to carry a labelled "Search {workspace}" button. The bar's
         // Search button and ⌘F both still reach the same place, but somebody who
         // reaches for ⌘K first should find message search there rather than learn that

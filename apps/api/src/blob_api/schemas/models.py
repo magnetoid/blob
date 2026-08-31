@@ -84,6 +84,25 @@ class Channel(CamelModel):
     member_ids: list[str] | None = None
 
 
+class BrowsableChannel(CamelModel):
+    """A public channel as the directory lists it.
+
+    Deliberately not `ChannelWithState`: the directory answers a different question —
+    "what is there, how busy is it, am I in it" — and folding a member count into the
+    sidebar's own query would make every bootstrap pay for a number only this screen
+    shows.
+    """
+
+    id: str
+    name: str | None = None
+    topic: str | None = None
+    description: str | None = None
+    created_at: str
+    archived_at: str | None = None
+    member_count: int
+    joined: bool
+
+
 class Membership(CamelModel):
     notify_level: NotifyLevel
     is_starred: bool

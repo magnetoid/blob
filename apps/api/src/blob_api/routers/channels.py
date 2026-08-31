@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
@@ -14,7 +14,7 @@ from ..lib.queue import enqueue, fire_and_forget
 from ..plugins import events as plugin_events
 from ..realtime import hub
 from ..schemas.base import CamelModel
-from ..schemas.models import ChannelWithState, Message
+from ..schemas.models import BrowsableChannel, ChannelWithState, Message
 from ..schemas.requests import (
     AddMembersInput,
     CreateChannelInput,
@@ -57,6 +57,28 @@ async def list_channels(user: SessionUser = Depends(current_user)) -> ChannelsOu
     async with session_scope() as session:
         channels = await channel_service.list_for_user(session, user.id, user.workspace_id)
     return ChannelsOut(channels=channels)
+
+
+class BrowseOut(CamelModel):
+    channels: list[BrowsableChannel]
+
+
+@router.get("/api/channels/browse", response_model=BrowseOut)
+async def browse_channels(
+    q: str = Query("", max_length=100),
+    archived: bool = False,
+    user: SessionUser = Depends(current_user),
+) -> BrowseOut:
+    """The channel directory.
+
+    Public channels only, so nothing here can reveal that a private channel exists —
+    the same reason opening one you are not in answers 404 rather than 403.
+    """
+    async with session_scope() as session:
+        channels = await channel_service.browse(
+            session, user.id, user.workspace_id, query=q, include_archived=archived
+        )
+    return BrowseOut(channels=channels)
 
 
 @router.post("/api/channels", response_model=ChannelOut)

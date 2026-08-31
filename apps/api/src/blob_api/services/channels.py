@@ -15,7 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import conflict, forbidden, not_found, unique_violation
 from ..lib.ids import new_id
-from ..schemas.models import ChannelWithState
+from ..schemas.base import require_iso
+from ..schemas.models import BrowsableChannel, ChannelWithState
 from .serialize import to_channel_with_state
 
 #: Channels every new member joins automatically.
@@ -55,6 +56,82 @@ async def list_for_user(
         )
     ).fetchall()
     return [to_channel_with_state(row) for row in rows]
+
+
+async def browse(
+    session: AsyncSession,
+    user_id: str,
+    workspace_id: str,
+    *,
+    query: str = "",
+    include_archived: bool = False,
+    limit: int = 200,
+) -> list[BrowsableChannel]:
+    """The channel directory: what exists, how busy it is, whether you are in it.
+
+    Public channels only. A private channel the asker is not in must not appear here at
+    all — its existence is private, which is the same reason opening one answers 404
+    rather than 403. Private channels the asker *is* in are already in their sidebar, so
+    listing them again would be noise rather than discovery.
+
+    The member count is a grouped join rather than a correlated subquery per row, and it
+    lives on this endpoint rather than in the sidebar's query so that a bootstrap does
+    not pay for a number only this screen shows.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT c.id, c.name, c.topic, c.description, c.created_at,
+                       c.archived_at,
+                       COALESCE(counts.member_count, 0) AS member_count,
+                       (mine.user_id IS NOT NULL) AS joined
+                  FROM channels c
+                  LEFT JOIN (
+                        SELECT channel_id, COUNT(*) AS member_count
+                          FROM channel_members
+                         GROUP BY channel_id
+                  ) counts ON counts.channel_id = c.id
+                  LEFT JOIN channel_members mine
+                         ON mine.channel_id = c.id AND mine.user_id = :user_id
+                 WHERE c.workspace_id = :workspace_id
+                   AND c.kind = 'public'
+                   AND (:include_archived OR c.archived_at IS NULL)
+                   AND (
+                        :query = ''
+                        OR c.name ILIKE '%' || :query || '%'
+                        OR COALESCE(c.description, '') ILIKE '%' || :query || '%'
+                        OR COALESCE(c.topic, '') ILIKE '%' || :query || '%'
+                   )
+                 ORDER BY (mine.user_id IS NOT NULL) DESC,
+                          COALESCE(counts.member_count, 0) DESC,
+                          lower(c.name)
+                 LIMIT :limit
+                """
+            ),
+            {
+                "user_id": user_id,
+                "workspace_id": workspace_id,
+                "query": query.strip(),
+                "include_archived": include_archived,
+                "limit": limit,
+            },
+        )
+    ).fetchall()
+
+    return [
+        BrowsableChannel(
+            id=str(row.id),
+            name=row.name,
+            topic=row.topic,
+            description=row.description,
+            created_at=require_iso(row.created_at),
+            archived_at=require_iso(row.archived_at) if row.archived_at else None,
+            member_count=row.member_count,
+            joined=row.joined,
+        )
+        for row in rows
+    ]
 
 
 async def get_for_user(

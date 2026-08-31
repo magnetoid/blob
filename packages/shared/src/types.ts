@@ -77,6 +77,18 @@ export interface Channel {
 }
 
 /** A channel as it appears in the sidebar, with this user's own state folded in. */
+/** A public channel as the directory lists it — what exists, how busy, am I in it. */
+export interface BrowsableChannel {
+  id: string;
+  name: string | null;
+  topic: string | null;
+  description: string | null;
+  createdAt: string;
+  archivedAt: string | null;
+  memberCount: number;
+  joined: boolean;
+}
+
 export interface ChannelWithState extends Channel {
   membership: {
     notifyLevel: NotifyLevel;
