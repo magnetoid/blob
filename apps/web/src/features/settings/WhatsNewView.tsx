@@ -23,7 +23,7 @@ export function WhatsNewView() {
   }, []);
 
   return (
-    <div className="pane">
+    <main className="pane">
       <header className="pane-header">
         <div style={{ minWidth: 0 }}>
           <div className="pane-heading">
@@ -65,6 +65,6 @@ export function WhatsNewView() {
           you are running rather than being written about it afterwards.
         </p>
       </div>
-    </div>
+    </main>
   );
 }

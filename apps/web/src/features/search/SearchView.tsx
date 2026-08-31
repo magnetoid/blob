@@ -62,7 +62,7 @@ export function SearchView() {
   }, [query, filter]);
 
   return (
-    <div className="pane">
+    <main className="pane">
       <div className="search-head">
         <div className="search-field">
           <SearchIcon size={16} strokeWidth={1.8} />
@@ -137,6 +137,6 @@ export function SearchView() {
           </>
         )}
       </div>
-    </div>
+    </main>
   );
 }

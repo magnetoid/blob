@@ -39,14 +39,20 @@
   --hairline-popover: #e4e2da;
 
   /* ─── text ─────────────────────────────────────────────────────────────── */
+  /* The muted end of this ladder is compressed, and deliberately. A Lighthouse pass
+     found --text-4, --text-5, --text-label and --text-faint all below WCAG AA's 4.5:1
+     in both themes — timestamps, day dividers, section headings and the composer hint
+     were between 1.75 and 4.23. Four visually distinct greys is more than the contrast
+     budget of this palette allows, so they keep their order and lose most of their
+     spread: text nobody can read is a defect, not a design. */
   --text: #1a1d1b;
   --text-body: #252926; /* message bodies read slightly softer */
   --text-2: #4e534f;
   --text-3: #6b6f6c;
-  --text-4: #8e928e;
-  --text-5: #9a9e9a;
-  --text-label: #a3a6a2; /* uppercase section labels */
-  --text-faint: #b7bab6;
+  --text-4: #626662;
+  --text-5: #666a66;
+  --text-label: #696c68; /* uppercase section labels */
+  --text-faint: #6c6f6b;
   --text-rail: #7b807c;
 
   /* ─── accent ───────────────────────────────────────────────────────────── */
@@ -191,10 +197,10 @@
   --dark-text-body: #dfe2dd;
   --dark-text-2: #b3b8b2;
   --dark-text-3: #9aa099;
-  --dark-text-4: #838a82;
-  --dark-text-5: #767d75;
-  --dark-text-label: #6f766e;
-  --dark-text-faint: #5e655d;
+  --dark-text-4: #949b93;
+  --dark-text-5: #8f968e;
+  --dark-text-label: #8c938b;
+  --dark-text-faint: #888f87;
   --dark-text-rail: #8b928a;
   --dark-accent: #5fb287;
   --dark-accent-hover: #7cc79f;

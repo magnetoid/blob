@@ -3413,12 +3413,13 @@ select.chip {
 }
 
 /* ─── overlay motion ─────────────────────────────────────────────────────────
-   Enter only, and deliberately so. Every overlay in the app is conditionally
-   rendered — `{open && <X/>}` — so it is gone from the DOM the instant it closes
-   and there is nothing left to animate out. Giving them exits means holding each
-   one mounted through its transition, which is a change to the components rather
-   than to this file. An enter that is right is most of the benefit; an exit that
-   is missing reads as "fast", where an enter that is missing reads as "cheap".
+   Menus enter and leave; everything else only enters. The difference is not taste,
+   it is mount semantics: `Menu` holds its panel through the exit with usePresence,
+   while the dialogs are `{open && <X/>}` in their parents and run real work on mount
+   — a focus trap, an autofocus, and in CatchUpPanel's case a request. Rendering them
+   always so they could animate out would fire all of that at start-up, so they keep
+   the conditional and lose the exit. An enter that is right is most of the benefit;
+   a missing exit reads as "fast", where a missing enter reads as "cheap".
 
    The palette is the exception that gets nothing: it is opened dozens of times a
    day from the keyboard, and a launcher that makes you wait is a launcher you

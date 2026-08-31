@@ -51,7 +51,7 @@ export function SavedView() {
   const visible = (data ?? []).filter((item) => !movedAway.has(item.message.id));
 
   return (
-    <div className="pane">
+    <main className="pane">
       <header className="pane-header">
         <div style={{ minWidth: 0 }}>
           <div className="pane-heading">
@@ -173,6 +173,6 @@ export function SavedView() {
           />
         ))}
       </div>
-    </div>
+    </main>
   );
 }

@@ -310,7 +310,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       )}
 
       {view === 'permalink' && (
-        <div className="pane">
+        <main className="pane">
           <div className="empty-state">
             <div className="empty-state-title">
               {permalinkFailure ? 'That link did not open' : 'Finding that message…'}
@@ -322,7 +322,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
               </button>
             )}
           </div>
-        </div>
+        </main>
       )}
       {(view === 'messages' || view === 'channel') && <ChannelView />}
       {view === 'threads' && <ThreadsView />}

@@ -60,7 +60,7 @@ export function ProfileView() {
   }
 
   return (
-    <div className="pane">
+    <main className="pane">
       <div style={{ overflowY: 'auto' }}>
         <div className="profile-page">
           {/* The shared page heading, rather than a third copy of it: these two were
@@ -200,6 +200,6 @@ export function ProfileView() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

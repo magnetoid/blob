@@ -36,7 +36,7 @@ export function ThreadsView() {
   }
 
   return (
-    <div className="pane">
+    <main className="pane">
       <header className="pane-header">
         <div style={{ minWidth: 0 }}>
           <div className="pane-heading">
@@ -77,6 +77,6 @@ export function ThreadsView() {
           />
         ))}
       </div>
-    </div>
+    </main>
   );
 }

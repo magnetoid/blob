@@ -154,7 +154,7 @@ export function ChannelView() {
 
   if (!activeChannelId || !channel) {
     return (
-      <div className="pane">
+      <main className="pane">
         <div className="empty-state">
           <div className="empty-state-mark">#</div>
           <div className="empty-state-title">Pick a conversation</div>
@@ -162,7 +162,7 @@ export function ChannelView() {
             Choose a channel or a person on the left to start reading.
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -213,7 +213,7 @@ export function ChannelView() {
   }
 
   return (
-    <div className="pane">
+    <main className="pane">
       <header className="pane-header">
         <div style={{ minWidth: 0, position: "relative" }}>
           <div className="pane-heading">
@@ -376,6 +376,6 @@ export function ChannelView() {
           placeholder={isDm ? `Message ${title}` : `Message #${title}`}
         />
       )}
-    </div>
+    </main>
   );
 }
