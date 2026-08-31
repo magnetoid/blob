@@ -41,7 +41,7 @@ export function PeopleSection({
   return (
     <section>
       <div className="search-field" style={{ maxWidth: 320, marginBottom: 18 }}>
-        <SearchIcon size={16} strokeWidth={1.8} />
+        <SearchIcon size="md" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}

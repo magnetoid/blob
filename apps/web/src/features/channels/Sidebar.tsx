@@ -80,7 +80,7 @@ export function Sidebar() {
             onClick={() => navigate('/threads')}
           >
             <span className="channel-hash" aria-hidden="true">
-              <ReplyIcon size={13} strokeWidth={1.8} />
+              <ReplyIcon size="sm" />
             </span>
             <span className="channel-name">Threads</span>
           </button>
@@ -90,7 +90,7 @@ export function Sidebar() {
             onClick={() => navigate('/tasks')}
           >
             <span className="channel-hash" aria-hidden="true">
-              <FileIcon size={13} strokeWidth={1.8} />
+              <FileIcon size="sm" />
             </span>
             <span className="channel-name">Tasks</span>
           </button>
@@ -100,7 +100,7 @@ export function Sidebar() {
             onClick={() => navigate('/later')}
           >
             <span className="channel-hash" aria-hidden="true">
-              <PinIcon size={13} strokeWidth={1.8} />
+              <PinIcon size="sm" />
             </span>
             <span className="channel-name">Later</span>
             {savedCount > 0 && <span className="badge badge-quiet">{savedCount}</span>}
@@ -123,7 +123,7 @@ export function Sidebar() {
             onClick={() => navigate('/channels')}
           >
             <span className="channel-hash" aria-hidden="true">
-              <SearchIcon size={13} strokeWidth={1.8} />
+              <SearchIcon size="sm" />
             </span>
             <span className="channel-name muted">
               {browsable.length > 0 ? `Browse ${browsable.length} more` : 'Browse channels'}
@@ -131,7 +131,7 @@ export function Sidebar() {
           </button>
 
           <button className="sidebar-add" onClick={() => setCreating(true)}>
-            <PlusIcon size={14} />
+            <PlusIcon size="sm" />
             New channel
           </button>
         </section>

@@ -79,7 +79,7 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
           aria-label="Channels"
           onClick={onToggleSidebar}
         >
-          <MenuIcon size={18} strokeWidth={1.8} />
+          <MenuIcon size="lg" />
         </button>
       )}
       <WorkspaceSwitcher name={workspaceName} />
@@ -95,7 +95,7 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
           aria-label="Messages"
           data-tooltip="Messages"
         >
-          <MessagesIcon size={17} strokeWidth={1.7} />
+          <MessagesIcon size="lg" />
           <span className="topbar-nav-label">Messages</span>
         </button>
         <button
@@ -105,7 +105,7 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
           aria-label="Search"
           data-tooltip="Search"
         >
-          <SearchIcon size={17} strokeWidth={1.7} />
+          <SearchIcon size="lg" />
           <span className="topbar-nav-label">Search</span>
         </button>
         {isAdmin && (
@@ -116,7 +116,7 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
             aria-label="Administration"
           data-tooltip="Administration"
           >
-            <MembersIcon size={17} strokeWidth={1.7} />
+            <MembersIcon size="lg" />
             <span className="topbar-nav-label">Admin</span>
           </button>
         )}
@@ -127,7 +127,7 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
           aria-label="Preferences"
           data-tooltip="Preferences"
         >
-          <SettingsIcon size={17} strokeWidth={1.7} />
+          <SettingsIcon size="lg" />
           <span className="topbar-nav-label">Preferences</span>
         </button>
       </nav>
@@ -145,7 +145,7 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
         onClick={onFeedback}
         title="Report a bug or send feedback"
       >
-        <FeedbackIcon size={15} />
+        <FeedbackIcon size="md" />
         <span className="topbar-feedback-label">Feedback</span>
       </button>
 
@@ -174,7 +174,7 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
           {/* A quiet mark, not a count: there is nothing to act on, only something to
               read, and a red badge would make release notes feel like an unread DM. */}
           {unseenRelease && <span className="menu-dot" aria-hidden="true" />}
-          <ChevronDownIcon size={13} strokeWidth={2} />
+          <ChevronDownIcon size="sm" />
         </button>
 
         <Menu open={open} onClose={() => setOpen(false)} className="user-menu-panel">

@@ -99,7 +99,7 @@ export function WorkspaceConsole({
         // hit target — while the instance console next door showed a proper button.
         className: 'icon-btn admin-nav-toggle',
         label: 'Open the section menu',
-        icon: <MenuIcon size={18} />,
+        icon: <MenuIcon size="lg" />,
       }}
       onFeedback={onFeedback}
     >

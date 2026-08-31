@@ -75,7 +75,7 @@ export function MessageMenu({
         aria-haspopup="menu"
         aria-expanded={menuOpen}
       >
-        <MoreIcon size={15} />
+        <MoreIcon size="md" />
       </button>
       <Menu
         open={menuOpen}

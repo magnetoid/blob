@@ -320,7 +320,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
           onClick={() => closeThread()}
           title="Close thread"
         >
-          <CloseIcon size={15} />
+          <CloseIcon size="md" />
         </button>
       </div>
 
@@ -435,7 +435,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                   className="btn btn-ghost"
                   onClick={() => setCreateOpen((open) => !open)}
                 >
-                  <PlusIcon size={15} />
+                  <PlusIcon size="md" />
                   {createOpen ? "Hide" : "New task"}
                 </button>
               </div>

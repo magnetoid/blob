@@ -79,7 +79,7 @@ export function TasksView() {
         {tasks?.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-mark">
-              <FileIcon size={19} />
+              <FileIcon size="xl" />
             </div>
             <div className="empty-state-title">No tasks yet</div>
             <div className="empty-state-body">

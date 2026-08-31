@@ -636,7 +636,7 @@ export function Composer({
                 {candidate.kind === "user" ? (
                   <Avatar user={candidate.user} size="sm" />
                 ) : (
-                  <MentionIcon size={16} />
+                  <MentionIcon size="md" />
                 )}
                 {candidate.label}
                 {candidate.hint && (
@@ -782,7 +782,7 @@ export function Composer({
                     />
                   ) : (
                     <span className="attachment-chip-thumb" data-generic="true">
-                      <FileIcon size={16} />
+                      <FileIcon size="md" />
                     </span>
                   )}
                   <span className="attachment-chip-text">
@@ -804,7 +804,7 @@ export function Composer({
                     onClick={() => discard(item.key)}
                     title={`Remove ${item.filename}`}
                   >
-                    <CloseIcon size={13} />
+                    <CloseIcon size="sm" />
                   </button>
                 </li>
               ))}
@@ -889,7 +889,7 @@ export function Composer({
               data-tooltip="Send"
               data-tooltip-place="top"
             >
-              <SendIcon size={15} />
+              <SendIcon size="md" />
             </button>
           </div>
         </div>

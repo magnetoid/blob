@@ -53,7 +53,7 @@ export function ThreadsView() {
         {threads?.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-mark">
-              <ReplyIcon size={19} />
+              <ReplyIcon size="xl" />
             </div>
             <div className="empty-state-title">No threads yet</div>
             <div className="empty-state-body">

@@ -73,7 +73,7 @@ export function BrowseChannels() {
 
       <div className="browse-body">
         <div className="search-field">
-          <SearchIcon size={15} strokeWidth={2} />
+          <SearchIcon size="md" />
           <input
             name="channel-search"
             value={query}

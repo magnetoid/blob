@@ -240,7 +240,7 @@ export function ChannelView() {
                   ★
                 </span>
               )}
-              <ChevronDownIcon size={13} strokeWidth={2} />
+              <ChevronDownIcon size="sm" />
             </button>
           </div>
           <div className="pane-sub">
@@ -262,7 +262,7 @@ export function ChannelView() {
           disabled
           title="Huddles arrive in a later release"
         >
-          <HuddleIcon size={15} />
+          <HuddleIcon size="md" />
           <span className="pane-action-label">Huddle</span>
         </button>
         <button
@@ -284,7 +284,7 @@ export function ChannelView() {
               setPinsOpen((open) => !open);
             }}
           >
-            <PinIcon size={15} />
+            <PinIcon size="md" />
             <span className="pane-action-label">Pinned</span>
           </button>
           {pinsOpen && activeChannelId && (
@@ -301,7 +301,7 @@ export function ChannelView() {
           disabled={isDm}
           onClick={() => setDetailsOpen(true)}
         >
-          <MembersIcon size={15} />
+          <MembersIcon size="md" />
           {memberCount ?? "–"}
         </button>
       </header>
@@ -320,7 +320,7 @@ export function ChannelView() {
 
       {archived && (
         <div className="pinned-bar">
-          <PinIcon size={13} />
+          <PinIcon size="sm" />
           <span className="pinned-label">Archived</span>
           <span>This channel is read-only. Its history stays searchable.</span>
         </div>

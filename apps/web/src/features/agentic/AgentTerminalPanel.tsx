@@ -31,7 +31,7 @@ export function AgentTerminalPanel({ pluginId, agentName }: Props) {
           <div className="panel-sub">{agentName}</div>
         </div>
         <button className="icon-btn" onClick={closeAgentTerminal} title="Close terminal">
-          <CloseIcon size={15} />
+          <CloseIcon size="md" />
         </button>
       </div>
       <div className="panel-terminal">

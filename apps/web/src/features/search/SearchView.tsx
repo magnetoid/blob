@@ -65,7 +65,7 @@ export function SearchView() {
     <main className="pane">
       <div className="search-head">
         <div className="search-field">
-          <SearchIcon size={16} strokeWidth={1.8} />
+          <SearchIcon size="md" />
           <input
             ref={inputRef}
             value={query}
@@ -101,7 +101,7 @@ export function SearchView() {
         ) : results === null ? (
           <div className="empty-state">
             <div className="empty-state-mark">
-              <SearchIcon size={19} />
+              <SearchIcon size="xl" />
             </div>
             <div className="empty-state-title">Search the whole history</div>
             <div className="empty-state-body">

@@ -281,7 +281,7 @@ export const MessageRow = memo(function MessageRow({
                   rel="noreferrer"
                 >
                   <span className="attachment-icon">
-                    <FileIcon size={15} />
+                    <FileIcon size="md" />
                   </span>
                   <span>
                     <span className="attachment-name">
@@ -448,7 +448,7 @@ export const MessageRow = memo(function MessageRow({
               data-tooltip="Reply in thread"
               data-tooltip-place="top"
             >
-              <ReplyIcon size={15} />
+              <ReplyIcon size="md" />
             </button>
           )}
           {copied && (
