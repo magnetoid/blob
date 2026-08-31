@@ -62,20 +62,12 @@ export function ProfileView() {
   return (
     <div className="pane">
       <div style={{ overflowY: 'auto' }}>
-        <div style={{ maxWidth: 620, padding: '44px 26px 60px' }}>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-xl)',
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Your profile
-          </h1>
-          <p style={{ margin: '6px 0 0', fontSize: 'var(--text-row)', color: 'var(--text-4)' }}>
-            {currentUser.email}
-          </p>
+        <div className="profile-page">
+          {/* The shared page heading, rather than a third copy of it: these two were
+              inlined here verbatim, declaration for declaration, so they would not have
+              followed any change to the ones every console page uses. */}
+          <h1 className="page-title">Your profile</h1>
+          <p className="page-sub">{currentUser.email}</p>
 
           <div className="profile-preview">
             <Avatar user={currentUser} />
@@ -135,6 +127,7 @@ export function ProfileView() {
             </div>
           </div>
 
+          <div className="profile-fields">
           <label className="field">
             <span className="field-label">Display name</span>
             <input
@@ -193,6 +186,7 @@ export function ProfileView() {
           </div>
 
           {error && <p className="error-text">{error}</p>}
+          </div>
 
           <div className="dialog-actions" style={{ justifyContent: 'flex-start', marginTop: 18 }}>
             <button

@@ -104,8 +104,8 @@ export function ConsoleShell({
               {toggle.icon}
             </button>
             <div>
-              <h1 className="admin-page-title">{title}</h1>
-              {description && <p className="admin-page-sub">{description}</p>}
+              <h1 className="page-title">{title}</h1>
+              {description && <p className="page-sub">{description}</p>}
             </div>
           </header>
 

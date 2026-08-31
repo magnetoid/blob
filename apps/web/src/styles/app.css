@@ -2214,14 +2214,31 @@ button {
   gap: 12px;
 }
 
-.admin-page-title {
+/* The one page that is not a console section but is shaped like one. */
+.profile-page {
+  max-width: 620px;
+  padding: 44px var(--pane-gutter) 60px;
+}
+
+/* `.field` sets the gap between a label and its input, and nothing set the gap between
+   one field and the next — inside a dialog that comes from .dialog's own gap, and this
+   page has no such wrapper, so the fields ran together: the display name's hint sat
+   directly on the "Full name" label under it. */
+.profile-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.page-title {
   margin: 0;
   font-size: var(--text-xl);
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
-.admin-page-sub {
+.page-sub {
   margin: 6px 0 0;
   font-size: var(--text-row);
   color: var(--text-4);
