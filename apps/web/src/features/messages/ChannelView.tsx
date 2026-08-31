@@ -258,12 +258,12 @@ export function ChannelView() {
         <div className="pane-spacer" />
 
         <button
-          className="btn"
+          className="btn pane-action-huddle"
           disabled
           title="Huddles arrive in a later release"
         >
           <HuddleIcon size={15} />
-          Huddle
+          <span className="pane-action-label">Huddle</span>
         </button>
         <button
           className="btn btn-ghost"
@@ -285,7 +285,7 @@ export function ChannelView() {
             }}
           >
             <PinIcon size={15} />
-            Pinned
+            <span className="pane-action-label">Pinned</span>
           </button>
           {pinsOpen && activeChannelId && (
             <PinnedPanel

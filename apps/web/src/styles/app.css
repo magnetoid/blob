@@ -106,6 +106,10 @@ button {
   justify-content: center;
   gap: 7px;
   height: 34px;
+  /* A button is a fixed-height box; a label that wraps inside one either overflows it
+     or forces the row taller. "Catch up" in the conversation header did the latter on
+     a phone. Whatever is next to it in a tight row should give way instead. */
+  white-space: nowrap;
   padding: 0 14px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
@@ -4033,6 +4037,19 @@ button.member-row:hover {
   .shell,
   .shell[data-panel='open'] {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The conversation header carries a title, a description and four controls, and had
+     no narrow rule at all — at 390px "Catch up" wrapped onto two lines. The labels go
+     and the icons keep their `title`, the same trade the top bar already makes. Huddle
+     goes entirely: it is disabled until that feature ships, so on the width where
+     space is scarcest it was spending it on a button nobody can press. */
+  .pane-action-huddle {
+    display: none;
+  }
+
+  .pane-action-label {
+    display: none;
   }
 
   .topbar-hamburger {
