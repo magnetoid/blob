@@ -4071,12 +4071,21 @@ button.member-row:hover {
     width: min(82vw, 300px);
     z-index: var(--z-drawer);
     transform: translateX(-105%);
-    transition: transform var(--dur-panel) var(--ease-standard);
+    /* Hidden, not merely moved — the same fix the console's drawer already carries,
+       and for the same reason: a transform leaves every control in the tab order, so a
+       closed drawer handed a keyboard user eleven invisible channel buttons to walk
+       through before reaching the conversation. Co-transitioned so it stays visible
+       for the length of the slide out. */
+    visibility: hidden;
+    transition:
+      transform var(--dur-panel) var(--ease-standard),
+      visibility var(--dur-panel);
     box-shadow: none;
   }
 
   .shell[data-sidebar='open'] .sidebar {
     transform: translateX(0);
+    visibility: visible;
     box-shadow: var(--elev-3);
   }
 

@@ -209,6 +209,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           if (helpOpen) setHelpOpen(false);
           else if (feedbackOpen) setFeedbackOpen(false);
           else if (paletteOpen) setPaletteOpen(false);
+          // The drawer is an overlay over the conversation, so it closes before the
+          // thread underneath it and long before Esc means "mark this channel read".
+          else if (sidebarOpen) setSidebarOpen(false);
           else if (activeThreadRootId) closeThread();
           else if (activeChannelId) {
             // Nothing left to close: Slack's Esc — the channel is read. Deliberately
@@ -231,6 +234,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     paletteOpen,
     helpOpen,
     feedbackOpen,
+    sidebarOpen,
     activeThreadRootId,
     openThread,
     channels,
