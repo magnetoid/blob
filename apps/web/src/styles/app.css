@@ -752,11 +752,21 @@ button {
   min-height: 0;
   overflow-y: auto;
   padding: 22px 0 8px;
+  /* So a short conversation can sit on the composer rather than floating at the top of
+     an empty pane. See the auto margin below. */
+  display: flex;
+  flex-direction: column;
 }
 
 .message-list-viewport {
   position: relative;
   width: 100%;
+  /* Bottom-anchored, the way every chat client is: a channel with four messages in it
+     reads from just above the composer, not from the top of the window with a void
+     underneath. `margin-top: auto` rather than `justify-content: flex-end` on the
+     scroller, because that clips the first item out of reach once the content does
+     overflow; an auto margin collapses to nothing instead. */
+  margin-top: auto;
 }
 
 .message-list-row {
