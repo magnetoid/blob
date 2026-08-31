@@ -1488,7 +1488,7 @@ button {
   justify-content: space-between;
   flex: none;
   height: var(--header-height);
-  padding: 0 18px;
+  padding: 0 var(--pane-gutter);
   border-bottom: 1px solid var(--hairline-soft);
 }
 
@@ -1697,7 +1697,7 @@ button {
 /* ─── search ─────────────────────────────────────────────────────────────── */
 .search-head {
   flex: none;
-  padding: 22px 26px 18px;
+  padding: 22px var(--pane-gutter) 18px;
   border-bottom: 1px solid var(--hairline-soft);
 }
 
@@ -1731,7 +1731,7 @@ button {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 18px 26px 30px;
+  padding: 18px var(--pane-gutter) 30px;
 }
 
 .search-count {
@@ -1901,6 +1901,20 @@ button {
   gap: 20px;
   padding: 17px 0;
   border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* A settings row whose control sits under its label rather than beside it — the DND
+   window, keyword alerts, group mutes. Same rhythm and divider as .pref-row, without
+   the flex that would lay its children out in a line. Three copies of this lived as
+   inline styles, one of which had already drifted to 12px. */
+.pref-block {
+  padding: 17px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* Nothing follows the last one, so a rule under it would underline the page. */
+.pref-block:last-child {
+  border-bottom: 0;
 }
 
 .pref-label {
@@ -3571,6 +3585,25 @@ button.member-row:hover {
 /* On a narrow window the icon carries it alone; the account menu beside it is the
    thing that must not be squeezed. */
 @media (max-width: 900px) {
+  /* Below this the three columns stop fitting: 264px of sidebar and 380px of thread
+     panel leave the conversation about 150px, which is narrower than the panel
+     discussing it. The panel becomes an overlay on the right instead, so opening a
+     thread stops shrinking the thing you opened it from. It is still a column at
+     ≤768px, where it goes full-bleed. */
+  .shell[data-panel='open'] {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  }
+
+  .shell[data-panel='open'] .panel {
+    position: fixed;
+    top: var(--topbar-height);
+    right: 0;
+    bottom: 0;
+    width: min(var(--panel-width), 92vw);
+    z-index: var(--z-panel);
+    box-shadow: var(--elev-3);
+  }
+
   .topbar-feedback-label {
     display: none;
   }
@@ -4043,11 +4076,23 @@ button.member-row:hover {
 }
 
 /* Installed to a home screen, the app draws under the status bar and the home
-   indicator; the insets keep the bar and composer touchable. */
+   indicator; the insets keep the bar and composer touchable.
+
+   The inset goes into --topbar-height rather than only onto the bar's padding. The
+   bar sits in a grid row of exactly that height, and three fixed overlays — the
+   drawer, its scrim and the full-bleed thread panel — pin their top edge to it. Padding
+   the bar alone left its contents pushed out of a row that had not grown, and started
+   every overlay underneath a bar that was visually taller than the variable said. On
+   anything without a notch the inset is 0 and this is the same 48px it always was. */
 @supports (padding: env(safe-area-inset-top)) {
+  :root {
+    --topbar-height: calc(48px + env(safe-area-inset-top));
+  }
+
   .topbar {
     padding-top: env(safe-area-inset-top);
   }
+
   .composer {
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }
@@ -4201,7 +4246,7 @@ button.member-row:hover {
 .later-tabs {
   display: flex;
   gap: 6px;
-  padding: 10px 20px 2px;
+  padding: 10px var(--pane-gutter) 2px;
 }
 
 .later-meta {

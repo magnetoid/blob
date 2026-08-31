@@ -129,7 +129,7 @@ export function NotificationsSection() {
       </div>
 
       {dnd.enabled && (
-        <div style={{ padding: '12px 0', borderBottom: '1px solid var(--hairline-soft)' }}>
+        <div className="pref-block">
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <label className="pref-hint" htmlFor="dnd-start">
               Notify me from
@@ -193,7 +193,7 @@ export function NotificationsSection() {
         </div>
       )}
 
-      <div style={{ padding: '17px 0', borderBottom: '1px solid var(--hairline-soft)' }}>
+      <div className="pref-block">
         <div className="pref-label">Keyword alerts</div>
         <div className="pref-hint">
           Notify me whenever one of these words appears anywhere I can see.
@@ -237,7 +237,7 @@ export function NotificationsSection() {
       </div>
 
       {myGroups.length > 0 && (
-        <div style={{ padding: '17px 0' }}>
+        <div className="pref-block">
           <div className="pref-label">Group mentions</div>
           <div className="pref-hint">
             Silence a group you are in: @-mentions of it stop counting as mentions of
