@@ -44,7 +44,7 @@ import {
 } from "../../lib/attachments.ts";
 import { openAgentTerminal } from "../../lib/agentTerminal.ts";
 import { Menu } from "../../components/Menu.tsx";
-import { presetsFor } from "./schedulePresets.ts";
+import { earliestCustom, presetsFor } from "./schedulePresets.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import {
@@ -120,6 +120,7 @@ export function Composer({
   );
   const [sending, setSending] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [customWhen, setCustomWhen] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
@@ -287,6 +288,7 @@ export function Composer({
       // Cleared only once the server has it: a draft dropped on a failed request is a
       // message somebody has to write twice.
       setDraft("");
+      setCustomWhen('');
       useToasts.getState().push(
         'info',
         `Scheduled for ${when.toLocaleString(undefined, {
@@ -960,6 +962,36 @@ export function Composer({
                     {preset.label}
                   </button>
                 ))}
+                <div className="menu-sep" />
+                {/* Four moments cannot express "next Thursday at two". The native
+                    control is the right one here: it already knows the reader's locale,
+                    their 12- or 24-hour clock, and how a date is spelled where they
+                    are — none of which a hand-rolled picker would get right for free. */}
+                <label className="schedule-custom">
+                  <span className="field-label">Or pick a time</span>
+                  <input
+                    className="input"
+                    type="datetime-local"
+                    name="schedule-custom"
+                    min={earliestCustom(new Date())}
+                    value={customWhen}
+                    onChange={(event) => setCustomWhen(event.target.value)}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    disabled={!customWhen}
+                    onClick={() => {
+                      // A datetime-local string has no zone, so it parses as local —
+                      // which is what the person typing it meant.
+                      const when = new Date(customWhen);
+                      if (Number.isNaN(when.getTime())) return;
+                      void scheduleFor(when);
+                    }}
+                  >
+                    Schedule
+                  </button>
+                </label>
               </Menu>
             </div>
           </div>

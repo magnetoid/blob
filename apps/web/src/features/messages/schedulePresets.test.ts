@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { presetsFor, SCHEDULE_PRESETS } from './schedulePresets.ts';
+import { earliestCustom, presetsFor, SCHEDULE_PRESETS } from './schedulePresets.ts';
 
 const at = (iso: string) => new Date(iso);
 
@@ -39,5 +39,26 @@ describe('schedule presets', () => {
         at('2026-09-02T09:00:00').getTime() + 60_000,
       );
     }
+  });
+});
+
+describe('the earliest custom time', () => {
+  it('is a local-clock string the native control accepts', () => {
+    // Not toISOString: that converts to UTC, which is the wrong clock for
+    // datetime-local and would offer a floor in the past or the future depending on
+    // which side of Greenwich you are.
+    const floor = earliestCustom(new Date('2026-09-02T09:00:00'));
+
+    expect(floor).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    expect(floor).toBe('2026-09-02T09:01');
+  });
+
+  it('rolls the date over at midnight rather than producing hour 24', () => {
+    expect(earliestCustom(new Date('2026-09-02T23:59:30'))).toBe('2026-09-03T00:00');
+  });
+
+  it('leaves the server room to accept it', () => {
+    const now = new Date('2026-09-02T09:00:00');
+    expect(new Date(earliestCustom(now)).getTime()).toBeGreaterThan(now.getTime() + 30_000);
   });
 });

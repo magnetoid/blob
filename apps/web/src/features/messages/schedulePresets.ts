@@ -47,3 +47,20 @@ export function presetsFor(now: Date): SchedulePreset[] {
   const floor = now.getTime() + 60_000;
   return SCHEDULE_PRESETS.filter((preset) => preset.at(now).getTime() > floor);
 }
+
+/** The earliest a custom time may be, as `datetime-local` wants it.
+ *
+ * The control needs a local-clock string with no zone, while everything else here works
+ * in Date objects — so the conversion lives beside the presets rather than being
+ * rediscovered in the composer. A minute of headroom, matching `presetsFor`: the server
+ * refuses anything under thirty seconds away.
+ */
+export function earliestCustom(now: Date): string {
+  const floor = new Date(now.getTime() + 60_000);
+  // toISOString would convert to UTC, which is the wrong clock for this control.
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${floor.getFullYear()}-${pad(floor.getMonth() + 1)}-${pad(floor.getDate())}` +
+    `T${pad(floor.getHours())}:${pad(floor.getMinutes())}`
+  );
+}

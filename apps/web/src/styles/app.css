@@ -3359,13 +3359,20 @@ select.chip {
   display: inline-flex;
 }
 
+.schedule-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 9px 4px;
+}
+
 /* Hangs above the composer, which sits at the bottom of the window. */
 .schedule-menu {
   top: auto;
   bottom: calc(100% + 6px);
   right: 0;
   left: auto;
-  min-width: 180px;
+  min-width: 232px;
 }
 
 /* ─── forwarding ─────────────────────────────────────────────────────────── */
