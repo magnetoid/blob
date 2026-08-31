@@ -10,6 +10,7 @@ import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { MoreIcon } from "../../components/Icon.tsx";
+import { Menu } from "../../components/Menu.tsx";
 
 /** Slack's set, because those are the ones in people's fingers. */
 const REMIND_PRESETS: Array<{ label: string; at: () => Date }> = [
@@ -67,29 +68,22 @@ export function MessageMenu({
         type="button"
         onClick={() => setMenuOpen((open) => !open)}
         title="More"
+        aria-haspopup="menu"
         aria-expanded={menuOpen}
       >
         <MoreIcon size={15} />
       </button>
-      {menuOpen && (
-        /* Reuses the autocomplete popover class, overridden inline to hang below
-           the trigger instead of above the composer; a later pass swaps this for a
-           shared Menu. */
-        <div
-          className="autocomplete"
-          style={{
-            bottom: "auto",
-            top: 32,
-            left: "auto",
-            right: 0,
-            width: 160,
-          }}
-        >
+      <Menu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        className="menu message-menu"
+      >
           {/* First, because it is the one people reach for most: a message is
               quoted into another channel or a ticket far more often than it is
               pinned or saved. */}
           <button
-            className="autocomplete-item"
+            className="menu-item"
+            role="menuitem"
             type="button"
             onClick={() => {
               setMenuOpen(false);
@@ -103,7 +97,8 @@ export function MessageMenu({
               something the channel list does not show. */}
           {!message.threadRootId && (
             <button
-              className="autocomplete-item"
+              className="menu-item"
+            role="menuitem"
               type="button"
               onClick={() => {
                 setMenuOpen(false);
@@ -117,7 +112,8 @@ export function MessageMenu({
               is yours and tells nobody, pinning is the channel's and tells
               everybody. Slack orders them the same way. */}
           <button
-            className="autocomplete-item"
+            className="menu-item"
+            role="menuitem"
             type="button"
             onClick={() => {
               setMenuOpen(false);
@@ -127,7 +123,8 @@ export function MessageMenu({
             {saved ? "Remove from later" : "Save for later"}
           </button>
           <button
-            className="autocomplete-item"
+            className="menu-item"
+            role="menuitem"
             type="button"
             aria-expanded={remindOpen}
             onClick={() => setRemindOpen((v) => !v)}
@@ -138,7 +135,8 @@ export function MessageMenu({
             REMIND_PRESETS.map((preset) => (
               <button
                 key={preset.label}
-                className="autocomplete-item remind-preset"
+                className="menu-item remind-preset"
+                role="menuitem"
                 type="button"
                 onClick={() => {
                   setMenuOpen(false);
@@ -157,7 +155,8 @@ export function MessageMenu({
               </button>
             ))}
           <button
-            className="autocomplete-item"
+            className="menu-item"
+            role="menuitem"
             type="button"
             onClick={() => {
               setMenuOpen(false);
@@ -170,7 +169,8 @@ export function MessageMenu({
           </button>
           {mine && (
             <button
-              className="autocomplete-item"
+              className="menu-item"
+            role="menuitem"
               type="button"
               onClick={() => {
                 setMenuOpen(false);
@@ -182,7 +182,8 @@ export function MessageMenu({
           )}
           {mine && (
             <button
-              className="autocomplete-item"
+              className="menu-item"
+            role="menuitem"
               type="button"
               onClick={() => {
                 setMenuOpen(false);
@@ -192,8 +193,7 @@ export function MessageMenu({
               Delete message
             </button>
           )}
-        </div>
-      )}
+      </Menu>
     </div>
   );
 }

@@ -3355,6 +3355,15 @@ select.chip {
   box-shadow: var(--elev-2);
 }
 
+/* The message ••• hangs from the right of its trigger, at the right edge of the row,
+   and is narrower than a channel menu because its rows are single words. Everything
+   else about it — the panel, the rows, the dismissal — is now the shared menu. */
+.message-menu {
+  left: auto;
+  right: 0;
+  min-width: 168px;
+}
+
 .menu-label {
   margin: 4px 9px 2px;
   font-size: var(--text-label-size);
