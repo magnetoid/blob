@@ -1100,6 +1100,17 @@ button {
   transition:
     border-color var(--dur-fast) var(--ease-color),
     background var(--dur-fast) var(--ease-color);
+  /* Keyed by emoji, so a new one mounts and plays this while the others sit still.
+     Reacting is the smallest thing you can do to a message and the only feedback was
+     the chip being there a frame later. */
+  animation: reaction-pop var(--dur-open) var(--ease-out);
+}
+
+@keyframes reaction-pop {
+  from {
+    opacity: 0;
+    scale: 0.8;
+  }
 }
 
 .reaction span:first-child {
@@ -4035,6 +4046,24 @@ button.member-row:hover {
   animation: skeleton-breathe 1.4s ease-in-out infinite;
 }
 
+/* Staggered, or five lines breathe as one block and read as a single flashing shape
+   rather than as content arriving. */
+.message-skeleton-line:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.message-skeleton-line:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.message-skeleton-line:nth-child(4) {
+  animation-delay: 0.36s;
+}
+
+.message-skeleton-line:nth-child(5) {
+  animation-delay: 0.48s;
+}
+
 @keyframes skeleton-breathe {
   0%,
   100% {
@@ -4369,6 +4398,13 @@ button.member-row:hover {
   display: flex;
   gap: 7px;
   align-items: baseline;
+}
+
+.agent-run-steps li,
+.agent-run-tool-state {
+  /* A run streams: steps tick over from pending to done and tools from running to
+     finished while you watch. Both flipped colour between frames. */
+  transition: color var(--dur-fast) var(--ease-color);
 }
 
 .agent-run-steps li[data-status='done'] {
