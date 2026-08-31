@@ -1921,15 +1921,19 @@ button {
   width: 40px;
   height: 23px;
   padding: 2px;
-  border-radius: var(--radius-lg);
+  /* A switch track is a stadium, not a rounded rectangle. */
+  border-radius: var(--radius-full);
   background: var(--track-off);
-  justify-content: flex-start;
   transition: background var(--dur-fast) var(--ease-color);
+}
+
+.toggle:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .toggle[aria-pressed="true"] {
   background: var(--accent);
-  justify-content: flex-end;
 }
 
 .toggle span {
@@ -1939,6 +1943,14 @@ button {
   border-radius: var(--radius-full);
   background: var(--knob);
   box-shadow: var(--shadow-knob);
+  /* The knob used to be positioned by flipping justify-content from start to end,
+     which is a discrete property: it teleported while the track colour faded under
+     it. 40px wide, less 2px padding either side and a 19px knob, is 17px of travel. */
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.toggle[aria-pressed="true"] span {
+  transform: translateX(17px);
 }
 
 .chip-row {
@@ -1958,12 +1970,47 @@ button {
   color: var(--text-3);
 }
 
+.chip:hover:not(:disabled):not([aria-pressed="true"]):not([data-active="true"]) {
+  border-color: var(--hairline-strong);
+  color: var(--text);
+}
+
+.chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .chip[aria-pressed="true"],
 .chip[data-active="true"] {
   background: var(--accent-wash);
   border-color: var(--accent-border);
   color: var(--accent);
   font-weight: 600;
+}
+
+/* Pressed feedback. There was not one `:active` rule in the stylesheet, so every
+   button in the app was inert between the pointer going down and the action
+   happening — on a slow request that is the whole time the person is waiting, with
+   nothing to say the click landed. A background one step deeper than hover is the
+   quietest thing that reads as "held". */
+.btn:active:not(:disabled),
+.chip:active:not(:disabled) {
+  background: var(--surface-hover-deep);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-danger:active:not(:disabled) {
+  /* These two invert on hover, so a deeper neutral would read as releasing. */
+  filter: brightness(0.94);
+}
+
+.icon-btn:active,
+.message-action:active,
+.menu-item:active,
+.user-menu-item:active:not(:disabled),
+.channel-row:active,
+.topbar-nav-btn:active {
+  background: var(--surface-hover-deep);
 }
 
 /* ─── empty states ───────────────────────────────────────────────────────── */
