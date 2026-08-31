@@ -10,21 +10,14 @@ import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import {
-  ChevronDownIcon,
   FileIcon,
   PinIcon,
   PlusIcon,
   ReplyIcon,
-  SearchIcon,
 } from '../../components/Icon.tsx';
-import { Menu } from '../../components/Menu.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 
-interface Props {
-  onOpenSearch: () => void;
-}
-
-export function Sidebar({ onOpenSearch }: Props) {
+export function Sidebar() {
   const channels = useStore((s) => s.channels);
   const users = useStore((s) => s.users);
   const presence = useStore((s) => s.presence);
@@ -74,14 +67,7 @@ export function Sidebar({ onOpenSearch }: Props) {
 
   return (
     <div className="sidebar">
-      <WorkspaceMenu name={workspaceName} memberCount={memberCount} />
-
-      <div className="sidebar-search">
-        <button className="search-trigger" onClick={onOpenSearch}>
-          <SearchIcon size={14} strokeWidth={2} />
-          Search {workspaceName}
-        </button>
-      </div>
+      <WorkspaceHeading name={workspaceName} memberCount={memberCount} />
 
       <div className="sidebar-scroll">
         {/* Above the channel list, where Slack keeps it. `GET /api/threads` has been
@@ -189,50 +175,25 @@ export function Sidebar({ onOpenSearch }: Props) {
 }
 
 /**
- * The workspace name, and the menu behind it.
+ * The workspace name, and how many people are in it.
  *
- * Slack puts administration here rather than in the rail, and someone looking for it
- * looks here first. The rail button stays: this adds a labelled way in, it does not
- * replace the one that exists.
+ * It used to be a button opening a two-row menu — Administration and Preferences. Both
+ * already had two other doors each (the bar's own buttons, and the account menu), and
+ * the sidebar's copy of Administration pointed at the *instance* console while showing
+ * itself to any admin, where the account menu gates that same destination to owners
+ * because every one of its endpoints is owner-gated. So the menu offered nothing that
+ * was not offered twice elsewhere, and offered one thing wrongly.
+ *
+ * The member count stays: this is the only place in the conversation view that says how
+ * large the workspace is.
  */
-function WorkspaceMenu({ name, memberCount }: { name: string; memberCount: number }) {
-  const currentUser = useStore((s) => s.currentUser);
-  const [open, setOpen] = useState(false);
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
-
-  const go = (path: string) => {
-    setOpen(false);
-    navigate(path);
-  };
-
+function WorkspaceHeading({ name, memberCount }: { name: string; memberCount: number }) {
   return (
     <div className="sidebar-header">
-      <button
-        className="workspace-trigger"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen((value) => !value);
-        }}
-      >
-        <span className="workspace-name">{name}</span>
-        <ChevronDownIcon size={14} strokeWidth={2} />
-      </button>
+      <div className="workspace-name">{name}</div>
       <div className="workspace-meta">
         {memberCount} {memberCount === 1 ? 'member' : 'members'}
       </div>
-
-      <Menu open={open} onClose={() => setOpen(false)} className="workspace-menu">
-        {isAdmin && (
-          <button className="workspace-menu-item" role="menuitem" onClick={() => go('/admin')}>
-            Administration
-          </button>
-        )}
-        <button className="workspace-menu-item" role="menuitem" onClick={() => go('/workspace/preferences')}>
-          Preferences
-        </button>
-      </Menu>
     </div>
   );
 }

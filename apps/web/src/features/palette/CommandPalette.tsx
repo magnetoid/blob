@@ -12,6 +12,7 @@ import { api } from "../../lib/api.ts";
 import { showError } from '../../lib/toasts.ts';
 import { useStore } from "../../lib/store.ts";
 import { showChannel } from "../../lib/navigation.ts";
+import { navigate } from "../../lib/router.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 
 interface Item {
@@ -83,6 +84,16 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
         kind: "Action",
         run: () => setPrefs({ theme: theme === "dark" ? "light" : "dark" }),
+      },
+      {
+        // The sidebar used to carry a labelled "Search {workspace}" button. The bar's
+        // Search button and ⌘F both still reach the same place, but somebody who
+        // reaches for ⌘K first should find message search there rather than learn that
+        // the palette only jumps to channels and people.
+        id: "a-search",
+        label: "Search messages…",
+        kind: "Action",
+        run: () => navigate("/search"),
       },
       {
         id: "a-catchup",

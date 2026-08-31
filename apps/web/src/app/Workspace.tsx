@@ -295,7 +295,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
         view={view}
       />
-      <Sidebar onOpenSearch={() => navigate('/search')} />
+      <Sidebar />
       {sidebarOpen && (
         <button
           type="button"
