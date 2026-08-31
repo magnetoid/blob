@@ -145,26 +145,16 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // The backdrop is presentational. It was role="button" tabIndex={0}, which put a tab
+  // stop announced as a button in front of the dialog and answered Space by closing it.
+  // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
     <div
       className="palette-backdrop"
+      role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (
-          event.key === "Escape" ||
-          event.key === "Enter" ||
-          event.key === " "
-        ) {
-          event.preventDefault();
-          onClose();
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label="Close command palette"
     >
       <div
         className="palette"
