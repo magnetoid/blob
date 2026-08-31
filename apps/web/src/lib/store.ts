@@ -1250,11 +1250,20 @@ export function connectStoreToSocket(): () => void {
       await useStore.getState().flushOutbox();
     })();
   };
+  // The browser knows the network came back before the socket does. Its backoff caps
+  // at 30 seconds, so a message queued as the wifi dropped could sit for that long
+  // after it returned — and sending is REST, not the socket, so the queue does not
+  // need to wait for a reconnect to drain. flushOutbox is idempotent on
+  // clientMsgId, so racing the socket's own flush costs nothing.
+  const onOnline = () => void useStore.getState().flushOutbox();
+  window.addEventListener('online', onOnline);
+
   socket.connect();
 
   return () => {
     unsubscribeEvents();
     unsubscribeStatus();
+    window.removeEventListener('online', onOnline);
     socket.onReconnect = null;
     socket.disconnect();
   };
