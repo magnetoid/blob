@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { Message } from '@blob/shared';
 import { MessageMenu } from './MessageMenu.tsx';
 import { useStore } from '../../lib/store.ts';
@@ -61,21 +61,27 @@ describe('the message ••• menu', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('closes on Escape', () => {
+  // Closing has two halves now that the panel animates away: it stops being a menu
+  // at once — inert, and marked closed for CSS to run the exit off — and leaves the
+  // DOM when that exit ends. Asserting only the second would pass on a panel that
+  // was still clickable on its way out.
+  it('closes on Escape', async () => {
     const { container } = open();
 
     fireEvent.keyDown(window, { key: 'Escape' });
 
-    expect(container.querySelector('.message-menu')).toBeNull();
+    expect(container.querySelector('.message-menu')?.getAttribute('data-state')).toBe('closed');
+    await waitFor(() => expect(container.querySelector('.message-menu')).toBeNull());
   });
 
-  it('closes on a click outside it', () => {
+  it('closes on a click outside it', async () => {
     const { container } = open();
 
     // Capture phase, on window — the house dismissal contract.
     fireEvent.click(document.body);
 
-    expect(container.querySelector('.message-menu')).toBeNull();
+    expect(container.querySelector('.message-menu')?.getAttribute('data-state')).toBe('closed');
+    await waitFor(() => expect(container.querySelector('.message-menu')).toBeNull());
   });
 
   it('moves focus onto an item with the arrow keys', () => {

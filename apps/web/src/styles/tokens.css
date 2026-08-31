@@ -140,14 +140,15 @@
   --radius-full: 9999px;
 
   /* ─── motion ───────────────────────────────────────────────────────────── */
-  /* --dur-fast is the 120ms that nineteen rules had each written out. There is no
-     exit duration yet: every overlay is conditionally rendered, so it leaves the DOM
-     before it could animate out. Add one with the hook that holds them mounted. */
+  /* Exits are quicker than entrances: arriving is information and leaving is getting
+     out of the way. --dur-fast is the 120ms that nineteen rules had each written out. */
   --dur-fast: 120ms;
   --dur-open: 200ms;
+  --dur-exit: 150ms;
   --dur-modal: 250ms;
   --dur-panel: 300ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-color: ease;
   --motion-scale-in: 0.96;

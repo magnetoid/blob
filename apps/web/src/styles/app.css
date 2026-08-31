@@ -3374,6 +3374,13 @@ select.chip {
   }
 }
 
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--motion-slide))) scale(var(--motion-scale-in));
+  }
+}
+
 @keyframes panel-slide-in {
   from {
     opacity: 0;
@@ -3388,6 +3395,14 @@ select.chip {
 .pinned-panel {
   transform-origin: top center;
   animation: overlay-in var(--dur-open) var(--ease-out);
+}
+
+/* Held mounted by usePresence for exactly this. `forwards` so the last frame stays
+   put until React takes the node away, rather than snapping back to opaque for the
+   frame in between. */
+[data-state='closed'] {
+  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+  pointer-events: none;
 }
 
 /* Anchored bottom-left, so it should grow from there rather than from the top. */
