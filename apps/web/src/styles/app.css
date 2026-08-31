@@ -858,13 +858,15 @@ button {
   padding-right: 6px;
   font-size: var(--text-2xs);
   line-height: 20px;
+  transition: opacity var(--dur-fast) var(--ease-color);
   color: var(--text-faint);
   text-align: right;
   opacity: 0;
   font-variant-numeric: tabular-nums;
 }
 
-.message:hover .gutter-time {
+.message:hover .gutter-time,
+.message:focus-within .gutter-time {
   opacity: 1;
 }
 
@@ -994,19 +996,35 @@ button {
   position: absolute;
   top: -14px;
   right: var(--pane-gutter);
-  display: none;
+  display: flex;
   gap: 1px;
   padding: 3px;
   background: var(--surface);
-  border: 1px solid var(--hairline-popover);
-  border-radius: 9px;
-  box-shadow: var(--shadow-popover);
-  z-index: 2;
+  border-radius: var(--radius-md);
+  /* The ring is the first layer of --elev-1, so there is no separate border to
+     disagree with it. */
+  box-shadow: var(--elev-1);
+  z-index: var(--z-raised);
+  /* Was `display: none`, which cannot be animated at all — the toolbar for the most
+     frequent interaction in the app appeared and vanished with a hard cut. `visibility`
+     rather than opacity alone is not decoration: opacity 0 would leave every one of
+     these buttons clickable and in the tab order over every message on screen. It is
+     transitioned so it flips to visible at once on the way in and waits for the fade on
+     the way out. */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(2px);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    visibility var(--dur-fast);
 }
 
 .message:hover .message-actions,
 .message:focus-within .message-actions {
-  display: flex;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
 }
 
 .message-action {
