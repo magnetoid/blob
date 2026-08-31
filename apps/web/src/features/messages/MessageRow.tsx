@@ -397,7 +397,9 @@ export const MessageRow = memo(function MessageRow({
               data-emoji="true"
               type="button"
               onClick={() => void toggleReaction(message, emoji).catch(showError)}
-              title={`React ${emoji}`}
+              aria-label={`React ${emoji}`}
+              data-tooltip={`React ${emoji}`}
+              data-tooltip-place="top"
             >
               {emoji}
             </button>
@@ -410,7 +412,9 @@ export const MessageRow = memo(function MessageRow({
               aria-expanded={pickerOpen}
               aria-haspopup="dialog"
               onClick={() => setPickerOpen((value) => !value)}
-              title="Add reaction"
+              aria-label="Add reaction"
+              data-tooltip="Add reaction"
+              data-tooltip-place="top"
             >
               ＋
             </button>
@@ -431,7 +435,9 @@ export const MessageRow = memo(function MessageRow({
               className="message-action"
               type="button"
               onClick={() => onOpenThread(message.threadRootId ?? message.id)}
-              title="Reply in thread"
+              aria-label="Reply in thread"
+              data-tooltip="Reply in thread"
+              data-tooltip-place="top"
             >
               <ReplyIcon size={15} />
             </button>

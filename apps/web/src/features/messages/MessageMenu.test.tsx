@@ -33,7 +33,7 @@ function open() {
       onDelete={vi.fn()}
     />,
   );
-  fireEvent.click(screen.getByTitle('More'));
+  fireEvent.click(screen.getByLabelText('More actions'));
   return view;
 }
 
@@ -55,7 +55,7 @@ describe('the message ••• menu', () => {
 
   it('says what the trigger opens', () => {
     open();
-    const trigger = screen.getByTitle('More');
+    const trigger = screen.getByLabelText('More actions');
 
     expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
     expect(trigger.getAttribute('aria-expanded')).toBe('true');

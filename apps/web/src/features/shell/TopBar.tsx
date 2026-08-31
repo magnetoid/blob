@@ -92,7 +92,8 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
           className="topbar-nav-btn"
           aria-pressed={view === 'messages' || view === 'channel'}
           onClick={() => navigate(pathForView('messages'))}
-          title="Messages"
+          aria-label="Messages"
+          data-tooltip="Messages"
         >
           <MessagesIcon size={17} strokeWidth={1.7} />
           <span className="topbar-nav-label">Messages</span>
@@ -101,7 +102,8 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
           className="topbar-nav-btn"
           aria-pressed={view === 'search'}
           onClick={() => navigate(pathForView('search'))}
-          title="Search"
+          aria-label="Search"
+          data-tooltip="Search"
         >
           <SearchIcon size={17} strokeWidth={1.7} />
           <span className="topbar-nav-label">Search</span>
@@ -111,7 +113,8 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
             className="topbar-nav-btn"
             aria-pressed={view === 'admin'}
             onClick={() => navigate(pathForView('admin'))}
-            title="Administration"
+            aria-label="Administration"
+          data-tooltip="Administration"
           >
             <MembersIcon size={17} strokeWidth={1.7} />
             <span className="topbar-nav-label">Admin</span>
@@ -121,7 +124,8 @@ export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
           className="topbar-nav-btn"
           aria-pressed={view === 'workspace'}
           onClick={() => navigate(pathForRoute({ view: 'workspace', section: 'preferences' }))}
-          title="Preferences"
+          aria-label="Preferences"
+          data-tooltip="Preferences"
         >
           <SettingsIcon size={17} strokeWidth={1.7} />
           <span className="topbar-nav-label">Preferences</span>

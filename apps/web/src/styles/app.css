@@ -3349,6 +3349,69 @@ select.chip {
   animation: message-flash 1.6s ease-out;
 }
 
+/* ─── tooltips ───────────────────────────────────────────────────────────────
+   A label for a control whose face is an icon.
+
+   `title` was doing this job in 63 places, and it only half does it: it waits about
+   a second, it never appears on keyboard focus, and it does not exist on touch. The
+   first two matter most where a button has no visible text at all — the top bar
+   below 900px, and the message toolbar — because there `title` was the only label a
+   sighted person could get at, and a keyboard user could not get at it.
+
+   CSS rather than a component: the trigger keeps its own markup, nothing has to be
+   wrapped, and it costs no JavaScript on a control that appears dozens of times per
+   screen. The cost is that it cannot flip away from a viewport edge, so it is for
+   short labels on controls that are not against one. `aria-label` still carries the
+   accessible name — this is for eyes, not for screen readers. */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: var(--z-popover);
+  translate: -50% 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--bg);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  /* Never the target of a pointer: a tooltip that can be hovered can trap the
+     pointer that opened it. */
+  pointer-events: none;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    visibility var(--dur-fast);
+}
+
+/* Above the trigger, for controls that sit at the top of what they act on — the
+   message toolbar overhangs its row, so a tooltip below it would cover the message. */
+[data-tooltip][data-tooltip-place='top']::after {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  /* Long enough not to fire while a pointer crosses a row of buttons on its way
+     somewhere else, short enough to feel like an answer. Focus gets it at once:
+     arriving by keyboard is deliberate in a way that passing over is not. */
+  transition-delay: 400ms;
+}
+
+[data-tooltip]:focus-visible::after {
+  transition-delay: 0ms;
+}
+
 /* ─── overlay motion ─────────────────────────────────────────────────────────
    Enter only, and deliberately so. Every overlay in the app is conditionally
    rendered — `{open && <X/>}` — so it is gone from the DOM the instant it closes

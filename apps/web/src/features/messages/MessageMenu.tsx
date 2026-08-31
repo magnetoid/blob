@@ -67,7 +67,9 @@ export function MessageMenu({
         className="message-action"
         type="button"
         onClick={() => setMenuOpen((open) => !open)}
-        title="More"
+        aria-label="More actions"
+        data-tooltip="More"
+        data-tooltip-place="top"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
       >
