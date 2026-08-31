@@ -84,6 +84,8 @@ export function EmojiSection({ onError }: { onError: (message: string | null) =>
             ref={fileRef}
             className="input"
             type="file"
+            name="emoji"
+            aria-label="Choose an emoji image"
             accept="image/*"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />

@@ -814,6 +814,7 @@ export function Composer({
           <textarea
             ref={textareaRef}
             className="composer-input"
+            name="message"
             value={draft}
             placeholder={placeholder}
             rows={2}
@@ -827,6 +828,8 @@ export function Composer({
             <input
               ref={fileInputRef}
               type="file"
+              name="attachment"
+              aria-label="Attach a file"
               multiple
               hidden
               onChange={(event) => {

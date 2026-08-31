@@ -81,6 +81,8 @@ export function ProfileView() {
               <input
                 ref={avatarInputRef}
                 type="file"
+                name="avatar"
+                aria-label="Choose a profile photo"
                 accept="image/png,image/jpeg,image/webp,image/gif"
                 hidden
                 onChange={async (event) => {
