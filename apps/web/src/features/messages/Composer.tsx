@@ -706,9 +706,13 @@ export function Composer({
               aria-label="Bold"
               title={`Bold (${chordFor("format-bold")})`}
               onMouseDown={(e) => {
+                // Only to keep the textarea's selection: without this the mousedown
+                // moves focus to the button and the selection collapses before the
+                // action can read it. The action itself is on click, so Enter and
+                // Space reach it too.
                 e.preventDefault();
-                toggleWrap("**");
               }}
+              onClick={() => toggleWrap("**")}
             >
               <strong>B</strong>
             </button>
@@ -718,9 +722,13 @@ export function Composer({
               aria-label="Italic"
               title={`Italic (${chordFor("format-italic")})`}
               onMouseDown={(e) => {
+                // Only to keep the textarea's selection: without this the mousedown
+                // moves focus to the button and the selection collapses before the
+                // action can read it. The action itself is on click, so Enter and
+                // Space reach it too.
                 e.preventDefault();
-                toggleWrap("_");
               }}
+              onClick={() => toggleWrap("_")}
             >
               <em>I</em>
             </button>
@@ -730,9 +738,13 @@ export function Composer({
               aria-label="Code"
               title={`Code (${chordFor("format-code")})`}
               onMouseDown={(e) => {
+                // Only to keep the textarea's selection: without this the mousedown
+                // moves focus to the button and the selection collapses before the
+                // action can read it. The action itself is on click, so Enter and
+                // Space reach it too.
                 e.preventDefault();
-                toggleCode();
               }}
+              onClick={() => toggleCode()}
             >
               <code>{"</>"}</code>
             </button>
@@ -742,9 +754,13 @@ export function Composer({
               aria-label="Strikethrough"
               title={`Strikethrough (${chordFor("format-strike")})`}
               onMouseDown={(e) => {
+                // Only to keep the textarea's selection: without this the mousedown
+                // moves focus to the button and the selection collapses before the
+                // action can read it. The action itself is on click, so Enter and
+                // Space reach it too.
                 e.preventDefault();
-                toggleWrap("~~");
               }}
+              onClick={() => toggleWrap("~~")}
             >
               <s>S</s>
             </button>
