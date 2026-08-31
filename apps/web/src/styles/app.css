@@ -776,6 +776,13 @@ button {
      scroller, because that clips the first item out of reach once the content does
      overflow; an auto margin collapses to nothing instead. */
   margin-top: auto;
+  /* Not optional, and not obvious. This is the virtualizer's spacer: it carries an
+     inline height standing in for every message not rendered, and a flex child shrinks
+     to its container by default — so in the flex column above it was being crushed from
+     6,711px to 488, and the scrollbar described the window instead of the conversation.
+     Caught by loading 600 messages into a channel; the existing test missed it because
+     it asserts the inline style, which was never wrong. */
+  flex: none;
 }
 
 .message-list-row {

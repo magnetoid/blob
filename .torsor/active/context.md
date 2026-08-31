@@ -415,3 +415,10 @@ Worth knowing before changing the equivalent code:
   exited 1 with `[vitest-worker]: Timeout calling "fetch"` and one test *file* never
   collected, while the summary line said 258 passed. Compare the file count against a
   known-good run before believing a green summary.
+- **The virtualizer's spacer is a flex item, and flex items shrink.** `.message-list` was
+  made a flex column so a short conversation could sit on the composer; that silently
+  crushed `.message-list-viewport` — whose inline height stands in for every unrendered
+  message — from 6,711px to 488, so the scrollbar described the window instead of the
+  conversation and paging back never triggered. `flex: none` on the spacer. The list test
+  did not catch it and cannot: happy-dom does no layout, so it asserts the inline style,
+  which was never wrong. Found only by loading 600 real messages into a channel.

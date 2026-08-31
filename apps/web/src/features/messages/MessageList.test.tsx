@@ -99,6 +99,11 @@ describe('MessageList', () => {
   it('still reserves scroll height for the messages it did not render', () => {
     // Otherwise the scrollbar would describe the window instead of the conversation, and
     // dragging it would jump to the wrong place.
+    //
+    // This asserts the inline style, which is all happy-dom can offer: it does no layout,
+    // so a spacer that is *declared* 6,711px tall and then crushed to 488 by a flex
+    // parent reads as correct here. That exact bug shipped and survived twenty commits.
+    // The guard against it is `flex: none` on .message-list-viewport, and a browser.
     const { container } = renderList();
     const viewport = container.querySelector('.message-list-viewport') as HTMLElement;
 
