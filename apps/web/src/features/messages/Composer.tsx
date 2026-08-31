@@ -838,7 +838,9 @@ export function Composer({
             <button
               className="icon-btn"
               type="button"
-              title="Attach a file"
+              aria-label="Attach a file"
+              data-tooltip="Attach a file"
+              data-tooltip-place="top"
               onClick={() => fileInputRef.current?.click()}
             >
               <AttachIcon />
@@ -847,7 +849,9 @@ export function Composer({
               ref={emojiTriggerRef}
               className="icon-btn"
               type="button"
-              title="Emoji"
+              aria-label="Emoji"
+              data-tooltip="Emoji"
+              data-tooltip-place="top"
               onClick={() => setEmojiOpen((open) => !open)}
               aria-expanded={emojiOpen}
               aria-haspopup="dialog"
@@ -857,7 +861,9 @@ export function Composer({
             <button
               className="icon-btn"
               type="button"
-              title="Mention someone"
+              aria-label="Mention someone"
+              data-tooltip="Mention someone"
+              data-tooltip-place="top"
               onMouseDown={(e) => {
                 e.preventDefault();
                 updateDraft(`${draft}@`);
@@ -876,7 +882,9 @@ export function Composer({
               data-ready={ready}
               onClick={() => void submit()}
               disabled={!ready || sending}
-              title="Send"
+              aria-label="Send"
+              data-tooltip="Send"
+              data-tooltip-place="top"
             >
               <SendIcon size={15} />
             </button>
