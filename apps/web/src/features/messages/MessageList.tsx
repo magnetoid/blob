@@ -50,6 +50,17 @@ export function MessageList({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [jumpBarDismissed, setJumpBarDismissed] = useState(false);
+  /**
+   * The one row in the list that is a tab stop.
+   *
+   * Null means "the last message", resolved at render so it follows the conversation
+   * without an effect chasing it. Every row used to be `tabIndex={0}` along with each of
+   * its six actions, so Tab cost seven presses per message and focusing a row below the
+   * fold scrolled it into view and rendered more rows to walk — there was no number of
+   * presses that reached the composer. Arrows move between rows, which is the affordance
+   * that makes one tab stop enough.
+   */
+  const [tabStopId, setTabStopId] = useState<string | null>(null);
   const pendingScrollMessageId = useStore((s) => s.pendingScrollMessageId);
   const requestScrollToMessage = useStore((s) => s.requestScrollToMessage);
 
@@ -60,7 +71,17 @@ export function MessageList({
         : messages.findIndex((message) => message.id > unreadAfterId),
     [messages, unreadAfterId],
   );
-  const unreadCount = firstUnreadIndex === -1 ? 0 : messages.length - firstUnreadIndex;
+  const unreadCount =
+    firstUnreadIndex === -1 ? 0 : messages.length - firstUnreadIndex;
+
+  // Falls back to the newest message, and falls back again if the row it names has since
+  // gone — an optimistic id replaced by the server's, or a page that scrolled away. A
+  // tab stop that points at nothing is a list Tab skips entirely, which is the same bug
+  // in the other direction.
+  const effectiveTabStopId =
+    tabStopId !== null && messages.some((m) => m.id === tabStopId)
+      ? tabStopId
+      : (messages[messages.length - 1]?.id ?? null);
 
   useEffect(() => {
     setJumpBarDismissed(false);
@@ -205,9 +226,15 @@ export function MessageList({
         <div className="message-list" ref={scrollRef}>
           <div className="empty-state">
             <div className="empty-state-title">Couldn’t load messages</div>
-            <div className="empty-state-body">The server didn’t answer. Nothing is lost.</div>
+            <div className="empty-state-body">
+              The server didn’t answer. Nothing is lost.
+            </div>
             {onRetry && (
-              <button type="button" className="btn btn-primary" onClick={onRetry}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={onRetry}
+              >
                 Try again
               </button>
             )}
@@ -225,8 +252,14 @@ export function MessageList({
               <div key={index} className="message-skeleton-row">
                 <span className="message-skeleton-avatar" />
                 <span className="message-skeleton-lines">
-                  <span className="message-skeleton-line" style={{ width: "120px" }} />
-                  <span className="message-skeleton-line" style={{ width: `${width}%` }} />
+                  <span
+                    className="message-skeleton-line"
+                    style={{ width: "120px" }}
+                  />
+                  <span
+                    className="message-skeleton-line"
+                    style={{ width: `${width}%` }}
+                  />
                 </span>
               </div>
             ))}
@@ -262,7 +295,10 @@ export function MessageList({
               virtualizer.scrollToIndex(firstUnreadIndex, { align: "center" });
             }}
           >
-            {unreadCount === 1 ? "1 new message" : `${unreadCount} new messages`} — jump
+            {unreadCount === 1
+              ? "1 new message"
+              : `${unreadCount} new messages`}{" "}
+            — jump
           </button>
           <button
             type="button"
@@ -318,6 +354,8 @@ export function MessageList({
                 previous={showDay || isFirstUnread ? null : previous}
                 onOpenThread={onOpenThread}
                 inThread={inThread}
+                isTabStop={message.id === effectiveTabStopId}
+                onFocusRow={setTabStopId}
               />
               {runsByMessageId?.[message.id]?.map((run) => (
                 <AgentRunCard key={run.id} run={run} />

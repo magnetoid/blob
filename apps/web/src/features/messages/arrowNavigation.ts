@@ -24,9 +24,15 @@ export function moveFocusBetweenMessages(event: {
 
   const row = event.currentTarget as HTMLElement | null;
   if (!row) return;
-  const rows = Array.from(
-    document.querySelectorAll<HTMLElement>('[data-message-id]'),
-  ).filter((candidate) => candidate.tabIndex === 0);
+  // Scoped to the list this row is in, not the document. Two things depended on that
+  // and neither worked: the old filter kept only rows with `tabIndex === 0`, which was
+  // every row and so filtered nothing, and once the list took a roving tabindex it was
+  // exactly one row and arrows stopped moving at all. Scoping by list is what the filter
+  // was reaching for — and it also stops an arrow in the channel from walking into the
+  // thread panel's replies, which share the attribute and were never meant to be one
+  // sequence.
+  const list = row.closest('.message-list') ?? document;
+  const rows = Array.from(list.querySelectorAll<HTMLElement>('[data-message-id]'));
   const here = rows.indexOf(row);
   if (here < 0) return;
 

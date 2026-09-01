@@ -14,11 +14,11 @@ import { Menu } from "../../components/Menu.tsx";
 
 /** Slack's set, because those are the ones in people's fingers. */
 const REMIND_PRESETS: Array<{ label: string; at: () => Date }> = [
-  { label: 'In 20 minutes', at: () => new Date(Date.now() + 20 * 60_000) },
-  { label: 'In 1 hour', at: () => new Date(Date.now() + 60 * 60_000) },
-  { label: 'In 3 hours', at: () => new Date(Date.now() + 3 * 60 * 60_000) },
+  { label: "In 20 minutes", at: () => new Date(Date.now() + 20 * 60_000) },
+  { label: "In 1 hour", at: () => new Date(Date.now() + 60 * 60_000) },
+  { label: "In 3 hours", at: () => new Date(Date.now() + 3 * 60 * 60_000) },
   {
-    label: 'Tomorrow at 9:00',
+    label: "Tomorrow at 9:00",
     at: () => {
       const at = new Date();
       at.setDate(at.getDate() + 1);
@@ -27,7 +27,7 @@ const REMIND_PRESETS: Array<{ label: string; at: () => Date }> = [
     },
   },
   {
-    label: 'Next week',
+    label: "Next week",
     at: () => {
       const at = new Date();
       at.setDate(at.getDate() + 7);
@@ -45,6 +45,8 @@ interface Props {
   onForward: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** Follows the row's roving tabindex: only the list's one tab stop is tabbable. */
+  tabIndex?: number;
 }
 
 export function MessageMenu({
@@ -54,6 +56,7 @@ export function MessageMenu({
   onForward,
   onEdit,
   onDelete,
+  tabIndex,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
@@ -68,6 +71,7 @@ export function MessageMenu({
       <button
         className="message-action"
         type="button"
+        tabIndex={tabIndex}
         onClick={() => setMenuOpen((open) => !open)}
         aria-label="More actions"
         data-tooltip="More"
@@ -82,134 +86,136 @@ export function MessageMenu({
         onClose={() => setMenuOpen(false)}
         className="menu message-menu"
       >
-          {/* First, because it is the one people reach for most: a message is
+        {/* First, because it is the one people reach for most: a message is
               quoted into another channel or a ticket far more often than it is
               pinned or saved. */}
-          <button
-            className="menu-item"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              onCopyLink();
-            }}
-          >
-            Copy link
-          </button>
-          {/* Beside Copy link because they answer the same question — "send this
+        <button
+          className="menu-item"
+          role="menuitem"
+          type="button"
+          onClick={() => {
+            setMenuOpen(false);
+            onCopyLink();
+          }}
+        >
+          Copy link
+        </button>
+        {/* Beside Copy link because they answer the same question — "send this
               somewhere else" — and differ only in who does the walking. */}
-          <button
-            className="menu-item"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              onForward();
-            }}
-          >
-            Forward…
-          </button>
-          {/* Only in the channel, not in a thread: the read cursor is a channel
+        <button
+          className="menu-item"
+          role="menuitem"
+          type="button"
+          onClick={() => {
+            setMenuOpen(false);
+            onForward();
+          }}
+        >
+          Forward…
+        </button>
+        {/* Only in the channel, not in a thread: the read cursor is a channel
               cursor, so marking a reply unread would move a marker pointing at
               something the channel list does not show. */}
-          {!message.threadRootId && (
-            <button
-              className="menu-item"
+        {!message.threadRootId && (
+          <button
+            className="menu-item"
             role="menuitem"
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                void markUnread(message.channelId, message.id).catch(showError);
-              }}
-            >
-              Mark unread
-            </button>
-          )}
-          {/* Above pinning, and worded to draw the line between them: this one
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              void markUnread(message.channelId, message.id).catch(showError);
+            }}
+          >
+            Mark unread
+          </button>
+        )}
+        {/* Above pinning, and worded to draw the line between them: this one
               is yours and tells nobody, pinning is the channel's and tells
               everybody. Slack orders them the same way. */}
+        <button
+          className="menu-item"
+          role="menuitem"
+          type="button"
+          onClick={() => {
+            setMenuOpen(false);
+            void toggleSaved(message.id).catch(showError);
+          }}
+        >
+          {saved ? "Remove from later" : "Save for later"}
+        </button>
+        <button
+          className="menu-item"
+          role="menuitem"
+          type="button"
+          aria-expanded={remindOpen}
+          onClick={() => setRemindOpen((v) => !v)}
+        >
+          Remind me…
+        </button>
+        {remindOpen &&
+          REMIND_PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              className="menu-item remind-preset"
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                setRemindOpen(false);
+                void api.later
+                  .update(message.id, { remindAt: preset.at().toISOString() })
+                  .then(() =>
+                    useStore.setState((s) => ({
+                      savedMessageIds: new Set(s.savedMessageIds).add(
+                        message.id,
+                      ),
+                    })),
+                  )
+                  .catch(showError);
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
+        <button
+          className="menu-item"
+          role="menuitem"
+          type="button"
+          onClick={() => {
+            setMenuOpen(false);
+            void api.messages
+              .pin(message.id, message.pinnedAt === null)
+              .catch(showError);
+          }}
+        >
+          {message.pinnedAt ? "Unpin" : "Pin to channel"}
+        </button>
+        {mine && (
           <button
             className="menu-item"
             role="menuitem"
             type="button"
             onClick={() => {
               setMenuOpen(false);
-              void toggleSaved(message.id).catch(showError);
+              onEdit();
             }}
           >
-            {saved ? "Remove from later" : "Save for later"}
+            Edit message
           </button>
-          <button
-            className="menu-item"
-            role="menuitem"
-            type="button"
-            aria-expanded={remindOpen}
-            onClick={() => setRemindOpen((v) => !v)}
-          >
-            Remind me…
-          </button>
-          {remindOpen &&
-            REMIND_PRESETS.map((preset) => (
-              <button
-                key={preset.label}
-                className="menu-item remind-preset"
-                role="menuitem"
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setRemindOpen(false);
-                  void api.later
-                    .update(message.id, { remindAt: preset.at().toISOString() })
-                    .then(() =>
-                      useStore.setState((s) => ({
-                        savedMessageIds: new Set(s.savedMessageIds).add(message.id),
-                      })),
-                    )
-                    .catch(showError);
-                }}
-              >
-                {preset.label}
-              </button>
-            ))}
+        )}
+        {mine && (
           <button
             className="menu-item"
             role="menuitem"
             type="button"
             onClick={() => {
               setMenuOpen(false);
-              void api.messages
-                .pin(message.id, message.pinnedAt === null)
-                .catch(showError);
+              onDelete();
             }}
           >
-            {message.pinnedAt ? "Unpin" : "Pin to channel"}
+            Delete message
           </button>
-          {mine && (
-            <button
-              className="menu-item"
-            role="menuitem"
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                onEdit();
-              }}
-            >
-              Edit message
-            </button>
-          )}
-          {mine && (
-            <button
-              className="menu-item"
-            role="menuitem"
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                onDelete();
-              }}
-            >
-              Delete message
-            </button>
-          )}
+        )}
       </Menu>
     </div>
   );

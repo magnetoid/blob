@@ -36,6 +36,18 @@ interface Props {
   onOpenThread: (rootId: string) => void;
   /** Threads render replies flat, without their own summary line. */
   inThread?: boolean;
+  /**
+   * Whether this row is the list's single tab stop.
+   *
+   * A roving tabindex, and the list is why it has to be one. Every row carried
+   * `tabIndex={0}` and so did each of its six actions, so Tab walked seven stops per
+   * message and focusing an off-screen row scrolled it into view, which rendered more
+   * rows to walk — there was no number of presses that got from the conversation to the
+   * composer. Arrows move between rows; Tab enters this row's actions and then leaves.
+   */
+  isTabStop?: boolean;
+  /** Told when this row takes focus, so the list can move the tab stop to it. */
+  onFocusRow?: (messageId: string) => void;
 }
 
 /**
@@ -81,7 +93,13 @@ export const MessageRow = memo(function MessageRow({
   previous,
   onOpenThread,
   inThread = false,
+  isTabStop = true,
+  onFocusRow,
 }: Props) {
+  // -1 keeps a row reachable by script and by the arrow handler while taking it out of
+  // the sequential order. The actions follow the row: a button inside a `tabIndex={-1}`
+  // element is still tabbable on its own, so they have to be told separately.
+  const tab = isTabStop ? 0 : -1;
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
   const customEmoji = useStore((s) => s.customEmoji);
@@ -195,7 +213,12 @@ export const MessageRow = memo(function MessageRow({
       // for a keyboard user. The lint rule guards against *meaningless* tab stops;
       // this one is the only route to three actions.
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-      tabIndex={0}
+      tabIndex={tab}
+      onFocus={(event) => {
+        // Only the row itself, not a button inside it bubbling up — otherwise clicking
+        // an action would re-anchor the tab stop mid-interaction.
+        if (event.target === event.currentTarget) onFocusRow?.(message.id);
+      }}
       // The anchor the pinned panel jumps to. An attribute rather than an `id`, because
       // the same message can render in the list and in a thread at once and duplicate
       // ids would make `getElementById` pick whichever the DOM happened to hold first.
@@ -416,6 +439,7 @@ export const MessageRow = memo(function MessageRow({
               className="message-action"
               data-emoji="true"
               type="button"
+              tabIndex={tab}
               onClick={() =>
                 void toggleReaction(message, emoji).catch(showError)
               }
@@ -431,6 +455,7 @@ export const MessageRow = memo(function MessageRow({
               className="message-action"
               data-emoji="true"
               type="button"
+              tabIndex={tab}
               aria-expanded={pickerOpen}
               aria-haspopup="dialog"
               onClick={() => setPickerOpen((value) => !value)}
@@ -456,6 +481,7 @@ export const MessageRow = memo(function MessageRow({
             <button
               className="message-action"
               type="button"
+              tabIndex={tab}
               onClick={() => onOpenThread(message.threadRootId ?? message.id)}
               aria-label="Reply in thread"
               data-tooltip="Reply in thread"
@@ -472,6 +498,7 @@ export const MessageRow = memo(function MessageRow({
           <MessageMenu
             message={message}
             mine={mine}
+            tabIndex={tab}
             onCopyLink={copyLink}
             onForward={() => setForwarding(true)}
             onEdit={() => setEditing(true)}
