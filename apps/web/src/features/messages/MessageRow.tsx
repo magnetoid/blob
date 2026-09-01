@@ -108,7 +108,8 @@ export const MessageRow = memo(function MessageRow({
   const editingMessageId = useStore((s) => s.editingMessageId);
   const setEditingMessage = useStore((s) => s.setEditingMessage);
   const editing = editingMessageId === message.id;
-  const setEditing = (open: boolean) => setEditingMessage(open ? message.id : null);
+  const setEditing = (open: boolean) =>
+    setEditingMessage(open ? message.id : null);
   const [deleting, setDeleting] = useState(false);
   const [forwarding, setForwarding] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -353,27 +354,37 @@ export const MessageRow = memo(function MessageRow({
 
         {message.reactions.length > 0 && (
           <div className="reactions">
-            {message.reactions.map((reaction) => (
-              <button
-                key={reaction.emoji}
-                className="reaction"
-                data-mine={
-                  currentUser
-                    ? reaction.userIds.includes(currentUser.id)
-                    : false
-                }
-                type="button"
-                onClick={() => void toggleReaction(message, reaction.emoji).catch(showError)}
-                title={reaction.userIds
-                  .map((id) => users[id]?.displayName ?? "Someone")
-                  .join(", ")}
-              >
-                <span>
-                  <ReactionFace value={reaction.emoji} custom={customEmoji} />
-                </span>
-                <span>{reaction.userIds.length}</span>
-              </button>
-            ))}
+            {message.reactions.map((reaction) => {
+              const mine = currentUser
+                ? reaction.userIds.includes(currentUser.id)
+                : false;
+              return (
+                <button
+                  key={reaction.emoji}
+                  className="reaction"
+                  // `data-mine` styles it; `aria-pressed` is the same fact said out loud.
+                  // A chip is a toggle, and whether you are already in it decides what
+                  // clicking does — so a reader who cannot see the highlight has no way to
+                  // know whether they are about to react or take their reaction back.
+                  data-mine={mine}
+                  aria-pressed={mine}
+                  type="button"
+                  onClick={() =>
+                    void toggleReaction(message, reaction.emoji).catch(
+                      showError,
+                    )
+                  }
+                  title={reaction.userIds
+                    .map((id) => users[id]?.displayName ?? "Someone")
+                    .join(", ")}
+                >
+                  <span>
+                    <ReactionFace value={reaction.emoji} custom={customEmoji} />
+                  </span>
+                  <span>{reaction.userIds.length}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -405,7 +416,9 @@ export const MessageRow = memo(function MessageRow({
               className="message-action"
               data-emoji="true"
               type="button"
-              onClick={() => void toggleReaction(message, emoji).catch(showError)}
+              onClick={() =>
+                void toggleReaction(message, emoji).catch(showError)
+              }
               aria-label={`React ${emoji}`}
               data-tooltip={`React ${emoji}`}
               data-tooltip-place="top"
