@@ -442,3 +442,31 @@ Worth knowing before changing the equivalent code:
   rule, and its tests were checked against the old implementation — pasted back in — to
   confirm they discriminate. Anything that reorders that list is changing which person
   Enter mentions.
+- **A pending message's id has to sort like a real one.** The store inserts into a channel
+  by comparing id strings, which is only correct because real ids are UUIDv7. The
+  optimistic id was `pending-${clientMsgId}` and `clientMsgId` is a v4 from
+  `crypto.randomUUID` — random — so two messages typed offline sorted by a coin flip. It
+  is now `pending-${createdAt}-${clientMsgId}`: fixed-width ISO time first, id to break a
+  same-millisecond tie. The prefix stays in front because six places test for it, and
+  `'p' > 'f'` is what keeps every pending row below the real conversation. Anything that
+  mints a client-side id belongs in this reasoning.
+- **Virtualization silently broke every jump-to-message.** `scrollToMessage` found a row
+  with `querySelector` and scrolled it into view. Correct until the list windowed to ~20
+  rows, after which it missed every target not already on screen — search results,
+  permalinks, saved items and pinned messages all became "open the channel at the bottom"
+  while the history was fetched correctly and centred the whole time. Jumps now go through
+  `store.pendingScrollMessageId`, which only `MessageList` can answer because only it
+  holds the virtualizer. **A list that does not hold the message leaves the request
+  standing** rather than clearing it — that is what lets the thread panel answer for a
+  reply, which is never in channel history.
+- **Lighthouse 100 does not mean the keyboard works.** Three real defects this pass scored
+  clean: reaction chips carried "is this mine" only in `data-mine`, and ⌘K and the `@`
+  autocomplete moved a selection that existed only in CSS while focus stayed in the input.
+  An automated audit checks names and contrast; it cannot tell that a highlight is never
+  announced, and it only ever sees the states the page happens to be in — the attachment
+  tray does not exist until a file is staged. Read the accessibility tree, and check
+  `aria-activedescendant` resolves to an element that actually moves.
+- **`title` alone does supply an accessible name.** The attachment tray's remove button
+  has no `aria-label` and looked like a gap; the accessibility tree reports it as
+  "Remove report-q3.pdf". Check the tree before adding an attribute — `getAttribute` on
+  the DOM is not what a screen reader computes.
