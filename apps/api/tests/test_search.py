@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import pytest
 import pytest_asyncio
 
+from blob_api.lib.errors import AppError
 from blob_api.services.search import parse_query
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up
@@ -46,7 +47,6 @@ async def team(client: Client) -> dict:
         ("from:@ana deploy", {"text": "deploy", "author": "ana"}),
         ("in:#eng deploy", {"text": "deploy", "channel": "eng"}),
         ("has:link deploy", {"text": "deploy", "has": "link"}),
-        ("has:nonsense deploy", {"text": "deploy"}),
         (
             "before:2026-01-01 deploy",
             {"text": "deploy", "before": datetime(2026, 1, 1, tzinfo=UTC)},
@@ -58,6 +58,18 @@ def test_parse_query(raw: str, expected: dict) -> None:
     parsed = parse_query(raw)
     for key, value in expected.items():
         assert getattr(parsed, key) == value
+
+
+def test_an_unknown_has_value_raises_rather_than_parsing_to_nothing() -> None:
+    """It used to appear in this table as `("has:nonsense deploy", {"text": "deploy"})`.
+
+    That row described what the code did rather than arguing for it, and what it did was
+    the one silent widening left in the grammar: the modifier matched its case, failed
+    the value check, and disappeared. `from:` and `in:` refuse and say which name they
+    could not place; a bad date refuses and gives the format. This now does the same.
+    """
+    with pytest.raises(AppError):
+        parse_query("has:nonsense deploy")
 
 
 # ─── searching ────────────────────────────────────────────────────────────────
@@ -290,3 +302,35 @@ class TestPagingThroughResults:
         assert answer.body["messages"] == []
         assert answer.body["total"] == 0
         assert answer.body["nextCursor"] is None
+
+
+class TestAModifierThatCannotBeHonoured:
+    """Every modifier refuses rather than widening — `has:` was the last one that did not.
+
+    `from:` and `in:` answer with nothing and name what they could not place. A bad date
+    answers 400 and says the format. `has:` matched its case, failed the value check and
+    then did nothing at all, so `has:files` — the plural, the obvious typo — searched the
+    whole workspace while looking filtered.
+    """
+
+    async def test_an_unknown_has_value_is_refused(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "wombatlantern")
+
+        answer = await team["owner"].get("/api/search?q=has:files wombatlantern")
+
+        assert answer.status == 400
+        assert "has:link" in answer.body["error"]["message"]
+
+    async def test_the_two_it_accepts_still_work(self, team: dict) -> None:
+        # The guard: refusing the wrong words must not refuse the right ones.
+        for value in ("link", "file"):
+            answer = await team["owner"].get(f"/api/search?q=has:{value} anything")
+            assert answer.status == 200, value
+
+    async def test_a_colon_in_ordinary_text_is_still_searchable(self, team: dict) -> None:
+        # An unrecognised `key:value` stays part of the query rather than being eaten —
+        # otherwise a URL or a timestamp could not be searched for at all.
+        answer = await team["owner"].get("/api/search?q=https://example.com/thing")
+
+        assert answer.status == 200
+        assert answer.body["parsed"]["text"] == "https://example.com/thing"

@@ -52,6 +52,10 @@ class SearchCursor:
             raise bad_request("That search cursor is not one we issued.") from None
 
 
+#: What `has:` accepts. The search SQL branches on exactly these two.
+HAS_VALUES = ("link", "file")
+
+
 @dataclass(slots=True)
 class ParsedQuery:
     """Slack-style modifiers pulled out of a raw query string.
@@ -84,8 +88,19 @@ def parse_query(raw: str) -> ParsedQuery:
             case "in":
                 parsed.channel = value.lstrip("#")
             case "has":
-                if value in ("link", "file"):
-                    parsed.has = value
+                # Refused, not dropped. This was the one modifier that could fail
+                # quietly: `has:files` matched the case, failed the value check, and
+                # vanished — leaving a search that looked filtered and was not, which is
+                # the same way `from:` used to answer with the whole workspace. A bad
+                # date already answers 400 and this is the same kind of mistake, a fixed
+                # vocabulary mistyped, so it gets the same answer and names the words
+                # that work.
+                if value not in HAS_VALUES:
+                    raise bad_request(
+                        f"'{value}' is not something a message can have. "
+                        f"Use {' or '.join(f'has:{v}' for v in HAS_VALUES)}."
+                    )
+                parsed.has = value
             case "before":
                 parsed.before = _day_start(value)
             case "after":
