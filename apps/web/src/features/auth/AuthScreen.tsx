@@ -73,7 +73,9 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
             email,
             password,
             displayName,
-            workspaceName: needsSetup ? workspaceName || "Workspace" : undefined,
+            workspaceName: needsSetup
+              ? workspaceName || "Workspace"
+              : undefined,
             inviteToken: inviteToken ?? undefined,
           });
           break;
@@ -267,11 +269,13 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
           </div>
         )}
 
-        {error && (
-          <p className="error-text" aria-live="polite">
-            {error}
-          </p>
-        )}
+        {/* The region is always here; only the message comes and goes. Mounting the
+            two together — `{error && <p aria-live>…</p>}` — is the shape that does not
+            get announced, because there was no region to change. `.typing-line` in
+            ChannelView is the same arrangement and was already right. */}
+        <div aria-live="polite">
+          {error && <p className="error-text">{error}</p>}
+        </div>
 
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {busy
@@ -314,25 +318,27 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
           </p>
         )}
 
-        {!needsSetup && !inviteToken && (mode === "login" || mode === "signup") && (
-          <p className="auth-switch">
-            {mode === "login" ? (
-              <>
-                Have an invitation?{" "}
-                <button type="button" onClick={() => setMode("signup")}>
-                  Create an account
-                </button>
-              </>
-            ) : (
-              <>
-                Already here?{" "}
-                <button type="button" onClick={() => setMode("login")}>
-                  Sign in
-                </button>
-              </>
-            )}
-          </p>
-        )}
+        {!needsSetup &&
+          !inviteToken &&
+          (mode === "login" || mode === "signup") && (
+            <p className="auth-switch">
+              {mode === "login" ? (
+                <>
+                  Have an invitation?{" "}
+                  <button type="button" onClick={() => setMode("signup")}>
+                    Create an account
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already here?{" "}
+                  <button type="button" onClick={() => setMode("login")}>
+                    Sign in
+                  </button>
+                </>
+              )}
+            </p>
+          )}
       </form>
     </div>
   );
