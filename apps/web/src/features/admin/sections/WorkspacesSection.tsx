@@ -6,19 +6,28 @@
  * person in it, and an invitation is how it gets a second.
  */
 
-import { useCallback, useState } from 'react';
-import { api, type InstanceWorkspace } from '../../../lib/api.ts';
-import { useAdminAction, useAdminData } from '../hooks.ts';
+import { useCallback, useState } from "react";
+import { api, type InstanceWorkspace } from "../../../lib/api.ts";
+import { useAdminAction, useAdminData } from "../hooks.ts";
 
 function formatDate(value: string): string {
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString();
+  return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleDateString();
 }
 
-export function WorkspacesSection({ onError }: { onError: (message: string | null) => void }) {
-  const [name, setName] = useState('');
+export function WorkspacesSection({
+  onError,
+}: {
+  onError: (message: string | null) => void;
+}) {
+  const [name, setName] = useState("");
   const load = useCallback(() => api.admin.instanceWorkspaces(), []);
-  const { data, reload } = useAdminData(load, [], onError, 'Could not load workspaces.');
+  const { data, reload } = useAdminData(
+    load,
+    [],
+    onError,
+    "Could not load workspaces.",
+  );
   const act = useAdminAction(onError, reload);
 
   const workspaces = data?.workspaces ?? [];
@@ -26,14 +35,19 @@ export function WorkspacesSection({ onError }: { onError: (message: string | nul
   return (
     <section>
       <form
-        style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 16 }}
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "flex-end",
+          marginBottom: 16,
+        }}
         onSubmit={(event) => {
           event.preventDefault();
           const wanted = name.trim();
           if (!wanted) return;
           void act(async () => {
             await api.admin.createWorkspace(wanted);
-            setName('');
+            setName("");
           });
         }}
       >
@@ -46,7 +60,11 @@ export function WorkspacesSection({ onError }: { onError: (message: string | nul
             placeholder="Acme"
           />
         </label>
-        <button className="btn btn-primary" type="submit" disabled={!name.trim()}>
+        <button
+          className="btn btn-primary"
+          type="submit"
+          disabled={!name.trim()}
+        >
           Create
         </button>
       </form>

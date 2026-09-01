@@ -40,12 +40,7 @@ export function AppsSection({
   );
 }
 
-function AppsList({
-  onError,
-}: {
-  onError: (message: string | null) => void;
-}) {
-
+function AppsList({ onError }: { onError: (message: string | null) => void }) {
   const [catalog, setCatalog] = useState<AdminPluginCatalog | null>(null);
   const [plugins, setPlugins] = useState<AdminPlugin[]>([]);
   const [deliveries, setDeliveries] = useState<
@@ -222,7 +217,12 @@ function AppsList({
             // bridge authenticates *to* Blob; the signing secret is how the bridge proves
             // to the agent that a run came from Blob. Showing only the token was the bug:
             // the setup it produced could not work against an agent that verifies.
-            setSecretNotice({ pluginName, botToken, signingSecret, desktop: true });
+            setSecretNotice({
+              pluginName,
+              botToken,
+              signingSecret,
+              desktop: true,
+            });
             load();
           }}
         />

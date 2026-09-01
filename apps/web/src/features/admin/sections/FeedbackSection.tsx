@@ -186,6 +186,7 @@ export function FeedbackSection({
                   </button>
                   <button
                     className="btn feedback-delete"
+                    aria-label={`Delete "${ticket.title}"`}
                     onClick={() => void remove(ticket)}
                   >
                     Delete

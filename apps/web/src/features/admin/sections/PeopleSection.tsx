@@ -122,6 +122,7 @@ export function PeopleSection({
                 {user.deactivatedAt ? (
                   <button
                     className="btn"
+                    aria-label={`Reactivate ${user.displayName}`}
                     onClick={() =>
                       void act(() => api.admin.reactivate(user.id))
                     }
@@ -133,6 +134,7 @@ export function PeopleSection({
                   user.id !== currentUser?.id && (
                     <button
                       className="btn"
+                      aria-label={`Deactivate ${user.displayName}`}
                       onClick={() => setDeactivating(user)}
                     >
                       Deactivate

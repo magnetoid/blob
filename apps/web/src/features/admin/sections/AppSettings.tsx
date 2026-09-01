@@ -8,10 +8,10 @@
  * spoke nowhere, with nothing on screen to say why.
  */
 
-import { useCallback, useState } from 'react';
-import { api, type AdminPlugin, type AppChannel } from '../../../lib/api.ts';
-import { navigate } from '../../../lib/router.ts';
-import { useAdminAction, useAdminData } from '../hooks.ts';
+import { useCallback, useState } from "react";
+import { api, type AdminPlugin, type AppChannel } from "../../../lib/api.ts";
+import { navigate } from "../../../lib/router.ts";
+import { useAdminAction, useAdminData } from "../hooks.ts";
 
 interface Props {
   pluginId: string;
@@ -32,30 +32,45 @@ export function AppSettings({ pluginId, onError }: Props) {
     return listed;
   }, [pluginId]);
 
-  const { loading, reload } = useAdminData(load, [pluginId], onError, 'Could not load that app.');
+  const { loading, reload } = useAdminData(
+    load,
+    [pluginId],
+    onError,
+    "Could not load that app.",
+  );
   const act = useAdminAction(onError, reload);
 
   if (loading && !plugin) return <p className="pref-hint">Loading…</p>;
-  if (!plugin) return <p className="pref-hint">That app is not installed here.</p>;
+  if (!plugin)
+    return <p className="pref-hint">That app is not installed here.</p>;
 
   const endpoint = plugin.aguiUrl ?? plugin.requestUrl;
   const joined = channels.filter((channel) => channel.joined);
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+    <section style={{ display: "flex", flexDirection: "column", gap: 26 }}>
       <div>
-        <button className="btn btn-ghost" onClick={() => navigate('/admin/apps')}>
+        <button
+          className="btn btn-ghost"
+          onClick={() => navigate("/admin/apps")}
+        >
           ← All apps
         </button>
       </div>
 
       <div>
-        <h2 style={{ margin: '0 0 4px', fontSize: 'var(--text-lg)', fontWeight: 600 }}>
+        <h2
+          style={{
+            margin: "0 0 4px",
+            fontSize: "var(--text-lg)",
+            fontWeight: 600,
+          }}
+        >
           {plugin.name}
         </h2>
         <div className="pref-hint">
           {plugin.slug} · v{plugin.version} · {plugin.status}
-          {plugin.aguiUrl ? ' · answers over AG-UI' : ''}
+          {plugin.aguiUrl ? " · answers over AG-UI" : ""}
         </div>
       </div>
 
@@ -66,28 +81,26 @@ export function AppSettings({ pluginId, onError }: Props) {
       )}
 
       <div>
-        <h3 className="section-label">
-          Endpoint
-        </h3>
-        <div className="pref-hint" style={{ wordBreak: 'break-all' }}>
-          {endpoint ?? 'None — this app is not reachable over the network.'}
+        <h3 className="section-label">Endpoint</h3>
+        <div className="pref-hint" style={{ wordBreak: "break-all" }}>
+          {endpoint ?? "None — this app is not reachable over the network."}
         </div>
       </div>
 
       <div>
-        <h3 className="section-label">
-          Channels
-        </h3>
+        <h3 className="section-label">Channels</h3>
         <div className="pref-hint" style={{ marginBottom: 10 }}>
           {joined.length === 0
-            ? 'This app is not in any channel yet, so nobody can reach it. Add it to one.'
+            ? "This app is not in any channel yet, so nobody can reach it. Add it to one."
             : `Mentioning it in ${
-                joined.length === 1 ? 'this channel' : 'these channels'
+                joined.length === 1 ? "this channel" : "these channels"
               } will reach it.`}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {channels.length === 0 && (
-            <div className="pref-hint">There are no public channels to add it to.</div>
+            <div className="pref-hint">
+              There are no public channels to add it to.
+            </div>
           )}
           {channels.map((channel) => (
             <div className="pref-row" key={channel.id}>
@@ -95,7 +108,7 @@ export function AppSettings({ pluginId, onError }: Props) {
                 <div className="pref-label">#{channel.name ?? channel.id}</div>
               </div>
               <button
-                className={channel.joined ? 'btn btn-ghost' : 'btn'}
+                className={channel.joined ? "btn btn-ghost" : "btn"}
                 onClick={() =>
                   void act(() =>
                     channel.joined
@@ -104,7 +117,7 @@ export function AppSettings({ pluginId, onError }: Props) {
                   )
                 }
               >
-                {channel.joined ? 'Remove' : 'Add'}
+                {channel.joined ? "Remove" : "Add"}
               </button>
             </div>
           ))}
@@ -112,11 +125,9 @@ export function AppSettings({ pluginId, onError }: Props) {
       </div>
 
       <div>
-        <h3 className="section-label">
-          Permissions
-        </h3>
+        <h3 className="section-label">Permissions</h3>
         <div className="pref-hint">
-          {plugin.scopes.length ? plugin.scopes.join(', ') : 'None granted.'}
+          {plugin.scopes.length ? plugin.scopes.join(", ") : "None granted."}
         </div>
       </div>
     </section>
