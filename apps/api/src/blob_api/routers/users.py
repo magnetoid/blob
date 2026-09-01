@@ -15,6 +15,7 @@ from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import IdParam, new_id
 from ..lib.storage import public_file_url
+from ..lib.times import parse_client_time
 from ..lib.webpush import send_push
 from ..realtime import hub
 from ..schemas.base import CamelModel
@@ -250,10 +251,7 @@ def _status_expiry(payload: UpdateProfileInput, given: set[str]) -> datetime | N
     """
     if "status_expires_at" not in given or payload.status_expires_at is None:
         return None
-    try:
-        return datetime.fromisoformat(payload.status_expires_at.replace("Z", "+00:00"))
-    except ValueError:
-        raise bad_request("That isn't a time.") from None
+    return parse_client_time(payload.status_expires_at)
 
 
 async def _write_profile(

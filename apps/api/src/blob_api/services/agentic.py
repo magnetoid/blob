@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request, forbidden, not_found
 from ..lib.ids import new_id
+from ..lib.times import parse_client_time
 from ..schemas.models import AgentTask, Message, ThreadSummary
 from . import channels as channel_service
 from . import messages as message_service
@@ -227,10 +228,7 @@ def parse_due_at(raw: str | None) -> datetime | None:
     """
     if raw is None:
         return None
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        raise bad_request("That isn't a time.") from None
+    return parse_client_time(raw)
 
 
 async def create_task(

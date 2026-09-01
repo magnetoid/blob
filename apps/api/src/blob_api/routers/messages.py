@@ -7,7 +7,6 @@ enqueue. Nothing in this file emits inside a transaction.
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
 from functools import partial
 from typing import Annotated, Any, Literal
 
@@ -18,10 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, hash_token
-from ..lib.errors import bad_request, forbidden, not_found
+from ..lib.errors import forbidden, not_found
 from ..lib.ids import IdParam, new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
+from ..lib.times import parse_client_time, parse_future_time
 from ..plugins import events as plugin_events
 from ..realtime import hub
 from ..schemas.base import CamelModel
@@ -430,12 +430,9 @@ async def update_later(
         if payload.remind_at is None:
             remind_at = None
         else:
-            try:
-                remind_at = datetime.fromisoformat(payload.remind_at.replace("Z", "+00:00"))
-            except ValueError:
-                raise bad_request("That isn't a time.") from None
-            if remind_at <= datetime.now(UTC):
-                raise bad_request("That time has already happened.")
+            # A naive time used to parse fine here and then raise `TypeError` on the
+            # comparison below — past the `except ValueError`, so it answered 500.
+            remind_at = parse_future_time(payload.remind_at)
 
     async with transaction() as (session, _):
         await load_message_for(session, user, message_id, require_member=True)
@@ -598,13 +595,8 @@ async def schedule_message(
     channel_id: IdParam, payload: ScheduleInput, user: SessionUser = Depends(current_user)
 ) -> ScheduledOut:
     """Write it now, send it then."""
-    try:
-        send_at = datetime.fromisoformat(payload.send_at.replace("Z", "+00:00"))
-    except ValueError:
-        raise bad_request("That isn't a time.", "invalid_input") from None
-    if send_at.tzinfo is None:
-        # Without an offset there is no way to know whose midnight was meant.
-        raise bad_request("That time needs a time zone.", "invalid_input")
+    # This route had the guard the other three lacked; it now shares it.
+    send_at = parse_client_time(payload.send_at)
 
     async with transaction() as (session, _):
         scheduled = await scheduled_service.schedule(
