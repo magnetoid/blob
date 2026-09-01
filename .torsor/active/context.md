@@ -470,3 +470,17 @@ Worth knowing before changing the equivalent code:
   has no `aria-label` and looked like a gap; the accessibility tree reports it as
   "Remove report-q3.pdf". Check the tree before adding an attribute — `getAttribute` on
   the DOM is not what a screen reader computes.
+- **Reactions are the one write with a message's fan-out and no rate limit.** `LIMITS` in
+  `lib/rate_limit.py` covers send_message, upload, search, command, translate, catchup,
+  login, signup, invite, interaction and webhook, each with a comment justifying its
+  number. A reaction toggle writes a row and broadcasts to every member of the channel —
+  the same fan-out as a message, which is capped at 30/min — and passes through
+  unlimited. Not a defect anyone has hit, and picking the number is a product decision
+  rather than a fix, so it is written down rather than guessed at. `interaction` is
+  60/60 and is the closest precedent ("pressing a button").
+- **Display names take any text; channel names do not.** `POST /api/channels` rejects
+  `<img src=x onerror=…>` with `invalid_input`, while `PATCH /api/me` accepts
+  `<script>alert(1)</script>` as a display name. Verified inert in the browser — React
+  escapes it, no alert, no injected tag, and it renders as literal text — and a display
+  name legitimately has to accept every script and most punctuation, so the asymmetry is
+  reasonable. Worth knowing before anyone renders a name outside React.
