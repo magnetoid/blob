@@ -7,7 +7,7 @@
  * server uses for unread counts.
  */
 
-import { create, type StateCreator } from 'zustand';
+import { create, type StateCreator } from "zustand";
 import type {
   AgentRunView,
   Bootstrap,
@@ -22,9 +22,9 @@ import type {
   User,
   UserGroup,
   UserPrefs,
-} from '@blob/shared';
-import { api } from './api.ts';
-import { showError, useToasts } from './toasts.ts';
+} from "@blob/shared";
+import { api } from "./api.ts";
+import { showError, useToasts } from "./toasts.ts";
 import {
   draftKey,
   flushDrafts,
@@ -33,7 +33,7 @@ import {
   schedulePersist,
   withDraft,
   type Drafts,
-} from './drafts.ts';
+} from "./drafts.ts";
 import {
   isRecoverableSendError,
   loadOutbox,
@@ -42,8 +42,8 @@ import {
   sortOutbox,
   type LocalMessageDeliveryStatus,
   type LocalOutboxEntry,
-} from './outbox.ts';
-import { socket, type SocketStatus } from './socket.ts';
+} from "./outbox.ts";
+import { socket, type SocketStatus } from "./socket.ts";
 
 export interface ChannelMessages {
   items: Message[];
@@ -109,7 +109,7 @@ interface State {
   membershipVersion: Record<string, number>;
   /** Which Catch Me Up is open — one channel, everything, or neither. Lives in the
    * store so the palette (rendered anywhere) can open a panel the shell renders. */
-  catchupScope: 'channel' | 'all' | null;
+  catchupScope: "channel" | "all" | null;
   /** The agent whose terminal is open in the right-hand panel, or null.
    *  Same reason as `catchupScope`: `/cli` is handled in the composer, and the panel
    *  that answers it is rendered by the shell. */
@@ -132,7 +132,11 @@ interface State {
   hydrateOutbox: () => void;
   flushOutbox: () => Promise<void>;
   hydrateDrafts: () => void;
-  setDraft: (channelId: string, threadRootId: string | null, body: string) => void;
+  setDraft: (
+    channelId: string,
+    threadRootId: string | null,
+    body: string,
+  ) => void;
   setEditingMessage: (messageId: string | null) => void;
   /** Ask the list to bring a message into view; it clears this once it has. */
   requestScrollToMessage: (messageId: string | null) => void;
@@ -192,7 +196,9 @@ function scheduleResyncRetry(run: () => void): void {
 /** Insert or replace a message, keeping the list sorted by id. */
 function upsert(items: Message[], message: Message): Message[] {
   const existingIndex = items.findIndex(
-    (m) => m.id === message.id || (m.clientMsgId && m.clientMsgId === message.clientMsgId),
+    (m) =>
+      m.id === message.id ||
+      (m.clientMsgId && m.clientMsgId === message.clientMsgId),
   );
   if (existingIndex >= 0) {
     const next = items.slice();
@@ -208,9 +214,9 @@ function upsert(items: Message[], message: Message): Message[] {
 
 export const useStore = create<State>((set, get) => ({
   ready: false,
-  status: 'offline',
+  status: "offline",
   currentUser: null,
-  workspaceName: '',
+  workspaceName: "",
   themes: [],
   customEmoji: [],
   savedMessageIds: new Set<string>(),
@@ -262,7 +268,7 @@ export const useStore = create<State>((set, get) => ({
     persistDrafts({});
     set({
       ready: false,
-      workspaceName: '',
+      workspaceName: "",
       themes: [],
       customEmoji: [],
       savedMessageIds: new Set<string>(),
@@ -287,19 +293,18 @@ export const useStore = create<State>((set, get) => ({
   },
 
   hydrateOutbox: () => {
-    const restored = sortOutbox(loadOutbox()).reduce<Record<string, LocalOutboxEntry>>(
-      (acc, entry) => {
-        acc[entry.clientMsgId] = {
-          ...entry,
-          status: entry.status === 'failed' ? 'failed' : 'queued',
-        };
-        return acc;
-      },
-      {},
-    );
+    const restored = sortOutbox(loadOutbox()).reduce<
+      Record<string, LocalOutboxEntry>
+    >((acc, entry) => {
+      acc[entry.clientMsgId] = {
+        ...entry,
+        status: entry.status === "failed" ? "failed" : "queued",
+      };
+      return acc;
+    }, {});
     persistOutbox(restored);
     set((s) => withProjectedOutbox(s, restored));
-    if (get().status === 'online') {
+    if (get().status === "online") {
       void get().flushOutbox();
     }
   },
@@ -327,7 +332,8 @@ export const useStore = create<State>((set, get) => ({
 
   setEditingMessage: (messageId) => set({ editingMessageId: messageId }),
 
-  requestScrollToMessage: (messageId) => set({ pendingScrollMessageId: messageId }),
+  requestScrollToMessage: (messageId) =>
+    set({ pendingScrollMessageId: messageId }),
 
   editLastMessage: (channelId, threadRootId) => {
     const state = get();
@@ -345,7 +351,7 @@ export const useStore = create<State>((set, get) => ({
       if (!message) continue;
       if (message.authorId !== me) continue;
       if (message.deletedAt) continue;
-      if (message.id.startsWith('pending-')) continue;
+      if (message.id.startsWith("pending-")) continue;
       set({ editingMessageId: message.id });
       return true;
     }
@@ -353,7 +359,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   flushOutbox: async () => {
-    if (!get().currentUser || get().status !== 'online') return;
+    if (!get().currentUser || get().status !== "online") return;
 
     for (const entry of sortOutbox(get().outbox)) {
       const latest = get().outbox[entry.clientMsgId];
@@ -363,7 +369,7 @@ export const useStore = create<State>((set, get) => ({
         ...outbox,
         [latest.clientMsgId]: {
           ...latest,
-          status: 'sending',
+          status: "sending",
           attempts: latest.attempts + 1,
           lastError: null,
         },
@@ -381,26 +387,29 @@ export const useStore = create<State>((set, get) => ({
           delete next[latest.clientMsgId];
           return next;
         });
-        get().applyEvent({ t: 'message.new', message });
+        get().applyEvent({ t: "message.new", message });
       } catch (error) {
         if (isRecoverableSendError(error)) {
           setOutbox(set, get, (outbox) => ({
             ...outbox,
             [latest.clientMsgId]: {
               ...(outbox[latest.clientMsgId] as LocalOutboxEntry),
-              status: 'queued',
-              lastError: 'Waiting for a stable connection.',
+              status: "queued",
+              lastError: "Waiting for a stable connection.",
             },
           }));
           break;
         }
 
-        const message = error instanceof Error ? error.message : 'That message could not be delivered.';
+        const message =
+          error instanceof Error
+            ? error.message
+            : "That message could not be delivered.";
         setOutbox(set, get, (outbox) => ({
           ...outbox,
           [latest.clientMsgId]: {
             ...(outbox[latest.clientMsgId] as LocalOutboxEntry),
-            status: 'failed',
+            status: "failed",
             lastError: message,
           },
         }));
@@ -423,7 +432,7 @@ export const useStore = create<State>((set, get) => ({
         [channelId]: state.channels[channelId]?.lastReadMessageId ?? null,
       },
     });
-    socket.sendControl({ t: 'channel.focus', channelId });
+    socket.sendControl({ t: "channel.focus", channelId });
 
     // Live and recent runs, so a reload or a mid-run join renders the same card the
     // stream drew. Non-fatal: a conversation without its run cards is still a
@@ -457,7 +466,10 @@ export const useStore = create<State>((set, get) => ({
       }));
       let messages: Message[];
       try {
-        ({ messages } = await api.messages.history(channelId, { around, limit: 50 }));
+        ({ messages } = await api.messages.history(channelId, {
+          around,
+          limit: 50,
+        }));
       } catch (err) {
         showError(err);
         set((s) => ({
@@ -476,7 +488,12 @@ export const useStore = create<State>((set, get) => ({
         messages: {
           ...s.messages,
           [channelId]: {
-            items: overlayChannelOutbox(s.currentUser, s.outbox, channelId, messages),
+            items: overlayChannelOutbox(
+              s.currentUser,
+              s.outbox,
+              channelId,
+              messages,
+            ),
             // Both ends are truncated by an `around` fetch, so there is always more in
             // at least one direction. Claiming otherwise would disable paging back.
             hasMore: true,
@@ -493,12 +510,17 @@ export const useStore = create<State>((set, get) => ({
 
     if (!state.messages[channelId]?.loaded) {
       set((s) => ({
-        messages: { ...s.messages, [channelId]: { ...emptyMessages(), loading: true } },
+        messages: {
+          ...s.messages,
+          [channelId]: { ...emptyMessages(), loading: true },
+        },
       }));
       let messages: Message[];
       let hasMore: boolean;
       try {
-        ({ messages, hasMore } = await api.messages.history(channelId, { limit: 50 }));
+        ({ messages, hasMore } = await api.messages.history(channelId, {
+          limit: 50,
+        }));
       } catch (err) {
         // Without this, `loading` stuck at true forever and the empty state claimed
         // "This is the start of #channel" about a channel full of history.
@@ -515,7 +537,12 @@ export const useStore = create<State>((set, get) => ({
         messages: {
           ...s.messages,
           [channelId]: {
-            items: overlayChannelOutbox(s.currentUser, s.outbox, channelId, messages),
+            items: overlayChannelOutbox(
+              s.currentUser,
+              s.outbox,
+              channelId,
+              messages,
+            ),
             hasMore,
             loading: false,
             loaded: true,
@@ -545,40 +572,72 @@ export const useStore = create<State>((set, get) => ({
       const channel = s.channels[channelId];
       if (!channel) return {};
       const channels = { ...s.channels };
-      if (channel.kind === 'private') delete channels[channelId];
+      if (channel.kind === "private") delete channels[channelId];
       else channels[channelId] = { ...channel, membership: null };
       return {
         channels,
-        activeChannelId: s.activeChannelId === channelId ? null : s.activeChannelId,
-        activeThreadRootId: s.activeChannelId === channelId ? null : s.activeThreadRootId,
+        activeChannelId:
+          s.activeChannelId === channelId ? null : s.activeChannelId,
+        activeThreadRootId:
+          s.activeChannelId === channelId ? null : s.activeThreadRootId,
       };
     });
   },
 
   loadOlder: async (channelId) => {
     const current = get().messages[channelId];
-    if (!current || current.loading || !current.hasMore || current.items.length === 0) return;
+    if (
+      !current ||
+      current.loading ||
+      !current.hasMore ||
+      current.items.length === 0
+    )
+      return;
 
     set((s) => ({
       messages: { ...s.messages, [channelId]: { ...current, loading: true } },
     }));
     const oldest = current.items[0] as Message;
-    const { messages, hasMore } = await api.messages.history(channelId, {
-      before: oldest.id,
-      limit: 50,
-    });
+    let messages: Message[];
+    let hasMore: boolean;
+    try {
+      ({ messages, hasMore } = await api.messages.history(channelId, {
+        before: oldest.id,
+        limit: 50,
+      }));
+    } catch (err) {
+      // The same guard `openChannel` above already has, and for the same reason its
+      // comment gives: without it `loading` stays true for ever. Here that is worse
+      // than a stuck flag, because the flag is the button — one blocked fetch left
+      // "Load earlier messages" reading "Loading…" and disabled, so a single network
+      // blip cost the reader every message above the fold until they reloaded the page.
+      //
+      // The loaded messages are kept and only the flag is cleared: there is nothing
+      // wrong with what is already on screen, and `hasMore` must not be turned off,
+      // which would claim the conversation starts here.
+      showError(err);
+      set((s) => {
+        const existing = s.messages[channelId];
+        if (!existing) return {};
+        return {
+          messages: {
+            ...s.messages,
+            [channelId]: { ...existing, loading: false },
+          },
+        };
+      });
+      return;
+    }
     set((s) => {
       const existing = s.messages[channelId] ?? emptyMessages();
       return {
         messages: {
           ...s.messages,
           [channelId]: {
-            items: overlayChannelOutbox(
-              s.currentUser,
-              s.outbox,
-              channelId,
-              [...messages, ...stripPending(existing.items)],
-            ),
+            items: overlayChannelOutbox(s.currentUser, s.outbox, channelId, [
+              ...messages,
+              ...stripPending(existing.items),
+            ]),
             hasMore,
             loading: false,
             loaded: true,
@@ -602,11 +661,25 @@ export const useStore = create<State>((set, get) => ({
       return;
     }
     set((s) => ({
-      threads: { ...s.threads, [rootId]: overlayThreadOutbox(s.currentUser, s.outbox, rootId, messages) },
+      threads: {
+        ...s.threads,
+        [rootId]: overlayThreadOutbox(
+          s.currentUser,
+          s.outbox,
+          rootId,
+          messages,
+        ),
+      },
     }));
   },
 
-  sendMessage: async (channelId, body, threadRootId = null, attachmentIds = [], alsoInChannel = false) => {
+  sendMessage: async (
+    channelId,
+    body,
+    threadRootId = null,
+    attachmentIds = [],
+    alsoInChannel = false,
+  ) => {
     const user = get().currentUser;
     if (!user) return;
 
@@ -618,14 +691,17 @@ export const useStore = create<State>((set, get) => ({
       body,
       attachmentIds,
       createdAt: new Date().toISOString(),
-      status: get().status === 'online' ? 'sending' : 'queued',
+      status: get().status === "online" ? "sending" : "queued",
       attempts: 0,
       lastError: null,
     };
 
-    setOutbox(set, get, (outbox) => ({ ...outbox, [clientMsgId]: optimisticEntry }));
+    setOutbox(set, get, (outbox) => ({
+      ...outbox,
+      [clientMsgId]: optimisticEntry,
+    }));
 
-    if (optimisticEntry.status === 'queued') return;
+    if (optimisticEntry.status === "queued") return;
 
     try {
       const { message } = await api.messages.send(channelId, {
@@ -640,27 +716,30 @@ export const useStore = create<State>((set, get) => ({
         delete next[clientMsgId];
         return next;
       });
-      get().applyEvent({ t: 'message.new', message });
+      get().applyEvent({ t: "message.new", message });
     } catch (error) {
       if (isRecoverableSendError(error)) {
         setOutbox(set, get, (outbox) => ({
           ...outbox,
           [clientMsgId]: {
             ...(outbox[clientMsgId] as LocalOutboxEntry),
-            status: 'queued',
+            status: "queued",
             attempts: (outbox[clientMsgId] as LocalOutboxEntry).attempts + 1,
-            lastError: 'Waiting for a stable connection.',
+            lastError: "Waiting for a stable connection.",
           },
         }));
         return;
       }
 
-      const message = error instanceof Error ? error.message : 'That message could not be delivered.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "That message could not be delivered.";
       setOutbox(set, get, (outbox) => ({
         ...outbox,
         [clientMsgId]: {
           ...(outbox[clientMsgId] as LocalOutboxEntry),
-          status: 'failed',
+          status: "failed",
           attempts: (outbox[clientMsgId] as LocalOutboxEntry).attempts + 1,
           lastError: message,
         },
@@ -674,7 +753,7 @@ export const useStore = create<State>((set, get) => ({
     if (!current) return;
     setOutbox(set, get, (outbox) => ({
       ...outbox,
-      [clientMsgId]: { ...current, status: 'queued', lastError: null },
+      [clientMsgId]: { ...current, status: "queued", lastError: null },
     }));
     await get().flushOutbox();
   },
@@ -695,7 +774,9 @@ export const useStore = create<State>((set, get) => ({
   toggleReaction: async (message, emoji) => {
     const user = get().currentUser;
     if (!user) return;
-    const mine = message.reactions.find((r) => r.emoji === emoji)?.userIds.includes(user.id);
+    const mine = message.reactions
+      .find((r) => r.emoji === emoji)
+      ?.userIds.includes(user.id);
     if (mine) {
       await api.messages.unreact(message.id, emoji);
     } else {
@@ -735,10 +816,17 @@ export const useStore = create<State>((set, get) => ({
     // Somebody asked for this channel to stay unread. Honoured until they open another.
     if (get().suppressReadFor === channelId) return;
     const list = get().messages[channelId];
-    const newest = list?.items.filter((m) => !m.id.startsWith('pending-')).at(-1);
+    const newest = list?.items
+      .filter((m) => !m.id.startsWith("pending-"))
+      .at(-1);
     if (!newest) return;
     const channel = get().channels[channelId];
-    if (channel && channel.lastReadMessageId === newest.id && channel.mentionCount === 0) return;
+    if (
+      channel &&
+      channel.lastReadMessageId === newest.id &&
+      channel.mentionCount === 0
+    )
+      return;
 
     await api.channels.markRead(channelId, newest.id);
   },
@@ -773,15 +861,18 @@ export const useStore = create<State>((set, get) => ({
     set((s) => ({
       // The divider moves with the cursor, so the message you marked is the first thing
       // under "New messages" rather than the app simply forgetting where you were.
-      unreadMarkers: { ...s.unreadMarkers, [channelId]: readState.lastReadMessageId },
+      unreadMarkers: {
+        ...s.unreadMarkers,
+        [channelId]: readState.lastReadMessageId,
+      },
       suppressReadFor: channelId,
     }));
   },
 
   applyEvent: (event) => {
     switch (event.t) {
-      case 'message.new':
-      case 'message.updated': {
+      case "message.new":
+      case "message.updated": {
         const message = event.message;
         set((s) => {
           const next: Partial<State> = {};
@@ -820,7 +911,7 @@ export const useStore = create<State>((set, get) => ({
           }
 
           const channel = s.channels[message.channelId];
-          if (channel && event.t === 'message.new') {
+          if (channel && event.t === "message.new") {
             const isMine = message.authorId === s.currentUser?.id;
             const isActive = s.activeChannelId === message.channelId;
             next.channels = {
@@ -836,13 +927,16 @@ export const useStore = create<State>((set, get) => ({
         });
 
         // Reading a channel you're looking at should clear its unread immediately.
-        if (event.t === 'message.new' && get().activeChannelId === message.channelId) {
+        if (
+          event.t === "message.new" &&
+          get().activeChannelId === message.channelId
+        ) {
           void get().markRead(message.channelId);
         }
         break;
       }
 
-      case 'message.deleted': {
+      case "message.deleted": {
         set((s) => {
           const existing = s.messages[event.channelId];
           const next: Partial<State> = {};
@@ -878,9 +972,9 @@ export const useStore = create<State>((set, get) => ({
         break;
       }
 
-      case 'reaction.added':
-      case 'reaction.removed': {
-        const adding = event.t === 'reaction.added';
+      case "reaction.added":
+      case "reaction.removed": {
+        const adding = event.t === "reaction.added";
         const apply = (message: Message): Message => {
           if (message.id !== event.messageId) return message;
           const reactions = message.reactions.slice();
@@ -889,7 +983,10 @@ export const useStore = create<State>((set, get) => ({
             if (index === -1) {
               reactions.push({ emoji: event.emoji, userIds: [event.userId] });
             } else {
-              const existing = reactions[index] as { emoji: string; userIds: string[] };
+              const existing = reactions[index] as {
+                emoji: string;
+                userIds: string[];
+              };
               if (!existing.userIds.includes(event.userId)) {
                 reactions[index] = {
                   emoji: existing.emoji,
@@ -898,8 +995,13 @@ export const useStore = create<State>((set, get) => ({
               }
             }
           } else if (index >= 0) {
-            const existing = reactions[index] as { emoji: string; userIds: string[] };
-            const userIds = existing.userIds.filter((id) => id !== event.userId);
+            const existing = reactions[index] as {
+              emoji: string;
+              userIds: string[];
+            };
+            const userIds = existing.userIds.filter(
+              (id) => id !== event.userId,
+            );
             if (userIds.length === 0) reactions.splice(index, 1);
             else reactions[index] = { emoji: existing.emoji, userIds };
           }
@@ -909,13 +1011,16 @@ export const useStore = create<State>((set, get) => ({
         set((s) => ({
           messages: mapChannel(s.messages, event.channelId, apply),
           threads: Object.fromEntries(
-            Object.entries(s.threads).map(([id, items]) => [id, items.map(apply)]),
+            Object.entries(s.threads).map(([id, items]) => [
+              id,
+              items.map(apply),
+            ]),
           ),
         }));
         break;
       }
 
-      case 'thread.updated': {
+      case "thread.updated": {
         const apply = (message: Message): Message =>
           message.id === event.rootId
             ? {
@@ -925,29 +1030,36 @@ export const useStore = create<State>((set, get) => ({
                 lastReplyAt: event.lastReplyAt,
               }
             : message;
-        set((s) => ({ messages: mapChannel(s.messages, event.channelId, apply) }));
+        set((s) => ({
+          messages: mapChannel(s.messages, event.channelId, apply),
+        }));
         break;
       }
 
-      case 'channel.created':
-      case 'channel.updated':
-        set((s) => ({ channels: { ...s.channels, [event.channel.id]: event.channel } }));
+      case "channel.created":
+      case "channel.updated":
+        set((s) => ({
+          channels: { ...s.channels, [event.channel.id]: event.channel },
+        }));
         break;
 
-      case 'channel.archived':
+      case "channel.archived":
         set((s) => {
           const channel = s.channels[event.channelId];
           if (!channel) return {};
           return {
             channels: {
               ...s.channels,
-              [event.channelId]: { ...channel, archivedAt: new Date().toISOString() },
+              [event.channelId]: {
+                ...channel,
+                archivedAt: new Date().toISOString(),
+              },
             },
           };
         });
         break;
 
-      case 'read_state.updated':
+      case "read_state.updated":
         set((s) => {
           const channel = s.channels[event.channelId];
           if (!channel) return {};
@@ -960,7 +1072,8 @@ export const useStore = create<State>((set, get) => ({
                 mentionCount: event.mentionCount,
                 hasUnread: Boolean(
                   channel.lastMessageId &&
-                    (!event.lastReadMessageId || channel.lastMessageId > event.lastReadMessageId),
+                  (!event.lastReadMessageId ||
+                    channel.lastMessageId > event.lastReadMessageId),
                 ),
               },
             },
@@ -968,20 +1081,25 @@ export const useStore = create<State>((set, get) => ({
         });
         break;
 
-      case 'presence':
-        set((s) => ({ presence: { ...s.presence, [event.userId]: event.state } }));
+      case "presence":
+        set((s) => ({
+          presence: { ...s.presence, [event.userId]: event.state },
+        }));
         break;
 
-      case 'typing':
+      case "typing":
         set((s) => ({
           typing: {
             ...s.typing,
-            [event.channelId]: { ...(s.typing[event.channelId] ?? {}), [event.userId]: Date.now() },
+            [event.channelId]: {
+              ...(s.typing[event.channelId] ?? {}),
+              [event.userId]: Date.now(),
+            },
           },
         }));
         break;
 
-      case 'user.updated':
+      case "user.updated":
         set((s) => ({
           users: { ...s.users, [event.user.id]: event.user },
           // Your own row rides the same event; the profile preview and the avatar in
@@ -996,11 +1114,13 @@ export const useStore = create<State>((set, get) => ({
       // Without these three, a tab open since before a group was created renders
       // `@platform-team` as plain text for ever — `resync()` does not refetch groups
       // either, so only a full page load would have picked it up.
-      case 'group.upserted':
-        set((s) => ({ groups: { ...s.groups, [event.group.id]: event.group } }));
+      case "group.upserted":
+        set((s) => ({
+          groups: { ...s.groups, [event.group.id]: event.group },
+        }));
         break;
 
-      case 'group.deleted':
+      case "group.deleted":
         set((s) => {
           const groups = { ...s.groups };
           delete groups[event.groupId];
@@ -1012,7 +1132,7 @@ export const useStore = create<State>((set, get) => ({
         });
         break;
 
-      case 'group.membership':
+      case "group.membership":
         set((s) => {
           const myGroupIds = new Set(s.myGroupIds);
           if (event.isMember) myGroupIds.add(event.groupId);
@@ -1021,27 +1141,39 @@ export const useStore = create<State>((set, get) => ({
         });
         break;
 
-      case 'reminder.due':
+      case "reminder.due":
         // A reminder is a toast plus the Later badge; the message itself is one
         // click away in the view the toast names.
         useToasts
           .getState()
-          .push('info', event.note ? `Reminder: ${event.note}` : 'A reminder came due — it’s in Later.');
+          .push(
+            "info",
+            event.note
+              ? `Reminder: ${event.note}`
+              : "A reminder came due — it’s in Later.",
+          );
         break;
 
-      case 'agent_run.started':
-        set((s) => ({ agentRuns: { ...s.agentRuns, [event.run.id]: event.run } }));
+      case "agent_run.started":
+        set((s) => ({
+          agentRuns: { ...s.agentRuns, [event.run.id]: event.run },
+        }));
         break;
 
-      case 'agent_run.updated':
+      case "agent_run.updated":
         set((s) => {
           const run = s.agentRuns[event.runId];
           if (!run) return s;
-          return { agentRuns: { ...s.agentRuns, [event.runId]: { ...run, card: event.card } } };
+          return {
+            agentRuns: {
+              ...s.agentRuns,
+              [event.runId]: { ...run, card: event.card },
+            },
+          };
         });
         break;
 
-      case 'agent_run.finished':
+      case "agent_run.finished":
         set((s) => {
           const run = s.agentRuns[event.runId];
           if (!run) return s;
@@ -1060,11 +1192,11 @@ export const useStore = create<State>((set, get) => ({
         });
         break;
 
-      case 'member.joined':
-      case 'member.left': {
+      case "member.joined":
+      case "member.left": {
         // Keep what we already hold truthful — DM titles derive from memberIds — and
         // bump a version so screens holding their own member caches know to refetch.
-        const joined = event.t === 'member.joined';
+        const joined = event.t === "member.joined";
         set((s) => {
           const channel = s.channels[event.channelId];
           const withMembers =
@@ -1075,8 +1207,15 @@ export const useStore = create<State>((set, get) => ({
                     [event.channelId]: {
                       ...channel,
                       memberIds: joined
-                        ? [...new Set([...(channel.memberIds ?? []), event.userId])]
-                        : (channel.memberIds ?? []).filter((id) => id !== event.userId),
+                        ? [
+                            ...new Set([
+                              ...(channel.memberIds ?? []),
+                              event.userId,
+                            ]),
+                          ]
+                        : (channel.memberIds ?? []).filter(
+                            (id) => id !== event.userId,
+                          ),
                     },
                   },
                 }
@@ -1085,15 +1224,16 @@ export const useStore = create<State>((set, get) => ({
             ...withMembers,
             membershipVersion: {
               ...s.membershipVersion,
-              [event.channelId]: (s.membershipVersion[event.channelId] ?? 0) + 1,
+              [event.channelId]:
+                (s.membershipVersion[event.channelId] ?? 0) + 1,
             },
           };
         });
         break;
       }
-      case 'hello':
-      case 'pong':
-      case 'error':
+      case "hello":
+      case "pong":
+      case "error":
         break;
     }
   },
@@ -1103,7 +1243,9 @@ export const useStore = create<State>((set, get) => ({
     const state = get();
     const cursors: Record<string, string> = {};
     for (const [channelId, list] of Object.entries(state.messages)) {
-      const newest = list.items.filter((m) => !m.id.startsWith('pending-')).at(-1);
+      const newest = list.items
+        .filter((m) => !m.id.startsWith("pending-"))
+        .at(-1);
       if (newest) cursors[channelId] = newest.id;
     }
 
@@ -1123,16 +1265,19 @@ export const useStore = create<State>((set, get) => ({
       channels: Object.fromEntries(result.channels.map((c) => [c.id, c])),
       // Channels whose gap was too large get dropped and refetched on next open.
       messages: Object.fromEntries(
-        Object.entries(s.messages).filter(([id]) => !result.resyncChannelIds.includes(id)),
+        Object.entries(s.messages).filter(
+          ([id]) => !result.resyncChannelIds.includes(id),
+        ),
       ),
     }));
 
     for (const message of result.messages) {
-      get().applyEvent({ t: 'message.new', message });
+      get().applyEvent({ t: "message.new", message });
     }
 
     const active = get().activeChannelId;
-    if (active && !get().messages[active]?.loaded) await get().openChannel(active);
+    if (active && !get().messages[active]?.loaded)
+      await get().openChannel(active);
     await get().flushOutbox();
   },
 
@@ -1147,20 +1292,24 @@ export const useStore = create<State>((set, get) => ({
       showError(err);
       return;
     }
-    set((s) => (s.currentUser ? { currentUser: { ...s.currentUser, prefs: updated } } : {}));
+    set((s) =>
+      s.currentUser
+        ? { currentUser: { ...s.currentUser, prefs: updated } }
+        : {},
+    );
   },
 
   displayNameOf: (userId) => {
-    if (!userId) return 'Unknown';
-    return get().users[userId]?.displayName ?? 'Someone';
+    if (!userId) return "Unknown";
+    return get().users[userId]?.displayName ?? "Someone";
   },
 
   channelTitle: (channel) => {
     if (channel.name) return `#${channel.name}`;
     const me = get().currentUser?.id;
     const others = (channel.memberIds ?? []).filter((id) => id !== me);
-    if (others.length === 0) return 'You';
-    return others.map((id) => get().displayNameOf(id)).join(', ');
+    if (others.length === 0) return "You";
+    return others.map((id) => get().displayNameOf(id)).join(", ");
   },
 }));
 
@@ -1171,13 +1320,18 @@ function mapChannel(
 ): Record<string, ChannelMessages> {
   const existing = messages[channelId];
   if (!existing) return messages;
-  return { ...messages, [channelId]: { ...existing, items: existing.items.map(fn) } };
+  return {
+    ...messages,
+    [channelId]: { ...existing, items: existing.items.map(fn) },
+  };
 }
 
 function setOutbox(
   set: Parameters<StateCreator<State>>[0],
   get: () => State,
-  updater: (outbox: Record<string, LocalOutboxEntry>) => Record<string, LocalOutboxEntry>,
+  updater: (
+    outbox: Record<string, LocalOutboxEntry>,
+  ) => Record<string, LocalOutboxEntry>,
 ): void {
   let nextOutbox: Record<string, LocalOutboxEntry> = {};
   set((state) => {
@@ -1190,7 +1344,7 @@ function setOutbox(
 function withProjectedOutbox(
   state: State,
   outbox: Record<string, LocalOutboxEntry>,
-): Pick<State, 'outbox' | 'messages' | 'threads'> {
+): Pick<State, "outbox" | "messages" | "threads"> {
   return {
     outbox,
     messages: Object.fromEntries(
@@ -1199,7 +1353,12 @@ function withProjectedOutbox(
         list.loaded
           ? {
               ...list,
-              items: overlayChannelOutbox(state.currentUser, outbox, channelId, list.items),
+              items: overlayChannelOutbox(
+                state.currentUser,
+                outbox,
+                channelId,
+                list.items,
+              ),
             }
           : list,
       ]),
@@ -1246,16 +1405,18 @@ function overlayThreadOutbox(
 }
 
 function stripPending(items: Message[]): Message[] {
-  return items.filter((message) => !message.id.startsWith('pending-'));
+  return items.filter((message) => !message.id.startsWith("pending-"));
 }
 
 /** Wire the socket into the store once, at app start. */
 export function connectStoreToSocket(): () => void {
-  const unsubscribeEvents = socket.subscribe((event) => useStore.getState().applyEvent(event));
+  const unsubscribeEvents = socket.subscribe((event) =>
+    useStore.getState().applyEvent(event),
+  );
   let hasConnectedOnce = false;
   const unsubscribeStatus = socket.onStatus((status) => {
     useStore.setState({ status });
-    if (status === 'online' && !hasConnectedOnce) {
+    if (status === "online" && !hasConnectedOnce) {
       hasConnectedOnce = true;
       void useStore.getState().flushOutbox();
     }
@@ -1272,14 +1433,14 @@ export function connectStoreToSocket(): () => void {
   // need to wait for a reconnect to drain. flushOutbox is idempotent on
   // clientMsgId, so racing the socket's own flush costs nothing.
   const onOnline = () => void useStore.getState().flushOutbox();
-  window.addEventListener('online', onOnline);
+  window.addEventListener("online", onOnline);
 
   socket.connect();
 
   return () => {
     unsubscribeEvents();
     unsubscribeStatus();
-    window.removeEventListener('online', onOnline);
+    window.removeEventListener("online", onOnline);
     socket.onReconnect = null;
     socket.disconnect();
   };
