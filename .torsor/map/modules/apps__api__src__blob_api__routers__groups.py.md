@@ -4,26 +4,26 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:17'
-updated: '2026-08-27T03:38:17'
+created: '2026-09-01T22:51:51'
+updated: '2026-09-01T22:51:51'
 ---
 
 # apps/api/src/blob_api/routers/groups.py
 
 Symbols in `apps/api/src/blob_api/routers/groups.py`.
 
-- L31 `GroupsOut` (class)
-- L35 `GroupOut` (class)
-- L39 `MembersOut` (class)
-- L43 `OkOut` (class)
-- L47 `_out(group: group_service.Group)` (function)
-- L57 `_upserted(workspace_id: str, group: UserGroup)` (function)
-- L63 `_membership(user_id: str, group_id: str, is_member: bool)` (function) — Only to the person it is about.
-- L73 `list_groups(admin: SessionUser=Depends(require_admin))` (function)
-- L80 `create_group(payload: CreateGroupInput, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L120 `update_group(group_id: str, payload: UpdateGroupInput, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L160 `delete_group(group_id: str, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L181 `list_members(group_id: str, admin: SessionUser=Depends(require_admin))` (function)
-- L190 `add_member(group_id: str, user_id: str, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L215 `remove_member(group_id: str, user_id: str, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L240 `set_mute(group_id: str, payload: MuteGroupInput, user: SessionUser=Depends(current_user))` (function) — Your own switch, for a group you are in.
+- L32 `GroupsOut` (class)
+- L36 `GroupOut` (class)
+- L40 `MembersOut` (class)
+- L44 `OkOut` (class)
+- L48 `_out(group: group_service.Group)` (function)
+- L58 `_upserted(workspace_id: str, group: UserGroup)` (function)
+- L64 `_membership(user_id: str, group_id: str, is_member: bool)` (function) — Only to the person it is about.
+- L74 `list_groups(admin: SessionUser=Depends(require_admin))` (function)
+- L81 `create_group(payload: CreateGroupInput, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L121 `update_group(group_id: IdParam, payload: UpdateGroupInput, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L161 `delete_group(group_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L182 `list_members(group_id: IdParam, admin: SessionUser=Depends(require_admin))` (function)
+- L193 `add_member(group_id: IdParam, user_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L218 `remove_member(group_id: IdParam, user_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L243 `set_mute(group_id: str, payload: MuteGroupInput, user: SessionUser=Depends(current_user))` (function) — Your own switch, for a group you are in.

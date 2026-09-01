@@ -4,15 +4,15 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:17'
-updated: '2026-08-27T03:38:17'
+created: '2026-09-01T22:51:51'
+updated: '2026-09-01T22:51:51'
 ---
 
 # apps/api/src/blob_api/routers/interactions.py
 
 Symbols in `apps/api/src/blob_api/routers/interactions.py`.
 
-- L34 `InteractionInput` (class)
-- L45 `OkOut` (class)
-- L50 `interact(payload: InteractionInput, user: SessionUser=Depends(current_user))` (function)
-- L106 `_first_delivery(user_id: str, payload: InteractionInput)` (function) — True the first time this click is seen; fails open when Redis is away.
+- L35 `InteractionInput` (class)
+- L46 `OkOut` (class)
+- L51 `interact(payload: InteractionInput, user: SessionUser=Depends(current_user))` (function)
+- L107 `_first_delivery(user_id: str, payload: InteractionInput)` (function) — True the first time this click is seen; fails open when Redis is away.

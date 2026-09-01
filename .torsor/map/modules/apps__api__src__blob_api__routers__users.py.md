@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:17'
-updated: '2026-08-27T03:38:17'
+created: '2026-09-01T22:51:51'
+updated: '2026-09-01T22:51:51'
 ---
 
 # apps/api/src/blob_api/routers/users.py
@@ -22,7 +22,7 @@ Symbols in `apps/api/src/blob_api/routers/users.py`.
 - L236 `_write_profile(session: AsyncSession, user: SessionUser, payload: UpdateProfileInput, given: set[str], avatar_key: str | None=None)` (function) — The two writes a profile edit makes, so the caller can wrap both in one guard.
 - L292 `update_prefs(payload: UpdatePrefsInput, user: SessionUser=Depends(current_user))` (function)
 - L319 `list_users(user: SessionUser=Depends(current_user))` (function)
-- L336 `get_user(user_id: str, user: SessionUser=Depends(current_user))` (function)
+- L336 `get_user(user_id: IdParam, user: SessionUser=Depends(current_user))` (function)
 - L350 `PushKeyOut` (class)
 - L357 `push_public_key(user: SessionUser=Depends(current_user))` (function) — The VAPID public key a browser needs to subscribe.
 - L367 `PushTestOut` (class)

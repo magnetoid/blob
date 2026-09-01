@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:17'
-updated: '2026-08-27T03:38:17'
+created: '2026-09-01T22:51:51'
+updated: '2026-09-01T22:51:51'
 ---
 
 # Repository Map
@@ -108,7 +108,10 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0022_pending_scopes.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 37 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0023_scheduled_messages.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 38 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -124,6 +127,8 @@ Modules and their key symbols (ranked by references).
   - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
   - `personal_agent_for(session: AsyncSession, *, workspace_id: str, channel_id: str)` (function)
   - `_looks_busy(listener: Listener, channel_id: str, thread_root_id: str | None)` (function)
+- **apps/api/src/blob_api/jobs/deployments.py** — 1 symbol(s)
+  - `sync_hosted_agents(ctx: dict[str, Any])` (function)
 - **apps/api/src/blob_api/jobs/notify.py** — 3 symbol(s)
   - `_broadcast_later(user_id: str, state: ReadStateOut)` (function)
   - `_preview(body: str)` (function)
@@ -132,6 +137,8 @@ Modules and their key symbols (ranked by references).
   - `fire_reminders(_ctx: dict[str, Any])` (function)
   - `_deliver_later(user_id: str, event: dict[str, Any], note: str | None)` (function)
   - `_push_reminder(user_id: str, note: str | None)` (function)
+- **apps/api/src/blob_api/jobs/scheduled.py** — 1 symbol(s)
+  - `send_scheduled(_ctx: dict[str, Any])` (function)
 - **apps/api/src/blob_api/jobs/unfurl.py** — 6 symbol(s)
   - `_meta(html: str, prop: str)` (function)
   - `_decode_entities(value: str)` (function)
@@ -173,10 +180,4 @@ Modules and their key symbols (ranked by references).
   - `_iso(epoch: float)` (function)
 - **apps/api/src/blob_api/lib/mail.py** — 3 symbol(s)
   - `send_mail(to: str, subject: str, body: str)` (function)
-  - `send_invite(to: str, inviter_name: str, url: str, workspace: str)` (function)
-  - `send_password_reset(to: str, url: str)` (function)
-- **apps/api/src/blob_api/lib/mentions.py** — 6 symbol(s)
-  - `strip_code(body: str)` (function)
-  - `MentionResult` (class)
-  - `_simple_lower(value: str)` (function)
-  - `parse_mentions(body: str, targets: dict[str, MentionTarget])` (function)…[truncated]
+  - `…[truncated]
