@@ -190,12 +190,41 @@ export const MessageRow = memo(function MessageRow({
 
   if (message.deletedAt) {
     return (
-      <div className="message" data-grouped={grouped}>
+      // An article with an id, like every other row, rather than the bare div this was.
+      // A tombstone that is not a row is a hole in the list: arrows step over it because
+      // they walk `[data-message-id]`, and a permalink or a pin pointing at it finds
+      // nothing to scroll to.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+      <article
+        className="message"
+        tabIndex={tab}
+        onFocus={(event) => {
+          if (event.target === event.currentTarget) onFocusRow?.(message.id);
+        }}
+        data-message-id={message.id}
+        data-grouped={grouped}
+        onKeyDown={moveFocusBetweenMessages}
+      >
         <div className="message-gutter" />
         <div className="message-main">
           <div className="message-deleted">This message was deleted</div>
+          {/* The replies outlive the message they hung from. Without this the thread
+              became unreachable from the channel the moment somebody deleted its first
+              message — the count was in the payload the whole time, and Slack keeps the
+              thread on the tombstone for the same reason. */}
+          {!inThread && message.replyCount > 0 && (
+            <button
+              className="thread-summary"
+              type="button"
+              tabIndex={tab}
+              onClick={() => onOpenThread(message.threadRootId ?? message.id)}
+            >
+              {message.replyCount}{" "}
+              {message.replyCount === 1 ? "reply" : "replies"}
+            </button>
+          )}
         </div>
-      </div>
+      </article>
     );
   }
 
@@ -210,9 +239,7 @@ export const MessageRow = memo(function MessageRow({
       // Focusable so the hover toolbar is reachable without a mouse: the reveal rule
       // is :focus-within, and a plain-text message contains nothing focusable — so
       // without a tab stop on the row itself, react/reply/menu simply did not exist
-      // for a keyboard user. The lint rule guards against *meaningless* tab stops;
-      // this one is the only route to three actions.
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+      // for a keyboard user.
       tabIndex={tab}
       onFocus={(event) => {
         // Only the row itself, not a button inside it bubbling up — otherwise clicking
