@@ -105,13 +105,24 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
             type="button"
             className="toggle"
             aria-pressed={isPrivate}
+            // The visible "Private" is a sibling span, which names nothing: a screen
+            // reader heard "button, pressed" and had to guess what it had just decided.
+            // Six of the app's eight toggles already say what they are; this one governs
+            // whether the channel can be found at all, so it is the worst one to leave
+            // silent.
+            aria-label="Private channel"
+            aria-describedby="create-channel-private-hint"
             onClick={() => setIsPrivate((p) => !p)}
           >
             <span />
           </button>
           <span>
             <span className="pref-label">Private</span>
-            <span className="pref-hint" style={{ display: "block" }}>
+            <span
+              className="pref-hint"
+              id="create-channel-private-hint"
+              style={{ display: "block" }}
+            >
               Only invited people can find or read it.
             </span>
           </span>

@@ -161,13 +161,22 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
                 type="button"
                 className="toggle"
                 aria-pressed={attach}
+                // Named and described, because what it attaches — a snapshot of the page
+                // and the console — is the sort of thing somebody is entitled to decide
+                // deliberately rather than by toggling an unlabelled switch.
+                aria-label="Attach diagnostics"
+                aria-describedby="feedback-diagnostics-hint"
                 onClick={() => setAttach((value) => !value)}
               >
                 <span />
               </button>
               <span>
                 <span className="pref-label">Attach diagnostics</span>
-                <span className="pref-hint" style={{ display: "block" }}>
+                <span
+                  className="pref-hint"
+                  id="feedback-diagnostics-hint"
+                  style={{ display: "block" }}
+                >
                   A snapshot of this page and the browser console, so an admin
                   can see what you saw. Passwords are never included.
                 </span>
