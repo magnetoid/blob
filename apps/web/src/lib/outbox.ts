@@ -1,9 +1,9 @@
-import type { Message } from '@blob/shared';
-import { ApiError } from './api.ts';
+import type { Message } from "@blob/shared";
+import { ApiError } from "./api.ts";
 
-const STORAGE_KEY = 'blob.web.outbox.v1';
+const STORAGE_KEY = "blob.web.outbox.v1";
 
-export type LocalMessageDeliveryStatus = 'sending' | 'queued' | 'failed';
+export type LocalMessageDeliveryStatus = "sending" | "queued" | "failed";
 
 export interface LocalOutboxEntry {
   clientMsgId: string;
@@ -49,16 +49,43 @@ export function persistOutbox(outbox: Record<string, LocalOutboxEntry>): void {
   globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(outbox));
 }
 
-export function sortOutbox(outbox: Record<string, LocalOutboxEntry>): LocalOutboxEntry[] {
-  return Object.values(outbox).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+export function sortOutbox(
+  outbox: Record<string, LocalOutboxEntry>,
+): LocalOutboxEntry[] {
+  return Object.values(outbox).sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  );
 }
 
-export function materializeOutboxMessage(entry: LocalOutboxEntry, authorId: string): Message {
+/**
+ * The list's sort key for a message that has no server id yet.
+ *
+ * The store keeps a channel sorted by id and inserts by string comparison, which works
+ * because real ids are UUIDv7 and sort chronologically. A pending id has to hold that
+ * invariant up too, and `pending-${clientMsgId}` did not: `clientMsgId` is a v4 from
+ * `crypto.randomUUID`, so it is random, and two messages typed while offline appeared in
+ * whichever order their random ids happened to compare — commonly backwards, always
+ * disagreeing with the order they would be sent and then shown in.
+ *
+ * The timestamp goes in front. `createdAt` is a fixed-width ISO string, so comparing it
+ * as text is comparing it as time, and the id keeps a tie stable when two land in the
+ * same millisecond. The `pending-` prefix stays first because six places test for it,
+ * and it still sorts after every real id — 'p' is above 'f', so a queued message stays
+ * below the conversation rather than being filed into the middle of it.
+ */
+function pendingId(entry: LocalOutboxEntry): string {
+  return `pending-${entry.createdAt}-${entry.clientMsgId}`;
+}
+
+export function materializeOutboxMessage(
+  entry: LocalOutboxEntry,
+  authorId: string,
+): Message {
   return {
-    id: `pending-${entry.clientMsgId}`,
+    id: pendingId(entry),
     channelId: entry.channelId,
     authorId,
-    kind: 'user',
+    kind: "user",
     body: entry.body,
     threadRootId: entry.threadRootId,
     alsoInChannel: false,
@@ -85,14 +112,24 @@ export function materializeOutboxMessage(entry: LocalOutboxEntry, authorId: stri
 
 export function isRecoverableSendError(error: unknown): boolean {
   if (!(error instanceof ApiError)) return true;
-  return error.status === 408 || error.status === 425 || error.status === 429 || error.status >= 500;
+  return (
+    error.status === 408 ||
+    error.status === 425 ||
+    error.status === 429 ||
+    error.status >= 500
+  );
 }
 
 function hasStorage(): boolean {
-  return typeof window !== 'undefined' && typeof globalThis.localStorage !== 'undefined';
+  return (
+    typeof window !== "undefined" &&
+    typeof globalThis.localStorage !== "undefined"
+  );
 }
 
-type StoredEntry = Omit<LocalOutboxEntry, 'attachmentIds'> & { attachmentIds?: string[] };
+type StoredEntry = Omit<LocalOutboxEntry, "attachmentIds"> & {
+  attachmentIds?: string[];
+};
 
 function isOutbox(value: unknown): value is Record<string, StoredEntry> {
   if (!isRecord(value)) return false;
@@ -102,24 +139,24 @@ function isOutbox(value: unknown): value is Record<string, StoredEntry> {
 function isOutboxEntry(value: unknown): value is StoredEntry {
   if (!isRecord(value)) return false;
   return (
-    typeof value.clientMsgId === 'string' &&
-    typeof value.channelId === 'string' &&
-    (typeof value.threadRootId === 'string' || value.threadRootId === null) &&
-    typeof value.body === 'string' &&
-    typeof value.createdAt === 'string' &&
+    typeof value.clientMsgId === "string" &&
+    typeof value.channelId === "string" &&
+    (typeof value.threadRootId === "string" || value.threadRootId === null) &&
+    typeof value.body === "string" &&
+    typeof value.createdAt === "string" &&
     isDeliveryStatus(value.status) &&
-    typeof value.attempts === 'number' &&
-    (typeof value.lastError === 'string' || value.lastError === null) &&
+    typeof value.attempts === "number" &&
+    (typeof value.lastError === "string" || value.lastError === null) &&
     (value.attachmentIds === undefined ||
       (Array.isArray(value.attachmentIds) &&
-        value.attachmentIds.every((id) => typeof id === 'string')))
+        value.attachmentIds.every((id) => typeof id === "string")))
   );
 }
 
 function isDeliveryStatus(value: unknown): value is LocalMessageDeliveryStatus {
-  return value === 'sending' || value === 'queued' || value === 'failed';
+  return value === "sending" || value === "queued" || value === "failed";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === "object" && value !== null;
 }
