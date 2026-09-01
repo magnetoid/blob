@@ -182,12 +182,16 @@ fades keep their duration. Anything sized for a pointer gets a 44px minimum unde
 - forbid_layer_import: `blob_api\.routers(\.|$)` in `apps/api/src/blob_api/realtime/*.py` — realtime/ must not import routers/ — the socket tier moves out as a unit. ADR 0004. (per ADR 0004: Persist, then broadcast — structurally)
 - forbid_layer_import: `blob_api\.routers(\.|$)` in `apps/api/src/blob_api/plugins/*.py` — plugins/ must not import routers/ — routers depend on the plugin layer, not the reverse. ADR 0005. (per ADR 0005: A plugin's bot is a real user row)
 
-`torsor verify` reports two failures that are the workspace layout rather than findings,
-and both are traps:
+`torsor verify` reports failures that are the workspace layout rather than findings, and
+they are traps — but only one of them still reproduces:
 
-* **deps** fails on any `.py` change — it resolves its manifest from `--root`, and the
-  Python one is a level down at `apps/api/pyproject.toml`.
-* **staleness** reports ~26 `stale_path`s claiming files like `services/channels.py`,
+* **deps** was described here as failing on any `.py` change, because it resolves its
+  manifest from `--root` and the Python one is a level down at `apps/api/pyproject.toml`.
+  On 2026-09-01 a plain `torsor verify` from the repo root reported `deps: PASS` after a
+  branch that changed some sixty Python files. So do not use this note to wave a deps
+  failure away: check it. If it fails again, the manifest path is the first thing to look
+  at, not the last.
+* **staleness** reports ~27 `stale_path`s claiming files like `services/channels.py`,
   `lib/navigation.ts` and `tests/helpers.py` "no longer exist". Every one of them does.
   The notes write paths in the shorthand this file uses, and the checker resolves them
   from the repo root while the code lives under `apps/api/src/blob_api/` and
