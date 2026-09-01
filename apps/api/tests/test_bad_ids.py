@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 
-from .helpers import Client, invite_and_sign_up, sign_up
+from .helpers import Client, client_msg_id, invite_and_sign_up, sign_up
 
 pytestmark = pytest.mark.asyncio
 
@@ -104,3 +104,52 @@ class TestARealIdStillWorks:
             cursor = messages[0]["id"]
             page = await team["owner"].get(f"/api/channels/{channel_id}/messages?before={cursor}")
             assert page.status == 200
+
+
+class TestAMalformedIdInsideABody:
+    """The same fault, arriving by a different door.
+
+    Constraining the path parameters left the bodies untouched, and a `threadRootId` or
+    an `attachmentIds` entry reached exactly the same SQL. Only the request models are
+    constrained: `schemas/models.py` describes what the server *sends*, and tightening
+    that would turn a surprising stored value into a 500 on the way out — the failure
+    this change exists to remove, pointed the other way.
+    """
+
+    async def test_a_reply_to_a_malformed_thread_root(self, team: dict) -> None:
+        channel_id = team["general"]["id"]
+
+        answer = await team["owner"].post(
+            f"/api/channels/{channel_id}/messages",
+            {"body": "hello", "clientMsgId": client_msg_id(), "threadRootId": "notauuid"},
+        )
+
+        assert answer.status == 400
+        assert answer.body["error"]["code"] == "invalid_input"
+        assert answer.body["error"]["field"] == "threadRootId"
+
+    async def test_every_other_body_that_carries_one(self, team: dict) -> None:
+        channel_id = team["general"]["id"]
+        owner = team["owner"]
+        cases = [
+            (f"/api/channels/{channel_id}/members", {"userIds": ["notauuid"]}),
+            (f"/api/channels/{channel_id}/read", {"lastReadMessageId": "notauuid"}),
+            (f"/api/channels/{channel_id}/unread", {"messageId": "notauuid"}),
+            ("/api/dms", {"userIds": ["notauuid"]}),
+            ("/api/channels", {"name": "probe", "kind": "private", "memberIds": ["notauuid"]}),
+        ]
+        for path, payload in cases:
+            answer = await owner.post(path, payload)
+            assert answer.status == 400, f"{path} answered {answer.status}"
+            assert answer.body["error"]["code"] == "invalid_input", path
+
+    async def test_an_ordinary_send_is_untouched(self, team: dict) -> None:
+        # The guard: the constraint must not reject the traffic the app actually sends.
+        channel_id = team["general"]["id"]
+
+        answer = await team["owner"].post(
+            f"/api/channels/{channel_id}/messages",
+            {"body": "an ordinary message", "clientMsgId": client_msg_id()},
+        )
+
+        assert answer.status == 201

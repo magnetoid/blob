@@ -284,7 +284,7 @@ class CatchupSummaryOut(CamelModel):
     channel_name: str | None
     text: str
     message_count: int
-    up_to_message_id: str
+    up_to_message_id: IdParam
 
 
 class CatchupOut(CamelModel):

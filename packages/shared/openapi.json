@@ -27,6 +27,7 @@
         "properties": {
           "userIds": {
             "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "type": "string"
             },
             "maxItems": 50,
@@ -460,6 +461,7 @@
           "threadRootId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -475,6 +477,7 @@
           "triggerMessageId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -1240,6 +1243,7 @@
             "type": "string"
           },
           "upToMessageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Uptomessageid",
             "type": "string"
           }
@@ -1697,6 +1701,7 @@
             "anyOf": [
               {
                 "items": {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 "maxItems": 200,
@@ -1736,6 +1741,7 @@
         "properties": {
           "userIds": {
             "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "type": "string"
             },
             "maxItems": 8,
@@ -2080,6 +2086,7 @@
       "DeleteMessageInput": {
         "properties": {
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           }
@@ -2860,6 +2867,7 @@
             "title": "Clientactionid"
           },
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           },
@@ -3262,6 +3270,7 @@
       "MarkReadInput": {
         "properties": {
           "lastReadMessageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Lastreadmessageid",
             "type": "string"
           }
@@ -3275,6 +3284,7 @@
       "MarkUnreadInput": {
         "properties": {
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           }
@@ -3289,6 +3299,7 @@
         "properties": {
           "userIds": {
             "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "type": "string"
             },
             "title": "Userids",
@@ -4106,6 +4117,7 @@
           "threadRootId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -4548,6 +4560,7 @@
           "threadRootId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -4709,6 +4722,7 @@
           },
           "attachmentIds": {
             "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "type": "string"
             },
             "maxItems": 10,
@@ -4730,6 +4744,7 @@
           "threadRootId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -6509,6 +6524,7 @@
       "blob_api__routers__bot_api__EditMessageInput": {
         "properties": {
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           },
@@ -6548,6 +6564,7 @@
             "type": "string"
           },
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           }
@@ -13047,6 +13064,7 @@
             "name": "thread_root_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Thread Root Id",
               "type": "string"
             }
@@ -13101,6 +13119,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 {

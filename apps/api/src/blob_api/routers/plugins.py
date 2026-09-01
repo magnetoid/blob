@@ -689,8 +689,8 @@ class AgentRunOut(CamelModel):
     id: str
     channel_id: str
     channel_name: str | None = None
-    thread_root_id: str | None = None
-    trigger_message_id: str | None = None
+    thread_root_id: IdParam | None = None
+    trigger_message_id: IdParam | None = None
     trigger_user_name: str | None = None
     transport: str
     status: str

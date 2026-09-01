@@ -605,7 +605,7 @@ class ScheduleInput(CamelModel):
     body: str = Field(min_length=1, max_length=12_000)
     send_at: str
     client_msg_id: str = Field(min_length=1, max_length=200)
-    thread_root_id: str | None = None
+    thread_root_id: IdParam | None = None
 
 
 class ScheduledOut(CamelModel):

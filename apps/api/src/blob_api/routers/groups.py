@@ -38,7 +38,7 @@ class GroupOut(CamelModel):
 
 
 class MembersOut(CamelModel):
-    user_ids: list[str]
+    user_ids: list[IdParam]
 
 
 class OkOut(CamelModel):

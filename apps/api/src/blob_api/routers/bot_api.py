@@ -23,7 +23,7 @@ from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib.errors import bad_request, not_found
-from ..lib.ids import new_id
+from ..lib.ids import IdParam, new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..plugins import events as plugin_events
 from ..plugins.auth import BotCaller, current_bot, requires
@@ -57,7 +57,7 @@ class PostMessageInput(CamelModel):
     #: where nobody wants to paste a UUID.
     channel: str
     text: str
-    thread_root_id: str | None = None
+    thread_root_id: IdParam | None = None
     also_in_channel: bool = False
     #: Apps that retry should send the same value twice; the second call stores nothing.
     client_msg_id: str | None = None
@@ -72,16 +72,16 @@ class MessageOut(CamelModel):
 
 
 class EditMessageInput(CamelModel):
-    message_id: str
+    message_id: IdParam
     text: str
 
 
 class DeleteMessageInput(CamelModel):
-    message_id: str
+    message_id: IdParam
 
 
 class ReactionInput(CamelModel):
-    message_id: str
+    message_id: IdParam
     emoji: str
 
 
@@ -454,7 +454,7 @@ async def summarize_thread(
 
 @router.post("/tasks.create", response_model=AgentTaskOut, status_code=201)
 async def create_task(
-    thread_root_id: str,
+    thread_root_id: IdParam,
     payload: CreateAgentTaskInput,
     bot: BotCaller = requires("tasks:write"),
 ) -> AgentTaskOut:
@@ -540,7 +540,7 @@ async def update_task(
 
 @router.get("/tasks.list", response_model=AgentTasksOut)
 async def list_tasks(
-    thread_root_id: str | None = None,
+    thread_root_id: IdParam | None = None,
     bot: BotCaller = requires("tasks:read"),
 ) -> AgentTasksOut:
     async with session_scope() as session:
