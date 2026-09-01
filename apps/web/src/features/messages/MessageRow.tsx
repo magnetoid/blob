@@ -415,6 +415,12 @@ export const MessageRow = memo(function MessageRow({
           <button
             className="thread-summary"
             type="button"
+            // Follows the row, like the actions do. Left at its native tab stop it
+            // reintroduced the bound the roving tabindex exists to impose: one extra
+            // press per threaded message, and tabbing onto an off-screen one scrolls
+            // and renders more. Arrow to the message, then Tab — the same route as
+            // every other thing a row can do.
+            tabIndex={tab}
             onClick={() => onOpenThread(message.id)}
           >
             {message.replyUserIds[0] && (
