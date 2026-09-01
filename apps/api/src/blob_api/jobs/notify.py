@@ -96,7 +96,7 @@ async def handle_notify(message_id: str) -> None:
 
         mention_ids = [d.user_id for d in decisions if d.counts_as_mention]
         states = await read_state_service.increment_mentions(
-            session, mention_ids, message.channel_id
+            session, mention_ids, message.channel_id, message.id
         )
         for user_id, state in zip(mention_ids, states, strict=False):
             after.add(_broadcast_later(user_id, state))

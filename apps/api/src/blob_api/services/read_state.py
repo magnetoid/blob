@@ -195,9 +195,23 @@ async def mark_unread(
 
 
 async def increment_mentions(
-    session: AsyncSession, user_ids: list[str], channel_id: str
+    session: AsyncSession, user_ids: list[str], channel_id: str, message_id: str
 ) -> list[ReadStateOut]:
-    """Called by the notify worker for each recipient a message actually pings."""
+    """Called by the notify worker for each recipient a message actually pings.
+
+    Only for a message they have not already read. The badge is "mentions after the
+    cursor" — `mark_unread` recomputes it that way and says so — and this used to add one
+    unconditionally, having never looked at the cursor at all.
+
+    That is not a rare race. The socket frame reaches a client in milliseconds and it
+    marks read at once; the notify job is picked up on the worker's poll, about half a
+    second later. So for anyone actually looking at the channel the increment normally
+    lands *after* the read, and the badge showed a mention for a message on their screen.
+    In a DM, where every message counts as a mention, it fired on each one.
+
+    Ids are UUIDv7, so "is this newer than what they have read" is the same comparison
+    the rest of the read path uses rather than a timestamp or a count.
+    """
     if not user_ids:
         return []
 
@@ -208,12 +222,18 @@ async def increment_mentions(
                 INSERT INTO read_states (user_id, channel_id, mention_count, updated_at)
                 SELECT unnest(cast(:user_ids AS uuid[])), :channel_id, 1, now()
                 ON CONFLICT (user_id, channel_id) DO UPDATE
-                  SET mention_count = read_states.mention_count + 1,
+                  SET mention_count = read_states.mention_count
+                        + CASE
+                            WHEN read_states.last_read_message_id IS NULL
+                              OR read_states.last_read_message_id
+                                   < cast(:message_id AS uuid)
+                            THEN 1 ELSE 0
+                          END,
                       updated_at = now()
                 RETURNING user_id, last_read_message_id, mention_count
                 """
             ),
-            {"user_ids": user_ids, "channel_id": channel_id},
+            {"user_ids": user_ids, "channel_id": channel_id, "message_id": message_id},
         )
     ).fetchall()
 
