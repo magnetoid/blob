@@ -151,6 +151,23 @@ export function SearchView() {
                 : "The server errored or couldn’t be reached — your messages are still there. Adjust the query or try again in a moment."}
             </div>
           </div>
+        ) : searching && results === null ? (
+          // The first search of a session has no results array yet, so it fell into the
+          // idle prompt below and sat there — on a slow connection, two and a half
+          // seconds of a screen still inviting you to search something you had already
+          // typed. `searching` was rendered, but only in the "no results" branch, which
+          // needs an array to reach. Every later search keeps the previous results on
+          // screen, which reads as stale rather than as broken; this one read as nothing
+          // having happened at all.
+          <div className="empty-state" aria-live="polite">
+            <div className="empty-state-mark">
+              <SearchIcon size="xl" />
+            </div>
+            <div className="empty-state-title">Searching…</div>
+            <div className="empty-state-body">
+              Looking through the whole history.
+            </div>
+          </div>
         ) : results === null ? (
           <div className="empty-state">
             <div className="empty-state-mark">
