@@ -213,3 +213,80 @@ class TestAModifierThatNamesNobody:
 
         assert answer.body["messages"] == []
         assert "from:Sam" in answer.body["parsed"]["unresolved"]
+
+
+class TestPagingThroughResults:
+    """Reaching result 26.
+
+    Search answered "Showing 25 of 2107" and offered no way to see the twenty-sixth,
+    so anything not in the first page by rank was unreachable — you had to guess a
+    narrower query and hope. The cursor is keyset rather than an offset, per ADR 0003:
+    the next page is the rows sorting strictly below the last one shown, which does not
+    re-scan what you have already read and does not shift under an arriving message.
+    """
+
+    async def test_paging_reaches_every_match_exactly_once(self, team: dict) -> None:
+        # More than two pages, so a bug at the boundary has somewhere to show up.
+        for index in range(12):
+            await send_message(team["owner"], team["general"]["id"], f"quokkavine {index}")
+
+        seen: list[str] = []
+        cursor: str | None = None
+        for _ in range(10):
+            url = "/api/search?q=quokkavine&limit=5"
+            if cursor:
+                url += f"&cursor={cursor}"
+            answer = await team["owner"].get(url)
+            assert answer.status == 200, answer.body
+            seen.extend(m["id"] for m in answer.body["messages"])
+            cursor = answer.body["nextCursor"]
+            if not cursor:
+                break
+
+        assert len(seen) == 12, seen
+        assert len(set(seen)) == 12, "a message appeared on two pages"
+        assert cursor is None, "the walk should end rather than offer another page"
+
+    async def test_the_last_page_does_not_offer_another(self, team: dict) -> None:
+        for index in range(3):
+            await send_message(team["owner"], team["general"]["id"], f"narwhalcobalt {index}")
+
+        answer = await team["owner"].get("/api/search?q=narwhalcobalt&limit=25")
+
+        assert len(answer.body["messages"]) == 3
+        assert answer.body["nextCursor"] is None
+
+    async def test_a_full_final_page_offers_one_more_that_is_empty(self, team: dict) -> None:
+        # The page is full, so we cannot know it is the last one without asking. Offering
+        # a cursor that answers empty is better than withholding one that had results.
+        for index in range(4):
+            await send_message(team["owner"], team["general"]["id"], f"lemurgranite {index}")
+
+        first = await team["owner"].get("/api/search?q=lemurgranite&limit=4")
+        assert first.body["nextCursor"] is not None
+
+        second = await team["owner"].get(
+            f"/api/search?q=lemurgranite&limit=4&cursor={first.body['nextCursor']}"
+        )
+        assert second.body["messages"] == []
+
+    async def test_a_forged_cursor_is_refused_rather_than_ignored(self, team: dict) -> None:
+        answer = await team["owner"].get("/api/search?q=anything&cursor=notacursor")
+
+        assert answer.status == 400
+        assert answer.body["error"]["code"] == "bad_request"
+
+    async def test_paging_does_not_cross_the_membership_boundary(self, team: dict) -> None:
+        # The join against channel_members is the security boundary, and a second page
+        # is a second query — it has to carry the same restriction as the first.
+        private = (
+            await team["owner"].post("/api/channels", {"name": "hidden-paging", "kind": "private"})
+        ).body["channel"]
+        for index in range(8):
+            await send_message(team["owner"], private["id"], f"basiliskonyx {index}")
+
+        answer = await team["member"].get("/api/search?q=basiliskonyx&limit=4")
+
+        assert answer.body["messages"] == []
+        assert answer.body["total"] == 0
+        assert answer.body["nextCursor"] is None

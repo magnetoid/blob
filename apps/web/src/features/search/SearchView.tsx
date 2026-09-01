@@ -25,6 +25,9 @@ export function SearchView() {
   const [total, setTotal] = useState(0);
   const [searching, setSearching] = useState(false);
   const [failed, setFailed] = useState(false);
+  /** Where the results so far stopped. Null once there is nothing after them. */
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,6 +41,7 @@ export function SearchView() {
       if (!term) {
         setResults(null);
         setTotal(0);
+        setNextCursor(null);
         setSearching(false);
         setFailed(false);
         return;
@@ -47,12 +51,14 @@ export function SearchView() {
         const result = await api.search(term);
         setResults(result.messages);
         setTotal(result.total);
+        setNextCursor(result.nextCursor);
         setFailed(false);
       } catch {
         // A failed request is not "no results" — telling someone nothing matched
         // when the server errored sends them away believing the message is gone.
         setResults(null);
         setTotal(0);
+        setNextCursor(null);
         setFailed(true);
       } finally {
         setSearching(false);
@@ -60,6 +66,33 @@ export function SearchView() {
     }, 220);
     return () => clearTimeout(timer);
   }, [query, filter]);
+
+  /**
+   * The next page, appended.
+   *
+   * Appending rather than replacing, because "Showing 25 of 2107" was previously the end
+   * of the road: anything the ranking did not put in the first page could not be reached
+   * at all, and the only recourse was to guess a narrower query. The cursor is the
+   * server's, opaque here — the client never computes an offset, so an arriving message
+   * cannot shift a page boundary underneath somebody mid-read.
+   */
+  async function loadMore() {
+    const term = [query, filter].filter(Boolean).join(" ").trim();
+    if (!term || !nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const result = await api.search(term, nextCursor);
+      setResults((current) => [...(current ?? []), ...result.messages]);
+      setNextCursor(result.nextCursor);
+    } catch {
+      // Keep what is already on screen. Losing two hundred results you had scrolled
+      // through because the two hundred and first request failed is a worse answer than
+      // a button that did nothing.
+      setFailed(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   return (
     <main className="pane">
@@ -94,8 +127,8 @@ export function SearchView() {
           <div className="empty-state">
             <div className="empty-state-title">Search didn’t answer</div>
             <div className="empty-state-body">
-              The server errored or couldn’t be reached — your messages are still
-              there. Adjust the query or try again in a moment.
+              The server errored or couldn’t be reached — your messages are
+              still there. Adjust the query or try again in a moment.
             </div>
           </div>
         ) : results === null ? (
@@ -134,6 +167,16 @@ export function SearchView() {
                 onOpen={() => void showMessage(message.id)}
               />
             ))}
+            {nextCursor && (
+              <button
+                type="button"
+                className="btn btn-ghost search-more"
+                disabled={loadingMore}
+                onClick={() => void loadMore()}
+              >
+                {loadingMore ? "Loading…" : "Show more results"}
+              </button>
+            )}
           </>
         )}
       </div>

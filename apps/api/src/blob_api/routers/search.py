@@ -16,7 +16,7 @@ from ..schemas.base import CamelModel
 from ..schemas.models import ChannelWithState, Message, ReadStateOut
 from ..services import channels as channel_service
 from ..services import read_state as read_state_service
-from ..services.search import parse_query, search
+from ..services.search import SearchCursor, parse_query, search
 from ..services.serialize import MESSAGE_SELECT, to_message
 
 router = APIRouter(tags=["search"])
@@ -35,6 +35,8 @@ class SearchOut(CamelModel):
     messages: list[Message]
     total: int
     parsed: dict[str, Any]
+    #: Pass back as `cursor` for the next page. Null when this page is the last one.
+    next_cursor: str | None = None
 
 
 class SyncOut(CamelModel):
@@ -49,6 +51,7 @@ class SyncOut(CamelModel):
 async def search_messages(
     q: Annotated[str, Query(min_length=1, max_length=200)],
     limit: Annotated[int, Query(ge=1, le=50)] = 25,
+    cursor: Annotated[str | None, Query(max_length=100)] = None,
     user: SessionUser = Depends(current_user),
 ) -> SearchOut:
     await consume("search", user.id)
@@ -126,7 +129,7 @@ async def search_messages(
                 messages=[], total=0, parsed={**parsed_payload, "unresolved": unresolved}
             )
 
-        messages, total = await search(
+        messages, total, next_cursor = await search(
             session,
             workspace_id=user.workspace_id,
             user_id=user.id,
@@ -137,9 +140,15 @@ async def search_messages(
             after=parsed.after,
             has=parsed.has,
             limit=limit,
+            cursor=SearchCursor.decode(cursor) if cursor else None,
         )
 
-    return SearchOut(messages=messages, total=total, parsed=parsed_payload)
+    return SearchOut(
+        messages=messages,
+        total=total,
+        parsed=parsed_payload,
+        next_cursor=next_cursor.encode() if next_cursor else None,
+    )
 
 
 @router.get("/api/sync", response_model=SyncOut)

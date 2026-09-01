@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..lib.errors import bad_request
 from ..schemas.models import Message
 from .serialize import MESSAGE_SELECT, to_message
+
+
+@dataclass(slots=True)
+class SearchCursor:
+    """Where the previous page stopped, as the sort key it stopped on.
+
+    Both halves are needed. `ts_rank` reports a coarse score, so a common word leaves
+    thousands of messages sharing one rank; a cursor holding the rank alone would skip
+    every one of its ties or repeat all of them. The id is the tiebreaker the ordering
+    already uses, so carrying it makes the boundary exact.
+    """
+
+    rank: float
+    message_id: str
+
+    def encode(self) -> str:
+        # `repr` rather than a fixed number of decimal places: a float that does not
+        # round-trip exactly comes back as a slightly different cursor, and a slightly
+        # different cursor lands between two rows instead of on one.
+        return f"{self.rank!r}:{self.message_id}"
+
+    @staticmethod
+    def decode(raw: str) -> SearchCursor:
+        rank, _, message_id = raw.partition(":")
+        try:
+            return SearchCursor(rank=float(rank), message_id=str(UUID(message_id)))
+        except ValueError:
+            # A cursor is opaque and always came from us, so a malformed one is a bug or
+            # a hand-edited URL. Refusing beats silently answering a different question.
+            raise bad_request("That search cursor is not one we issued.") from None
 
 
 @dataclass(slots=True)
@@ -95,7 +126,8 @@ async def search(
     after: datetime | None = None,
     has: str | None = None,
     limit: int = 25,
-) -> tuple[list[Message], int]:
+    cursor: SearchCursor | None = None,
+) -> tuple[list[Message], int, SearchCursor | None]:
     rows = (
         await session.execute(
             text(
@@ -125,16 +157,27 @@ async def search(
                                 SELECT 1 FROM attachments a WHERE a.message_id = m.id)))
                 ),
                 hits AS (
-                  SELECT id
+                  SELECT id, rank
                     FROM filtered
+                   -- Keyset, not OFFSET: the page after the cursor is the rows that
+                   -- sort strictly below it, which is one row comparison and no
+                   -- re-scan of everything already shown. `rank` alone does not
+                   -- separate rows — thousands of messages tie on it — so the id
+                   -- breaks the tie in both the ordering and the comparison, and the
+                   -- two have to agree exactly or a page boundary drops a row.
+                   WHERE (cast(:cursor_rank AS double precision) IS NULL
+                          OR (rank::double precision, id)
+                             < (cast(:cursor_rank AS double precision),
+                                cast(:cursor_id AS uuid)))
                    ORDER BY rank DESC,
                             id DESC
                    LIMIT :limit
                 )
-                SELECT {MESSAGE_SELECT}, (SELECT count(*) FROM filtered)::int AS total
+                SELECT {MESSAGE_SELECT}, (SELECT count(*) FROM filtered)::int AS total,
+                       hits.rank::double precision AS hit_rank
                   FROM messages m
                   JOIN hits ON hits.id = m.id
-                 ORDER BY m.id DESC
+                 ORDER BY hits.rank DESC, m.id DESC
                 """
             ),
             {
@@ -147,9 +190,18 @@ async def search(
                 "after": after,
                 "has": has,
                 "limit": limit,
+                "cursor_rank": cursor.rank if cursor else None,
+                "cursor_id": cursor.message_id if cursor else None,
             },
         )
     ).fetchall()
 
     total = rows[0].total if rows else 0
-    return [to_message(row) for row in rows], total
+    # Only when the page is full. A short page is the end of the results, and offering
+    # to continue past it costs a request that can only come back empty.
+    next_cursor = (
+        SearchCursor(rank=rows[-1].hit_rank, message_id=str(rows[-1].id))
+        if len(rows) == limit
+        else None
+    )
+    return [to_message(row) for row in rows], total, next_cursor

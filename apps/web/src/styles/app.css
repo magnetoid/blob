@@ -4648,3 +4648,11 @@ button.member-row:hover {
   display: flex;
   gap: 6px;
 }
+
+/* "Show more results" sits under the last result, full width, so it reads as the end of
+   the list rather than as another result. */
+.search-more {
+  width: 100%;
+  margin-top: var(--space-2);
+  justify-content: center;
+}
