@@ -4,17 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import forbidden, not_found
+from ..lib.ids import IdParam
 from ..lib.queue import enqueue, fire_and_forget
 from ..plugins import events as plugin_events
 from ..realtime import hub
 from ..schemas.base import CamelModel
-from ..schemas.models import ChannelWithState, Message
+from ..schemas.models import BrowsableChannel, ChannelWithState, Message
 from ..schemas.requests import (
     AddMembersInput,
     CreateChannelInput,
@@ -37,7 +38,7 @@ class ChannelOut(CamelModel):
 
 
 class MembersOut(CamelModel):
-    user_ids: list[str]
+    user_ids: list[IdParam]
 
 
 class MessagesOut(CamelModel):
@@ -57,6 +58,28 @@ async def list_channels(user: SessionUser = Depends(current_user)) -> ChannelsOu
     async with session_scope() as session:
         channels = await channel_service.list_for_user(session, user.id, user.workspace_id)
     return ChannelsOut(channels=channels)
+
+
+class BrowseOut(CamelModel):
+    channels: list[BrowsableChannel]
+
+
+@router.get("/api/channels/browse", response_model=BrowseOut)
+async def browse_channels(
+    q: str = Query("", max_length=100),
+    archived: bool = False,
+    user: SessionUser = Depends(current_user),
+) -> BrowseOut:
+    """The channel directory.
+
+    Public channels only, so nothing here can reveal that a private channel exists —
+    the same reason opening one you are not in answers 404 rather than 403.
+    """
+    async with session_scope() as session:
+        channels = await channel_service.browse(
+            session, user.id, user.workspace_id, query=q, include_archived=archived
+        )
+    return BrowseOut(channels=channels)
 
 
 @router.post("/api/channels", response_model=ChannelOut)
@@ -103,7 +126,7 @@ async def create_channel(
 
 
 @router.get("/api/channels/{channel_id}", response_model=ChannelOut)
-async def get_channel(channel_id: str, user: SessionUser = Depends(current_user)) -> ChannelOut:
+async def get_channel(channel_id: IdParam, user: SessionUser = Depends(current_user)) -> ChannelOut:
     async with session_scope() as session:
         await channel_service.assert_channel_access(session, user.id, channel_id)
         channel = await channel_service.get_for_user(session, channel_id, user.id)
@@ -114,7 +137,7 @@ async def get_channel(channel_id: str, user: SessionUser = Depends(current_user)
 
 @router.patch("/api/channels/{channel_id}", response_model=ChannelOut)
 async def update_channel(
-    channel_id: str,
+    channel_id: IdParam,
     payload: UpdateChannelInput,
     user: SessionUser = Depends(current_user),
 ) -> ChannelOut:
@@ -157,7 +180,7 @@ async def update_channel(
 
 
 @router.post("/api/channels/{channel_id}/archive", response_model=OkOut)
-async def archive_channel(channel_id: str, user: SessionUser = Depends(current_user)) -> OkOut:
+async def archive_channel(channel_id: IdParam, user: SessionUser = Depends(current_user)) -> OkOut:
     async with transaction() as (session, after):
         access = await channel_service.assert_channel_access(
             session, user.id, channel_id, require_member=True
@@ -175,7 +198,9 @@ async def archive_channel(channel_id: str, user: SessionUser = Depends(current_u
 
 
 @router.post("/api/channels/{channel_id}/join", response_model=ChannelOut)
-async def join_channel(channel_id: str, user: SessionUser = Depends(current_user)) -> ChannelOut:
+async def join_channel(
+    channel_id: IdParam, user: SessionUser = Depends(current_user)
+) -> ChannelOut:
     async with transaction() as (session, after):
         access = await channel_service.assert_channel_access(
             session, user.id, channel_id, require_writable=True
@@ -211,7 +236,7 @@ async def join_channel(channel_id: str, user: SessionUser = Depends(current_user
 
 
 @router.post("/api/channels/{channel_id}/leave", response_model=OkOut)
-async def leave_channel(channel_id: str, user: SessionUser = Depends(current_user)) -> OkOut:
+async def leave_channel(channel_id: IdParam, user: SessionUser = Depends(current_user)) -> OkOut:
     async with transaction() as (session, after):
         access = await channel_service.assert_channel_access(
             session, user.id, channel_id, require_member=True
@@ -241,7 +266,7 @@ async def leave_channel(channel_id: str, user: SessionUser = Depends(current_use
 
 @router.post("/api/channels/{channel_id}/members", response_model=OkOut)
 async def add_members(
-    channel_id: str, payload: AddMembersInput, user: SessionUser = Depends(current_user)
+    channel_id: IdParam, payload: AddMembersInput, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     async with transaction() as (session, after):
         access = await channel_service.assert_channel_access(
@@ -280,7 +305,9 @@ async def add_members(
 
 
 @router.get("/api/channels/{channel_id}/members", response_model=MembersOut)
-async def list_members(channel_id: str, user: SessionUser = Depends(current_user)) -> MembersOut:
+async def list_members(
+    channel_id: IdParam, user: SessionUser = Depends(current_user)
+) -> MembersOut:
     async with session_scope() as session:
         await channel_service.assert_channel_access(session, user.id, channel_id)
         ids = await channel_service.member_ids(session, channel_id)
@@ -289,7 +316,7 @@ async def list_members(channel_id: str, user: SessionUser = Depends(current_user
 
 @router.patch("/api/channels/{channel_id}/membership", response_model=ChannelOut)
 async def update_membership(
-    channel_id: str,
+    channel_id: IdParam,
     payload: MembershipUpdateInput,
     user: SessionUser = Depends(current_user),
 ) -> ChannelOut:
@@ -321,7 +348,7 @@ async def update_membership(
 
 
 @router.get("/api/channels/{channel_id}/pins", response_model=MessagesOut)
-async def list_pins(channel_id: str, user: SessionUser = Depends(current_user)) -> MessagesOut:
+async def list_pins(channel_id: IdParam, user: SessionUser = Depends(current_user)) -> MessagesOut:
     async with session_scope() as session:
         await channel_service.assert_channel_access(session, user.id, channel_id)
         messages = await message_service.list_pinned(session, channel_id)

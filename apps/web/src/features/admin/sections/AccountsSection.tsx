@@ -10,15 +10,19 @@
  * same rows the database has.
  */
 
-import { useCallback, useMemo, useState } from 'react';
-import { api, type InstanceUser } from '../../../lib/api.ts';
-import { useAdminData } from '../hooks.ts';
+import { useCallback, useMemo, useState } from "react";
+import { api, type InstanceUser } from "../../../lib/api.ts";
+import { useAdminData } from "../hooks.ts";
 
-export function AccountsSection({ onError }: { onError: (message: string | null) => void }) {
-  const [query, setQuery] = useState('');
+export function AccountsSection({
+  onError,
+}: {
+  onError: (message: string | null) => void;
+}) {
+  const [query, setQuery] = useState("");
 
   const load = useCallback(() => api.admin.instanceUsers(), []);
-  const { data } = useAdminData(load, [], onError, 'Could not load accounts.');
+  const { data } = useAdminData(load, [], onError, "Could not load accounts.");
 
   const users = useMemo(() => data?.users ?? [], [data]);
   const shown = useMemo(() => {
@@ -32,13 +36,13 @@ export function AccountsSection({ onError }: { onError: (message: string | null)
     );
   }, [users, query]);
 
-  const humans = users.filter((u) => u.kind === 'human').length;
+  const humans = users.filter((u) => u.kind === "human").length;
 
   return (
     <section>
       <p className="muted" style={{ marginBottom: 12 }}>
-        {users.length} {users.length === 1 ? 'account' : 'accounts'} — {humans} human,{' '}
-        {users.length - humans} bot.
+        {users.length} {users.length === 1 ? "account" : "accounts"} — {humans}{" "}
+        human, {users.length - humans} bot.
       </p>
 
       <div className="search-field" style={{ marginBottom: 12, maxWidth: 320 }}>
@@ -69,12 +73,16 @@ export function AccountsSection({ onError }: { onError: (message: string | null)
                 <tr key={user.id}>
                   <td>
                     {user.displayName}
-                    {user.kind === 'bot' && <span className="role-pill">App</span>}
+                    {user.kind === "bot" && (
+                      <span className="role-pill">App</span>
+                    )}
                   </td>
                   <td className="muted">{user.email}</td>
                   <td>{user.workspaceName}</td>
                   <td>{user.role}</td>
-                  <td className="muted">{user.deactivated ? 'Deactivated' : 'Active'}</td>
+                  <td className="muted">
+                    {user.deactivated ? "Deactivated" : "Active"}
+                  </td>
                 </tr>
               ))}
             </tbody>

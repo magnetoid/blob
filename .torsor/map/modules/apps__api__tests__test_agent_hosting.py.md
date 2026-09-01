@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:18'
-updated: '2026-08-27T03:38:18'
+created: '2026-09-01T23:39:51'
+updated: '2026-09-01T23:39:51'
 ---
 
 # apps/api/tests/test_agent_hosting.py
@@ -40,3 +40,8 @@ Symbols in `apps/api/tests/test_agent_hosting.py`.
 - L292 `test_a_relative_path_is_refused(self)` (method)
 - L296 `test_an_ordinary_path_is_kept(self)` (method)
 - L301 `test_an_unknown_build_pack_is_refused(self, monkeypatch: pytest.MonkeyPatch)` (method)
+- L323 `TestTheWorkerKeepsLooking` (class) — The deployment-sync cron: the heal nobody has to click for.
+- L333 `_hosting_on(monkeypatch: pytest.MonkeyPatch)` (method)
+- L343 `test_a_domain_change_heals_the_stored_url(self, hosted: Runner, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)
+- L360 `test_without_a_runner_configured_the_sync_stays_home(self, monkeypatch: pytest.MonkeyPatch)` (method)
+- L369 `test_a_broken_runner_is_logged_and_survived(self, hosted: Runner, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)

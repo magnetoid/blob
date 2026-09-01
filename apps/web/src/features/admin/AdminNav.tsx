@@ -45,7 +45,7 @@ export function AdminNav({
     <nav id={id} className="admin-nav" aria-label="Console sections">
       <div className="admin-nav-header">
         <button className="admin-back" onClick={() => navigate('/')}>
-          <ChevronLeftIcon size={14} strokeWidth={2} />
+          <ChevronLeftIcon size="sm" />
           Back to workspace
         </button>
         <div className="admin-nav-title">{title}</div>
@@ -59,7 +59,7 @@ export function AdminNav({
 
       <div className="sidebar-search">
         <div className="search-field">
-          <SearchIcon size={14} strokeWidth={2} />
+          <SearchIcon size="sm" />
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}

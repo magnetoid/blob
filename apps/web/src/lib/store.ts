@@ -88,6 +88,17 @@ interface State {
    * message is editable at a time, which a single id says and a boolean per row does not.
    */
   editingMessageId: string | null;
+  /**
+   * A message to bring into view once the list that holds it has rendered.
+   *
+   * Here rather than in `navigation.ts` because the list is virtualized: only the
+   * visible rows are in the DOM, so a jump cannot be done by finding the element and
+   * scrolling to it — the element does not exist yet, and it will not exist until
+   * something has scrolled. Only `MessageList` holds the virtualizer that can put a row
+   * on screen by index, and it cannot be handed a callback by a module the router
+   * calls. So the target is left here and the list picks it up.
+   */
+  pendingScrollMessageId: string | null;
   presence: Record<string, PresenceState>;
   typing: Record<string, Record<string, number>>;
   activeChannelId: string | null;
@@ -99,6 +110,10 @@ interface State {
   /** Which Catch Me Up is open — one channel, everything, or neither. Lives in the
    * store so the palette (rendered anywhere) can open a panel the shell renders. */
   catchupScope: 'channel' | 'all' | null;
+  /** The agent whose terminal is open in the right-hand panel, or null.
+   *  Same reason as `catchupScope`: `/cli` is handled in the composer, and the panel
+   *  that answers it is rendered by the shell. */
+  terminalTarget: { pluginId: string; agentName: string } | null;
   /** Live and recent agent runs, keyed by run id. Fed by socket events and the
    * per-channel fetch on open; the card under a trigger message renders from this. */
   agentRuns: Record<string, AgentRunView>;
@@ -119,6 +134,8 @@ interface State {
   hydrateDrafts: () => void;
   setDraft: (channelId: string, threadRootId: string | null, body: string) => void;
   setEditingMessage: (messageId: string | null) => void;
+  /** Ask the list to bring a message into view; it clears this once it has. */
+  requestScrollToMessage: (messageId: string | null) => void;
   /** Open your most recent message here for editing. Returns whether there was one. */
   editLastMessage: (channelId: string, threadRootId: string | null) => boolean;
   /**
@@ -144,6 +161,8 @@ interface State {
   markRead: (channelId: string) => Promise<void>;
   /** Leave a message, and everything after it, unread. */
   markUnread: (channelId: string, messageId: string) => Promise<void>;
+  /** Slack's Shift+Esc: every channel's cursor to its newest message. */
+  markAllRead: () => Promise<void>;
   applyEvent: (event: ServerEvent) => void;
   resync: () => Promise<void>;
   setPrefs: (prefs: Partial<UserPrefs>) => Promise<void>;
@@ -206,6 +225,7 @@ export const useStore = create<State>((set, get) => ({
   outbox: {},
   drafts: {},
   editingMessageId: null,
+  pendingScrollMessageId: null,
   presence: {},
   typing: {},
   activeChannelId: null,
@@ -214,6 +234,7 @@ export const useStore = create<State>((set, get) => ({
   membershipVersion: {},
   agentRuns: {},
   catchupScope: null,
+  terminalTarget: null,
   suppressReadFor: null,
 
   boot: (data) =>
@@ -305,6 +326,8 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setEditingMessage: (messageId) => set({ editingMessageId: messageId }),
+
+  requestScrollToMessage: (messageId) => set({ pendingScrollMessageId: messageId }),
 
   editLastMessage: (channelId, threadRootId) => {
     const state = get();
@@ -718,6 +741,31 @@ export const useStore = create<State>((set, get) => ({
     if (channel && channel.lastReadMessageId === newest.id && channel.mentionCount === 0) return;
 
     await api.channels.markRead(channelId, newest.id);
+  },
+
+  markAllRead: async () => {
+    const { readStates } = await api.channels.markAllRead();
+    set((s) => {
+      const channels = { ...s.channels };
+      for (const state of readStates) {
+        const channel = channels[state.channelId];
+        if (!channel) continue;
+        channels[state.channelId] = {
+          ...channel,
+          lastReadMessageId: state.lastReadMessageId,
+          mentionCount: state.mentionCount,
+        };
+      }
+      return {
+        channels,
+        // A channel someone asked to keep unread is not exempt — they just asked for
+        // the opposite of this, and this is the more recent and more explicit request.
+        suppressReadFor: null,
+        // The dividers go with the cursors. Leaving them would show "New messages"
+        // above a channel that just said it had none.
+        unreadMarkers: {},
+      };
+    });
   },
 
   markUnread: async (channelId, messageId) => {
@@ -1218,11 +1266,20 @@ export function connectStoreToSocket(): () => void {
       await useStore.getState().flushOutbox();
     })();
   };
+  // The browser knows the network came back before the socket does. Its backoff caps
+  // at 30 seconds, so a message queued as the wifi dropped could sit for that long
+  // after it returned — and sending is REST, not the socket, so the queue does not
+  // need to wait for a reconnect to drain. flushOutbox is idempotent on
+  // clientMsgId, so racing the socket's own flush costs nothing.
+  const onOnline = () => void useStore.getState().flushOutbox();
+  window.addEventListener('online', onOnline);
+
   socket.connect();
 
   return () => {
     unsubscribeEvents();
     unsubscribeStatus();
+    window.removeEventListener('online', onOnline);
     socket.onReconnect = null;
     socket.disconnect();
   };

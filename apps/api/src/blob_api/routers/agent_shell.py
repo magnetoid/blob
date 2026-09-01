@@ -27,11 +27,12 @@ import logging
 import time
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 
 from ..config import settings
-from ..lib.auth import SessionUser
-from ..lib.errors import AppError
+from ..lib.auth import SessionUser, current_user
+from ..lib.errors import AppError, forbidden
+from ..lib.ids import IdParam
 from ..plugins.shell import ShellSession, clamp_size
 from ..services import agent_shell as shell_service
 from ..services.audit import Actor
@@ -48,8 +49,31 @@ CLOSE_UNAUTHORIZED = 1008
 _open: set[str] = set()
 
 
+@router.get("/api/agents/terminal/{user_id}")
+async def agent_terminal_target(
+    user_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
+) -> dict[str, str]:
+    """Which agent a DM's terminal would open into, or why there isn't one.
+
+    `/cli` needs an answer before it opens anything: a panel that appears and then shows
+    a close code is worse than a command that says why it did nothing. The socket
+    re-resolves this at connect time — this is the same question asked early, never the
+    authority for it, so nothing here is a place to get the gate wrong once.
+    """
+    if not user.is_admin:
+        raise forbidden("Only an administrator can open a terminal in an agent.")
+
+    actor = Actor(
+        id=user.id,
+        workspace_id=user.workspace_id,
+        ip=request.client.host if request.client else None,
+    )
+    target = await shell_service.resolve_for_bot_user(actor, user_id)
+    return {"pluginId": target.plugin_id, "agentName": target.name}
+
+
 @router.websocket("/ws/admin/agents/{plugin_id}/shell")
-async def agent_shell_socket(websocket: WebSocket, plugin_id: str) -> None:
+async def agent_shell_socket(websocket: WebSocket, plugin_id: IdParam) -> None:
     user: SessionUser | None = getattr(websocket.state, "user", None)
     if user is None or not user.is_admin:
         # Refused before accepting. Starlette turns this into an HTTP error, which is what

@@ -1,12 +1,16 @@
 /** How this workspace behaves. */
 
-import { useCallback, useState } from 'react';
-import { api } from '../../../lib/api.ts';
-import { useStore } from '../../../lib/store.ts';
-import { useAdminAction, useAdminData } from '../hooks.ts';
+import { useCallback, useState } from "react";
+import { api } from "../../../lib/api.ts";
+import { useStore } from "../../../lib/store.ts";
+import { useAdminAction, useAdminData } from "../hooks.ts";
 
-export function SettingsSection({ onError }: { onError: (message: string | null) => void }) {
-  const [name, setName] = useState('');
+export function SettingsSection({
+  onError,
+}: {
+  onError: (message: string | null) => void;
+}) {
+  const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
@@ -15,17 +19,24 @@ export function SettingsSection({ onError }: { onError: (message: string | null)
     return settings;
   }, []);
 
-  const { reload } = useAdminData(load, [], onError, 'Could not load settings.');
+  const { reload } = useAdminData(
+    load,
+    [],
+    onError,
+    "Could not load settings.",
+  );
   const act = useAdminAction(onError, reload);
 
   return (
     <section>
       <form
-        style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}
+        style={{ display: "flex", gap: 8, alignItems: "flex-end" }}
         onSubmit={(event) => {
           event.preventDefault();
           void act(async () => {
-            const updated = await api.admin.updateSettings({ name: name.trim() });
+            const updated = await api.admin.updateSettings({
+              name: name.trim(),
+            });
             useStore.setState({ workspaceName: updated.name });
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
@@ -34,10 +45,14 @@ export function SettingsSection({ onError }: { onError: (message: string | null)
       >
         <label className="field" style={{ maxWidth: 280, flex: 1 }}>
           <span className="field-label">Workspace name</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          <input
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </label>
         <button className="btn btn-primary" type="submit">
-          {saved ? 'Saved' : 'Save'}
+          {saved ? "Saved" : "Save"}
         </button>
       </form>
     </section>

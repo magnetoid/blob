@@ -94,9 +94,12 @@ export function WorkspaceConsole({
       title={entry.label}
       description={entry.description}
       toggle={{
-        className: 'admin-nav-toggle',
+        // `icon-btn` is not optional: .admin-nav-toggle carries only display rules, so
+        // without it this rendered as a bare glyph below 900px — no box, no hover, no
+        // hit target — while the instance console next door showed a proper button.
+        className: 'icon-btn admin-nav-toggle',
         label: 'Open the section menu',
-        icon: <MenuIcon size={16} strokeWidth={2} />,
+        icon: <MenuIcon size="lg" />,
       }}
       onFeedback={onFeedback}
     >

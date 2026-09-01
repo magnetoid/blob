@@ -51,7 +51,7 @@ export function SavedView() {
   const visible = (data ?? []).filter((item) => !movedAway.has(item.message.id));
 
   return (
-    <div className="pane">
+    <main className="pane">
       <header className="pane-header">
         <div style={{ minWidth: 0 }}>
           <div className="pane-heading">
@@ -86,7 +86,7 @@ export function SavedView() {
         {data !== null && visible.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-mark">
-              <PinIcon size={19} />
+              <PinIcon size="xl" />
             </div>
             <div className="empty-state-title">
               {tab === 'in_progress' ? 'Nothing saved' : 'Nothing here'}
@@ -173,6 +173,6 @@ export function SavedView() {
           />
         ))}
       </div>
-    </div>
+    </main>
   );
 }

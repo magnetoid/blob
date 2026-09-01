@@ -127,6 +127,28 @@ insert is a sorted-position insert and "unread?" is a string comparison — the 
 the server uses), a typed `api.ts`, a localStorage outbox for offline replay, and a
 hand-rolled `router.ts` because there are no nested layouts or loaders to justify more.
 
+**The design layer.** `styles/tokens.css` is the whole vocabulary and `styles/app.css`
+spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
+(`--radius-xs..full`), motion (`--dur-*`, `--ease-*`, `--motion-*`) and a stacking ladder
+(`--z-raised` … `--z-toast`). Three rules the file will not tell you on its own:
+
+* **The 46 colour names are a contract with the server.** `services/themes.py` allowlists
+  them by string and slices that tuple *by index* to group the theme editor, so renaming
+  or reordering one breaks stored themes and the editor's grouping at once. Everything
+  else in tokens.css is structure and is free. A themed *value* can only be hex or
+  `rgb()` — the grammar refuses `color-mix()` and `oklch()`, though app.css may use them.
+* **Elevation carries its own border.** Every `--elev-*` opens with a `0 0 0 1px` ring, so
+  an elevated surface sets `box-shadow` and no `border`. Setting both is how four
+  different popover treatments drifted apart before.
+* **Overlays enter; only menus leave.** `Menu` holds its panel through the exit with
+  `lib/usePresence.ts`; the dialogs are `{open && <X/>}` in their parents and run a focus
+  trap, an autofocus and (CatchUpPanel) a request on mount, so rendering them always —
+  which is what an exit animation needs — would fire all of that at start-up.
+
+Reduced motion is a token policy, not a blanket clamp: distances and scale go to zero and
+fades keep their duration. Anything sized for a pointer gets a 44px minimum under
+`@media (pointer: coarse)`. Both live in `app.css` near the top.
+
 ### Non-negotiable principles
 - **Open source, and agent-native.** Blob is an open-source AI agentic work-team
   communication platform. Every feature ships in this repo under one licence, with nothing
@@ -160,7 +182,22 @@ hand-rolled `router.ts` because there are no nested layouts or loaders to justif
 - forbid_layer_import: `blob_api\.routers(\.|$)` in `apps/api/src/blob_api/realtime/*.py` — realtime/ must not import routers/ — the socket tier moves out as a unit. ADR 0004. (per ADR 0004: Persist, then broadcast — structurally)
 - forbid_layer_import: `blob_api\.routers(\.|$)` in `apps/api/src/blob_api/plugins/*.py` — plugins/ must not import routers/ — routers depend on the plugin layer, not the reverse. ADR 0005. (per ADR 0005: A plugin's bot is a real user row)
 
-`torsor verify`'s deps stage fails on any `.py` change here — it resolves its manifest
-from `--root` and the Python one is a level down at `apps/api/pyproject.toml`. Read that
-as the workspace layout, not a real finding. The gate CI enforces is
-`torsor guard --strict --severity error`, which is unaffected.
+`torsor verify` reports failures that are the workspace layout rather than findings, and
+they are traps — but only one of them still reproduces:
+
+* **deps** was described here as failing on any `.py` change, because it resolves its
+  manifest from `--root` and the Python one is a level down at `apps/api/pyproject.toml`.
+  On 2026-09-01 a plain `torsor verify` from the repo root reported `deps: PASS` after a
+  branch that changed some sixty Python files. So do not use this note to wave a deps
+  failure away: check it. If it fails again, the manifest path is the first thing to look
+  at, not the last.
+* **staleness** reports ~27 `stale_path`s claiming files like `services/channels.py`,
+  `lib/navigation.ts` and `tests/helpers.py` "no longer exist". Every one of them does.
+  The notes write paths in the shorthand this file uses, and the checker resolves them
+  from the repo root while the code lives under `apps/api/src/blob_api/` and
+  `apps/web/src/`. **Do not "fix" these by deleting the references** — that deletes the
+  architectural memory the notes exist to hold. (The single `dangling_link` is a
+  generated map file where a `Mapping[str, Any]` annotation parsed as a wiki link.)
+
+The gate CI enforces is `torsor guard --strict --severity error`, which is unaffected by
+either.

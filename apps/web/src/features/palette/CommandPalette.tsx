@@ -9,9 +9,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trapFocus } from "../../lib/focusTrap.ts";
 import { api } from "../../lib/api.ts";
-import { showError } from '../../lib/toasts.ts';
+import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { showChannel } from "../../lib/navigation.ts";
+import { navigate } from "../../lib/router.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 
 interface Item {
@@ -85,6 +86,22 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         run: () => setPrefs({ theme: theme === "dark" ? "light" : "dark" }),
       },
       {
+        id: "a-browse",
+        label: "Browse channels…",
+        kind: "Action",
+        run: () => navigate("/channels"),
+      },
+      {
+        // The sidebar used to carry a labelled "Search {workspace}" button. The bar's
+        // Search button and ⌘F both still reach the same place, but somebody who
+        // reaches for ⌘K first should find message search there rather than learn that
+        // the palette only jumps to channels and people.
+        id: "a-search",
+        label: "Search messages…",
+        kind: "Action",
+        run: () => navigate("/search"),
+      },
+      {
         id: "a-catchup",
         label: "Catch me up — summarise what I haven't read",
         kind: "Action",
@@ -134,26 +151,16 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // The backdrop is presentational. It was role="button" tabIndex={0}, which put a tab
+  // stop announced as a button in front of the dialog and answered Space by closing it.
+  // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
     <div
       className="palette-backdrop"
+      role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (
-          event.key === "Escape" ||
-          event.key === "Enter" ||
-          event.key === " "
-        ) {
-          event.preventDefault();
-          onClose();
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label="Close command palette"
     >
       <div
         className="palette"
@@ -162,10 +169,26 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-label="Jump to"
       >
+        {/*
+         * The combobox pattern, because focus never leaves this input.
+         *
+         * Arrowing moved a highlight that only existed in CSS: focus stayed here, so a
+         * screen reader had nothing to announce and no way to say what Enter would do.
+         * `aria-activedescendant` is what makes a moving selection audible while the
+         * focused element does not change — without it ⌘K, the main way to get anywhere
+         * in this app, is a text box that silently swallows arrow keys.
+         */}
         <input
           ref={inputRef}
           className="palette-input"
           value={query}
+          role="combobox"
+          aria-expanded={matches.length > 0}
+          aria-controls="palette-results"
+          aria-autocomplete="list"
+          aria-activedescendant={
+            matches.length > 0 ? `palette-option-${index}` : undefined
+          }
           placeholder="Jump to a channel, a person, or an action…"
           onChange={(e) => {
             setQuery(e.target.value);
@@ -187,13 +210,16 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           }}
         />
 
-        <div className="palette-results">
+        <div className="palette-results" id="palette-results" role="listbox">
           {matches.length === 0 ? (
             <div className="palette-empty">Nothing matched “{query}”</div>
           ) : (
             matches.map((item, i) => (
               <button
                 key={item.id}
+                id={`palette-option-${i}`}
+                role="option"
+                aria-selected={i === index}
                 className="palette-item"
                 data-active={i === index}
                 onMouseEnter={() => setIndex(i)}

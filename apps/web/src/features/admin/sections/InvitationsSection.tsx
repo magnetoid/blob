@@ -121,6 +121,7 @@ export function InvitationsSection({
             {invite.status === "pending" && (
               <button
                 className="btn"
+                aria-label={`Revoke the invitation to ${invite.email}`}
                 onClick={() =>
                   void act(() => api.admin.revokeInvite(invite.id))
                 }

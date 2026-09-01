@@ -25,7 +25,7 @@ from ..lib.auth import (
     require_owner,
 )
 from ..lib.errors import bad_request, conflict, not_found, unique_violation
-from ..lib.ids import new_id, new_token
+from ..lib.ids import IdParam, new_id, new_token
 from ..lib.redis import redis
 from ..realtime import hub
 from ..schemas.base import CamelModel, iso, require_iso
@@ -219,7 +219,7 @@ async def list_users(
 
 @router.put("/users/{user_id}/role", response_model=OkOut)
 async def set_role(
-    user_id: str,
+    user_id: IdParam,
     payload: RoleInput,
     request: Request,
     owner: SessionUser = Depends(require_owner),
@@ -282,7 +282,7 @@ async def set_role(
 
 @router.post("/users/{user_id}/deactivate", response_model=OkOut)
 async def deactivate(
-    user_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    user_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     if user_id == admin.id:
         raise bad_request("You cannot deactivate your own account.")
@@ -337,7 +337,7 @@ async def deactivate(
 
 @router.post("/users/{user_id}/reactivate", response_model=OkOut)
 async def reactivate(
-    user_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    user_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     async with transaction() as (session, after):
         # Re-claiming the handle is the check. It replaces a probe that read `users`
@@ -393,7 +393,7 @@ async def reactivate(
 
 @router.post("/users/{user_id}/revoke-sessions", response_model=OkOut)
 async def revoke_sessions(
-    user_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    user_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     """Sign someone out of every device without disabling their account."""
     async with transaction() as (session, after):
@@ -481,7 +481,7 @@ def require_iso_now() -> str:
 
 @router.delete("/invites/{invite_id}", response_model=OkOut)
 async def revoke_invite(
-    invite_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    invite_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     async with transaction() as (session, _):
         rows = (
@@ -556,7 +556,7 @@ async def list_all_channels(admin: SessionUser = Depends(require_admin)) -> Admi
 
 @router.post("/channels/{channel_id}/archive", response_model=OkOut)
 async def archive_any_channel(
-    channel_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    channel_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     async with transaction() as (session, after):
         rows = (
@@ -821,7 +821,7 @@ async def create_webhook(
 
 @router.delete("/webhooks/{webhook_id}", response_model=OkOut)
 async def revoke_webhook(
-    webhook_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    webhook_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     async with transaction() as (session, _):
         rows = (

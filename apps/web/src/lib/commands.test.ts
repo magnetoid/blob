@@ -13,7 +13,13 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CommandSpec } from '@blob/shared';
-import { commandQuery, matchCommands, parseCommand } from './commands.ts';
+import {
+  commandQuery,
+  localCommand,
+  matchAllCommands,
+  matchCommands,
+  parseCommand,
+} from './commands.ts';
 
 const SPECS: CommandSpec[] = [
   { name: 'help', usage: '', summary: 'List the commands.' },
@@ -88,5 +94,39 @@ describe('matchCommands', () => {
 
   it('offers nothing when the prefix matches nothing', () => {
     expect(matchCommands('zzz', SPECS)).toEqual([]);
+  });
+});
+
+describe('commands the client answers itself', () => {
+  const inAgentDm = { botUserId: 'u-bot', isAdmin: true };
+
+  it('offers /cli in a DM with an agent, to an admin', () => {
+    expect(matchAllCommands('c', [], inAgentDm).map((c) => c.name)).toContain('cli');
+    expect(localCommand('cli', inAgentDm)?.name).toBe('cli');
+  });
+
+  it('does not offer it in a conversation that is not with an agent', () => {
+    const context = { botUserId: null, isAdmin: true };
+    expect(matchAllCommands('c', [], context).map((c) => c.name)).not.toContain('cli');
+    expect(localCommand('cli', context)).toBeNull();
+  });
+
+  it('does not offer it to someone who could not use it', () => {
+    // The socket refuses a non-admin anyway; the point is not to autocomplete a
+    // command that then explains it was never for them.
+    const context = { botUserId: 'u-bot', isAdmin: false };
+    expect(matchAllCommands('c', [], context).map((c) => c.name)).not.toContain('cli');
+    expect(localCommand('cli', context)).toBeNull();
+  });
+
+  it('keeps server commands, and lets a local one win the name', () => {
+    const server = [
+      { name: 'cli', usage: '', summary: 'from a plugin' },
+      { name: 'call', usage: '', summary: 'start a call' },
+    ];
+    const names = matchAllCommands('c', server, inAgentDm).map((c) => c.name);
+
+    expect(names).toEqual(['cli', 'call']);
+    expect(names.filter((n) => n === 'cli')).toHaveLength(1);
   });
 });

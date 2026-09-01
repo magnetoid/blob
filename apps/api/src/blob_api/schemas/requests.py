@@ -11,6 +11,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import EmailStr, Field, StringConstraints, field_validator, model_validator
 
+from ..lib.ids import IdParam
 from .base import CamelModel
 
 MESSAGE_MAX_LENGTH = 12_000
@@ -68,7 +69,7 @@ class CreateChannelInput(CamelModel, ChannelNameMixin):
     kind: Literal["public", "private"]
     topic: str | None = Field(default=None, max_length=250)
     description: str | None = Field(default=None, max_length=2000)
-    member_ids: list[str] | None = Field(default=None, max_length=200)
+    member_ids: list[IdParam] | None = Field(default=None, max_length=200)
 
     @field_validator("name")
     @classmethod
@@ -93,15 +94,15 @@ class MembershipUpdateInput(CamelModel):
 
 
 class CreateDmInput(CamelModel):
-    user_ids: list[str] = Field(min_length=1, max_length=8)
+    user_ids: list[IdParam] = Field(min_length=1, max_length=8)
 
 
 class SendMessageInput(CamelModel):
     body: str = Field(default="", max_length=MESSAGE_MAX_LENGTH)
     client_msg_id: str = Field(min_length=8, max_length=64)
-    thread_root_id: str | None = None
+    thread_root_id: IdParam | None = None
     also_in_channel: bool = False
-    attachment_ids: list[str] = Field(default_factory=list, max_length=10)
+    attachment_ids: list[IdParam] = Field(default_factory=list, max_length=10)
 
     @model_validator(mode="after")
     def _needs_content(self) -> SendMessageInput:
@@ -135,7 +136,7 @@ class ReactionInput(CamelModel):
 
 
 class MarkReadInput(CamelModel):
-    last_read_message_id: str
+    last_read_message_id: IdParam
 
 
 class PinInput(CamelModel):
@@ -148,7 +149,7 @@ class SaveInput(CamelModel):
 
 class MarkUnreadInput(CamelModel):
     #: The message to leave unread. The cursor lands on the one before it.
-    message_id: str
+    message_id: IdParam
 
 
 class CreateGroupInput(CamelModel):
@@ -221,7 +222,7 @@ class PushUnsubscribeInput(CamelModel):
 
 
 class AddMembersInput(CamelModel):
-    user_ids: list[str] = Field(min_length=1, max_length=50)
+    user_ids: list[IdParam] = Field(min_length=1, max_length=50)
 
 
 class WebhookPostInput(CamelModel):

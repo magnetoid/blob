@@ -1,18 +1,50 @@
-/** Line icons, traced from the design artifact. Stroke-based, 1.7 weight, 24-box. */
+/** Line icons, traced from the design artifact. Stroke-based, 24-box.
+ *
+ * Four sizes, named by role rather than by number. There were seven — 13, 14, 15, 16,
+ * 17, 18 and 19 — and five stroke weights between 1.7 and 2.2, chosen a call site at a
+ * time, so the same job came out a different weight depending on which screen it was on.
+ * A caller now says how prominent an icon is and the scale decides the rest.
+ *
+ * Stroke goes with size on purpose: a 1.7 hairline that reads correctly at 20px goes
+ * thin and grey at 14, so the small end carries a touch more weight to hold the same
+ * apparent colour. That is one decision here rather than a guess at each call site.
+ */
 
 import type { SVGProps } from 'react';
 
-type IconProps = SVGProps<SVGSVGElement> & { size?: number };
+export type IconSize = 'sm' | 'md' | 'lg' | 'xl';
 
-function Svg({ size = 16, children, ...rest }: IconProps) {
+const SIZES: Record<IconSize, { px: number; stroke: number }> = {
+  sm: { px: 14, stroke: 1.9 }, // inside a row: sidebar, menus, message meta
+  md: { px: 16, stroke: 1.8 }, // the default: buttons and toolbars
+  lg: { px: 18, stroke: 1.7 }, // the top bar, and anything leading a header
+  xl: { px: 20, stroke: 1.7 }, // empty states, where the icon is the illustration
+};
+
+type IconProps = Omit<SVGProps<SVGSVGElement>, 'size'> & { size?: IconSize };
+
+/** Per-glyph optical correction, added to whatever the size scale asks for.
+ *
+ * A bare `+` or `×` is two strokes and a lot of empty box; a detailed glyph at the same
+ * nominal weight reads darker. These few carry a little extra so the set looks evenly
+ * weighted. An offset rather than an absolute, so a corrected icon still gets lighter as
+ * it gets larger instead of staying stuck at one weight across the whole scale — which
+ * is what four hard-coded strokeWidths were doing. */
+type Corrected = IconProps & { boost?: number };
+
+function Svg({ size = 'md', boost = 0, children, ...rest }: Corrected) {
+  const { px, stroke } = SIZES[size];
+  // Rounded because 1.8 + 0.1 is 1.9000000000000001 in binary, and that lands in the
+  // DOM verbatim.
+  const width = Number((stroke + boost).toFixed(2));
   return (
     <svg
-      width={size}
-      height={size}
+      width={px}
+      height={px}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.7}
+      strokeWidth={width}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -57,7 +89,7 @@ export const SettingsIcon = (p: IconProps) => (
 );
 
 export const PlusIcon = (p: IconProps) => (
-  <Svg strokeWidth={2} {...p}>
+  <Svg boost={0.2} {...p}>
     <path d="M12 5v14M5 12h14" />
   </Svg>
 );
@@ -87,7 +119,7 @@ export const MoreIcon = (p: IconProps) => (
 );
 
 export const SendIcon = (p: IconProps) => (
-  <Svg strokeWidth={1.9} {...p}>
+  <Svg boost={0.1} {...p}>
     <path d="M4 12h15" />
     <path d="M13 6l6 6-6 6" />
   </Svg>
@@ -122,15 +154,22 @@ export const FileIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const ClockIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </Svg>
+);
+
 export const PinIcon = (p: IconProps) => (
-  <Svg strokeWidth={1.8} {...p}>
+  <Svg {...p}>
     <path d="M12 17v5" />
     <path d="M9 2h6l-1 8 3 3v2H7v-2l3-3-1-8z" />
   </Svg>
 );
 
 export const CloseIcon = (p: IconProps) => (
-  <Svg strokeWidth={2.2} {...p}>
+  <Svg boost={0.4} {...p}>
     <path d="M6 6l12 12M18 6L6 18" />
   </Svg>
 );

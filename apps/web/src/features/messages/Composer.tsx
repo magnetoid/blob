@@ -17,11 +17,19 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { User } from "@blob/shared";
+import { matchMentions } from "./mentionMatch.ts";
 import { useStore } from "../../lib/store.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { socket } from "../../lib/socket.ts";
 import { api } from "../../lib/api.ts";
-import { commandQuery, matchCommands, parseCommand } from "../../lib/commands.ts";
+import { showError, useToasts } from "../../lib/toasts.ts";
+import {
+  commandQuery,
+  localCommand,
+  matchAllCommands,
+  parseCommand,
+  type LocalCommandContext,
+} from "../../lib/commands.ts";
 import {
   SHORTCUTS,
   describeKeys,
@@ -35,6 +43,9 @@ import {
   uploadFile,
   type PendingAttachment,
 } from "../../lib/attachments.ts";
+import { openAgentTerminal } from "../../lib/agentTerminal.ts";
+import { Menu } from "../../components/Menu.tsx";
+import { earliestCustom, presetsFor } from "./schedulePresets.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import {
@@ -44,8 +55,8 @@ import {
   FileIcon,
   MentionIcon,
   SendIcon,
+  ClockIcon,
 } from "../../components/Icon.tsx";
-
 
 /**
  * One row of the `@` autocomplete.
@@ -88,6 +99,7 @@ export function Composer({
   consumeAlsoInChannel,
 }: Props) {
   const users = useStore((s) => s.users);
+  const channels = useStore((s) => s.channels);
   const groupsById = useStore((s) => s.groups);
   const currentUser = useStore((s) => s.currentUser);
   const sendMessage = useStore((s) => s.sendMessage);
@@ -107,6 +119,8 @@ export function Composer({
     [writeDraft, channelId, threadRootId],
   );
   const [sending, setSending] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [customWhen, setCustomWhen] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
@@ -173,17 +187,26 @@ export function Composer({
 
     // Not self-filtered, unlike people below. Excluding yourself from a list of people
     // is right — you do not mention yourself — and exactly wrong for a group you are
-    // on, which is the one you are most likely to be addressing.
-    const groups: MentionCandidate[] = Object.values(groupsById)
-      .filter((g) => g.handle.startsWith(q))
-      .slice(0, 4)
-      .map((g) => ({ kind: "group", key: g.id, label: g.handle, hint: g.name }));
+    // on, which is the one you are most likely to be addressing. Matched on its name as
+    // well as its handle, because "@plat" should find `@platform-team` whether you were
+    // reaching for the handle or the words behind it.
+    const groups: MentionCandidate[] = matchMentions(
+      Object.values(groupsById),
+      q,
+      (g) => [g.handle, g.name],
+      (g) => g.handle,
+      4,
+    ).map((g) => ({ kind: "group", key: g.id, label: g.handle, hint: g.name }));
 
-    const people: MentionCandidate[] = Object.values(users)
-      .filter((u) => !u.deactivated && u.id !== currentUser?.id)
-      .filter((u) => u.displayName.toLowerCase().includes(q))
-      .slice(0, 6)
-      .map((u) => ({ kind: "user", key: u.id, label: u.displayName, user: u }));
+    const people: MentionCandidate[] = matchMentions(
+      Object.values(users).filter(
+        (u) => !u.deactivated && u.id !== currentUser?.id,
+      ),
+      q,
+      (u) => [u.displayName, u.fullName],
+      (u) => u.displayName,
+      6,
+    ).map((u) => ({ kind: "user", key: u.id, label: u.displayName, user: u }));
 
     return [...specials, ...groups, ...people];
   }, [mentionQuery, users, groupsById, currentUser]);
@@ -195,11 +218,32 @@ export function Composer({
    * thread would put its answer somewhere the person could not see it. In a thread a
    * leading slash is ordinary text, which is also the only way to send one as text.
    */
+  /**
+   * Who this conversation is with, for the commands the client answers itself.
+   *
+   * Only a one-to-one DM: a group DM has no single agent to open a terminal in, and a
+   * channel an agent is a member of is not a conversation *with* it.
+   */
+  const localContext = useMemo<LocalCommandContext>(() => {
+    const channel = channels[channelId];
+    const otherId =
+      channel?.kind === "dm"
+        ? (channel.memberIds ?? []).find((id) => id !== currentUser?.id)
+        : undefined;
+    const other = otherId ? users[otherId] : undefined;
+    return {
+      botUserId: other?.kind === "bot" ? other.id : null,
+      isAdmin: currentUser?.role === "admin" || currentUser?.role === "owner",
+    };
+  }, [channels, channelId, users, currentUser]);
+
   const commandMatches = useMemo(() => {
     if (threadRootId) return [];
     const query = commandQuery(draft);
-    return query === null ? [] : matchCommands(query, commands);
-  }, [draft, commands, threadRootId]);
+    return query === null
+      ? []
+      : matchAllCommands(query, commands, localContext);
+  }, [draft, commands, threadRootId, localContext]);
 
   /**
    * Put an emoji where the caret is, not at the end.
@@ -238,6 +282,36 @@ export function Composer({
     if (value.trim() && now - lastTypingRef.current > 3000) {
       lastTypingRef.current = now;
       socket.send({ t: "typing", channelId, threadRootId });
+    }
+  }
+
+  async function scheduleFor(when: Date) {
+    setScheduleOpen(false);
+    const body = draft;
+    setSending(true);
+    try {
+      await api.channels.schedule(channelId, {
+        body,
+        sendAt: when.toISOString(),
+        clientMsgId: crypto.randomUUID(),
+        threadRootId: threadRootId ?? null,
+      });
+      // Cleared only once the server has it: a draft dropped on a failed request is a
+      // message somebody has to write twice.
+      setDraft("");
+      setCustomWhen("");
+      useToasts.getState().push(
+        "info",
+        `Scheduled for ${when.toLocaleString(undefined, {
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit",
+        })}`,
+      );
+    } catch (err) {
+      showError(err);
+    } finally {
+      setSending(false);
     }
   }
 
@@ -345,6 +419,18 @@ export function Composer({
     // and what comes back is either a real message the socket will also deliver, or a
     // note only this person sees. Threads are excluded — see `commandMatches`.
     const parsed = threadRootId ? null : parseCommand(body);
+
+    // Answered here, so it never reaches `/api/commands`: what it does is open a panel
+    // on this screen, and the server has nothing to add to that.
+    const botUserId = localContext.botUserId;
+    if (parsed && botUserId && localCommand(parsed.name, localContext)) {
+      setDraft("");
+      setEphemeral(null);
+      setError(null);
+      void openAgentTerminal(botUserId);
+      return;
+    }
+
     if (parsed) {
       setSending(true);
       setDraft("");
@@ -358,7 +444,8 @@ export function Composer({
         setEphemeral(result.ephemeral);
         // The socket delivers this too; applying it here is what makes the message
         // appear at once for the person who ran the command, exactly as a send does.
-        if (result.message) applyEvent({ t: "message.new", message: result.message });
+        if (result.message)
+          applyEvent({ t: "message.new", message: result.message });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "That command couldn't be run.";
@@ -429,7 +516,10 @@ export function Composer({
       selected.startsWith(before) &&
       selected.endsWith(after)
     ) {
-      const inner = selected.slice(before.length, selected.length - after.length);
+      const inner = selected.slice(
+        before.length,
+        selected.length - after.length,
+      );
       next = draft.slice(0, start) + inner + draft.slice(end);
       selStart = start;
       selEnd = start + inner.length;
@@ -445,7 +535,8 @@ export function Composer({
       selStart = start - before.length;
       selEnd = selStart + selected.length;
     } else {
-      next = draft.slice(0, start) + before + selected + after + draft.slice(end);
+      next =
+        draft.slice(0, start) + before + selected + after + draft.slice(end);
       selStart = start + before.length;
       selEnd = selStart + selected.length;
     }
@@ -500,7 +591,9 @@ export function Composer({
       }
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        setCommandIndex((i) => (i - 1 + commandMatches.length) % commandMatches.length);
+        setCommandIndex(
+          (i) => (i - 1 + commandMatches.length) % commandMatches.length,
+        );
         return;
       }
       if (event.key === "Enter" || event.key === "Tab") {
@@ -582,11 +675,19 @@ export function Composer({
         }}
         onDrop={onDrop}
       >
+        {/* The listbox had buttons for children, which is a listbox with no options in
+            it — worse than no role at all, because it announced an empty list rather
+            than nothing. The active row was `data-active` and CSS only, so arrowing
+            through names was silent; `aria-activedescendant` on the textarea below is
+            what makes it audible while focus stays in the message field. */}
         {mentionQuery !== null && candidates.length > 0 && (
-          <div className="autocomplete" role="listbox">
+          <div className="autocomplete" role="listbox" id="mention-options">
             {candidates.map((candidate, index) => (
               <button
                 key={candidate.key}
+                id={`mention-option-${index}`}
+                role="option"
+                aria-selected={index === mentionIndex}
                 className="autocomplete-item"
                 data-active={index === mentionIndex}
                 onMouseDown={(e) => {
@@ -597,11 +698,13 @@ export function Composer({
                 {candidate.kind === "user" ? (
                   <Avatar user={candidate.user} size="sm" />
                 ) : (
-                  <MentionIcon size={16} />
+                  <MentionIcon size="md" />
                 )}
                 {candidate.label}
                 {candidate.hint && (
-                  <span className="muted autocomplete-hint">{candidate.hint}</span>
+                  <span className="muted autocomplete-hint">
+                    {candidate.hint}
+                  </span>
                 )}
               </button>
             ))}
@@ -647,7 +750,11 @@ export function Composer({
         )}
 
         {emojiOpen && (
-          <div className="emoji-picker-anchor" data-composer="true" ref={emojiRef}>
+          <div
+            className="emoji-picker-anchor"
+            data-composer="true"
+            ref={emojiRef}
+          >
             <EmojiPicker
               label="Insert an emoji"
               onClose={() => setEmojiOpen(false)}
@@ -660,16 +767,24 @@ export function Composer({
         )}
 
         <div className="composer-box">
-          <div className="composer-toolbar" role="toolbar" aria-label="Formatting">
+          <div
+            className="composer-toolbar"
+            role="toolbar"
+            aria-label="Formatting"
+          >
             <button
               className="icon-btn"
               type="button"
               aria-label="Bold"
               title={`Bold (${chordFor("format-bold")})`}
               onMouseDown={(e) => {
+                // Only to keep the textarea's selection: without this the mousedown
+                // moves focus to the button and the selection collapses before the
+                // action can read it. The action itself is on click, so Enter and
+                // Space reach it too.
                 e.preventDefault();
-                toggleWrap("**");
               }}
+              onClick={() => toggleWrap("**")}
             >
               <strong>B</strong>
             </button>
@@ -679,9 +794,13 @@ export function Composer({
               aria-label="Italic"
               title={`Italic (${chordFor("format-italic")})`}
               onMouseDown={(e) => {
+                // Only to keep the textarea's selection: without this the mousedown
+                // moves focus to the button and the selection collapses before the
+                // action can read it. The action itself is on click, so Enter and
+                // Space reach it too.
                 e.preventDefault();
-                toggleWrap("_");
               }}
+              onClick={() => toggleWrap("_")}
             >
               <em>I</em>
             </button>
@@ -691,9 +810,13 @@ export function Composer({
               aria-label="Code"
               title={`Code (${chordFor("format-code")})`}
               onMouseDown={(e) => {
+                // Only to keep the textarea's selection: without this the mousedown
+                // moves focus to the button and the selection collapses before the
+                // action can read it. The action itself is on click, so Enter and
+                // Space reach it too.
                 e.preventDefault();
-                toggleCode();
               }}
+              onClick={() => toggleCode()}
             >
               <code>{"</>"}</code>
             </button>
@@ -703,9 +826,13 @@ export function Composer({
               aria-label="Strikethrough"
               title={`Strikethrough (${chordFor("format-strike")})`}
               onMouseDown={(e) => {
+                // Only to keep the textarea's selection: without this the mousedown
+                // moves focus to the button and the selection collapses before the
+                // action can read it. The action itself is on click, so Enter and
+                // Space reach it too.
                 e.preventDefault();
-                toggleWrap("~~");
               }}
+              onClick={() => toggleWrap("~~")}
             >
               <s>S</s>
             </button>
@@ -727,7 +854,7 @@ export function Composer({
                     />
                   ) : (
                     <span className="attachment-chip-thumb" data-generic="true">
-                      <FileIcon size={16} />
+                      <FileIcon size="md" />
                     </span>
                   )}
                   <span className="attachment-chip-text">
@@ -749,7 +876,7 @@ export function Composer({
                     onClick={() => discard(item.key)}
                     title={`Remove ${item.filename}`}
                   >
-                    <CloseIcon size={13} />
+                    <CloseIcon size="sm" />
                   </button>
                 </li>
               ))}
@@ -759,6 +886,7 @@ export function Composer({
           <textarea
             ref={textareaRef}
             className="composer-input"
+            name="message"
             value={draft}
             placeholder={placeholder}
             rows={2}
@@ -766,12 +894,28 @@ export function Composer({
             onKeyDown={onKeyDown}
             onPaste={onPaste}
             aria-label={placeholder}
+            // Only while the list is open. This stays a message field — it is not
+            // relabelled a combobox, because that is what it is for ninety-nine
+            // keystrokes in a hundred and a textarea announced as a combobox all the
+            // time is a worse trade than a silent list some of the time.
+            aria-controls={
+              mentionQuery !== null && candidates.length > 0
+                ? "mention-options"
+                : undefined
+            }
+            aria-activedescendant={
+              mentionQuery !== null && candidates.length > 0
+                ? `mention-option-${mentionIndex}`
+                : undefined
+            }
           />
 
           <div className="composer-footer">
             <input
               ref={fileInputRef}
               type="file"
+              name="attachment"
+              aria-label="Attach a file"
               multiple
               hidden
               onChange={(event) => {
@@ -783,7 +927,9 @@ export function Composer({
             <button
               className="icon-btn"
               type="button"
-              title="Attach a file"
+              aria-label="Attach a file"
+              data-tooltip="Attach a file"
+              data-tooltip-place="top"
               onClick={() => fileInputRef.current?.click()}
             >
               <AttachIcon />
@@ -792,7 +938,9 @@ export function Composer({
               ref={emojiTriggerRef}
               className="icon-btn"
               type="button"
-              title="Emoji"
+              aria-label="Emoji"
+              data-tooltip="Emoji"
+              data-tooltip-place="top"
               onClick={() => setEmojiOpen((open) => !open)}
               aria-expanded={emojiOpen}
               aria-haspopup="dialog"
@@ -802,7 +950,9 @@ export function Composer({
             <button
               className="icon-btn"
               type="button"
-              title="Mention someone"
+              aria-label="Mention someone"
+              data-tooltip="Mention someone"
+              data-tooltip-place="top"
               onMouseDown={(e) => {
                 e.preventDefault();
                 updateDraft(`${draft}@`);
@@ -821,10 +971,79 @@ export function Composer({
               data-ready={ready}
               onClick={() => void submit()}
               disabled={!ready || sending}
-              title="Send"
+              aria-label="Send"
+              data-tooltip="Send"
+              data-tooltip-place="top"
             >
-              <SendIcon size={15} />
+              <SendIcon size="md" />
             </button>
+            {/* Beside Send rather than in the ⋯ menu: the decision "now or later" is
+                made at the moment of sending, with the message already written. */}
+            <div className="schedule-wrap">
+              <button
+                className="icon-btn schedule-trigger"
+                type="button"
+                aria-label="Schedule this message"
+                aria-haspopup="menu"
+                aria-expanded={scheduleOpen}
+                data-tooltip="Send later"
+                data-tooltip-place="top"
+                disabled={!ready || sending}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setScheduleOpen((open) => !open);
+                }}
+              >
+                <ClockIcon size="md" />
+              </button>
+              <Menu
+                open={scheduleOpen}
+                onClose={() => setScheduleOpen(false)}
+                className="menu schedule-menu"
+              >
+                {presetsFor(new Date()).map((preset) => (
+                  <button
+                    key={preset.id}
+                    className="menu-item"
+                    role="menuitem"
+                    type="button"
+                    onClick={() => void scheduleFor(preset.at(new Date()))}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                <div className="menu-sep" />
+                {/* Four moments cannot express "next Thursday at two". The native
+                    control is the right one here: it already knows the reader's locale,
+                    their 12- or 24-hour clock, and how a date is spelled where they
+                    are — none of which a hand-rolled picker would get right for free. */}
+                <label className="schedule-custom">
+                  <span className="field-label">Or pick a time</span>
+                  <input
+                    className="input"
+                    type="datetime-local"
+                    name="schedule-custom"
+                    min={earliestCustom(new Date())}
+                    value={customWhen}
+                    onChange={(event) => setCustomWhen(event.target.value)}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    disabled={!customWhen}
+                    onClick={() => {
+                      // A datetime-local string has no zone, so it parses as local —
+                      // which is what the person typing it meant.
+                      const when = new Date(customWhen);
+                      if (Number.isNaN(when.getTime())) return;
+                      void scheduleFor(when);
+                    }}
+                  >
+                    Schedule
+                  </button>
+                </label>
+              </Menu>
+            </div>
           </div>
         </div>
 

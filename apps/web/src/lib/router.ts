@@ -107,6 +107,8 @@ export type Route =
   | { view: 'threads' }
   | { view: 'tasks' }
   | { view: 'saved' }
+  | { view: 'browse' }
+  | { view: 'scheduled' }
   | { view: 'changelog' }
   /** A permalink to one message. Resolved, then replaced by the conversation. */
   | { view: 'permalink'; messageId: string }
@@ -130,6 +132,8 @@ export function parseRoute(path: string): Route {
   if (clean === '/threads') return { view: 'threads' };
   if (clean === '/tasks') return { view: 'tasks' };
   if (clean === '/later') return { view: 'saved' };
+  if (clean === '/channels') return { view: 'browse' };
+  if (clean === '/scheduled') return { view: 'scheduled' };
   if (clean === '/whats-new') return { view: 'changelog' };
   const permalink = clean.match(/^\/m\/([^/]+)$/);
   if (permalink) return { view: 'permalink', messageId: permalink[1] as string };
@@ -202,6 +206,10 @@ export function pathForRoute(route: Route): string {
       return '/tasks';
     case 'saved':
       return '/later';
+    case 'browse':
+      return '/channels';
+    case 'scheduled':
+      return '/scheduled';
     case 'changelog':
       return '/whats-new';
     case 'permalink':

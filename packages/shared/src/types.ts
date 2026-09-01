@@ -77,6 +77,29 @@ export interface Channel {
 }
 
 /** A channel as it appears in the sidebar, with this user's own state folded in. */
+/** A message written now and waiting to be sent. Only ever your own. */
+export interface ScheduledMessage {
+  id: string;
+  channelId: string;
+  body: string;
+  threadRootId: string | null;
+  sendAt: string;
+  createdAt: string;
+  lastError: string | null;
+}
+
+/** A public channel as the directory lists it — what exists, how busy, am I in it. */
+export interface BrowsableChannel {
+  id: string;
+  name: string | null;
+  topic: string | null;
+  description: string | null;
+  createdAt: string;
+  archivedAt: string | null;
+  memberCount: number;
+  joined: boolean;
+}
+
 export interface ChannelWithState extends Channel {
   membership: {
     notifyLevel: NotifyLevel;

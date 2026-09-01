@@ -8,8 +8,10 @@ timestamp join. This is the one schema decision that cannot be retrofitted cheap
 from __future__ import annotations
 
 import secrets
+from typing import Annotated
 
 import uuid_utils
+from pydantic import StringConstraints
 
 
 def new_id() -> str:
@@ -19,3 +21,27 @@ def new_id() -> str:
 def new_token(nbytes: int = 32) -> str:
     """URL-safe opaque token for sessions, invites, resets and webhooks."""
     return secrets.token_urlsafe(nbytes)
+
+
+#: A path parameter that has to be one of our ids.
+#:
+#: Without it a malformed id went straight into SQL and Postgres answered
+#: `invalid input syntax for type uuid`, which surfaced as a 500 with a stack trace in
+#: the log — for what is plainly a client mistake. Ten of eleven id-taking endpoints did
+#: that, so `/api/messages/notauuid` was an "internal error" and every scanner that
+#: walked the API produced one.
+#:
+#: The shape is checked rather than the value parsed, because the id stays a `str`
+#: everywhere downstream: the hand-written SQL casts it, the services compare it, and
+#: turning it into a `UUID` object here would ripple through all of them for no gain.
+#: FastAPI answers a failed constraint with 422 and `main.py` remaps that to 400
+#: `invalid_input`, which is the contract the client already branches on.
+#:
+#: A well-formed id that names nothing still answers 404 — "not a resource" and "no such
+#: resource" are different questions and the second one is the one privacy depends on.
+IdParam = Annotated[
+    str,
+    StringConstraints(
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    ),
+]

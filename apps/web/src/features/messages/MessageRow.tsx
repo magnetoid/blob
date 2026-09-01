@@ -17,6 +17,8 @@ import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
 import { MessageEditor } from "./MessageEditor.tsx";
 import { MessageMenu } from "./MessageMenu.tsx";
+import { ForwardDialog } from "./ForwardDialog.tsx";
+import { moveFocusBetweenMessages } from "./arrowNavigation.ts";
 import { MessageTranslation } from "./MessageTranslation.tsx";
 import { formatRelative, formatTime } from "./messageFormatting.ts";
 import { Avatar } from "../../components/Avatar.tsx";
@@ -34,6 +36,18 @@ interface Props {
   onOpenThread: (rootId: string) => void;
   /** Threads render replies flat, without their own summary line. */
   inThread?: boolean;
+  /**
+   * Whether this row is the list's single tab stop.
+   *
+   * A roving tabindex, and the list is why it has to be one. Every row carried
+   * `tabIndex={0}` and so did each of its six actions, so Tab walked seven stops per
+   * message and focusing an off-screen row scrolled it into view, which rendered more
+   * rows to walk — there was no number of presses that got from the conversation to the
+   * composer. Arrows move between rows; Tab enters this row's actions and then leaves.
+   */
+  isTabStop?: boolean;
+  /** Told when this row takes focus, so the list can move the tab stop to it. */
+  onFocusRow?: (messageId: string) => void;
 }
 
 /**
@@ -79,7 +93,13 @@ export const MessageRow = memo(function MessageRow({
   previous,
   onOpenThread,
   inThread = false,
+  isTabStop = true,
+  onFocusRow,
 }: Props) {
+  // -1 keeps a row reachable by script and by the arrow handler while taking it out of
+  // the sequential order. The actions follow the row: a button inside a `tabIndex={-1}`
+  // element is still tabbable on its own, so they have to be told separately.
+  const tab = isTabStop ? 0 : -1;
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
   const customEmoji = useStore((s) => s.customEmoji);
@@ -106,8 +126,10 @@ export const MessageRow = memo(function MessageRow({
   const editingMessageId = useStore((s) => s.editingMessageId);
   const setEditingMessage = useStore((s) => s.setEditingMessage);
   const editing = editingMessageId === message.id;
-  const setEditing = (open: boolean) => setEditingMessage(open ? message.id : null);
+  const setEditing = (open: boolean) =>
+    setEditingMessage(open ? message.id : null);
   const [deleting, setDeleting] = useState(false);
+  const [forwarding, setForwarding] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -168,25 +190,62 @@ export const MessageRow = memo(function MessageRow({
 
   if (message.deletedAt) {
     return (
-      <div className="message" data-grouped={grouped}>
+      // An article with an id, like every other row, rather than the bare div this was.
+      // A tombstone that is not a row is a hole in the list: arrows step over it because
+      // they walk `[data-message-id]`, and a permalink or a pin pointing at it finds
+      // nothing to scroll to.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+      <article
+        className="message"
+        tabIndex={tab}
+        onFocus={(event) => {
+          if (event.target === event.currentTarget) onFocusRow?.(message.id);
+        }}
+        data-message-id={message.id}
+        data-grouped={grouped}
+        onKeyDown={moveFocusBetweenMessages}
+      >
         <div className="message-gutter" />
         <div className="message-main">
           <div className="message-deleted">This message was deleted</div>
+          {/* The replies outlive the message they hung from. Without this the thread
+              became unreachable from the channel the moment somebody deleted its first
+              message — the count was in the payload the whole time, and Slack keeps the
+              thread on the tombstone for the same reason. */}
+          {!inThread && message.replyCount > 0 && (
+            <button
+              className="thread-summary"
+              type="button"
+              tabIndex={tab}
+              onClick={() => onOpenThread(message.threadRootId ?? message.id)}
+            >
+              {message.replyCount}{" "}
+              {message.replyCount === 1 ? "reply" : "replies"}
+            </button>
+          )}
         </div>
-      </div>
+      </article>
     );
   }
 
   return (
+    // Both rules object to the same deliberate decision, made once: this row is a
+    // focusable, keyboard-driven element even though ARIA has no role for "an article
+    // in a log that you arrow through". The alternative — role="option" — would be a
+    // lie about the list, which is a `log` because it is a live feed.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <article
       className="message"
       // Focusable so the hover toolbar is reachable without a mouse: the reveal rule
       // is :focus-within, and a plain-text message contains nothing focusable — so
       // without a tab stop on the row itself, react/reply/menu simply did not exist
-      // for a keyboard user. The lint rule guards against *meaningless* tab stops;
-      // this one is the only route to three actions.
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-      tabIndex={0}
+      // for a keyboard user.
+      tabIndex={tab}
+      onFocus={(event) => {
+        // Only the row itself, not a button inside it bubbling up — otherwise clicking
+        // an action would re-anchor the tab stop mid-interaction.
+        if (event.target === event.currentTarget) onFocusRow?.(message.id);
+      }}
       // The anchor the pinned panel jumps to. An attribute rather than an `id`, because
       // the same message can render in the list and in a thread at once and duplicate
       // ids would make `getElementById` pick whichever the DOM happened to hold first.
@@ -196,6 +255,7 @@ export const MessageRow = memo(function MessageRow({
       data-mentions-me={mentionsMe}
       data-pending={pending}
       data-delivery-state={deliveryState ?? undefined}
+      onKeyDown={moveFocusBetweenMessages}
     >
       <div className="message-gutter">
         {grouped ? (
@@ -272,7 +332,7 @@ export const MessageRow = memo(function MessageRow({
                   rel="noreferrer"
                 >
                   <span className="attachment-icon">
-                    <FileIcon size={15} />
+                    <FileIcon size="md" />
                   </span>
                   <span>
                     <span className="attachment-name">
@@ -344,27 +404,37 @@ export const MessageRow = memo(function MessageRow({
 
         {message.reactions.length > 0 && (
           <div className="reactions">
-            {message.reactions.map((reaction) => (
-              <button
-                key={reaction.emoji}
-                className="reaction"
-                data-mine={
-                  currentUser
-                    ? reaction.userIds.includes(currentUser.id)
-                    : false
-                }
-                type="button"
-                onClick={() => void toggleReaction(message, reaction.emoji).catch(showError)}
-                title={reaction.userIds
-                  .map((id) => users[id]?.displayName ?? "Someone")
-                  .join(", ")}
-              >
-                <span>
-                  <ReactionFace value={reaction.emoji} custom={customEmoji} />
-                </span>
-                <span>{reaction.userIds.length}</span>
-              </button>
-            ))}
+            {message.reactions.map((reaction) => {
+              const mine = currentUser
+                ? reaction.userIds.includes(currentUser.id)
+                : false;
+              return (
+                <button
+                  key={reaction.emoji}
+                  className="reaction"
+                  // `data-mine` styles it; `aria-pressed` is the same fact said out loud.
+                  // A chip is a toggle, and whether you are already in it decides what
+                  // clicking does — so a reader who cannot see the highlight has no way to
+                  // know whether they are about to react or take their reaction back.
+                  data-mine={mine}
+                  aria-pressed={mine}
+                  type="button"
+                  onClick={() =>
+                    void toggleReaction(message, reaction.emoji).catch(
+                      showError,
+                    )
+                  }
+                  title={reaction.userIds
+                    .map((id) => users[id]?.displayName ?? "Someone")
+                    .join(", ")}
+                >
+                  <span>
+                    <ReactionFace value={reaction.emoji} custom={customEmoji} />
+                  </span>
+                  <span>{reaction.userIds.length}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -372,6 +442,12 @@ export const MessageRow = memo(function MessageRow({
           <button
             className="thread-summary"
             type="button"
+            // Follows the row, like the actions do. Left at its native tab stop it
+            // reintroduced the bound the roving tabindex exists to impose: one extra
+            // press per threaded message, and tabbing onto an off-screen one scrolls
+            // and renders more. Arrow to the message, then Tab — the same route as
+            // every other thing a row can do.
+            tabIndex={tab}
             onClick={() => onOpenThread(message.id)}
           >
             {message.replyUserIds[0] && (
@@ -396,8 +472,13 @@ export const MessageRow = memo(function MessageRow({
               className="message-action"
               data-emoji="true"
               type="button"
-              onClick={() => void toggleReaction(message, emoji).catch(showError)}
-              title={`React ${emoji}`}
+              tabIndex={tab}
+              onClick={() =>
+                void toggleReaction(message, emoji).catch(showError)
+              }
+              aria-label={`React ${emoji}`}
+              data-tooltip={`React ${emoji}`}
+              data-tooltip-place="top"
             >
               {emoji}
             </button>
@@ -407,10 +488,13 @@ export const MessageRow = memo(function MessageRow({
               className="message-action"
               data-emoji="true"
               type="button"
+              tabIndex={tab}
               aria-expanded={pickerOpen}
               aria-haspopup="dialog"
               onClick={() => setPickerOpen((value) => !value)}
-              title="Add reaction"
+              aria-label="Add reaction"
+              data-tooltip="Add reaction"
+              data-tooltip-place="top"
             >
               ＋
             </button>
@@ -430,10 +514,13 @@ export const MessageRow = memo(function MessageRow({
             <button
               className="message-action"
               type="button"
+              tabIndex={tab}
               onClick={() => onOpenThread(message.threadRootId ?? message.id)}
-              title="Reply in thread"
+              aria-label="Reply in thread"
+              data-tooltip="Reply in thread"
+              data-tooltip-place="top"
             >
-              <ReplyIcon size={15} />
+              <ReplyIcon size="md" />
             </button>
           )}
           {copied && (
@@ -444,7 +531,9 @@ export const MessageRow = memo(function MessageRow({
           <MessageMenu
             message={message}
             mine={mine}
+            tabIndex={tab}
             onCopyLink={copyLink}
+            onForward={() => setForwarding(true)}
             onEdit={() => setEditing(true)}
             onDelete={() => setDeleting(true)}
           />
@@ -454,6 +543,10 @@ export const MessageRow = memo(function MessageRow({
       {/* At the article level, not inside the menu: `.message-actions` is
           display:none unless the row is hovered or has focus within, and a dialog
           opened from the keyboard must not depend on where the pointer sits. */}
+      {forwarding && (
+        <ForwardDialog message={message} onClose={() => setForwarding(false)} />
+      )}
+
       {deleting && (
         <ConfirmDialog
           title="Delete this message?"

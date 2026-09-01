@@ -10,15 +10,15 @@
  * stale-response guard the hooks exist to provide.
  */
 
-import { useCallback, useState } from 'react';
-import type { UserGroup } from '@blob/shared';
-import { api, ApiError } from '../../../lib/api.ts';
-import { navigate, pathForRoute } from '../../../lib/router.ts';
-import { useStore } from '../../../lib/store.ts';
-import { Avatar } from '../../../components/Avatar.tsx';
-import { ConfirmDialog } from '../../../components/ConfirmDialog.tsx';
-import type { AdminSectionProps } from '../AdminConsole.tsx';
-import { useAdminAction, useAdminData } from '../hooks.ts';
+import { useCallback, useState } from "react";
+import type { UserGroup } from "@blob/shared";
+import { api, ApiError } from "../../../lib/api.ts";
+import { navigate, pathForRoute } from "../../../lib/router.ts";
+import { useStore } from "../../../lib/store.ts";
+import { Avatar } from "../../../components/Avatar.tsx";
+import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import type { AdminSectionProps } from "../AdminConsole.tsx";
+import { useAdminAction, useAdminData } from "../hooks.ts";
 
 /** Mirrors the server's rule, which mirrors what a message body can reference. */
 const HANDLE_RE = /^[a-z0-9][a-z0-9-]{1,31}$/;
@@ -29,19 +29,24 @@ export function GroupsSection({ onError, detailId }: AdminSectionProps) {
 }
 
 function GroupList({ onError }: { onError: (message: string | null) => void }) {
-  const [handle, setHandle] = useState('');
-  const [name, setName] = useState('');
+  const [handle, setHandle] = useState("");
+  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<UserGroup | null>(null);
   const [renaming, setRenaming] = useState<UserGroup | null>(null);
-  const [renameDraft, setRenameDraft] = useState('');
+  const [renameDraft, setRenameDraft] = useState("");
 
   const load = useCallback(() => api.admin.groups(), []);
-  const { data, reload } = useAdminData(load, [], onError, 'Could not load the groups.');
+  const { data, reload } = useAdminData(
+    load,
+    [],
+    onError,
+    "Could not load the groups.",
+  );
   const act = useAdminAction(onError, reload);
 
   const groups = data?.groups ?? [];
-  const cleaned = handle.trim().replace(/^@/, '').toLowerCase();
+  const cleaned = handle.trim().replace(/^@/, "").toLowerCase();
   const usable = HANDLE_RE.test(cleaned) && name.trim().length > 0 && !busy;
 
   async function submit() {
@@ -50,11 +55,15 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
     onError(null);
     try {
       await api.admin.createGroup({ handle: cleaned, name: name.trim() });
-      setHandle('');
-      setName('');
+      setHandle("");
+      setName("");
       reload();
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : 'That group could not be created.');
+      onError(
+        err instanceof ApiError
+          ? err.message
+          : "That group could not be created.",
+      );
     } finally {
       setBusy(false);
     }
@@ -65,9 +74,9 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
       <div className="admin-app-form">
         <h4>New group</h4>
         <p className="muted">
-          Anyone here can then write <code>@{cleaned || 'handle'}</code> to reach everyone
-          in it. A handle shares one namespace with people's names, so it cannot be one
-          somebody already answers to.
+          Anyone here can then write <code>@{cleaned || "handle"}</code> to
+          reach everyone in it. A handle shares one namespace with people's
+          names, so it cannot be one somebody already answers to.
         </p>
 
         <label className="field" style={{ maxWidth: 280 }}>
@@ -80,7 +89,8 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
           />
           {handle && !HANDLE_RE.test(cleaned) && (
             <span className="pref-hint">
-              Two to thirty-two characters: lowercase letters, numbers and hyphens.
+              Two to thirty-two characters: lowercase letters, numbers and
+              hyphens.
             </span>
           )}
         </label>
@@ -101,7 +111,7 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
           onClick={() => void submit()}
           style={{ marginTop: 12 }}
         >
-          {busy ? 'Creating…' : 'Create'}
+          {busy ? "Creating…" : "Create"}
         </button>
       </div>
 
@@ -124,14 +134,16 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
                 <td>
                   {renaming?.id === group.id ? (
                     <form
-                      style={{ display: 'flex', gap: 6 }}
+                      style={{ display: "flex", gap: 6 }}
                       onSubmit={(event) => {
                         event.preventDefault();
                         const trimmed = renameDraft.trim();
                         setRenaming(null);
                         if (!trimmed || trimmed === group.name) return;
                         void act(async () => {
-                          await api.admin.updateGroup(group.id, { name: trimmed });
+                          await api.admin.updateGroup(group.id, {
+                            name: trimmed,
+                          });
                         });
                       }}
                     >
@@ -142,7 +154,7 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
                         autoFocus
                         onChange={(e) => setRenameDraft(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Escape') setRenaming(null);
+                          if (e.key === "Escape") setRenaming(null);
                         }}
                       />
                       <button className="btn" type="submit">
@@ -160,8 +172,8 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
                     onClick={() =>
                       navigate(
                         pathForRoute({
-                          view: 'workspace',
-                          section: 'groups',
+                          view: "workspace",
+                          section: "groups",
                           detailId: group.id,
                         }),
                       )
@@ -178,7 +190,11 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
                   >
                     Rename
                   </button>
-                  <button className="btn btn-ghost" onClick={() => setRemoving(group)}>
+                  <button
+                    className="btn btn-ghost"
+                    aria-label={`Delete @${group.handle}`}
+                    onClick={() => setRemoving(group)}
+                  >
                     Delete
                   </button>
                 </td>
@@ -223,16 +239,22 @@ function GroupMembers({
   onError: (message: string | null) => void;
 }) {
   const users = useStore((s) => s.users);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
 
   const load = useCallback(
     async () => ({
-      group: (await api.admin.groups()).groups.find((g) => g.id === groupId) ?? null,
+      group:
+        (await api.admin.groups()).groups.find((g) => g.id === groupId) ?? null,
       members: (await api.admin.groupMembers(groupId)).userIds,
     }),
     [groupId],
   );
-  const { data, reload } = useAdminData(load, [groupId], onError, 'Could not load that group.');
+  const { data, reload } = useAdminData(
+    load,
+    [groupId],
+    onError,
+    "Could not load that group.",
+  );
   const act = useAdminAction(onError, reload);
 
   const memberIds = new Set(data?.members ?? []);
@@ -241,7 +263,9 @@ function GroupMembers({
   // and a bot in a group would be a member that can never read it.
   const candidates = needle
     ? Object.values(users)
-        .filter((u) => !u.deactivated && u.kind !== 'bot' && !memberIds.has(u.id))
+        .filter(
+          (u) => !u.deactivated && u.kind !== "bot" && !memberIds.has(u.id),
+        )
         .filter((u) => u.displayName.toLowerCase().includes(needle))
         .slice(0, 6)
     : [];
@@ -250,13 +274,15 @@ function GroupMembers({
     <section style={{ maxWidth: 640 }}>
       <button
         className="btn btn-ghost"
-        onClick={() => navigate(pathForRoute({ view: 'workspace', section: 'groups' }))}
+        onClick={() =>
+          navigate(pathForRoute({ view: "workspace", section: "groups" }))
+        }
       >
         ← All groups
       </button>
 
       <h3 className="section-label" style={{ marginTop: 14 }}>
-        {data?.group ? `@${data.group.handle}` : 'Group'}
+        {data?.group ? `@${data.group.handle}` : "Group"}
       </h3>
 
       <label className="field" style={{ maxWidth: 280 }}>
@@ -278,7 +304,7 @@ function GroupMembers({
               onClick={() =>
                 void act(async () => {
                   await api.admin.addGroupMember(groupId, person.id);
-                  setQuery('');
+                  setQuery("");
                 })
               }
             >
@@ -300,9 +326,12 @@ function GroupMembers({
           return (
             <div key={userId} className="member-row">
               <Avatar user={person} size="sm" />
-              <span className="member-name">{person?.displayName ?? 'Someone'}</span>
+              <span className="member-name">
+                {person?.displayName ?? "Someone"}
+              </span>
               <button
                 className="btn btn-ghost"
+                aria-label={`Remove ${person?.displayName ?? "this person"} from the group`}
                 onClick={() =>
                   void act(async () => {
                     await api.admin.removeGroupMember(groupId, userId);

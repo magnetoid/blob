@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
@@ -12,7 +13,7 @@ from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, conflict, not_found, unique_violation
-from ..lib.ids import new_id
+from ..lib.ids import IdParam, new_id
 from ..lib.storage import public_file_url
 from ..lib.webpush import send_push
 from ..realtime import hub
@@ -233,6 +234,28 @@ async def update_me(
     return CurrentUserOut(user=to_current_user(row))
 
 
+def _status_expiry(payload: UpdateProfileInput, given: set[str]) -> datetime | None:
+    """The moment a status stops applying, as a datetime asyncpg will accept.
+
+    The field arrives as an ISO string and was bound straight into
+    `cast(:status_expires_at AS timestamptz)`. asyncpg reads the cast as the *parameter's*
+    type and refuses a `str` outright — `expected a datetime.date or datetime.datetime
+    instance, got 'str'` — so every attempt to set an expiry was a 500. The column, the
+    schema and `serialize.to_user`'s expiry check were all correct and had never once
+    been reached: the feature could not be used from any client.
+
+    Parsed here rather than typed as a `datetime` on the model so the refusal matches
+    what `later` and `schedule` already say about a bad time, which is the wording the
+    client shows.
+    """
+    if "status_expires_at" not in given or payload.status_expires_at is None:
+        return None
+    try:
+        return datetime.fromisoformat(payload.status_expires_at.replace("Z", "+00:00"))
+    except ValueError:
+        raise bad_request("That isn't a time.") from None
+
+
 async def _write_profile(
     session: AsyncSession,
     user: SessionUser,
@@ -275,7 +298,7 @@ async def _write_profile(
             "has_status_text": "status_text" in given,
             "status_text": payload.status_text,
             "has_status_expires": "status_expires_at" in given,
-            "status_expires_at": payload.status_expires_at,
+            "status_expires_at": _status_expiry(payload, given),
             "has_avatar": "avatar_attachment_id" in given,
             "avatar_key": avatar_key,
         },
@@ -333,7 +356,7 @@ async def list_users(user: SessionUser = Depends(current_user)) -> UsersOut:
 
 
 @router.get("/api/users/{user_id}", response_model=UserOut)
-async def get_user(user_id: str, user: SessionUser = Depends(current_user)) -> UserOut:
+async def get_user(user_id: IdParam, user: SessionUser = Depends(current_user)) -> UserOut:
     async with session_scope() as session:
         row = (
             await session.execute(

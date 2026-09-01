@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import { usePresence } from '../lib/usePresence.ts';
 
 /** Every focusable menu item, in DOM order. Disabled ones cannot take focus, so
  *  offering them to the arrows would strand the roving focus on the way past. */
@@ -34,6 +35,7 @@ export function Menu({ open, onClose, className, suspendDismiss = false, childre
   // Whatever held focus when the menu opened — the trigger, wherever the browser left
   // it. Focus goes back there on close so a keyboard user is not stranded on <body>.
   const openerRef = useRef<HTMLElement | null>(null);
+  const { present, state } = usePresence(open, panelRef);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -98,10 +100,14 @@ export function Menu({ open, onClose, className, suspendDismiss = false, childre
     };
   }, [open, suspendDismiss, onClose]);
 
-  if (!open) return null;
+  // Held through its exit rather than dropped on the render that closes it, so the
+  // panel can animate away. Every effect above keys on `open`, not on presence: a
+  // menu on its way out must stop answering Escape and arrow keys the moment it is
+  // asked to close, or it would still be steering focus while it faded.
+  if (!present) return null;
 
   return (
-    <div className={className} role="menu" ref={panelRef}>
+    <div className={className} role="menu" ref={panelRef} data-state={state}>
       {children}
     </div>
   );

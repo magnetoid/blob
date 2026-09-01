@@ -391,3 +391,122 @@ Worth knowing before changing the equivalent code:
   the sync is a psql UPDATE on Coolify's own DB (`applications` table, backup first) or
   the UI's reload-compose button. After any compose change: update the snapshot, then
   deploy.
+
+- **`MAX(uuid)` does not exist in Postgres.** There is no max aggregate for the type, so
+  "the newest message per channel" is `DISTINCT ON (channel_id) … ORDER BY channel_id,
+  id DESC`, which also walks the existing index rather than aggregating the table.
+  `GREATEST(uuid, uuid)` *does* work — it needs only the btree comparison — which is why
+  `mark_read`'s ratchet has always been fine. Hit while writing mark-all-read.
+- **The 46 themeable token names are sliced by index, not looked up.** `TOKEN_GROUPS` in
+  `services/themes.py` is `THEMEABLE_TOKENS[0:10]`, `[10:14]`, and so on, so *reordering*
+  tokens.css silently regroups the theme editor while every name still validates. Add new
+  token families below the colours and never inside them.
+- **A custom property's computed value is resolved, not literal.** `getComputedStyle`
+  returns `#141614` for `--bg: var(--dark-bg)`, which is what lets the dark palette be
+  written once and aliased twice — and what stops `ThemesSection`'s colour-input
+  normaliser choking on a `var()`. Verified in a browser before relying on it.
+- **`justify-content` and `display` cannot be transitioned; `visibility` can.** The switch
+  knob teleported because its position was a flex-alignment flip, and the message hover
+  toolbar could not animate at all because it was `display: none`. Reveal with
+  opacity + `visibility` (co-transitioned) rather than opacity alone — opacity 0 leaves
+  every control clickable and in the tab order, which is the same bug the mobile drawer
+  had with a bare `transform`.
+- **A vitest worker can time out under load and still report "passed".** `pnpm check`
+  exited 1 with `[vitest-worker]: Timeout calling "fetch"` and one test *file* never
+  collected, while the summary line said 258 passed. Compare the file count against a
+  known-good run before believing a green summary.
+- **The virtualizer's spacer is a flex item, and flex items shrink.** `.message-list` was
+  made a flex column so a short conversation could sit on the composer; that silently
+  crushed `.message-list-viewport` — whose inline height stands in for every unrendered
+  message — from 6,711px to 488, so the scrollbar described the window instead of the
+  conversation and paging back never triggered. `flex: none` on the spacer. The list test
+  did not catch it and cannot: happy-dom does no layout, so it asserts the inline style,
+  which was never wrong. Found only by loading 600 real messages into a channel.
+- **The `flushSync` warnings from the message list are upstream, and the obvious fix is
+  worse than the warning.** Opening a channel logs ~20 `flushSync was called from inside
+  a lifecycle method` errors. The stack blames `MessageList`, but that is React's *owner*
+  stack, not the call site: capturing a real `Error` stack inside a patched
+  `console.error` shows `measureElement → resizeItem → notify → flushSync` inside
+  `@tanstack/react-virtual`, invoked from the `ref={virtualizer.measureElement}` callback,
+  which React runs during commit. React skips the synchronous flush the same way in
+  development and production — only the warning is dev-only — so there is no behavioural
+  difference to recover. The library's `useFlushSync: false` escape hatch would apply to
+  *scroll*-driven updates too, where the flush does work and prevents blank rows, so
+  taking it trades a dev-console annoyance for a user-visible one.
+  `useAnimationFrameWithResizeObserver` does not help: it only defers the ResizeObserver
+  path, not the ref-callback one. Scroll position was verified correct despite the warning
+  (`scrollTop + clientHeight === scrollHeight` on channel open). Leave it.
+- **`@` autocomplete matches prefixes, and ranks before it caps.** `includes()` made `@e`
+  offer "Devin Cole" and `@ma` offer "Priya Raman"; slicing to six before ranking dropped
+  the person being typed out of a list that had room for them. `mentionMatch.ts` holds the
+  rule, and its tests were checked against the old implementation — pasted back in — to
+  confirm they discriminate. Anything that reorders that list is changing which person
+  Enter mentions.
+- **A pending message's id has to sort like a real one.** The store inserts into a channel
+  by comparing id strings, which is only correct because real ids are UUIDv7. The
+  optimistic id was `pending-${clientMsgId}` and `clientMsgId` is a v4 from
+  `crypto.randomUUID` — random — so two messages typed offline sorted by a coin flip. It
+  is now `pending-${createdAt}-${clientMsgId}`: fixed-width ISO time first, id to break a
+  same-millisecond tie. The prefix stays in front because six places test for it, and
+  `'p' > 'f'` is what keeps every pending row below the real conversation. Anything that
+  mints a client-side id belongs in this reasoning.
+- **Virtualization silently broke every jump-to-message.** `scrollToMessage` found a row
+  with `querySelector` and scrolled it into view. Correct until the list windowed to ~20
+  rows, after which it missed every target not already on screen — search results,
+  permalinks, saved items and pinned messages all became "open the channel at the bottom"
+  while the history was fetched correctly and centred the whole time. Jumps now go through
+  `store.pendingScrollMessageId`, which only `MessageList` can answer because only it
+  holds the virtualizer. **A list that does not hold the message leaves the request
+  standing** rather than clearing it — that is what lets the thread panel answer for a
+  reply, which is never in channel history.
+- **Lighthouse 100 does not mean the keyboard works.** Three real defects this pass scored
+  clean: reaction chips carried "is this mine" only in `data-mine`, and ⌘K and the `@`
+  autocomplete moved a selection that existed only in CSS while focus stayed in the input.
+  An automated audit checks names and contrast; it cannot tell that a highlight is never
+  announced, and it only ever sees the states the page happens to be in — the attachment
+  tray does not exist until a file is staged. Read the accessibility tree, and check
+  `aria-activedescendant` resolves to an element that actually moves.
+- **`title` alone does supply an accessible name.** The attachment tray's remove button
+  has no `aria-label` and looked like a gap; the accessibility tree reports it as
+  "Remove report-q3.pdf". Check the tree before adding an attribute — `getAttribute` on
+  the DOM is not what a screen reader computes.
+- **Reactions are the one write with a message's fan-out and no rate limit.** `LIMITS` in
+  `lib/rate_limit.py` covers send_message, upload, search, command, translate, catchup,
+  login, signup, invite, interaction and webhook, each with a comment justifying its
+  number. A reaction toggle writes a row and broadcasts to every member of the channel —
+  the same fan-out as a message, which is capped at 30/min — and passes through
+  unlimited. Not a defect anyone has hit, and picking the number is a product decision
+  rather than a fix, so it is written down rather than guessed at. `interaction` is
+  60/60 and is the closest precedent ("pressing a button").
+- **Display names take any text; channel names do not.** `POST /api/channels` rejects
+  `<img src=x onerror=…>` with `invalid_input`, while `PATCH /api/me` accepts
+  `<script>alert(1)</script>` as a display name. Verified inert in the browser — React
+  escapes it, no alert, no injected tag, and it renders as literal text — and a display
+  name legitimately has to accept every script and most punctuation, so the asymmetry is
+  reasonable. Worth knowing before anyone renders a name outside React.
+- **The type scale is absolute, so a browser's font-size preference does nothing.**
+  `--text-2xs` through the rest are px (`11px`, `10.5px`…), not rem. Browser *zoom* still
+  scales everything, which covers most of the need and is what WCAG 1.4.4 is usually read
+  against; what is ignored is the "default font size" setting, which is the mechanism for
+  wanting larger text without larger images. Verified by setting the root font-size to
+  32px and measuring: every dimension identical. Converting the scale to rem is a
+  design-system-wide change with real visual risk, so it is a decision rather than a fix.
+- **`scrollWidth`/`scrollHeight` are a bad overflow detector in this app.** They include
+  absolutely-positioned descendants, and `[data-tooltip]::after` is on a great many
+  controls — so a topbar button 30px tall reports `scrollHeight: 58` while clipping
+  nothing. Compare against the real children, or check `overflow` first. Three separate
+  "findings" this pass were this artifact.
+- **A hover toolbar cannot be focused into directly.** `.message-actions` is
+  `visibility: hidden` until the row has hover or `:focus-within`, and `focus()` on a
+  `visibility: hidden` element is a no-op — so `trigger.focus()` never reveals it and the
+  menu measures as invisible. Focus the *row* first, which is the documented route in and
+  why the row is a tab stop at all. Any test that reaches for a message action has to go
+  through the row.
+- **`@here` notifies everyone, exactly like `@channel`.** `lib/mentions.py` parses the
+  distinction into `here_only` and a test asserts it, but nothing consumes it —
+  `services/notify.py` branches on `everyone` alone. The field's comment claimed "notify
+  only active members", which read as behaviour rather than intent; it now says what is
+  actually true. Acting on it means choosing what "active" means, and the cost of
+  choosing wrong is somebody never learning they were addressed, so it is a product
+  decision rather than a defect. The parser keeps the distinction so the decision is
+  still available.

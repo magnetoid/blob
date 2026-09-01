@@ -297,3 +297,105 @@ class TestAuditBracket:
                 pass  # pragma: no cover
 
         assert "plugin.shell_opened" in await _audit_actions(actor.workspace_id)
+
+
+class TestResolveFromADm:
+    """`/cli` names the agent by who the conversation is with, not by plugin id.
+
+    The extra step is one column — `users.bot_plugin_id` — and everything after it is
+    `resolve`, which is the point: a terminal opened from a DM must be gated by the
+    checks a terminal opened from the console is, not by a second copy of them.
+    """
+
+    async def test_a_bot_user_resolves_to_the_agent_behind_it(
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        _enable_shell(monkeypatch)
+        owner = await owner_who_may_host(client)
+        plugin_id = await install(owner)
+        async with SessionFactory() as session:
+            bot_user_id = (
+                await session.execute(
+                    sql("SELECT id FROM users WHERE bot_plugin_id = :id"),
+                    {"id": plugin_id},
+                )
+            ).scalar_one()
+
+        target = await agent_shell_service.resolve_for_bot_user(
+            await _actor_for(owner), str(bot_user_id)
+        )
+
+        assert target.plugin_id == plugin_id
+
+    async def test_a_person_is_not_an_agent(
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        _enable_shell(monkeypatch)
+        owner = await owner_who_may_host(client)
+        await install(owner)
+
+        with pytest.raises(AppError) as caught:
+            await agent_shell_service.resolve_for_bot_user(await _actor_for(owner), owner.user_id)
+
+        assert caught.value.code == "not_hosted"
+
+    async def test_an_unhosted_agent_still_has_no_terminal_from_a_dm(
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # The path a DM takes must not be a way around the gate the console honours.
+        _enable_shell(monkeypatch)
+        owner = await owner_who_may_host(client)
+        plugin_id = await install(owner)
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                sql("UPDATE plugins SET deployment_id = NULL WHERE id = :id"),
+                {"id": plugin_id},
+            )
+            bot_user_id = (
+                await session.execute(
+                    sql("SELECT id FROM users WHERE bot_plugin_id = :id"),
+                    {"id": plugin_id},
+                )
+            ).scalar_one()
+
+        with pytest.raises(AppError) as caught:
+            await agent_shell_service.resolve_for_bot_user(
+                await _actor_for(owner), str(bot_user_id)
+            )
+
+        assert caught.value.code == "not_hosted"
+
+    async def test_an_agent_in_another_workspace_is_not_found(
+        self,
+        client: Client,
+        hosted: Runner,  # noqa: F811
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # The workspace boundary is inside the statement, so a real bot id asked for by
+        # somebody outside its workspace answers the same way a made-up one does.
+        _enable_shell(monkeypatch)
+        owner = await owner_who_may_host(client)
+        plugin_id = await install(owner)
+        async with SessionFactory() as session:
+            bot_user_id = (
+                await session.execute(
+                    sql("SELECT id FROM users WHERE bot_plugin_id = :id"),
+                    {"id": plugin_id},
+                )
+            ).scalar_one()
+
+        elsewhere = Actor(id=owner.user_id, workspace_id="01a05500-0000-7000-8000-000000000000")
+
+        with pytest.raises(AppError) as caught:
+            await agent_shell_service.resolve_for_bot_user(elsewhere, str(bot_user_id))
+
+        assert caught.value.code == "not_hosted"

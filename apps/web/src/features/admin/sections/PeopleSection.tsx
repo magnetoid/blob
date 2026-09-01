@@ -41,7 +41,7 @@ export function PeopleSection({
   return (
     <section>
       <div className="search-field" style={{ maxWidth: 320, marginBottom: 18 }}>
-        <SearchIcon size={16} strokeWidth={1.8} />
+        <SearchIcon size="md" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -114,6 +114,7 @@ export function PeopleSection({
                     onClick={() =>
                       void act(() => api.admin.revokeSessions(user.id))
                     }
+                    aria-label={`Sign ${user.displayName} out of ${user.sessionCount} session(s)`}
                     title={`Sign out of ${user.sessionCount} session(s)`}
                   >
                     Sign out
@@ -122,6 +123,7 @@ export function PeopleSection({
                 {user.deactivatedAt ? (
                   <button
                     className="btn"
+                    aria-label={`Reactivate ${user.displayName}`}
                     onClick={() =>
                       void act(() => api.admin.reactivate(user.id))
                     }
@@ -133,6 +135,7 @@ export function PeopleSection({
                   user.id !== currentUser?.id && (
                     <button
                       className="btn"
+                      aria-label={`Deactivate ${user.displayName}`}
                       onClick={() => setDeactivating(user)}
                     >
                       Deactivate

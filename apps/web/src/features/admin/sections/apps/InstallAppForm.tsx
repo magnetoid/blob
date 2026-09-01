@@ -159,7 +159,7 @@ export function InstallAppForm({
 
       <div className="admin-app-permissions">
         <div>
-          <div className="section-label" style={{ paddingLeft: 0 }}>
+          <div className="section-label">
             Event subscriptions
           </div>
           <div className="admin-check-grid">
@@ -188,7 +188,7 @@ export function InstallAppForm({
           </div>
         </div>
         <div>
-          <div className="section-label" style={{ paddingLeft: 0 }}>
+          <div className="section-label">
             Granted scopes
           </div>
           <div className="admin-check-grid">

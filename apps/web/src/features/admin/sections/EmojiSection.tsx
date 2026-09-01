@@ -9,28 +9,37 @@
  * ticket, same presigned PUT, same rate limit. The emoji endpoint only names the result.
  */
 
-import { useCallback, useRef, useState } from 'react';
-import { api, ApiError, type WorkspaceEmoji } from '../../../lib/api.ts';
-import { uploadFile } from '../../../lib/attachments.ts';
-import { useAdminAction, useAdminData } from '../hooks.ts';
-import { ConfirmDialog } from '../../../components/ConfirmDialog.tsx';
+import { useCallback, useRef, useState } from "react";
+import { api, ApiError, type WorkspaceEmoji } from "../../../lib/api.ts";
+import { uploadFile } from "../../../lib/attachments.ts";
+import { useAdminAction, useAdminData } from "../hooks.ts";
+import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 
 /** Mirrors the server's rule, which mirrors what `:name:` in a body can match. */
 const NAME_RE = /^[a-z0-9_+-]{2,32}$/;
 
-export function EmojiSection({ onError }: { onError: (message: string | null) => void }) {
-  const [name, setName] = useState('');
+export function EmojiSection({
+  onError,
+}: {
+  onError: (message: string | null) => void;
+}) {
+  const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => api.admin.customEmoji(), []);
-  const { data, reload } = useAdminData(load, [], onError, 'Could not load the emoji.');
+  const { data, reload } = useAdminData(
+    load,
+    [],
+    onError,
+    "Could not load the emoji.",
+  );
   const act = useAdminAction(onError, reload);
 
   const emoji = data?.emoji ?? [];
-  const cleaned = name.trim().replace(/^:|:$/g, '').toLowerCase();
+  const cleaned = name.trim().replace(/^:|:$/g, "").toLowerCase();
   const usable = NAME_RE.test(cleaned) && file !== null && !busy;
 
   async function submit() {
@@ -40,14 +49,18 @@ export function EmojiSection({ onError }: { onError: (message: string | null) =>
     try {
       // Two calls, and the order matters: the image has to exist before it can be named,
       // and a failure here leaves an orphaned attachment rather than a broken emoji.
-      const attachmentId = await uploadFile(file, file.type || 'image/png');
+      const attachmentId = await uploadFile(file, file.type || "image/png");
       await api.admin.addCustomEmoji(cleaned, attachmentId);
-      setName('');
+      setName("");
       setFile(null);
-      if (fileRef.current) fileRef.current.value = '';
+      if (fileRef.current) fileRef.current.value = "";
       reload();
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : 'That emoji could not be added.');
+      onError(
+        err instanceof ApiError
+          ? err.message
+          : "That emoji could not be added.",
+      );
     } finally {
       setBusy(false);
     }
@@ -58,8 +71,9 @@ export function EmojiSection({ onError }: { onError: (message: string | null) =>
       <div className="admin-app-form">
         <h4>Add an emoji</h4>
         <p className="muted admin-form-hint">
-          Anyone in the workspace can then type <code>:{cleaned || 'name'}:</code> in a
-          message, or pick it from the reaction toolbar.
+          Anyone in the workspace can then type{" "}
+          <code>:{cleaned || "name"}:</code> in a message, or pick it from the
+          reaction toolbar.
         </p>
 
         <label className="field" style={{ maxWidth: 280 }}>
@@ -72,8 +86,8 @@ export function EmojiSection({ onError }: { onError: (message: string | null) =>
           />
           {name && !NAME_RE.test(cleaned) && (
             <span className="pref-hint">
-              Two to thirty-two characters: lowercase letters, numbers, underscore, plus
-              and hyphen.
+              Two to thirty-two characters: lowercase letters, numbers,
+              underscore, plus and hyphen.
             </span>
           )}
         </label>
@@ -84,6 +98,8 @@ export function EmojiSection({ onError }: { onError: (message: string | null) =>
             ref={fileRef}
             className="input"
             type="file"
+            name="emoji"
+            aria-label="Choose an emoji image"
             accept="image/*"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
@@ -95,7 +111,7 @@ export function EmojiSection({ onError }: { onError: (message: string | null) =>
           onClick={() => void submit()}
           style={{ marginTop: 12 }}
         >
-          {busy ? 'Adding…' : 'Add'}
+          {busy ? "Adding…" : "Add"}
         </button>
       </div>
 
@@ -118,9 +134,13 @@ export function EmojiSection({ onError }: { onError: (message: string | null) =>
                 <td>
                   <code>:{item.name}:</code>
                 </td>
-                <td className="muted">{item.createdByName ?? '—'}</td>
+                <td className="muted">{item.createdByName ?? "—"}</td>
                 <td>
-                  <button className="btn btn-ghost" onClick={() => setRemoving(item.name)}>
+                  <button
+                    className="btn btn-ghost"
+                    aria-label={`Remove :${item.name}:`}
+                    onClick={() => setRemoving(item.name)}
+                  >
                     Remove
                   </button>
                 </td>

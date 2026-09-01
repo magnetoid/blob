@@ -3,6 +3,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { useStore } from '../lib/store.ts';
+import { showError } from '../lib/toasts.ts';
 import { socket } from '../lib/socket.ts';
 import {
   DEFAULT_MEMBER_SECTION,
@@ -20,6 +21,9 @@ import { TasksView } from '../features/agentic/TasksView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
+import { BrowseChannels } from '../features/channels/BrowseChannels.tsx';
+import { ScheduledView } from '../features/messages/ScheduledView.tsx';
+import { AgentTerminalPanel } from '../features/agentic/AgentTerminalPanel.tsx';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
 // Lazy: the consoles are ~3,000 lines of JSX an ordinary member never renders,
@@ -48,6 +52,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const activeChannelId = useStore((s) => s.activeChannelId);
   const activeThreadRootId = useStore((s) => s.activeThreadRootId);
   const catchupScope = useStore((s) => s.catchupScope);
+  const terminalTarget = useStore((s) => s.terminalTarget);
   const openChannel = useStore((s) => s.openChannel);
   const openThread = useStore((s) => s.openThread);
 
@@ -201,12 +206,22 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           // is empty. Listed here so `⌘/` documents it and this switch stays the whole
           // vocabulary.
           return;
+        case 'read-all':
+          event.preventDefault();
+          void useStore
+            .getState()
+            .markAllRead()
+            .catch(showError);
+          return;
         case 'close':
           // Innermost first: closing a thread while a dialog is open over it would leave
           // the dialog floating above a view that changed underneath.
           if (helpOpen) setHelpOpen(false);
           else if (feedbackOpen) setFeedbackOpen(false);
           else if (paletteOpen) setPaletteOpen(false);
+          // The drawer is an overlay over the conversation, so it closes before the
+          // thread underneath it and long before Esc means "mark this channel read".
+          else if (sidebarOpen) setSidebarOpen(false);
           else if (activeThreadRootId) closeThread();
           else if (activeChannelId) {
             // Nothing left to close: Slack's Esc — the channel is read. Deliberately
@@ -229,6 +244,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     paletteOpen,
     helpOpen,
     feedbackOpen,
+    sidebarOpen,
     activeThreadRootId,
     openThread,
     channels,
@@ -236,8 +252,10 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     openChannel,
   ]);
 
-  // The thread panel belongs to the conversation view only.
-  const panelOpen = (view === 'messages' || view === 'channel') && Boolean(activeThreadRootId);
+  // The right-hand column belongs to the conversation view only, and holds one thing at
+  // a time: a thread, or a terminal in the agent this DM is with.
+  const inConversation = view === 'messages' || view === 'channel';
+  const panelOpen = inConversation && Boolean(activeThreadRootId || terminalTarget);
 
   // Administration takes the whole window. The rail and channel list are navigation for
   // a conversation, and none of it helps someone reading an audit log. What does stay is
@@ -291,7 +309,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
         view={view}
       />
-      <Sidebar onOpenSearch={() => navigate('/search')} />
+      <Sidebar />
       {sidebarOpen && (
         <button
           type="button"
@@ -302,7 +320,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       )}
 
       {view === 'permalink' && (
-        <div className="pane">
+        <main className="pane">
           <div className="empty-state">
             <div className="empty-state-title">
               {permalinkFailure ? 'That link did not open' : 'Finding that message…'}
@@ -314,17 +332,27 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
               </button>
             )}
           </div>
-        </div>
+        </main>
       )}
       {(view === 'messages' || view === 'channel') && <ChannelView />}
       {view === 'threads' && <ThreadsView />}
       {view === 'tasks' && <TasksView />}
       {view === 'saved' && <SavedView />}
+      {view === 'browse' && <BrowseChannels />}
+      {view === 'scheduled' && <ScheduledView />}
       {view === 'changelog' && <WhatsNewView />}
       {view === 'search' && <SearchView />}
       {view === 'profile' && <ProfileView />}
 
-      {panelOpen && <ThreadPanel rootId={activeThreadRootId as string} />}
+      {panelOpen &&
+        (terminalTarget ? (
+          <AgentTerminalPanel
+            pluginId={terminalTarget.pluginId}
+            agentName={terminalTarget.agentName}
+          />
+        ) : (
+          <ThreadPanel rootId={activeThreadRootId as string} />
+        ))}
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}

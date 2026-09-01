@@ -23,6 +23,7 @@ from ..db.engine import session_scope, transaction
 from ..lib import logbuf
 from ..lib.auth import SessionUser, require_instance_admin
 from ..lib.errors import bad_request
+from ..lib.ids import IdParam
 from ..plugins.manifest import SCOPES
 from ..schemas.base import CamelModel, iso
 from ..services import audit as audit_service
@@ -246,7 +247,7 @@ def _policy_out(workspace_id: str, policy: policy_service.Policy) -> PolicyOut:
 
 @router.get("/instance/workspaces/{workspace_id}/policy", response_model=PolicyOut)
 async def read_policy(
-    workspace_id: str, _admin: SessionUser = Depends(require_instance_admin)
+    workspace_id: IdParam, _admin: SessionUser = Depends(require_instance_admin)
 ) -> PolicyOut:
     """What is written down for this workspace — not what the guards compute.
 
@@ -260,7 +261,7 @@ async def read_policy(
 
 @router.put("/instance/workspaces/{workspace_id}/policy", response_model=PolicyOut)
 async def write_policy(
-    workspace_id: str,
+    workspace_id: IdParam,
     payload: PolicyInput,
     request: Request,
     admin: SessionUser = Depends(require_instance_admin),

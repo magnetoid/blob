@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:17'
-updated: '2026-08-27T03:38:17'
+created: '2026-09-01T23:39:47'
+updated: '2026-09-01T23:39:47'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -36,16 +36,17 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L579 `WorkspaceHandle` (class) — Every mentionable name in a workspace, in one place, decided by one index.
 - L635 `AgentRun` (class) — One attempt by an agent to answer a mention.
 - L697 `SavedItem` (class) — A message somebody put aside for themselves. Slack's Later.
-- L735 `ThreadSummary` (class)
-- L776 `MessageTranslation` (class)
-- L803 `AgentTask` (class)
-- L862 `PushSubscription` (class)
-- L876 `Webhook` (class)
-- L895 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
-- L923 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
-- L1000 `PluginCommand` (class) — A slash command an app provides.
-- L1026 `PluginSecret` (class)
-- L1036 `PluginGrant` (class)
-- L1050 `BotToken` (class)
-- L1064 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
-- L1096 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
+- L735 `ScheduledMessage` (class) — A message written now and sent later. Slack's "Schedule message".
+- L787 `ThreadSummary` (class)
+- L828 `MessageTranslation` (class)
+- L855 `AgentTask` (class)
+- L914 `PushSubscription` (class)
+- L928 `Webhook` (class)
+- L947 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
+- L975 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
+- L1052 `PluginCommand` (class) — A slash command an app provides.
+- L1078 `PluginSecret` (class)
+- L1088 `PluginGrant` (class)
+- L1102 `BotToken` (class)
+- L1116 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
+- L1148 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
+import { useStore } from "../../lib/store.ts";
 
 interface Props {
   message: Message;
@@ -16,6 +17,10 @@ interface Props {
 export function MessageEditor({ message, onClose }: Props) {
   const [draft, setDraft] = useState(message.body);
   const editRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  // The same preference the composer reads, because this is the same gesture. Someone
+  // who has turned Enter into a newline there has not asked for it to save here.
+  const enterToSend = useStore((s) => s.currentUser?.prefs.enterToSend ?? true);
 
   // Re-seeded whenever the body changes under an open editor — an edit landing over
   // the socket — so saving cannot overwrite that edit with a stale draft. Running on
@@ -27,6 +32,7 @@ export function MessageEditor({ message, onClose }: Props) {
 
   return (
     <form
+      ref={formRef}
       onSubmit={async (event) => {
         event.preventDefault();
         const trimmed = draft.trim();
@@ -58,6 +64,18 @@ export function MessageEditor({ message, onClose }: Props) {
           if (e.key === "Escape") {
             setDraft(message.body);
             onClose();
+            return;
+          }
+          // ↑ then retype then Enter is one reflex, and this was the third of the three
+          // that did nothing: the editor opened and the text was right, and then the
+          // keystroke that finishes the gesture inserted a newline. Escape was the only
+          // key it handled, so the only way out that saved anything was to reach for the
+          // mouse. Mirrors the composer, preference and all, because a person who
+          // rebound Enter there did not rebind it separately for editing.
+          const sendCombo = enterToSend ? !e.shiftKey : e.metaKey || e.ctrlKey;
+          if (e.key === "Enter" && sendCombo) {
+            e.preventDefault();
+            formRef.current?.requestSubmit();
           }
         }}
       />

@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import pytest
 import pytest_asyncio
 
+from blob_api.lib.errors import AppError
 from blob_api.services.search import parse_query
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up
@@ -46,7 +47,6 @@ async def team(client: Client) -> dict:
         ("from:@ana deploy", {"text": "deploy", "author": "ana"}),
         ("in:#eng deploy", {"text": "deploy", "channel": "eng"}),
         ("has:link deploy", {"text": "deploy", "has": "link"}),
-        ("has:nonsense deploy", {"text": "deploy"}),
         (
             "before:2026-01-01 deploy",
             {"text": "deploy", "before": datetime(2026, 1, 1, tzinfo=UTC)},
@@ -58,6 +58,18 @@ def test_parse_query(raw: str, expected: dict) -> None:
     parsed = parse_query(raw)
     for key, value in expected.items():
         assert getattr(parsed, key) == value
+
+
+def test_an_unknown_has_value_raises_rather_than_parsing_to_nothing() -> None:
+    """It used to appear in this table as `("has:nonsense deploy", {"text": "deploy"})`.
+
+    That row described what the code did rather than arguing for it, and what it did was
+    the one silent widening left in the grammar: the modifier matched its case, failed
+    the value check, and disappeared. `from:` and `in:` refuse and say which name they
+    could not place; a bad date refuses and gives the format. This now does the same.
+    """
+    with pytest.raises(AppError):
+        parse_query("has:nonsense deploy")
 
 
 # ─── searching ────────────────────────────────────────────────────────────────
@@ -153,3 +165,172 @@ class TestDateModifiers:
     async def test_a_real_date_still_narrows(self, team: dict) -> None:
         response = await team["owner"].get("/api/search?q=pineapple after:2020-01-01")
         assert response.status == 200, response.body
+
+
+class TestAModifierThatNamesNobody:
+    """A filter that matches nothing must narrow the search to nothing.
+
+    `author_id=None` means "no filter" to the service, so an unresolved name used to fall
+    through to the *unfiltered* result set — `from:@nobody` answered with every message
+    in the workspace, and `from:@Marko`, when the display name was "Marko Ilic", answered
+    as though Marko had written all of them. Widening a search in response to a narrowing
+    term is the one answer that cannot be right.
+    """
+
+    async def test_an_unknown_person_finds_nothing(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "kumquatzephyr sighted")
+        everything = await team["owner"].get("/api/search?q=kumquatzephyr")
+        assert everything.body["total"] >= 1
+
+        answer = await team["owner"].get("/api/search?q=from:@nobodyatall kumquatzephyr")
+
+        assert answer.body["messages"] == []
+        assert answer.body["total"] == 0
+        assert "from:nobodyatall" in answer.body["parsed"]["unresolved"]
+
+    async def test_an_unknown_channel_finds_nothing(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "kumquatzephyr again")
+
+        answer = await team["owner"].get("/api/search?q=in:%23nosuchchannel kumquatzephyr")
+
+        assert answer.body["messages"] == []
+        assert "in:nosuchchannel" in answer.body["parsed"]["unresolved"]
+
+    async def test_a_first_name_finds_the_person(self, team: dict) -> None:
+        # Display names are full names and people type what they say out loud.
+        joiner = await invite_and_sign_up(team["owner"], "Marko Ilic")
+        await team["owner"].post(
+            f"/api/channels/{team['general']['id']}/members", {"userIds": [joiner.user_id]}
+        )
+        await send_message(joiner, team["general"]["id"], "zanzibarquince")
+
+        answer = await team["owner"].get("/api/search?q=from:@Marko zanzibarquince")
+
+        assert answer.body["messages"], answer.body
+        assert all(m["authorId"] == joiner.user_id for m in answer.body["messages"])
+
+    async def test_an_ambiguous_first_name_finds_nothing_rather_than_guessing(
+        self, team: dict
+    ) -> None:
+        # Two people share the prefix; picking the first would answer a question nobody
+        # asked, and answer it differently as the workspace grows.
+        one = await invite_and_sign_up(team["owner"], "Sam Carter")
+        await invite_and_sign_up(team["owner"], "Sam Delgado")
+        await team["owner"].post(
+            f"/api/channels/{team['general']['id']}/members", {"userIds": [one.user_id]}
+        )
+        await send_message(one, team["general"]["id"], "yttriumbadger")
+
+        answer = await team["owner"].get("/api/search?q=from:@Sam yttriumbadger")
+
+        assert answer.body["messages"] == []
+        assert "from:Sam" in answer.body["parsed"]["unresolved"]
+
+
+class TestPagingThroughResults:
+    """Reaching result 26.
+
+    Search answered "Showing 25 of 2107" and offered no way to see the twenty-sixth,
+    so anything not in the first page by rank was unreachable — you had to guess a
+    narrower query and hope. The cursor is keyset rather than an offset, per ADR 0003:
+    the next page is the rows sorting strictly below the last one shown, which does not
+    re-scan what you have already read and does not shift under an arriving message.
+    """
+
+    async def test_paging_reaches_every_match_exactly_once(self, team: dict) -> None:
+        # More than two pages, so a bug at the boundary has somewhere to show up.
+        for index in range(12):
+            await send_message(team["owner"], team["general"]["id"], f"quokkavine {index}")
+
+        seen: list[str] = []
+        cursor: str | None = None
+        for _ in range(10):
+            url = "/api/search?q=quokkavine&limit=5"
+            if cursor:
+                url += f"&cursor={cursor}"
+            answer = await team["owner"].get(url)
+            assert answer.status == 200, answer.body
+            seen.extend(m["id"] for m in answer.body["messages"])
+            cursor = answer.body["nextCursor"]
+            if not cursor:
+                break
+
+        assert len(seen) == 12, seen
+        assert len(set(seen)) == 12, "a message appeared on two pages"
+        assert cursor is None, "the walk should end rather than offer another page"
+
+    async def test_the_last_page_does_not_offer_another(self, team: dict) -> None:
+        for index in range(3):
+            await send_message(team["owner"], team["general"]["id"], f"narwhalcobalt {index}")
+
+        answer = await team["owner"].get("/api/search?q=narwhalcobalt&limit=25")
+
+        assert len(answer.body["messages"]) == 3
+        assert answer.body["nextCursor"] is None
+
+    async def test_a_full_final_page_offers_one_more_that_is_empty(self, team: dict) -> None:
+        # The page is full, so we cannot know it is the last one without asking. Offering
+        # a cursor that answers empty is better than withholding one that had results.
+        for index in range(4):
+            await send_message(team["owner"], team["general"]["id"], f"lemurgranite {index}")
+
+        first = await team["owner"].get("/api/search?q=lemurgranite&limit=4")
+        assert first.body["nextCursor"] is not None
+
+        second = await team["owner"].get(
+            f"/api/search?q=lemurgranite&limit=4&cursor={first.body['nextCursor']}"
+        )
+        assert second.body["messages"] == []
+
+    async def test_a_forged_cursor_is_refused_rather_than_ignored(self, team: dict) -> None:
+        answer = await team["owner"].get("/api/search?q=anything&cursor=notacursor")
+
+        assert answer.status == 400
+        assert answer.body["error"]["code"] == "bad_request"
+
+    async def test_paging_does_not_cross_the_membership_boundary(self, team: dict) -> None:
+        # The join against channel_members is the security boundary, and a second page
+        # is a second query — it has to carry the same restriction as the first.
+        private = (
+            await team["owner"].post("/api/channels", {"name": "hidden-paging", "kind": "private"})
+        ).body["channel"]
+        for index in range(8):
+            await send_message(team["owner"], private["id"], f"basiliskonyx {index}")
+
+        answer = await team["member"].get("/api/search?q=basiliskonyx&limit=4")
+
+        assert answer.body["messages"] == []
+        assert answer.body["total"] == 0
+        assert answer.body["nextCursor"] is None
+
+
+class TestAModifierThatCannotBeHonoured:
+    """Every modifier refuses rather than widening — `has:` was the last one that did not.
+
+    `from:` and `in:` answer with nothing and name what they could not place. A bad date
+    answers 400 and says the format. `has:` matched its case, failed the value check and
+    then did nothing at all, so `has:files` — the plural, the obvious typo — searched the
+    whole workspace while looking filtered.
+    """
+
+    async def test_an_unknown_has_value_is_refused(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "wombatlantern")
+
+        answer = await team["owner"].get("/api/search?q=has:files wombatlantern")
+
+        assert answer.status == 400
+        assert "has:link" in answer.body["error"]["message"]
+
+    async def test_the_two_it_accepts_still_work(self, team: dict) -> None:
+        # The guard: refusing the wrong words must not refuse the right ones.
+        for value in ("link", "file"):
+            answer = await team["owner"].get(f"/api/search?q=has:{value} anything")
+            assert answer.status == 200, value
+
+    async def test_a_colon_in_ordinary_text_is_still_searchable(self, team: dict) -> None:
+        # An unrecognised `key:value` stays part of the query rather than being eaten —
+        # otherwise a URL or a timestamp could not be searched for at all.
+        answer = await team["owner"].get("/api/search?q=https://example.com/thing")
+
+        assert answer.status == 200
+        assert answer.body["parsed"]["text"] == "https://example.com/thing"

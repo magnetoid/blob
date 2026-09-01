@@ -20,6 +20,7 @@ from sqlalchemy import text
 from ..db.engine import transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, not_found
+from ..lib.ids import IdParam
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
 from ..lib.redis import redis
@@ -32,7 +33,7 @@ router = APIRouter(tags=["interactions"])
 
 
 class InteractionInput(CamelModel):
-    message_id: str
+    message_id: IdParam
     action_id: str
     #: What the element carried — a button's value, or the option a select chose.
     value: str = ""

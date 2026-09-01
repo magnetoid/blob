@@ -1,3 +1,7 @@
+
+> @blob/api@0.1.0 openapi /Users/magnetoid/c/blob/apps/api
+> uv run python -m blob_api.openapi_dump
+
 {
   "components": {
     "schemas": {
@@ -23,6 +27,7 @@
         "properties": {
           "userIds": {
             "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "type": "string"
             },
             "maxItems": 50,
@@ -456,6 +461,7 @@
           "threadRootId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -471,6 +477,7 @@
           "triggerMessageId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -1034,6 +1041,95 @@
         "title": "Bootstrap",
         "type": "object"
       },
+      "BrowsableChannel": {
+        "description": "A public channel as the directory lists it.\n\nDeliberately not `ChannelWithState`: the directory answers a different question \u2014\n\"what is there, how busy is it, am I in it\" \u2014 and folding a member count into the\nsidebar's own query would make every bootstrap pay for a number only this screen\nshows.",
+        "properties": {
+          "archivedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archivedat"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "joined": {
+            "title": "Joined",
+            "type": "boolean"
+          },
+          "memberCount": {
+            "title": "Membercount",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "memberCount",
+          "joined"
+        ],
+        "title": "BrowsableChannel",
+        "type": "object"
+      },
+      "BrowseOut": {
+        "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/BrowsableChannel"
+            },
+            "title": "Channels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "channels"
+        ],
+        "title": "BrowseOut",
+        "type": "object"
+      },
       "BudgetInput": {
         "description": "Daily caps. None lifts one; both None means unlimited, which is the default.",
         "properties": {
@@ -1147,6 +1243,7 @@
             "type": "string"
           },
           "upToMessageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Uptomessageid",
             "type": "string"
           }
@@ -1604,6 +1701,7 @@
             "anyOf": [
               {
                 "items": {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 "maxItems": 200,
@@ -1643,6 +1741,7 @@
         "properties": {
           "userIds": {
             "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "type": "string"
             },
             "maxItems": 8,
@@ -1987,6 +2086,7 @@
       "DeleteMessageInput": {
         "properties": {
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           }
@@ -2767,6 +2867,7 @@
             "title": "Clientactionid"
           },
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           },
@@ -3169,6 +3270,7 @@
       "MarkReadInput": {
         "properties": {
           "lastReadMessageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Lastreadmessageid",
             "type": "string"
           }
@@ -3182,6 +3284,7 @@
       "MarkUnreadInput": {
         "properties": {
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           }
@@ -3196,6 +3299,7 @@
         "properties": {
           "userIds": {
             "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "type": "string"
             },
             "title": "Userids",
@@ -4013,6 +4117,7 @@
           "threadRootId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -4434,6 +4539,129 @@
         "title": "SaveThemeInput",
         "type": "object"
       },
+      "ScheduleInput": {
+        "properties": {
+          "body": {
+            "maxLength": 12000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "clientMsgId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Clientmsgid",
+            "type": "string"
+          },
+          "sendAt": {
+            "title": "Sendat",
+            "type": "string"
+          },
+          "threadRootId": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threadrootid"
+          }
+        },
+        "required": [
+          "body",
+          "sendAt",
+          "clientMsgId"
+        ],
+        "title": "ScheduleInput",
+        "type": "object"
+      },
+      "ScheduledListOut": {
+        "properties": {
+          "scheduled": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduledMessage"
+            },
+            "title": "Scheduled",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scheduled"
+        ],
+        "title": "ScheduledListOut",
+        "type": "object"
+      },
+      "ScheduledMessage": {
+        "description": "A message waiting to be sent. Only ever the author's own.",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "sendAt": {
+            "title": "Sendat",
+            "type": "string"
+          },
+          "threadRootId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threadrootid"
+          }
+        },
+        "required": [
+          "id",
+          "channelId",
+          "body",
+          "sendAt",
+          "createdAt"
+        ],
+        "title": "ScheduledMessage",
+        "type": "object"
+      },
+      "ScheduledOut": {
+        "properties": {
+          "scheduled": {
+            "$ref": "#/components/schemas/ScheduledMessage"
+          }
+        },
+        "required": [
+          "scheduled"
+        ],
+        "title": "ScheduledOut",
+        "type": "object"
+      },
       "SearchOut": {
         "properties": {
           "messages": {
@@ -4442,6 +4670,17 @@
             },
             "title": "Messages",
             "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
           },
           "parsed": {
             "additionalProperties": true,
@@ -4483,6 +4722,7 @@
           },
           "attachmentIds": {
             "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "type": "string"
             },
             "maxItems": 10,
@@ -4504,6 +4744,7 @@
           "threadRootId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -6283,6 +6524,7 @@
       "blob_api__routers__bot_api__EditMessageInput": {
         "properties": {
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           },
@@ -6322,6 +6564,7 @@
             "type": "string"
           },
           "messageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Messageid",
             "type": "string"
           }
@@ -6593,6 +6836,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -6788,6 +7032,7 @@
             "name": "ticket_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Ticket Id",
               "type": "string"
             }
@@ -6828,6 +7073,7 @@
             "name": "ticket_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Ticket Id",
               "type": "string"
             }
@@ -6881,6 +7127,7 @@
             "name": "ticket_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Ticket Id",
               "type": "string"
             }
@@ -6983,6 +7230,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7023,6 +7271,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7075,6 +7324,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7117,6 +7367,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7126,6 +7377,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -7166,6 +7418,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7175,6 +7428,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -7405,6 +7659,7 @@
             "name": "workspace_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Workspace Id",
               "type": "string"
             }
@@ -7446,6 +7701,7 @@
             "name": "workspace_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Workspace Id",
               "type": "string"
             }
@@ -7519,6 +7775,7 @@
             "name": "invite_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Invite Id",
               "type": "string"
             }
@@ -7747,6 +8004,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -7787,6 +8045,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -7840,6 +8099,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -7883,6 +8143,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -7936,6 +8197,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -7978,6 +8240,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -7987,6 +8250,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -8027,6 +8291,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8036,6 +8301,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -8079,6 +8345,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8122,6 +8389,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8177,6 +8445,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8186,6 +8455,7 @@
             "name": "delivery_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Delivery Id",
               "type": "string"
             }
@@ -8228,6 +8498,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8270,6 +8541,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8327,6 +8599,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8367,6 +8640,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8420,6 +8694,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8474,6 +8749,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8517,6 +8793,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8571,6 +8848,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8613,6 +8891,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8656,6 +8935,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8698,6 +8978,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8841,6 +9122,7 @@
             "name": "theme_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Theme Id",
               "type": "string"
             }
@@ -8965,6 +9247,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -9007,6 +9290,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -9050,6 +9334,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -9093,6 +9378,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -9206,6 +9492,7 @@
             "name": "webhook_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Webhook Id",
               "type": "string"
             }
@@ -9249,6 +9536,7 @@
             "name": "run_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Run Id",
               "type": "string"
             }
@@ -9280,6 +9568,51 @@
         "tags": [
           "agentic"
         ]
+      }
+    },
+    "/api/agents/terminal/{user_id}": {
+      "get": {
+        "description": "Which agent a DM's terminal would open into, or why there isn't one.\n\n`/cli` needs an answer before it opens anything: a panel that appears and then shows\na close code is worse than a command that says why it did nothing. The socket\nre-resolves this at connect time \u2014 this is the same question asked early, never the\nauthority for it, so nothing here is a place to get the gate wrong once.",
+        "operationId": "agent_terminal_target_api_agents_terminal__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Agent Terminal Target Api Agents Terminal  User Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Terminal Target"
       }
     },
     "/api/auth/forgot-password": {
@@ -9655,6 +9988,61 @@
         ]
       }
     },
+    "/api/channels/browse": {
+      "get": {
+        "description": "The channel directory.\n\nPublic channels only, so nothing here can reveal that a private channel exists \u2014\nthe same reason opening one you are not in answers 404 rather than 403.",
+        "operationId": "browse_channels_api_channels_browse_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Browse Channels",
+        "tags": [
+          "channels"
+        ]
+      }
+    },
     "/api/channels/{channel_id}": {
       "get": {
         "operationId": "get_channel_api_channels__channel_id__get",
@@ -9664,6 +10052,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -9704,6 +10093,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -9757,6 +10147,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -9799,6 +10190,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -9841,6 +10233,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -9883,6 +10276,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -9925,6 +10319,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -9965,6 +10360,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10018,6 +10414,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10070,6 +10467,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10081,6 +10479,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 {
@@ -10097,6 +10496,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 {
@@ -10113,6 +10513,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 {
@@ -10170,6 +10571,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10222,6 +10624,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10264,6 +10667,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10307,6 +10711,60 @@
         ]
       }
     },
+    "/api/channels/{channel_id}/schedule": {
+      "post": {
+        "description": "Write it now, send it then.",
+        "operationId": "schedule_message_api_channels__channel_id__schedule_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Schedule Message",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/channels/{channel_id}/unread": {
       "post": {
         "description": "Leave a message, and everything after it, unread.\n\nIts own route rather than a flag on `/read`, because that one is a ratchet and the\nratchet protects something: two tabs both mark read on focus, and a stale one\narriving second must not un-read what the other just read. Rewinding is a thing a\nperson asks for, so it says so.",
@@ -10317,6 +10775,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -11075,6 +11534,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11116,6 +11576,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11156,6 +11617,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11208,6 +11670,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11260,6 +11723,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11311,6 +11775,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11364,6 +11829,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11416,6 +11882,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11458,6 +11925,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11522,6 +11990,28 @@
         ]
       }
     },
+    "/api/read-states/all": {
+      "post": {
+        "description": "Slack's Shift+Esc: everything, everywhere, read.\n\nBroadcasts one event per channel that actually moved rather than a single\n\"all read\" event, so the other tabs apply it through the same reducer every\nother read-state change goes through \u2014 a second kind of event would be a\nsecond path to keep in step with the first.",
+        "operationId": "mark_all_read_api_read_states_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadStatesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mark All Read",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/saved": {
       "get": {
         "description": "Everything put aside, newest first \u2014 the flat form the older client read.",
@@ -11554,6 +12044,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11597,6 +12088,71 @@
         ]
       }
     },
+    "/api/scheduled": {
+      "get": {
+        "description": "Only ever your own: a scheduled message is private until it is sent.",
+        "operationId": "list_scheduled_api_scheduled_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Scheduled",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/scheduled/{scheduled_id}": {
+      "delete": {
+        "operationId": "cancel_scheduled_api_scheduled__scheduled_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduled_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Scheduled Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Scheduled",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/search": {
       "get": {
         "operationId": "search_messages_api_search_get",
@@ -11622,6 +12178,23 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
             }
           }
         ],
@@ -11777,6 +12350,7 @@
             "name": "task_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Task Id",
               "type": "string"
             }
@@ -11872,6 +12446,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11912,6 +12487,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11954,6 +12530,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11994,6 +12571,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -12089,6 +12667,7 @@
             "name": "attachment_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Attachment Id",
               "type": "string"
             }
@@ -12169,6 +12748,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -12484,6 +13064,7 @@
             "name": "thread_root_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Thread Root Id",
               "type": "string"
             }
@@ -12538,6 +13119,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 {
@@ -12722,6 +13304,7 @@
             "name": "workspace_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Workspace Id",
               "type": "string"
             }

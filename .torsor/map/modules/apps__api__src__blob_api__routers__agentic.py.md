@@ -4,29 +4,29 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:17'
-updated: '2026-08-27T03:38:17'
+created: '2026-09-01T23:39:49'
+updated: '2026-09-01T23:39:49'
 ---
 
 # apps/api/src/blob_api/routers/agentic.py
 
 Symbols in `apps/api/src/blob_api/routers/agentic.py`.
 
-- L32 `ThreadSummaryOut` (class)
-- L36 `AgentTasksOut` (class)
-- L40 `AgentTaskOut` (class)
-- L44 `_root_message(message_id: str, user: SessionUser)` (function)
-- L55 `get_thread_summary(message_id: str, user: SessionUser=Depends(current_user))` (function)
-- L65 `refresh_thread_summary(message_id: str, request: Request, user: SessionUser=Depends(current_user))` (function)
-- L98 `list_thread_tasks(message_id: str, user: SessionUser=Depends(current_user))` (function)
-- L108 `create_thread_task(message_id: str, payload: CreateAgentTaskInput, request: Request, user: SessionUser=Depends(current_user))` (function)
-- L164 `update_task(task_id: str, payload: UpdateAgentTaskInput, request: Request, user: SessionUser=Depends(current_user))` (function)
-- L225 `list_tasks(assignee: str | None=None, status: Annotated[str | None, Query()]=None, user: SessionUser=Depends(current_user))` (function)
-- L277 `CatchupInput` (class)
-- L281 `CatchupSummaryOut` (class)
-- L289 `CatchupOut` (class)
-- L294 `catch_me_up(payload: CatchupInput, user: SessionUser=Depends(current_user))` (function) — Summarise what you haven't read — one channel, or the busiest few.
-- L331 `AgentRunsOut` (class)
-- L335 `OkOut` (class)
-- L340 `channel_agent_runs(channel_id: str, user: SessionUser=Depends(current_user))` (function) — The runs a conversation renders on load: live cards plus the recent tail.
-- L357 `cancel_agent_run(run_id: str, request: Request, user: SessionUser=Depends(current_user))` (function) — Stop an in-flight run.
+- L33 `ThreadSummaryOut` (class)
+- L37 `AgentTasksOut` (class)
+- L41 `AgentTaskOut` (class)
+- L45 `_root_message(message_id: str, user: SessionUser)` (function)
+- L56 `get_thread_summary(message_id: IdParam, user: SessionUser=Depends(current_user))` (function)
+- L66 `refresh_thread_summary(message_id: IdParam, request: Request, user: SessionUser=Depends(current_user))` (function)
+- L99 `list_thread_tasks(message_id: IdParam, user: SessionUser=Depends(current_user))` (function)
+- L109 `create_thread_task(message_id: IdParam, payload: CreateAgentTaskInput, request: Request, user: SessionUser=Depends(current_user))` (function)
+- L165 `update_task(task_id: IdParam, payload: UpdateAgentTaskInput, request: Request, user: SessionUser=Depends(current_user))` (function)
+- L226 `list_tasks(assignee: str | None=None, status: Annotated[str | None, Query()]=None, user: SessionUser=Depends(current_user))` (function)
+- L278 `CatchupInput` (class)
+- L282 `CatchupSummaryOut` (class)
+- L290 `CatchupOut` (class)
+- L295 `catch_me_up(payload: CatchupInput, user: SessionUser=Depends(current_user))` (function) — Summarise what you haven't read — one channel, or the busiest few.
+- L332 `AgentRunsOut` (class)
+- L336 `OkOut` (class)
+- L341 `channel_agent_runs(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function) — The runs a conversation renders on load: live cards plus the recent tail.
+- L358 `cancel_agent_run(run_id: IdParam, request: Request, user: SessionUser=Depends(current_user))` (function) — Stop an in-flight run.

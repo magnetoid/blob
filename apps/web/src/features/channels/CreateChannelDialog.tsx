@@ -54,26 +54,16 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // The backdrop is presentational. It was role="button" tabIndex={0}, which put a tab
+  // stop announced as a button in front of the dialog and answered Space by closing it.
+  // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
     <div
       className="dialog-backdrop"
+      role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (
-          event.key === "Escape" ||
-          event.key === "Enter" ||
-          event.key === " "
-        ) {
-          event.preventDefault();
-          onClose();
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label="Close create channel dialog"
     >
       <form
         className="dialog"
@@ -115,13 +105,24 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
             type="button"
             className="toggle"
             aria-pressed={isPrivate}
+            // The visible "Private" is a sibling span, which names nothing: a screen
+            // reader heard "button, pressed" and had to guess what it had just decided.
+            // Six of the app's eight toggles already say what they are; this one governs
+            // whether the channel can be found at all, so it is the worst one to leave
+            // silent.
+            aria-label="Private channel"
+            aria-describedby="create-channel-private-hint"
             onClick={() => setIsPrivate((p) => !p)}
           >
             <span />
           </button>
           <span>
             <span className="pref-label">Private</span>
-            <span className="pref-hint" style={{ display: "block" }}>
+            <span
+              className="pref-hint"
+              id="create-channel-private-hint"
+              style={{ display: "block" }}
+            >
               Only invited people can find or read it.
             </span>
           </span>

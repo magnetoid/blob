@@ -37,6 +37,7 @@ export function ChannelView() {
   const unreadMarkers = useStore((s) => s.unreadMarkers);
   const loadOlder = useStore((s) => s.loadOlder);
   const openChannel = useStore((s) => s.openChannel);
+  const requestScrollToMessage = useStore((s) => s.requestScrollToMessage);
   const agentRuns = useStore((s) => s.agentRuns);
 
   // Runs anchored under their trigger. Thread replies carry threadRootId and anchor in
@@ -45,7 +46,11 @@ export function ChannelView() {
     if (!activeChannelId) return undefined;
     const map: Record<string, AgentRunView[]> = {};
     for (const run of Object.values(agentRuns)) {
-      if (run.channelId !== activeChannelId || run.threadRootId || !run.triggerMessageId) {
+      if (
+        run.channelId !== activeChannelId ||
+        run.threadRootId ||
+        !run.triggerMessageId
+      ) {
         continue;
       }
       (map[run.triggerMessageId] ??= []).push(run);
@@ -61,16 +66,18 @@ export function ChannelView() {
   /**
    * Bring a pinned message into view.
    *
-   * This used to work only when the message was already rendered, and a pin is very
-   * often older than the loaded page — so the common case was a click that closed the
-   * panel and did nothing. Permalinks needed a page fetched *around* a message anyway,
-   * so the pin jump now falls back to the same thing rather than giving up.
+   * A pin is very often older than the loaded page, so this fetches the page around it
+   * before trying to show it. The showing is left to `MessageList`: the list is
+   * virtualized, so a row that is not already on screen has no element to scroll to and
+   * will not have one until something scrolls to its *index*. Looking it up in the DOM
+   * on the next frame — which is what this did — found nothing every time, so the common
+   * case was a click that closed the panel, loaded the right page, and left you at the
+   * bottom of the channel.
    */
   async function jumpToMessage(messageId: string) {
     if (scrollToMessage(messageId) || !activeChannelId) return;
     await openChannel(activeChannelId, messageId);
-    // React has not committed the new list on the frame the fetch resolves.
-    requestAnimationFrame(() => scrollToMessage(messageId));
+    requestScrollToMessage(messageId);
   }
 
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
@@ -83,8 +90,8 @@ export function ChannelView() {
     return () => clearInterval(timer);
   }, [typing]);
 
-  const membershipVersion = useStore(
-    (s) => (s.activeChannelId ? (s.membershipVersion[s.activeChannelId] ?? 0) : 0),
+  const membershipVersion = useStore((s) =>
+    s.activeChannelId ? (s.membershipVersion[s.activeChannelId] ?? 0) : 0,
   );
   useEffect(() => {
     // Version changes drop the cached count so the fetch below re-runs.
@@ -154,7 +161,7 @@ export function ChannelView() {
 
   if (!activeChannelId || !channel) {
     return (
-      <div className="pane">
+      <main className="pane">
         <div className="empty-state">
           <div className="empty-state-mark">#</div>
           <div className="empty-state-title">Pick a conversation</div>
@@ -162,7 +169,7 @@ export function ChannelView() {
             Choose a channel or a person on the left to start reading.
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -213,7 +220,7 @@ export function ChannelView() {
   }
 
   return (
-    <div className="pane">
+    <main className="pane">
       <header className="pane-header">
         <div style={{ minWidth: 0, position: "relative" }}>
           <div className="pane-heading">
@@ -240,7 +247,7 @@ export function ChannelView() {
                   ★
                 </span>
               )}
-              <ChevronDownIcon size={13} strokeWidth={2} />
+              <ChevronDownIcon size="sm" />
             </button>
           </div>
           <div className="pane-sub">
@@ -258,17 +265,17 @@ export function ChannelView() {
         <div className="pane-spacer" />
 
         <button
-          className="btn"
+          className="btn pane-action-huddle"
           disabled
           title="Huddles arrive in a later release"
         >
-          <HuddleIcon size={15} />
-          Huddle
+          <HuddleIcon size="md" />
+          <span className="pane-action-label">Huddle</span>
         </button>
         <button
           className="btn btn-ghost"
           title="Summarise what you haven't read here"
-          onClick={() => useStore.setState({ catchupScope: 'channel' })}
+          onClick={() => useStore.setState({ catchupScope: "channel" })}
         >
           Catch up
         </button>
@@ -284,8 +291,8 @@ export function ChannelView() {
               setPinsOpen((open) => !open);
             }}
           >
-            <PinIcon size={15} />
-            Pinned
+            <PinIcon size="md" />
+            <span className="pane-action-label">Pinned</span>
           </button>
           {pinsOpen && activeChannelId && (
             <PinnedPanel
@@ -301,7 +308,7 @@ export function ChannelView() {
           disabled={isDm}
           onClick={() => setDetailsOpen(true)}
         >
-          <MembersIcon size={15} />
+          <MembersIcon size="md" />
           {memberCount ?? "–"}
         </button>
       </header>
@@ -320,7 +327,7 @@ export function ChannelView() {
 
       {archived && (
         <div className="pinned-bar">
-          <PinIcon size={13} />
+          <PinIcon size="sm" />
           <span className="pinned-label">Archived</span>
           <span>This channel is read-only. Its history stays searchable.</span>
         </div>
@@ -376,6 +383,6 @@ export function ChannelView() {
           placeholder={isDm ? `Message ${title}` : `Message #${title}`}
         />
       )}
-    </div>
+    </main>
   );
 }

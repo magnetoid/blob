@@ -10,14 +10,14 @@
  * everywhere and can wait one row.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   EMOJI_CATEGORIES,
   reactionValue,
   searchEmoji,
   type ResolvedEmoji,
-} from '../lib/emoji.ts';
-import { useStore } from '../lib/store.ts';
+} from "../lib/emoji.ts";
+import { useStore } from "../lib/store.ts";
 
 interface Props {
   /** Receives the value to store: the character, or `:name:` for a custom emoji. */
@@ -46,7 +46,7 @@ function EmojiButton({
       aria-label={`:${emoji.name}:`}
       onClick={() => onPick(reactionValue(emoji))}
     >
-      {emoji.kind === 'custom' ? (
+      {emoji.kind === "custom" ? (
         <img className="custom-emoji" src={emoji.url} alt="" loading="lazy" />
       ) : (
         emoji.char
@@ -57,7 +57,7 @@ function EmojiButton({
 
 export function EmojiPicker({ onPick, onClose, label }: Props) {
   const customEmoji = useStore((s) => s.customEmoji);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -74,32 +74,32 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
   const clamped = Math.min(cursor, Math.max(results.length - 1, 0));
 
   const onKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       event.preventDefault();
       onClose();
       return;
     }
     if (!results.length) return;
 
-    if (event.key === 'Enter') {
+    if (event.key === "Enter") {
       event.preventDefault();
       const chosen = results[clamped];
       if (chosen) onPick(reactionValue(chosen));
       return;
     }
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
       event.preventDefault();
       setCursor(Math.min(clamped + 1, results.length - 1));
       return;
     }
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
       event.preventDefault();
       setCursor(Math.max(clamped - 1, 0));
     }
   };
 
   const own: ResolvedEmoji[] = customEmoji.map((c) => ({
-    kind: 'custom',
+    kind: "custom",
     name: c.name,
     url: c.url,
   }));
@@ -138,9 +138,23 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
           )
         ) : (
           <>
+            {/* Groups, not headings.
+                These were h4, which skipped a level and broke heading navigation for
+                the whole page — and no level is reliably right, because what precedes
+                a popover depends on where it opened. The document's own order is
+                already h2, h2, h1: the sidebar's section labels come before the
+                channel title. A picker's internal labels are not document structure,
+                so they name a group instead of joining the outline, and a reader still
+                hears "Smileys and people, group" on the way in. */}
             {own.length > 0 && (
-              <section className="emoji-section">
-                <h4 className="emoji-heading">{'This workspace'}</h4>
+              <section
+                className="emoji-section"
+                role="group"
+                aria-labelledby="emoji-group-own"
+              >
+                <p className="emoji-heading" id="emoji-group-own">
+                  {"This workspace"}
+                </p>
                 <div className="emoji-grid">
                   {own.map((emoji) => (
                     <EmojiButton
@@ -155,13 +169,24 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
             )}
 
             {EMOJI_CATEGORIES.map((category) => (
-              <section className="emoji-section" key={category.id}>
-                <h4 className="emoji-heading">{category.label}</h4>
+              <section
+                className="emoji-section"
+                key={category.id}
+                role="group"
+                aria-labelledby={`emoji-group-${category.id}`}
+              >
+                <p className="emoji-heading" id={`emoji-group-${category.id}`}>
+                  {category.label}
+                </p>
                 <div className="emoji-grid">
                   {category.entries.map((entry) => (
                     <EmojiButton
                       key={entry.name}
-                      emoji={{ kind: 'unicode', name: entry.name, char: entry.char }}
+                      emoji={{
+                        kind: "unicode",
+                        name: entry.name,
+                        char: entry.char,
+                      }}
                       active={false}
                       onPick={onPick}
                     />

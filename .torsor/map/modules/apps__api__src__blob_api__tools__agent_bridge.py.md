@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:17'
-updated: '2026-08-27T03:38:17'
+created: '2026-09-01T23:39:51'
+updated: '2026-09-01T23:39:51'
 ---
 
 # apps/api/src/blob_api/tools/agent_bridge.py

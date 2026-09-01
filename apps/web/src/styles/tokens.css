@@ -1,11 +1,23 @@
 /*
- * Design tokens, taken from the "Minimalist Chat App Design" artifact.
+ * Design tokens.
  *
- * Warm paper neutrals, a forest-green accent, Instrument Sans. Every colour in the
- * app comes from here — no component declares a hex value.
+ * Colour, type and layout came from the "Minimalist Chat App Design" artifact: warm
+ * paper neutrals, a forest-green accent, Instrument Sans. Every colour in the app comes
+ * from here — no component declares a hex value.
  *
- * Theme handling has three states: an explicit choice stamps data-theme on <html>,
- * while "system" stamps nothing and falls back to prefers-color-scheme.
+ * Elevation, radius, motion and stacking were added later, and for the same reason:
+ * they had been thirteen radii, three shadows applied four ways, nineteen copies of
+ * "120ms ease" and eleven magic z-indexes, so there was nowhere to change any of them
+ * once.
+ *
+ * The colour names here are a contract with the server: `services/themes.py` allowlists
+ * them by string and slices that tuple *by index* to group the theme editor, so renaming
+ * or reordering one breaks stored themes. Everything below the colours is structure
+ * rather than palette, is deliberately not themeable, and is free to change.
+ *
+ * Theme handling has three states: an explicit choice stamps data-theme on <html>, while
+ * "system" stamps nothing and falls back to prefers-color-scheme. A custom theme is
+ * written as inline properties on <html> by `lib/theme.ts`, which beats every rule here.
  */
 
 :root {
@@ -27,15 +39,21 @@
   --hairline-popover: #e4e2da;
 
   /* ─── text ─────────────────────────────────────────────────────────────── */
+  /* The muted end of this ladder is compressed, and deliberately. A Lighthouse pass
+     found --text-4, --text-5, --text-label and --text-faint all below WCAG AA's 4.5:1
+     in both themes — timestamps, day dividers, section headings and the composer hint
+     were between 1.75 and 4.23. Four visually distinct greys is more than the contrast
+     budget of this palette allows, so they keep their order and lose most of their
+     spread: text nobody can read is a defect, not a design. */
   --text: #1a1d1b;
   --text-body: #252926; /* message bodies read slightly softer */
   --text-2: #4e534f;
   --text-3: #6b6f6c;
-  --text-4: #8e928e;
-  --text-5: #9a9e9a;
-  --text-label: #a3a6a2; /* uppercase section labels */
-  --text-faint: #b7bab6;
-  --text-rail: #7b807c;
+  --text-4: #626662;
+  --text-5: #666a66;
+  --text-label: #696c68; /* uppercase section labels */
+  --text-faint: #6c6f6b;
+  --text-rail: #6a6f6b;
 
   /* ─── accent ───────────────────────────────────────────────────────────── */
   --accent: #1f5c3d;
@@ -62,8 +80,8 @@
   --knob: #ffffff;
   --backdrop: rgb(26 29 27 / 32%);
 
-  --shadow-popover: 0 4px 14px -6px rgb(26 29 27 / 18%);
-  --shadow-menu: 0 6px 20px -8px rgb(26 29 27 / 16%);
+  /* The toggle knob keeps a shadow of its own: it is a 16px control on a coloured
+     track, not a surface, and none of the elevation levels describe it. */
   --shadow-knob: 0 1px 3px rgb(26 29 27 / 20%);
 
   /* ─── type ─────────────────────────────────────────────────────────────── */
@@ -91,6 +109,120 @@
 
   /* ─── density (Balanced) ───────────────────────────────────────────────── */
   --message-padding-y: 10px;
+
+  /* ─── elevation ────────────────────────────────────────────────────────── */
+  /* Every level opens with a 1px ring, so a surface's border and its shadow can
+     never disagree about where its edge is. Light keeps the canvas flat and lifts
+     only what floats; the ink is --text rather than black, so the shade belongs to
+     the palette instead of sitting on top of it. */
+  --shadow-ink: 26 29 27;
+  --elev-1:
+    0 0 0 1px var(--hairline),
+    0 1px 2px rgb(var(--shadow-ink) / 6%),
+    0 2px 4px -2px rgb(var(--shadow-ink) / 6%);
+  --elev-2:
+    0 0 0 1px var(--hairline-popover),
+    0 4px 12px -4px rgb(var(--shadow-ink) / 10%),
+    0 8px 24px -8px rgb(var(--shadow-ink) / 12%);
+  --elev-3:
+    0 0 0 1px var(--hairline-popover),
+    0 12px 32px -8px rgb(var(--shadow-ink) / 16%),
+    0 24px 64px -16px rgb(var(--shadow-ink) / 20%);
+
+  /* The ladder elevation climbs in dark mode, where a shadow on a dark ground is
+     nearly invisible and lighter surfaces do the work instead. Both are --surface
+     in light, so one rule serves both themes. Derived with color-mix so a custom
+     theme's own surface colour still gets its ladder. */
+  --surface-2: var(--surface);
+  --surface-3: var(--surface);
+
+  /* ─── radius ───────────────────────────────────────────────────────────── */
+  /* Five steps for what were thirteen ad-hoc values. Nested corners follow
+     inner = outer - padding, clamped at 2px. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* ─── motion ───────────────────────────────────────────────────────────── */
+  /* Exits are quicker than entrances: arriving is information and leaving is getting
+     out of the way. --dur-fast is the 120ms that nineteen rules had each written out. */
+  --dur-fast: 120ms;
+  --dur-open: 200ms;
+  --dur-exit: 150ms;
+  --dur-modal: 250ms;
+  --dur-panel: 300ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-color: ease;
+  --motion-scale-in: 0.96;
+  --motion-slide: 4px;
+  --motion-slide-lg: 8px;
+
+  /* ─── stacking ─────────────────────────────────────────────────────────── */
+  /* One ladder, ordered by what has to survive what. The emoji picker used to sit
+     at 95, above the dialog backdrop at 90; as --z-popover it cannot. */
+  --z-raised: 10;
+  --z-sticky: 20;
+  --z-panel: 40;
+  --z-scrim: 50;
+  --z-drawer: 60;
+  --z-menu: 70;
+  --z-popover: 80;
+  --z-modal: 90;
+  --z-toast: 110;
+
+  /* ─── dark values ──────────────────────────────────────────────────────── */
+  /* Written once, here, and selected two ways below. They used to be written twice,
+     verbatim, which meant every palette change had to be made in both places or the
+     OS-driven and explicitly-chosen dark themes drifted apart. What is duplicated now
+     is only the alias list, which does not change when a value does. */
+  --dark-bg: #141614;
+  --dark-bg-rail: #101210;
+  --dark-bg-sidebar: #171a17;
+  --dark-surface: #1c1f1c;
+  --dark-surface-hover: #232623;
+  --dark-surface-hover-warm: #232623;
+  --dark-surface-hover-deep: #2a2e2a;
+  --dark-surface-row-hover: #1a1d1a;
+  --dark-surface-muted: #1f221f;
+  --dark-surface-icon: #262a26;
+  --dark-hairline: #2b2f2b;
+  --dark-hairline-soft: #242824;
+  --dark-hairline-strong: #3b403b;
+  --dark-hairline-popover: #323732;
+  --dark-text: #eceee9;
+  --dark-text-body: #dfe2dd;
+  --dark-text-2: #b3b8b2;
+  --dark-text-3: #9aa099;
+  --dark-text-4: #949b93;
+  --dark-text-5: #8f968e;
+  --dark-text-label: #8c938b;
+  --dark-text-faint: #888f87;
+  --dark-text-rail: #8b928a;
+  --dark-accent: #5fb287;
+  --dark-accent-hover: #7cc79f;
+  --dark-accent-contrast: #0c130f;
+  --dark-accent-wash: #1b2a22;
+  --dark-accent-wash-rail: #1f3327;
+  --dark-accent-wash-soft: #1b2a22;
+  --dark-accent-border: #2f4a3a;
+  --dark-accent-border-soft: #294235;
+  --dark-avatar-bg: #24382c;
+  --dark-presence-online: #4fae72;
+  --dark-presence-away: #d0a03a;
+  --dark-presence-offline: #565c55;
+  --dark-unread-line: #5c4636;
+  --dark-unread-text: #d59a63;
+  --dark-danger: #d9705f;
+  --dark-disabled-bg: #262a26;
+  --dark-disabled-fg: #5e655d;
+  --dark-track-off: #363b36;
+  --dark-scrollbar: #2f342f;
+  --dark-knob: #e8ebe7;
+  --dark-backdrop: rgb(0 0 0 / 55%);
 }
 
 :root[data-density='compact'] {
@@ -101,123 +233,187 @@
   --message-padding-y: 15px;
 }
 
-/*
- * Dark theme. The artifact defines the paper palette; this keeps its warm-neutral
- * character and lifts the green so it still passes contrast on a dark ground.
- */
-/*
- * Dark values, written once and selected two ways: by the OS when the viewer has made
- * no explicit choice, and by the stamped attribute when they have.
- */
+/* Dark, selected by the OS when the viewer has made no explicit choice. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-  --bg: #141614;
-  --bg-rail: #101210;
-  --bg-sidebar: #171a17;
-  --surface: #1c1f1c;
-  --surface-hover: #232623;
-  --surface-hover-warm: #232623;
-  --surface-hover-deep: #2a2e2a;
-  --surface-row-hover: #1a1d1a;
-  --surface-muted: #1f221f;
-  --surface-icon: #262a26;
+    --bg: var(--dark-bg);
+    --bg-rail: var(--dark-bg-rail);
+    --bg-sidebar: var(--dark-bg-sidebar);
+    --surface: var(--dark-surface);
+    --surface-hover: var(--dark-surface-hover);
+    --surface-hover-warm: var(--dark-surface-hover-warm);
+    --surface-hover-deep: var(--dark-surface-hover-deep);
+    --surface-row-hover: var(--dark-surface-row-hover);
+    --surface-muted: var(--dark-surface-muted);
+    --surface-icon: var(--dark-surface-icon);
+    --hairline: var(--dark-hairline);
+    --hairline-soft: var(--dark-hairline-soft);
+    --hairline-strong: var(--dark-hairline-strong);
+    --hairline-popover: var(--dark-hairline-popover);
+    --text: var(--dark-text);
+    --text-body: var(--dark-text-body);
+    --text-2: var(--dark-text-2);
+    --text-3: var(--dark-text-3);
+    --text-4: var(--dark-text-4);
+    --text-5: var(--dark-text-5);
+    --text-label: var(--dark-text-label);
+    --text-faint: var(--dark-text-faint);
+    --text-rail: var(--dark-text-rail);
+    --accent: var(--dark-accent);
+    --accent-hover: var(--dark-accent-hover);
+    --accent-contrast: var(--dark-accent-contrast);
+    --accent-wash: var(--dark-accent-wash);
+    --accent-wash-rail: var(--dark-accent-wash-rail);
+    --accent-wash-soft: var(--dark-accent-wash-soft);
+    --accent-border: var(--dark-accent-border);
+    --accent-border-soft: var(--dark-accent-border-soft);
+    --avatar-bg: var(--dark-avatar-bg);
+    --presence-online: var(--dark-presence-online);
+    --presence-away: var(--dark-presence-away);
+    --presence-offline: var(--dark-presence-offline);
+    --unread-line: var(--dark-unread-line);
+    --unread-text: var(--dark-unread-text);
+    --danger: var(--dark-danger);
+    --disabled-bg: var(--dark-disabled-bg);
+    --disabled-fg: var(--dark-disabled-fg);
+    --track-off: var(--dark-track-off);
+    --scrollbar: var(--dark-scrollbar);
+    --knob: var(--dark-knob);
+    --backdrop: var(--dark-backdrop);
 
-  --hairline: #2b2f2b;
-  --hairline-soft: #242824;
-  --hairline-strong: #3b403b;
-  --hairline-popover: #323732;
+    /* Shadows still exist in dark, but the surface ladder carries most of the
+       elevation; the ring turns to white at low alpha because a hairline that dark
+       reads as nothing. Derived from --surface, so a custom dark theme gets its own
+       ladder rather than these greens. */
+    --surface-2: color-mix(in oklab, var(--surface) 92%, #fff);
+    --surface-3: color-mix(in oklab, var(--surface) 86%, #fff);
+    --elev-1:
+      0 0 0 1px rgb(255 255 255 / 8%),
+      0 1px 2px rgb(0 0 0 / 40%);
+    --elev-2:
+      0 0 0 1px rgb(255 255 255 / 8%),
+      0 8px 24px -8px rgb(0 0 0 / 50%);
+    --elev-3:
+      0 0 0 1px rgb(255 255 255 / 10%),
+      0 16px 48px -12px rgb(0 0 0 / 60%);
 
-  --text: #eceee9;
-  --text-body: #dfe2dd;
-  --text-2: #b3b8b2;
-  --text-3: #9aa099;
-  --text-4: #838a82;
-  --text-5: #767d75;
-  --text-label: #6f766e;
-  --text-faint: #5e655d;
-  --text-rail: #8b928a;
-
-  --accent: #5fb287;
-  --accent-hover: #7cc79f;
-  --accent-contrast: #0c130f;
-  --accent-wash: #1b2a22;
-  --accent-wash-rail: #1f3327;
-  --accent-wash-soft: #1b2a22;
-  --accent-border: #2f4a3a;
-  --accent-border-soft: #294235;
-  --avatar-bg: #24382c;
-
-  --presence-online: #4fae72;
-  --presence-away: #d0a03a;
-  --presence-offline: #565c55;
-  --unread-line: #5c4636;
-  --unread-text: #d59a63;
-  --danger: #d9705f;
-  --disabled-bg: #262a26;
-  --disabled-fg: #5e655d;
-  --track-off: #363b36;
-  --scrollbar: #2f342f;
-  --knob: #e8ebe7;
-  --backdrop: rgb(0 0 0 / 55%);
-
-  --shadow-popover: 0 4px 14px -6px rgb(0 0 0 / 55%);
-  --shadow-menu: 0 6px 20px -8px rgb(0 0 0 / 55%);
-  --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
+    --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
   }
 }
 
+/* Dark, selected by the viewer. */
 :root[data-theme='dark'] {
-  --bg: #141614;
-  --bg-rail: #101210;
-  --bg-sidebar: #171a17;
-  --surface: #1c1f1c;
-  --surface-hover: #232623;
-  --surface-hover-warm: #232623;
-  --surface-hover-deep: #2a2e2a;
-  --surface-row-hover: #1a1d1a;
-  --surface-muted: #1f221f;
-  --surface-icon: #262a26;
+    --bg: var(--dark-bg);
+    --bg-rail: var(--dark-bg-rail);
+    --bg-sidebar: var(--dark-bg-sidebar);
+    --surface: var(--dark-surface);
+    --surface-hover: var(--dark-surface-hover);
+    --surface-hover-warm: var(--dark-surface-hover-warm);
+    --surface-hover-deep: var(--dark-surface-hover-deep);
+    --surface-row-hover: var(--dark-surface-row-hover);
+    --surface-muted: var(--dark-surface-muted);
+    --surface-icon: var(--dark-surface-icon);
+    --hairline: var(--dark-hairline);
+    --hairline-soft: var(--dark-hairline-soft);
+    --hairline-strong: var(--dark-hairline-strong);
+    --hairline-popover: var(--dark-hairline-popover);
+    --text: var(--dark-text);
+    --text-body: var(--dark-text-body);
+    --text-2: var(--dark-text-2);
+    --text-3: var(--dark-text-3);
+    --text-4: var(--dark-text-4);
+    --text-5: var(--dark-text-5);
+    --text-label: var(--dark-text-label);
+    --text-faint: var(--dark-text-faint);
+    --text-rail: var(--dark-text-rail);
+    --accent: var(--dark-accent);
+    --accent-hover: var(--dark-accent-hover);
+    --accent-contrast: var(--dark-accent-contrast);
+    --accent-wash: var(--dark-accent-wash);
+    --accent-wash-rail: var(--dark-accent-wash-rail);
+    --accent-wash-soft: var(--dark-accent-wash-soft);
+    --accent-border: var(--dark-accent-border);
+    --accent-border-soft: var(--dark-accent-border-soft);
+    --avatar-bg: var(--dark-avatar-bg);
+    --presence-online: var(--dark-presence-online);
+    --presence-away: var(--dark-presence-away);
+    --presence-offline: var(--dark-presence-offline);
+    --unread-line: var(--dark-unread-line);
+    --unread-text: var(--dark-unread-text);
+    --danger: var(--dark-danger);
+    --disabled-bg: var(--dark-disabled-bg);
+    --disabled-fg: var(--dark-disabled-fg);
+    --track-off: var(--dark-track-off);
+    --scrollbar: var(--dark-scrollbar);
+    --knob: var(--dark-knob);
+    --backdrop: var(--dark-backdrop);
 
-  --hairline: #2b2f2b;
-  --hairline-soft: #242824;
-  --hairline-strong: #3b403b;
-  --hairline-popover: #323732;
+    /* Shadows still exist in dark, but the surface ladder carries most of the
+       elevation; the ring turns to white at low alpha because a hairline that dark
+       reads as nothing. Derived from --surface, so a custom dark theme gets its own
+       ladder rather than these greens. */
+    --surface-2: color-mix(in oklab, var(--surface) 92%, #fff);
+    --surface-3: color-mix(in oklab, var(--surface) 86%, #fff);
+    --elev-1:
+      0 0 0 1px rgb(255 255 255 / 8%),
+      0 1px 2px rgb(0 0 0 / 40%);
+    --elev-2:
+      0 0 0 1px rgb(255 255 255 / 8%),
+      0 8px 24px -8px rgb(0 0 0 / 50%);
+    --elev-3:
+      0 0 0 1px rgb(255 255 255 / 10%),
+      0 16px 48px -12px rgb(0 0 0 / 60%);
 
-  --text: #eceee9;
-  --text-body: #dfe2dd;
-  --text-2: #b3b8b2;
-  --text-3: #9aa099;
-  --text-4: #838a82;
-  --text-5: #767d75;
-  --text-label: #6f766e;
-  --text-faint: #5e655d;
-  --text-rail: #8b928a;
-
-  --accent: #5fb287;
-  --accent-hover: #7cc79f;
-  --accent-contrast: #0c130f;
-  --accent-wash: #1b2a22;
-  --accent-wash-rail: #1f3327;
-  --accent-wash-soft: #1b2a22;
-  --accent-border: #2f4a3a;
-  --accent-border-soft: #294235;
-  --avatar-bg: #24382c;
-
-  --presence-online: #4fae72;
-  --presence-away: #d0a03a;
-  --presence-offline: #565c55;
-  --unread-line: #5c4636;
-  --unread-text: #d59a63;
-  --danger: #d9705f;
-  --disabled-bg: #262a26;
-  --disabled-fg: #5e655d;
-  --track-off: #363b36;
-  --scrollbar: #2f342f;
-  --knob: #e8ebe7;
-  --backdrop: rgb(0 0 0 / 55%);
-
-  --shadow-popover: 0 4px 14px -6px rgb(0 0 0 / 55%);
-  --shadow-menu: 0 6px 20px -8px rgb(0 0 0 / 55%);
-  --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
+    --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
 }
 
+/* ─── muted text on an elevated surface ─────────────────────────────────────
+   In dark mode the surface ladder climbs toward white, and every step it climbs
+   it spends contrast the muted greys do not have to give. Measured on the most
+   elevated surface, five of the eight text tokens fell under 4.5:1 — the
+   palette's kind label at 3.71, faint at 3.52 — while passing comfortably on the
+   base background, which is where the palette was tuned and where every audit had
+   looked at it. Lighthouse scored the page 100 throughout: a popover that is not
+   open is not in the snapshot.
+
+   So the text climbs with the surface. The mix is toward the same white the
+   surface mixes toward and lives on the eight floating components, which are
+   exactly the ones that set --surface-2 or --surface-3 as a background; anything
+   on the base background is untouched, and light mode is untouched by
+   construction because its whole ladder is --surface.
+
+   Derived rather than hard-coded, so a custom dark theme's own greys climb too.
+   ────────────────────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) :is(.user-menu-panel,
+      .autocomplete,
+      .palette,
+      .dialog,
+      .emoji-picker,
+      .pinned-panel,
+      .menu,
+      .toast) {
+    --text-3: color-mix(in oklab, var(--dark-text-3) 82%, #fff);
+    --text-4: color-mix(in oklab, var(--dark-text-4) 80%, #fff);
+    --text-5: color-mix(in oklab, var(--dark-text-5) 78%, #fff);
+    --text-label: color-mix(in oklab, var(--dark-text-label) 76%, #fff);
+    --text-faint: color-mix(in oklab, var(--dark-text-faint) 74%, #fff);
+    --text-rail: color-mix(in oklab, var(--dark-text-rail) 76%, #fff);
+  }
+}
+
+:root[data-theme='dark'] :is(.user-menu-panel,
+      .autocomplete,
+      .palette,
+      .dialog,
+      .emoji-picker,
+      .pinned-panel,
+      .menu,
+      .toast) {
+  --text-3: color-mix(in oklab, var(--dark-text-3) 82%, #fff);
+  --text-4: color-mix(in oklab, var(--dark-text-4) 80%, #fff);
+  --text-5: color-mix(in oklab, var(--dark-text-5) 78%, #fff);
+  --text-label: color-mix(in oklab, var(--dark-text-label) 76%, #fff);
+  --text-faint: color-mix(in oklab, var(--dark-text-faint) 74%, #fff);
+  --text-rail: color-mix(in oklab, var(--dark-text-rail) 76%, #fff);
+}

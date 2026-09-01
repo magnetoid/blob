@@ -31,12 +31,15 @@ vi.mock('./socket.ts', () => ({
     sendControl: vi.fn(),
     connect: vi.fn(),
     close: vi.fn(),
+    disconnect: vi.fn(),
     onEvent: vi.fn(),
-    onStatus: vi.fn(),
+    // Both hand back an unsubscribe, which `connectStoreToSocket` calls on teardown.
+    subscribe: vi.fn(() => vi.fn()),
+    onStatus: vi.fn(() => vi.fn()),
   },
 }));
 
-const { useStore } = await import('./store.ts');
+const { useStore, connectStoreToSocket } = await import('./store.ts');
 const { useToasts } = await import('./toasts.ts');
 
 beforeEach(() => {
@@ -100,5 +103,32 @@ describe('resync', () => {
     await useStore.getState().resync();
 
     expect(flushed).toHaveBeenCalled();
+  });
+});
+
+describe('coming back online', () => {
+  it('drains the outbox without waiting for the socket', async () => {
+    // The socket's backoff caps at 30 seconds, so a message queued as the wifi dropped
+    // could sit that long after it came back. Sending is REST, so the queue does not
+    // need the socket at all.
+    const flushed = vi.fn(async () => {});
+    useStore.setState({ flushOutbox: flushed });
+    const teardown = connectStoreToSocket();
+
+    window.dispatchEvent(new Event('online'));
+    await Promise.resolve();
+
+    expect(flushed).toHaveBeenCalled();
+    teardown();
+  });
+
+  it('stops listening once the socket is torn down', () => {
+    const flushed = vi.fn(async () => {});
+    useStore.setState({ flushOutbox: flushed });
+    connectStoreToSocket()();
+
+    window.dispatchEvent(new Event('online'));
+
+    expect(flushed).not.toHaveBeenCalled();
   });
 });

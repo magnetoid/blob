@@ -54,7 +54,7 @@ export function TasksView() {
   }
 
   return (
-    <div className="pane">
+    <main className="pane">
       <header className="pane-header">
         <div style={{ minWidth: 0 }}>
           <div className="pane-heading">
@@ -79,7 +79,7 @@ export function TasksView() {
         {tasks?.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-mark">
-              <FileIcon size={19} />
+              <FileIcon size="xl" />
             </div>
             <div className="empty-state-title">No tasks yet</div>
             <div className="empty-state-body">
@@ -115,6 +115,6 @@ export function TasksView() {
           );
         })}
       </div>
-    </div>
+    </main>
   );
 }

@@ -86,26 +86,16 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
 
   const active = KINDS.find((entry) => entry.id === kind);
 
+  // The backdrop is presentational. It was role="button" tabIndex={0}, which put a tab
+  // stop announced as a button in front of the dialog and answered Space by closing it.
+  // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
     <div
       className="dialog-backdrop"
+      role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (
-          event.key === "Escape" ||
-          event.key === "Enter" ||
-          event.key === " "
-        ) {
-          event.preventDefault();
-          onClose();
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label="Close feedback dialog"
     >
       <form
         className="dialog"
@@ -171,13 +161,22 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
                 type="button"
                 className="toggle"
                 aria-pressed={attach}
+                // Named and described, because what it attaches — a snapshot of the page
+                // and the console — is the sort of thing somebody is entitled to decide
+                // deliberately rather than by toggling an unlabelled switch.
+                aria-label="Attach diagnostics"
+                aria-describedby="feedback-diagnostics-hint"
                 onClick={() => setAttach((value) => !value)}
               >
                 <span />
               </button>
               <span>
                 <span className="pref-label">Attach diagnostics</span>
-                <span className="pref-hint" style={{ display: "block" }}>
+                <span
+                  className="pref-hint"
+                  id="feedback-diagnostics-hint"
+                  style={{ display: "block" }}
+                >
                   A snapshot of this page and the browser console, so an admin
                   can see what you saw. Passwords are never included.
                 </span>

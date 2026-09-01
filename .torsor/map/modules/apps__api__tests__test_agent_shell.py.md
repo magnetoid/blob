@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:18'
-updated: '2026-08-27T03:38:18'
+created: '2026-09-01T23:39:51'
+updated: '2026-09-01T23:39:51'
 ---
 
 # apps/api/tests/test_agent_shell.py
@@ -49,3 +49,8 @@ Symbols in `apps/api/tests/test_agent_shell.py`.
 - L256 `TestAuditBracket` (class)
 - L257 `test_open_and_close_are_both_recorded(self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch)` (method)
 - L279 `test_a_session_that_never_opens_still_leaves_its_record(self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch)` (method)
+- L302 `TestResolveFromADm` (class) — `/cli` names the agent by who the conversation is with, not by plugin id.
+- L310 `test_a_bot_user_resolves_to_the_agent_behind_it(self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch)` (method)
+- L333 `test_a_person_is_not_an_agent(self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch)` (method)
+- L348 `test_an_unhosted_agent_still_has_no_terminal_from_a_dm(self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch)` (method)
+- L377 `test_an_agent_in_another_workspace_is_not_found(self, client: Client, hosted: Runner, monkeypatch: pytest.MonkeyPatch)` (method)

@@ -16,7 +16,7 @@ from sqlalchemy import text
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, not_found
-from ..lib.ids import new_id
+from ..lib.ids import IdParam, new_id
 from ..lib.rate_limit import consume
 from ..lib.storage import build_object_key, ensure_bucket, presign_download, presign_upload
 from ..schemas.base import CamelModel
@@ -97,7 +97,7 @@ async def create_upload(
 
 @router.post("/api/uploads/{attachment_id}/complete", response_model=OkOut)
 async def complete_upload(
-    attachment_id: str,
+    attachment_id: IdParam,
     payload: UploadCompleteInput | None = None,
     user: SessionUser = Depends(current_user),
 ) -> OkOut:

@@ -109,7 +109,11 @@ export function WebhooksSection({
                   : "Never used"}
               </div>
             </div>
-            <button className="btn" onClick={() => setRevoking(hook)}>
+            <button
+              className="btn"
+              aria-label={`Revoke ${hook.name}`}
+              onClick={() => setRevoking(hook)}
+            >
               Revoke
             </button>
           </div>

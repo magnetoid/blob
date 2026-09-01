@@ -25,6 +25,7 @@ from .agui import handle_agui_run
 from .deployments import sync_hosted_agents
 from .notify import handle_notify
 from .reminders import fire_reminders
+from .scheduled import send_scheduled
 from .unfurl import handle_unfurl
 
 log = logging.getLogger("blob.worker")
@@ -134,6 +135,9 @@ class WorkerSettings:
         cron(deliver_plugin_events, second=0),  # type: ignore[arg-type]
         # Reminders are timers; a timer that fires within the minute is on time.
         cron(fire_reminders, second=30),  # type: ignore[arg-type]
+        # So is a scheduled message. Offset from the reminder sweep so the two are not
+        # contending for the same connections on the same second.
+        cron(send_scheduled, second=15),  # type: ignore[arg-type]
         # At startup because a fresh deploy is exactly when the stored callback URL is
         # most likely stale, then on a slow cycle so a domain change heals unwatched.
         cron(

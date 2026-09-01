@@ -167,12 +167,16 @@ def create_app() -> FastAPI:
             for part in first.get("loc", ())
             if part not in ("body", "query", "path", "cookie", "header")
         ]
-        return _error(
-            400,
-            "invalid_input",
-            first.get("msg", "That input is not valid."),
-            ".".join(location) or None,
+        # Pydantic's own wording is the right default — it is specific and it names the
+        # constraint. The exception is a failed pattern, whose message is the pattern:
+        # `String should match pattern '^[0-9a-fA-F]{8}-...'` is a regex handed to
+        # somebody who typed a bad link, and the only patterns here are id shapes.
+        message = (
+            "That is not a valid id."
+            if first.get("type") == "string_pattern_mismatch"
+            else first.get("msg", "That input is not valid.")
         )
+        return _error(400, "invalid_input", message, ".".join(location) or None)
 
     @app.exception_handler(StarletteHTTPException)
     async def _http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:

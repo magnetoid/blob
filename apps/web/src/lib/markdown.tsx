@@ -6,10 +6,10 @@
  * so a message body cannot inject markup no matter what it contains.
  */
 
-import { Fragment, type ReactNode } from 'react';
-import type { CustomEmoji } from '@blob/shared';
-import { resolveName } from './emoji.ts';
-import type { MentionTarget } from '../features/messages/mentionIndex.ts';
+import { Fragment, type ReactNode } from "react";
+import type { CustomEmoji } from "@blob/shared";
+import { resolveName } from "./emoji.ts";
+import type { MentionTarget } from "../features/messages/mentionIndex.ts";
 
 export interface RenderOptions {
   /**
@@ -26,40 +26,51 @@ export interface RenderOptions {
 }
 
 /** Block-level parse: fenced code, quotes, lists, paragraphs. */
-export function renderMarkdown(source: string, options: RenderOptions): ReactNode {
+export function renderMarkdown(
+  source: string,
+  options: RenderOptions,
+): ReactNode {
   const blocks: ReactNode[] = [];
-  const lines = source.split('\n');
+  const lines = source.split("\n");
   let index = 0;
   let key = 0;
 
   while (index < lines.length) {
     const line = lines[index] as string;
 
-    if (line.startsWith('```')) {
+    if (line.startsWith("```")) {
       const language = line.slice(3).trim();
       const body: string[] = [];
       index += 1;
-      while (index < lines.length && !(lines[index] as string).startsWith('```')) {
+      while (
+        index < lines.length &&
+        !(lines[index] as string).startsWith("```")
+      ) {
         body.push(lines[index] as string);
         index += 1;
       }
       index += 1; // closing fence
       blocks.push(
         <pre key={key++}>
-          <code data-language={language || undefined}>{body.join('\n')}</code>
+          <code data-language={language || undefined}>{body.join("\n")}</code>
         </pre>,
       );
       continue;
     }
 
-    if (line.startsWith('> ')) {
+    if (line.startsWith("> ")) {
       const body: string[] = [];
-      while (index < lines.length && (lines[index] as string).startsWith('> ')) {
+      while (
+        index < lines.length &&
+        (lines[index] as string).startsWith("> ")
+      ) {
         body.push((lines[index] as string).slice(2));
         index += 1;
       }
       blocks.push(
-        <blockquote key={key++}>{renderInline(body.join('\n'), options)}</blockquote>,
+        <blockquote key={key++}>
+          {renderInline(body.join("\n"), options)}
+        </blockquote>,
       );
       continue;
     }
@@ -102,7 +113,7 @@ export function renderMarkdown(source: string, options: RenderOptions): ReactNod
       continue;
     }
 
-    if (line.trim() === '') {
+    if (line.trim() === "") {
       index += 1;
       continue;
     }
@@ -111,9 +122,9 @@ export function renderMarkdown(source: string, options: RenderOptions): ReactNod
     while (index < lines.length) {
       const current = lines[index] as string;
       if (
-        current.trim() === '' ||
-        current.startsWith('```') ||
-        current.startsWith('> ') ||
+        current.trim() === "" ||
+        current.startsWith("```") ||
+        current.startsWith("> ") ||
         /^[-*+]\s+/.test(current) ||
         /^\d+\.\s+/.test(current)
       ) {
@@ -122,7 +133,9 @@ export function renderMarkdown(source: string, options: RenderOptions): ReactNod
       paragraph.push(current);
       index += 1;
     }
-    blocks.push(<p key={key++}>{renderInline(paragraph.join('\n'), options)}</p>);
+    blocks.push(
+      <p key={key++}>{renderInline(paragraph.join("\n"), options)}</p>,
+    );
   }
 
   return <>{blocks}</>;
@@ -130,7 +143,11 @@ export function renderMarkdown(source: string, options: RenderOptions): ReactNod
 
 type InlineRule = {
   pattern: RegExp;
-  render: (match: RegExpExecArray, options: RenderOptions, key: number) => ReactNode;
+  render: (
+    match: RegExpExecArray,
+    options: RenderOptions,
+    key: number,
+  ) => ReactNode;
 };
 
 const INLINE_RULES: InlineRule[] = [
@@ -141,7 +158,9 @@ const INLINE_RULES: InlineRule[] = [
   },
   {
     pattern: /\*\*([^*\n]+)\*\*/,
-    render: (m, o, key) => <strong key={key}>{renderInline(m[1] as string, o)}</strong>,
+    render: (m, o, key) => (
+      <strong key={key}>{renderInline(m[1] as string, o)}</strong>
+    ),
   },
   {
     pattern: /\*([^*\n]+)\*/,
@@ -153,10 +172,18 @@ const INLINE_RULES: InlineRule[] = [
   },
   {
     pattern: /~~([^~\n]+)~~/,
-    render: (m, o, key) => <del key={key}>{renderInline(m[1] as string, o)}</del>,
+    render: (m, o, key) => (
+      <del key={key}>{renderInline(m[1] as string, o)}</del>
+    ),
   },
   {
-    pattern: /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/,
+    // The destination may contain balanced parentheses, which is CommonMark's rule and
+    // also just how a lot of real links are shaped — every Wikipedia disambiguation, most
+    // of MSDN. `[^\s)]+` stopped at the first `)`, so
+    // `[x](https://en.wikipedia.org/wiki/Mercury_(planet))` linked to
+    // `…/Mercury_(planet` and left a stray bracket in the text: a broken link that looks
+    // like a link. One level of nesting is all a URL ever has.
+    pattern: /\[([^\]\n]+)\]\((https?:\/\/(?:\([^\s<()]*\)|[^\s<()])+)\)/,
     render: (m, _o, key) => (
       <a key={key} href={m[2]} target="_blank" rel="noopener noreferrer">
         {m[1]}
@@ -164,7 +191,13 @@ const INLINE_RULES: InlineRule[] = [
     ),
   },
   {
-    pattern: /(https?:\/\/[^\s<]+[^\s<.,:;"')\]])/,
+    // Same balanced-paren rule for a bare URL, and the same trailing-punctuation guard
+    // as before: a link at the end of a sentence must not swallow the full stop, and one
+    // inside `(see https://example.com)` must not swallow the closing bracket. So it ends
+    // either on a balanced group — the Wikipedia case — or on a character that cannot be
+    // punctuation.
+    pattern:
+      /(https?:\/\/(?:\([^\s<()]*\)|[^\s<()])*(?:\([^\s<()]*\)|[^\s<.,:;"'()\]]))/,
     render: (m, _o, key) => (
       <a key={key} href={m[1]} target="_blank" rel="noopener noreferrer">
         {m[1]}
@@ -173,18 +206,23 @@ const INLINE_RULES: InlineRule[] = [
   },
   {
     // Mentions: only render as a mention if the name is one we know.
-    pattern: /@([\p{L}\p{N}][\p{L}\p{N}._'-]*(?:\s+[\p{L}\p{N}][\p{L}\p{N}._'-]*)?)/u,
+    pattern:
+      /@([\p{L}\p{N}][\p{L}\p{N}._'-]*(?:\s+[\p{L}\p{N}][\p{L}\p{N}._'-]*)?)/u,
     render: (m, o, key) => {
       const raw = m[1] as string;
       const candidates = [raw, raw.split(/\s+/)[0] as string];
       for (const candidate of candidates) {
-        const bare = candidate.replace(/[.,!?;:]+$/, '');
+        const bare = candidate.replace(/[.,!?;:]+$/, "");
         const target = o.knownNames.get(bare.toLowerCase());
         if (target) {
           const rest = raw.slice(bare.length);
           return (
             <Fragment key={key}>
-              <span className="mention" data-me={target.isMe} data-kind={target.kind}>
+              <span
+                className="mention"
+                data-me={target.isMe}
+                data-kind={target.kind}
+              >
                 @{bare}
               </span>
               {rest}
@@ -193,7 +231,7 @@ const INLINE_RULES: InlineRule[] = [
         }
       }
       const token = raw.toLowerCase();
-      if (token === 'channel' || token === 'here' || token === 'everyone') {
+      if (token === "channel" || token === "here" || token === "everyone") {
         return (
           <span key={key} className="mention" data-me="true">
             @{raw}
@@ -215,7 +253,8 @@ const INLINE_RULES: InlineRule[] = [
     render: (m, o, key) => {
       const resolved = resolveName(m[1] as string, o.customEmoji);
       if (!resolved) return <Fragment key={key}>{m[0]}</Fragment>;
-      if (resolved.kind === 'unicode') return <Fragment key={key}>{resolved.char}</Fragment>;
+      if (resolved.kind === "unicode")
+        return <Fragment key={key}>{resolved.char}</Fragment>;
       return (
         <img
           key={key}

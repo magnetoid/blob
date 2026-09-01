@@ -90,7 +90,7 @@ export function AdminConsole({
       toggle={{
         className: 'icon-btn admin-nav-toggle',
         label: 'Console sections',
-        icon: <MenuIcon size={18} />,
+        icon: <MenuIcon size="lg" />,
       }}
       // An error belongs to the page — section and detail — that produced it.
       resetKey={`${section}/${detailId ?? ''}`}

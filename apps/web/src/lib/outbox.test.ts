@@ -110,7 +110,7 @@ describe('outbox persistence', () => {
 describe('outbox message materialization', () => {
   it('projects an outbox entry into a pending message shape', () => {
     expect(materializeOutboxMessage(sampleEntry, 'user-1')).toEqual({
-      id: 'pending-msg-1',
+      id: 'pending-2026-08-20T12:00:00.000Z-msg-1',
       channelId: 'chan-1',
       authorId: 'user-1',
       kind: 'user',
@@ -132,6 +132,34 @@ describe('outbox message materialization', () => {
       attachments: [],
       linkPreview: null,
     });
+  });
+
+  it('gives queued messages ids that sort in the order they were written', () => {
+    // The store keeps a channel sorted by id and inserts by string comparison, which
+    // works because real ids are UUIDv7. A pending id has to hold that up too, and
+    // `pending-${clientMsgId}` did not: the client id is a v4 from `crypto.randomUUID`,
+    // so two messages typed while offline sorted by a coin flip. Backwards about half
+    // the time, and always disagreeing with the order they would be sent in.
+    const written = ['09:00', '09:01', '09:02'].map((time, index) => ({
+      ...sampleEntry,
+      // Deliberately descending, and deliberately the kind of id randomUUID makes:
+      // sorting on this alone reverses them.
+      clientMsgId: `zz-${3 - index}`,
+      createdAt: `2026-08-20T${time}:00.000Z`,
+    }));
+
+    const ids = written.map((entry) => materializeOutboxMessage(entry, 'user-1').id);
+
+    expect([...ids].sort()).toEqual(ids);
+  });
+
+  it('keeps a queued message below everything already sent', () => {
+    // Real ids are hex, and 'p' sorts above 'f', so a pending message lands at the end
+    // of the conversation rather than in the middle of it.
+    const pending = materializeOutboxMessage(sampleEntry, 'user-1').id;
+    const realIdAtTheEndOfTime = 'ffffffff-ffff-7fff-bfff-ffffffffffff';
+
+    expect(pending > realIdAtTheEndOfTime).toBe(true);
   });
 });
 

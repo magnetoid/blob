@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-08-27T03:38:17'
-updated: '2026-08-27T03:38:17'
+created: '2026-09-01T23:39:49'
+updated: '2026-09-01T23:39:49'
 ---
 
 # apps/api/src/blob_api/routers/bot_api.py
@@ -35,7 +35,7 @@ Symbols in `apps/api/src/blob_api/routers/bot_api.py`.
 - L362 `list_conversations(limit: Annotated[int, Query(ge=1, le=200)]=100, bot: BotCaller=requires('channels:read'))` (function) — Channels this app can see: public ones, plus private ones it was invited to.
 - L390 `join_conversation(payload: JoinInput, bot: BotCaller=requires('channels:join'))` (function)
 - L420 `summarize_thread(payload: DeleteMessageInput, bot: BotCaller=requires('summaries:write'))` (function)
-- L456 `create_task(thread_root_id: str, payload: CreateAgentTaskInput, bot: BotCaller=requires('tasks:write'))` (function)
+- L456 `create_task(thread_root_id: IdParam, payload: CreateAgentTaskInput, bot: BotCaller=requires('tasks:write'))` (function)
 - L500 `update_task(task_id: str, payload: UpdateAgentTaskInput, bot: BotCaller=requires('tasks:write'))` (function)
-- L542 `list_tasks(thread_root_id: str | None=None, bot: BotCaller=requires('tasks:read'))` (function)
+- L542 `list_tasks(thread_root_id: IdParam | None=None, bot: BotCaller=requires('tasks:read'))` (function)
 - L575 `list_users(bot: BotCaller=requires('users:read'))` (function)

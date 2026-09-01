@@ -29,6 +29,7 @@ from ..db.engine import session_scope, transaction
 from ..lib import net
 from ..lib.auth import SessionUser, require_admin
 from ..lib.errors import bad_request, not_found
+from ..lib.ids import IdParam
 from ..plugins import gateway, registry
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
 from ..schemas.base import CamelModel, iso, require_iso
@@ -451,7 +452,7 @@ async def _assert_within_policy(
 
 @router.put("/{plugin_id}", response_model=PluginOut)
 async def update_plugin(
-    plugin_id: str,
+    plugin_id: IdParam,
     manifest: Manifest,
     request: Request,
     admin: SessionUser = Depends(require_admin),
@@ -503,7 +504,7 @@ async def update_plugin(
 
 @router.post("/{plugin_id}/approve", response_model=PluginOut)
 async def approve_plugin(
-    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> PluginOut:
     """Accept the wider permissions an update asked for."""
     async with transaction() as (session, _after):
@@ -523,7 +524,7 @@ async def approve_plugin(
 
 @router.post("/{plugin_id}/decline", response_model=PluginOut)
 async def decline_plugin_scopes(
-    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> PluginOut:
     """Refuse the wider permissions an update asked for; the app keeps what it had.
 
@@ -546,7 +547,7 @@ async def decline_plugin_scopes(
 
 @router.post("/{plugin_id}/enabled", response_model=PluginOut)
 async def set_enabled(
-    plugin_id: str,
+    plugin_id: IdParam,
     payload: dict[str, bool],
     request: Request,
     admin: SessionUser = Depends(require_admin),
@@ -583,7 +584,7 @@ class BudgetInput(CamelModel):
 
 @router.post("/{plugin_id}/budget", response_model=PluginOut)
 async def set_budget(
-    plugin_id: str,
+    plugin_id: IdParam,
     payload: BudgetInput,
     request: Request,
     admin: SessionUser = Depends(require_admin),
@@ -627,7 +628,7 @@ async def set_budget(
 
 @router.post("/{plugin_id}/secret", response_model=SecretOut)
 async def rotate_secret(
-    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> SecretOut:
     async with transaction() as (session, _after):
         secret = await registry.rotate_secret(session, plugin_id, admin.workspace_id)
@@ -643,7 +644,7 @@ async def rotate_secret(
 
 @router.post("/{plugin_id}/token", response_model=TokenOut)
 async def issue_token(
-    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> TokenOut:
     """Mint a fresh bot token. Existing ones keep working until revoked."""
     async with transaction() as (session, _after):
@@ -661,7 +662,7 @@ async def issue_token(
 
 @router.delete("/{plugin_id}/tokens", response_model=OkOut)
 async def revoke_tokens(
-    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     async with transaction() as (session, _after):
         await registry.by_id(session, plugin_id, admin.workspace_id)
@@ -688,8 +689,8 @@ class AgentRunOut(CamelModel):
     id: str
     channel_id: str
     channel_name: str | None = None
-    thread_root_id: str | None = None
-    trigger_message_id: str | None = None
+    thread_root_id: IdParam | None = None
+    trigger_message_id: IdParam | None = None
     trigger_user_name: str | None = None
     transport: str
     status: str
@@ -708,7 +709,7 @@ class AgentRunsOut(CamelModel):
 
 @router.get("/{plugin_id}/runs", response_model=AgentRunsOut)
 async def list_runs(
-    plugin_id: str,
+    plugin_id: IdParam,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
     admin: SessionUser = Depends(require_admin),
 ) -> AgentRunsOut:
@@ -752,7 +753,7 @@ async def list_runs(
 
 @router.get("/{plugin_id}/deliveries", response_model=DeliveriesOut)
 async def list_deliveries(
-    plugin_id: str,
+    plugin_id: IdParam,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     admin: SessionUser = Depends(require_admin),
 ) -> DeliveriesOut:
@@ -779,8 +780,8 @@ async def list_deliveries(
 
 @router.get("/{plugin_id}/deliveries/{delivery_id}", response_model=DeliveryDetailOut)
 async def read_delivery(
-    plugin_id: str,
-    delivery_id: str,
+    plugin_id: IdParam,
+    delivery_id: IdParam,
     admin: SessionUser = Depends(require_admin),
 ) -> DeliveryDetailOut:
     """One delivery in full, including the payload the app was sent."""
@@ -806,7 +807,7 @@ async def read_delivery(
 
 @router.get("/{plugin_id}/channels", response_model=AppChannelsOut)
 async def app_channels(
-    plugin_id: str, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, admin: SessionUser = Depends(require_admin)
 ) -> AppChannelsOut:
     """Where this app can speak, and where it could.
 
@@ -851,8 +852,8 @@ async def app_channels(
 
 @router.post("/{plugin_id}/channels/{channel_id}", response_model=OkOut)
 async def app_join_channel(
-    plugin_id: str,
-    channel_id: str,
+    plugin_id: IdParam,
+    channel_id: IdParam,
     request: Request,
     admin: SessionUser = Depends(require_admin),
 ) -> OkOut:
@@ -878,8 +879,8 @@ async def app_join_channel(
 
 @router.delete("/{plugin_id}/channels/{channel_id}", response_model=OkOut)
 async def app_leave_channel(
-    plugin_id: str,
-    channel_id: str,
+    plugin_id: IdParam,
+    channel_id: IdParam,
     request: Request,
     admin: SessionUser = Depends(require_admin),
 ) -> OkOut:
@@ -903,7 +904,7 @@ async def app_leave_channel(
 
 @router.delete("/{plugin_id}", response_model=OkOut)
 async def uninstall_plugin(
-    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     async with transaction() as (session, _after):
         existing = await registry.by_id(session, plugin_id, admin.workspace_id)

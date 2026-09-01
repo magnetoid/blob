@@ -36,7 +36,7 @@ export function ThreadsView() {
   }
 
   return (
-    <div className="pane">
+    <main className="pane">
       <header className="pane-header">
         <div style={{ minWidth: 0 }}>
           <div className="pane-heading">
@@ -53,7 +53,7 @@ export function ThreadsView() {
         {threads?.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-mark">
-              <ReplyIcon size={19} />
+              <ReplyIcon size="xl" />
             </div>
             <div className="empty-state-title">No threads yet</div>
             <div className="empty-state-body">
@@ -77,6 +77,6 @@ export function ThreadsView() {
           />
         ))}
       </div>
-    </div>
+    </main>
   );
 }

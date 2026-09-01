@@ -71,7 +71,7 @@ export function WorkspaceSwitcher({ name }: { name: string }) {
         onClick={() => setOpen((value) => !value)}
       >
         {name}
-        <ChevronDownIcon size={13} strokeWidth={2} />
+        <ChevronDownIcon size="sm" />
       </button>
 
       {open && (

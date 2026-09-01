@@ -11,24 +11,36 @@
  * not trying to be.
  */
 
-import { useCallback, useState } from 'react';
-import { api, type ServerLogEntry } from '../../../lib/api.ts';
-import { useAdminAction, useAdminData } from '../hooks.ts';
-import { ConfirmDialog } from '../../../components/ConfirmDialog.tsx';
+import { useCallback, useState } from "react";
+import { api, type ServerLogEntry } from "../../../lib/api.ts";
+import { useAdminAction, useAdminData } from "../hooks.ts";
+import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 
 const LEVELS = [
-  { label: 'Everything', value: '' },
-  { label: 'Errors', value: 'error' },
-  { label: 'Warnings', value: 'warning' },
+  { label: "Everything", value: "" },
+  { label: "Errors", value: "error" },
+  { label: "Warnings", value: "warning" },
 ] as const;
 
-export function LogsSection({ onError }: { onError: (message: string | null) => void }) {
-  const [level, setLevel] = useState('');
+export function LogsSection({
+  onError,
+}: {
+  onError: (message: string | null) => void;
+}) {
+  const [level, setLevel] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
 
-  const load = useCallback(() => api.admin.serverLogs({ level: level || undefined }), [level]);
-  const { data, reload } = useAdminData(load, [level], onError, 'Could not read the log.');
+  const load = useCallback(
+    () => api.admin.serverLogs({ level: level || undefined }),
+    [level],
+  );
+  const { data, reload } = useAdminData(
+    load,
+    [level],
+    onError,
+    "Could not read the log.",
+  );
   const act = useAdminAction(onError, reload);
 
   const entries = data?.entries ?? [];
@@ -61,14 +73,14 @@ export function LogsSection({ onError }: { onError: (message: string | null) => 
       </div>
 
       <p className="muted">
-        The most recent {data?.capacity ?? 500} warnings and errors from every process on
-        this server, newest first. Older ones fall off the end — this is a buffer for
-        noticing something, not a record to keep.
+        The most recent {data?.capacity ?? 500} warnings and errors from every
+        process on this server, newest first. Older ones fall off the end — this
+        is a buffer for noticing something, not a record to keep.
       </p>
 
       {entries.length === 0 && (
         <p className="muted" style={{ marginTop: 16 }}>
-          Nothing has gone wrong recently. {level && 'Try widening the filter.'}
+          Nothing has gone wrong recently. {level && "Try widening the filter."}
         </p>
       )}
 
@@ -79,7 +91,11 @@ export function LogsSection({ onError }: { onError: (message: string | null) => 
           const key = `${entry.at}-${index}`;
           const open = expanded === key;
           return (
-            <div key={key} className="log-entry" data-level={entry.level.toLowerCase()}>
+            <div
+              key={key}
+              className="log-entry"
+              data-level={entry.level.toLowerCase()}
+            >
               <div className="log-head">
                 <span className="log-level">{entry.level}</span>
                 <time className="log-at" dateTime={entry.at}>
@@ -102,7 +118,7 @@ export function LogsSection({ onError }: { onError: (message: string | null) => 
                     onClick={() => setExpanded(open ? null : key)}
                     aria-expanded={open}
                   >
-                    {open ? 'Hide traceback' : 'Show traceback'}
+                    {open ? "Hide traceback" : "Show traceback"}
                   </button>
                   {open && <pre className="log-detail">{entry.detail}</pre>}
                 </>
