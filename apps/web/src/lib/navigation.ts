@@ -53,9 +53,22 @@ export function scrollToMessage(messageId: string): boolean {
   const node = document.querySelector(`[data-message-id="${messageId}"]`);
   if (!node) return false;
   node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  flashMessage(messageId);
+  return true;
+}
+
+/**
+ * Mark a message as the one you were sent to, if it is on screen.
+ *
+ * Split from `scrollToMessage` because the virtualized list scrolls by *index* and then
+ * needs the highlight separately — by the time a row exists to mark, the scrolling has
+ * already been done by something that never had an element to work with.
+ */
+export function flashMessage(messageId: string): void {
+  const node = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (!node) return;
   node.classList.add('message-flash');
   setTimeout(() => node.classList.remove('message-flash'), FLASH_MS);
-  return true;
 }
 
 /**
@@ -71,8 +84,16 @@ export function scrollToMessage(messageId: string): boolean {
  * NULL` in all three of its modes — so for a reply the channel is centred on the thread
  * *root* and the reply itself is found in the panel.
  *
- * Scrolling is retried on the next two frames. React has not committed the new list on
- * the frame the fetch resolves, so a single attempt reliably finds nothing.
+ * The jump itself is left to whichever list holds the message. It cannot be done from
+ * here: the channel list is virtualized, so a target that is not already on screen has
+ * no element to scroll to and never will until something scrolls to its *index* first.
+ * That something is `MessageList`, which owns the virtualizer, so the id is handed to
+ * the store and the list picks it up on the render that first contains it.
+ *
+ * Before this, `showMessage` looked the element up on the next two frames and gave up.
+ * The history was fetched correctly and centred on the message every time — the search
+ * result, the permalink and the saved item all landed at the bottom of the right channel
+ * with the message they named twenty rows out of sight.
  */
 export async function showMessage(messageId: string): Promise<boolean> {
   const store = useStore.getState();
@@ -81,17 +102,8 @@ export async function showMessage(messageId: string): Promise<boolean> {
   await store.openChannel(message.channelId, message.threadRootId ?? message.id);
   if (message.threadRootId) await store.openThread(message.threadRootId);
   navigate(pathForChannel(message.channelId, message.threadRootId ?? undefined));
-
-  return new Promise((resolve) => {
-    let attempts = 0;
-    const tick = () => {
-      if (scrollToMessage(messageId)) return resolve(true);
-      attempts += 1;
-      if (attempts > 2) return resolve(false);
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  });
+  store.requestScrollToMessage(messageId);
+  return true;
 }
 
 /** The address of one message, for pasting somewhere else. */

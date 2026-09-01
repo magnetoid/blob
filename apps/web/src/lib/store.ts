@@ -88,6 +88,17 @@ interface State {
    * message is editable at a time, which a single id says and a boolean per row does not.
    */
   editingMessageId: string | null;
+  /**
+   * A message to bring into view once the list that holds it has rendered.
+   *
+   * Here rather than in `navigation.ts` because the list is virtualized: only the
+   * visible rows are in the DOM, so a jump cannot be done by finding the element and
+   * scrolling to it — the element does not exist yet, and it will not exist until
+   * something has scrolled. Only `MessageList` holds the virtualizer that can put a row
+   * on screen by index, and it cannot be handed a callback by a module the router
+   * calls. So the target is left here and the list picks it up.
+   */
+  pendingScrollMessageId: string | null;
   presence: Record<string, PresenceState>;
   typing: Record<string, Record<string, number>>;
   activeChannelId: string | null;
@@ -123,6 +134,8 @@ interface State {
   hydrateDrafts: () => void;
   setDraft: (channelId: string, threadRootId: string | null, body: string) => void;
   setEditingMessage: (messageId: string | null) => void;
+  /** Ask the list to bring a message into view; it clears this once it has. */
+  requestScrollToMessage: (messageId: string | null) => void;
   /** Open your most recent message here for editing. Returns whether there was one. */
   editLastMessage: (channelId: string, threadRootId: string | null) => boolean;
   /**
@@ -212,6 +225,7 @@ export const useStore = create<State>((set, get) => ({
   outbox: {},
   drafts: {},
   editingMessageId: null,
+  pendingScrollMessageId: null,
   presence: {},
   typing: {},
   activeChannelId: null,
@@ -312,6 +326,8 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setEditingMessage: (messageId) => set({ editingMessageId: messageId }),
+
+  requestScrollToMessage: (messageId) => set({ pendingScrollMessageId: messageId }),
 
   editLastMessage: (channelId, threadRootId) => {
     const state = get();

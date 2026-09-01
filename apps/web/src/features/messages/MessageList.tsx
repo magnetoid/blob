@@ -12,6 +12,8 @@ import type { AgentRunView, Message } from "@blob/shared";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { MessageRow } from "./MessageRow.tsx";
 import { AgentRunCard } from "./AgentRunCard.tsx";
+import { flashMessage } from "../../lib/navigation.ts";
+import { useStore } from "../../lib/store.ts";
 
 interface Props {
   messages: Message[];
@@ -48,6 +50,8 @@ export function MessageList({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [jumpBarDismissed, setJumpBarDismissed] = useState(false);
+  const pendingScrollMessageId = useStore((s) => s.pendingScrollMessageId);
+  const requestScrollToMessage = useStore((s) => s.requestScrollToMessage);
 
   const firstUnreadIndex = useMemo(
     () =>
@@ -123,7 +127,10 @@ export function MessageList({
       previous.lastId === nextLastId &&
       node.scrollTop < STICK_THRESHOLD;
 
-    if (prependedOlderPage && previous.scrollHeight > 0) {
+    if (pendingScrollMessageId !== null) {
+      // A jump is pending. Sticking to the bottom here would race it and win, because
+      // this runs on the same commit that first renders the page the jump asked for.
+    } else if (prependedOlderPage && previous.scrollHeight > 0) {
       // Older page prepended: keep the reader looking at the same message.
       node.scrollTop += node.scrollHeight - previous.scrollHeight;
     } else if (wasAtBottom.current && messages.length > 0) {
@@ -144,7 +151,37 @@ export function MessageList({
     // every render, so listing it would turn an effect keyed on the message list into
     // one that runs on every render and re-pins the scroll while you are reading.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages, pendingScrollMessageId]);
+
+  /**
+   * Carry out a pending jump: search results, `/m/<id>` permalinks, saved items.
+   *
+   * This has to happen here because the row is not in the DOM. `scrollToMessage` looked
+   * the element up with `querySelector` and scrolled it into view, which was right until
+   * the list was virtualized — after that only about twenty rows exist at a time, so the
+   * lookup failed for every target that was not already on screen and the jump silently
+   * became "open the channel at the bottom". The history was loaded correctly and
+   * centred on the message the whole time; it just never got shown.
+   *
+   * Two passes. `scrollToIndex` puts the row in the rendered window, and only then can
+   * the flash find an element to mark — so the highlight waits for the frame after.
+   */
+  useEffect(() => {
+    if (pendingScrollMessageId === null) return undefined;
+    const index = messages.findIndex((m) => m.id === pendingScrollMessageId);
+    // Not in this list. A thread reply is not in channel history, so the panel beside us
+    // is the one that will answer — leave the request standing for it.
+    if (index === -1) return undefined;
+
+    virtualizer.scrollToIndex(index, { align: "center" });
+    const frame = requestAnimationFrame(() => {
+      flashMessage(pendingScrollMessageId);
+      requestScrollToMessage(null);
+    });
+    return () => cancelAnimationFrame(frame);
+    // Same reasoning as above: `virtualizer` is a fresh object every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingScrollMessageId, messages, requestScrollToMessage]);
 
   useEffect(() => {
     const node = scrollRef.current;

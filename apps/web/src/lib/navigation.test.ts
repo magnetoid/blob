@@ -26,6 +26,7 @@ const openThread = vi.fn(async (id: string) => {
   calls.push(`thread:${id}`);
 });
 const navigate = vi.fn((path: string) => calls.push(`navigate:${path}`));
+const requestScrollToMessage = vi.fn((id: string | null) => calls.push(`request:${id}`));
 
 vi.mock('./api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api.ts')>();
@@ -42,10 +43,12 @@ vi.mock('./router.ts', () => ({
 }));
 
 vi.mock('./store.ts', () => ({
-  useStore: { getState: () => ({ openChannel, openThread }) },
+  useStore: { getState: () => ({ openChannel, openThread, requestScrollToMessage }) },
 }));
 
-const { permalinkFor, scrollToMessage, showMessage } = await import('./navigation.ts');
+const { flashMessage, permalinkFor, scrollToMessage, showMessage } = await import(
+  './navigation.ts'
+);
 
 function message(overrides: Partial<Message> = {}): Message {
   return { id: 'm1', channelId: 'c1', threadRootId: null, ...overrides } as Message;
@@ -87,7 +90,7 @@ describe('showMessage', () => {
     getMessage.mockResolvedValueOnce({ message: message() });
     await showMessage('m1');
 
-    expect(calls).toEqual(['channel:c1@m1', 'navigate:/c/c1']);
+    expect(calls).toEqual(['channel:c1@m1', 'navigate:/c/c1', 'request:m1']);
   });
 
   it('centres on the thread root for a reply, and opens the thread after the channel', async () => {
@@ -96,13 +99,37 @@ describe('showMessage', () => {
 
     // Around the *root*: the reply is not in channel history at all, so asking for a
     // window around it would centre on an id the query cannot see.
-    expect(calls).toEqual(['channel:c1@m1', 'thread:m1', 'navigate:/c/c1/t/m1']);
+    expect(calls).toEqual([
+      'channel:c1@m1',
+      'thread:m1',
+      'navigate:/c/c1/t/m1',
+      'request:r1',
+    ]);
   });
 
-  it('reports that it could not reach the row rather than throwing', async () => {
+  it('hands the jump to the list instead of hunting for an element', async () => {
     getMessage.mockResolvedValueOnce({ message: message() });
-    // Nothing rendered, so the retries run out. A permalink into a channel whose page
-    // has moved on should fail quietly, not blow up the shell.
-    await expect(showMessage('m1')).resolves.toBe(false);
+    // Nothing is rendered here, and that used to be the whole problem: `showMessage`
+    // looked the row up in the DOM and gave up after two frames. In a virtualized list
+    // the row is absent until something scrolls to its index, so the target is recorded
+    // and the list that holds it does the scrolling.
+    await expect(showMessage('m1')).resolves.toBe(true);
+    expect(requestScrollToMessage).toHaveBeenCalledWith('m1');
+  });
+});
+
+describe('flashMessage', () => {
+  it('marks a row that is on screen', () => {
+    document.body.innerHTML = '<article data-message-id="m1"></article>';
+    flashMessage('m1');
+    expect(document.querySelector('[data-message-id="m1"]')!.className).toContain(
+      'message-flash',
+    );
+  });
+
+  it('does nothing for a row that is not rendered', () => {
+    // The virtualized case. It must not throw: the list calls this a frame after asking
+    // the virtualizer to scroll, and a row can still be missing if the list changed.
+    expect(() => flashMessage('nope')).not.toThrow();
   });
 });
