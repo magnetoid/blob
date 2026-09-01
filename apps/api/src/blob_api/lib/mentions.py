@@ -39,7 +39,17 @@ class MentionResult:
     group_ids: list[str] = field(default_factory=list)
     #: True when @channel or @here appeared.
     everyone: bool = False
-    #: True specifically for @here (notify only active members).
+    #: True specifically for @here.
+    #:
+    #: Parsed, and *not yet acted on*: `services/notify.py` reads `everyone` and nothing
+    #: reads this, so @here currently notifies exactly who @channel does. The comment
+    #: here used to say "notify only active members", which described an intention as
+    #: though it were behaviour — someone typing @here to spare the people who are away
+    #: is not sparing them.
+    #:
+    #: Wiring it up is a product decision rather than a fix, because it turns on what
+    #: "active" means, and the failure mode of guessing is somebody never learning they
+    #: were addressed. The parser keeps the distinction so the decision stays available.
     here_only: bool = False
 
 

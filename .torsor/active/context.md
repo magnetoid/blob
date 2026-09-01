@@ -502,3 +502,11 @@ Worth knowing before changing the equivalent code:
   menu measures as invisible. Focus the *row* first, which is the documented route in and
   why the row is a tab stop at all. Any test that reaches for a message action has to go
   through the row.
+- **`@here` notifies everyone, exactly like `@channel`.** `lib/mentions.py` parses the
+  distinction into `here_only` and a test asserts it, but nothing consumes it —
+  `services/notify.py` branches on `everyone` alone. The field's comment claimed "notify
+  only active members", which read as behaviour rather than intent; it now says what is
+  actually true. Acting on it means choosing what "active" means, and the cost of
+  choosing wrong is somebody never learning they were addressed, so it is a product
+  decision rather than a defect. The parser keeps the distinction so the decision is
+  still available.

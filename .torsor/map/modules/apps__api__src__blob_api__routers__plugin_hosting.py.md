@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-01T22:51:51'
-updated: '2026-09-01T22:51:51'
+created: '2026-09-01T23:39:49'
+updated: '2026-09-01T23:39:49'
 ---
 
 # apps/api/src/blob_api/routers/plugin_hosting.py
