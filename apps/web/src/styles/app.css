@@ -2373,10 +2373,40 @@ button {
   gap: 14px;
 }
 
+/* A table, laid out as one.
+   This was `display: flex; flex-direction: column`, which buys a 12px gap between the
+   head and the body and costs the table everything else: `thead` and `tbody` become flex
+   items, their rows and cells stop participating in a table layout, and the header row
+   collapses into a single run of words — "Name Email Workspace Role State" — sitting
+   above columns it no longer lines up with. Eleven console tables were drawn that way.
+   Changing a table's display also drops its role, so a screen reader lost the row and
+   column structure at the same time the eye did. */
 .admin-table {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 10px 14px 10px 0;
+  vertical-align: middle;
+}
+
+.admin-table thead th {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-table tbody td {
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .admin-row {
