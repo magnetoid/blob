@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Message } from "@blob/shared";
-import { api } from "../../lib/api.ts";
+import { api, ApiError } from "../../lib/api.ts";
 import { showMessage } from "../../lib/navigation.ts";
 import { SearchIcon } from "../../components/Icon.tsx";
 import { MessageResultRow } from "../messages/MessageResultRow.tsx";
@@ -24,7 +24,18 @@ export function SearchView() {
   const [results, setResults] = useState<Message[] | null>(null);
   const [total, setTotal] = useState(0);
   const [searching, setSearching] = useState(false);
-  const [failed, setFailed] = useState(false);
+  /**
+   * How the last search failed, not merely that it did.
+   *
+   * A 429 is not a server error, and the standing copy said it was — "the server errored
+   * or couldn't be reached… adjust the query", when the server answered correctly and
+   * the query is fine. Telling somebody to change what they typed when what they need to
+   * do is wait is the kind of wrong answer that costs them the search.
+   */
+  const [failure, setFailure] = useState<"none" | "rate-limited" | "error">(
+    "none",
+  );
+  const failed = failure !== "none";
   /** Where the results so far stopped. Null once there is nothing after them. */
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -43,7 +54,7 @@ export function SearchView() {
         setTotal(0);
         setNextCursor(null);
         setSearching(false);
-        setFailed(false);
+        setFailure("none");
         return;
       }
       setSearching(true);
@@ -52,14 +63,18 @@ export function SearchView() {
         setResults(result.messages);
         setTotal(result.total);
         setNextCursor(result.nextCursor);
-        setFailed(false);
-      } catch {
+        setFailure("none");
+      } catch (err) {
         // A failed request is not "no results" — telling someone nothing matched
         // when the server errored sends them away believing the message is gone.
         setResults(null);
         setTotal(0);
         setNextCursor(null);
-        setFailed(true);
+        setFailure(
+          err instanceof ApiError && err.code === "rate_limited"
+            ? "rate-limited"
+            : "error",
+        );
       } finally {
         setSearching(false);
       }
@@ -88,7 +103,7 @@ export function SearchView() {
       // Keep what is already on screen. Losing two hundred results you had scrolled
       // through because the two hundred and first request failed is a worse answer than
       // a button that did nothing.
-      setFailed(false);
+      setFailure("none");
     } finally {
       setLoadingMore(false);
     }
@@ -125,10 +140,15 @@ export function SearchView() {
       <div className="search-results">
         {failed ? (
           <div className="empty-state">
-            <div className="empty-state-title">Search didn’t answer</div>
+            <div className="empty-state-title">
+              {failure === "rate-limited"
+                ? "Too many searches at once"
+                : "Search didn’t answer"}
+            </div>
             <div className="empty-state-body">
-              The server errored or couldn’t be reached — your messages are
-              still there. Adjust the query or try again in a moment.
+              {failure === "rate-limited"
+                ? "Give it a few seconds and search again — the query is fine, there have just been too many in a row."
+                : "The server errored or couldn’t be reached — your messages are still there. Adjust the query or try again in a moment."}
             </div>
           </div>
         ) : results === null ? (
