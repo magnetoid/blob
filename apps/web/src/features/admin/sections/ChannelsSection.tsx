@@ -57,7 +57,11 @@ export function ChannelsSection({
           {!channel.archivedAt &&
             channel.kind !== "dm" &&
             channel.kind !== "group_dm" && (
-              <button className="btn" onClick={() => setArchiving(channel)}>
+              <button
+                className="btn"
+                aria-label={`Archive #${channel.name}`}
+                onClick={() => setArchiving(channel)}
+              >
                 Archive
               </button>
             )}

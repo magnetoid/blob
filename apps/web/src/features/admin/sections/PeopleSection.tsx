@@ -114,6 +114,7 @@ export function PeopleSection({
                     onClick={() =>
                       void act(() => api.admin.revokeSessions(user.id))
                     }
+                    aria-label={`Sign ${user.displayName} out of ${user.sessionCount} session(s)`}
                     title={`Sign out of ${user.sessionCount} session(s)`}
                   >
                     Sign out
