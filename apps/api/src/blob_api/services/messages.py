@@ -8,6 +8,7 @@ mid-transaction lets a client fetch a message the database hasn't committed yet.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -742,3 +743,73 @@ async def threads_for_user(session: AsyncSession, user_id: str, limit: int = 30)
         )
     ).fetchall()
     return [to_message(row) for row in rows]
+
+
+#: Cheap enough to run on every send, and only decides whether to *ask* for an unfurl.
+URL_RE = re.compile(r"https?://")
+
+
+async def announce(
+    session: AsyncSession,
+    after: Any,
+    result: SendResult,
+    *,
+    workspace_id: str,
+    channel_id: str,
+) -> None:
+    """Everything that has to happen because a message now exists.
+
+    Both send paths call this, and that is the whole point of it existing. The live one
+    in `routers/messages.py` did all of this inline; the scheduled sweep in
+    `jobs/scheduled.py` did none of it, so a message sent by a schedule was stored and
+    then silently went nowhere — no socket frame, so nobody with the channel open saw it
+    until they reloaded; no `notify`, so no badge and no push; no `unfurl`, so a link in
+    it never got a preview; no `agui_run`, so mentioning an agent in a scheduled message
+    did nothing at all; and no outbox row, so no app ever heard about it.
+
+    The comment in the sweep even claimed `after` was "what makes the socket see a
+    message that is actually stored" — while binding it as `_after` and dropping it. Two
+    copies of a fan-out is how that happens, so now there is one.
+
+    The plugin outbox row is written *inside* the transaction on purpose: it and the
+    message commit together or not at all, so an app is never told about a message that
+    was rolled back and never misses one because the process died after COMMIT. The rest
+    goes through `after`, which drains past COMMIT — a client must never be told about a
+    row that has not committed.
+    """
+    if not result.created:
+        # A repeated client_msg_id returned the stored row. It was announced the first
+        # time; announcing it again would double every notification.
+        return
+
+    # Imported here rather than at module scope: `realtime` and `plugins` both reach back
+    # into services, and this module is imported by nearly all of them.
+    from ..lib.queue import enqueue, fire_and_forget
+    from ..plugins import events as plugin_events
+    from ..realtime import hub
+    from .serialize import message_event
+
+    await plugin_events.emit(
+        session,
+        workspace_id=workspace_id,
+        event="message.created",
+        channel_id=channel_id,
+        payload=result.message.model_dump(by_alias=True),
+    )
+
+    def broadcast() -> None:
+        hub.to_channel(channel_id, message_event("message.new", result.message))
+        if result.thread_update:
+            hub.to_channel(channel_id, result.thread_update.as_event())
+        fire_and_forget(enqueue("notify", result.message.id))
+        if URL_RE.search(result.message.body):
+            fire_and_forget(enqueue("unfurl", result.message.id))
+        # A mention might be of an app that answers over AG-UI. Which one is the job's
+        # problem, not this one's. Only a person's message starts a run — a bot's own
+        # must not, which is what stops two agents talking to each other for ever.
+        if result.message.mention_user_ids:
+            fire_and_forget(enqueue("agui_run", result.message.id))
+        # The outbox drains on a timer too, so this is latency rather than delivery.
+        fire_and_forget(enqueue("deliver_plugin_events"))
+
+    after.add(broadcast)

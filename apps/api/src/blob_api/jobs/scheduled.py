@@ -13,6 +13,7 @@ from typing import Any
 
 from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError
+from ..services import messages as message_service
 from ..services import scheduled as scheduled_service
 
 log = logging.getLogger("blob.worker")
@@ -30,9 +31,20 @@ async def send_scheduled(_ctx: dict[str, Any]) -> None:
             # One transaction per message. `after` drains past COMMIT, which is what
             # makes the socket see a message that is actually stored — the same ordering
             # the live send path relies on.
-            async with transaction() as (session, _after):
+            async with transaction() as (session, after):
                 result = await scheduled_service.deliver(session, item)
                 await scheduled_service.mark_sent(session, str(item["id"]), result.message.id)
+                # The half that was missing. Storing the row is not sending the message:
+                # without this there is no socket frame, no notification, no unfurl, no
+                # agent run and no outbox row — a scheduled message arrived only for
+                # people who happened to reload.
+                await message_service.announce(
+                    session,
+                    after,
+                    result,
+                    workspace_id=str(item["workspace_id"]),
+                    channel_id=str(item["channel_id"]),
+                )
             sent += 1
         except AppError as refusal:
             # An expected no: the channel is gone, or the author is no longer in it.

@@ -166,38 +166,15 @@ async def send_message(
             attachment_ids=payload.attachment_ids,
         )
 
-        # Retries of the same client_msg_id return the stored row and broadcast nothing.
-        if result.created:
-            # Inside the transaction, deliberately. The outbox row and the message it
-            # describes commit together or not at all, so an app is never told about a
-            # message that was rolled back, and never misses one because the process
-            # died between COMMIT and the HTTP call.
-            await plugin_events.emit(
-                session,
-                workspace_id=user.workspace_id,
-                event="message.created",
-                channel_id=channel_id,
-                payload=result.message.model_dump(by_alias=True),
-            )
-
-            def broadcast() -> None:
-                hub.to_channel(channel_id, message_event("message.new", result.message))
-                if result.thread_update:
-                    hub.to_channel(channel_id, result.thread_update.as_event())
-                fire_and_forget(enqueue("notify", result.message.id))
-                if URL_RE.search(payload.body):
-                    fire_and_forget(enqueue("unfurl", result.message.id))
-                # A mention might be of an app that answers over AG-UI. Which one is the
-                # job's problem, not the send path's: `mention_user_ids` is already on
-                # the row, and the job returns on a single SELECT when none of them is
-                # an agent. Only this handler enqueues it — a bot's own message must not
-                # start a run, which is what stops two agents talking to each other for
-                # ever.
-                if result.message.mention_user_ids:
-                    fire_and_forget(enqueue("agui_run", result.message.id))
-                _plugin_drain()
-
-            after_commit.add(broadcast)
+        # One shared fan-out, in `services/messages.announce`, because this used to live
+        # here and the scheduled sweep had no copy of it at all.
+        await message_service.announce(
+            session,
+            after_commit,
+            result,
+            workspace_id=user.workspace_id,
+            channel_id=channel_id,
+        )
 
     response.status_code = 201 if result.created else 200
     return MessageOut(message=result.message)

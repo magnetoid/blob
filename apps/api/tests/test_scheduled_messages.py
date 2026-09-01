@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 import pytest_asyncio
 from sqlalchemy import text as sql
 
@@ -177,3 +178,81 @@ class TestTheSweep:
         answer = await team["member"].delete(f"/api/scheduled/{made['body']['scheduled']['id']}")
 
         assert answer.status == 404
+
+
+class TestASentMessageIsAlsoAnnounced:
+    """Storing the row is not sending the message.
+
+    The sweep called `message_service.send` and `mark_sent` and dropped its after-commit
+    queue on the floor — it even bound it as `_after` under a comment claiming it was
+    "what makes the socket see a message that is actually stored". So a scheduled message
+    committed and then went nowhere: no `message.new` frame, so nobody with the channel
+    open saw it until they reloaded; no `notify`, so no badge and no push; no `unfurl`,
+    so a link in it never got a preview; no `agui_run`, so mentioning an agent did
+    nothing.
+
+    It survived because the obvious check — is the message in the channel? — passes. The
+    row is there. Only the delivery was missing, and these assert the delivery.
+    """
+
+    async def test_it_broadcasts_and_queues_the_same_work_a_live_send_does(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        frames: list[tuple[str, dict]] = []
+        jobs: list[str] = []
+
+        from blob_api.lib import queue as queue_module
+        from blob_api.realtime import hub as hub_module
+
+        monkeypatch.setattr(
+            hub_module, "to_channel", lambda cid, event: frames.append((cid, event))
+        )
+
+        # Recorded when `enqueue` is *called*, not when the coroutine it returns is
+        # awaited: the real code does `fire_and_forget(enqueue(...))`, so an async fake
+        # appends only once the task runs, which is after this test has finished looking.
+        async def _noop() -> None:
+            return None
+
+        def _fake_enqueue(name: str, *args: object, **kwargs: object) -> object:
+            jobs.append(name)
+            return _noop()
+
+        monkeypatch.setattr(queue_module, "enqueue", _fake_enqueue)
+
+        made = await schedule(team, when=at(hours=1), body="announce me https://example.com/")
+        await make_due(made["body"]["scheduled"]["id"])
+
+        await send_scheduled({})
+
+        assert any(e.get("t") == "message.new" for _cid, e in frames), frames
+        assert "notify" in jobs, jobs
+        # The body has a URL in it, so asking for a preview is part of sending it.
+        assert "unfurl" in jobs, jobs
+
+    async def test_a_message_without_a_link_does_not_ask_for_an_unfurl(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The guard on the other side: announcing must not queue work it does not need.
+        jobs: list[str] = []
+        from blob_api.lib import queue as queue_module
+
+        # Recorded when `enqueue` is *called*, not when the coroutine it returns is
+        # awaited: the real code does `fire_and_forget(enqueue(...))`, so an async fake
+        # appends only once the task runs, which is after this test has finished looking.
+        async def _noop() -> None:
+            return None
+
+        def _fake_enqueue(name: str, *args: object, **kwargs: object) -> object:
+            jobs.append(name)
+            return _noop()
+
+        monkeypatch.setattr(queue_module, "enqueue", _fake_enqueue)
+
+        made = await schedule(team, when=at(hours=1), body="no links in here")
+        await make_due(made["body"]["scheduled"]["id"])
+
+        await send_scheduled({})
+
+        assert "notify" in jobs
+        assert "unfurl" not in jobs
