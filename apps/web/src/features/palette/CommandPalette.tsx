@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trapFocus } from "../../lib/focusTrap.ts";
 import { api } from "../../lib/api.ts";
-import { showError } from '../../lib/toasts.ts';
+import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { showChannel } from "../../lib/navigation.ts";
 import { navigate } from "../../lib/router.ts";
@@ -169,10 +169,26 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-label="Jump to"
       >
+        {/*
+         * The combobox pattern, because focus never leaves this input.
+         *
+         * Arrowing moved a highlight that only existed in CSS: focus stayed here, so a
+         * screen reader had nothing to announce and no way to say what Enter would do.
+         * `aria-activedescendant` is what makes a moving selection audible while the
+         * focused element does not change — without it ⌘K, the main way to get anywhere
+         * in this app, is a text box that silently swallows arrow keys.
+         */}
         <input
           ref={inputRef}
           className="palette-input"
           value={query}
+          role="combobox"
+          aria-expanded={matches.length > 0}
+          aria-controls="palette-results"
+          aria-autocomplete="list"
+          aria-activedescendant={
+            matches.length > 0 ? `palette-option-${index}` : undefined
+          }
           placeholder="Jump to a channel, a person, or an action…"
           onChange={(e) => {
             setQuery(e.target.value);
@@ -194,13 +210,16 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           }}
         />
 
-        <div className="palette-results">
+        <div className="palette-results" id="palette-results" role="listbox">
           {matches.length === 0 ? (
             <div className="palette-empty">Nothing matched “{query}”</div>
           ) : (
             matches.map((item, i) => (
               <button
                 key={item.id}
+                id={`palette-option-${i}`}
+                role="option"
+                aria-selected={i === index}
                 className="palette-item"
                 data-active={i === index}
                 onMouseEnter={() => setIndex(i)}

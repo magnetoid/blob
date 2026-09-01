@@ -58,7 +58,6 @@ import {
   ClockIcon,
 } from "../../components/Icon.tsx";
 
-
 /**
  * One row of the `@` autocomplete.
  *
@@ -121,7 +120,7 @@ export function Composer({
   );
   const [sending, setSending] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [customWhen, setCustomWhen] = useState('');
+  const [customWhen, setCustomWhen] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
@@ -200,7 +199,9 @@ export function Composer({
     ).map((g) => ({ kind: "group", key: g.id, label: g.handle, hint: g.name }));
 
     const people: MentionCandidate[] = matchMentions(
-      Object.values(users).filter((u) => !u.deactivated && u.id !== currentUser?.id),
+      Object.values(users).filter(
+        (u) => !u.deactivated && u.id !== currentUser?.id,
+      ),
       q,
       (u) => [u.displayName, u.fullName],
       (u) => u.displayName,
@@ -239,7 +240,9 @@ export function Composer({
   const commandMatches = useMemo(() => {
     if (threadRootId) return [];
     const query = commandQuery(draft);
-    return query === null ? [] : matchAllCommands(query, commands, localContext);
+    return query === null
+      ? []
+      : matchAllCommands(query, commands, localContext);
   }, [draft, commands, threadRootId, localContext]);
 
   /**
@@ -296,13 +299,13 @@ export function Composer({
       // Cleared only once the server has it: a draft dropped on a failed request is a
       // message somebody has to write twice.
       setDraft("");
-      setCustomWhen('');
+      setCustomWhen("");
       useToasts.getState().push(
-        'info',
+        "info",
         `Scheduled for ${when.toLocaleString(undefined, {
-          weekday: 'short',
-          hour: 'numeric',
-          minute: '2-digit',
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit",
         })}`,
       );
     } catch (err) {
@@ -441,7 +444,8 @@ export function Composer({
         setEphemeral(result.ephemeral);
         // The socket delivers this too; applying it here is what makes the message
         // appear at once for the person who ran the command, exactly as a send does.
-        if (result.message) applyEvent({ t: "message.new", message: result.message });
+        if (result.message)
+          applyEvent({ t: "message.new", message: result.message });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "That command couldn't be run.";
@@ -512,7 +516,10 @@ export function Composer({
       selected.startsWith(before) &&
       selected.endsWith(after)
     ) {
-      const inner = selected.slice(before.length, selected.length - after.length);
+      const inner = selected.slice(
+        before.length,
+        selected.length - after.length,
+      );
       next = draft.slice(0, start) + inner + draft.slice(end);
       selStart = start;
       selEnd = start + inner.length;
@@ -528,7 +535,8 @@ export function Composer({
       selStart = start - before.length;
       selEnd = selStart + selected.length;
     } else {
-      next = draft.slice(0, start) + before + selected + after + draft.slice(end);
+      next =
+        draft.slice(0, start) + before + selected + after + draft.slice(end);
       selStart = start + before.length;
       selEnd = selStart + selected.length;
     }
@@ -583,7 +591,9 @@ export function Composer({
       }
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        setCommandIndex((i) => (i - 1 + commandMatches.length) % commandMatches.length);
+        setCommandIndex(
+          (i) => (i - 1 + commandMatches.length) % commandMatches.length,
+        );
         return;
       }
       if (event.key === "Enter" || event.key === "Tab") {
@@ -665,11 +675,19 @@ export function Composer({
         }}
         onDrop={onDrop}
       >
+        {/* The listbox had buttons for children, which is a listbox with no options in
+            it — worse than no role at all, because it announced an empty list rather
+            than nothing. The active row was `data-active` and CSS only, so arrowing
+            through names was silent; `aria-activedescendant` on the textarea below is
+            what makes it audible while focus stays in the message field. */}
         {mentionQuery !== null && candidates.length > 0 && (
-          <div className="autocomplete" role="listbox">
+          <div className="autocomplete" role="listbox" id="mention-options">
             {candidates.map((candidate, index) => (
               <button
                 key={candidate.key}
+                id={`mention-option-${index}`}
+                role="option"
+                aria-selected={index === mentionIndex}
                 className="autocomplete-item"
                 data-active={index === mentionIndex}
                 onMouseDown={(e) => {
@@ -684,7 +702,9 @@ export function Composer({
                 )}
                 {candidate.label}
                 {candidate.hint && (
-                  <span className="muted autocomplete-hint">{candidate.hint}</span>
+                  <span className="muted autocomplete-hint">
+                    {candidate.hint}
+                  </span>
                 )}
               </button>
             ))}
@@ -730,7 +750,11 @@ export function Composer({
         )}
 
         {emojiOpen && (
-          <div className="emoji-picker-anchor" data-composer="true" ref={emojiRef}>
+          <div
+            className="emoji-picker-anchor"
+            data-composer="true"
+            ref={emojiRef}
+          >
             <EmojiPicker
               label="Insert an emoji"
               onClose={() => setEmojiOpen(false)}
@@ -743,7 +767,11 @@ export function Composer({
         )}
 
         <div className="composer-box">
-          <div className="composer-toolbar" role="toolbar" aria-label="Formatting">
+          <div
+            className="composer-toolbar"
+            role="toolbar"
+            aria-label="Formatting"
+          >
             <button
               className="icon-btn"
               type="button"
@@ -866,6 +894,20 @@ export function Composer({
             onKeyDown={onKeyDown}
             onPaste={onPaste}
             aria-label={placeholder}
+            // Only while the list is open. This stays a message field — it is not
+            // relabelled a combobox, because that is what it is for ninety-nine
+            // keystrokes in a hundred and a textarea announced as a combobox all the
+            // time is a worse trade than a silent list some of the time.
+            aria-controls={
+              mentionQuery !== null && candidates.length > 0
+                ? "mention-options"
+                : undefined
+            }
+            aria-activedescendant={
+              mentionQuery !== null && candidates.length > 0
+                ? `mention-option-${mentionIndex}`
+                : undefined
+            }
           />
 
           <div className="composer-footer">
