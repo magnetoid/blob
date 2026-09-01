@@ -17,6 +17,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { User } from "@blob/shared";
+import { matchMentions } from "./mentionMatch.ts";
 import { useStore } from "../../lib/store.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { socket } from "../../lib/socket.ts";
@@ -187,17 +188,24 @@ export function Composer({
 
     // Not self-filtered, unlike people below. Excluding yourself from a list of people
     // is right — you do not mention yourself — and exactly wrong for a group you are
-    // on, which is the one you are most likely to be addressing.
-    const groups: MentionCandidate[] = Object.values(groupsById)
-      .filter((g) => g.handle.startsWith(q))
-      .slice(0, 4)
-      .map((g) => ({ kind: "group", key: g.id, label: g.handle, hint: g.name }));
+    // on, which is the one you are most likely to be addressing. Matched on its name as
+    // well as its handle, because "@plat" should find `@platform-team` whether you were
+    // reaching for the handle or the words behind it.
+    const groups: MentionCandidate[] = matchMentions(
+      Object.values(groupsById),
+      q,
+      (g) => [g.handle, g.name],
+      (g) => g.handle,
+      4,
+    ).map((g) => ({ kind: "group", key: g.id, label: g.handle, hint: g.name }));
 
-    const people: MentionCandidate[] = Object.values(users)
-      .filter((u) => !u.deactivated && u.id !== currentUser?.id)
-      .filter((u) => u.displayName.toLowerCase().includes(q))
-      .slice(0, 6)
-      .map((u) => ({ kind: "user", key: u.id, label: u.displayName, user: u }));
+    const people: MentionCandidate[] = matchMentions(
+      Object.values(users).filter((u) => !u.deactivated && u.id !== currentUser?.id),
+      q,
+      (u) => [u.displayName, u.fullName],
+      (u) => u.displayName,
+      6,
+    ).map((u) => ({ kind: "user", key: u.id, label: u.displayName, user: u }));
 
     return [...specials, ...groups, ...people];
   }, [mentionQuery, users, groupsById, currentUser]);
