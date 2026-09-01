@@ -422,3 +422,23 @@ Worth knowing before changing the equivalent code:
   conversation and paging back never triggered. `flex: none` on the spacer. The list test
   did not catch it and cannot: happy-dom does no layout, so it asserts the inline style,
   which was never wrong. Found only by loading 600 real messages into a channel.
+- **The `flushSync` warnings from the message list are upstream, and the obvious fix is
+  worse than the warning.** Opening a channel logs ~20 `flushSync was called from inside
+  a lifecycle method` errors. The stack blames `MessageList`, but that is React's *owner*
+  stack, not the call site: capturing a real `Error` stack inside a patched
+  `console.error` shows `measureElement → resizeItem → notify → flushSync` inside
+  `@tanstack/react-virtual`, invoked from the `ref={virtualizer.measureElement}` callback,
+  which React runs during commit. React skips the synchronous flush the same way in
+  development and production — only the warning is dev-only — so there is no behavioural
+  difference to recover. The library's `useFlushSync: false` escape hatch would apply to
+  *scroll*-driven updates too, where the flush does work and prevents blank rows, so
+  taking it trades a dev-console annoyance for a user-visible one.
+  `useAnimationFrameWithResizeObserver` does not help: it only defers the ResizeObserver
+  path, not the ref-callback one. Scroll position was verified correct despite the warning
+  (`scrollTop + clientHeight === scrollHeight` on channel open). Leave it.
+- **`@` autocomplete matches prefixes, and ranks before it caps.** `includes()` made `@e`
+  offer "Devin Cole" and `@ma` offer "Priya Raman"; slicing to six before ranking dropped
+  the person being typed out of a list that had room for them. `mentionMatch.ts` holds the
+  rule, and its tests were checked against the old implementation — pasted back in — to
+  confirm they discriminate. Anything that reorders that list is changing which person
+  Enter mentions.
