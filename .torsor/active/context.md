@@ -484,3 +484,21 @@ Worth knowing before changing the equivalent code:
   escapes it, no alert, no injected tag, and it renders as literal text — and a display
   name legitimately has to accept every script and most punctuation, so the asymmetry is
   reasonable. Worth knowing before anyone renders a name outside React.
+- **The type scale is absolute, so a browser's font-size preference does nothing.**
+  `--text-2xs` through the rest are px (`11px`, `10.5px`…), not rem. Browser *zoom* still
+  scales everything, which covers most of the need and is what WCAG 1.4.4 is usually read
+  against; what is ignored is the "default font size" setting, which is the mechanism for
+  wanting larger text without larger images. Verified by setting the root font-size to
+  32px and measuring: every dimension identical. Converting the scale to rem is a
+  design-system-wide change with real visual risk, so it is a decision rather than a fix.
+- **`scrollWidth`/`scrollHeight` are a bad overflow detector in this app.** They include
+  absolutely-positioned descendants, and `[data-tooltip]::after` is on a great many
+  controls — so a topbar button 30px tall reports `scrollHeight: 58` while clipping
+  nothing. Compare against the real children, or check `overflow` first. Three separate
+  "findings" this pass were this artifact.
+- **A hover toolbar cannot be focused into directly.** `.message-actions` is
+  `visibility: hidden` until the row has hover or `:focus-within`, and `focus()` on a
+  `visibility: hidden` element is a no-op — so `trigger.focus()` never reveals it and the
+  menu measures as invisible. Focus the *row* first, which is the documented route in and
+  why the row is a tab stop at all. Any test that reaches for a message action has to go
+  through the row.
