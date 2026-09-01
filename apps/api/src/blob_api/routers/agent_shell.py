@@ -32,6 +32,7 @@ from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from ..config import settings
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import AppError, forbidden
+from ..lib.ids import IdParam
 from ..plugins.shell import ShellSession, clamp_size
 from ..services import agent_shell as shell_service
 from ..services.audit import Actor
@@ -50,7 +51,7 @@ _open: set[str] = set()
 
 @router.get("/api/agents/terminal/{user_id}")
 async def agent_terminal_target(
-    user_id: str, request: Request, user: SessionUser = Depends(current_user)
+    user_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
 ) -> dict[str, str]:
     """Which agent a DM's terminal would open into, or why there isn't one.
 
@@ -72,7 +73,7 @@ async def agent_terminal_target(
 
 
 @router.websocket("/ws/admin/agents/{plugin_id}/shell")
-async def agent_shell_socket(websocket: WebSocket, plugin_id: str) -> None:
+async def agent_shell_socket(websocket: WebSocket, plugin_id: IdParam) -> None:
     user: SessionUser | None = getattr(websocket.state, "user", None)
     if user is None or not user.is_admin:
         # Refused before accepting. Starlette turns this into an HTTP error, which is what

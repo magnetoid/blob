@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, require_admin
+from ..lib.ids import IdParam
 from ..schemas.base import CamelModel
 from ..services import audit as audit_service
 from ..services import themes as theme_service
@@ -83,7 +84,7 @@ async def save_theme(
 
 @router.delete("/api/admin/themes/{theme_id}", response_model=OkOut)
 async def delete_theme(
-    theme_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    theme_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     async with transaction() as (session, _):
         await theme_service.delete_theme(session, admin.workspace_id, theme_id)

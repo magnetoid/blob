@@ -19,6 +19,7 @@ from ..config import settings
 from ..db.engine import session_scope
 from ..lib.auth import SessionUser, require_admin
 from ..lib.errors import AppError
+from ..lib.ids import IdParam
 from ..plugins import registry, runner
 from ..plugins.env import RESERVED_NAMES as RESERVED_ENV_NAMES
 from ..plugins.env import RESERVED_PREFIX, validate_env
@@ -150,7 +151,7 @@ async def install_from_repo(
 
 @router.get("/{plugin_id}/deployment", response_model=DeploymentOut)
 async def deployment_status(
-    plugin_id: str, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, admin: SessionUser = Depends(require_admin)
 ) -> DeploymentOut:
     deployment = await agent_service.status(admin.workspace_id, plugin_id)
     return DeploymentOut(deployment_id=deployment.id, status=deployment.status, url=deployment.url)
@@ -158,7 +159,7 @@ async def deployment_status(
 
 @router.post("/{plugin_id}/redeploy", response_model=DeploymentOut)
 async def redeploy(
-    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> DeploymentOut:
     deployment = await agent_service.redeploy(actor_for(request, admin), plugin_id)
     return DeploymentOut(deployment_id=deployment.id, status=deployment.status, url=deployment.url)
@@ -166,7 +167,7 @@ async def redeploy(
 
 @router.get("/{plugin_id}/logs", response_model=LogsOut)
 async def deployment_logs(
-    plugin_id: str,
+    plugin_id: IdParam,
     lines: Annotated[int, Query(ge=10, le=1000)] = 200,
     admin: SessionUser = Depends(require_admin),
 ) -> LogsOut:
@@ -176,7 +177,7 @@ async def deployment_logs(
 
 @router.post("/{plugin_id}/stop", response_model=OkOut)
 async def stop_agent(
-    plugin_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     await agent_service.stop(actor_for(request, admin), plugin_id)
     return OkOut()
@@ -218,7 +219,7 @@ def _hint(value: str) -> str:
 
 
 @router.get("/{plugin_id}/env", response_model=EnvOut)
-async def agent_env(plugin_id: str, admin: SessionUser = Depends(require_admin)) -> EnvOut:
+async def agent_env(plugin_id: IdParam, admin: SessionUser = Depends(require_admin)) -> EnvOut:
     """What a hosted agent is configured with.
 
     The form half of setting an agent up. The other half is the terminal, and the split
@@ -232,7 +233,7 @@ async def agent_env(plugin_id: str, admin: SessionUser = Depends(require_admin))
 
 @router.put("/{plugin_id}/env", response_model=EnvOut)
 async def update_agent_env(
-    plugin_id: str,
+    plugin_id: IdParam,
     payload: EnvInput,
     request: Request,
     admin: SessionUser = Depends(require_admin),

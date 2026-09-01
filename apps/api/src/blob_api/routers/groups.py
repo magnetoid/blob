@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Request
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, require_admin
 from ..lib.errors import conflict, not_found, unique_violation
+from ..lib.ids import IdParam
 from ..realtime import hub
 from ..schemas.base import CamelModel
 from ..schemas.models import UserGroup
@@ -118,7 +119,7 @@ async def create_group(
 
 @router.patch("/{group_id}", response_model=GroupOut)
 async def update_group(
-    group_id: str,
+    group_id: IdParam,
     payload: UpdateGroupInput,
     request: Request,
     admin: SessionUser = Depends(require_admin),
@@ -158,7 +159,7 @@ async def update_group(
 
 @router.delete("/{group_id}", response_model=OkOut)
 async def delete_group(
-    group_id: str, request: Request, admin: SessionUser = Depends(require_admin)
+    group_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
 ) -> OkOut:
     async with transaction() as (session, after):
         await group_service.delete(session, admin.workspace_id, group_id)
@@ -178,7 +179,9 @@ async def delete_group(
 
 
 @router.get("/{group_id}/members", response_model=MembersOut)
-async def list_members(group_id: str, admin: SessionUser = Depends(require_admin)) -> MembersOut:
+async def list_members(
+    group_id: IdParam, admin: SessionUser = Depends(require_admin)
+) -> MembersOut:
     async with session_scope() as session:
         if not await group_service.exists(session, admin.workspace_id, group_id):
             raise not_found("There is no such group here.")
@@ -188,8 +191,8 @@ async def list_members(group_id: str, admin: SessionUser = Depends(require_admin
 
 @router.put("/{group_id}/members/{user_id}", response_model=OkOut)
 async def add_member(
-    group_id: str,
-    user_id: str,
+    group_id: IdParam,
+    user_id: IdParam,
     request: Request,
     admin: SessionUser = Depends(require_admin),
 ) -> OkOut:
@@ -213,8 +216,8 @@ async def add_member(
 
 @router.delete("/{group_id}/members/{user_id}", response_model=OkOut)
 async def remove_member(
-    group_id: str,
-    user_id: str,
+    group_id: IdParam,
+    user_id: IdParam,
     request: Request,
     admin: SessionUser = Depends(require_admin),
 ) -> OkOut:

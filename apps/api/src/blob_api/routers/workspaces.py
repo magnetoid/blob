@@ -22,6 +22,7 @@ from ..lib.auth import (
     destroy_session,
     set_session_cookie,
 )
+from ..lib.ids import IdParam
 from ..schemas.base import CamelModel
 from ..services import workspaces as workspace_service
 
@@ -69,7 +70,7 @@ async def my_workspaces(user: SessionUser = Depends(current_user)) -> MyWorkspac
 
 @router.post("/api/workspaces/{workspace_id}/switch", response_model=SwitchedOut)
 async def switch_workspace(
-    workspace_id: str,
+    workspace_id: IdParam,
     request: Request,
     response: Response,
     user: SessionUser = Depends(current_user),

@@ -6819,6 +6819,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -7014,6 +7015,7 @@
             "name": "ticket_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Ticket Id",
               "type": "string"
             }
@@ -7054,6 +7056,7 @@
             "name": "ticket_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Ticket Id",
               "type": "string"
             }
@@ -7107,6 +7110,7 @@
             "name": "ticket_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Ticket Id",
               "type": "string"
             }
@@ -7209,6 +7213,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7249,6 +7254,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7301,6 +7307,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7343,6 +7350,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7352,6 +7360,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -7392,6 +7401,7 @@
             "name": "group_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Group Id",
               "type": "string"
             }
@@ -7401,6 +7411,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -7631,6 +7642,7 @@
             "name": "workspace_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Workspace Id",
               "type": "string"
             }
@@ -7672,6 +7684,7 @@
             "name": "workspace_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Workspace Id",
               "type": "string"
             }
@@ -7745,6 +7758,7 @@
             "name": "invite_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Invite Id",
               "type": "string"
             }
@@ -7973,6 +7987,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8013,6 +8028,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8066,6 +8082,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8109,6 +8126,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8162,6 +8180,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8204,6 +8223,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8213,6 +8233,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -8253,6 +8274,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8262,6 +8284,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -8305,6 +8328,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8348,6 +8372,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8403,6 +8428,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8412,6 +8438,7 @@
             "name": "delivery_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Delivery Id",
               "type": "string"
             }
@@ -8454,6 +8481,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8496,6 +8524,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8553,6 +8582,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8593,6 +8623,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8646,6 +8677,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8700,6 +8732,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8743,6 +8776,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8797,6 +8831,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8839,6 +8874,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8882,6 +8918,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -8924,6 +8961,7 @@
             "name": "plugin_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Plugin Id",
               "type": "string"
             }
@@ -9067,6 +9105,7 @@
             "name": "theme_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Theme Id",
               "type": "string"
             }
@@ -9191,6 +9230,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -9233,6 +9273,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -9276,6 +9317,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -9319,6 +9361,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -9432,6 +9475,7 @@
             "name": "webhook_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Webhook Id",
               "type": "string"
             }
@@ -9475,6 +9519,7 @@
             "name": "run_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Run Id",
               "type": "string"
             }
@@ -9518,6 +9563,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -9989,6 +10035,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10029,6 +10076,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10082,6 +10130,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10124,6 +10173,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10166,6 +10216,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10208,6 +10259,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10250,6 +10302,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10290,6 +10343,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10343,6 +10397,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10395,6 +10450,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10406,6 +10462,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 {
@@ -10422,6 +10479,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 {
@@ -10438,6 +10496,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                   "type": "string"
                 },
                 {
@@ -10495,6 +10554,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10547,6 +10607,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10589,6 +10650,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10642,6 +10704,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -10695,6 +10758,7 @@
             "name": "channel_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Channel Id",
               "type": "string"
             }
@@ -11453,6 +11517,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11494,6 +11559,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11534,6 +11600,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11586,6 +11653,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11638,6 +11706,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11689,6 +11758,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11742,6 +11812,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11794,6 +11865,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11836,6 +11908,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -11954,6 +12027,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -12028,6 +12102,7 @@
             "name": "scheduled_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Scheduled Id",
               "type": "string"
             }
@@ -12258,6 +12333,7 @@
             "name": "task_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Task Id",
               "type": "string"
             }
@@ -12353,6 +12429,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -12393,6 +12470,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -12435,6 +12513,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -12475,6 +12554,7 @@
             "name": "message_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Message Id",
               "type": "string"
             }
@@ -12570,6 +12650,7 @@
             "name": "attachment_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Attachment Id",
               "type": "string"
             }
@@ -12650,6 +12731,7 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "User Id",
               "type": "string"
             }
@@ -13203,6 +13285,7 @@
             "name": "workspace_id",
             "required": true,
             "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
               "title": "Workspace Id",
               "type": "string"
             }

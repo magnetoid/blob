@@ -12,7 +12,7 @@ from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, conflict, not_found, unique_violation
-from ..lib.ids import new_id
+from ..lib.ids import IdParam, new_id
 from ..lib.storage import public_file_url
 from ..lib.webpush import send_push
 from ..realtime import hub
@@ -333,7 +333,7 @@ async def list_users(user: SessionUser = Depends(current_user)) -> UsersOut:
 
 
 @router.get("/api/users/{user_id}", response_model=UserOut)
-async def get_user(user_id: str, user: SessionUser = Depends(current_user)) -> UserOut:
+async def get_user(user_id: IdParam, user: SessionUser = Depends(current_user)) -> UserOut:
     async with session_scope() as session:
         row = (
             await session.execute(

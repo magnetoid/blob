@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, hash_token
 from ..lib.errors import bad_request, forbidden, not_found
-from ..lib.ids import new_id
+from ..lib.ids import IdParam, new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
 from ..plugins import events as plugin_events
@@ -123,10 +123,13 @@ async def load_message_for(
 
 @router.get("/api/channels/{channel_id}/messages", response_model=HistoryOut)
 async def get_history(
-    channel_id: str,
-    before: str | None = None,
-    after: str | None = None,
-    around: str | None = None,
+    channel_id: IdParam,
+    # The cursors are ids too, and were the other half of the same 500: a malformed
+    # `before` reached the SQL and Postgres refused it, which surfaced as an internal
+    # error for a value the client supplied.
+    before: IdParam | None = None,
+    after: IdParam | None = None,
+    around: IdParam | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     user: SessionUser = Depends(current_user),
 ) -> HistoryOut:
@@ -140,7 +143,7 @@ async def get_history(
 
 @router.post("/api/channels/{channel_id}/messages", response_model=MessageOut)
 async def send_message(
-    channel_id: str,
+    channel_id: IdParam,
     payload: SendMessageInput,
     response: Response,
     user: SessionUser = Depends(current_user),
@@ -201,7 +204,7 @@ async def send_message(
 
 
 @router.get("/api/messages/{message_id}", response_model=MessageOut)
-async def get_message(message_id: str, user: SessionUser = Depends(current_user)) -> MessageOut:
+async def get_message(message_id: IdParam, user: SessionUser = Depends(current_user)) -> MessageOut:
     """One message by id — what a permalink resolves against.
 
     The missing verb in this file: a message could be edited, deleted, pinned, reacted
@@ -219,7 +222,7 @@ async def get_message(message_id: str, user: SessionUser = Depends(current_user)
 
 
 @router.get("/api/messages/{message_id}/thread", response_model=MessagesOut)
-async def get_thread(message_id: str, user: SessionUser = Depends(current_user)) -> MessagesOut:
+async def get_thread(message_id: IdParam, user: SessionUser = Depends(current_user)) -> MessagesOut:
     async with session_scope() as session:
         # A deleted root still anchors its replies, so the thread stays readable.
         await load_message_for(session, user, message_id, allow_deleted=True)
@@ -229,7 +232,7 @@ async def get_thread(message_id: str, user: SessionUser = Depends(current_user))
 
 @router.post("/api/messages/{message_id}/translate", response_model=MessageTranslationOut)
 async def translate_message(
-    message_id: str,
+    message_id: IdParam,
     payload: TranslateMessageInput,
     user: SessionUser = Depends(current_user),
 ) -> MessageTranslationOut:
@@ -291,7 +294,7 @@ async def list_threads(user: SessionUser = Depends(current_user)) -> MessagesOut
 
 @router.patch("/api/messages/{message_id}", response_model=MessageOut)
 async def edit_message(
-    message_id: str, payload: EditMessageInput, user: SessionUser = Depends(current_user)
+    message_id: IdParam, payload: EditMessageInput, user: SessionUser = Depends(current_user)
 ) -> MessageOut:
     async with transaction() as (session, after):
         await load_message_for(session, user, message_id, require_member=True)
@@ -316,7 +319,7 @@ async def edit_message(
 
 @router.delete("/api/messages/{message_id}", response_model=OkOut)
 async def delete_message(
-    message_id: str, request: Request, user: SessionUser = Depends(current_user)
+    message_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     async with transaction() as (session, after):
         existing = await load_message_for(
@@ -364,7 +367,7 @@ async def delete_message(
 
 @router.put("/api/messages/{message_id}/pin", response_model=MessageOut)
 async def pin_message(
-    message_id: str, payload: PinInput, user: SessionUser = Depends(current_user)
+    message_id: IdParam, payload: PinInput, user: SessionUser = Depends(current_user)
 ) -> MessageOut:
     async with transaction() as (session, after):
         await load_message_for(
@@ -379,7 +382,7 @@ async def pin_message(
 
 @router.put("/api/messages/{message_id}/save", response_model=OkOut)
 async def save_message(
-    message_id: str, payload: SaveInput, user: SessionUser = Depends(current_user)
+    message_id: IdParam, payload: SaveInput, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     """Put a message aside for yourself. Slack's Later.
 
@@ -437,7 +440,7 @@ async def list_later(
 
 @router.patch("/api/saved/{message_id}", response_model=OkOut)
 async def update_later(
-    message_id: str, payload: LaterInput, user: SessionUser = Depends(current_user)
+    message_id: IdParam, payload: LaterInput, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     """Move a saved item between states, or set a reminder on it.
 
@@ -473,7 +476,7 @@ async def update_later(
 # ─── reactions ────────────────────────────────────────────────────────────────
 @router.put("/api/messages/{message_id}/reactions", response_model=OkOut)
 async def add_reaction(
-    message_id: str, payload: ReactionInput, user: SessionUser = Depends(current_user)
+    message_id: IdParam, payload: ReactionInput, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     async with transaction() as (session, after):
         existing = await load_message_for(
@@ -504,7 +507,7 @@ async def add_reaction(
 
 @router.delete("/api/messages/{message_id}/reactions", response_model=OkOut)
 async def remove_reaction(
-    message_id: str,
+    message_id: IdParam,
     emoji: Annotated[str, Query(min_length=1, max_length=64)],
     user: SessionUser = Depends(current_user),
 ) -> OkOut:
@@ -541,7 +544,7 @@ async def remove_reaction(
 # ─── read state ───────────────────────────────────────────────────────────────
 @router.post("/api/channels/{channel_id}/read", response_model=ReadStateResponse)
 async def mark_read(
-    channel_id: str, payload: MarkReadInput, user: SessionUser = Depends(current_user)
+    channel_id: IdParam, payload: MarkReadInput, user: SessionUser = Depends(current_user)
 ) -> ReadStateResponse:
     async with transaction() as (session, after):
         await channel_service.assert_channel_access(
@@ -556,7 +559,7 @@ async def mark_read(
 
 @router.post("/api/channels/{channel_id}/unread", response_model=ReadStateResponse)
 async def mark_unread(
-    channel_id: str, payload: MarkUnreadInput, user: SessionUser = Depends(current_user)
+    channel_id: IdParam, payload: MarkUnreadInput, user: SessionUser = Depends(current_user)
 ) -> ReadStateResponse:
     """Leave a message, and everything after it, unread.
 
@@ -615,7 +618,7 @@ class ScheduledListOut(CamelModel):
 
 @router.post("/api/channels/{channel_id}/schedule", response_model=ScheduledOut)
 async def schedule_message(
-    channel_id: str, payload: ScheduleInput, user: SessionUser = Depends(current_user)
+    channel_id: IdParam, payload: ScheduleInput, user: SessionUser = Depends(current_user)
 ) -> ScheduledOut:
     """Write it now, send it then."""
     try:
@@ -649,7 +652,9 @@ async def list_scheduled(user: SessionUser = Depends(current_user)) -> Scheduled
 
 
 @router.delete("/api/scheduled/{scheduled_id}", response_model=OkOut)
-async def cancel_scheduled(scheduled_id: str, user: SessionUser = Depends(current_user)) -> OkOut:
+async def cancel_scheduled(
+    scheduled_id: IdParam, user: SessionUser = Depends(current_user)
+) -> OkOut:
     async with transaction() as (session, _):
         await scheduled_service.cancel(session, user.id, scheduled_id)
     return OkOut()

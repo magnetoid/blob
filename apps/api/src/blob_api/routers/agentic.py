@@ -11,6 +11,7 @@ from sqlalchemy import text
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import forbidden, not_found
+from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
 from ..lib.redis import redis
 from ..plugins import events as plugin_events
@@ -53,7 +54,7 @@ async def _root_message(message_id: str, user: SessionUser) -> tuple[str, str]:
 
 @router.get("/api/threads/{message_id}/summary", response_model=ThreadSummaryOut)
 async def get_thread_summary(
-    message_id: str, user: SessionUser = Depends(current_user)
+    message_id: IdParam, user: SessionUser = Depends(current_user)
 ) -> ThreadSummaryOut:
     thread_root_id, _channel_id = await _root_message(message_id, user)
     async with session_scope() as session:
@@ -63,7 +64,7 @@ async def get_thread_summary(
 
 @router.post("/api/threads/{message_id}/summary", response_model=ThreadSummaryOut)
 async def refresh_thread_summary(
-    message_id: str,
+    message_id: IdParam,
     request: Request,
     user: SessionUser = Depends(current_user),
 ) -> ThreadSummaryOut:
@@ -96,7 +97,7 @@ async def refresh_thread_summary(
 
 @router.get("/api/threads/{message_id}/tasks", response_model=AgentTasksOut)
 async def list_thread_tasks(
-    message_id: str, user: SessionUser = Depends(current_user)
+    message_id: IdParam, user: SessionUser = Depends(current_user)
 ) -> AgentTasksOut:
     thread_root_id, _channel_id = await _root_message(message_id, user)
     async with session_scope() as session:
@@ -106,7 +107,7 @@ async def list_thread_tasks(
 
 @router.post("/api/threads/{message_id}/tasks", response_model=AgentTaskOut, status_code=201)
 async def create_thread_task(
-    message_id: str,
+    message_id: IdParam,
     payload: CreateAgentTaskInput,
     request: Request,
     user: SessionUser = Depends(current_user),
@@ -162,7 +163,7 @@ async def create_thread_task(
 
 @router.patch("/api/tasks/{task_id}", response_model=AgentTaskOut)
 async def update_task(
-    task_id: str,
+    task_id: IdParam,
     payload: UpdateAgentTaskInput,
     request: Request,
     user: SessionUser = Depends(current_user),
@@ -338,7 +339,7 @@ class OkOut(CamelModel):
 
 @router.get("/api/channels/{channel_id}/agent-runs", response_model=AgentRunsOut)
 async def channel_agent_runs(
-    channel_id: str, user: SessionUser = Depends(current_user)
+    channel_id: IdParam, user: SessionUser = Depends(current_user)
 ) -> AgentRunsOut:
     """The runs a conversation renders on load: live cards plus the recent tail.
 
@@ -355,7 +356,7 @@ async def channel_agent_runs(
 
 @router.post("/api/agent-runs/{run_id}/cancel", response_model=OkOut)
 async def cancel_agent_run(
-    run_id: str, request: Request, user: SessionUser = Depends(current_user)
+    run_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     """Stop an in-flight run.
 
