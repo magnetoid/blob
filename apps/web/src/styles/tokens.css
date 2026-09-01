@@ -366,3 +366,54 @@
 
     --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
 }
+
+/* ─── muted text on an elevated surface ─────────────────────────────────────
+   In dark mode the surface ladder climbs toward white, and every step it climbs
+   it spends contrast the muted greys do not have to give. Measured on the most
+   elevated surface, five of the eight text tokens fell under 4.5:1 — the
+   palette's kind label at 3.71, faint at 3.52 — while passing comfortably on the
+   base background, which is where the palette was tuned and where every audit had
+   looked at it. Lighthouse scored the page 100 throughout: a popover that is not
+   open is not in the snapshot.
+
+   So the text climbs with the surface. The mix is toward the same white the
+   surface mixes toward and lives on the eight floating components, which are
+   exactly the ones that set --surface-2 or --surface-3 as a background; anything
+   on the base background is untouched, and light mode is untouched by
+   construction because its whole ladder is --surface.
+
+   Derived rather than hard-coded, so a custom dark theme's own greys climb too.
+   ────────────────────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) :is(.user-menu-panel,
+      .autocomplete,
+      .palette,
+      .dialog,
+      .emoji-picker,
+      .pinned-panel,
+      .menu,
+      .toast) {
+    --text-3: color-mix(in oklab, var(--dark-text-3) 82%, #fff);
+    --text-4: color-mix(in oklab, var(--dark-text-4) 80%, #fff);
+    --text-5: color-mix(in oklab, var(--dark-text-5) 78%, #fff);
+    --text-label: color-mix(in oklab, var(--dark-text-label) 76%, #fff);
+    --text-faint: color-mix(in oklab, var(--dark-text-faint) 74%, #fff);
+    --text-rail: color-mix(in oklab, var(--dark-text-rail) 76%, #fff);
+  }
+}
+
+:root[data-theme='dark'] :is(.user-menu-panel,
+      .autocomplete,
+      .palette,
+      .dialog,
+      .emoji-picker,
+      .pinned-panel,
+      .menu,
+      .toast) {
+  --text-3: color-mix(in oklab, var(--dark-text-3) 82%, #fff);
+  --text-4: color-mix(in oklab, var(--dark-text-4) 80%, #fff);
+  --text-5: color-mix(in oklab, var(--dark-text-5) 78%, #fff);
+  --text-label: color-mix(in oklab, var(--dark-text-label) 76%, #fff);
+  --text-faint: color-mix(in oklab, var(--dark-text-faint) 74%, #fff);
+  --text-rail: color-mix(in oklab, var(--dark-text-rail) 76%, #fff);
+}
