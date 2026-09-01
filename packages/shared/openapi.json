@@ -4232,6 +4232,39 @@
         "title": "PushUnsubscribeInput",
         "type": "object"
       },
+      "QuietHours": {
+        "description": "When not to interrupt somebody.\n\nA shape rather than a bare dict, because this is read by the notify job on every\nmessage for every recipient, and a value it cannot handle takes the whole job down\n\u2014 not just that person's notification, but everyone's in the channel. It was\n`dict[str, Any]`, so `{\"enabled\": true, \"startHour\": \"nine\"}` was stored happily and\nthen raised `ValueError` inside `is_snoozed` for every message thereafter. Any member\ncould switch off their team's notifications by saving their own preferences once.\n\nThe hours are bounded to a real clock and the days to a real week, so the values that\nreach `int()` and the weekday comparison cannot be anything else.",
+        "properties": {
+          "days": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "endHour": {
+            "default": 18,
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Endhour",
+            "type": "integer"
+          },
+          "startHour": {
+            "default": 9,
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Starthour",
+            "type": "integer"
+          }
+        },
+        "title": "QuietHours",
+        "type": "object"
+      },
       "Reaction": {
         "properties": {
           "emoji": {
@@ -5618,14 +5651,12 @@
           "dnd": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/QuietHours"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Dnd"
+            ]
           },
           "enterToSend": {
             "anyOf": [
@@ -6101,14 +6132,12 @@
           "dnd": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/QuietHours"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Dnd"
+            ]
           },
           "enterToSend": {
             "default": true,

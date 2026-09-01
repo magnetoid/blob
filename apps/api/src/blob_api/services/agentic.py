@@ -214,6 +214,25 @@ async def list_tasks_for_thread(session: AsyncSession, thread_root_id: str) -> l
     return [to_agent_task(row) for row in rows]
 
 
+def parse_due_at(raw: str | None) -> datetime | None:
+    """A task's due date, as something asyncpg will bind.
+
+    It arrived as a `str` and went straight into `cast(:due_at AS timestamptz)`. asyncpg
+    reads that cast as the *parameter's* own type and refuses a string, so every task
+    with a due date was a 500 — from any client, since the field existed. The same fault
+    as `status_expires_at`, in a second place.
+
+    Refused with the sentence `later` and `schedule` already use, because it is the same
+    mistake and the client shows whatever we say.
+    """
+    if raw is None:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        raise bad_request("That isn't a time.") from None
+
+
 async def create_task(
     session: AsyncSession,
     *,
@@ -274,7 +293,7 @@ async def create_task(
                 "title": title.strip(),
                 "instructions": instructions.strip(),
                 "priority": priority,
-                "due_at": due_at,
+                "due_at": parse_due_at(due_at),
                 "external_ref": json.dumps(external_ref),
             },
         )
@@ -391,7 +410,7 @@ async def update_task(
                 "status": status,
                 "priority": priority,
                 "due_at_set": due_at is not None,
-                "due_at": due_at,
+                "due_at": parse_due_at(due_at),
                 "outcome_set": outcome is not None,
                 "outcome": outcome.strip() if outcome is not None else None,
                 "instructions_set": instructions is not None,

@@ -7,12 +7,13 @@ they read as sentences rather than as validator names.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import EmailStr, Field, StringConstraints, field_validator, model_validator
 
 from ..lib.ids import IdParam
 from .base import CamelModel
+from .models import QuietHours
 
 MESSAGE_MAX_LENGTH = 12_000
 
@@ -189,7 +190,7 @@ class UpdatePrefsInput(CamelModel):
     theme_light: str | None = Field(default=None, max_length=40)
     theme_dark: str | None = Field(default=None, max_length=40)
     keywords: list[str] | None = Field(default=None, max_length=30)
-    dnd: dict[str, Any] | None = None
+    dnd: QuietHours | None = None
     snooze_until: str | None = None
     enter_to_send: bool | None = None
     language: str | None = Field(default=None, min_length=2, max_length=16)

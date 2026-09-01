@@ -197,3 +197,46 @@ async def test_bot_can_summarize_and_manage_assigned_tasks(client: Client) -> No
     listed = await app.get("/api/v1/tasks.list")
     assert listed.status == 200
     assert listed.body["tasks"][0]["id"] == created.body["task"]["id"]
+
+
+async def test_a_task_can_have_a_due_date(client: Client) -> None:
+    """`dueAt` was a 500 for as long as the field existed.
+
+    It is typed `str | None` and went straight into `cast(:due_at AS timestamptz)`.
+    asyncpg reads that cast as the *parameter's* own type and refuses a string, so every
+    task with a due date failed — from any client, including the one `api.ts` exposes.
+    The same fault as `status_expires_at`, in a second place, which is why it is parsed
+    at the boundary now rather than cast in the SQL.
+    """
+    owner = await sign_up(client, "Due Owner")
+    general = (await owner.get("/api/channels")).body["channels"][0]["id"]
+    root = await send_message(owner, general, "Something to do.")
+    thread = root.body["message"]["id"]
+
+    dated = await owner.post(
+        f"/api/threads/{thread}/tasks",
+        {"title": "Ship it", "dueAt": "2027-09-30T17:00:00Z"},
+    )
+    assert dated.status == 201, dated.body
+    assert dated.body["task"]["dueAt"] is not None
+
+    # Updating it is the second statement with the same cast, so it is checked too.
+    moved = await owner.patch(
+        f"/api/tasks/{dated.body['task']['id']}", {"dueAt": "2027-10-01T09:00:00Z"}
+    )
+    assert moved.status == 200, moved.body
+
+
+async def test_a_due_date_that_is_not_a_time_is_refused(client: Client) -> None:
+    # The same sentence `later` and `schedule` give, because it is the same mistake.
+    owner = await sign_up(client, "Bad Due Owner")
+    general = (await owner.get("/api/channels")).body["channels"][0]["id"]
+    root = await send_message(owner, general, "Another thing.")
+
+    answer = await owner.post(
+        f"/api/threads/{root.body['message']['id']}/tasks",
+        {"title": "Ship it", "dueAt": "garbage"},
+    )
+
+    assert answer.status == 400
+    assert answer.body["error"]["message"] == "That isn't a time."

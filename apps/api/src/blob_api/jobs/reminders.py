@@ -21,8 +21,8 @@ from ..db.engine import session_scope, transaction
 from ..lib.queue import fire_and_forget
 from ..lib.webpush import send_push
 from ..realtime import hub
-from ..schemas.models import UserPrefs
 from ..services import notify as notify_service
+from ..services.serialize import read_prefs
 
 log = logging.getLogger("blob.jobs.reminders")
 
@@ -54,7 +54,7 @@ async def fire_reminders(_ctx: dict[str, Any]) -> None:
         for row in rows:
             recipient = notify_service.Recipient(
                 user_id=str(row.user_id),
-                prefs=UserPrefs.model_validate(row.prefs or {}),
+                prefs=read_prefs(row.prefs),
                 timezone=row.timezone or "UTC",
             )
             if notify_service.is_snoozed(recipient, now):

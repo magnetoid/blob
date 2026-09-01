@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Any
+
+from pydantic import ValidationError
 
 from ..lib.storage import public_file_url
 from ..schemas.base import iso, require_iso
@@ -27,13 +30,47 @@ from ..schemas.models import (
     Workspace,
 )
 
+log = logging.getLogger("blob.serialize")
+
 #: The columns every user query selects. Kept in one place so the shape cannot drift.
 USER_COLUMNS = """id, email, display_name, full_name, title, avatar_key, timezone, role,
   status_emoji, status_text, status_expires_at, prefs, deactivated_at, created_at, kind"""
 
 
+def read_prefs(raw: dict[str, Any] | None) -> UserPrefs:
+    """Stored preferences, tolerant of what an older, looser schema let in.
+
+    `prefs` is a jsonb column that accepted `dict[str, Any]` for a long time, so rows
+    exist with values the current shape refuses — `dnd: {"startHour": "nine"}` among
+    them. Validating strictly here would turn those rows from "one broken preference"
+    into "this user cannot be serialised at all", which is a worse failure than the one
+    the shape was added to prevent.
+
+    So a value that will not parse is dropped back to its default and the rest is kept.
+    Writing is where the shape is enforced; reading is where the workspace stays up.
+    """
+    try:
+        return UserPrefs.model_validate(raw or {})
+    except ValidationError:
+        pass
+
+    fields = dict(raw or {})
+    for name in list(fields):
+        candidate = {k: v for k, v in fields.items() if k != name}
+        try:
+            UserPrefs.model_validate(candidate)
+        except ValidationError:
+            continue
+        log.warning("dropping unreadable preference %r while serialising a user", name)
+        return UserPrefs.model_validate(candidate)
+
+    # More than one bad field, or something unrecoverable: defaults beat an exception.
+    log.warning("preferences could not be read at all; using defaults")
+    return UserPrefs()
+
+
 def _prefs(raw: dict[str, Any] | None) -> UserPrefs:
-    return UserPrefs.model_validate(raw or {})
+    return read_prefs(raw)
 
 
 def to_user(row: Any) -> User:

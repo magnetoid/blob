@@ -40,7 +40,7 @@ from ..services import handles as handle_service
 from ..services import messages as message_service
 from ..services import themes as theme_service
 from ..services import user_groups as group_service
-from ..services.serialize import USER_COLUMNS, to_current_user, to_user, to_workspace
+from ..services.serialize import USER_COLUMNS, read_prefs, to_current_user, to_user, to_workspace
 
 router = APIRouter(tags=["users"])
 
@@ -335,7 +335,7 @@ async def update_prefs(
         ).fetchone()
     if row is None:
         raise not_found("That account no longer exists.")
-    return PrefsOut(prefs=UserPrefs.model_validate(row.prefs or {}))
+    return PrefsOut(prefs=read_prefs(row.prefs))
 
 
 @router.get("/api/users", response_model=UsersOut)

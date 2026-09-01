@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from .base import CamelModel
 
@@ -18,6 +18,35 @@ AgentTaskStatus = Literal["todo", "in_progress", "blocked", "done", "cancelled"]
 AgentTaskPriority = Literal["low", "medium", "high", "critical"]
 
 
+class QuietHours(CamelModel):
+    """When not to interrupt somebody.
+
+    A shape rather than a bare dict, because this is read by the notify job on every
+    message for every recipient, and a value it cannot handle takes the whole job down
+    — not just that person's notification, but everyone's in the channel. It was
+    `dict[str, Any]`, so `{"enabled": true, "startHour": "nine"}` was stored happily and
+    then raised `ValueError` inside `is_snoozed` for every message thereafter. Any member
+    could switch off their team's notifications by saving their own preferences once.
+
+    The hours are bounded to a real clock and the days to a real week, so the values that
+    reach `int()` and the weekday comparison cannot be anything else.
+    """
+
+    enabled: bool = False
+    #: Local hour the working window opens; quiet hours are *outside* [start, end).
+    start_hour: int = Field(default=9, ge=0, le=23)
+    end_hour: int = Field(default=18, ge=0, le=23)
+    #: Sunday=0, matching JavaScript's getDay(), which is what the client sends.
+    days: list[int] = Field(default_factory=list)
+
+    @field_validator("days")
+    @classmethod
+    def _real_days(cls, value: list[int]) -> list[int]:
+        if any(day < 0 or day > 6 for day in value):
+            raise ValueError("A day of the week is 0 (Sunday) through 6.")
+        return value
+
+
 class UserPrefs(CamelModel):
     theme: Literal["light", "dark", "system"] = "system"
     density: Literal["comfortable", "compact", "airy"] = "comfortable"
@@ -27,7 +56,7 @@ class UserPrefs(CamelModel):
     #: Words that trigger a notification anywhere in the workspace.
     keywords: list[str] = Field(default_factory=list)
     #: Quiet hours; notifications are suppressed outside [start, end) local time.
-    dnd: dict[str, Any] | None = None
+    dnd: QuietHours | None = None
     #: Manual snooze until this ISO timestamp.
     snooze_until: str | None = None
     enter_to_send: bool = True

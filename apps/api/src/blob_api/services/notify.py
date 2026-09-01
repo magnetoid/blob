@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.mentions import matches_keywords
 from ..schemas.models import UserPrefs
+from .serialize import read_prefs
 
 NotifyLevel = Literal["all", "mentions", "none"]
 NotifyReason = Literal["dm", "mention", "group", "everyone", "keyword", "all_activity", "thread"]
@@ -115,17 +116,22 @@ def is_snoozed(recipient: Recipient, now: datetime) -> bool:
         except ValueError:
             pass
 
+    # A shape, not a dict. It used to be `dict[str, Any]` read with `.get()` and coerced
+    # with `int()`, so a stored `{"startHour": "nine"}` raised inside this function — and
+    # this runs for every recipient of every message, so one person's saved preferences
+    # took down notifications for everyone in the channel. `QuietHours` bounds the hours
+    # and the days where they are written, which is where the value stops being able to
+    # be anything.
     dnd = recipient.prefs.dnd
-    if not dnd or not dnd.get("enabled"):
+    if not dnd or not dnd.enabled:
         return False
 
     local = _local_parts(now, recipient.timezone)
-    days = dnd.get("days") or []
-    if days and local["weekday"] not in days:
+    if dnd.days and local["weekday"] not in dnd.days:
         return True
 
-    start = int(dnd.get("startHour", 9))
-    end = int(dnd.get("endHour", 18))
+    start = dnd.start_hour
+    end = dnd.end_hour
     if start == end:
         return False
 
@@ -171,7 +177,7 @@ async def load_recipients(session: AsyncSession, channel_id: str) -> list[Recipi
         Recipient(
             user_id=row.user_id,
             notify_level=row.notify_level,
-            prefs=UserPrefs.model_validate(row.prefs or {}),
+            prefs=read_prefs(row.prefs),
             timezone=row.timezone,
         )
         for row in rows
