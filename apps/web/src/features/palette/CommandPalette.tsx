@@ -23,7 +23,20 @@ interface Item {
   run: () => void | Promise<void>;
 }
 
-export function CommandPalette({ onClose }: { onClose: () => void }) {
+export function CommandPalette({
+  onClose,
+  only,
+}: {
+  onClose: () => void;
+  /**
+   * Narrow the list to one kind of thing.
+   *
+   * ⌘⇧K in Slack means "direct messages", and the answer to it is the same picker with
+   * the channels and the verbs taken out — not a second component that would drift from
+   * this one the first time either changed.
+   */
+  only?: "people";
+}) {
   const channels = useStore((s) => s.channels);
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
@@ -121,8 +134,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       },
     ];
 
+    if (only === "people") return peopleItems;
     return [...channelItems, ...peopleItems, ...actionItems];
-  }, [channels, users, currentUser, setPrefs, channelTitle]);
+  }, [channels, users, currentUser, setPrefs, channelTitle, only]);
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase().replace(/^[#@]/, "");
@@ -167,7 +181,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Jump to"
+        aria-label={only === "people" ? "Message someone" : "Jump to"}
       >
         {/*
          * The combobox pattern, because focus never leaves this input.
@@ -189,7 +203,11 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           aria-activedescendant={
             matches.length > 0 ? `palette-option-${index}` : undefined
           }
-          placeholder="Jump to a channel, a person, or an action…"
+          placeholder={
+            only === "people"
+              ? "Message someone…"
+              : "Jump to a channel, a person, or an action…"
+          }
           onChange={(e) => {
             setQuery(e.target.value);
             setIndex(0);

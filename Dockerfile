@@ -22,13 +22,31 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
 
 COPY packages/shared packages/shared
 COPY apps/web apps/web
-# The history, for the build stamp — see `apps/web/vite.config.ts`. Last, so it only
-# invalidates the build step, which reruns on any source change anyway. `git` is not in
-# the base image, and the checkout is somebody else's by uid, which stops git reading it
-# at all unless it is told that is expected.
-RUN apk add --no-cache git
-COPY .git .git
-RUN git config --global --add safe.directory /src && pnpm --filter @blob/web build
+
+# The history, for the build stamp on the "What's new" page — see `apps/web/vite.config.ts`.
+#
+# Copied through a glob rather than by name, and this is the load-bearing part: `COPY .git`
+# *fails the build* on any host that does not put a repository in the context, and a page
+# that names the running build is not worth a deploy that cannot happen. A COPY needs one
+# source to match, `package.json` always does, and `.gi[t]` comes along when it exists and
+# is silently absent when it does not. `HEAD` is what says which of those happened —
+# COPY of a directory lands its *contents*, so the `.git` name does not survive the copy.
+#
+# Where it is absent the stamp falls back to SOURCE_COMMIT, which is what Coolify and most
+# CI hand down, and failing that the page says nothing rather than guessing.
+COPY package.jso[n] .gi[t] /gitsrc/
+RUN if [ -f /gitsrc/HEAD ]; then \
+      mkdir -p /src/.git && cp -a /gitsrc/. /src/.git/ && rm -f /src/.git/package.json; \
+    fi; \
+    rm -rf /gitsrc
+
+ARG SOURCE_COMMIT=""
+ENV SOURCE_COMMIT=$SOURCE_COMMIT
+# git is not in the base image, and a checkout owned by another uid is one git refuses to
+# read at all unless it is told that is expected.
+RUN apk add --no-cache git \
+    && git config --global --add safe.directory /src \
+    && pnpm --filter @blob/web build
 
 # ─── 2. the server's dependencies ─────────────────────────────────────────────
 FROM python:3.12-slim AS api

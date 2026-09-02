@@ -10,7 +10,7 @@
 
 import { useEffect, useRef } from 'react';
 import { trapFocus } from '../lib/focusTrap.ts';
-import { describeKeys, groupedShortcuts, isMac } from '../lib/shortcuts.ts';
+import { chordsFor, describeKeys, groupedShortcuts, isMac } from '../lib/shortcuts.ts';
 
 export function ShortcutHelp({ onClose }: { onClose: () => void }) {
   const mac = isMac();
@@ -49,8 +49,15 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
               <div key={shortcut.id} className="shortcut-row">
                 <span>{shortcut.label}</span>
                 <span className="shortcut-keys">
-                  {describeKeys(shortcut, mac).map((cap) => (
-                    <kbd key={cap}>{cap}</kbd>
+                  {chordsFor(shortcut).map((chord, index) => (
+                    <span key={index} className="shortcut-chord">
+                      {/* Two chords for one action read as alternatives rather than as
+                          a sequence, which is what the separator is doing here. */}
+                      {index > 0 && <span className="shortcut-or">or</span>}
+                      {describeKeys(chord, mac).map((cap) => (
+                        <kbd key={cap}>{cap}</kbd>
+                      ))}
+                    </span>
                   ))}
                 </span>
               </div>

@@ -8,6 +8,7 @@ import { navigate, parseRoute, usePath } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
 import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
+import { directMessages, joinedChannels } from '../../lib/conversations.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import {
   ClockIcon,
@@ -30,22 +31,20 @@ export function Sidebar() {
 
   const [creating, setCreating] = useState(false);
 
-  const { joined, dms, browsable } = useMemo(() => {
-    const all = Object.values(channels);
-    const mine = all.filter((c) => c.membership !== null && !c.archivedAt);
-    const sortByName = (a: ChannelWithState, b: ChannelWithState) =>
-      (a.name ?? '').localeCompare(b.name ?? '');
-    return {
-      joined: mine
-        .filter((c) => c.kind === 'public' || c.kind === 'private')
-        .sort((a, b) => {
-          const starred = Number(b.membership?.isStarred) - Number(a.membership?.isStarred);
-          return starred !== 0 ? starred : sortByName(a, b);
-        }),
-      dms: mine.filter((c) => c.kind === 'dm' || c.kind === 'group_dm'),
-      browsable: all.filter((c) => c.membership === null && !c.archivedAt).sort(sortByName),
-    };
-  }, [channels]);
+  // The two sections come from `lib/conversations`, which is also what ⌥↑ and ⌥↓ walk.
+  // They were the same sort written twice and had already drifted — the keyboard copy
+  // put DMs in among the channels, by a name a DM does not have, so stepping through
+  // "the list" moved through one nobody could see.
+  const { joined, dms, browsable } = useMemo(
+    () => ({
+      joined: joinedChannels(channels),
+      dms: directMessages(channels),
+      browsable: Object.values(channels)
+        .filter((c) => c.membership === null && !c.archivedAt)
+        .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
+    }),
+    [channels],
+  );
 
   const people = useMemo(
     () =>

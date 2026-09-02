@@ -12,17 +12,40 @@
  * something they already know is a worse product even when the chord is better.
  */
 
-export interface Shortcut {
-  id: string;
-  /** Shown in the help dialog, imperative and lowercase-ish: "Open a channel". */
-  label: string;
-  /** Grouping in the help dialog. */
-  group: 'Navigation' | 'Conversation' | 'Application';
+/** One chord. A shortcut has one, and sometimes a second that means the same thing. */
+export interface Chord {
   /** `event.key`, lowercased for letters. */
   key: string;
   /** ⌘ on a Mac, Ctrl elsewhere. */
   meta?: boolean;
   shift?: boolean;
+  /**
+   * ⌥ on a Mac, Alt elsewhere.
+   *
+   * Only ever on a named key — an arrow, never a letter. On a Mac ⌥ with a letter
+   * *composes* a character, so `event.key` for ⌥J is "∆" and a binding on "j" would
+   * never fire; on Windows AltGr sends Ctrl+Alt and does the same thing for a European
+   * layout. Arrows compose nothing on either. `test_only_named_keys_take_alt` holds the
+   * line, because the failure is silent: the shortcut simply never works, for some
+   * people, on some keyboards.
+   */
+  alt?: boolean;
+}
+
+export interface Shortcut extends Chord {
+  id: string;
+  /** Shown in the help dialog, imperative and lowercase-ish: "Open a channel". */
+  label: string;
+  /** Grouping in the help dialog. */
+  group: 'Navigation' | 'Conversation' | 'Application';
+  /**
+   * A second chord for the same action, shown beside the first.
+   *
+   * Two of these exist because Slack's binding and the one already here are different
+   * and both should work: somebody arriving from Slack finds their fingers right, and
+   * somebody who learned the old one is not told it has been taken away.
+   */
+  also?: Chord;
   /**
    * Whether it still fires while a text box has focus.
    *
@@ -61,11 +84,49 @@ export const SHORTCUTS: readonly Shortcut[] = [
     whileTyping: true,
   },
   {
+    id: 'dms',
+    label: 'Message someone',
+    group: 'Navigation',
+    // Slack's ⌘⇧K, and the same picker as ⌘K with everything but people taken out.
+    key: 'k',
+    meta: true,
+    shift: true,
+    whileTyping: true,
+  },
+  {
+    id: 'prev-conversation',
+    label: 'Previous conversation',
+    group: 'Navigation',
+    // Slack's, unchanged: ⌥↑ and ⌥↓ walk the sidebar in the order it is drawn.
+    key: 'ArrowUp',
+    alt: true,
+    whileTyping: true,
+  },
+  {
+    id: 'next-conversation',
+    label: 'Next conversation',
+    group: 'Navigation',
+    key: 'ArrowDown',
+    alt: true,
+    whileTyping: true,
+  },
+  {
     id: 'next-unread',
-    label: 'Next channel with unread messages',
+    label: 'Next conversation with unread messages',
     group: 'Navigation',
     key: 'j',
     meta: true,
+    shift: true,
+    // Slack's chord for the same thing. The one above was here first and still works.
+    also: { key: 'ArrowDown', alt: true, shift: true },
+    whileTyping: true,
+  },
+  {
+    id: 'prev-unread',
+    label: 'Previous conversation with unread messages',
+    group: 'Navigation',
+    key: 'ArrowUp',
+    alt: true,
     shift: true,
     whileTyping: true,
   },
@@ -148,13 +209,19 @@ export function isMac(): boolean {
   return typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || navigator.userAgent);
 }
 
-/** How a shortcut is written in the help dialog. */
-export function describeKeys(shortcut: Shortcut, mac = isMac()): string[] {
+/** How a chord is written in the help dialog. */
+export function describeKeys(chord: Chord, mac = isMac()): string[] {
   const keys: string[] = [];
-  if (shortcut.meta) keys.push(mac ? '⌘' : 'Ctrl');
-  if (shortcut.shift) keys.push(mac ? '⇧' : 'Shift');
-  keys.push(prettyKey(shortcut.key));
+  if (chord.meta) keys.push(mac ? '⌘' : 'Ctrl');
+  if (chord.shift) keys.push(mac ? '⇧' : 'Shift');
+  if (chord.alt) keys.push(mac ? '⌥' : 'Alt');
+  keys.push(prettyKey(chord.key));
   return keys;
+}
+
+/** Every chord a shortcut answers to, primary first. */
+export function chordsFor(shortcut: Shortcut): Chord[] {
+  return shortcut.also ? [shortcut, shortcut.also] : [shortcut];
 }
 
 function prettyKey(key: string): string {
@@ -178,23 +245,25 @@ export function isTypingTarget(target: EventTarget | null): boolean {
  *
  * Modifier matching is exact — `⌘K` and `⌘⇧K` are different shortcuts, and treating
  * `shift` as "don't care" would fire the first while someone reaches for the second.
- * `altKey` is never part of a binding and is checked so a European keyboard composing a
- * character with AltGr does not trigger anything.
+ * That exactness is also what keeps a European keyboard composing a character with AltGr
+ * (which sends Ctrl+Alt) from triggering anything: no binding asks for both.
  */
 export function matchShortcut(
   event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
   options: { typing: boolean } = { typing: false },
 ): Shortcut | null {
-  if (event.altKey) return null;
   const meta = event.metaKey || event.ctrlKey;
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
 
   for (const shortcut of SHORTCUTS) {
-    if (shortcut.key !== key) continue;
-    if (Boolean(shortcut.meta) !== meta) continue;
-    if (Boolean(shortcut.shift) !== event.shiftKey) continue;
     if (options.typing && !shortcut.whileTyping) continue;
-    return shortcut;
+    for (const chord of chordsFor(shortcut)) {
+      if (chord.key !== key) continue;
+      if (Boolean(chord.meta) !== meta) continue;
+      if (Boolean(chord.shift) !== event.shiftKey) continue;
+      if (Boolean(chord.alt) !== event.altKey) continue;
+      return shortcut;
+    }
   }
   return null;
 }

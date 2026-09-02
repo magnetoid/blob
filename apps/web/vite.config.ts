@@ -52,7 +52,26 @@ function repoWebUrl(): string {
   return '';
 }
 
-const commit = git(['rev-parse', 'HEAD']);
+/**
+ * Git if it is there, the environment if it is not.
+ *
+ * A build host is not guaranteed a repository — a source archive, a `.dockerignore` that
+ * excludes `.git`, an exported tree. Most CI systems and Coolify hand the commit down as
+ * an environment variable instead, so that is the second place to look. Neither being
+ * available is fine and the page then says nothing, which is the third case rather than
+ * an error: this is a build stamp, not a build requirement.
+ */
+function stamp(fromGit: string[], ...fromEnv: string[]): string {
+  const found = git(fromGit);
+  if (found) return found;
+  for (const name of fromEnv) {
+    const value = process.env[name];
+    if (value) return value.trim();
+  }
+  return '';
+}
+
+const commit = stamp(['rev-parse', 'HEAD'], 'SOURCE_COMMIT', 'GIT_COMMIT_SHA', 'COMMIT_SHA');
 const commitDate = git(['log', '-1', '--pretty=format:%cI']);
 
 export default defineConfig({
@@ -67,13 +86,18 @@ export default defineConfig({
    */
   define: {
     __BUILD_COMMIT__: JSON.stringify(commit),
-    __BUILD_COMMIT_SHORT__: JSON.stringify(git(['rev-parse', '--short', 'HEAD'])),
-    __BUILD_BRANCH__: JSON.stringify(git(['rev-parse', '--abbrev-ref', 'HEAD'])),
+    __BUILD_COMMIT_SHORT__: JSON.stringify(
+      git(['rev-parse', '--short', 'HEAD']) || commit.slice(0, 7),
+    ),
+    __BUILD_BRANCH__: JSON.stringify(stamp(['rev-parse', '--abbrev-ref', 'HEAD'], 'SOURCE_BRANCH')),
     // Calendar version: the date of the commit, which is the only version a
-    // continuously deployed app honestly has. See `lib/buildInfo.ts`.
-    __BUILD_VERSION__: JSON.stringify(commitDate.slice(0, 10).replace(/-/g, '.')),
+    // continuously deployed app honestly has. Falling back to the build's own day when
+    // git could not be asked — a day out at worst, and never blank. See `lib/buildInfo`.
+    __BUILD_VERSION__: JSON.stringify(
+      (commitDate.slice(0, 10) || new Date().toISOString().slice(0, 10)).replace(/-/g, '.'),
+    ),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
-    __BUILD_REPO_URL__: JSON.stringify(repoWebUrl()),
+    __BUILD_REPO_URL__: JSON.stringify(repoWebUrl() || process.env.SOURCE_REPO_URL || ''),
     // Enough to cover several deploys of history, small enough that it is a rounding
     // error next to the bundle. Merges are excluded: they say nothing a reader wants.
     // A shallow clone yields however few it has, which is a shorter list and not an

@@ -1,10 +1,10 @@
 /** The signed-in shell: top bar, sidebar, main view, optional thread panel. */
 
 import { Suspense, lazy, useEffect, useState } from 'react';
-import type { ChannelWithState } from '@blob/shared';
 import { useStore } from '../lib/store.ts';
 import { showError } from '../lib/toasts.ts';
 import { socket } from '../lib/socket.ts';
+import { stepConversation, stepUnread } from '../lib/conversations.ts';
 import {
   DEFAULT_MEMBER_SECTION,
   isPersonalSection,
@@ -62,6 +62,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  /** Which list ⌘K opened. ⌘⇧K opens the same picker showing only people. */
+  const [paletteOnly, setPaletteOnly] = useState<'people' | undefined>(undefined);
   // The channel drawer on narrow viewports. Closed on every conversation change so
   // picking a channel dismisses it, the way every mobile drawer behaves.
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -203,6 +205,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       switch (shortcut.id) {
         case 'palette':
           event.preventDefault();
+          setPaletteOnly(undefined);
+          setPaletteOpen(true);
+          return;
+        case 'dms':
+          event.preventDefault();
+          setPaletteOnly('people');
           setPaletteOpen(true);
           return;
         case 'search':
@@ -219,8 +227,26 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           return;
         case 'next-unread': {
           event.preventDefault();
-          const next = nextUnreadChannelId(channels, activeChannelId);
+          const next = stepUnread(channels, activeChannelId, 1);
           if (next) void showChannel(next);
+          return;
+        }
+        case 'prev-unread': {
+          event.preventDefault();
+          const previous = stepUnread(channels, activeChannelId, -1);
+          if (previous) void showChannel(previous);
+          return;
+        }
+        case 'next-conversation': {
+          event.preventDefault();
+          const next = stepConversation(channels, activeChannelId, 1);
+          if (next) void showChannel(next);
+          return;
+        }
+        case 'prev-conversation': {
+          event.preventDefault();
+          const previous = stepConversation(channels, activeChannelId, -1);
+          if (previous) void showChannel(previous);
           return;
         }
         case 'edit-last':
@@ -296,7 +322,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             onSignedOut={onSignedOut}
           />
         </Suspense>
-        {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+        {paletteOpen && (
+          <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
+        )}
         {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
         {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
       </>
@@ -313,7 +341,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             onFeedback={() => setFeedbackOpen(true)}
           />
         </Suspense>
-        {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+        {paletteOpen && (
+          <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
+        )}
         {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
         {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
       </>
@@ -375,7 +405,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         ) : (
           <ThreadPanel rootId={activeThreadRootId as string} />
         ))}
-      {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+      {paletteOpen && (
+          <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
+        )}
       {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
       {catchupScope && (
@@ -388,29 +420,3 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   );
 }
 
-/**
- * The next channel with something unread, wrapping past the end.
- *
- * Ordered the way the sidebar orders it — starred first, then by name — so the key walks
- * the list you can see rather than a different one that happens to be in memory. Wrapping
- * from the current position rather than always starting at the top is what makes it
- * repeatable: pressing it twice should reach the second unread, not the first again.
- */
-function nextUnreadChannelId(
-  channels: Record<string, ChannelWithState>,
-  activeChannelId: string | null,
-): string | null {
-  const ordered = Object.values(channels)
-    .filter((c) => c.membership !== null && !c.archivedAt)
-    .sort((a, b) => {
-      const starred = Number(b.membership?.isStarred) - Number(a.membership?.isStarred);
-      return starred !== 0 ? starred : (a.name ?? '').localeCompare(b.name ?? '');
-    });
-
-  const from = ordered.findIndex((c) => c.id === activeChannelId);
-  for (let step = 1; step <= ordered.length; step += 1) {
-    const candidate = ordered[(from + step + ordered.length) % ordered.length];
-    if (candidate && candidate.hasUnread && candidate.id !== activeChannelId) return candidate.id;
-  }
-  return null;
-}

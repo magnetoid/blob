@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   SHORTCUTS,
+  chordsFor,
   describeKeys,
   groupedShortcuts,
   matchShortcut,
@@ -37,11 +38,58 @@ describe('the list itself', () => {
 
   it('binds no two shortcuts to the same chord', () => {
     // The matcher returns the first hit, so a duplicate chord would silently shadow
-    // whichever was declared second.
-    const chords = SHORTCUTS.map(
-      (s) => `${s.meta ? 'M' : ''}${s.shift ? 'S' : ''}${s.key}`,
+    // whichever was declared second. Every chord counts, including the alternatives:
+    // ⌥↑ and a bare ↑ are different bindings and one of them must not eat the other.
+    const chords = SHORTCUTS.flatMap((shortcut) =>
+      chordsFor(shortcut).map(
+        (c) => `${c.meta ? 'M' : ''}${c.shift ? 'S' : ''}${c.alt ? 'A' : ''}${c.key}`,
+      ),
     );
     expect(new Set(chords).size).toBe(chords.length);
+  });
+
+  it('puts Alt only on a named key', () => {
+    // On a Mac ⌥ with a letter composes a character — `event.key` for ⌥J is "∆" — and
+    // on Windows AltGr sends Ctrl+Alt and does the same for a European layout. A
+    // binding on the letter would simply never fire, for some people, on some
+    // keyboards, with nothing to show for it. Arrows compose nothing anywhere.
+    for (const shortcut of SHORTCUTS) {
+      for (const chord of chordsFor(shortcut)) {
+        if (chord.alt) expect(chord.key.length).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  it('answers both chords where a shortcut has two', () => {
+    const both = SHORTCUTS.find((s) => s.also);
+    expect(both).toBeDefined();
+    const alternative = both!.also!;
+
+    const matched = matchShortcut(
+      {
+        key: alternative.key,
+        metaKey: Boolean(alternative.meta),
+        ctrlKey: false,
+        shiftKey: Boolean(alternative.shift),
+        altKey: Boolean(alternative.alt),
+      },
+      { typing: true },
+    );
+
+    expect(matched?.id).toBe(both!.id);
+  });
+
+  it('leaves AltGr alone', () => {
+    // Ctrl+Alt is how a European layout composes "€" and the like. No binding asks for
+    // both, so the exact modifier comparison is what keeps typing one from firing
+    // something — which is the property, not the blanket "any Alt is not for us" the
+    // matcher used to have.
+    expect(
+      matchShortcut(
+        { key: 'e', metaKey: false, ctrlKey: true, shiftKey: false, altKey: true },
+        { typing: true },
+      ),
+    ).toBeNull();
   });
 
   it('puts every shortcut in a group the help renders', () => {
