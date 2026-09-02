@@ -41,7 +41,7 @@ import { TopBar } from '../features/shell/TopBar.tsx';
 import { CatchUpPanel } from '../features/messages/CatchUpPanel.tsx';
 import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
 import { ShortcutHelp } from '../components/ShortcutHelp.tsx';
-import { isTypingTarget, matchShortcut } from '../lib/shortcuts.ts';
+import { isTypingTarget, matchShortcut, ownsArrowKeys } from '../lib/shortcuts.ts';
 import { closeThread, showChannel, showMessage } from '../lib/navigation.ts';
 import { updateBadge } from '../lib/badge.ts';
 
@@ -201,6 +201,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       const typing = isTypingTarget(event.target);
       const shortcut = matchShortcut(event, { typing });
       if (!shortcut) return;
+
+      // A control that owns Up and Down keeps them. Without this, ⌥↓ in the schedule
+      // menu's repeat select or its time field navigated to another channel instead of
+      // opening the thing under the cursor — and remounted the composer on the way,
+      // discarding what was in it.
+      if (shortcut.key.startsWith('Arrow') && ownsArrowKeys(event.target)) return;
 
       switch (shortcut.id) {
         case 'palette':

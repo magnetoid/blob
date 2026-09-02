@@ -120,7 +120,10 @@ class RunCommandInput(CamelModel):
     which is the whole point of dispatching centrally.
     """
 
-    channel_id: str
+    #: Shape-checked, because it reaches `assert_channel_access` and the hand-written SQL
+    #: below it: a malformed one raised out of asyncpg and answered 500 where every other
+    #: id-taking route answers 400.
+    channel_id: IdParam
     text: str = Field(min_length=1, max_length=MESSAGE_MAX_LENGTH)
     #: A command may post a message, and that write is idempotent like every other.
     client_msg_id: str = Field(min_length=8, max_length=64)

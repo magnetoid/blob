@@ -174,9 +174,20 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
             if existing_hash is not None and not await verify_password(
                 existing_hash, payload.password
             ):
+                # Two sentences, and which one depends on whether the link named the
+                # address. An invitation issued *to* somebody already says their address
+                # is known to whoever sent it, so telling them plainly costs nothing and
+                # saves them guessing. An open link names nobody, and can be forwarded —
+                # so answering "this address already has an account" would turn it into a
+                # way to ask the server about addresses it was never given. That one gets
+                # the sentence login gives, which asserts nothing either way; the signup
+                # rate limit above is what bounds the asking.
+                named = bool(invite is not None and getattr(invite, "email", None))
                 raise bad_request(
                     "This address already has a Blob account. "
-                    "Use that password to join this workspace.",
+                    "Use that password to join this workspace."
+                    if named
+                    else "That email or password is incorrect.",
                     code="invalid_input",
                 )
             password_hash = existing_hash or await hash_password(payload.password)

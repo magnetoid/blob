@@ -5,7 +5,8 @@
  * one avatar and header; the exact time then appears in the gutter on hover.
  */
 
-import { useEffect, useMemo, useRef, useState, memo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
+import { useEscape } from "../../lib/useEscape.ts";
 import type { CustomEmoji, Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
@@ -160,21 +161,19 @@ export const MessageRow = memo(function MessageRow({
 
   // Same dismissal contract as the account menu: any click outside, or Escape. Capture
   // phase, so opening another row's picker closes this one rather than leaving two open.
+  // Escape goes through the shared stack — a listener of its own would close the picker
+  // and let the shell act on the same key, marking the channel read behind it.
+  const closePicker = useCallback(() => setPickerOpen(false), []);
+  useEscape(closePicker, pickerOpen);
+
   useEffect(() => {
     if (!pickerOpen) return undefined;
     const onClick = (event: MouseEvent) => {
       if (pickerRef.current?.contains(event.target as Node)) return;
       setPickerOpen(false);
     };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPickerOpen(false);
-    };
     window.addEventListener("click", onClick, true);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("click", onClick, true);
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("click", onClick, true);
   }, [pickerOpen]);
 
   // `navigator.clipboard` needs a secure context, so on plain http over a LAN this

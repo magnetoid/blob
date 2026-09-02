@@ -44,7 +44,12 @@ def new_token(nbytes: int = 32) -> str:
 #: a WebSocket frame is not a request body and has no schema layer to refuse it.
 ID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
-_ID_RE = re.compile(ID_PATTERN)
+#: `\Z` and not the pattern's own `$`. Python's `$` matches before a trailing newline as
+#: well as at the end, so `"<a real uuid>\n"` passed a check whose whole job is to keep a
+#: string Postgres will refuse out of `cast(:ids AS uuid[])`. Pydantic compiles the same
+#: pattern with Rust's regex crate, where `$` is end-of-haystack, so `IdParam` never had
+#: the hole — which is exactly why it went unnoticed here.
+_ID_RE = re.compile(ID_PATTERN.replace("$", r"\Z"))
 
 IdParam = Annotated[str, StringConstraints(pattern=ID_PATTERN)]
 

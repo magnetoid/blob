@@ -58,7 +58,7 @@ def strip_code(body: str) -> str:
     return _INLINE_CODE_RE.sub(" ", _FENCED_RE.sub(" ", body))
 
 
-def _simple_lower(value: str) -> str:
+def simple_lower(value: str) -> str:
     """Lowercase one character to one character, the way Postgres does.
 
     Python applies Unicode *full* case mapping, which is allowed to expand: "İ".lower()
@@ -93,7 +93,7 @@ def mention_lookup_phrases(body: str) -> list[str]:
             joined = " ".join(words[:take])
             for phrase in (
                 _TRAILING_PUNCT_RE.sub("", joined.lower()),
-                _TRAILING_PUNCT_RE.sub("", _simple_lower(joined)),
+                _TRAILING_PUNCT_RE.sub("", simple_lower(joined)),
             ):
                 if phrase:
                     phrases[phrase] = None
@@ -131,7 +131,7 @@ def parse_mentions(body: str, targets: dict[str, MentionTarget]) -> MentionResul
         for take in range(len(words), 0, -1):
             joined = " ".join(words[:take])
             target = None
-            for spelling in (joined.lower(), _simple_lower(joined)):
+            for spelling in (joined.lower(), simple_lower(joined)):
                 target = targets.get(_TRAILING_PUNCT_RE.sub("", spelling))
                 if target is not None:
                     break

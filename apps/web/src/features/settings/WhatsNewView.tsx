@@ -198,9 +198,10 @@ export function WhatsNewView() {
 
         <p className="muted release-foot">
           Blob deploys straight from its main branch, so these notes ship with the build
-          you are running rather than being written about it afterwards. The version is
-          the date of the commit it was built from — nothing here is tagged, and a made-up
-          release number would say less than a date does.
+          you are running rather than being written about it afterwards. The version is a
+          date — of the commit where the build could read one, of the build itself where
+          it could not. Nothing here is tagged, and a made-up release number would say
+          less than a date does.
         </p>
       </div>
     </main>

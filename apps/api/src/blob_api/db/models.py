@@ -624,7 +624,7 @@ class WorkspaceHandle(Base):
     workspace_id: Mapped[str] = mapped_column(
         UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
     )
-    #: Always written as SQL `lower(...)`, never Python's — see `lib/mentions._simple_lower`.
+    #: Always written as SQL `lower(...)`, never Python's — see `lib/mentions.simple_lower`.
     handle_lower: Mapped[str] = mapped_column(Text, nullable=False)
     user_id: Mapped[str | None] = mapped_column(UUIDStr, ForeignKey("users.id", ondelete="CASCADE"))
     group_id: Mapped[str | None] = mapped_column(

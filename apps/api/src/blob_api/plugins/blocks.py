@@ -14,6 +14,7 @@ client cannot invent an action, and a plugin cannot be handed an id it never pub
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Annotated, Literal
 
@@ -21,6 +22,8 @@ from pydantic import Field, field_validator
 
 from ..lib.errors import bad_request
 from ..schemas.base import CamelModel
+
+log = logging.getLogger("blob.plugins")
 
 #: A message carries a handful of blocks, not a document.
 MAX_BLOCKS = 30
@@ -183,14 +186,55 @@ def collect_action_ids(blocks: list[Block]) -> set[str]:
 
 
 def action_ids_of(raw: list[dict[str, object]] | None) -> set[str]:
-    """The ids a stored message actually published. The whole interaction check."""
+    """The ids a stored message actually published. The whole interaction check.
+
+    This reads rows that were written under whatever the rules were *then*, and the rules
+    tighten: the image-url validator added later makes an absolute url invalid, and every
+    block already stored with one would fail this parse. Re-validating on read is how a
+    new rule reaches back and kills a button on a message from last week — a 500 from the
+    catch-all handler, on a message the client still renders perfectly.
+
+    So a stored block that no longer validates is *read* rather than refused. What matters
+    here is only which action ids the message published, and that question has the same
+    answer whether or not an image beside them points somewhere it may not point today.
+    """
     if not raw:
         return set()
 
-    from pydantic import TypeAdapter
+    from pydantic import TypeAdapter, ValidationError
 
     adapter: TypeAdapter[list[Block]] = TypeAdapter(list[Block])
-    return collect_action_ids(adapter.validate_python(raw))
+    try:
+        return collect_action_ids(adapter.validate_python(raw))
+    except ValidationError:
+        log.info("stored blocks no longer validate; reading their action ids directly")
+        return _action_ids_from_raw(raw)
+
+
+def _action_ids_from_raw(raw: list[dict[str, object]]) -> set[str]:
+    """The same answer, without the models. Shapes it does not recognise contribute none."""
+    def add(holder: dict[str, object], into: set[str]) -> None:
+        # Both spellings: what a plugin sends over the wire and what is stored after the
+        # models round-trip it.
+        for key in ("action_id", "actionId"):
+            value = holder.get(key)
+            if isinstance(value, str) and value:
+                into.add(value)
+
+    found: set[str] = set()
+    for block in raw:
+        if not isinstance(block, dict):
+            continue
+        # An input block carries its id itself; an actions block carries one per element.
+        add(block, found)
+        elements = block.get("elements")
+        if not isinstance(elements, list):
+            continue
+        for element in elements:
+            if not isinstance(element, dict):
+                continue
+            add(element, found)
+    return found
 
 
 __all__ = [

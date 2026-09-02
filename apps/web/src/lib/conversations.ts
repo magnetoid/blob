@@ -64,8 +64,15 @@ export function stepConversation(
   const ordered = conversationOrder(channels);
   if (ordered.length === 0) return null;
 
-  // -1 when nothing is open, so a first ⌥↓ lands on the top row rather than the second.
   const from = ordered.findIndex((c) => c.id === activeChannelId);
+  if (from === -1) {
+    // Nothing in the list is open — a reload on /threads or /search, or the channel
+    // being read has just been archived out from under the sidebar. Down starts at the
+    // top and up starts at the bottom. Falling through to the arithmetic below made -1
+    // mean "the second from last", which skipped the bottom row and could never reach it.
+    const edge = step === 1 ? ordered[0] : ordered[ordered.length - 1];
+    return edge ? edge.id : null;
+  }
   const next = ordered[(from + step + ordered.length) % ordered.length];
   return next && next.id !== activeChannelId ? next.id : null;
 }
@@ -84,9 +91,13 @@ export function stepUnread(
   const ordered = conversationOrder(channels);
   if (ordered.length === 0) return null;
 
+  // -1 when nothing in the list is open. Walking from there is walking from just before
+  // the top going down, or just after the bottom going up, which is what the offsets do.
   const from = ordered.findIndex((c) => c.id === activeChannelId);
+  const start = from === -1 ? (step === 1 ? -1 : ordered.length) : from;
   for (let moved = 1; moved <= ordered.length; moved += 1) {
-    const index = (from + step * moved + ordered.length * ordered.length) % ordered.length;
+    const index =
+      (start + step * moved + ordered.length * ordered.length) % ordered.length;
     const candidate = ordered[index];
     if (candidate && candidate.hasUnread && candidate.id !== activeChannelId) {
       return candidate.id;

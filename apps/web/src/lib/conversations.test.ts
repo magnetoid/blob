@@ -163,3 +163,41 @@ describe('stepping to unread', () => {
     expect(stepUnread(channels, 'alpha', 1)).toBe('dm-ana');
   });
 });
+
+describe('stepping when nothing in the list is open', () => {
+  // Reachable two ways: a reload on /threads or /search leaves activeChannelId null,
+  // and a channel being read can be archived out from under the sidebar.
+  const channels = workspace(channel('alpha'), channel('beta'), channel('gamma'));
+
+  it('down starts at the top', () => {
+    expect(stepConversation(channels, null, 1)).toBe('alpha');
+  });
+
+  it('up starts at the bottom', () => {
+    // The one that was wrong: the arithmetic read -1 as "second from last", so ⌥↑ from
+    // /search landed on beta and gamma could never be reached at all.
+    expect(stepConversation(channels, null, -1)).toBe('gamma');
+  });
+
+  it('and the same for unread', () => {
+    const unread = workspace(
+      channel('alpha', { hasUnread: true }),
+      channel('beta'),
+      channel('gamma', { hasUnread: true }),
+    );
+
+    expect(stepUnread(unread, null, 1)).toBe('alpha');
+    expect(stepUnread(unread, null, -1)).toBe('gamma');
+  });
+
+  it('a channel archived under you is not in the list either', () => {
+    const archived = workspace(
+      channel('alpha'),
+      channel('beta'),
+      channel('gone', { archivedAt: '2026-01-01T00:00:00Z' }),
+    );
+
+    expect(stepConversation(archived, 'gone', 1)).toBe('alpha');
+    expect(stepConversation(archived, 'gone', -1)).toBe('beta');
+  });
+});

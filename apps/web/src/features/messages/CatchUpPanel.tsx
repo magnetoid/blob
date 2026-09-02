@@ -10,6 +10,7 @@ import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { showError } from '../../lib/toasts.ts';
 import { trapFocus } from '../../lib/focusTrap.ts';
+import { useEscape } from '../../lib/useEscape.ts';
 
 interface Summary {
   channelId: string;
@@ -35,13 +36,7 @@ export function CatchUpPanel({
 
   useEffect(() => trapFocus(dialogRef.current), []);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useEscape(onClose);
 
   useEffect(() => {
     let cancelled = false;

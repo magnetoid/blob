@@ -70,4 +70,70 @@ describe('a dialog’s Escape', () => {
 
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('leaves the key to the shell when nothing is open', () => {
+    // The shell's Escape is what marks a channel read. It has to keep working, and only
+    // when there is nothing on top of it.
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(shell).toHaveBeenCalledTimes(1);
+    window.removeEventListener('keydown', shell);
+  });
+});
+
+describe('two things open at once', () => {
+  it('closes the one that opened last', () => {
+    // A dialog opened from a menu. A flag rather than a stack would hand the key to
+    // whichever claimed it first and leave the newer one unclosable.
+    const closeOuter = vi.fn();
+    const closeInner = vi.fn();
+    render(<Dialog onClose={closeOuter} />);
+    const inner = render(<Dialog onClose={closeInner} />);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(closeInner).toHaveBeenCalledTimes(1);
+    expect(closeOuter).not.toHaveBeenCalled();
+
+    // And the one underneath answers once the newer one is gone.
+    inner.unmount();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(closeOuter).toHaveBeenCalledTimes(1);
+  });
+
+  it('and the shell hears neither', () => {
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    render(<Dialog onClose={vi.fn()} />);
+    render(<Dialog onClose={vi.fn()} />);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(shell).not.toHaveBeenCalled();
+    window.removeEventListener('keydown', shell);
+  });
+});
+
+describe('an overlay that is mounted but closed', () => {
+  it('does not claim the key', () => {
+    // `Menu` holds its panel through the exit animation; one on its way out must stop
+    // answering the moment it is asked to close.
+    const onClose = vi.fn();
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+
+    function Closed() {
+      useEscape(onClose, false);
+      return null;
+    }
+    render(<Closed />);
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(shell).toHaveBeenCalledTimes(1);
+    window.removeEventListener('keydown', shell);
+  });
 });

@@ -130,3 +130,38 @@ describe('a menu’s dismissal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe('a menu’s Escape', () => {
+  it('does not also reach the shell', () => {
+    // Two bubble listeners on `window` both run, so a menu closing itself never stopped
+    // the shell from acting on the same key — closing the thread panel behind it, or
+    // marking the channel read and destroying a mark-unread. `lib/useEscape` owns one
+    // capture-phase listener and a stack; the menu is on it while it is open.
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    const onClose = open();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalled();
+    expect(shell).not.toHaveBeenCalled();
+    window.removeEventListener('keydown', shell);
+  });
+
+  it('and leaves the key alone while the caller has a dialog up', () => {
+    // `suspendDismiss` — a dialog rendered beside the panel would be unmounted by the
+    // very key that asked for it.
+    const onClose = vi.fn();
+    render(
+      <Menu open onClose={onClose} className="menu" suspendDismiss>
+        <button role="menuitem" type="button">
+          First
+        </button>
+      </Menu>,
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});

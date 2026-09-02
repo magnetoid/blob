@@ -72,7 +72,11 @@ function stamp(fromGit: string[], ...fromEnv: string[]): string {
 }
 
 const commit = stamp(['rev-parse', 'HEAD'], 'SOURCE_COMMIT', 'GIT_COMMIT_SHA', 'COMMIT_SHA');
-const commitDate = git(['log', '-1', '--pretty=format:%cI']);
+const commitDate = stamp(
+  ['log', '-1', '--pretty=format:%cI'],
+  'SOURCE_COMMIT_TIMESTAMP',
+  'CI_COMMIT_TIMESTAMP',
+);
 
 export default defineConfig({
   plugins: [react()],

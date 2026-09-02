@@ -150,6 +150,19 @@ async def run_command(
             for member_id in result.added_user_ids
             if member_id != user.id
         }
+        # And the same for the other side of a conversation this command created. Their
+        # socket subscribed at connect time to channels that existed then, so a DM made a
+        # moment ago reaches them only if it is subscribed now.
+        opened = result.open_channel
+        opened_views = (
+            {
+                member_id: await channel_service.get_for_user(session, opened.id, member_id)
+                for member_id in result.open_channel_members
+                if member_id != user.id
+            }
+            if opened is not None
+            else {}
+        )
 
         def broadcast() -> None:
             channel_id = payload.channel_id
@@ -200,8 +213,16 @@ async def run_command(
                     {"t": "member.left", "channelId": channel_id, "userId": member_id},
                 )
 
-            if result.open_channel is not None:
-                opened = result.open_channel
+            for member_id, view in opened_views.items():
+                assert opened is not None  # opened_views is empty otherwise
+                hub.subscribe_users([member_id], [opened.id])
+                if view is not None:
+                    hub.to_users(
+                        [member_id],
+                        {"t": "channel.created", "channel": view.model_dump(by_alias=True)},
+                    )
+
+            if opened is not None:
                 hub.subscribe_users([user.id], [opened.id])
                 hub.to_users(
                     [user.id],

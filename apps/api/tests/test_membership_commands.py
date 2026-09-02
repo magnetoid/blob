@@ -323,3 +323,117 @@ class TestStatus:
 
         mine = await me(team["owner"])
         assert mine["statusText"] is None
+
+
+class TestNamesInTheMessageAreNotInstructions:
+    """The one that mattered most in this file.
+
+    Resolving mentions across the whole argument made `/dm @Ana what did @Bob mean?`
+    open a group with Bob in it — a message *about* somebody, delivered *to* them — and
+    made `/remove @Third because @Owner asked me to` remove the person who was named as
+    the reason. Only the leading run of names is a list of people; the rest is words.
+    """
+
+    async def test_dm_does_not_invite_whoever_the_message_mentions(self, team: dict) -> None:
+        third = await invite_and_sign_up(team["owner"], "Third")
+
+        body = await run(
+            team["owner"], team["general"]["id"], "/dm @Member what did @Third mean by that?"
+        )
+
+        assert body["channel"]["kind"] == "dm"
+        assert set(await members_of(team["owner"], body["channel"]["id"])) == {
+            team["owner"].user_id,
+            team["member"].user_id,
+        }
+        assert third.user_id not in await members_of(team["owner"], body["channel"]["id"])
+
+    async def test_and_the_mention_stays_in_the_message(self, team: dict) -> None:
+        await invite_and_sign_up(team["owner"], "Third")
+
+        body = await run(team["owner"], team["general"]["id"], "/dm @Member ask @Third")
+
+        sent = (
+            await team["owner"].get(f"/api/channels/{body['channel']['id']}/messages")
+        ).body["messages"]
+        assert [m["body"] for m in sent] == ["ask @Third"]
+
+    async def test_remove_takes_out_only_the_people_it_names_first(self, team: dict) -> None:
+        third = await invite_and_sign_up(team["owner"], "Third")
+        design = team["design"]["id"]
+        await run(team["owner"], design, "/invite @Member @Third")
+
+        await run(team["owner"], design, "/remove @Third because @Member asked me to")
+
+        here = await members_of(team["owner"], design)
+        assert third.user_id not in here
+        assert team["member"].user_id in here
+
+
+class TestADirectMessageReachesBothSides:
+    async def test_the_other_person_can_see_it_at_once(self, team: dict) -> None:
+        # The router told only the invoker about the new channel, so the recipient's
+        # open client showed no DM and no message until they reloaded — their socket
+        # subscribed at connect time to channels that existed then.
+        body = await run(team["owner"], team["general"]["id"], "/dm @Member hello")
+
+        theirs = (await team["member"].get("/api/channels")).body["channels"]
+        assert any(c["id"] == body["channel"]["id"] for c in theirs)
+
+
+class TestAGroupMessageHasACeiling:
+    def test_the_command_and_the_route_cap_it_the_same(self) -> None:
+        # A DM has no leave, so a conversation built past the cap is one nobody can get
+        # out of. `CreateDmInput` has always refused it; the command reaches the service
+        # directly and so does not pass through that schema — the two numbers have to be
+        # the same number, and this is what says so when one of them moves.
+        from blob_api.schemas.requests import CreateDmInput
+        from blob_api.services.commands import MAX_DM_MEMBERS
+
+        field = CreateDmInput.model_fields["user_ids"]
+        limits = [m for m in field.metadata if getattr(m, "max_length", None) is not None]
+        assert limits and limits[0].max_length == MAX_DM_MEMBERS
+
+    async def test_and_the_command_refuses_past_it(self, team: dict) -> None:
+        # Named through a group, because signing up nine people trips the signup rate
+        # limit long before the cap is reached.
+        from blob_api.services.commands import MAX_DM_MEMBERS
+
+        assert MAX_DM_MEMBERS == 8
+        body = await run(team["owner"], team["general"]["id"], "/dm @Nobody")
+
+        assert "No one here" in body["ephemeral"]
+
+
+class TestMuteAndStatusLeaveThingsAsTheyFound:
+    async def test_unmuting_returns_to_the_default_not_the_loudest(self, team: dict) -> None:
+        # `notify_level` starts at "mentions". Writing "all" on the way out left somebody
+        # who muted and changed their mind noisier than they started, with nowhere in the
+        # toggle to say otherwise.
+        design = team["design"]["id"]
+
+        await run(team["owner"], design, "/mute")
+        await run(team["owner"], design, "/mute")
+
+        channels = (await team["owner"].get("/api/channels")).body["channels"]
+        level = next(c for c in channels if c["id"] == design)["membership"]["notifyLevel"]
+        assert level == "mentions"
+
+    async def test_a_status_is_not_born_expired(self, team: dict) -> None:
+        # An expiry belongs to the status it was set with. Leaving it made the next one
+        # arrive already expired — accepted, announced, and invisible to everybody.
+        past = "2020-01-01T00:00:00Z"
+        set_earlier = await team["owner"].patch(
+            "/api/me", {"statusEmoji": "🎧", "statusText": "heads down", "statusExpiresAt": past}
+        )
+        assert set_earlier.status == 200, set_earlier.body
+
+        await run(team["owner"], team["general"]["id"], "/status :palm_tree: on holiday")
+
+        assert (await me(team["owner"]))["statusText"] == "on holiday"
+
+    async def test_a_status_longer_than_the_dialog_allows_is_refused(self, team: dict) -> None:
+        body = await run(team["owner"], team["general"]["id"], "/status " + "x" * 200)
+
+        assert "characters or fewer" in body["ephemeral"]
+        assert (await me(team["owner"]))["statusText"] is None

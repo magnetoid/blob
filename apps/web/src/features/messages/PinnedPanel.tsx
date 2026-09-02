@@ -16,6 +16,7 @@ import { api } from '../../lib/api.ts';
 import { useFetch } from '../../lib/useFetch.ts';
 import { useStore } from '../../lib/store.ts';
 import { renderMarkdown } from '../../lib/markdown.tsx';
+import { useEscape } from '../../lib/useEscape.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { useMentionIndex } from './mentionIndex.ts';
 
@@ -42,20 +43,16 @@ export function PinnedPanel({ channelId, onClose, onJump }: Props) {
   );
 
   // The same dismissal contract as every other panel here: a click anywhere else, or
-  // Escape. Capture phase, so a click that lands on another control closes this first.
+  // Escape. Capture phase, so a click that lands on another control closes this first;
+  // Escape goes through the shared stack so the shell does not act on it too.
+  useEscape(onClose);
+
   useEffect(() => {
     const onClick = (event: globalThis.MouseEvent) => {
       if (!panelRef.current?.contains(event.target as Node)) onClose();
     };
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
     window.addEventListener('click', onClick, true);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('click', onClick, true);
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => window.removeEventListener('click', onClick, true);
   }, [onClose]);
 
   return (

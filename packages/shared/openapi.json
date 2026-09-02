@@ -4514,6 +4514,7 @@
         "description": "A slash command, as typed.\n\n`text` arrives with the leading slash still on it. The server does the parsing so\nthat a client which has never heard of a particular command still routes it here \u2014\nwhich is the whole point of dispatching centrally.",
         "properties": {
           "channelId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "title": "Channelid",
             "type": "string"
           },

@@ -30,6 +30,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.auth import SessionUser
+from ..lib.mentions import simple_lower
 from ..realtime import presence
 from ..schemas.models import ChannelWithState, Message, User
 from ..schemas.requests import ChannelNameMixin
@@ -40,6 +41,18 @@ from .serialize import USER_COLUMNS, to_user
 
 #: What a command may ask the router to do once the transaction has committed.
 Presence = Literal["active", "away"]
+
+#: The same cap `CreateDmInput` puts on `POST /api/dms`. Named here because a command
+#: reaching the service directly does not pass through that schema.
+MAX_DM_MEMBERS = 8
+
+#: What `channel_members.notify_level` starts as — see `db/models.py`. Un-muting returns
+#: here rather than to "all", which nobody chose.
+DEFAULT_NOTIFY_LEVEL = "mentions"
+
+#: The same bounds `UpdateProfileInput` puts on a status set through the profile dialog.
+MAX_STATUS_EMOJI = 64
+MAX_STATUS_TEXT = 100
 
 
 @dataclass(slots=True)
@@ -80,6 +93,9 @@ class CommandResult:
     #: A channel the invoker should be told about — `/join`, `/dm`, `/remind`. Their new
     #: view of it, so the sidebar has the row before anything asks it to render one.
     open_channel: ChannelWithState | None = None
+    #: Who else should be told about `open_channel` and subscribed to it. Empty when the
+    #: channel already existed, since their socket is already on it.
+    open_channel_members: list[str] = field(default_factory=list)
     #: Whether to *go* there as well as be told. False for `/remind`: it is something you
     #: say in passing, and taking somebody out of the conversation they were reading to
     #: show them a note they will get tomorrow is the opposite of what they asked for.
@@ -170,26 +186,61 @@ async def _topic(ctx: CommandContext) -> CommandResult:
     )
 
 
-async def _resolve_people(ctx: CommandContext) -> tuple[list[str], list[str]]:
-    """`@Ana @designers` → the user ids that names.
+def _matches_handle(text: str, handle: str) -> int:
+    """How many characters of `text` this handle consumes, or 0.
 
-    Resolved through `mention_targets`, which is the same index the composer highlights
+    Both lowercasings are tried because the two sides of this comparison are lowercased
+    by different things: the handle by Postgres, the typed text by Python, and for a name
+    like "İlker" those disagree. `lib/mentions` makes the same allowance on the way in.
+    """
+    for lower in (str.lower, simple_lower):
+        head = lower(text[: len(handle)])
+        if head == handle:
+            after = text[len(handle) :]
+            # A boundary, or `@Ana` would eat the start of `@Anabel`.
+            if after == "" or after[0].isspace():
+                return len(handle)
+    return 0
+
+
+async def _resolve_people(ctx: CommandContext) -> tuple[list[str], str]:
+    """The people the *leading* run of `@name`s names, and the words after them.
+
+    Only the leading run, and that is the whole point. Resolving mentions across the
+    whole argument made `/dm @Ana what did @Bob mean by that?` open a group with Bob in
+    it — a message about somebody, delivered to them — and made
+    `/remove @Third because @Owner asked me to` remove the person who was named as the
+    reason. A name in the message is a name, not an instruction.
+
+    Resolution goes through `mention_targets`, the same index the composer highlights
     against and the same one that decides who a message notifies. So a name that
-    autocompletes in the composer is a name these commands accept, and a group works
-    wherever a person does — which is what somebody typing `/invite @designers` means.
-
-    Names are matched longest-first inside that resolver, so `@Ana Smith` resolves as one
-    person rather than as Ana and a stray word.
+    autocompletes is a name these accept, a group works wherever a person does, and
+    `@Ana Smith` is one person rather than Ana and a stray word — the handles are tried
+    longest-first, which is what makes a two-word name win over its first word.
     """
     targets = await message_service.mention_targets(ctx.session, ctx.user.workspace_id, ctx.args)
+    longest_first = sorted(targets, key=len, reverse=True)
 
     user_ids: list[str] = []
     groups: list[str] = []
-    for kind, target_id in targets.values():
-        if kind == "group":
-            groups.append(target_id)
-        else:
-            user_ids.append(target_id)
+    rest = ctx.args.strip()
+    while rest.startswith("@"):
+        after_at = rest[1:]
+        taken = 0
+        for handle in longest_first:
+            taken = _matches_handle(after_at, handle)
+            if taken:
+                kind, target_id = targets[handle]
+                if kind == "group":
+                    groups.append(target_id)
+                else:
+                    user_ids.append(target_id)
+                rest = after_at[taken:].strip()
+                break
+        if not taken:
+            # An `@` that names nobody ends the run rather than being skipped: the rest
+            # is message text, and guessing past it is how the wrong person gets added.
+            break
 
     if groups:
         rows = (
@@ -213,7 +264,7 @@ async def _resolve_people(ctx: CommandContext) -> tuple[list[str], list[str]]:
     seen: dict[str, None] = {}
     for user_id in user_ids:
         seen[user_id] = None
-    return list(seen), list(targets)
+    return list(seen), rest
 
 
 def _nobody(ctx: CommandContext, verb: str) -> CommandResult:
@@ -230,7 +281,7 @@ async def _invite(ctx: CommandContext) -> CommandResult:
     if access.kind in ("dm", "group_dm"):
         return CommandResult(ephemeral="Start a new group message instead of adding people here.")
 
-    user_ids, _handles = await _resolve_people(ctx)
+    user_ids, _rest = await _resolve_people(ctx)
     if not user_ids:
         return _nobody(ctx, "invite")
 
@@ -254,7 +305,7 @@ async def _remove(ctx: CommandContext) -> CommandResult:
     if access.kind in ("dm", "group_dm"):
         return CommandResult(ephemeral="Nobody can be removed from a direct message.")
 
-    user_ids, _handles = await _resolve_people(ctx)
+    user_ids, _rest = await _resolve_people(ctx)
     if not user_ids:
         return _nobody(ctx, "remove")
     if ctx.user.id in user_ids:
@@ -363,7 +414,11 @@ async def _mute(ctx: CommandContext) -> CommandResult:
             " WHERE channel_id = :channel_id AND user_id = :user_id"
         ),
         {
-            "level": "none" if muting else "all",
+            # Back to the default, not to the loudest. `notify_level` defaults to
+            # "mentions", so writing "all" on the way out left somebody who muted and
+            # changed their mind noisier than they started — and the toggle gives them
+            # nowhere to say otherwise.
+            "level": "none" if muting else DEFAULT_NOTIFY_LEVEL,
             "channel_id": ctx.channel_id,
             "user_id": ctx.user.id,
         },
@@ -420,19 +475,26 @@ async def _dm(ctx: CommandContext) -> CommandResult:
     `find_or_create_dm` already supports: the same member set always returns the same
     channel, so this is idempotent whether it opens one or finds it.
     """
-    user_ids, handles = await _resolve_people(ctx)
+    user_ids, body = await _resolve_people(ctx)
     if not user_ids:
         return _nobody(ctx, "dm")
 
     members = list(dict.fromkeys([ctx.user.id, *user_ids]))
-    channel_id, _created = await channel_service.find_or_create_dm(
+    # The same cap `CreateDmInput` puts on the REST route. A group message is a group of
+    # people who can all see each other; without this, `/dm @everyone` — a handle that
+    # resolves to a group — builds a conversation nobody can leave, because a DM has no
+    # leave.
+    if len(members) > MAX_DM_MEMBERS:
+        return CommandResult(
+            ephemeral=f"A group message holds {MAX_DM_MEMBERS} people. "
+            "Make a channel for more than that."
+        )
+
+    channel_id, created = await channel_service.find_or_create_dm(
         ctx.session, ctx.user.workspace_id, members
     )
     channel = await channel_service.get_for_user(ctx.session, channel_id, ctx.user.id)
 
-    # Whatever is left after the names. Resolved against the same index, so a two-word
-    # display name is not mistaken for one word of the message.
-    body = _text_after_names(ctx.args, handles)
     message = None
     thread_update = None
     if body:
@@ -448,34 +510,17 @@ async def _dm(ctx: CommandContext) -> CommandResult:
 
     return CommandResult(
         open_channel=channel,
+        # Everyone in it, not only the person who typed the command. Telling the invoker
+        # alone left the other side with no DM row and no message until they reloaded —
+        # their socket was never subscribed to a channel that did not exist when it
+        # connected. `POST /api/dms` has always told every member; this had not.
+        open_channel_members=members if created else [],
         # Deliberately not returned as `message`: it belongs to the DM, and the router
         # broadcasts `message` into the channel the command was *run* in.
         dm_message=message,
         dm_thread_update=thread_update,
         dm_channel_id=channel_id,
     )
-
-
-def _text_after_names(args: str, handles: list[str]) -> str:
-    """Everything after the run of leading `@name`s.
-
-    The message cannot be found by counting words, because a display name may be two of
-    them — `/dm @Ana Smith are you free` must not send "Smith are you free". The handles
-    that actually resolved are known by now, so the longest one matching at the cursor is
-    consumed and what remains is the message.
-    """
-    rest = args.strip()
-    longest_first = sorted(handles, key=len, reverse=True)
-    consumed = True
-    while consumed and rest.startswith("@"):
-        consumed = False
-        after_at = rest[1:]
-        for handle in longest_first:
-            if after_at[: len(handle)].lower() == handle:
-                rest = after_at[len(handle) :].strip()
-                consumed = True
-                break
-    return rest
 
 
 async def _remind(ctx: CommandContext) -> CommandResult:
@@ -501,9 +546,18 @@ async def _status(ctx: CommandContext) -> CommandResult:
     else:
         emoji, message = _split_status(args)
 
+    if emoji is not None and len(emoji) > MAX_STATUS_EMOJI:
+        return CommandResult(ephemeral="That emoji is too long to be one.")
+    if len(message) > MAX_STATUS_TEXT:
+        return CommandResult(ephemeral=f"A status is {MAX_STATUS_TEXT} characters or fewer.")
+
     await ctx.session.execute(
         text(
-            "UPDATE users SET status_emoji = :emoji, status_text = :text WHERE id = :id"
+            "UPDATE users SET status_emoji = :emoji, status_text = :text,"
+            # Cleared, not left. An expiry from a status set earlier in the day belongs to
+            # *that* status; leaving it made a new one arrive already expired — accepted,
+            # announced over the socket, and invisible to everybody including its author.
+            " status_expires_at = NULL WHERE id = :id"
         ),
         {"emoji": emoji, "text": message or None, "id": ctx.user.id},
     )

@@ -231,6 +231,24 @@ function prettyKey(key: string): string {
   return key.length === 1 ? key.toUpperCase() : key;
 }
 
+/**
+ * Whether the focused control owns the arrow keys itself.
+ *
+ * A `<select>` opens its options with Alt+Down; a date, time or number field steps its
+ * value with Up and Down. Answering ⌥↓ there by navigating to another channel does not
+ * merely ignore the gesture — it `preventDefault`s the one the browser was about to
+ * perform and unmounts the page the control was on, taking whatever was half-filled in
+ * with it. A textarea is deliberately not on this list: the composer is where somebody
+ * spends the day, and switching conversations from it is the point of the binding.
+ */
+export function ownsArrowKeys(target: EventTarget | null): boolean {
+  if (target instanceof HTMLSelectElement) return true;
+  if (!(target instanceof HTMLInputElement)) return false;
+  return ['date', 'datetime-local', 'month', 'number', 'range', 'time', 'week'].includes(
+    target.type,
+  );
+}
+
 /** Whether the focused element is somewhere a keystroke is text rather than a command. */
 export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;

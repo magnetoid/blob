@@ -103,7 +103,12 @@ async def schedule(
             code="invalid_input",
         )
 
-    await channel_service.assert_channel_access(session, author_id, channel_id, require_member=True)
+    # `require_writable` and not merely membership: it is the only archived guard in the
+    # codebase, and without it a message could be scheduled thirty seconds ahead into a
+    # channel the send route had just refused.
+    await channel_service.assert_channel_access(
+        session, author_id, channel_id, require_member=True, require_writable=True
+    )
 
     row = (
         await session.execute(
@@ -146,7 +151,13 @@ async def list_for_author(session: AsyncSession, author_id: str) -> list[Schedul
                        last_error, repeat, last_sent_at
                   FROM scheduled_messages
                  WHERE author_id = :author
-                   AND sent_at IS NULL AND canceled_at IS NULL
+                   AND sent_at IS NULL
+                   -- Waiting, or refused. A refusal sets `canceled_at` *and* writes why,
+                   -- and until this said so the reason went into a row nothing selected:
+                   -- the message simply never arrived and the Scheduled list was empty.
+                   -- A row the author cancelled themselves has no `last_error` and stays
+                   -- gone, which is the difference between the two.
+                   AND (canceled_at IS NULL OR last_error IS NOT NULL)
                  ORDER BY send_at
                  LIMIT 200
                 """
@@ -158,15 +169,21 @@ async def list_for_author(session: AsyncSession, author_id: str) -> list[Schedul
 
 
 async def cancel(session: AsyncSession, author_id: str, scheduled_id: str) -> None:
-    """Take it back. Only the author's own, and only while it is still waiting."""
+    """Take it back — or, for one that already failed, dismiss the notice.
+
+    Both are the same gesture from the list and the same button, so they are the same
+    call. `last_error` is cleared as well as `canceled_at` set, which is what takes a
+    failed row back out of `list_for_author`.
+    """
     row = (
         await session.execute(
             text(
                 """
                 UPDATE scheduled_messages
-                   SET canceled_at = now()
+                   SET canceled_at = COALESCE(canceled_at, now()), last_error = NULL
                  WHERE id = :id AND author_id = :author
-                   AND sent_at IS NULL AND canceled_at IS NULL
+                   AND sent_at IS NULL
+                   AND (canceled_at IS NULL OR last_error IS NOT NULL)
                 RETURNING id
                 """
             ),
@@ -221,7 +238,14 @@ async def deliver(session: AsyncSession, item: dict[str, object]) -> message_ser
     # between should stop the message, and an author who was removed should not still be
     # able to post through a row they left behind.
     await channel_service.assert_channel_access(
-        session, str(item["author_id"]), str(item["channel_id"]), require_member=True
+        session,
+        str(item["author_id"]),
+        str(item["channel_id"]),
+        require_member=True,
+        # The channel may have been archived since. Without this a recurring message
+        # posted into a read-only channel every morning for ever, and `mark_failed`'s
+        # own docstring named that as a case it handled — it could never be reached.
+        require_writable=True,
     )
     return await message_service.send(
         session,

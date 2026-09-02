@@ -116,3 +116,57 @@ class TestHowItReads:
         assert describe("weekdays") == "Every weekday"
         assert describe("weekly") == "Every week"
         assert describe(None) == "Once"
+
+
+class TestAClockThatSkipped:
+    """The morning a zone springs forward, some readings never happen.
+
+    Python resolves a time inside the gap to an instant an hour later, and the *next*
+    occurrence reads its hour back from that instant — so one missing minute a year used
+    to move a daily reminder permanently, which is the exact drift this module exists to
+    prevent. Missing one occurrence is the smaller wrong, and the true one.
+    """
+
+    NEW_YORK = ZoneInfo("America/New_York")
+
+    def test_a_slot_inside_the_gap_is_skipped_rather_than_moved(self) -> None:
+        # New York springs forward on 2027-03-14; there is no 02:30 that morning.
+        saturday = datetime(2027, 3, 13, 2, 30, tzinfo=self.NEW_YORK)
+
+        nxt = next_occurrence(saturday, "daily", "America/New_York")
+
+        assert nxt is not None
+        assert nxt.astimezone(self.NEW_YORK).day == 15
+        assert nxt.astimezone(self.NEW_YORK).hour == 2
+
+    def test_and_the_hour_holds_afterwards(self) -> None:
+        previous = datetime(2027, 3, 13, 2, 30, tzinfo=self.NEW_YORK)
+
+        for _ in range(5):
+            previous = next_occurrence(previous, "daily", "America/New_York")  # type: ignore[assignment]
+            assert previous is not None
+            local = previous.astimezone(self.NEW_YORK)
+            assert (local.hour, local.minute) == (2, 30)
+
+    def test_an_hour_that_happens_twice_is_not_skipped(self) -> None:
+        # The autumn fold repeats 01:30 rather than removing it. Skipping it would drop
+        # an occurrence for no reason.
+        saturday = datetime(2027, 11, 6, 1, 30, tzinfo=self.NEW_YORK)
+
+        nxt = next_occurrence(saturday, "daily", "America/New_York")
+
+        assert nxt is not None
+        assert nxt.astimezone(self.NEW_YORK).day == 7
+        assert nxt.astimezone(self.NEW_YORK).hour == 1
+
+    def test_a_half_hour_shift_counts_too(self) -> None:
+        # Lord Howe moves by thirty minutes, so its gap is half an hour wide — and an
+        # hour-shaped check would miss it.
+        lord_howe = ZoneInfo("Australia/Lord_Howe")
+        before = datetime(2026, 10, 3, 2, 15, tzinfo=lord_howe)
+
+        nxt = next_occurrence(before, "daily", "Australia/Lord_Howe")
+
+        assert nxt is not None
+        assert nxt.astimezone(lord_howe).day == 5
+        assert (nxt.astimezone(lord_howe).hour, nxt.astimezone(lord_howe).minute) == (2, 15)

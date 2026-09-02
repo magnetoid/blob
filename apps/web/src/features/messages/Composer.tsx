@@ -45,6 +45,7 @@ import {
 } from "../../lib/attachments.ts";
 import { openAgentTerminal } from "../../lib/agentTerminal.ts";
 import { showChannel } from "../../lib/navigation.ts";
+import { useEscape } from "../../lib/useEscape.ts";
 import { Menu } from "../../components/Menu.tsx";
 import {
   REPEAT_OPTIONS,
@@ -138,6 +139,11 @@ export function Composer({
   const [ephemeral, setEphemeral] = useState<string | null>(null);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
 
+  // Escape through the shared stack, so closing the picker does not also let the shell
+  // act on the key. See `lib/useEscape`.
+  const closeEmoji = useCallback(() => setEmojiOpen(false), []);
+  useEscape(closeEmoji, emojiOpen);
+
   // Dismiss on a click anywhere else, or Escape — the same contract as every other panel
   // in the app. The trigger is checked too, and deliberately: the panel renders above the
   // composer box while the button lives in the footer, so unlike the account menu it
@@ -154,15 +160,8 @@ export function Composer({
       if (emojiTriggerRef.current?.contains(target)) return;
       setEmojiOpen(false);
     };
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setEmojiOpen(false);
-    };
     window.addEventListener("click", onClick, true);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("click", onClick, true);
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("click", onClick, true);
   }, [emojiOpen]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);

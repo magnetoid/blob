@@ -12,12 +12,17 @@
  * cannot leave a stale row behind; reconciling would be neither.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEscape } from '../../lib/useEscape.ts';
 import { api, type WorkspaceMembership } from '../../lib/api.ts';
 import { ChevronDownIcon } from '../../components/Icon.tsx';
 
 export function WorkspaceSwitcher({ name }: { name: string }) {
   const [open, setOpen] = useState(false);
+  // Through the shared stack: a bubble listener of its own would close the switcher and
+  // let the shell act on the same key.
+  const close = useCallback(() => setOpen(false), []);
+  useEscape(close, open);
   const [workspaces, setWorkspaces] = useState<WorkspaceMembership[] | null>(null);
   const [busy, setBusy] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -47,15 +52,8 @@ export function WorkspaceSwitcher({ name }: { name: string }) {
       if (menuRef.current?.contains(event.target as Node)) return;
       setOpen(false);
     };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
     window.addEventListener('click', onClick, true);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('click', onClick, true);
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => window.removeEventListener('click', onClick, true);
   }, [open]);
 
   if (!workspaces || workspaces.length < 2) {

@@ -618,3 +618,72 @@ them. `_text_after_names` consumes the *resolved handles* — which `mention_tar
 already matched longest-first — and what is left is the message. Counting words, or
 splitting on the first space after the `@`, breaks every two-word name in the workspace and
 does it silently, because the message still sends.
+
+## Rule: Escape belongs to the innermost thing open
+
+`lib/useEscape.ts` owns one capture-phase listener on `window` and a stack; every overlay
+pushes onto it while it is open. Nothing else may bind Escape.
+
+The reason is not tidiness. The shell binds Escape too — it is what marks a channel read —
+and **two bubble listeners on the same node both run**, so an overlay closing itself never
+stopped the shell from also acting: dismissing a menu closed the thread panel behind it,
+or destroyed a mark-unread that had just been set. `stopPropagation` from one bubble
+listener cannot save another on the same node, which is why every overlay having its own
+was never going to work, however carefully each was written.
+
+A stack rather than a flag, because a dialog opened *over* a menu has to close the dialog:
+"is something open" would hand the key to whichever claimed it first and leave the newer
+one unclosable.
+
+Two of the four dialogs had carried a comment saying Escape was "bound above" while
+binding nothing at all.
+
+## Rule: a name in a message is a name, not an instruction
+
+`services/commands._resolve_people` reads only the **leading run** of `@name`s and hands
+back the rest as words. Resolving mentions across the whole argument made
+`/dm @Ana what did @Bob mean by that?` open a group with Bob in it — a message about
+somebody, delivered to them — and `/remove @Third because @Owner asked me to` remove the
+person named as the reason.
+
+The handles are tried longest-first and against both lowercasings, because the two sides
+of the comparison are lowercased by different things: the handle by Postgres, the typed
+text by Python, and for a name like "İlker" those disagree. An `@` that names nobody ends
+the run rather than being skipped — the rest is message text and guessing past it is how
+the wrong person gets added.
+
+## Trap: a stored row was written under the rules of its own day
+
+`plugins/blocks.action_ids_of` re-parses stored blocks through the same models the write
+path uses. Today's image-url validator made an absolute url invalid, and every block
+already holding one stopped parsing — so a button on a message from last week answered
+500 from the catch-all handler, on a message the client still rendered perfectly.
+
+Validation belongs on the way in. On the way out, read what is there: a stored block that
+no longer validates now falls back to reading its action ids from the raw JSON, because
+that question has the same answer either way. Any *new* constraint on a stored shape has
+to be checked against the read paths, not only the write one.
+
+## Trap: `require_writable` is the only archived guard there is
+
+`services/messages.send` has no `archived` check at all — `assert_channel_access` raises
+"This channel is archived and read-only" only when `require_writable` is passed. The
+scheduled path asked for membership and not that, so a message could be scheduled thirty
+seconds ahead into a channel the send route had just refused, and a *recurring* one posted
+into a read-only channel every morning for ever. `mark_failed`'s own docstring named
+"the workspace archived it" as a case it handled; it could never be reached.
+
+Related: `last_error` was written to a row nothing selected — `list_for_author` filtered
+`canceled_at IS NULL`, and a refusal sets it. The list now returns a refused row precisely
+because it has a `last_error`, which is also what distinguishes it from one the author
+cancelled themselves.
+
+## Trap: a recurring slot the clock skipped
+
+On the morning a zone springs forward there is no 02:30, and Python resolves a time inside
+the gap to an instant an hour later. `next_occurrence` then reads its hour back from that
+instant, so one missing minute a year moved a daily reminder **permanently** — the exact
+drift the module exists to prevent. It now skips the occurrence instead, which is the
+smaller wrong and the true one: that minute did not happen. Detected through PEP 495's
+fold, not by converting and comparing — `astimezone` into the zone a datetime is already
+in is a no-op and shows nothing.

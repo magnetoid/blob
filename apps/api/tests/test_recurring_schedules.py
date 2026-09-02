@@ -202,3 +202,54 @@ class TestTheWallClock:
         # messages too.
         assert "standup" in await bodies_in_channel(team)
         assert len(await waiting(team)) == 1
+
+
+class TestAChannelThatWentReadOnly:
+    async def test_nothing_can_be_scheduled_into_an_archived_one(self, team: dict) -> None:
+        # `require_writable` is the only archived guard there is, and the schedule route
+        # was not asking for it — so a message could be put thirty seconds ahead into a
+        # channel the send route had just refused.
+        await team["owner"].post(f"/api/channels/{team['general']['id']}/archive")
+
+        made = await schedule(team, body="after the fact")
+
+        assert made["status"] == 403, made["body"]
+
+    async def test_and_a_repeating_one_stops_rather_than_posting_for_ever(
+        self, team: dict
+    ) -> None:
+        made = await schedule(team, body="standup", repeat="daily")
+        row_id = made["body"]["scheduled"]["id"]
+        await team["owner"].post(f"/api/channels/{team['general']['id']}/archive")
+        await move_send_at(row_id, ago=timedelta(minutes=1))
+
+        await send_scheduled({})
+
+        assert "standup" not in await bodies_in_channel(team)
+
+    async def test_and_the_author_is_told_why(self, team: dict) -> None:
+        # `last_error` was written to a row nothing selected: the message simply never
+        # arrived and the Scheduled list was empty.
+        made = await schedule(team, body="standup", repeat="daily")
+        row_id = made["body"]["scheduled"]["id"]
+        await team["owner"].post(f"/api/channels/{team['general']['id']}/archive")
+        await move_send_at(row_id, ago=timedelta(minutes=1))
+        await send_scheduled({})
+
+        listed = await waiting(team)
+
+        assert [s["id"] for s in listed] == [row_id]
+        assert listed[0]["lastError"] is not None
+
+    async def test_and_can_dismiss_the_notice(self, team: dict) -> None:
+        made = await schedule(team, body="standup")
+        row_id = made["body"]["scheduled"]["id"]
+        await team["owner"].post(f"/api/channels/{team['general']['id']}/archive")
+        await move_send_at(row_id, ago=timedelta(minutes=1))
+        await send_scheduled({})
+
+        gone = await team["owner"].delete(f"/api/scheduled/{row_id}")
+
+        # Same button, same call: taking one back and clearing a failure are one gesture.
+        assert gone.status == 200, gone.body
+        assert await waiting(team) == []
