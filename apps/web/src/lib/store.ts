@@ -193,6 +193,19 @@ function scheduleResyncRetry(run: () => void): void {
   }, 5000);
 }
 
+/**
+ * One sorted list from two.
+ *
+ * Where a fetched page meets messages that arrived while it was being fetched. Built on
+ * `upsert` so the ordering rule lives in one place — ids are UUIDv7, so "sorted by id"
+ * is "sorted by time".
+ */
+function mergeById(page: Message[], arrived: Message[]): Message[] {
+  let merged = page;
+  for (const message of arrived) merged = upsert(merged, message);
+  return merged;
+}
+
 /** Insert or replace a message, keeping the list sorted by id. */
 function upsert(items: Message[], message: Message): Message[] {
   const existingIndex = items.findIndex(
@@ -492,6 +505,9 @@ export const useStore = create<State>((set, get) => ({
               s.currentUser,
               s.outbox,
               channelId,
+              // Replaced, not merged, unlike the first-page load below. This window is
+              // deliberately not anchored to the tail, so folding in a message that
+              // arrived meanwhile would put it directly after one hundreds older.
               messages,
             ),
             // Both ends are truncated by an `around` fetch, so there is always more in
@@ -541,7 +557,14 @@ export const useStore = create<State>((set, get) => ({
               s.currentUser,
               s.outbox,
               channelId,
-              messages,
+              // Merged, not replaced. A message delivered over the socket while this
+              // request was in flight is newer than anything the response can hold, and
+              // replacing threw it away for good — nothing refetches a channel that is
+              // `loaded`, so it stayed missing until the page was reloaded.
+              mergeById(
+                messages,
+                stripPending(s.messages[channelId]?.items ?? []),
+              ),
             ),
             hasMore,
             loading: false,
@@ -911,10 +934,15 @@ export const useStore = create<State>((set, get) => ({
             const wasAtTail =
               existing?.items.filter((m) => !m.id.startsWith("pending-")).at(-1)
                 ?.id === s.channels[message.channelId]?.lastMessageId;
-            if (
-              existing?.loaded &&
-              (wasAtTail || event.t === "message.updated")
-            ) {
+            // While the first page is still in flight there is no window to be at the
+            // end of, and dropping the message loses it for good: the response used to
+            // replace `items` with a snapshot that predated it, and nothing refetches a
+            // channel that is already `loaded`. So arrivals are kept and the response
+            // merges into them.
+            const canFold = existing?.loaded
+              ? wasAtTail || event.t === "message.updated"
+              : Boolean(existing?.loading);
+            if (existing && canFold) {
               next.messages = {
                 ...s.messages,
                 [message.channelId]: {

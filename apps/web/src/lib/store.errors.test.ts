@@ -15,6 +15,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const history = vi.fn();
 const thread = vi.fn();
 const sync = vi.fn();
+// `openChannel` acks the newest message on its way out; without this the tests below
+// reach the real client and fail on the network rather than on what they assert.
+const markRead = vi.fn(async () => ({ readState: {} }));
 
 vi.mock("./api.ts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api.ts")>();
@@ -23,6 +26,7 @@ vi.mock("./api.ts", async (importOriginal) => {
     api: {
       ...actual.api,
       messages: { ...actual.api.messages, history, thread },
+      channels: { ...actual.api.channels, markRead },
       sync,
     },
   };
@@ -49,6 +53,7 @@ beforeEach(() => {
   history.mockReset();
   thread.mockReset();
   sync.mockReset();
+  markRead.mockClear();
   useStore.setState({
     messages: {},
     threads: {},
@@ -179,6 +184,72 @@ describe("loadOlder", () => {
 
     history.mockResolvedValueOnce({ messages: [{ id: "m1" }], hasMore: false });
     await useStore.getState().loadOlder("c1");
+
+    expect(useStore.getState().messages["c1"]?.items.map((m) => m.id)).toEqual([
+      "m1",
+      "m2",
+    ]);
+  });
+});
+
+describe("a message that arrives while the first page is loading", () => {
+  it("is not thrown away by the response", async () => {
+    // The window is small — one request — but the loss is permanent: nothing refetches
+    // a channel that is already `loaded`, so the message is gone until a reload.
+    let resolveHistory: (value: unknown) => void = () => {};
+    history.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveHistory = resolve;
+      }),
+    );
+    useStore.setState({
+      currentUser: { id: "me" },
+      channels: {
+        c1: { id: "c1", kind: "public", name: "general", lastMessageId: "m1" },
+      },
+    } as never);
+
+    const opening = useStore.getState().openChannel("c1");
+
+    // The socket delivers a new message while the request is still in flight.
+    useStore.getState().applyEvent({
+      t: "message.new",
+      message: {
+        id: "m2",
+        channelId: "c1",
+        authorId: "them",
+        body: "live one",
+        kind: "user",
+        createdAt: "2026-09-01T10:00:00.000Z",
+        threadRootId: null,
+        replyCount: 0,
+        reactions: [],
+        attachments: [],
+        mentionUserIds: [],
+        mentionGroupIds: [],
+      },
+    } as never);
+
+    resolveHistory({
+      messages: [
+        {
+          id: "m1",
+          channelId: "c1",
+          authorId: "them",
+          body: "older",
+          kind: "user",
+          createdAt: "2026-09-01T09:00:00.000Z",
+          threadRootId: null,
+          replyCount: 0,
+          reactions: [],
+          attachments: [],
+          mentionUserIds: [],
+          mentionGroupIds: [],
+        },
+      ],
+      hasMore: false,
+    });
+    await opening;
 
     expect(useStore.getState().messages["c1"]?.items.map((m) => m.id)).toEqual([
       "m1",
