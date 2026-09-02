@@ -744,6 +744,10 @@ class ScheduledMessage(Base):
 
     __tablename__ = "scheduled_messages"
     __table_args__ = (
+        CheckConstraint(
+            "repeat IS NULL OR repeat IN ('daily', 'weekdays', 'weekly')",
+            name="scheduled_messages_repeat_known",
+        ),
         # The sweep's whole working set: due, unsent, uncancelled.
         Index(
             "scheduled_messages_due",
@@ -774,6 +778,15 @@ class ScheduledMessage(Base):
     )
     client_msg_id: Mapped[str] = mapped_column(Text, nullable=False)
     send_at: Mapped[Any] = mapped_column(Timestamp, nullable=False)
+    #: 'daily', 'weekdays', 'weekly', or NULL for a message that goes once.
+    repeat: Mapped[str | None] = mapped_column(Text)
+    #: The author's zone, because "every weekday at nine" is a wall clock and not a UTC
+    #: offset. Re-read at each occurrence so the reminder does not drift an hour twice a
+    #: year, silently, when the clocks change.
+    timezone: Mapped[str] = mapped_column(Text, nullable=False, server_default="UTC")
+    #: When the last occurrence went out. A recurring row never sets `sent_at` — that is
+    #: what removes a row from the sweep's index, and a recurrence is never finished.
+    last_sent_at: Mapped[Any | None] = mapped_column(Timestamp)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     #: Set once it has gone out. With `canceled_at`, the two ways a row stops being due.
     sent_at: Mapped[Any | None] = mapped_column(Timestamp)

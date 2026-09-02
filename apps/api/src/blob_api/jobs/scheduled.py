@@ -33,7 +33,11 @@ async def send_scheduled(_ctx: dict[str, Any]) -> None:
             # the live send path relies on.
             async with transaction() as (session, after):
                 result = await scheduled_service.deliver(session, item)
-                await scheduled_service.mark_sent(session, str(item["id"]), result.message.id)
+                # A repeating row survives its own send: it names the next occurrence
+                # instead of setting `sent_at`, which is the column that would take it
+                # out of the sweep's index for good.
+                if not await scheduled_service.advance(session, item, result.message.id):
+                    await scheduled_service.mark_sent(session, str(item["id"]), result.message.id)
                 # The half that was missing. Storing the row is not sending the message:
                 # without this there is no socket frame, no notification, no unfurl, no
                 # agent run and no outbox row — a scheduled message arrived only for

@@ -3,6 +3,7 @@
 import type {
   BrowsableChannel,
   ScheduledMessage,
+  ScheduleRepeat,
   LaterItem,
   LaterState,
   AgentRunView,
@@ -522,6 +523,8 @@ export const api = {
         sendAt: string;
         clientMsgId: string;
         threadRootId?: string | null;
+        repeat?: ScheduleRepeat | null;
+        timezone?: string;
       },
     ) =>
       post<{ scheduled: ScheduledMessage }>(

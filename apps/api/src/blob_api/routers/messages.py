@@ -580,6 +580,12 @@ class ScheduleInput(CamelModel):
     send_at: str
     client_msg_id: str = Field(min_length=1, max_length=200)
     thread_root_id: IdParam | None = None
+    #: How it repeats, if it does. Checked in the service, so the refusal reads as a
+    #: sentence rather than as a schema violation.
+    repeat: str | None = Field(default=None, max_length=20)
+    #: The author's zone, because "every weekday at nine" is a wall-clock statement.
+    #: An unknown one falls back to UTC rather than refusing — see `services/recurrence`.
+    timezone: str = Field(default="UTC", max_length=64)
 
 
 class ScheduledOut(CamelModel):
@@ -608,6 +614,8 @@ async def schedule_message(
             send_at=send_at,
             client_msg_id=payload.client_msg_id,
             thread_root_id=payload.thread_root_id,
+            repeat=payload.repeat,
+            timezone=payload.timezone,
         )
     return ScheduledOut(scheduled=scheduled)
 

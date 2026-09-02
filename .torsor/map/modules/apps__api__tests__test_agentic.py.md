@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-01T23:39:51'
-updated: '2026-09-01T23:39:51'
+created: '2026-09-02T02:51:23'
+updated: '2026-09-02T02:51:23'
 ---
 
 # apps/api/tests/test_agentic.py
@@ -20,3 +20,5 @@ Symbols in `apps/api/tests/test_agentic.py`.
 - L106 `test_human_task_lifecycle_is_audited(client: Client)` (function)
 - L137 `test_bot_message_posts_are_audited(client: Client)` (function)
 - L157 `test_bot_can_summarize_and_manage_assigned_tasks(client: Client)` (function)
+- L202 `test_a_task_can_have_a_due_date(client: Client)` (function) — `dueAt` was a 500 for as long as the field existed.
+- L230 `test_a_due_date_that_is_not_a_time_is_refused(client: Client)` (function)

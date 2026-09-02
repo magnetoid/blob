@@ -86,7 +86,14 @@ export interface ScheduledMessage {
   sendAt: string;
   createdAt: string;
   lastError: string | null;
+  /** How it repeats, or null for the schedule that happens once. */
+  repeat: ScheduleRepeat | null;
+  /** When a repeating one last went out. `sendAt` is always the *next* occurrence. */
+  lastSentAt: string | null;
 }
+
+/** What a schedule may repeat as. The server holds the same list, and so does a CHECK. */
+export type ScheduleRepeat = "daily" | "weekdays" | "weekly";
 
 /** A public channel as the directory lists it — what exists, how busy, am I in it. */
 export interface BrowsableChannel {

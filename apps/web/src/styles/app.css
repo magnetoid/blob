@@ -3389,11 +3389,18 @@ select.chip {
   display: inline-flex;
 }
 
-.schedule-custom {
+.schedule-custom,
+.schedule-repeat {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px 9px 4px;
+}
+
+/* The repeat select sits above the custom time and shares its padding, so the two read
+   as one block of "and how often" rather than as two unrelated controls. */
+.schedule-repeat {
+  padding-bottom: 0;
 }
 
 /* Hangs above the composer, which sits at the bottom of the window. */

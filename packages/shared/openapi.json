@@ -4586,6 +4586,18 @@
             "title": "Clientmsgid",
             "type": "string"
           },
+          "repeat": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repeat"
+          },
           "sendAt": {
             "title": "Sendat",
             "type": "string"
@@ -4601,6 +4613,12 @@
               }
             ],
             "title": "Threadrootid"
+          },
+          "timezone": {
+            "default": "UTC",
+            "maxLength": 64,
+            "title": "Timezone",
+            "type": "string"
           }
         },
         "required": [
@@ -4656,6 +4674,28 @@
               }
             ],
             "title": "Lasterror"
+          },
+          "lastSentAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsentat"
+          },
+          "repeat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repeat"
           },
           "sendAt": {
             "title": "Sendat",

@@ -143,6 +143,12 @@ class ScheduledMessage(CamelModel):
     created_at: str
     #: Why it did not go, when it did not go.
     last_error: str | None = None
+    #: "daily", "weekdays", "weekly" — or None, which is the schedule that happens once.
+    repeat: str | None = None
+    #: When a repeating one last went out. `sendAt` is always the *next* occurrence, so
+    #: without this a recurring row gives the client no way to say "sent, and again on
+    #: Monday".
+    last_sent_at: str | None = None
 
 
 class Membership(CamelModel):

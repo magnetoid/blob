@@ -9,6 +9,8 @@
  * nine in the morning where the author is, which is what they meant.
  */
 
+import type { ScheduleRepeat } from '@blob/shared';
+
 export interface SchedulePreset {
   id: string;
   label: string;
@@ -63,4 +65,37 @@ export function earliestCustom(now: Date): string {
     `${floor.getFullYear()}-${pad(floor.getMonth() + 1)}-${pad(floor.getDate())}` +
     `T${pad(floor.getHours())}:${pad(floor.getMinutes())}`
   );
+}
+
+/** What a schedule may repeat as. Mirrors the server's list, and a CHECK constraint. */
+export const REPEAT_OPTIONS: ReadonlyArray<{
+  value: ScheduleRepeat | '';
+  label: string;
+}> = [
+  { value: '', label: 'Doesn’t repeat' },
+  { value: 'daily', label: 'Every day' },
+  { value: 'weekdays', label: 'Every weekday' },
+  { value: 'weekly', label: 'Every week' },
+];
+
+/** How a repeating schedule reads in a list, beside the message it will send. */
+export function describeRepeat(repeat: ScheduleRepeat | null): string | null {
+  // Null is "once", which is the ordinary case and reads better as nothing at all than
+  // as a label saying so.
+  if (!repeat) return null;
+  return REPEAT_OPTIONS.find((option) => option.value === repeat)?.label ?? null;
+}
+
+/** The zone the author is actually in, which is the one "nine o'clock" is about.
+ *
+ * Sent with a recurring schedule and stored, because the next occurrence has to be
+ * rebuilt from a wall clock at every send — a recurrence computed once in UTC drifts by
+ * an hour twice a year, silently, and the standup reminder just starts arriving at eight.
+ */
+export function localZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
 }

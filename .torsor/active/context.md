@@ -510,3 +510,26 @@ Worth knowing before changing the equivalent code:
   choosing wrong is somebody never learning they were addressed, so it is a product
   decision rather than a defect. The parser keeps the distinction so the decision is
   still available.
+
+## Trap: a recurring schedule that reuses its `client_msg_id`
+
+`scheduled_messages.client_msg_id` is the idempotency key `messages.send` deduplicates
+on. A repeating row that keeps it sends once and every occurrence after that resolves to
+the row occurrence one created — the schedule fires, the sweep logs a send, and nothing
+ever arrives in the channel. `services/scheduled.advance` rotates it, and stores the new
+id *before* the next send so a crash mid-flight still retries that one occurrence exactly
+once. `tests/test_recurring_schedules.py::test_the_second_occurrence_is_a_second_message`
+is the guard.
+
+Two more shapes in the same function, for the same reason — each is silent when wrong:
+
+* The next occurrence is computed from the slot that just fired, never from `now()`. A
+  sweep four minutes late would otherwise push a nine o'clock standup to 09:04 and keep
+  the drift.
+* Missed slots are skipped in a loop, not sent. A worker down over a weekend would wake
+  up owing Monday three days of reminders at once. The loop is capped (`MAX_CATCH_UP`) so
+  a row whose rule cannot outrun the clock cannot spin the sweep.
+
+And a recurring row never sets `sent_at`: that column is what removes a row from the
+sweep's partial index, and a recurrence is never finished. `last_sent_at` answers the
+other question — see migration `0024`.

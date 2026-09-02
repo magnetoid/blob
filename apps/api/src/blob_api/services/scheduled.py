@@ -22,6 +22,7 @@ from ..schemas.base import require_iso
 from ..schemas.models import ScheduledMessage
 from . import channels as channel_service
 from . import messages as message_service
+from .recurrence import REPEATS, next_occurrence
 
 log = logging.getLogger("blob.scheduled")
 
@@ -36,6 +37,10 @@ MIN_AHEAD_SECONDS = 30
 #: Rows per sweep. The cron runs every minute; a backlog drains over several.
 BATCH = 50
 
+#: How many missed occurrences a recurring row may skip in one sweep before it gives up
+#: looking. A year of daily slots; past that the row is wrong rather than merely late.
+MAX_CATCH_UP = 400
+
 
 def _row_to_model(row: object) -> ScheduledMessage:
     return ScheduledMessage(
@@ -48,6 +53,12 @@ def _row_to_model(row: object) -> ScheduledMessage:
         send_at=require_iso(row.send_at),  # type: ignore[attr-defined]
         created_at=require_iso(row.created_at),  # type: ignore[attr-defined]
         last_error=row.last_error,  # type: ignore[attr-defined]
+        repeat=getattr(row, "repeat", None),
+        last_sent_at=(
+            require_iso(row.last_sent_at)  # type: ignore[attr-defined]
+            if getattr(row, "last_sent_at", None)
+            else None
+        ),
     )
 
 
@@ -61,6 +72,8 @@ async def schedule(
     send_at: datetime,
     client_msg_id: str,
     thread_root_id: str | None = None,
+    repeat: str | None = None,
+    timezone: str = "UTC",
 ) -> ScheduledMessage:
     """Put a message aside to be sent at `send_at`.
 
@@ -84,6 +97,11 @@ async def schedule(
             f"Scheduling reaches {MAX_AHEAD_DAYS} days ahead, no further.",
             code="invalid_input",
         )
+    if repeat is not None and repeat not in REPEATS:
+        raise bad_request(
+            f"A schedule repeats {', '.join(REPEATS)} — or not at all.",
+            code="invalid_input",
+        )
 
     await channel_service.assert_channel_access(session, author_id, channel_id, require_member=True)
 
@@ -93,10 +111,11 @@ async def schedule(
                 """
                 INSERT INTO scheduled_messages
                   (id, workspace_id, channel_id, author_id, body, thread_root_id,
-                   client_msg_id, send_at)
-                VALUES (:id, :ws, :channel, :author, :body, :root, :client_msg_id, :send_at)
+                   client_msg_id, send_at, repeat, timezone)
+                VALUES (:id, :ws, :channel, :author, :body, :root, :client_msg_id,
+                        :send_at, :repeat, :timezone)
                 RETURNING id, channel_id, body, thread_root_id, send_at, created_at,
-                          last_error
+                          last_error, repeat, last_sent_at
                 """
             ),
             {
@@ -108,6 +127,8 @@ async def schedule(
                 "root": thread_root_id,
                 "client_msg_id": client_msg_id,
                 "send_at": send_at,
+                "repeat": repeat,
+                "timezone": timezone,
             },
         )
     ).fetchone()
@@ -121,7 +142,8 @@ async def list_for_author(session: AsyncSession, author_id: str) -> list[Schedul
         await session.execute(
             text(
                 """
-                SELECT id, channel_id, body, thread_root_id, send_at, created_at, last_error
+                SELECT id, channel_id, body, thread_root_id, send_at, created_at,
+                       last_error, repeat, last_sent_at
                   FROM scheduled_messages
                  WHERE author_id = :author
                    AND sent_at IS NULL AND canceled_at IS NULL
@@ -164,7 +186,7 @@ async def due_batch(session: AsyncSession) -> list[dict[str, object]]:
             text(
                 """
                 SELECT s.id, s.workspace_id, s.channel_id, s.author_id, s.body,
-                       s.thread_root_id, s.client_msg_id
+                       s.thread_root_id, s.client_msg_id, s.repeat, s.timezone, s.send_at
                   FROM scheduled_messages s
                  WHERE s.send_at <= now()
                    AND s.sent_at IS NULL AND s.canceled_at IS NULL
@@ -185,6 +207,9 @@ async def due_batch(session: AsyncSession) -> list[dict[str, object]]:
             "body": row.body,
             "thread_root_id": str(row.thread_root_id) if row.thread_root_id else None,
             "client_msg_id": row.client_msg_id,
+            "repeat": row.repeat,
+            "timezone": row.timezone,
+            "send_at": row.send_at,
         }
         for row in rows
     ]
@@ -221,6 +246,72 @@ async def mark_sent(session: AsyncSession, scheduled_id: str, message_id: str) -
         ),
         {"id": scheduled_id, "message_id": message_id},
     )
+
+
+async def advance(session: AsyncSession, item: dict[str, object], message_id: str) -> bool:
+    """Move a repeating row to its next occurrence. False if it does not repeat.
+
+    Three things happen here that each stop a distinct way of going wrong.
+
+    The next occurrence is computed from the slot that just fired, not from `now()` —
+    a sweep running four minutes late must not push a nine o'clock standup to 09:04 and
+    keep the extra minutes forever.
+
+    Missed slots are skipped rather than sent. A worker down over a weekend would
+    otherwise wake up owing Monday three days of standup reminders at once, and nobody
+    wants Friday's question answered on Monday. The loop is capped because a row whose
+    rule somehow cannot outrun the clock must not spin the sweep.
+
+    And `client_msg_id` is rotated. It is the idempotency key: reuse it and every
+    occurrence after the first is silently deduplicated into the original message —
+    the schedule would appear to fire and nothing would ever arrive. The *new* id is
+    stored before the next send, so a sweep that crashes mid-flight still retries that
+    one occurrence exactly once.
+    """
+    repeat = item.get("repeat")
+    if not repeat:
+        return False
+
+    previous = item["send_at"]
+    assert isinstance(previous, datetime)
+    timezone = str(item.get("timezone") or "UTC")
+
+    now = datetime.now(UTC)
+    upcoming = next_occurrence(previous, str(repeat), timezone)
+    skipped = 0
+    while upcoming is not None and upcoming <= now and skipped < MAX_CATCH_UP:
+        upcoming = next_occurrence(upcoming, str(repeat), timezone)
+        skipped += 1
+
+    if upcoming is None:
+        # A rule the arithmetic does not know. Retiring the row beats sweeping it forever.
+        log.warning(
+            "scheduled message %s repeats as %r, which names no next time", item["id"], repeat
+        )
+        return False
+    if skipped:
+        log.info("scheduled message %s skipped %d missed occurrence(s)", item["id"], skipped)
+
+    await session.execute(
+        text(
+            """
+            UPDATE scheduled_messages
+               SET send_at = :send_at,
+                   last_sent_at = now(),
+                   sent_message_id = :message_id,
+                   client_msg_id = :client_msg_id,
+                   last_error = NULL
+             WHERE id = :id
+            """
+        ),
+        {
+            "id": str(item["id"]),
+            "send_at": upcoming,
+            "message_id": message_id,
+            "client_msg_id": new_id(),
+        },
+    )
+    return True
 
 
 async def mark_failed(session: AsyncSession, scheduled_id: str, reason: str) -> None:

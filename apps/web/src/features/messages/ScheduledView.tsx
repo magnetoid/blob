@@ -12,6 +12,7 @@ import { useFetch } from '../../lib/useFetch.ts';
 import { useStore } from '../../lib/store.ts';
 import { showError } from '../../lib/toasts.ts';
 import { ClockIcon } from '../../components/Icon.tsx';
+import { describeRepeat } from './schedulePresets.ts';
 
 function whenText(iso: string): string {
   const when = new Date(iso);
@@ -77,6 +78,7 @@ export function ScheduledView() {
         <ul className="browse-list">
           {items.map((item) => {
             const channel = channels[item.channelId];
+            const repeats = describeRepeat(item.repeat);
             return (
               <li key={item.id} className="browse-row">
                 <div className="browse-row-main">
@@ -86,13 +88,22 @@ export function ScheduledView() {
                       {channel ? ` · ${channelTitle(channel)}` : ''}
                     </span>
                   </div>
+                  {repeats && (
+                    <div className="browse-row-meta muted">
+                      {/* `sendAt` on a repeating row is the *next* occurrence, so
+                          without this the list would say "Monday 09:00" about something
+                          that has already gone out four times. */}
+                      {repeats}
+                      {item.lastSentAt ? ` · last sent ${whenText(item.lastSentAt)}` : ''}
+                    </div>
+                  )}
                   <div className="browse-row-meta">{item.body}</div>
                   {item.lastError && (
                     <div className="error-text">Didn’t send: {item.lastError}</div>
                   )}
                 </div>
                 <button className="btn btn-ghost" onClick={() => void cancel(item)}>
-                  Cancel
+                  {repeats ? 'Stop' : 'Cancel'}
                 </button>
               </li>
             );

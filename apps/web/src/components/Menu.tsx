@@ -75,6 +75,18 @@ export function Menu({ open, onClose, className, suspendDismiss = false, childre
       if (!panel) return;
       const active = document.activeElement;
       const inPanel = active instanceof HTMLElement && panel.contains(active);
+      // A form control inside the panel owns its own arrows: Up and Down change the
+      // option of a <select> and step the segment of a date field. Steering focus to
+      // the next menu item instead makes those controls unusable by keyboard, which is
+      // exactly what the schedule menu's repeat select and time field would hit.
+      if (
+        inPanel &&
+        (active instanceof HTMLSelectElement ||
+          active instanceof HTMLTextAreaElement ||
+          active instanceof HTMLInputElement)
+      ) {
+        return;
+      }
       // Steer only focus the menu plausibly owns: inside the panel, on the element
       // that opened it, or nowhere (Safari does not focus a clicked button). Arrows
       // pressed in a composer behind an open menu keep moving the caret there.

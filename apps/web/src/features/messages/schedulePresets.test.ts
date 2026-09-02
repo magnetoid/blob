@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { earliestCustom, presetsFor, SCHEDULE_PRESETS } from './schedulePresets.ts';
+import {
+  REPEAT_OPTIONS,
+  describeRepeat,
+  earliestCustom,
+  localZone,
+  presetsFor,
+  SCHEDULE_PRESETS,
+} from './schedulePresets.ts';
 
 const at = (iso: string) => new Date(iso);
 
@@ -60,5 +67,32 @@ describe('the earliest custom time', () => {
   it('leaves the server room to accept it', () => {
     const now = new Date('2026-09-02T09:00:00');
     expect(new Date(earliestCustom(now)).getTime()).toBeGreaterThan(now.getTime() + 30_000);
+  });
+});
+
+describe('how often it repeats', () => {
+  it('offers the rules the server accepts, and no others', () => {
+    // The list is a contract three ways: this select, `REPEATS` in the service, and a
+    // CHECK constraint. A fourth option here is a request the server refuses.
+    expect(REPEAT_OPTIONS.map((o) => o.value)).toEqual(['', 'daily', 'weekdays', 'weekly']);
+  });
+
+  it('leads with not repeating, which is what most messages do', () => {
+    expect(REPEAT_OPTIONS[0]?.value).toBe('');
+  });
+
+  it('says nothing at all about a message that happens once', () => {
+    // Rendered beside a scheduled row: "Once" is noise on the ordinary case.
+    expect(describeRepeat(null)).toBeNull();
+  });
+
+  it('names each rule the way the menu named it', () => {
+    expect(describeRepeat('daily')).toBe('Every day');
+    expect(describeRepeat('weekdays')).toBe('Every weekday');
+    expect(describeRepeat('weekly')).toBe('Every week');
+  });
+
+  it('always names a zone, because a recurrence with no wall clock drifts', () => {
+    expect(localZone()).toMatch(/\S/);
   });
 });
