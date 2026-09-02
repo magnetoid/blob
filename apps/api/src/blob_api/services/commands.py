@@ -26,13 +26,16 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.auth import SessionUser
 from ..realtime import presence
-from ..schemas.models import ChannelWithState, Message
+from ..schemas.models import ChannelWithState, Message, User
+from ..schemas.requests import ChannelNameMixin
 from . import channels as channel_service
 from . import messages as message_service
+from .serialize import USER_COLUMNS, to_user
 
 #: What a command may ask the router to do once the transaction has committed.
 Presence = Literal["active", "away"]
@@ -67,6 +70,26 @@ class CommandResult:
     left_channel: bool = False
     #: Set when the command changed the invoker's presence.
     presence: Presence | None = None
+    #: People this command added here, for `member.joined` and their subscriptions.
+    added_user_ids: list[str] = field(default_factory=list)
+    #: And people it removed, for `member.left` and unsubscribing them.
+    removed_user_ids: list[str] = field(default_factory=list)
+    #: Set when the command archived this channel.
+    archived: bool = False
+    #: A channel the invoker should be taken to — `/join`, `/dm`. Also their new view of
+    #: it, so the sidebar has the row before the navigation asks for it.
+    open_channel: ChannelWithState | None = None
+    #: The invoker's own view of a channel changed — a mute is nobody else's business,
+    #: unlike `channel`, which goes to everyone in it.
+    own_channel: ChannelWithState | None = None
+    #: A message posted somewhere other than the channel the command was run in, which
+    #: `/dm` is the only case of. Kept apart from `message` because the router broadcasts
+    #: that one into the channel it was invoked from.
+    dm_message: Message | None = None
+    dm_thread_update: message_service.ThreadUpdate | None = None
+    dm_channel_id: str | None = None
+    #: The invoker's own profile changed — `/status` — for `user.updated`.
+    user: User | None = None
 
 
 Handler = Callable[[CommandContext], Awaitable[CommandResult]]
@@ -142,6 +165,350 @@ async def _topic(ctx: CommandContext) -> CommandResult:
     )
 
 
+async def _resolve_people(ctx: CommandContext) -> tuple[list[str], list[str]]:
+    """`@Ana @designers` → the user ids that names.
+
+    Resolved through `mention_targets`, which is the same index the composer highlights
+    against and the same one that decides who a message notifies. So a name that
+    autocompletes in the composer is a name these commands accept, and a group works
+    wherever a person does — which is what somebody typing `/invite @designers` means.
+
+    Names are matched longest-first inside that resolver, so `@Ana Smith` resolves as one
+    person rather than as Ana and a stray word.
+    """
+    targets = await message_service.mention_targets(ctx.session, ctx.user.workspace_id, ctx.args)
+
+    user_ids: list[str] = []
+    groups: list[str] = []
+    for kind, target_id in targets.values():
+        if kind == "group":
+            groups.append(target_id)
+        else:
+            user_ids.append(target_id)
+
+    if groups:
+        rows = (
+            await ctx.session.execute(
+                text(
+                    """
+                    SELECT DISTINCT m.user_id
+                      FROM user_group_members m
+                      JOIN users u ON u.id = m.user_id
+                     WHERE m.group_id = ANY(cast(:ids AS uuid[]))
+                       AND u.deactivated_at IS NULL
+                    """
+                ),
+                {"ids": groups},
+            )
+        ).fetchall()
+        user_ids.extend(str(row.user_id) for row in rows)
+
+    # Order-preserving dedupe: `/invite @Ana @designers` where Ana is a designer must
+    # not try to add her twice.
+    seen: dict[str, None] = {}
+    for user_id in user_ids:
+        seen[user_id] = None
+    return list(seen), list(targets)
+
+
+def _nobody(ctx: CommandContext, verb: str) -> CommandResult:
+    if ctx.args.strip():
+        return CommandResult(ephemeral=f"No one here is called {ctx.args.strip()}.")
+    return CommandResult(ephemeral=f"Say who — `/{verb} @name`.")
+
+
+async def _invite(ctx: CommandContext) -> CommandResult:
+    """Slack's `/invite @person`, which is how most people add somebody to a channel."""
+    access = await channel_service.assert_channel_access(
+        ctx.session, ctx.user.id, ctx.channel_id, require_member=True, require_writable=True
+    )
+    if access.kind in ("dm", "group_dm"):
+        return CommandResult(ephemeral="Start a new group message instead of adding people here.")
+
+    user_ids, _handles = await _resolve_people(ctx)
+    if not user_ids:
+        return _nobody(ctx, "invite")
+
+    already = set(await channel_service.member_ids(ctx.session, ctx.channel_id))
+    joining = [user_id for user_id in user_ids if user_id not in already]
+    if not joining:
+        return CommandResult(ephemeral="They're already here.")
+
+    await channel_service.add_members(ctx.session, ctx.channel_id, joining)
+    return CommandResult(
+        ephemeral=f"Added {len(joining)} {'person' if len(joining) == 1 else 'people'}.",
+        added_user_ids=joining,
+    )
+
+
+async def _remove(ctx: CommandContext) -> CommandResult:
+    """Slack calls it `/remove`, and `/kick` is the alias everybody actually types."""
+    access = await channel_service.assert_channel_access(
+        ctx.session, ctx.user.id, ctx.channel_id, require_member=True, require_writable=True
+    )
+    if access.kind in ("dm", "group_dm"):
+        return CommandResult(ephemeral="Nobody can be removed from a direct message.")
+
+    user_ids, _handles = await _resolve_people(ctx)
+    if not user_ids:
+        return _nobody(ctx, "remove")
+    if ctx.user.id in user_ids:
+        return CommandResult(ephemeral="Use `/leave` to leave a channel yourself.")
+
+    here = set(await channel_service.member_ids(ctx.session, ctx.channel_id))
+    leaving = [user_id for user_id in user_ids if user_id in here]
+    if not leaving:
+        return CommandResult(ephemeral="They aren't in this channel.")
+
+    for user_id in leaving:
+        await channel_service.leave(ctx.session, ctx.channel_id, user_id)
+    return CommandResult(
+        ephemeral=f"Removed {len(leaving)} {'person' if len(leaving) == 1 else 'people'}.",
+        removed_user_ids=leaving,
+    )
+
+
+async def _join(ctx: CommandContext) -> CommandResult:
+    """`/join #general` — by name, because that is what somebody knows a channel by."""
+    wanted = ctx.args.strip().lstrip("#").strip()
+    if not wanted:
+        return CommandResult(ephemeral="Which channel? `/join #name`.")
+
+    row = (
+        await ctx.session.execute(
+            text(
+                """
+                SELECT id FROM channels
+                 WHERE workspace_id = :ws AND kind = 'public'
+                   AND lower(name) = lower(:name) AND archived_at IS NULL
+                """
+            ),
+            {"ws": ctx.user.workspace_id, "name": wanted},
+        )
+    ).fetchone()
+    # A private channel answers exactly the same way a missing one does: its existence
+    # is the private part.
+    if row is None:
+        return CommandResult(ephemeral=f"There's no open channel called #{wanted}.")
+
+    channel_id = str(row.id)
+    already = ctx.user.id in set(await channel_service.member_ids(ctx.session, channel_id))
+    if not already:
+        await channel_service.join(ctx.session, channel_id, ctx.user.id)
+    channel = await channel_service.get_for_user(ctx.session, channel_id, ctx.user.id)
+    return CommandResult(
+        ephemeral=None if channel is not None else f"Couldn't open #{wanted}.",
+        open_channel=channel,
+        added_user_ids=[] if already else [ctx.user.id],
+    )
+
+
+async def _rename(ctx: CommandContext) -> CommandResult:
+    access = await channel_service.assert_channel_access(
+        ctx.session, ctx.user.id, ctx.channel_id, require_member=True, require_writable=True
+    )
+    if access.kind in ("dm", "group_dm"):
+        return CommandResult(ephemeral="A direct message is named after the people in it.")
+
+    wanted = ctx.args.strip().lstrip("#").strip()
+    if not wanted:
+        return CommandResult(ephemeral="What should it be called? `/rename <name>`.")
+
+    # The same rule the REST route enforces through its schema, borrowed rather than
+    # restated — a command that accepted a name the console refuses would be two rules.
+    try:
+        name = ChannelNameMixin._check_channel_name(wanted)
+    except ValueError as refusal:
+        return CommandResult(ephemeral=str(refusal))
+
+    try:
+        await ctx.session.execute(
+            text("UPDATE channels SET name = :name WHERE id = :id"),
+            {"name": name, "id": ctx.channel_id},
+        )
+        await ctx.session.flush()
+    except IntegrityError:
+        # Flushed here deliberately: without it the violation surfaces at COMMIT, past
+        # every handler, and answers 500 instead of a sentence.
+        return CommandResult(ephemeral=f"There's already a channel called #{name}.")
+
+    channel = await channel_service.get_for_user(ctx.session, ctx.channel_id, ctx.user.id)
+    return CommandResult(ephemeral=f"Renamed to #{name}.", channel=channel)
+
+
+async def _mute(ctx: CommandContext) -> CommandResult:
+    """Toggle, like `/away`, because that is what the word means when you type it."""
+    await channel_service.assert_channel_access(
+        ctx.session, ctx.user.id, ctx.channel_id, require_member=True
+    )
+    current = (
+        await ctx.session.execute(
+            text(
+                "SELECT notify_level FROM channel_members"
+                " WHERE channel_id = :channel_id AND user_id = :user_id"
+            ),
+            {"channel_id": ctx.channel_id, "user_id": ctx.user.id},
+        )
+    ).scalar_one_or_none()
+    muting = current != "none"
+
+    await ctx.session.execute(
+        text(
+            "UPDATE channel_members SET notify_level = :level"
+            " WHERE channel_id = :channel_id AND user_id = :user_id"
+        ),
+        {
+            "level": "none" if muting else "all",
+            "channel_id": ctx.channel_id,
+            "user_id": ctx.user.id,
+        },
+    )
+    channel = await channel_service.get_for_user(ctx.session, ctx.channel_id, ctx.user.id)
+    return CommandResult(
+        ephemeral="Muted. You'll still see it, you just won't be told." if muting else "Unmuted.",
+        own_channel=channel,
+    )
+
+
+async def _archive(ctx: CommandContext) -> CommandResult:
+    access = await channel_service.assert_channel_access(
+        ctx.session, ctx.user.id, ctx.channel_id, require_member=True
+    )
+    if access.kind in ("dm", "group_dm"):
+        return CommandResult(ephemeral="A direct message cannot be archived.")
+
+    await ctx.session.execute(
+        text("UPDATE channels SET archived_at = now() WHERE id = :id"), {"id": ctx.channel_id}
+    )
+    return CommandResult(ephemeral="Archived. Nothing more can be posted here.", archived=True)
+
+
+async def _who(ctx: CommandContext) -> CommandResult:
+    """Who is in this channel — the question the members button answers in two clicks."""
+    await channel_service.assert_channel_access(ctx.session, ctx.user.id, ctx.channel_id)
+    ids = await channel_service.member_ids(ctx.session, ctx.channel_id)
+    if not ids:
+        return CommandResult(ephemeral="Nobody is in this channel.")
+
+    rows = (
+        await ctx.session.execute(
+            text(
+                """
+                SELECT display_name FROM users
+                 WHERE id = ANY(cast(:ids AS uuid[]))
+                 ORDER BY lower(display_name)
+                 LIMIT 100
+                """
+            ),
+            {"ids": ids},
+        )
+    ).fetchall()
+    names = ", ".join(row.display_name for row in rows)
+    more = "" if len(rows) >= len(ids) else f" (and {len(ids) - len(rows)} more)"
+    return CommandResult(ephemeral=f"{len(ids)} here: {names}{more}")
+
+
+async def _dm(ctx: CommandContext) -> CommandResult:
+    """`/dm @Ana are you free?` — open the conversation, and say the thing if one is given.
+
+    Group DMs fall out of naming more than one person, which is what Slack does and what
+    `find_or_create_dm` already supports: the same member set always returns the same
+    channel, so this is idempotent whether it opens one or finds it.
+    """
+    user_ids, handles = await _resolve_people(ctx)
+    if not user_ids:
+        return _nobody(ctx, "dm")
+
+    members = list(dict.fromkeys([ctx.user.id, *user_ids]))
+    channel_id, _created = await channel_service.find_or_create_dm(
+        ctx.session, ctx.user.workspace_id, members
+    )
+    channel = await channel_service.get_for_user(ctx.session, channel_id, ctx.user.id)
+
+    # Whatever is left after the names. Resolved against the same index, so a two-word
+    # display name is not mistaken for one word of the message.
+    body = _text_after_names(ctx.args, handles)
+    message = None
+    thread_update = None
+    if body:
+        result = await message_service.send(
+            ctx.session,
+            workspace_id=ctx.user.workspace_id,
+            channel_id=channel_id,
+            author_id=ctx.user.id,
+            body=body,
+            client_msg_id=ctx.client_msg_id,
+        )
+        message, thread_update = result.message, result.thread_update
+
+    return CommandResult(
+        open_channel=channel,
+        # Deliberately not returned as `message`: it belongs to the DM, and the router
+        # broadcasts `message` into the channel the command was *run* in.
+        dm_message=message,
+        dm_thread_update=thread_update,
+        dm_channel_id=channel_id,
+    )
+
+
+def _text_after_names(args: str, handles: list[str]) -> str:
+    """Everything after the run of leading `@name`s.
+
+    The message cannot be found by counting words, because a display name may be two of
+    them — `/dm @Ana Smith are you free` must not send "Smith are you free". The handles
+    that actually resolved are known by now, so the longest one matching at the cursor is
+    consumed and what remains is the message.
+    """
+    rest = args.strip()
+    longest_first = sorted(handles, key=len, reverse=True)
+    consumed = True
+    while consumed and rest.startswith("@"):
+        consumed = False
+        after_at = rest[1:]
+        for handle in longest_first:
+            if after_at[: len(handle)].lower() == handle:
+                rest = after_at[len(handle) :].strip()
+                consumed = True
+                break
+    return rest
+
+
+async def _status(ctx: CommandContext) -> CommandResult:
+    """`/status :palm_tree: on holiday`, and `/status clear` to take it down."""
+    args = ctx.args.strip()
+    if args.lower() in ("", "clear", "off", "none"):
+        emoji, message = None, ""
+    else:
+        emoji, message = _split_status(args)
+
+    await ctx.session.execute(
+        text(
+            "UPDATE users SET status_emoji = :emoji, status_text = :text WHERE id = :id"
+        ),
+        {"emoji": emoji, "text": message or None, "id": ctx.user.id},
+    )
+    row = (
+        await ctx.session.execute(
+            text(f"SELECT {USER_COLUMNS} FROM users WHERE id = :id"), {"id": ctx.user.id}
+        )
+    ).fetchone()
+    updated = to_user(row) if row is not None else None
+
+    if emoji is None and not message:
+        return CommandResult(ephemeral="Status cleared.", user=updated)
+    shown = " ".join(part for part in (emoji, message) if part)
+    return CommandResult(ephemeral=f"Status set to {shown}", user=updated)
+
+
+def _split_status(args: str) -> tuple[str | None, str]:
+    """A leading `:shortcode:` is the emoji; the rest is the words."""
+    if args.startswith(":"):
+        _, found, rest = args[1:].partition(":")
+        if found:
+            return f":{args[1:].partition(':')[0]}:", rest.strip()
+    return None, args
+
+
 async def _leave(ctx: CommandContext) -> CommandResult:
     access = await channel_service.assert_channel_access(
         ctx.session, ctx.user.id, ctx.channel_id, require_member=True
@@ -176,6 +543,15 @@ COMMANDS: dict[str, Command] = {
         Command("topic", "[text]", "Set the channel topic, or clear it.", _topic, writes=True),
         Command("leave", "", "Leave this channel.", _leave),
         Command("away", "", "Toggle whether you show as away.", _away),
+        Command("invite", "@name…", "Add people to this channel.", _invite),
+        Command("remove", "@name…", "Take someone out of this channel.", _remove),
+        Command("join", "#channel", "Join an open channel by name.", _join),
+        Command("rename", "<name>", "Rename this channel.", _rename),
+        Command("mute", "", "Toggle notifications for this channel.", _mute),
+        Command("archive", "", "Archive this channel.", _archive),
+        Command("who", "", "List who is in this channel.", _who),
+        Command("dm", "@name [text]", "Open a direct message, and optionally say it.", _dm),
+        Command("status", "[:emoji: text]", "Set your status, or clear it.", _status),
     ]
 }
 

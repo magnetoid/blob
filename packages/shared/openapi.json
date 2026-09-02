@@ -1554,6 +1554,16 @@
       "CommandOut": {
         "description": "What the invoker sees.\n\n`message` is the same shape a send returns, so the client's optimistic path is the\none it already has. `ephemeral` is shown to this person and never stored.",
         "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChannelWithState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "ephemeral": {
             "anyOf": [
               {

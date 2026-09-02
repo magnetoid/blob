@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T03:28:20'
-updated: '2026-09-02T03:28:20'
+created: '2026-09-02T04:26:05'
+updated: '2026-09-02T04:26:05'
 ---
 
 # Repository Map
@@ -166,9 +166,10 @@ Modules and their key symbols (ranked by references).
   - `AppError` (class)
   - `forbidden(message: str="You don't have access to that.")` (function)
   - `conflict(message: str, code: str='conflict')` (function)
-- **apps/api/src/blob_api/lib/ids.py** — 2 symbol(s)
+- **apps/api/src/blob_api/lib/ids.py** — 3 symbol(s)
   - `new_id()` (function)
   - `new_token(nbytes: int=32)` (function)
+  - `looks_like_id(value: object)` (function)
 - **apps/api/src/blob_api/lib/llm.py** — 11 symbol(s)
   - `LlmError` (class)
   - `Turn` (class)
@@ -179,5 +180,4 @@ Modules and their key symbols (ranked by references).
   - `_discard_client()` (function)
   - `_redis()` (function)
   - `close_log_buffer()` (function)
-  - `_entry_for(record: logging.LogRecord)` (function)
-  - `_i…[truncated]
+  - `_entry_for(…[truncated]

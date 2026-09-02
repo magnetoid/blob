@@ -300,6 +300,9 @@ export interface MessageTranslation {
 export interface CommandResult {
   ephemeral: string | null;
   message: Message | null;
+  /** Somewhere the command wants you taken — `/join #design`. The socket delivers the
+   *  channel row; this says which one to open. */
+  channel: ChannelWithState | null;
 }
 
 /** A workspace's own emoji. Mirrors `blob_api.schemas.models.CustomEmoji`. */

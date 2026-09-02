@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T03:28:21'
-updated: '2026-09-02T03:28:21'
+created: '2026-09-02T04:26:06'
+updated: '2026-09-02T04:26:06'
 ---
 
 # apps/api/src/blob_api/routers/bot_api.py
@@ -36,6 +36,6 @@ Symbols in `apps/api/src/blob_api/routers/bot_api.py`.
 - L390 `join_conversation(payload: JoinInput, bot: BotCaller=requires('channels:join'))` (function)
 - L420 `summarize_thread(payload: DeleteMessageInput, bot: BotCaller=requires('summaries:write'))` (function)
 - L456 `create_task(thread_root_id: IdParam, payload: CreateAgentTaskInput, bot: BotCaller=requires('tasks:write'))` (function)
-- L500 `update_task(task_id: str, payload: UpdateAgentTaskInput, bot: BotCaller=requires('tasks:write'))` (function)
-- L542 `list_tasks(thread_root_id: IdParam | None=None, bot: BotCaller=requires('tasks:read'))` (function)
-- L575 `list_users(bot: BotCaller=requires('users:read'))` (function)
+- L501 `update_task(task_id: str, payload: UpdateAgentTaskInput, bot: BotCaller=requires('tasks:write'))` (function)
+- L544 `list_tasks(thread_root_id: IdParam | None=None, bot: BotCaller=requires('tasks:read'))` (function)
+- L577 `list_users(bot: BotCaller=requires('users:read'))` (function)

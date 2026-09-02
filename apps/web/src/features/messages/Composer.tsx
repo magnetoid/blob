@@ -44,6 +44,7 @@ import {
   type PendingAttachment,
 } from "../../lib/attachments.ts";
 import { openAgentTerminal } from "../../lib/agentTerminal.ts";
+import { showChannel } from "../../lib/navigation.ts";
 import { Menu } from "../../components/Menu.tsx";
 import {
   REPEAT_OPTIONS,
@@ -466,6 +467,13 @@ export function Composer({
         // appear at once for the person who ran the command, exactly as a send does.
         if (result.message)
           applyEvent({ t: "message.new", message: result.message });
+        // `/join #design` takes you to #design. Leaving somebody looking at where they
+        // were, with a new row in the sidebar, is a command they have to follow up by
+        // hand — which is not what the word means.
+        if (result.channel) {
+          applyEvent({ t: "channel.created", channel: result.channel });
+          void showChannel(result.channel.id);
+        }
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "That command couldn't be run.";

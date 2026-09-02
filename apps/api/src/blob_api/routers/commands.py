@@ -33,7 +33,7 @@ from ..plugins import commands as app_transport
 from ..plugins import events as plugin_events
 from ..realtime import hub, presence
 from ..schemas.base import CamelModel
-from ..schemas.models import Message
+from ..schemas.models import ChannelWithState, Message
 from ..schemas.requests import RunCommandInput
 from ..services import channels as channel_service
 from ..services import commands as command_service
@@ -52,6 +52,10 @@ class CommandOut(CamelModel):
 
     ephemeral: str | None = None
     message: Message | None = None
+    #: A channel the invoker should be taken to — `/join`. The socket delivers the row;
+    #: this says which one to open, because a command that joins somewhere and leaves
+    #: them looking at where they were is a command they have to follow up by hand.
+    channel: ChannelWithState | None = None
 
 
 def _response_url(token: str) -> str:
@@ -107,6 +111,46 @@ async def run_command(
                 payload={"channelId": payload.channel_id, "userId": user.id},
             )
 
+        # A membership change through a command is the same event a membership change
+        # through the console is. Emitted here, inside the transaction, like every other
+        # outbox write — and scoped to the channel it happened in.
+        joined_channel_id = (
+            result.open_channel.id if result.open_channel is not None else payload.channel_id
+        )
+        for member_id in result.added_user_ids:
+            await plugin_events.emit(
+                session,
+                workspace_id=user.workspace_id,
+                event="member.joined",
+                channel_id=joined_channel_id,
+                payload={"channelId": joined_channel_id, "userId": member_id},
+            )
+        for member_id in result.removed_user_ids:
+            await plugin_events.emit(
+                session,
+                workspace_id=user.workspace_id,
+                event="member.left",
+                channel_id=payload.channel_id,
+                payload={"channelId": payload.channel_id, "userId": member_id},
+            )
+
+        if result.dm_message is not None and result.dm_channel_id is not None:
+            await plugin_events.emit(
+                session,
+                workspace_id=user.workspace_id,
+                event="message.created",
+                channel_id=result.dm_channel_id,
+                payload=result.dm_message.model_dump(by_alias=True),
+            )
+
+        # Each new member's own view of the channel, read while the session is open so
+        # the sidebar has the row before anything asks it to render one.
+        joined_views = {
+            member_id: await channel_service.get_for_user(session, joined_channel_id, member_id)
+            for member_id in result.added_user_ids
+            if member_id != user.id
+        }
+
         def broadcast() -> None:
             channel_id = payload.channel_id
 
@@ -133,6 +177,79 @@ async def run_command(
                     {"t": "member.left", "channelId": channel_id, "userId": user.id},
                 )
 
+            for member_id, view in joined_views.items():
+                hub.to_channel(
+                    joined_channel_id,
+                    {"t": "member.joined", "channelId": joined_channel_id, "userId": member_id},
+                )
+                # Existing sockets have to start receiving the channel's events, wherever
+                # they are held — the command may have landed on a sibling process.
+                hub.subscribe_users([member_id], [joined_channel_id])
+                if view is not None:
+                    hub.to_users(
+                        [member_id],
+                        {"t": "channel.created", "channel": view.model_dump(by_alias=True)},
+                    )
+
+            for member_id in result.removed_user_ids:
+                # Unsubscribe first: the member.left that follows is for the people still
+                # in the channel, and they are no longer one of them.
+                hub.unsubscribe_users([member_id], [channel_id])
+                hub.to_channel(
+                    channel_id,
+                    {"t": "member.left", "channelId": channel_id, "userId": member_id},
+                )
+
+            if result.open_channel is not None:
+                opened = result.open_channel
+                hub.subscribe_users([user.id], [opened.id])
+                hub.to_users(
+                    [user.id],
+                    {"t": "channel.created", "channel": opened.model_dump(by_alias=True)},
+                )
+                if user.id in result.added_user_ids:
+                    hub.to_channel(
+                        opened.id,
+                        {"t": "member.joined", "channelId": opened.id, "userId": user.id},
+                    )
+
+            if result.dm_message is not None and result.dm_channel_id is not None:
+                # Into the DM, not into the channel the command was typed in. Everything
+                # a send does, because it *is* a send: the frame, the notification, and
+                # the agent run if the message named one.
+                hub.to_channel(
+                    result.dm_channel_id, message_event("message.new", result.dm_message)
+                )
+                if result.dm_thread_update:
+                    hub.to_channel(result.dm_channel_id, result.dm_thread_update.as_event())
+                fire_and_forget(enqueue("notify", result.dm_message.id))
+                if result.dm_message.mention_user_ids:
+                    fire_and_forget(enqueue("agui_run", result.dm_message.id))
+
+            if result.own_channel is not None:
+                # Only to them: how loud a channel is for one person is nobody else's
+                # business, unlike `channel`, which goes to everyone in it.
+                hub.to_users(
+                    [user.id],
+                    {
+                        "t": "channel.updated",
+                        "channel": result.own_channel.model_dump(by_alias=True),
+                    },
+                )
+
+            if result.user is not None:
+                changed = result.user
+                hub.to_workspace(
+                    user.workspace_id,
+                    {"t": "user.updated", "user": changed.model_dump(by_alias=True)},
+                )
+
+            if result.archived:
+                hub.to_channel(channel_id, {"t": "channel.archived", "channelId": channel_id})
+
+            if result.added_user_ids or result.removed_user_ids:
+                fire_and_forget(enqueue("deliver_plugin_events"))
+
             if result.presence == "away":
                 fire_and_forget(presence.mark_away(user.id))
             elif result.presence == "active":
@@ -140,7 +257,9 @@ async def run_command(
 
         after_commit.add(broadcast)
 
-    return CommandOut(ephemeral=result.ephemeral, message=result.message)
+    return CommandOut(
+        ephemeral=result.ephemeral, message=result.message, channel=result.open_channel
+    )
 
 
 async def _run_app_command(
