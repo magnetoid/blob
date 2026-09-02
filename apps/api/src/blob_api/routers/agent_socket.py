@@ -125,7 +125,15 @@ async def _authenticate(websocket: WebSocket) -> BotCaller | None:
             with contextlib.suppress(Exception):
                 await websocket.close(code=CLOSE_BAD_FRAME)
             return None
-        if frame.get("t") != "auth" or not isinstance(frame.get("token"), str):
+        # `json.loads` happily returns an int or a string, and `.get` on one is an
+        # AttributeError that escapes this function — on an endpoint anybody can reach
+        # without a token. `_read_loop` ten lines below already checks this; the
+        # handshake did not.
+        if (
+            not isinstance(frame, dict)
+            or frame.get("t") != "auth"
+            or not isinstance(frame.get("token"), str)
+        ):
             with contextlib.suppress(Exception):
                 await websocket.close(code=CLOSE_UNAUTHORIZED)
             return None

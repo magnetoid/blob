@@ -14,7 +14,7 @@ from typing import Any
 from arq import cron
 from sqlalchemy import text
 
-from ..db.engine import close_engine, transaction
+from ..db.engine import close_engine, session_scope, transaction
 from ..lib.queue import close_queue, redis_settings
 from ..lib.redis import close_redis
 from ..lib.storage import delete_object
@@ -66,29 +66,48 @@ async def sweep_agent_runs(_ctx: dict[str, Any]) -> None:
 
 
 async def sweep_orphans(_ctx: dict[str, Any]) -> None:
-    """Uploads that were started but never attached to a message."""
-    async with transaction() as (session, _):
+    """Uploads that were started but never attached to a message.
+
+    The object goes first and the row goes second, and the order is the whole point.
+    This used to `DELETE ... RETURNING object_key`, commit, and then delete the objects
+    outside the transaction, swallowing failures. The row is the only record that the
+    object exists, so a storage outage during the nightly sweep deleted every row,
+    failed every delete, and left the files behind with nothing left to find them by —
+    a leak that no later sweep could ever clean up, because the evidence was gone.
+
+    Now a failed delete simply leaves the row, and the next sweep tries again.
+    """
+    async with session_scope() as session:
         rows = (
             await session.execute(
                 text(
                     """
-                    DELETE FROM attachments
+                    SELECT id, object_key FROM attachments
                      WHERE message_id IS NULL
                        AND created_at < now() - make_interval(hours => :hours)
-                    RETURNING id, object_key
                     """
                 ),
                 {"hours": ORPHAN_AGE_HOURS},
             )
         ).fetchall()
 
+    swept: list[str] = []
     for row in rows:
         try:
             await delete_object(row.object_key)
         except Exception:
-            log.warning("could not delete %s", row.object_key, exc_info=True)
-    if rows:
-        log.info("swept %d orphaned uploads", len(rows))
+            # Kept, deliberately. The row is what lets the next sweep find this file.
+            log.warning("could not delete %s; keeping its row", row.object_key, exc_info=True)
+            continue
+        swept.append(str(row.id))
+
+    if swept:
+        async with transaction() as (session, _):
+            await session.execute(
+                text("DELETE FROM attachments WHERE id = ANY(cast(:ids AS uuid[]))"),
+                {"ids": swept},
+            )
+        log.info("swept %d orphaned upload(s)", len(swept))
 
 
 async def deliver_plugin_events(_ctx: dict[str, Any]) -> None:
