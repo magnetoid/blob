@@ -258,7 +258,10 @@ async def run_command(
         after_commit.add(broadcast)
 
     return CommandOut(
-        ephemeral=result.ephemeral, message=result.message, channel=result.open_channel
+        ephemeral=result.ephemeral,
+        message=result.message,
+        # Told about, but only taken there when the command meant it.
+        channel=result.open_channel if result.navigate else None,
     )
 
 

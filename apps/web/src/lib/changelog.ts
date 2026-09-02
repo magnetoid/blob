@@ -43,6 +43,10 @@ export const RELEASES: readonly Release[] = [
       },
       {
         kind: 'added',
+        text: '`/remind me to water the plants tomorrow at 9`. It understands "in 20 minutes", "at 5pm", "tomorrow", a weekday by name, and "every weekday at 9am" for the ones that come back. The note arrives in the conversation you have with yourself, and it is an ordinary scheduled message — so it is in the Scheduled list with a Cancel button beside it. If it cannot read the time it says so rather than guessing at one.',
+      },
+      {
+        kind: 'added',
         text: 'A scheduled message can repeat — every day, every weekday, or every week. The standup reminder, without anybody remembering to write it. It keeps the time you picked on your own clock, so it does not drift by an hour when the clocks change, and a worker that was down over a weekend does not wake up owing you three days of reminders at once.',
       },
       {

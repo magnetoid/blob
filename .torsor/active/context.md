@@ -583,3 +583,38 @@ Twenty confirmed, all fixed. The ones worth remembering as shapes rather than as
   `ThreadPanel` passed only a changed prop, so an attachment uploaded in one channel was
   still in the tray, and still sent, in the next. Drafts hid it: they are keyed per
   channel in the store and switched correctly.
+
+## Rule: a slash command must enforce what its REST route enforces
+
+`services/commands.py` now holds fifteen commands, nine of which do something the REST API
+already does — add a member, join, rename, mute, archive, open a DM, set a status. Each one
+calls the *same service function* the router calls, and that is the rule rather than a
+convenience: a command that reimplements the write is a second place for the membership
+check, the plugin event and the socket frame to be forgotten, and it will be forgotten
+silently because nothing renders the difference.
+
+Two consequences worth stating.
+
+`CommandResult` carries outcomes rather than performing them. Every field on it —
+`added_user_ids`, `removed_user_ids`, `archived`, `open_channel`, `own_channel`, `user`,
+`dm_message` — exists because the *router* has to emit something after COMMIT. Nothing in
+`services/commands.py` touches `hub`, and putting it there would be the first crack in
+persist-then-broadcast.
+
+`own_channel` and `channel` are different on purpose. `channel` goes to everyone in the
+channel (`/topic`, `/rename`); `own_channel` goes only to the invoker (`/mute`), because
+how loud a channel is for one person is nobody else's business. Sending a mute over
+`channel` would tell a channel that somebody had silenced it.
+
+And `/join #private-thing` answers exactly what `/join #no-such-thing` answers. A private
+channel's existence is the private part, so "there is one but you can't" is the answer that
+must never be given — the query filters on `kind = 'public'` rather than checking access
+after finding it.
+
+## Trap: `/dm @Ana Smith are you free` must not send "Smith are you free"
+
+A display name may be two words, so the message in a `/dm` cannot be found by counting
+them. `_text_after_names` consumes the *resolved handles* — which `mention_targets` has
+already matched longest-first — and what is left is the message. Counting words, or
+splitting on the first space after the `@`, breaks every two-word name in the workspace and
+does it silently, because the message still sends.

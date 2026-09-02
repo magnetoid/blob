@@ -35,6 +35,7 @@ from ..schemas.models import ChannelWithState, Message, User
 from ..schemas.requests import ChannelNameMixin
 from . import channels as channel_service
 from . import messages as message_service
+from . import reminders as reminder_service
 from .serialize import USER_COLUMNS, to_user
 
 #: What a command may ask the router to do once the transaction has committed.
@@ -76,9 +77,13 @@ class CommandResult:
     removed_user_ids: list[str] = field(default_factory=list)
     #: Set when the command archived this channel.
     archived: bool = False
-    #: A channel the invoker should be taken to — `/join`, `/dm`. Also their new view of
-    #: it, so the sidebar has the row before the navigation asks for it.
+    #: A channel the invoker should be told about — `/join`, `/dm`, `/remind`. Their new
+    #: view of it, so the sidebar has the row before anything asks it to render one.
     open_channel: ChannelWithState | None = None
+    #: Whether to *go* there as well as be told. False for `/remind`: it is something you
+    #: say in passing, and taking somebody out of the conversation they were reading to
+    #: show them a note they will get tomorrow is the opposite of what they asked for.
+    navigate: bool = True
     #: The invoker's own view of a channel changed — a mute is nobody else's business,
     #: unlike `channel`, which goes to everyone in it.
     own_channel: ChannelWithState | None = None
@@ -473,6 +478,21 @@ def _text_after_names(args: str, handles: list[str]) -> str:
     return rest
 
 
+async def _remind(ctx: CommandContext) -> CommandResult:
+    """`/remind me to water the plants tomorrow at 9`.
+
+    A scheduled message to yourself, in the conversation you have with yourself — see
+    `services/reminders` for why that is the design rather than a workaround.
+    """
+    said, channel = await reminder_service.create(
+        ctx.session,
+        workspace_id=ctx.user.workspace_id,
+        user_id=ctx.user.id,
+        args=ctx.args,
+    )
+    return CommandResult(ephemeral=said, open_channel=channel, navigate=False)
+
+
 async def _status(ctx: CommandContext) -> CommandResult:
     """`/status :palm_tree: on holiday`, and `/status clear` to take it down."""
     args = ctx.args.strip()
@@ -552,6 +572,7 @@ COMMANDS: dict[str, Command] = {
         Command("who", "", "List who is in this channel.", _who),
         Command("dm", "@name [text]", "Open a direct message, and optionally say it.", _dm),
         Command("status", "[:emoji: text]", "Set your status, or clear it.", _status),
+        Command("remind", "me to <text> <when>", "Send yourself a note later.", _remind),
     ]
 }
 
