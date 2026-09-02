@@ -36,6 +36,11 @@ const WorkspaceConsole = lazy(() =>
     default: m.WorkspaceConsole,
   })),
 );
+// Lazy for the same reason as the consoles: the guide is a few thousand words of prose
+// that most sessions never open, and it has no business in everyone's first paint.
+const HelpView = lazy(() =>
+  import('../features/help/HelpView.tsx').then((m) => ({ default: m.HelpView })),
+);
 import { ProfileView } from '../features/settings/ProfileView.tsx';
 import { TopBar } from '../features/shell/TopBar.tsx';
 import { CatchUpPanel } from '../features/messages/CatchUpPanel.tsx';
@@ -399,6 +404,11 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {view === 'browse' && <BrowseChannels />}
       {view === 'scheduled' && <ScheduledView />}
       {view === 'changelog' && <WhatsNewView />}
+      {view === 'help' && (
+        <Suspense fallback={<main className="pane" />}>
+          <HelpView />
+        </Suspense>
+      )}
       {view === 'search' && <SearchView />}
       {view === 'profile' && <ProfileView />}
 

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T06:12:04'
-updated: '2026-09-02T06:12:04'
+created: '2026-09-02T06:48:47'
+updated: '2026-09-02T06:48:47'
 ---
 
 # apps/api/tests/test_recurring_schedules.py
@@ -33,3 +33,8 @@ Symbols in `apps/api/tests/test_recurring_schedules.py`.
 - L179 `TestTheWallClock` (class)
 - L180 `test_the_authors_zone_is_kept_with_the_row(self, team: dict)` (method)
 - L195 `test_an_unknown_zone_does_not_stop_the_send(self, team: dict)` (method)
+- L207 `TestAChannelThatWentReadOnly` (class)
+- L208 `test_nothing_can_be_scheduled_into_an_archived_one(self, team: dict)` (method)
+- L218 `test_and_a_repeating_one_stops_rather_than_posting_for_ever(self, team: dict)` (method)
+- L230 `test_and_the_author_is_told_why(self, team: dict)` (method)
+- L244 `test_and_can_dismiss_the_notice(self, team: dict)` (method)

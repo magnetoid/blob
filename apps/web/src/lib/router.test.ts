@@ -20,6 +20,8 @@ describe('parseRoute', () => {
     // code word matches the table and the endpoint.
     expect(parseRoute('/later')).toEqual({ view: 'saved' });
     expect(parseRoute('/m/abc123')).toEqual({ view: 'permalink', messageId: 'abc123' });
+    // The guide. A real path, because a topic on it is worth linking to in a message.
+    expect(parseRoute('/help')).toEqual({ view: 'help' });
     // Preferences are a section of the workspace page now, not a view of their own.
     expect(parseRoute('/settings')).toEqual({ view: 'workspace', section: 'preferences' });
   });
@@ -129,6 +131,7 @@ describe('pathForRoute', () => {
       { view: 'search' },
       { view: 'threads' },
       { view: 'saved' },
+      { view: 'help' },
       { view: 'permalink', messageId: 'abc123' },
       ...WORKSPACE_SECTIONS.map((section) => ({ view: 'workspace' as const, section })),
       ...ADMIN_SECTIONS.map((section) => ({ view: 'admin' as const, section })),

@@ -110,6 +110,8 @@ export type Route =
   | { view: 'browse' }
   | { view: 'scheduled' }
   | { view: 'changelog' }
+  /** The guide: what everything on this screen is, and how to use it. */
+  | { view: 'help' }
   /** A permalink to one message. Resolved, then replaced by the conversation. */
   | { view: 'permalink'; messageId: string }
   | { view: 'search' }
@@ -135,6 +137,7 @@ export function parseRoute(path: string): Route {
   if (clean === '/channels') return { view: 'browse' };
   if (clean === '/scheduled') return { view: 'scheduled' };
   if (clean === '/whats-new') return { view: 'changelog' };
+  if (clean === '/help') return { view: 'help' };
   const permalink = clean.match(/^\/m\/([^/]+)$/);
   if (permalink) return { view: 'permalink', messageId: permalink[1] as string };
   if (clean === '/search') return { view: 'search' };
@@ -212,6 +215,8 @@ export function pathForRoute(route: Route): string {
       return '/scheduled';
     case 'changelog':
       return '/whats-new';
+    case 'help':
+      return '/help';
     case 'permalink':
       return `/m/${route.messageId}`;
     case 'search':

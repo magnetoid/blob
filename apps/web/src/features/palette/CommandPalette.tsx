@@ -115,6 +115,14 @@ export function CommandPalette({
         run: () => navigate("/search"),
       },
       {
+        // The guide is a page somebody looks for exactly when they do not know where
+        // anything is, which is the one moment a buried menu row is hardest to find.
+        id: "a-help",
+        label: "Help — how Blob works",
+        kind: "Action",
+        run: () => navigate("/help"),
+      },
+      {
         id: "a-catchup",
         label: "Catch me up — summarise what I haven't read",
         kind: "Action",

@@ -30,6 +30,11 @@ export const ITEMS: Item[] = [
   { label: 'Manage server', path: '/admin', adminOnly: true, ownerOnly: true },
   { label: 'User profile', path: '/profile' },
   { label: 'Preferences', path: '/workspace/preferences' },
+  // Everything the app does, on one page. Slack's equivalent leaves the product for a
+  // help centre on another domain, which is a worse answer for something self-hosted:
+  // the guide has to describe *this* workspace, on *this* build, and a page that ships
+  // in the bundle is the only version that always matches what is on screen.
+  { label: 'Help', path: '/help' },
   // Was a disabled row marked "Soon" from the day this menu was written.
   { label: "What's new", path: '/whats-new' },
   { label: 'Feedback', action: 'feedback' },

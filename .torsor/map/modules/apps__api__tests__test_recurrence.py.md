@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T06:12:04'
-updated: '2026-09-02T06:12:04'
+created: '2026-09-02T06:48:47'
+updated: '2026-09-02T06:48:47'
 ---
 
 # apps/api/tests/test_recurrence.py
@@ -30,3 +30,8 @@ Symbols in `apps/api/tests/test_recurrence.py`.
 - L105 `test_a_zone_that_has_gone_away_does_not_stop_the_sweep(self)` (method)
 - L113 `TestHowItReads` (class)
 - L114 `test_names_each_rule_in_words(self)` (method)
+- L121 `TestAClockThatSkipped` (class) — The morning a zone springs forward, some readings never happen.
+- L132 `test_a_slot_inside_the_gap_is_skipped_rather_than_moved(self)` (method)
+- L142 `test_and_the_hour_holds_afterwards(self)` (method)
+- L151 `test_an_hour_that_happens_twice_is_not_skipped(self)` (method)
+- L162 `test_a_half_hour_shift_counts_too(self)` (method)

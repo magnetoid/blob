@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { navigate } from '../lib/router.ts';
 import { trapFocus } from '../lib/focusTrap.ts';
 import { chordsFor, describeKeys, groupedShortcuts, isMac } from '../lib/shortcuts.ts';
 
@@ -64,6 +65,20 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
             ))}
           </section>
         ))}
+
+        {/* The keys are only half of what somebody pressing ⌘/ is looking for. This is
+            the other half, and it is one click rather than a menu they have to know is
+            there. */}
+        <button
+          type="button"
+          className="shortcut-help-more"
+          onClick={() => {
+            onClose();
+            navigate('/help');
+          }}
+        >
+          Everything else: how Blob works →
+        </button>
       </div>
     </div>
   );

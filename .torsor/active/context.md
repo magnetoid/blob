@@ -687,3 +687,26 @@ drift the module exists to prevent. It now skips the occurrence instead, which i
 smaller wrong and the true one: that minute did not happen. Detected through PEP 495's
 fold, not by converting and comparing — `astimezone` into the zone a datetime is already
 in is a no-op and shows nothing.
+
+## Trap: the guide is the one screen that can be wrong without failing
+
+`apps/web/src/lib/help.ts` is prose about behaviour, and prose does not have a test that
+goes red when the behaviour changes underneath it. Nothing crashes when it describes a
+button that was renamed or a command nobody implements; it teaches people something untrue
+and keeps doing it.
+
+So the page generates what it can. The keyboard section renders from `SHORTCUTS` and the
+command section from what bootstrap sent, exactly as `ShortcutHelp` does — the same
+argument `realtime/protocol.py` makes about the event vocabulary. What a topic cites, it
+cites by id: `shortcuts: ['palette']` resolves against `SHORTCUTS` (checked by
+`help.test.ts`), and `commands: ['remind']` is checked against `services.commands.COMMANDS`
+across the language boundary by `tests/test_help_parity.py`, which also insists the
+commands with consequences have a topic at all.
+
+Writing it found two things the code says and the product does not:
+
+* **Archiving a channel cannot be undone.** There is no unarchive route, no console
+  control and no `archived_at = NULL` anywhere. The guide says so.
+* **`@here` notifies exactly who `@channel` does.** `lib/mentions.py` parses `here_only`
+  and nothing reads it — `notify.decide` branches on `mentions_everyone` alone. The
+  parsed distinction has never reached a recipient.

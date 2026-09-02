@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T06:12:04'
-updated: '2026-09-02T06:12:04'
+created: '2026-09-02T06:48:47'
+updated: '2026-09-02T06:48:47'
 ---
 
 # apps/api/tests/test_membership_commands.py
@@ -59,3 +59,16 @@ Symbols in `apps/api/tests/test_membership_commands.py`.
 - L302 `test_words_alone_are_fine(self, team: dict)` (method)
 - L309 `test_clearing_it(self, team: dict)` (method)
 - L319 `test_and_a_bare_slash_status_clears_it_too(self, team: dict)` (method)
+- L328 `TestNamesInTheMessageAreNotInstructions` (class) — The one that mattered most in this file.
+- L337 `test_dm_does_not_invite_whoever_the_message_mentions(self, team: dict)` (method)
+- L351 `test_and_the_mention_stays_in_the_message(self, team: dict)` (method)
+- L361 `test_remove_takes_out_only_the_people_it_names_first(self, team: dict)` (method)
+- L373 `TestADirectMessageReachesBothSides` (class)
+- L374 `test_the_other_person_can_see_it_at_once(self, team: dict)` (method)
+- L384 `TestAGroupMessageHasACeiling` (class)
+- L385 `test_the_command_and_the_route_cap_it_the_same(self)` (method)
+- L397 `test_and_the_command_refuses_past_it(self, team: dict)` (method)
+- L408 `TestMuteAndStatusLeaveThingsAsTheyFound` (class)
+- L409 `test_unmuting_returns_to_the_default_not_the_loudest(self, team: dict)` (method)
+- L422 `test_a_status_is_not_born_expired(self, team: dict)` (method)
+- L435 `test_a_status_longer_than_the_dialog_allows_is_refused(self, team: dict)` (method)

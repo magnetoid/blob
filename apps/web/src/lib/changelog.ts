@@ -39,6 +39,10 @@ export const RELEASES: readonly Release[] = [
     entries: [
       {
         kind: 'added',
+        text: 'Help is now a page rather than a shrug: everything the app does, in one place, under Help in the account menu. Sixteen sections and a search box, with the keyboard shortcuts and the slash commands read straight out of the running app — so the list is your server\'s list, including whatever the apps installed here have added, and the page cannot describe a key nobody bound. ⌘/ links to it.',
+      },
+      {
+        kind: 'added',
         text: 'Nine slash commands, spelled the way Slack spells them: /invite and /remove for people, /join and /rename and /archive and /mute for channels, /who for who is here, /dm to start a conversation (and say the thing in the same breath), and /status to tell everyone where you are. Type / in the composer to see the whole list.',
       },
       {

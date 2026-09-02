@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T06:12:04'
-updated: '2026-09-02T06:12:04'
+created: '2026-09-02T06:48:47'
+updated: '2026-09-02T06:48:47'
 ---
 
 # apps/api/src/blob_api/services/recurrence.py
@@ -14,4 +14,5 @@ Symbols in `apps/api/src/blob_api/services/recurrence.py`.
 
 - L27 `_zone(name: str)` (function) — The author's zone, or UTC. A zone that has gone away must not stop the sweep.
 - L35 `next_occurrence(previous: datetime, repeat: str, timezone: str)` (function) — The moment after `previous` that `repeat` next names, or None if it names none.
-- L73 `describe(repeat: str | None)` (function) — How a schedule reads in a list. Plain words, because it sits beside a message.
+- L92 `_wall_clock_exists(moment: datetime, _zone: ZoneInfo)` (function) — Did this reading on this clock actually happen in this zone?
+- L110 `describe(repeat: str | None)` (function) — How a schedule reads in a list. Plain words, because it sits beside a message.

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T06:12:04'
-updated: '2026-09-02T06:12:04'
+created: '2026-09-02T06:48:47'
+updated: '2026-09-02T06:48:47'
 ---
 
 # apps/api/src/blob_api/schemas/requests.py
@@ -28,26 +28,26 @@ Symbols in `apps/api/src/blob_api/schemas/requests.py`.
 - L101 `SendMessageInput` (class)
 - L109 `_needs_content(self)` (method)
 - L115 `RunCommandInput` (class) — A slash command, as typed.
-- L129 `EditMessageInput` (class)
-- L135 `ReactionInput` (class)
-- L139 `MarkReadInput` (class)
-- L143 `PinInput` (class)
-- L147 `SaveInput` (class)
-- L151 `MarkUnreadInput` (class)
-- L156 `CreateGroupInput` (class)
-- L164 `UpdateGroupInput` (class)
-- L170 `MuteGroupInput` (class)
-- L174 `UpdateProfileInput` (class)
-- L187 `UpdatePrefsInput` (class)
-- L200 `UploadRequestInput` (class)
-- L206 `UploadCompleteInput` (class)
-- L211 `PushSubscriptionKeys` (class)
-- L216 `PushSubscriptionInput` (class)
-- L221 `PushUnsubscribeInput` (class)
-- L225 `AddMembersInput` (class)
-- L229 `WebhookPostInput` (class)
-- L237 `CreateAgentTaskInput` (class)
-- L247 `UpdateAgentTaskInput` (class)
-- L256 `TranslateMessageInput` (class)
-- L261 `FeedbackInput` (class)
-- L272 `FeedbackStatusInput` (class)
+- L132 `EditMessageInput` (class)
+- L138 `ReactionInput` (class)
+- L142 `MarkReadInput` (class)
+- L146 `PinInput` (class)
+- L150 `SaveInput` (class)
+- L154 `MarkUnreadInput` (class)
+- L159 `CreateGroupInput` (class)
+- L167 `UpdateGroupInput` (class)
+- L173 `MuteGroupInput` (class)
+- L177 `UpdateProfileInput` (class)
+- L190 `UpdatePrefsInput` (class)
+- L203 `UploadRequestInput` (class)
+- L209 `UploadCompleteInput` (class)
+- L214 `PushSubscriptionKeys` (class)
+- L219 `PushSubscriptionInput` (class)
+- L224 `PushUnsubscribeInput` (class)
+- L228 `AddMembersInput` (class)
+- L232 `WebhookPostInput` (class)
+- L240 `CreateAgentTaskInput` (class)
+- L250 `UpdateAgentTaskInput` (class)
+- L259 `TranslateMessageInput` (class)
+- L264 `FeedbackInput` (class)
+- L275 `FeedbackStatusInput` (class)
