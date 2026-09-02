@@ -47,7 +47,11 @@ export const RELEASES: readonly Release[] = [
       },
       {
         kind: 'added',
-        text: 'This page now tells you which build you are running, when it went out, and every commit that went into it.',
+        text: 'This page now tells you which build you are running, when it went out, and lists the commits behind it — each one linking to the change itself.',
+      },
+      {
+        kind: 'added',
+        text: '⌥↑ and ⌥↓ walk the sidebar, and ⌥⇧↑ and ⌥⇧↓ jump to the next conversation with something unread. ⌘⇧K opens the same picker ⌘K does with only people in it. ⌘/ lists all of them.',
       },
       {
         kind: 'fixed',

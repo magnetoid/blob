@@ -91,3 +91,19 @@ describe('what’s new', () => {
     expect(screen.getByText(BUILD_COMMITS[0]!.subject)).toBeTruthy();
   });
 });
+
+describe('when the build could not name its own commit', () => {
+  it('still says which build it is', async () => {
+    // Which is what happens in production: the deploy builds from an exported source
+    // tree with no repository in it, so git answers nothing. The version and the build
+    // time are stamped by the compiler and are always known, so the card appears for
+    // those and drops the sha rather than dropping itself.
+    const { BUILD_VERSION: version } = await import('../../lib/buildInfo.ts');
+
+    render(<WhatsNewView />);
+
+    const card = document.querySelector('.build-card');
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toContain(version);
+  });
+});

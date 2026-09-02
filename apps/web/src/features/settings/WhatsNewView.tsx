@@ -49,23 +49,28 @@ import {
 function ThisBuild() {
   const serverCommit = useStore((s) => s.serverCommit);
   const commit = isIdentified() ? BUILD_COMMIT_SHORT : (serverCommit ?? '').slice(0, 7);
-  if (!commit) return null;
+  const built = formatBuildTime(BUILD_TIME);
+  // The version and the build time are stamped by the compiler and are therefore always
+  // known; the commit is the only part that can go missing. So the card appears for what
+  // it has and drops the sha rather than dropping itself — "which build am I running" is
+  // still answered by a date and a time when it cannot be answered by a hash.
+  if (!BUILD_VERSION && !built) return null;
 
   const link = commitUrl(isIdentified() ? BUILD_COMMIT_SHORT : (serverCommit ?? ''));
-  const built = formatBuildTime(BUILD_TIME);
 
   return (
     <section className="build-card">
       <div className="build-card-main">
         <span className="build-label">You’re running</span>
         <span className="build-version">{BUILD_VERSION}</span>
-        {link ? (
-          <a className="build-sha" href={link} target="_blank" rel="noreferrer noopener">
-            {commit}
-          </a>
-        ) : (
-          <span className="build-sha">{commit}</span>
-        )}
+        {commit &&
+          (link ? (
+            <a className="build-sha" href={link} target="_blank" rel="noreferrer noopener">
+              {commit}
+            </a>
+          ) : (
+            <span className="build-sha">{commit}</span>
+          ))}
       </div>
       <div className="build-card-meta muted">
         {built && <span>Built {built}</span>}

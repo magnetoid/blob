@@ -11,6 +11,13 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "b8021dbb629a61c91c93f6a911bcec0858dbc9c3",
+    "shortSha": "b8021db",
+    "subject": "Make the build stamp survive a host with no repository",
+    "date": "2026-09-02T05:36:28+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "29611cc05c9185cb2e6ed4638074d1ea54a48f02",
     "shortSha": "29611cc",
     "subject": "Walk the sidebar with ⌥↑ and ⌥↓, and stop a build stamp from blocking a deploy",
@@ -421,13 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "256aa09",
     "subject": "Test the channel directory from the client side too",
     "date": "2026-08-31T18:08:48+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "babd33363f50231ea4ff71cb43f43cf21ca3c367",
-    "shortSha": "babd333",
-    "subject": "Add a channel directory",
-    "date": "2026-08-31T18:07:01+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
