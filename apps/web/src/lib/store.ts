@@ -874,6 +874,12 @@ export const useStore = create<State>((set, get) => ({
       case "message.new":
       case "message.updated": {
         const message = event.message;
+        // Read before the update, because the update makes both ends equal: the new
+        // message becomes the last loaded item *and* the channel's lastMessageId.
+        const before = get().messages[message.channelId];
+        const atTailBefore =
+          before?.items.filter((m) => !m.id.startsWith("pending-")).at(-1)
+            ?.id === get().channels[message.channelId]?.lastMessageId;
         set((s) => {
           const next: Partial<State> = {};
 
@@ -892,9 +898,23 @@ export const useStore = create<State>((set, get) => ({
             }
           } else {
             const existing = s.messages[message.channelId];
-            // Only fold into a channel we've actually loaded; otherwise the first
-            // page fetch would show a gap between this message and the older ones.
-            if (existing?.loaded) {
+            // Was the loaded list ending at the channel's newest message *before* this
+            // one arrived? That is the difference between extending the tail and
+            // dropping a message into a window.
+            //
+            // Following a permalink loads ~50 messages around something old and leaves
+            // `loaded` true. Without this check the next live message was appended to
+            // that window — sitting directly after a message hundreds older, with the
+            // gap invisible — and then `markRead` acked it, marking every unread message
+            // in between as read. `openChannel` skips `markRead` for exactly this reason
+            // and says so; the skip only covered the moment of arrival.
+            const wasAtTail =
+              existing?.items.filter((m) => !m.id.startsWith("pending-")).at(-1)
+                ?.id === s.channels[message.channelId]?.lastMessageId;
+            if (
+              existing?.loaded &&
+              (wasAtTail || event.t === "message.updated")
+            ) {
               next.messages = {
                 ...s.messages,
                 [message.channelId]: {
@@ -919,17 +939,27 @@ export const useStore = create<State>((set, get) => ({
               [message.channelId]: {
                 ...channel,
                 lastMessageId: message.id,
-                hasUnread: !isMine && !isActive,
+                // `!isActive` alone cleared the dot on a channel the reader had just
+                // asked to keep unread: `markRead` honours `suppressReadFor` and returns,
+                // so nothing ever put the dot back, and the sidebar disagreed with the
+                // server for the rest of the session.
+                hasUnread:
+                  !isMine &&
+                  (!isActive || s.suppressReadFor === message.channelId),
               },
             };
           }
           return next;
         });
 
-        // Reading a channel you're looking at should clear its unread immediately.
+        // Reading a channel you're looking at should clear its unread immediately —
+        // but only when what is on screen actually reaches the newest message. In a
+        // window opened around an old permalink it does not, and acking there would
+        // mark everything between the window and the tail as read.
         if (
           event.t === "message.new" &&
-          get().activeChannelId === message.channelId
+          get().activeChannelId === message.channelId &&
+          atTailBefore
         ) {
           void get().markRead(message.channelId);
         }
