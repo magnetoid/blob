@@ -73,6 +73,14 @@ interface State {
   mutedGroupIds: Set<string>;
   /** Slash commands this server knows, for the composer's autocomplete. */
   commands: CommandSpec[];
+  /**
+   * The commit the server is running, when its host said which.
+   *
+   * The bundle stamps its own at build time; this is what answers when the build could
+   * not read a repository, which is what happens on a host that deploys a source tree.
+   * "What's new" prefers the build's own answer and falls back to this.
+   */
+  serverCommit: string | null;
   users: Record<string, User>;
   channels: Record<string, ChannelWithState>;
   messages: Record<string, ChannelMessages>;
@@ -236,6 +244,7 @@ export const useStore = create<State>((set, get) => ({
   groups: {},
   myGroupIds: new Set<string>(),
   mutedGroupIds: new Set<string>(),
+  serverCommit: null,
   commands: [],
   users: {},
   channels: {},
@@ -268,6 +277,7 @@ export const useStore = create<State>((set, get) => ({
       myGroupIds: new Set(data.myGroupIds),
       mutedGroupIds: new Set(data.mutedGroupIds),
       commands: data.commands,
+      serverCommit: data.serverCommit ?? null,
       users: Object.fromEntries(data.users.map((u) => [u.id, u])),
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
     }),

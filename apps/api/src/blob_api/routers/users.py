@@ -170,6 +170,10 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
         ],
         my_group_ids=my_group_ids,
         muted_group_ids=muted_group_ids,
+        # Trimmed and bounded rather than passed through: it is an environment variable
+        # set by whoever deployed, so it is operator input, and a 40-character hex string
+        # is the whole of what it can usefully be.
+        server_commit=(settings.SOURCE_COMMIT or "").strip()[:40] or None,
     )
 
 

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T05:04:41'
-updated: '2026-09-02T05:04:41'
+created: '2026-09-02T05:21:53'
+updated: '2026-09-02T05:21:53'
 ---
 
 # apps/api/src/blob_api/openapi_dump.py

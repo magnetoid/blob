@@ -18,6 +18,7 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 
+from blob_api.config import settings
 from blob_api.schemas.models import UserPrefs
 from blob_api.services.serialize import read_prefs
 
@@ -92,3 +93,40 @@ class TestTheNotifyJobSurvivesIt:
         # Not snoozed rather than an exception: the person loses their quiet hours until
         # they save them again, and everyone else keeps their notifications.
         assert is_snoozed(recipient, datetime.now(UTC)) is False
+
+
+class TestTheBuildTheServerIsRunning:
+    async def test_bootstrap_carries_it_when_the_host_said_which(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Coolify sets SOURCE_COMMIT on the container it deploys, and the client cannot
+        # find this out for itself: the bundle stamps its own commit at build time from
+        # a repository, and the build host here ships a source tree without one.
+        monkeypatch.setattr(settings, "SOURCE_COMMIT", "a" * 40)
+        owner = await sign_up(client, "Build Owner")
+
+        boot = (await owner.get("/api/bootstrap")).body
+
+        assert boot["serverCommit"] == "a" * 40
+
+    async def test_and_says_nothing_when_nobody_did(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "SOURCE_COMMIT", None)
+        owner = await sign_up(client, "Quiet Owner")
+
+        boot = (await owner.get("/api/bootstrap")).body
+
+        # Null rather than "unknown": the page hides what it does not know.
+        assert boot["serverCommit"] is None
+
+    async def test_operator_input_is_bounded(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # It is an environment variable, which is to say it is whatever was typed.
+        monkeypatch.setattr(settings, "SOURCE_COMMIT", "  " + "b" * 200 + "  ")
+        owner = await sign_up(client, "Long Owner")
+
+        boot = (await owner.get("/api/bootstrap")).body
+
+        assert boot["serverCommit"] == "b" * 40

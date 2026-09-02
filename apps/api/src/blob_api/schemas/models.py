@@ -340,6 +340,10 @@ class Bootstrap(CamelModel):
     #: team. Ids only, for the same reason `saved_message_ids` is.
     my_group_ids: list[str] = Field(default_factory=list)
     muted_group_ids: list[str] = Field(default_factory=list)
+    #: The commit this server is running, if the host said which. The client stamps its
+    #: own at build time and prefers that; this is what answers when the build could not
+    #: read a repository, which is the ordinary case for a deploy from a source tree.
+    server_commit: str | None = None
 
 
 class ReadStateOut(CamelModel):

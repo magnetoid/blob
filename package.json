@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "packageManager": "pnpm@10.30.3",
   "scripts": {
     "dev": "pnpm --parallel --filter @blob/api --filter @blob/web dev",
@@ -15,7 +17,8 @@
     "check": "pnpm typecheck && pnpm lint && pnpm test",
     "migrate": "pnpm --filter @blob/api migrate",
     "seed": "pnpm --filter @blob/api seed",
-    "openapi": "pnpm --filter @blob/api openapi > packages/shared/openapi.json"
+    "openapi": "pnpm --filter @blob/api openapi > packages/shared/openapi.json",
+    "stamp": "node scripts/stamp-commits.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useStore } from '../../lib/store.ts';
 import {
   RELEASES,
   formatReleaseDate,
@@ -30,16 +31,27 @@ import {
   BUILD_TIME,
   BUILD_VERSION,
   commitUrl,
+  commitsAreExact,
   commitsByDay,
   formatBuildTime,
   isIdentified,
 } from '../../lib/buildInfo.ts';
 
-/** The version and commit this bundle was built from. Absent when git was not there. */
+/**
+ * The version and commit this build is.
+ *
+ * Two sources, in that order of authority. The bundle stamps its own commit in at build
+ * time, which is exact — but only where the build could read a repository, and a host
+ * that deploys an exported source tree cannot. So the server, which is *told* what it is
+ * running by whoever deployed it, is the fallback. Neither answering means the card is
+ * absent: "commit unknown" is worse than not raising the subject.
+ */
 function ThisBuild() {
-  if (!isIdentified()) return null;
+  const serverCommit = useStore((s) => s.serverCommit);
+  const commit = isIdentified() ? BUILD_COMMIT_SHORT : (serverCommit ?? '').slice(0, 7);
+  if (!commit) return null;
 
-  const link = commitUrl(BUILD_COMMIT_SHORT);
+  const link = commitUrl(isIdentified() ? BUILD_COMMIT_SHORT : (serverCommit ?? ''));
   const built = formatBuildTime(BUILD_TIME);
 
   return (
@@ -49,10 +61,10 @@ function ThisBuild() {
         <span className="build-version">{BUILD_VERSION}</span>
         {link ? (
           <a className="build-sha" href={link} target="_blank" rel="noreferrer noopener">
-            {BUILD_COMMIT_SHORT}
+            {commit}
           </a>
         ) : (
-          <span className="build-sha">{BUILD_COMMIT_SHORT}</span>
+          <span className="build-sha">{commit}</span>
         )}
       </div>
       <div className="build-card-meta muted">
@@ -90,7 +102,8 @@ function WhatWentIn() {
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        {open ? 'Hide' : 'Show'} the {total} commits in this build
+        {open ? 'Hide' : 'Show'} the {total}{' '}
+        {commitsAreExact() ? 'commits in this build' : 'most recent commits'}
       </button>
 
       {open && (

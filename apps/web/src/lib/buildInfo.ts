@@ -9,11 +9,20 @@
  * and inlines the answer. Nothing is fetched: a page describing the build cannot depend
  * on a request that might be served by a different one.
  *
- * When git is not available — a `vite dev` in a tarball, a sandbox with no `.git` — the
- * constants come through empty and every reader here degrades to "unknown". The page
- * hides what it does not know rather than printing a placeholder, because "commit
- * unknown" is worse than not mentioning commits.
+ * Except that a build host is not guaranteed a repository — this one deploys from an
+ * exported source tree, so on the machine that matters git answers nothing at all. So
+ * there are two fallbacks under everything below, in order: the history checked in by
+ * `pnpm stamp`, which travels as source, and (for the running commit, which no checked-in
+ * file can name) the server, which is told what it is running by whoever deployed it.
+ *
+ * Where none of them answers, every reader here degrades to empty and the page hides what
+ * it does not know rather than printing a placeholder. "Commit unknown" is worse than not
+ * raising the subject.
  */
+
+// The history as source. Written by `pnpm stamp`, and the only copy that survives a
+// build on a host with no repository in its context.
+import { GENERATED_COMMITS, GENERATED_REPO_URL } from './commits.generated.ts';
 
 declare const __BUILD_COMMIT__: string;
 declare const __BUILD_COMMIT_SHORT__: string;
@@ -63,10 +72,10 @@ export const BUILD_TIME = constant('time', () => __BUILD_TIME__);
 export const BUILD_VERSION = constant('version', () => __BUILD_VERSION__);
 
 /** Where a commit can be read in full. Empty when the remote is not a web host. */
-export const REPO_URL = constant('repo', () => __BUILD_REPO_URL__);
+export const REPO_URL = constant('repo', () => __BUILD_REPO_URL__) || GENERATED_REPO_URL;
 
-/** The commits in this build, newest first. Empty when git was not available. */
-export const BUILD_COMMITS: readonly BuildCommit[] = (() => {
+/** What git said at build time, or nothing. */
+const STAMPED: readonly BuildCommit[] = (() => {
   const raw = constant('commits', () => __BUILD_COMMITS__);
   if (!raw) return [];
   try {
@@ -76,6 +85,23 @@ export const BUILD_COMMITS: readonly BuildCommit[] = (() => {
     return [];
   }
 })();
+
+/**
+ * The recent commits, newest first.
+ *
+ * The build's own answer when it had one — exact, and including the commit being built.
+ * Otherwise the copy checked in by `pnpm stamp`, which is what travels to a host that
+ * builds from an exported tree with no repository. That copy is one commit behind by
+ * construction, which is why the page says "recent commits" rather than naming this the
+ * manifest of a particular build.
+ */
+export const BUILD_COMMITS: readonly BuildCommit[] =
+  STAMPED.length > 0 ? STAMPED : GENERATED_COMMITS;
+
+/** True when the list is this exact build's rather than the checked-in history. */
+export function commitsAreExact(): boolean {
+  return STAMPED.length > 0;
+}
 
 /** True when this build knows which commit it is. */
 export function isIdentified(): boolean {

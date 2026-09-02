@@ -81,6 +81,16 @@ class Settings(BaseSettings):
     # Hosting an agent from a repository. Disabled means agents can still be registered
     # as external apps — only the "and run it for me" half is off. Blob never holds the
     # Docker socket itself; the runner is whatever already owns that privilege.
+    #: The commit this server is running, when the host tells it.
+    #:
+    #: Coolify sets `SOURCE_COMMIT` on the container it deploys, and most CI systems set
+    #: one of the others. It is here because the *client* cannot always find out for
+    #: itself: the bundle stamps its own commit at build time from the repository, and a
+    #: build host that ships a source tree without `.git` — which is what happens here —
+    #: leaves it blank. The server is told by whoever deployed it, so it is the one that
+    #: knows, and "What's new" asks it.
+    SOURCE_COMMIT: str | None = None
+
     AGENT_RUNNER: Literal["disabled", "coolify"] = "disabled"
     #: Where the runner's API lives. Deliberately not COOLIFY_URL: Coolify injects that
     #: name into every container it runs, set to that container's own address, so a Blob

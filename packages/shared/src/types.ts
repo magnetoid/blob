@@ -342,6 +342,8 @@ export interface Bootstrap {
   /** Which of them are yours, so "mentions you" can include being named as a team. */
   myGroupIds: string[];
   mutedGroupIds: string[];
+  /** The commit the server is running, when its host said which. Null when nobody did. */
+  serverCommit: string | null;
 }
 
 /** A named set of people, mentionable as one handle: `@platform-team`. */

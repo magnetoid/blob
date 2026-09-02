@@ -36,11 +36,12 @@ is a shim whose scripts shell out to `uv run`. Root scripts are the normal entry
 | Migrate — advisory-locked, same path the container entrypoint takes | `pnpm migrate` |
 | Seed a demo workspace | `pnpm seed` |
 | Regenerate `packages/shared/openapi.json` | `pnpm openapi` |
+| Refresh the history "What's new" shows | `pnpm stamp` (before a release commit) |
 
 Backend, from `apps/api/`:
 
 ```bash
-uv run pytest -q                                   # 374 tests; needs Postgres + Redis
+uv run pytest -q                                   # 924 tests; needs Postgres + Redis
 uv run pytest tests/test_messages.py -q            # one file
 uv run pytest tests/test_messages.py::test_sending_is_idempotent_for_a_repeated_client_msg_id -q
 uv run pytest -q -k "unread or mention"            # by name
