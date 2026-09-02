@@ -294,7 +294,7 @@ export function Composer({
 
   async function scheduleFor(when: Date) {
     setScheduleOpen(false);
-    const body = draft;
+    const body = draft.trim();
     setSending(true);
     try {
       await api.channels.schedule(channelId, {
@@ -345,14 +345,21 @@ export function Composer({
 
   // Object URLs for image previews are revoked when the composer goes away; not doing so
   // leaks the whole file for the life of the tab.
+  //
+  // Read through a ref rather than the closure. The effect runs once, so its cleanup
+  // captured `attachments` as it was on mount — always empty — and the one path it was
+  // written for was the one path that revoked nothing. The ref is read at unmount, so it
+  // sees whatever is actually in the tray.
+  const attachmentsRef = useRef<PendingAttachment[]>([]);
+  attachmentsRef.current = attachments;
+
   useEffect(() => {
     return () => {
-      for (const attachment of attachments) {
+      for (const attachment of attachmentsRef.current) {
         if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
       }
     };
     // Deliberately on unmount only: revoking on every change would kill live previews.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function update(key: string, patch: Partial<PendingAttachment>) {
@@ -669,6 +676,13 @@ export function Composer({
   const ready =
     draft.trim().length > 0 ||
     attachments.some((item) => item.status === "ready");
+
+  // Scheduling carries the body and nothing else: `scheduled_messages` has no link to an
+  // attachment row, and the orphan sweep collects an attachment no message claims — so a
+  // file scheduled for next week would be deleted before its message was sent. Rather
+  // than offer it and drop the file, the clock steps aside while there is one, and says
+  // why. Sending a file *now* is unaffected.
+  const holdingFiles = attachments.length > 0;
 
   return (
     <div className="composer">
@@ -996,12 +1010,16 @@ export function Composer({
               <button
                 className="icon-btn schedule-trigger"
                 type="button"
-                aria-label="Schedule this message"
+                aria-label={
+                  holdingFiles
+                    ? "Files can’t be scheduled — send this now"
+                    : "Schedule this message"
+                }
                 aria-haspopup="menu"
                 aria-expanded={scheduleOpen}
-                data-tooltip="Send later"
+                data-tooltip={holdingFiles ? "Files can’t be scheduled" : "Send later"}
                 data-tooltip-place="top"
-                disabled={!ready || sending}
+                disabled={!ready || sending || holdingFiles}
                 onClick={(event) => {
                   event.stopPropagation();
                   setScheduleOpen((open) => !open);

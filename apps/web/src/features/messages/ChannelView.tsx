@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentRunView } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
+import { draftKey } from "../../lib/drafts.ts";
 import { scrollToMessage } from "../../lib/navigation.ts";
 import { api } from "../../lib/api.ts";
 import { showThread } from "../../lib/navigation.ts";
@@ -379,6 +380,12 @@ export function ChannelView() {
 
       {!archived && (
         <Composer
+          // Keyed to the conversation. Only the prop changed on a channel switch, so the
+          // composer's local state survived it — and an attachment that had finished
+          // uploading in #general was still in the tray, and still sent, after clicking
+          // #random. The draft text switched correctly because it is keyed per channel in
+          // the store, which is exactly what hid the mismatch.
+          key={draftKey(activeChannelId, null)}
           channelId={activeChannelId}
           placeholder={isDm ? `Message ${title}` : `Message #${title}`}
         />

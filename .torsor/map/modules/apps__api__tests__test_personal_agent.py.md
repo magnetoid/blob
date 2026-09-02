@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T02:51:24'
-updated: '2026-09-02T02:51:24'
+created: '2026-09-02T03:28:21'
+updated: '2026-09-02T03:28:21'
 ---
 
 # apps/api/tests/test_personal_agent.py

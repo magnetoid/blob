@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { trapFocus } from "../../lib/focusTrap.ts";
+import { useEscape } from "../../lib/useEscape.ts";
 import { channelNameSchema } from "@blob/shared";
 import { api, ApiError } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
@@ -12,6 +13,7 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => trapFocus(dialogRef.current), []);
+  useEscape(onClose);
 
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");

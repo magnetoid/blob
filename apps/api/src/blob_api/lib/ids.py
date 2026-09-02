@@ -7,6 +7,7 @@ timestamp join. This is the one schema decision that cannot be retrofitted cheap
 
 from __future__ import annotations
 
+import re
 import secrets
 from typing import Annotated
 
@@ -39,9 +40,15 @@ def new_token(nbytes: int = 32) -> str:
 #:
 #: A well-formed id that names nothing still answers 404 — "not a resource" and "no such
 #: resource" are different questions and the second one is the one privacy depends on.
-IdParam = Annotated[
-    str,
-    StringConstraints(
-        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-    ),
-]
+#: The same shape as a plain pattern, for the places a `StringConstraints` cannot reach —
+#: a WebSocket frame is not a request body and has no schema layer to refuse it.
+ID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+
+_ID_RE = re.compile(ID_PATTERN)
+
+IdParam = Annotated[str, StringConstraints(pattern=ID_PATTERN)]
+
+
+def looks_like_id(value: object) -> bool:
+    """Is this the shape of an id? For frames, which arrive without a schema."""
+    return isinstance(value, str) and _ID_RE.match(value) is not None

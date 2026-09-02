@@ -490,6 +490,7 @@ async def create_task(
             session,
             workspace_id=bot.workspace_id,
             event="task.created",
+            channel_id=root.channel_id,
             payload=task.model_dump(by_alias=True),
             exclude_plugin_id=bot.plugin_id,
         )
@@ -532,6 +533,7 @@ async def update_task(
             session,
             workspace_id=bot.workspace_id,
             event="task.updated",
+            channel_id=existing.channel_id,
             payload=task.model_dump(by_alias=True),
             exclude_plugin_id=bot.plugin_id,
         )

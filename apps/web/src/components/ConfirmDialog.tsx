@@ -13,6 +13,7 @@
 
 import { useEffect, useRef } from "react";
 import { trapFocus } from "../lib/focusTrap.ts";
+import { useEscape } from "../lib/useEscape.ts";
 
 export function ConfirmDialog({
   title,
@@ -32,13 +33,7 @@ export function ConfirmDialog({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useEscape(onClose);
 
   // The dialog takes focus, not the confirm button. Focusing the button would make Return
   // destroy something, one keystroke after a dialog appeared under your hands — and the

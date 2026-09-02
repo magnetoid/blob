@@ -46,6 +46,11 @@ CHANNEL_SCOPED = frozenset(
         "member.left",
         "thread.summary.updated",
         "interaction.triggered",
+        # A task carries the title and instructions somebody typed in a channel, and
+        # names the channel it was raised in. Unscoped, it reached every app in the
+        # workspace — including apps whose bot the channel would answer 404 for.
+        "task.created",
+        "task.updated",
     }
 )
 

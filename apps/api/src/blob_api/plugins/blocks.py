@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from ..lib.errors import bad_request
 from ..schemas.base import CamelModel
@@ -71,6 +71,24 @@ class ImageBlock(CamelModel):
     #: URL would let a block pull from anywhere and leak the reader's address to it.
     url: str = Field(min_length=1, max_length=500)
     alt: str = Field(default="", max_length=200)
+
+    @field_validator("url")
+    @classmethod
+    def _stays_on_this_workspace(cls, value: str) -> str:
+        """The comment above was the whole enforcement, which is to say there was none.
+
+        An app with `messages:write` could post an image block pointing anywhere, and
+        every member who scrolled past it fetched that URL — handing the app's author
+        each reader's address, user agent and the moment they read it, from a channel
+        the app's own bot may not even be in. A tracking pixel with a message around it.
+
+        A protocol-relative `//host/x` is absolute too, and the backslash case is here
+        because browsers normalise a leading slash-backslash to a network path.
+        """
+        url = value.strip()
+        if not url.startswith("/") or url.startswith("//") or url.startswith("/\\") or "://" in url:
+            raise ValueError('An image url is a path on this workspace, like "/api/files/<key>".')
+        return url
 
 
 class ButtonElement(CamelModel):

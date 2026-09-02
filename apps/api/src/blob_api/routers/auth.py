@@ -26,6 +26,7 @@ from ..lib.errors import bad_request, conflict, not_found, unauthorized, unique_
 from ..lib.ids import new_id, new_token
 from ..lib.mail import send_invite, send_password_reset
 from ..lib.rate_limit import consume
+from ..realtime import hub
 from ..schemas.base import CamelModel, iso
 from ..schemas.models import CurrentUser
 from ..schemas.requests import (
@@ -142,6 +143,7 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
                         SELECT id, email, role, workspace_id FROM invites
                          WHERE token_hash = :token_hash
                            AND accepted_at IS NULL
+                           AND revoked_at IS NULL
                            AND expires_at > now()
                         """
                     ),
@@ -157,6 +159,27 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
             workspace_id = invite.workspace_id
 
         if workspace is not None:
+            # One email is one person, with one password — the rule `services/workspaces`
+            # exists to keep, and this path was the one place that minted a second hash
+            # for the same address. Joining a second workspace by invitation looked like
+            # it worked and handed back a cookie; the next sign-in picked the older row,
+            # checked the new password against the old hash, and answered "That email or
+            # password is incorrect" with nothing on screen to explain it.
+            #
+            # The existing hash is reused rather than overwritten. An invitation is
+            # issued by *this* workspace's admin: letting whoever holds the link set the
+            # password on an account in another workspace would be an account takeover
+            # dressed as an invite.
+            existing_hash = await workspace_service.password_hash_for(session, email)
+            if existing_hash is not None and not await verify_password(
+                existing_hash, payload.password
+            ):
+                raise bad_request(
+                    "This address already has a Blob account. "
+                    "Use that password to join this workspace.",
+                    code="invalid_input",
+                )
+            password_hash = existing_hash or await hash_password(payload.password)
             user_id = new_id()
             try:
                 await session.execute(
@@ -171,7 +194,7 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
                         "id": user_id,
                         "ws": workspace_id,
                         "email": email,
-                        "password_hash": await hash_password(payload.password),
+                        "password_hash": password_hash,
                         "display_name": payload.display_name,
                         "role": role,
                     },
@@ -287,6 +310,16 @@ async def logout(request: Request, response: Response) -> OkOut:
 @router.post("/api/auth/logout-others", response_model=OkOut)
 async def logout_others(user: SessionUser = Depends(current_user)) -> OkOut:
     await destroy_other_sessions(user.id, user.session_id)
+    # Deleting the session rows stops the *next* request; it does not stop a socket
+    # that authenticated once at connect and never asks again. Without this, "sign out
+    # everywhere else" left every other tab — including a stolen one — receiving every
+    # message in real time for as long as it kept pinging. Admin deactivation and
+    # session revocation have always done this; these two paths had not.
+    #
+    # A connection carries no session id, so this drops the caller's socket too. That
+    # costs a reconnect: the client's existing backoff-and-resync path runs and the
+    # surviving session authenticates again.
+    hub.close_users([user.id])
     return OkOut()
 
 
@@ -393,6 +426,7 @@ async def preview_invite(token: str) -> InvitePreviewOut:
                       FROM invites i JOIN workspaces w ON w.id = i.workspace_id
                      WHERE i.token_hash = :token_hash
                        AND i.accepted_at IS NULL
+                       AND i.revoked_at IS NULL
                        AND i.expires_at > now()
                     """
                 ),
@@ -446,7 +480,7 @@ async def forgot_password(payload: ForgotPasswordInput, request: Request) -> OkO
 async def reset_password(
     payload: ResetPasswordInput, request: Request, response: Response
 ) -> OkOut:
-    async with transaction() as (session, _):
+    async with transaction() as (session, after):
         reset = (
             await session.execute(
                 text(
@@ -491,6 +525,19 @@ async def reset_password(
             ),
             {"email": owner.email},
         )
+        # And the sockets those sessions are holding. Same reason as logout-others: a
+        # connection authenticates once, so a socket opened with a since-deleted session
+        # keeps delivering until the tab is closed. Past COMMIT, because nothing may be
+        # told about a change that has not committed.
+        signed_out = [
+            str(row.id)
+            for row in (
+                await session.execute(
+                    text("SELECT id FROM users WHERE email = :email"), {"email": owner.email}
+                )
+            ).fetchall()
+        ]
+        after.add(lambda: hub.close_users(signed_out))
         user_id = reset.user_id
 
     token = await create_session(

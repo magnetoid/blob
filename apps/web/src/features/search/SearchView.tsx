@@ -48,6 +48,13 @@ export function SearchView() {
   // Debounce so typing doesn't fire a request per keystroke.
   useEffect(() => {
     const term = [query, filter].filter(Boolean).join(" ").trim();
+    // The debounce only spaces requests out; it does not stop an earlier one landing
+    // last. And the earlier one is systematically the slower: the count is computed
+    // over the whole match set, so the shorter, broader term is the more expensive
+    // query. Typing "a" then "abc" left the list, the "showing N of M" count and the
+    // "show more" cursor all belonging to "a" — and clearing the box entirely painted
+    // results for a search that was no longer on screen.
+    let live = true;
     const timer = setTimeout(async () => {
       if (!term) {
         setResults(null);
@@ -60,6 +67,7 @@ export function SearchView() {
       setSearching(true);
       try {
         const result = await api.search(term);
+        if (!live) return;
         setResults(result.messages);
         setTotal(result.total);
         setNextCursor(result.nextCursor);
@@ -67,6 +75,10 @@ export function SearchView() {
       } catch (err) {
         // A failed request is not "no results" — telling someone nothing matched
         // when the server errored sends them away believing the message is gone.
+        // Unless it is a *stale* failure, which says nothing about the search on
+        // screen: a 429 from the abandoned query used to wipe results that had
+        // already arrived and worked.
+        if (!live) return;
         setResults(null);
         setTotal(0);
         setNextCursor(null);
@@ -76,10 +88,13 @@ export function SearchView() {
             : "error",
         );
       } finally {
-        setSearching(false);
+        if (live) setSearching(false);
       }
     }, 220);
-    return () => clearTimeout(timer);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
   }, [query, filter]);
 
   /**

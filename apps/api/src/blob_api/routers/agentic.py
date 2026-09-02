@@ -156,6 +156,7 @@ async def create_thread_task(
             session,
             workspace_id=user.workspace_id,
             event="task.created",
+            channel_id=channel_id,
             payload=task.model_dump(by_alias=True),
         )
     return AgentTaskOut(task=task)
@@ -217,6 +218,7 @@ async def update_task(
             session,
             workspace_id=user.workspace_id,
             event="task.updated",
+            channel_id=existing.channel_id,
             payload=task.model_dump(by_alias=True),
         )
     return AgentTaskOut(task=task)

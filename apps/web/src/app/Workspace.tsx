@@ -136,6 +136,28 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     if (store.activeThreadRootId !== routeThreadRootId) void store.openThread(routeThreadRootId);
   }, [routeChannelId, routeThreadRootId]);
 
+  // Which conversation this person is actually looking at, told to the server so the
+  // worker can skip pushing at somebody already reading the channel.
+  //
+  // It lives here rather than in `openChannel` because focus is a claim that has to be
+  // *withdrawn* as well as made, and nothing ever withdrew it: the frame is replayed on
+  // every reconnect and kept alive by the heartbeat, so the last channel opened stayed
+  // "focused" through a minimised tab, a locked phone, and a walk over to /search. An
+  // hour later a mention in that channel raised no push at all, because as far as the
+  // server knew somebody was sitting there reading it.
+  //
+  // `visibilitychange` is the honest signal for the tab; the dependency covers the
+  // route. Deliberately not `blur` — glancing at another window is not leaving.
+  useEffect(() => {
+    const publish = () => {
+      const looking = document.visibilityState === 'visible' ? routeChannelId : null;
+      socket.sendControl({ t: 'channel.focus', channelId: looking });
+    };
+    publish();
+    document.addEventListener('visibilitychange', publish);
+    return () => document.removeEventListener('visibilitychange', publish);
+  }, [routeChannelId]);
+
   // Open something on arrival so the app never starts on an empty pane. Not while a
   // permalink is resolving: that would race it and land on #general instead. The URL
   // is rewritten to the channel's real address, so a reload comes back here.

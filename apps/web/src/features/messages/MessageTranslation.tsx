@@ -4,7 +4,7 @@
  * viewer has a preferred language.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   Message,
   MessageTranslation as MessageTranslationData,
@@ -113,15 +113,31 @@ export function MessageTranslation({ message, pending, editing }: Props) {
     [canTranslate, message, preferredLanguage],
   );
 
+  // What stops the retry loop. `translationBusy` is a dependency of the effect below
+  // and its `finally` sets it back to false, so a failed request re-ran the effect,
+  // which saw no translation and fired the same failing request again — every visible
+  // row spinning its own POST for as long as it stayed on screen, which is what kept
+  // the route's rate limit tripped in the first place. Adding `translationError` to the
+  // guard is not enough: the reset effect above clears it whenever the `message` prop
+  // identity changes, and a store update re-creates that object.
+  //
+  // The key is the message revision and the target language, so an edit or a change of
+  // language does attempt again — and the manual Translate button never consults it.
+  const autoAttemptedRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (
       !autoTranslate ||
       !canTranslate ||
       mine ||
       translation ||
-      translationBusy
+      translationBusy ||
+      !preferredLanguage
     )
       return;
+    const key = translationCacheKey(message, preferredLanguage);
+    if (autoAttemptedRef.current === key) return;
+    autoAttemptedRef.current = key;
     void requestTranslation();
   }, [
     autoTranslate,
@@ -130,6 +146,8 @@ export function MessageTranslation({ message, pending, editing }: Props) {
     requestTranslation,
     translation,
     translationBusy,
+    message,
+    preferredLanguage,
   ]);
 
   return (

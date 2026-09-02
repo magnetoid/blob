@@ -533,3 +533,53 @@ Two more shapes in the same function, for the same reason — each is silent whe
 And a recurring row never sets `sent_at`: that column is what removes a row from the
 sweep's partial index, and a recurrence is never finished. `last_sent_at` answers the
 other question — see migration `0024`.
+
+## Traps found in the second defect hunt
+
+Twenty confirmed, all fixed. The ones worth remembering as shapes rather than as bugs:
+
+* **A revocation that writes a row nothing reads.** `invites.revoked_at` was written by
+  the admin route and rendered by the admin listing, and neither invite-token consumer
+  filtered on it — so "revoke" cancelled the console's description of the invitation and
+  not the invitation. It could mint an admin for thirty days afterwards. Whenever a
+  column exists to stop something, grep for every *reader* of the thing it stops.
+* **A `frozenset` is only a guard where the list is complete.** `plugins/events.py`'s
+  `CHANNEL_SCOPED` raises when a listed event is emitted without a channel — and
+  `task.created`/`task.updated` were simply not on it, so four call sites omitted the
+  channel and every app in the workspace received private-channel task content. The
+  enforcement worked perfectly; the vocabulary was short.
+* **Deactivating is not releasing.** Uninstalling an app retired its bot's `users` row
+  but kept its slug-derived email and its `workspace_handles` row, so the same app could
+  never be reinstalled (500 on the unique index) and the retired bot stayed mentionable
+  for ever. `routers/admin.py`'s deactivate had always released the handle; the plugin
+  path was written separately and did not.
+* **`asyncio.wait` stores an exception rather than raising it.** In `realtime/ws.py` the
+  reader's exception surfaced from inside the `finally`, *before* `hub.unregister`, so an
+  unhandled frame leaked the connection out of the fan-out maps for the life of the
+  process. `receive_json` is a bare `json.loads`: `"x"` parses and is not a dict. Teardown
+  after `await task` must be reachable from every exception, not two of them.
+* **A heartbeat is not a decision.** The ping branch called `presence.mark_active`, which
+  is a statement about somebody, every 25 seconds — so `/away` lasted one heartbeat and
+  then silently went green. `mark_present` keeps an existing "away" and only decides for
+  somebody who has not.
+* **A claim that is never withdrawn.** `channel.focus` was sent on open, replayed on every
+  reconnect and re-expired by the heartbeat, and nothing ever sent `null` — so a
+  minimised tab suppressed web push for the last channel opened, indefinitely. It now
+  lives in one effect in `Workspace.tsx` keyed on the route and `visibilitychange`.
+* **An overlay's Escape must be the overlay's.** The shell listens on `window` and mounts
+  first, so a dialog's bubble-phase listener runs *second* — closing the thread panel
+  behind it or marking the channel read on the way. `lib/useEscape.ts` listens in the
+  capture phase and calls `stopPropagation`; all four dialogs use it. Two of them had
+  been binding nothing at all while carrying a comment saying Escape was "bound above".
+* **A debounce is not a staleness guard.** `SearchView` had no cancellation, and the
+  earlier request is systematically the slower one (the count scans the whole match set),
+  so an abandoned query's results — or its 429 — landed on top of the current one.
+* **An effect whose own `finally` flips one of its dependencies is a loop.**
+  `MessageTranslation`'s auto-translate re-fired on every failure; a screenful of rows
+  each spun their own request, which is what kept the rate limit tripped. Guarding on the
+  error is not enough — a store update re-creates the message object and clears it. The
+  attempt is keyed on message revision + language in a ref.
+* **A composer keyed to nothing keeps the last conversation's files.** `ChannelView` and
+  `ThreadPanel` passed only a changed prop, so an attachment uploaded in one channel was
+  still in the tray, and still sent, in the next. Drafts hid it: they are keyed per
+  channel in the store and switched correctly.

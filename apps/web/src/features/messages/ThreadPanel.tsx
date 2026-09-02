@@ -10,6 +10,7 @@ import type {
 } from "@blob/shared";
 import { ApiError, api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
+import { draftKey } from "../../lib/drafts.ts";
 import { closeThread } from "../../lib/navigation.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
@@ -665,6 +666,9 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
             </span>
           </label>
           <Composer
+            // Same reason as ChannelView: switching threads left the previous one's
+            // attachments in the tray.
+            key={draftKey(root.channelId, rootId)}
             channelId={root.channelId}
             threadRootId={rootId}
             placeholder="Reply in thread"

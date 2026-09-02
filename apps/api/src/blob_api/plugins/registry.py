@@ -24,7 +24,14 @@ from ..lib.auth import hash_token
 from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import new_id, new_token
 from ..services import handles as handle_service
-from .manifest import CommandDecl, Manifest, Status, new_scopes, validate_manifest
+from .manifest import (
+    VERSION_RE,
+    CommandDecl,
+    Manifest,
+    Status,
+    new_scopes,
+    validate_manifest,
+)
 from .signing import new_secret
 
 #: Bots need an address because `users.email` is NOT NULL and unique per workspace.
@@ -350,6 +357,19 @@ async def update(
     return widened
 
 
+#: The same bounds `Manifest` puts on a registered app — see `plugins/manifest.py`.
+MAX_AGENT_NAME = 80
+MAX_AGENT_DESCRIPTION = 500
+
+
+def _within(value: str | None, limit: int) -> str | None:
+    """The value if it is a usable string of the right size, else nothing."""
+    if not isinstance(value, str):
+        return None
+    trimmed = value.strip()
+    return trimmed if trimmed and len(trimmed) <= limit else None
+
+
 async def describe(
     session: AsyncSession,
     *,
@@ -371,10 +391,22 @@ async def describe(
 
     Each field is optional and a missing one leaves what was there: an agent that sends a
     name and no description should not blank the description an admin wrote.
+
+    And each is held to the same bounds `Manifest` holds a registered app to. This
+    arrives in a `hello` frame from a process on somebody's laptop, and the frame cap is
+    512KB: without this an agent could store half a megabyte of text in its own name and
+    have every admin console render it on every load. A field that fails is dropped
+    rather than refusing the connection — the agent is otherwise working, and an agent
+    that cannot connect because its version string has four parts is a worse outcome
+    than one listed under the version it last announced properly.
     """
     await by_id(session, plugin_id, workspace_id)
-    fields = {"name": name, "description": description, "version": version}
-    given = {key: value for key, value in fields.items() if isinstance(value, str) and value}
+    fields = {
+        "name": _within(name, MAX_AGENT_NAME),
+        "description": _within(description, MAX_AGENT_DESCRIPTION),
+        "version": version if version and VERSION_RE.match(version) else None,
+    }
+    given = {key: value for key, value in fields.items() if value}
     if not given:
         return
 
@@ -493,18 +525,42 @@ async def rotate_secret(session: AsyncSession, plugin_id: str, workspace_id: str
 
 
 async def uninstall(session: AsyncSession, plugin_id: str, workspace_id: str) -> None:
-    """Remove the app and retire its bot, keeping everything the bot ever said."""
+    """Remove the app and retire its bot, keeping everything the bot ever said.
+
+    Retiring an account is not the same as freeing what it held, and this path was
+    keeping two things hostage that an admin deactivating a person releases.
+
+    The bot's *address* is derived from the slug, so a retired bot occupied the identity
+    of the app it used to be: reinstalling the same app inserted a second `users` row
+    with the same email in the same workspace, hit `users_workspace_id_email_key`, and
+    answered 500 with no way back short of editing the database. The address is mangled
+    rather than the row deleted, because `author_id` on every message the bot ever sent
+    still points at it. `.invalid` is unroutable by RFC, so nothing is lost by changing it.
+
+    The bot's *handle* is the other one. `workspace_handles` is documented as holding
+    rows for active users only, and `mention_targets` reads it with no `deactivated_at`
+    filter because of that — so a retired bot stayed mentionable, and its name stayed
+    unclaimable by anyone else, for ever.
+    """
     await by_id(session, plugin_id, workspace_id)
-    await session.execute(
-        text(
-            """
-            UPDATE users
-               SET deactivated_at = now(), bot_plugin_id = NULL
-             WHERE bot_plugin_id = :id
-            """
-        ),
-        {"id": plugin_id},
-    )
+    retired = (
+        await session.execute(
+            text(
+                """
+                UPDATE users
+                   SET deactivated_at = now(),
+                       bot_plugin_id = NULL,
+                       email = split_part(email, '@', 1) || '+' || id::text
+                               || '@' || split_part(email, '@', 2)
+                 WHERE bot_plugin_id = :id
+                RETURNING id
+                """
+            ),
+            {"id": plugin_id},
+        )
+    ).fetchall()
+    for row in retired:
+        await handle_service.release_user(session, str(row.id))
     # Grants, secrets, tokens and queued deliveries cascade from the plugin row.
     await session.execute(text("DELETE FROM plugins WHERE id = :id"), {"id": plugin_id})
 

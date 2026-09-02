@@ -22,7 +22,7 @@ from ..lib.errors import AppError
 from ..lib.ids import IdParam
 from ..plugins import registry, runner
 from ..plugins.env import RESERVED_NAMES as RESERVED_ENV_NAMES
-from ..plugins.env import RESERVED_PREFIX, validate_env
+from ..plugins.env import is_reserved, validate_env
 from ..schemas.base import CamelModel
 from ..services import agents as agent_service
 from ..services import policies as policy_service
@@ -246,7 +246,7 @@ async def update_agent_env(
         # Checked on the way out as well as the way in. Nothing else stops an admin
         # deleting the bot token the agent authenticates with and turning a working agent
         # into one that fails every callback with no explanation.
-        if name.upper().startswith(RESERVED_PREFIX):
+        if is_reserved(name):
             raise AppError(
                 400, "reserved_env_key", f'"{name}" is set by Blob and cannot be removed.', name
             )

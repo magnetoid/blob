@@ -51,6 +51,22 @@ MAX_VARS = 25
 MAX_VALUE_BYTES = 4096
 
 
+def is_reserved(name: str) -> bool:
+    """Is this a name Blob writes itself?
+
+    One predicate, because there were two: setting a variable consulted all three rules
+    while removing one tested only the prefix, so `PORT` — refused on the way in with an
+    explanation of exactly why an agent that binds a different one is unreachable — could
+    still be deleted on the way out.
+    """
+    upper = name.strip().upper()
+    return (
+        upper.startswith(RESERVED_PREFIX)
+        or upper.startswith(INTERNAL_PREFIX)
+        or upper in RESERVED_NAMES
+    )
+
+
 def validate_env(raw: dict[str, str] | None) -> dict[str, str]:
     """Check operator-supplied configuration, or explain exactly what is wrong with it."""
     if not raw:
@@ -70,11 +86,7 @@ def validate_env(raw: dict[str, str] | None) -> dict[str, str]:
         # here rather than resting on the shape of the regex below, which is not what
         # anyone would think to re-check after loosening it.
         upper = name.upper()
-        if (
-            upper.startswith(RESERVED_PREFIX)
-            or upper.startswith(INTERNAL_PREFIX)
-            or upper in RESERVED_NAMES
-        ):
+        if is_reserved(upper):
             raise AppError(
                 400, "reserved_env_key", f'"{name}" is set by Blob and cannot be overridden.', key
             )
@@ -101,5 +113,6 @@ __all__ = [
     "MAX_VARS",
     "RESERVED_NAMES",
     "RESERVED_PREFIX",
+    "is_reserved",
     "validate_env",
 ]

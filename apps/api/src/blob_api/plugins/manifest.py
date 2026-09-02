@@ -115,7 +115,7 @@ EVENT_SCOPES: dict[str, str] = {
 }
 
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,38}[a-z0-9]$")
-_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 #: A command name, without its slash. Deliberately the same shape the built-in parser
 #: accepts, or an app could register a name nobody is able to type.
 _COMMAND_RE = re.compile(r"^[a-z][a-z0-9_-]{0,30}$")
@@ -189,7 +189,7 @@ class Manifest(CamelModel):
     @field_validator("version")
     @classmethod
     def _check_version(cls, value: str) -> str:
-        if not _VERSION_RE.match(value):
+        if not VERSION_RE.match(value):
             raise ValueError("Version must look like 1.2.3.")
         return value
 

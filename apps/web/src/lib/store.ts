@@ -445,7 +445,6 @@ export const useStore = create<State>((set, get) => ({
         [channelId]: state.channels[channelId]?.lastReadMessageId ?? null,
       },
     });
-    socket.sendControl({ t: "channel.focus", channelId });
 
     // Live and recent runs, so a reload or a mid-run join renders the same card the
     // stream drew. Non-fatal: a conversation without its run cards is still a

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T02:51:23'
-updated: '2026-09-02T02:51:23'
+created: '2026-09-02T03:28:21'
+updated: '2026-09-02T03:28:21'
 ---
 
 # apps/api/src/blob_api/schemas/models.py
@@ -21,21 +21,21 @@ Symbols in `apps/api/src/blob_api/schemas/models.py`.
 - L101 `Channel` (class)
 - L116 `BrowsableChannel` (class) — A public channel as the directory lists it.
 - L135 `ScheduledMessage` (class) — A message waiting to be sent. Only ever the author's own.
-- L148 `Membership` (class)
-- L154 `ChannelWithState` (class) — A channel as it appears in the sidebar, with this user's own state folded in.
-- L163 `Attachment` (class)
-- L174 `Reaction` (class)
-- L180 `LinkPreview` (class)
-- L188 `Message` (class)
-- L218 `CustomEmoji` (class)
-- L223 `CommandSpec` (class) — One slash command, as the composer's autocomplete needs to describe it.
-- L236 `ThemeSummary` (class)
-- L246 `ThreadSummaryDecision` (class)
-- L251 `ThreadSummaryActionItem` (class)
-- L257 `ThreadSummary` (class)
-- L273 `AgentTask` (class)
-- L293 `MessageTranslation` (class)
-- L306 `UserGroup` (class) — A named set of people, mentionable as one handle.
-- L316 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
-- L339 `ReadStateOut` (class)
-- L345 `FeedbackTicket` (class)
+- L154 `Membership` (class)
+- L160 `ChannelWithState` (class) — A channel as it appears in the sidebar, with this user's own state folded in.
+- L169 `Attachment` (class)
+- L180 `Reaction` (class)
+- L186 `LinkPreview` (class)
+- L194 `Message` (class)
+- L224 `CustomEmoji` (class)
+- L229 `CommandSpec` (class) — One slash command, as the composer's autocomplete needs to describe it.
+- L242 `ThemeSummary` (class)
+- L252 `ThreadSummaryDecision` (class)
+- L257 `ThreadSummaryActionItem` (class)
+- L263 `ThreadSummary` (class)
+- L279 `AgentTask` (class)
+- L299 `MessageTranslation` (class)
+- L312 `UserGroup` (class) — A named set of people, mentionable as one handle.
+- L322 `Bootstrap` (class) — Everything the client needs on boot, in one round trip.
+- L345 `ReadStateOut` (class)
+- L351 `FeedbackTicket` (class)

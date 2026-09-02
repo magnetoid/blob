@@ -297,6 +297,23 @@ class TestWhatBlobKeepsForItself:
         assert response.status == 400
         assert response.body["error"]["code"] == "reserved_env_key"
 
+    async def test_the_port_cannot_be_removed_either(
+        self, hosted: Runner, client: Client
+    ) -> None:
+        owner, plugin_id = await install(client)
+
+        response = await owner.put(
+            f"/api/admin/plugins/{plugin_id}/env", {"remove": ["PORT"], "restart": True}
+        )
+
+        # The removal check tested only the BLOB_ prefix and never the by-name list, so
+        # the one reserved name that is not prefixed could be deleted and the agent
+        # redeployed against it — binding whatever default its code picks while the proxy
+        # still routes to the old port. Setting it has always been refused; the two rules
+        # are now one predicate.
+        assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "reserved_env_key"
+
     async def test_the_reserved_names_are_listed(self, hosted: Runner, client: Client) -> None:
         owner, plugin_id = await install(client)
 

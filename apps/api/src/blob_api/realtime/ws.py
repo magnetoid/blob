@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import time
 from typing import Any
 
@@ -19,9 +20,11 @@ from sqlalchemy import text
 
 from ..db.engine import session_scope
 from ..lib.auth import SessionUser
-from ..lib.ids import new_id
+from ..lib.ids import looks_like_id, new_id
 from . import hub, presence
 from .protocol import HEARTBEAT_MS, TYPING_THROTTLE_MS
+
+log = logging.getLogger("blob.ws")
 
 router = APIRouter()
 
@@ -66,7 +69,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     conn.send({"t": "hello", "userId": user.id, "serverTime": _now_iso()})
     await presence.track_connection(user.id, conn.id)
-    await presence.mark_active(user.id)
+    # `mark_present`, not `mark_active`: reconnecting is not a decision to stop being away.
+    await presence.mark_present(user.id)
 
     writer = asyncio.create_task(_writer(websocket, conn))
     # The reader ends when the client goes away; the closed event ends when *we* drop the
@@ -84,8 +88,20 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         for task in (reader, dropped, writer):
             task.cancel()
         for task in (reader, dropped, writer):
-            with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect):
+            # `Exception` and not just the two expected ones. `asyncio.wait` above stores
+            # the reader's exception rather than raising it, so awaiting the task here is
+            # where it surfaces — and anything unexpected used to escape the finally
+            # *before* the four lines below, leaving the connection registered in the
+            # hub's fan-out maps for the life of the process and never announcing the
+            # person offline. One malformed frame from any authenticated client was
+            # enough. A socket coming down is the wrong place to re-raise: log it and
+            # finish the teardown.
+            try:
                 await task
+            except (asyncio.CancelledError, WebSocketDisconnect):
+                pass
+            except Exception:
+                log.warning("socket task ended badly for %s", user.id, exc_info=True)
         hub.unregister(conn)
         # Close the socket rather than leaving it open behind a cancelled reader, so the
         # client's onclose fires and its existing reconnect-and-resync path runs.
@@ -124,13 +140,18 @@ async def _reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)
         except ValueError:
             continue  # Not JSON; ignore rather than drop the connection.
 
+        # `receive_json` is a bare `json.loads`, so a frame of `"x"` or `[1]` parses
+        # cleanly and is not a dict — `frame.get` would raise AttributeError.
+        if not isinstance(frame, dict):
+            continue
+
         last_seen = time.monotonic()
         kind = frame.get("t")
 
         if kind == "ping":
             conn.send({"t": "pong"})
             await presence.refresh_connection(user.id, conn.id)
-            await presence.mark_active(user.id)
+            await presence.mark_present(user.id)
 
         elif kind == "presence.sub":
             # Resolved against the caller's workspace before anything is watched. The
@@ -140,7 +161,18 @@ async def _reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)
             # every active/away/offline transition: attendance telemetry on named
             # strangers. Silently dropped rather than refused, because whether an id names
             # anybody is exactly what must not be answered.
-            asked = [str(uid) for uid in frame.get("userIds", [])][:MAX_PRESENCE_SUBS]
+            # Shape-checked before the SQL, which casts to `uuid[]`: an id that is not
+            # one raises out of the reader, and an exception in the reader is a
+            # connection that never unregisters. `IdParam` guards path params and
+            # request bodies; a socket frame arrives without a schema layer to refuse it.
+            # Dropped rather than refused, in keeping with the resolution below —
+            # whether an id names anybody is what must not be answered.
+            raw = frame.get("userIds")
+            asked = (
+                [uid for uid in raw if looks_like_id(uid)][:MAX_PRESENCE_SUBS]
+                if isinstance(raw, list)
+                else []
+            )
             user_ids = await _visible_users(asked, user.workspace_id) if asked else []
             hub.set_presence_subs(conn, user_ids)
             states = await presence.get_presence(user_ids)

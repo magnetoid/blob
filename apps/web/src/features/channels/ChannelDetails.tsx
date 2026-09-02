@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { trapFocus } from '../../lib/focusTrap.ts';
+import { useEscape } from '../../lib/useEscape.ts';
 import type { ChannelWithState } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
@@ -30,6 +31,7 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => trapFocus(dialogRef.current), []);
+  useEscape(onClose);
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
 

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T02:51:23'
-updated: '2026-09-02T02:51:23'
+created: '2026-09-02T03:28:20'
+updated: '2026-09-02T03:28:20'
 ---
 
 # Repository Map
@@ -111,6 +111,9 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0023_scheduled_messages.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0024_recurring_schedules.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 38 symbol(s)
   - `_now()` (function)
   - `Base` (class)
@@ -177,7 +180,4 @@ Modules and their key symbols (ranked by references).
   - `_redis()` (function)
   - `close_log_buffer()` (function)
   - `_entry_for(record: logging.LogRecord)` (function)
-  - `_iso(epoch: float)` (function)
-- **apps/api/src/blob_api/lib/mail.py** — 3 symbol(s)
-  - `send_mail(to: str, subject: str, body: str)` (function)
-  - `…[truncated]
+  - `_i…[truncated]

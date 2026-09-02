@@ -18,6 +18,7 @@ import { useStore } from '../../lib/store.ts';
 import { permalinkFor, showChannel } from '../../lib/navigation.ts';
 import { showError } from '../../lib/toasts.ts';
 import { trapFocus } from '../../lib/focusTrap.ts';
+import { useEscape } from '../../lib/useEscape.ts';
 
 interface Props {
   message: Message;
@@ -30,14 +31,7 @@ const EXCERPT_LIMIT = 400;
 export function ForwardDialog({ message, onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
+  useEscape(onClose);
   useEffect(() => trapFocus(dialogRef.current), []);
 
   const channels = useStore((s) => s.channels);

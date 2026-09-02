@@ -32,6 +32,31 @@ async def mark_active(user_id: str) -> None:
         _announce(user_id, "active")
 
 
+async def mark_present(user_id: str) -> None:
+    """A heartbeat: still here. Not a claim about *how*.
+
+    `mark_active` is a statement — "this person is active now" — and the socket was
+    making it on every connect and every ping. HEARTBEAT_MS is 25 seconds, so `/away`
+    lasted twenty-five seconds and then silently flipped the dot back to green while the
+    person was still away; running `/away` again just said "You're now away." a second
+    time, because the toggle re-read presence and found "active". Nothing anywhere
+    re-asserted it.
+
+    So a heartbeat keeps somebody where they already are and only *decides* when they
+    have not decided for themselves. `/away` stays until they say otherwise, or until
+    the socket goes and takes the key with it.
+    """
+    previous = await redis.get(presence_key(user_id))
+    if previous == "away":
+        # Kept alive, not overwritten: the TTL is two missed heartbeats, so leaving it
+        # to expire would lose the away state rather than preserve it.
+        await redis.expire(presence_key(user_id), PRESENCE_TTL_SEC)
+        return
+    await redis.set(presence_key(user_id), "active", ex=PRESENCE_TTL_SEC)
+    if previous != "active":
+        _announce(user_id, "active")
+
+
 async def mark_away(user_id: str) -> None:
     previous = await redis.get(presence_key(user_id))
     await redis.set(presence_key(user_id), "away", ex=PRESENCE_TTL_SEC)
