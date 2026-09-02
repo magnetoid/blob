@@ -3958,6 +3958,144 @@ button.member-row:hover {
   color: var(--text-4);
 }
 
+/* Version above the date, right-aligned, so the column of versions reads as a column. */
+.release-stamp {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.release-version {
+  font-family: var(--font-mono);
+  font-size: var(--text-label-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+/* ─── which build this is ─────────────────────────────────────────────────── */
+/* An elevated surface sets box-shadow and no border: every --elev-* opens with a
+   0 0 0 1px ring, and setting both is how four popover treatments drifted apart. */
+.build-card {
+  max-width: 680px;
+  padding: 14px 16px;
+  margin-bottom: 26px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-1);
+}
+
+.build-card-main {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.build-label {
+  font-size: var(--text-label-size);
+  color: var(--text-4);
+}
+
+.build-version {
+  font-family: var(--font-mono);
+  font-size: var(--text-title);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.build-sha {
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-label-size);
+  color: var(--text-3);
+  background: var(--surface-muted);
+  border-radius: var(--radius-xs);
+  text-decoration: none;
+}
+
+a.build-sha:hover {
+  color: var(--accent);
+}
+
+.build-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: var(--text-label-size);
+}
+
+.build-branch {
+  font-family: var(--font-mono);
+}
+
+.build-log {
+  max-width: 680px;
+  margin-top: 4px;
+}
+
+.build-log-toggle {
+  padding: 6px 0;
+  font: inherit;
+  font-size: var(--text-label-size);
+  color: var(--text-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.build-log-toggle:hover {
+  color: var(--text-1);
+}
+
+.build-day {
+  margin-top: 14px;
+}
+
+.build-day-date {
+  margin: 0 0 6px;
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  color: var(--text-4);
+}
+
+.build-commits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.build-commit {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: var(--text-label-size);
+  line-height: 1.5;
+}
+
+/* Fixed width so the subjects line up — the same trick the release tags use, and what
+   makes a long list of commits scannable rather than ragged. */
+.build-commit-sha {
+  flex: none;
+  width: 62px;
+  font-family: var(--font-mono);
+  color: var(--text-4);
+  text-decoration: none;
+}
+
+a.build-commit-sha:hover {
+  color: var(--accent);
+}
+
+.build-commit-subject {
+  min-width: 0;
+  color: var(--text-2);
+}
+
 .release-entries {
   margin: 0;
   padding: 0;

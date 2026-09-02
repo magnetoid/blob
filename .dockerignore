@@ -6,7 +6,11 @@
 **/__pycache__
 **/*.pyc
 
-.git
+# `.git` deliberately travels. The client stamps the commit it was built from into the
+# bundle so the "What's new" page can say which build somebody is running and what went
+# into it, and a repository is the only place that answer exists. It is ~14 MB, it is
+# read in one build stage and never copied into the image that runs, and without it the
+# page silently degrades to saying nothing.
 .gitignore
 .github
 

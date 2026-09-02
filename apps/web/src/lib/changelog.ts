@@ -34,6 +34,52 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-02',
+    title: 'Commands you already know, and messages that come back',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Nine slash commands, spelled the way Slack spells them: /invite and /remove for people, /join and /rename and /archive and /mute for channels, /who for who is here, /dm to start a conversation (and say the thing in the same breath), and /status to tell everyone where you are. Type / in the composer to see the whole list.',
+      },
+      {
+        kind: 'added',
+        text: 'A scheduled message can repeat — every day, every weekday, or every week. The standup reminder, without anybody remembering to write it. It keeps the time you picked on your own clock, so it does not drift by an hour when the clocks change, and a worker that was down over a weekend does not wake up owing you three days of reminders at once.',
+      },
+      {
+        kind: 'added',
+        text: 'This page now tells you which build you are running, when it went out, and every commit that went into it.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Escape now closes the channel details and new channel dialogs. It used to fall through to the conversation behind them and mark it read, quietly undoing a message you had just marked unread.',
+      },
+      {
+        kind: 'fixed',
+        text: 'A file left in the composer no longer follows you to the next channel — and so can no longer be posted to the wrong one.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Search no longer paints the results of a search you have moved on from. Typing quickly used to leave you looking at answers for something you had already finished typing.',
+      },
+      {
+        kind: 'fixed',
+        text: '/away lasts until you say otherwise. It used to switch itself back on within half a minute.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Signing out everywhere else now disconnects those tabs, rather than only stopping their next request. So does changing your password.',
+      },
+      {
+        kind: 'fixed',
+        text: 'A revoked invitation stops working. It used to keep creating accounts for as long as the link had left to live.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Uninstalling an app and installing it again works. And a mention is no longer suppressed for a channel you are not actually looking at, so a minimised tab gets its notifications.',
+      },
+    ],
+  },
+  {
     date: '2026-08-26',
     title: 'Blob has an agent now',
     entries: [

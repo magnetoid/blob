@@ -22,7 +22,13 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
 
 COPY packages/shared packages/shared
 COPY apps/web apps/web
-RUN pnpm --filter @blob/web build
+# The history, for the build stamp — see `apps/web/vite.config.ts`. Last, so it only
+# invalidates the build step, which reruns on any source change anyway. `git` is not in
+# the base image, and the checkout is somebody else's by uid, which stops git reading it
+# at all unless it is told that is expected.
+RUN apk add --no-cache git
+COPY .git .git
+RUN git config --global --add safe.directory /src && pnpm --filter @blob/web build
 
 # ─── 2. the server's dependencies ─────────────────────────────────────────────
 FROM python:3.12-slim AS api
