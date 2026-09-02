@@ -153,6 +153,20 @@ describe("MessageList", () => {
     );
   });
 
+  it("draws the divider on the very first row when the whole page is unread", () => {
+    // You were away, fifty messages arrived, and the page the server returns begins
+    // *after* your cursor — so the first loaded message is the first unread one.
+    // `isFirstUnread` required a previous message, so index 0 could never be the
+    // divider: the jump bar offered "N new messages" and scrolled to a row with no
+    // marker on it. The divider went missing in exactly the case with the most unread.
+    const { container } = renderList({
+      messages: makeMessages(12),
+      unreadAfterId: "0191",
+    });
+
+    expect(container.querySelectorAll(".unread-divider")).toHaveLength(1);
+  });
+
   it("marks the first message after the read boundary, and only that one", () => {
     // The divider is placed by comparing ids, so it survives windowing only if the
     // comparison runs over the whole array rather than over what is on screen.

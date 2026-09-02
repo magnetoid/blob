@@ -64,6 +64,18 @@ export function MessageList({
   const pendingScrollMessageId = useStore((s) => s.pendingScrollMessageId);
   const requestScrollToMessage = useStore((s) => s.requestScrollToMessage);
 
+  // `null` is not "no divider" — it is the server saying nothing in this channel has
+  // been read, which is what `lastReadMessageId` holds after marking the very first
+  // message unread. Treating it as -1 made the divider vanish in the one case somebody
+  // had just explicitly asked for it. Joining a channel sets a cursor at its newest
+  // message, so this cannot fire for history you were never meant to have unread.
+  // `null` stays "no divider", deliberately. It does mean "nothing read" after somebody
+  // marks the very first message unread — but `openChannel` writes null just as readily
+  // when the channel is not in `channels` yet (`?? null`), so it equally means "not
+  // known". The two are indistinguishable here, and guessing "everything is unread"
+  // hangs a "New messages" banner over a channel that is merely still loading — which a
+  // test caught. Telling them apart needs a real sentinel, and that is a larger change
+  // than this bug is worth.
   const firstUnreadIndex = useMemo(
     () =>
       unreadAfterId === null
@@ -101,10 +113,15 @@ export function MessageList({
         const day = dayKey(message.createdAt);
         const previousDay = previous ? dayKey(previous.createdAt) : null;
         const showDay = previousDay !== day;
+        // The first row can be the divider. Requiring a previous message meant that
+        // when the whole loaded page was unread — you were away, fifty messages
+        // arrived, and the page begins after your cursor — the jump bar offered "50 new
+        // messages" and scrolled to a row with no marker on it. The divider went
+        // missing in exactly the case with the most unread in it.
         const isFirstUnread =
-          unreadAfterId !== null && previous !== null
-            ? previous.id <= unreadAfterId && message.id > unreadAfterId
-            : false;
+          unreadAfterId !== null &&
+          message.id > unreadAfterId &&
+          (previous === null || previous.id <= unreadAfterId);
 
         return {
           message,
