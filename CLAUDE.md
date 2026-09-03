@@ -41,7 +41,7 @@ is a shim whose scripts shell out to `uv run`. Root scripts are the normal entry
 Backend, from `apps/api/`:
 
 ```bash
-uv run pytest -q                                   # 924 tests; needs Postgres + Redis
+uv run pytest -q                                   # 996 tests; needs Postgres + Redis
 uv run pytest tests/test_messages.py -q            # one file
 uv run pytest tests/test_messages.py::test_sending_is_idempotent_for_a_repeated_client_msg_id -q
 uv run pytest -q -k "unread or mention"            # by name
@@ -133,7 +133,7 @@ spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
 (`--radius-xs..full`), motion (`--dur-*`, `--ease-*`, `--motion-*`) and a stacking ladder
 (`--z-raised` … `--z-toast`). Three rules the file will not tell you on its own:
 
-* **The 46 colour names are a contract with the server.** `services/themes.py` allowlists
+* **The 44 colour names are a contract with the server.** `services/themes.py` allowlists
   them by string and slices that tuple *by index* to group the theme editor, so renaming
   or reordering one breaks stored themes and the editor's grouping at once. Everything
   else in tokens.css is structure and is free. A themed *value* can only be hex or

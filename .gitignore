@@ -12,3 +12,6 @@ test-results/
 .playwright-mcp/
 data/
 *.png
+# …except the ones the README shows. Screenshots are ignored by default because they are
+# usually debugging leftovers; these four are documentation and have to survive a clone.
+!docs/images/*.png

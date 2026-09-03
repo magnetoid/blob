@@ -1,7 +1,3 @@
-
-> @blob/api@0.1.0 openapi /Users/magnetoid/c/blob/apps/api
-> uv run python -m blob_api.openapi_dump
-
 {
   "components": {
     "schemas": {
