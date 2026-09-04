@@ -724,6 +724,19 @@ export const SECTIONS: Section[] = [
         keywords: ['agent', 'bot', 'ai', 'mention', 'ask'],
       },
       {
+        id: 'whose-agent',
+        title: 'Whose agent is it',
+        blurb:
+          'An agent with no owner is the workspace’s and answers anyone. An agent with an owner answers that person, and whoever they have lent it to.',
+        body: [
+          'The shared assistant everybody works with is unowned — that is what makes it shared. A personal agent belongs to one member: mentioning it does nothing for anybody else, and the refusal is silent, because saying “that is not your agent” out loud would tell the room whose it is. Its slash commands go the same way — they do not appear in anybody else’s composer, and typing one answers as though the name were free.',
+          'Lending it is one command in the channel where you want it to answer: /allow @agent @name, and /disallow to take it back. The grant is per channel, so an agent lent for one project is not lent everywhere. /allow with just the agent lists who can currently command it here.',
+          'An admin decides who owns an agent, from Manage workspace → Apps & agents. Handing it back makes it the workspace’s again.',
+        ],
+        commands: ['allow', 'disallow'],
+        keywords: ['owner', 'personal agent', 'my agent', 'allow', 'lend', 'delegate'],
+      },
+      {
         id: 'watching-a-run',
         title: 'Watching it work',
         blurb:

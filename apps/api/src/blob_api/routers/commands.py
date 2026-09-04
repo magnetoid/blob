@@ -35,6 +35,7 @@ from ..realtime import hub, presence
 from ..schemas.base import CamelModel
 from ..schemas.models import ChannelWithState, Message
 from ..schemas.requests import RunCommandInput
+from ..services import agent_access
 from ..services import channels as channel_service
 from ..services import commands as command_service
 from ..services import messages as message_service
@@ -296,6 +297,22 @@ async def _run_app_command(
         )
         app = await command_service.find_app_command(session, user.workspace_id, name)
         if app is None:
+            return CommandOut(
+                ephemeral=f"`/{name}` isn't a command here. Try `/help` to see what is."
+            )
+
+        # A slash command is a command. Gating mentions and not this would leave the
+        # whole rule bypassable by anyone who read the composer's list — and the answer
+        # is deliberately the same one a name nobody has claimed gets, so an owned
+        # agent's commands cannot be enumerated by watching which refusal comes back.
+        allowed = await agent_access.commandable_by(
+            session,
+            workspace_id=user.workspace_id,
+            actor_id=user.id,
+            channel_id=payload.channel_id,
+            bot_user_ids=[app.bot_user_id],
+        )
+        if app.bot_user_id not in allowed:
             return CommandOut(
                 ephemeral=f"`/{name}` isn't a command here. Try `/help` to see what is."
             )

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T07:26:43'
-updated: '2026-09-04T07:26:43'
+created: '2026-09-04T17:42:51'
+updated: '2026-09-04T17:42:51'
 ---
 
 # apps/api/tests/test_channel_browse.py
@@ -23,3 +23,8 @@ Symbols in `apps/api/tests/test_channel_browse.py`.
 - L72 `test_a_private_channel_you_are_not_in_is_invisible(self, team: dict)` (method)
 - L80 `test_a_private_channel_you_are_in_is_not_listed_either(self, team: dict)` (method)
 - L88 `test_another_workspace_cannot_be_browsed_into(self, team: dict)` (method)
+- L104 `TestArchivingIsReversible` (class) — Archiving had no undo anywhere — and no gate on the route, either.
+- L114 `a_channel(team: dict, name: str)` (method)
+- L119 `test_a_member_cannot_archive(self, team: dict)` (method)
+- L127 `test_an_admin_can_reopen_one(self, team: dict)` (method)
+- L142 `test_a_member_cannot_reopen_one(self, team: dict)` (method)

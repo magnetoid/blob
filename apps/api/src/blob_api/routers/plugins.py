@@ -61,6 +61,10 @@ class PluginOut(CamelModel):
     #: screen lists. Non-empty exactly while the app is parked in `needs_review`.
     pending_scopes: list[str] = []
     bot_user_id: str | None = None
+    #: Whose agent this is, or None for the workspace's own. Decides who may command it:
+    #: an unowned agent answers everybody, an owned one answers its owner and whoever
+    #: they have lent it to.
+    owner_user_id: str | None = None
     last_error: str | None = None
     created_at: str
     updated_at: str
@@ -276,6 +280,7 @@ async def _build_plugin(
         scopes=scopes,
         pending_scopes=list(getattr(row, "pending_scopes", None) or []),
         bot_user_id=bot_id,
+        owner_user_id=getattr(row, "owner_user_id", None),
         last_error=row.last_error,
         created_at=iso(row.created_at),
         updated_at=iso(row.updated_at),
@@ -448,6 +453,60 @@ async def _assert_within_policy(
     if policy.max_apps is not None:
         if await policy_service.app_count(session, workspace_id) >= policy.max_apps:
             raise policy_service.refuse_app_limit(policy.max_apps)
+
+
+class AgentOwnerInput(CamelModel):
+    #: Whose agent this is, or null to hand it back to the workspace.
+    user_id: str | None = None
+
+
+@router.put("/{plugin_id}/owner", response_model=OkOut)
+async def set_agent_owner(
+    plugin_id: IdParam,
+    payload: AgentOwnerInput,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> OkOut:
+    """Give an agent to a person, or hand it back to the workspace.
+
+    Ownership is Blob's fact about an install, not something the app declares — an app
+    cannot name its own owner any more than it can grant itself a scope — so it is its own
+    route rather than a field on the manifest.
+
+    Owned means it answers that person and whoever they lend it to. Unowned means it
+    answers everybody, which is what the workspace's own assistant should do.
+    """
+    async with transaction() as (session, _after):
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        if payload.user_id is not None:
+            member = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT id FROM users
+                         WHERE id = :id AND workspace_id = :ws
+                           AND deactivated_at IS NULL AND kind = 'human'
+                        """
+                    ),
+                    {"id": payload.user_id, "ws": admin.workspace_id},
+                )
+            ).fetchone()
+            if member is None:
+                raise bad_request("That person is not in this workspace.")
+
+        await session.execute(
+            text("UPDATE plugins SET owner_user_id = :owner WHERE id = :id AND workspace_id = :ws"),
+            {"owner": payload.user_id, "id": plugin_id, "ws": admin.workspace_id},
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.owner_changed",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"ownerUserId": payload.user_id},
+        )
+    return OkOut()
 
 
 @router.put("/{plugin_id}", response_model=PluginOut)

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T07:26:43'
-updated: '2026-09-04T07:26:43'
+created: '2026-09-04T17:42:51'
+updated: '2026-09-04T17:42:51'
 ---
 
 # apps/api/tests/test_app_commands.py
@@ -38,3 +38,9 @@ Symbols in `apps/api/tests/test_app_commands.py`.
 - L349 `test_the_same_deferred_answer_twice_posts_once(team: dict, fake_app: FakeApp)` (function)
 - L367 `test_two_different_deferred_answers_both_post(team: dict, fake_app: FakeApp)` (function)
 - L384 `test_a_forged_response_url_is_refused(team: dict)` (function)
+- L392 `TestAnOwnedAppsCommands` (class) — Ownership has to cover the slash command, or it covers nothing.
+- L401 `give_to(plugin_id: str, user_id: str)` (method)
+- L409 `test_the_owner_can_still_run_it(self, team: dict, fake_app: FakeApp)` (method)
+- L419 `test_somebody_else_cannot(self, team: dict, fake_app: FakeApp)` (method)
+- L432 `test_it_leaves_their_composer_list(self, team: dict, fake_app: FakeApp)` (method)
+- L445 `test_lending_it_puts_the_command_back(self, team: dict, fake_app: FakeApp)` (method)

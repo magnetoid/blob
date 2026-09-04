@@ -772,3 +772,33 @@ and refollowing does not present a thread you have read as new), and `threads_fo
 compares the newest reply id against the cursor as a string, the same trick the channel
 list uses. Reading a thread advances the cursor and deliberately does **not** subscribe
 you — looking is not asking to be told about it for ever.
+
+## Trap: asyncpg cannot type a parameter it only sees in `IS NULL`
+
+`AND (channel_id IS NULL OR :channel_id IS NULL OR channel_id = :channel_id)` fails at
+runtime with "could not determine data type of parameter $3" — the equality gives it a
+type, but the `IS NULL` arm is checked first and there is nothing to infer from. Cast it:
+`cast(:channel_id AS uuid) IS NULL`. Same family as the `timestamptz` trap already here,
+and the same fix.
+
+## Agent ownership: what the two shapes mean
+
+`plugins.owner_user_id` NULL means the workspace's agent — installed by an admin,
+answering anyone who mentions it. Set, it means one person's, answering them and whoever
+`agent_delegations` says. Both gates live in `jobs/agui.py` and are different questions:
+the older one asks whether a *machine* may start a run (only a human message triggers one,
+which is the loop guard), and this one whether this *person* may command this agent.
+
+A refusal is **silence**, deliberately. Telling the channel "that is not your agent" makes
+an owned agent's existence and its owner discoverable by anyone who guesses a name, and the
+mention is already visible to everybody — the person who tried can see nothing happened.
+
+## Trap: a second FK between `users` and `plugins` needs `use_alter`
+
+The two tables reference each other — a bot belongs to a plugin, a plugin was installed by
+someone — so `Plugin.installed_by` has carried `use_alter=True` since it was added.
+`owner_user_id` was written without it and SQLAlchemy immediately answered "unresolvable
+cycles between tables plugins, users … foreign key constraints involving these tables will
+not be considered", which surfaces as a warning during `alembic check` and nowhere else.
+Any further FK across that pair needs `use_alter=True` too. Migrations are unaffected;
+this is about metadata-level DDL ordering, not the database.

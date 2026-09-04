@@ -34,6 +34,24 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-04',
+    title: 'Whose agent it is',
+    entries: [
+      {
+        kind: 'added',
+        text: 'An agent can belong to somebody. Until now every installed agent was everybody\'s — any member could mention any of them and it answered, which is right for the assistant the workspace shares and wrong for a personal one. An agent with an owner now answers its owner and nobody else, and the refusal is silence rather than an announcement, because saying "that is not your agent" would tell the room whose it is.',
+      },
+      {
+        kind: 'added',
+        text: '`/allow @agent @name` lends your agent to somebody in this channel, and `/disallow` takes it back. The grant is per channel, so an agent lent for one project is not lent everywhere; `/allow @agent` on its own lists who can command it here.',
+      },
+      {
+        kind: 'added',
+        text: 'Manage workspace → Apps & agents now says who owns each agent, and an admin sets it there. Leaving it as the workspace is what the shared assistant wants — everybody can reach it, which is the whole point of the one everybody works with.',
+      },
+    ],
+  },
+  {
     date: '2026-09-03',
     title: 'Six things that said one thing and did another',
     entries: [

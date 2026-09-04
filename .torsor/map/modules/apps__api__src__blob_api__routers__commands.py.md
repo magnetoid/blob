@@ -4,17 +4,17 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T07:26:42'
-updated: '2026-09-04T07:26:42'
+created: '2026-09-04T17:42:50'
+updated: '2026-09-04T17:42:50'
 ---
 
 # apps/api/src/blob_api/routers/commands.py
 
 Symbols in `apps/api/src/blob_api/routers/commands.py`.
 
-- L46 `CommandOut` (class) — What the invoker sees.
-- L61 `_response_url(token: str)` (function)
-- L66 `run_command(payload: RunCommandInput, user: SessionUser=Depends(current_user))` (function)
-- L289 `_run_app_command(payload: RunCommandInput, user: SessionUser, *, name: str, args: str)` (function) — Ask an app, then write whatever it said.
-- L354 `_post_as_bot(*, workspace_id: str, channel_id: str, bot_user_id: str, body: str, client_msg_id: str)` (function) — Write an app's in-channel answer, then broadcast it once committed.
-- L386 `deferred_response(token: str, body: dict[str, object])` (function) — An app answering a command it took too long to answer inline.
+- L47 `CommandOut` (class) — What the invoker sees.
+- L62 `_response_url(token: str)` (function)
+- L67 `run_command(payload: RunCommandInput, user: SessionUser=Depends(current_user))` (function)
+- L290 `_run_app_command(payload: RunCommandInput, user: SessionUser, *, name: str, args: str)` (function) — Ask an app, then write whatever it said.
+- L371 `_post_as_bot(*, workspace_id: str, channel_id: str, bot_user_id: str, body: str, client_msg_id: str)` (function) — Write an app's in-channel answer, then broadcast it once committed.
+- L403 `deferred_response(token: str, body: dict[str, object])` (function) — An app answering a command it took too long to answer inline.

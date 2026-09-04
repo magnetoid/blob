@@ -176,6 +176,8 @@ export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
           'agents',
           'github',
           'commands',
+          'owner',
+          'personal agent',
         ],
       },
       {

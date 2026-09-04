@@ -11,6 +11,7 @@
 import { useCallback, useState } from "react";
 import { api, type AdminPlugin, type AppChannel } from "../../../lib/api.ts";
 import { navigate } from "../../../lib/router.ts";
+import { useStore } from "../../../lib/store.ts";
 import { useAdminAction, useAdminData } from "../hooks.ts";
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
 export function AppSettings({ pluginId, onError }: Props) {
   const [plugin, setPlugin] = useState<AdminPlugin | null>(null);
   const [channels, setChannels] = useState<AppChannel[]>([]);
+  const users = useStore((s) => s.users);
 
   const load = useCallback(async () => {
     const [all, listed] = await Promise.all([
@@ -46,6 +48,18 @@ export function AppSettings({ pluginId, onError }: Props) {
 
   const endpoint = plugin.aguiUrl ?? plugin.requestUrl;
   const joined = channels.filter((channel) => channel.joined);
+  // Bots cannot own an agent — the server refuses one, and offering it here would be a
+  // control that only ever produces an error.
+  const owner = plugin.ownerUserId ? users[plugin.ownerUserId] : undefined;
+  const people = Object.values(users)
+    // A deactivated owner still has to appear, or the select falls back to its first
+    // option and the screen claims the workspace owns an agent that it does not.
+    .filter(
+      (person) =>
+        person.kind !== "bot" &&
+        (!person.deactivated || person.id === plugin.ownerUserId),
+    )
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 26 }}>
@@ -122,6 +136,36 @@ export function AppSettings({ pluginId, onError }: Props) {
             </div>
           ))}
         </div>
+      </div>
+
+      <div>
+        <h3 className="section-label">Owner</h3>
+        <div className="pref-hint" style={{ marginBottom: 10 }}>
+          {plugin.ownerUserId
+            ? `Only ${owner?.displayName ?? "its owner"} can command this agent, plus anyone they lend it to with /allow. Mentioning it does nothing for everybody else.`
+            : "Nobody owns this agent, so anyone can mention it and get an answer — which is what the assistant a workspace shares should do."}
+        </div>
+        <select
+          className="input"
+          style={{ maxWidth: 280 }}
+          aria-label={`Owner of ${plugin.name}`}
+          value={plugin.ownerUserId ?? ""}
+          onChange={(event) =>
+            void act(() =>
+              api.admin.setPluginOwner(pluginId, event.target.value || null),
+            )
+          }
+        >
+          <option value="">The workspace — anyone can use it</option>
+          {plugin.ownerUserId && !owner && (
+            <option value={plugin.ownerUserId}>Someone no longer here</option>
+          )}
+          {people.map((person) => (
+            <option key={person.id} value={person.id}>
+              {person.displayName}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>

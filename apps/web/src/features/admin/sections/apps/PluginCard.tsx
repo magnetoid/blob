@@ -9,6 +9,7 @@ import {
   type AdminPluginDelivery,
   type AdminPluginDeliveryDetail,
 } from "../../../../lib/api.ts";
+import { useStore } from "../../../../lib/store.ts";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
 import { AgentDeployment } from "../../AgentDeployment.tsx";
 
@@ -47,6 +48,9 @@ export function PluginCard({
   onUninstall: () => void;
 }) {
   const enabled = plugin.status === "enabled";
+  const owner = useStore((state) =>
+    plugin.ownerUserId ? state.users[plugin.ownerUserId] : undefined,
+  );
   return (
     <div className="admin-plugin-card">
       <div className="admin-row">
@@ -82,6 +86,17 @@ export function PluginCard({
                 }
               >
                 {plugin.online ? "connected" : "not connected"}
+              </span>
+            )}
+            {/* Whose it is, where the list is scanned rather than read: an owned agent
+                answers one person, and that is the difference between "quiet" and
+                "not yours". Absent for the workspace's own, which is most of them. */}
+            {plugin.ownerUserId && (
+              <span
+                className="role-pill"
+                title="Only its owner, and whoever they lend it to, can command this agent"
+              >
+                {owner ? `${owner.displayName}’s` : "personal"}
               </span>
             )}
             {plugin.events.map((eventName) => (

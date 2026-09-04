@@ -146,6 +146,9 @@ grant scopes explicitly, and both end up as a real member of the workspace.
 
 - **Agents as members** — mention one in a channel or DM it. A card under your message
   shows the plan, the step it is on and a Stop button while it runs.
+- **Whose agent it is** — an agent with no owner is the workspace's and answers anyone; an
+  agent with an owner answers that person, and whoever they lend it to with `/allow` in a
+  given channel. That is what makes a personal assistant personal.
 - **Where an agent runs is a manifest field.** `external` is an HTTPS endpoint you host;
   `container` is one Blob deploys from a repository; `socket` dials in from a laptop
   behind NAT and needs no address at all; `builtin` is the agent Blob runs itself. (A

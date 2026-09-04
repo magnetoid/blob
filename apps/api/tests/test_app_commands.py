@@ -27,7 +27,7 @@ from blob_api.plugins import registry
 from blob_api.plugins.manifest import CommandDecl, Manifest
 from blob_api.services import commands as command_service
 
-from .helpers import Client, client_msg_id, sign_up
+from .helpers import Client, client_msg_id, invite_and_sign_up, sign_up
 
 
 @dataclass(slots=True)
@@ -386,3 +386,81 @@ async def test_a_forged_response_url_is_refused(team: dict) -> None:
         "/api/hooks/commands/not-a-real-token", {"text": "I am not an app."}
     )
     assert response.status == 400
+
+
+# ─── whose app it is ──────────────────────────────────────────────────────────
+class TestAnOwnedAppsCommands:
+    """Ownership has to cover the slash command, or it covers nothing.
+
+    An owned agent answers only its owner when mentioned. If `/deploy` still ran for
+    anybody who typed it, the rule would be bypassable by reading the composer's list —
+    which offers every app command in the workspace.
+    """
+
+    @staticmethod
+    async def give_to(plugin_id: str, user_id: str) -> None:
+        async with SessionFactory() as session:
+            async with session.begin():
+                await session.execute(
+                    text("UPDATE plugins SET owner_user_id = :u WHERE id = :p"),
+                    {"u": user_id, "p": plugin_id},
+                )
+
+    async def test_the_owner_can_still_run_it(self, team: dict, fake_app: FakeApp) -> None:
+        plugin_id = await install_app(team["owner"], port=fake_app.port)
+        await add_bot_to_channel(plugin_id, team["general"]["id"])
+        await self.give_to(plugin_id, team["owner"].user_id)
+        fake_app.reply = json.dumps({"text": "Deploying."}).encode()
+
+        answered = await run(team["owner"], team["general"]["id"], "/deploy web")
+
+        assert "Deploying." in answered["ephemeral"]
+
+    async def test_somebody_else_cannot(self, team: dict, fake_app: FakeApp) -> None:
+        member = await invite_and_sign_up(team["owner"], "Member")
+        plugin_id = await install_app(team["owner"], port=fake_app.port)
+        await add_bot_to_channel(plugin_id, team["general"]["id"])
+        await self.give_to(plugin_id, team["owner"].user_id)
+
+        answered = await run(member, team["general"]["id"], "/deploy web")
+
+        # Word for word what an unclaimed name answers, so which apps a workspace has
+        # cannot be enumerated by watching which refusal comes back.
+        assert "isn't a command here" in answered["ephemeral"]
+        assert fake_app.requests == []
+
+    async def test_it_leaves_their_composer_list(self, team: dict, fake_app: FakeApp) -> None:
+        # Offering a command that will answer "isn't a command here" is worse than not
+        # offering it: the person reads the list as what they can do.
+        member = await invite_and_sign_up(team["owner"], "Member")
+        plugin_id = await install_app(team["owner"], port=fake_app.port)
+        await self.give_to(plugin_id, team["owner"].user_id)
+
+        mine = (await team["owner"].get("/api/bootstrap")).body["commands"]
+        theirs = (await member.get("/api/bootstrap")).body["commands"]
+
+        assert "deploy" in [c["name"] for c in mine]
+        assert "deploy" not in [c["name"] for c in theirs]
+
+    async def test_lending_it_puts_the_command_back(self, team: dict, fake_app: FakeApp) -> None:
+        member = await invite_and_sign_up(team["owner"], "Member")
+        plugin_id = await install_app(team["owner"], port=fake_app.port)
+        await add_bot_to_channel(plugin_id, team["general"]["id"])
+        await self.give_to(plugin_id, team["owner"].user_id)
+        bot_name = None
+        async with SessionFactory() as session:
+            row = (
+                await session.execute(
+                    text("SELECT display_name FROM users WHERE bot_plugin_id = :p"),
+                    {"p": plugin_id},
+                )
+            ).fetchone()
+            bot_name = None if row is None else row.display_name
+        assert bot_name
+
+        await run(team["owner"], team["general"]["id"], f"/allow @{bot_name} @Member")
+        fake_app.reply = json.dumps({"text": "Deploying."}).encode()
+
+        answered = await run(member, team["general"]["id"], "/deploy web")
+
+        assert "Deploying." in answered["ephemeral"]

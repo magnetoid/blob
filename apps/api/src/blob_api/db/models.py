@@ -1021,6 +1021,19 @@ class Plugin(Base):
     workspace_id: Mapped[str] = mapped_column(
         UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
     )
+    #: Whose agent this is, or NULL for the workspace's own.
+    #:
+    #: The difference decides who may command it. An agent with no owner is everybody's —
+    #: the workspace assistant, installed by an admin, answering anyone who mentions it.
+    #: An agent with an owner answers that person, and whoever they have said may use it.
+    #: Set to NULL rather than cascading on delete: an owner leaving turns their agent
+    #: into an unowned one an admin can see and remove, not a row that silently vanishes.
+    #: use_alter for the same reason `installed_by` below has it: this is the second
+    #: edge of the users/plugins cycle, and without it SQLAlchemy cannot sort the two
+    #: tables at all — it drops every foreign key between them and says so in a warning.
+    owner_user_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL", use_alter=True)
+    )
     slug: Mapped[str] = mapped_column(Text, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
@@ -1110,6 +1123,53 @@ class PluginGrant(Base):
         UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
     )
     granted_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class AgentDelegation(Base):
+    """Somebody the owner has let command their agent.
+
+    An owned agent answers its owner and nobody else, which is the point of owning one —
+    a personal assistant that takes instructions from the room is not personal. This is
+    how that rule bends without breaking: the owner names a person, optionally in one
+    channel only, and it can be taken back.
+
+    Rows are kept and revoked rather than deleted, so "who could command this, and when"
+    stays answerable. The partial unique index is on the live ones only, which is what
+    lets the same pair be granted again after a revoke.
+    """
+
+    __tablename__ = "agent_delegations"
+    __table_args__ = (
+        Index(
+            "agent_delegations_live",
+            "plugin_id",
+            "grantee_user_id",
+            "channel_id",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL"),
+        ),
+        Index("agent_delegations_grantee", "grantee_user_id"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
+    )
+    grantee_user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    #: One channel, or NULL for anywhere the agent already is.
+    channel_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE")
+    )
+    granted_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    revoked_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
 class BotToken(Base):

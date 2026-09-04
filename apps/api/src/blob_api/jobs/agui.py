@@ -36,6 +36,7 @@ from ..plugins import events as plugin_events
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub, presence
 from ..realtime.protocol import TYPING_TTL_MS
+from ..services import agent_access
 from ..services import agent_runs as agent_run_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
@@ -363,6 +364,33 @@ async def _run(message_id: str) -> None:
             # of habit, and it must not answer twice for one message.
             listeners = [*listeners, personal]
 
+        if not listeners:
+            return
+
+        # Whose agent is it? An agent with no owner is the workspace's and answers anyone;
+        # an owned one answers its owner and whoever they have lent it to. This is a
+        # second gate beside the loop guard above, and a different question: that one asks
+        # whether a *machine* may start a run, this one whether this *person* may.
+        #
+        # A refusal is silence, deliberately. Telling the room "that is not your agent"
+        # would make an owned agent's existence, and its owner, discoverable by anyone who
+        # guessed a name — and the mention itself is already visible to everybody, so the
+        # person who tried can see perfectly well that nothing happened.
+        allowed_bots = await agent_access.commandable_by(
+            session,
+            workspace_id=trigger.workspace_id,
+            actor_id=trigger.author_id,
+            channel_id=trigger.channel_id,
+            bot_user_ids=[known.bot_user_id for known in listeners],
+        )
+        for known in [k for k in listeners if k.bot_user_id not in allowed_bots]:
+            log.info(
+                "agui: %s may not command agent %s in %s",
+                trigger.author_id,
+                known.plugin_id,
+                trigger.channel_id,
+            )
+        listeners = [known for known in listeners if known.bot_user_id in allowed_bots]
         if not listeners:
             return
 

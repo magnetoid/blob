@@ -388,6 +388,23 @@
         "title": "AdminUsersOut",
         "type": "object"
       },
+      "AgentOwnerInput": {
+        "properties": {
+          "userId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Userid"
+          }
+        },
+        "title": "AgentOwnerInput",
+        "type": "object"
+      },
       "AgentRunOut": {
         "properties": {
           "channelId": {
@@ -2591,6 +2608,19 @@
         "title": "FeedbackTicket",
         "type": "object"
       },
+      "FollowThreadInput": {
+        "properties": {
+          "following": {
+            "title": "Following",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "following"
+        ],
+        "title": "FollowThreadInput",
+        "type": "object"
+      },
       "ForgotPasswordInput": {
         "properties": {
           "email": {
@@ -3849,6 +3879,17 @@
               }
             ],
             "title": "Online"
+          },
+          "ownerUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owneruserid"
           },
           "pendingDeliveries": {
             "default": 0,
@@ -5296,6 +5337,19 @@
         "title": "ThemesOut",
         "type": "object"
       },
+      "ThreadFollowOut": {
+        "properties": {
+          "following": {
+            "title": "Following",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "following"
+        ],
+        "title": "ThreadFollowOut",
+        "type": "object"
+      },
       "ThreadSummary": {
         "properties": {
           "actionItems": {
@@ -5440,6 +5494,30 @@
           "text"
         ],
         "title": "ThreadSummaryDecision",
+        "type": "object"
+      },
+      "ThreadsOut": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "unreadRootIds": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Unreadrootids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "title": "ThreadsOut",
         "type": "object"
       },
       "TicketOut": {
@@ -6952,6 +7030,50 @@
           }
         },
         "summary": "Archive Any Channel",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/channels/{channel_id}/unarchive": {
+      "post": {
+        "description": "Reopen an archived channel.\n\nArchiving had no undo anywhere: no route, no command, no console button, and nothing\nin the repository that set `archived_at` back to null. The history was intact the\nwhole time and simply unreachable for writing, which made a reversible decision\npermanent by omission.",
+        "operationId": "unarchive_any_channel_api_admin_channels__channel_id__unarchive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unarchive Any Channel",
         "tags": [
           "admin"
         ]
@@ -8827,6 +8949,60 @@
         ]
       }
     },
+    "/api/admin/plugins/{plugin_id}/owner": {
+      "put": {
+        "description": "Give an agent to a person, or hand it back to the workspace.\n\nOwnership is Blob's fact about an install, not something the app declares \u2014 an app\ncannot name its own owner any more than it can grant itself a scope \u2014 so it is its own\nroute rather than a field on the manifest.\n\nOwned means it answers that person and whoever they lend it to. Unowned means it\nanswers everybody, which is what the workspace's own assistant should do.",
+        "operationId": "set_agent_owner_api_admin_plugins__plugin_id__owner_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentOwnerInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Agent Owner",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/plugins/{plugin_id}/redeploy": {
       "post": {
         "operationId": "redeploy_api_admin_plugins__plugin_id__redeploy_post",
@@ -10270,6 +10446,7 @@
     },
     "/api/channels/{channel_id}/archive": {
       "post": {
+        "description": "Close a channel. Admins only \u2014 the client has always said so; this enforces it.",
         "operationId": "archive_channel_api_channels__channel_id__archive_post",
         "parameters": [
           {
@@ -10849,6 +11026,50 @@
         "summary": "Schedule Message",
         "tags": [
           "messages"
+        ]
+      }
+    },
+    "/api/channels/{channel_id}/unarchive": {
+      "post": {
+        "description": "Open an archived channel again.\n\nArchiving had no undo anywhere in the product \u2014 no route, no command, no console\ncontrol, and nothing that set `archived_at` back to null. That made a reversible\ndecision permanent by omission: the history was intact the whole time and simply\nunreachable for writing.",
+        "operationId": "unarchive_channel_api_channels__channel_id__unarchive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unarchive Channel",
+        "tags": [
+          "channels"
         ]
       }
     },
@@ -12003,6 +12224,145 @@
         ]
       }
     },
+    "/api/messages/{message_id}/thread/following": {
+      "get": {
+        "operationId": "thread_following_api_messages__message_id__thread_following_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadFollowOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Thread Following",
+        "tags": [
+          "messages"
+        ]
+      },
+      "put": {
+        "description": "Follow a thread, or stop following one.\n\nReplying has always subscribed you and nothing could unsubscribe you: the `muted`\ncolumn existed from the first migration and no code ever wrote it. This is the write.",
+        "operationId": "set_thread_following_api_messages__message_id__thread_following_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowThreadInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadFollowOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Thread Following",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/messages/{message_id}/thread/read": {
+      "post": {
+        "description": "Move the thread's read cursor to its newest reply.",
+        "operationId": "mark_thread_read_api_messages__message_id__thread_read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Thread Read",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/messages/{message_id}/translate": {
       "post": {
         "operationId": "translate_message_api_messages__message_id__translate_post",
@@ -12504,14 +12864,14 @@
     },
     "/api/threads": {
       "get": {
-        "description": "Threads the user started or replied to \u2014 the sidebar's Threads view.",
+        "description": "Threads you follow \u2014 the sidebar's Threads view.",
         "operationId": "list_threads_api_threads_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessagesOut"
+                  "$ref": "#/components/schemas/ThreadsOut"
                 }
               }
             },

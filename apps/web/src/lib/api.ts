@@ -198,6 +198,13 @@ export interface AdminPlugin {
   /** The subset of `scopes` still awaiting approval — what the consent screen lists. */
   pendingScopes: string[];
   botUserId: string | null;
+  /**
+   * Whose agent this is, or null for the workspace's own.
+   *
+   * Unowned answers everybody, which is what the shared assistant should do. Owned
+   * answers its owner and whoever they have lent it to with `/allow`.
+   */
+  ownerUserId: string | null;
   lastError: string | null;
   createdAt: string;
   updatedAt: string;
@@ -857,6 +864,9 @@ export const api = {
       post<AdminPlugin>(`/api/admin/plugins/${pluginId}/decline`),
     setPluginEnabled: (pluginId: string, enabled: boolean) =>
       post<AdminPlugin>(`/api/admin/plugins/${pluginId}/enabled`, { enabled }),
+    /** Give an agent to a person, or pass null to hand it back to the workspace. */
+    setPluginOwner: (pluginId: string, userId: string | null) =>
+      put<{ ok: true }>(`/api/admin/plugins/${pluginId}/owner`, { userId }),
     setPluginBudget: (
       pluginId: string,
       budget: { runsPerDay: number | null; secondsPerDay: number | null },

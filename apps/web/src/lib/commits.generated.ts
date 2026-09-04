@@ -11,6 +11,41 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "a8556752f55f17b3380436df73adc2ce1375d218",
+    "shortSha": "a855675",
+    "subject": "Let a thread be left, and a channel be reopened",
+    "date": "2026-09-04T13:30:48+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "40461d54fa369c170905914f2b0374422b6ccf4d",
+    "shortSha": "40461d5",
+    "subject": "Read the bits that were only ever written",
+    "date": "2026-09-04T07:26:21+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "3a3efcfccd6b1aca5fa8445e758591fa01f790f9",
+    "shortSha": "3a3efcf",
+    "subject": "Rebuild the README, and make three of its claims true",
+    "date": "2026-09-03T05:08:44+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "1c4636df221e05e56413b39ca9ac469d204dbe81",
+    "shortSha": "1c4636d",
+    "subject": "Let the map catch up with the guide's parity test",
+    "date": "2026-09-03T01:06:54+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "f9305d03ba7d6751465fcba651c373c2a05a7526",
+    "shortSha": "f9305d0",
+    "subject": "Answer \"how does this work?\" inside the app",
+    "date": "2026-09-02T23:41:57+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "f48ec3a1d48fbf451816a5a1ce70033f1280fb6c",
     "shortSha": "f48ec3a",
     "subject": "Fix twenty-three defects an adversarial review found in today's work",
@@ -393,41 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "bd2c806",
     "subject": "Give the icons one scale instead of thirty-seven opinions",
     "date": "2026-08-31T20:43:43+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "79eb2d6312134d691e964c0fd5ab2ded0cb066b2",
-    "shortSha": "79eb2d6",
-    "subject": "Let arrows walk the conversation",
-    "date": "2026-08-31T20:33:25+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e2ad1a0e716bac4a3d5846b750efe0de095b04cc",
-    "shortSha": "e2ad1a0",
-    "subject": "Add forwarding a message to another conversation",
-    "date": "2026-08-31T20:23:20+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "3e1e218a54eef87c0945970a14a2ee82256bb79d",
-    "shortSha": "3e1e218",
-    "subject": "Send queued messages when the network returns, not when the socket notices",
-    "date": "2026-08-31T19:39:41+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "9cbc4e28c0ae97962e3e1374ae752e9f7decbe71",
-    "shortSha": "9cbc4e2",
-    "subject": "Warn that torsor verify's staleness stage is the workspace layout, not rot",
-    "date": "2026-08-31T19:34:46+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "7326f5ec9c4c757d6dc5fa469415a2f39241d57e",
-    "shortSha": "7326f5e",
-    "subject": "Stop the flex column crushing the virtualizer's spacer",
-    "date": "2026-08-31T18:46:02+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

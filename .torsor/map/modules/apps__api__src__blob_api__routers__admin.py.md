@@ -4,43 +4,44 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T07:26:42'
-updated: '2026-09-04T07:26:42'
+created: '2026-09-04T17:42:50'
+updated: '2026-09-04T17:42:50'
 ---
 
 # apps/api/src/blob_api/routers/admin.py
 
 Symbols in `apps/api/src/blob_api/routers/admin.py`.
 
-- L41 `AdminUser` (class) — Richer than the public `User`, which deliberately omits email.
-- L58 `AdminUsersOut` (class)
-- L63 `RoleInput` (class)
-- L67 `AdminChannel` (class)
-- L80 `AdminChannelsOut` (class)
-- L84 `AdminInvite` (class)
-- L98 `AdminInvitesOut` (class)
-- L102 `AuditOut` (class)
-- L106 `WorkspaceSettingsOut` (class)
-- L112 `SettingsInput` (class)
-- L117 `HealthOut` (class)
-- L128 `OkOut` (class)
-- L132 `WebhookOut` (class)
-- L142 `WebhooksOut` (class)
-- L146 `CreateWebhookInput` (class)
-- L153 `list_users(q: str | None=None, include_deactivated: bool=True, limit: Annotated[int, Query(ge=1, le=200)]=100, offset: Annotated[int, Query(ge=0)]=0, admin: SessionUser=Depends(require_admin))` (function)
-- L221 `set_role(user_id: IdParam, payload: RoleInput, request: Request, owner: SessionUser=Depends(require_owner))` (function) — Only an owner changes roles, and ownership transfers rather than duplicates.
-- L284 `deactivate(user_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L339 `reactivate(user_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L395 `revoke_sessions(user_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function) — Sign someone out of every device without disabling their account.
-- L428 `list_invites(admin: SessionUser=Depends(require_admin))` (function)
-- L477 `require_iso_now()` (function)
-- L483 `revoke_invite(invite_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L513 `list_all_channels(admin: SessionUser=Depends(require_admin))` (function) — Every channel, including private ones the admin is not a member of.
-- L558 `archive_any_channel(channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L592 `audit_log(actor_id: str | None=None, action: str | None=None, before: str | None=None, limit: Annotated[int, Query(ge=1, le=200)]=50, admin: SessionUser=Depends(require_admin))` (function)
-- L613 `get_settings(admin: SessionUser=Depends(require_admin))` (function)
-- L634 `update_settings(payload: SettingsInput, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L689 `health(admin: SessionUser=Depends(require_admin))` (function)
-- L737 `list_webhooks(admin: SessionUser=Depends(require_admin))` (function)
-- L765 `create_webhook(payload: CreateWebhookInput, request: Request, admin: SessionUser=Depends(require_admin))` (function) — The URL comes back once. The raw token is never recoverable afterwards.
-- L823 `revoke_webhook(webhook_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L42 `AdminUser` (class) — Richer than the public `User`, which deliberately omits email.
+- L59 `AdminUsersOut` (class)
+- L64 `RoleInput` (class)
+- L68 `AdminChannel` (class)
+- L81 `AdminChannelsOut` (class)
+- L85 `AdminInvite` (class)
+- L99 `AdminInvitesOut` (class)
+- L103 `AuditOut` (class)
+- L107 `WorkspaceSettingsOut` (class)
+- L113 `SettingsInput` (class)
+- L118 `HealthOut` (class)
+- L129 `OkOut` (class)
+- L133 `WebhookOut` (class)
+- L143 `WebhooksOut` (class)
+- L147 `CreateWebhookInput` (class)
+- L154 `list_users(q: str | None=None, include_deactivated: bool=True, limit: Annotated[int, Query(ge=1, le=200)]=100, offset: Annotated[int, Query(ge=0)]=0, admin: SessionUser=Depends(require_admin))` (function)
+- L222 `set_role(user_id: IdParam, payload: RoleInput, request: Request, owner: SessionUser=Depends(require_owner))` (function) — Only an owner changes roles, and ownership transfers rather than duplicates.
+- L285 `deactivate(user_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L340 `reactivate(user_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L396 `revoke_sessions(user_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function) — Sign someone out of every device without disabling their account.
+- L429 `list_invites(admin: SessionUser=Depends(require_admin))` (function)
+- L478 `require_iso_now()` (function)
+- L484 `revoke_invite(invite_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L514 `list_all_channels(admin: SessionUser=Depends(require_admin))` (function) — Every channel, including private ones the admin is not a member of.
+- L559 `archive_any_channel(channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L594 `unarchive_any_channel(channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function) — Reopen an archived channel.
+- L635 `audit_log(actor_id: str | None=None, action: str | None=None, before: str | None=None, limit: Annotated[int, Query(ge=1, le=200)]=50, admin: SessionUser=Depends(require_admin))` (function)
+- L656 `get_settings(admin: SessionUser=Depends(require_admin))` (function)
+- L677 `update_settings(payload: SettingsInput, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L732 `health(admin: SessionUser=Depends(require_admin))` (function)
+- L780 `list_webhooks(admin: SessionUser=Depends(require_admin))` (function)
+- L808 `create_webhook(payload: CreateWebhookInput, request: Request, admin: SessionUser=Depends(require_admin))` (function) — The URL comes back once. The raw token is never recoverable afterwards.
+- L866 `revoke_webhook(webhook_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)

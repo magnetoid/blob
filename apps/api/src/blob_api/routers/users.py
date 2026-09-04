@@ -116,7 +116,7 @@ async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
         ).fetchall()
         channels = await channel_service.list_for_user(session, user.id, user.workspace_id)
         themes = await theme_service.list_themes(session, user.workspace_id)
-        app_commands = await command_service.app_specs(session, user.workspace_id)
+        app_commands = await command_service.app_specs(session, user.workspace_id, user.id)
         saved_ids = await message_service.saved_message_ids(session, user.id)
         groups = await group_service.list_for_workspace(session, user.workspace_id)
         my_group_ids = await group_service.group_ids_for_user(session, user.id)

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T07:26:41'
-updated: '2026-09-04T07:26:41'
+created: '2026-09-04T17:42:50'
+updated: '2026-09-04T17:42:50'
 ---
 
 # Repository Map
@@ -114,7 +114,10 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0024_recurring_schedules.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 38 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0025_agent_ownership.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 39 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -176,8 +179,4 @@ Modules and their key symbols (ranked by references).
   - `model_name()` (function)
   - `_collapse(turns: Sequence[Turn])` (function)
   - `_stream_sse(url: str, headers: Mapping[str, str], body: dict[str, object])` (function)
-- **apps/api/src/blob_api/lib/logbuf.py** — 11 symbol(s)
-  - `_discard_client()` (function)
-  - `_redis()` (function)
-  - `close_log_buffer()` (function)
-  - `_entry_for(…[truncated]
+- **apps/api/src/blob_api…[truncated]

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T07:26:43'
-updated: '2026-09-04T07:26:43'
+created: '2026-09-04T17:42:51'
+updated: '2026-09-04T17:42:51'
 ---
 
 # apps/api/src/blob_api/services/messages.py
@@ -31,5 +31,8 @@ Symbols in `apps/api/src/blob_api/services/messages.py`.
 - L688 `saved_message_ids(session: AsyncSession, user_id: str, limit: int=500)` (function) — Just the ids, for the boot payload.
 - L716 `add_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str)` (function)
 - L732 `remove_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str)` (function)
-- L748 `threads_for_user(session: AsyncSession, user_id: str, limit: int=30)` (function) — Threads the user started or replied to, most recently active first.
-- L772 `announce(session: AsyncSession, after: Any, result: SendResult, *, workspace_id: str, channel_id: str)` (function) — Everything that has to happen because a message now exists.
+- L748 `threads_for_user(session: AsyncSession, user_id: str, limit: int=30)` (function) — Threads you follow, most recently active first, and which of them have new replies.
+- L791 `thread_following(session: AsyncSession, user_id: str, root_id: str)` (function) — Whether this person is following that thread.
+- L807 `set_thread_following(session: AsyncSession, user_id: str, root_id: str, following: bool)` (function) — Follow a thread, or stop.
+- L838 `mark_thread_read(session: AsyncSession, user_id: str, root_id: str)` (function) — Move the thread's read cursor to its newest reply.
+- L866 `announce(session: AsyncSession, after: Any, result: SendResult, *, workspace_id: str, channel_id: str)` (function) — Everything that has to happen because a message now exists.

@@ -34,6 +34,7 @@ from ..lib.mentions import simple_lower
 from ..realtime import presence
 from ..schemas.models import ChannelWithState, Message, User
 from ..schemas.requests import ChannelNameMixin
+from . import agent_access
 from . import channels as channel_service
 from . import messages as message_service
 from . import reminders as reminder_service
@@ -295,6 +296,113 @@ async def _invite(ctx: CommandContext) -> CommandResult:
         ephemeral=f"Added {len(joining)} {'person' if len(joining) == 1 else 'people'}.",
         added_user_ids=joining,
     )
+
+
+async def _agent_owner_and_bot(ctx: CommandContext, user_ids: list[str]) -> tuple[str, str] | str:
+    """Split `@agent @person…` into the agent's plugin and the rest, or say what is wrong.
+
+    The first name has to be an agent and it has to be yours. Both refusals are worded for
+    somebody who mistyped rather than somebody probing: the workspace's own agent needs no
+    lending because it already answers everyone, and an agent you do not own is not yours
+    to lend.
+    """
+    first = user_ids[0]
+    row = (
+        await ctx.session.execute(
+            text(
+                """
+                SELECT p.id AS plugin_id, p.owner_user_id, u.display_name
+                  FROM users u JOIN plugins p ON p.id = u.bot_plugin_id
+                 WHERE u.id = :id AND u.workspace_id = :ws
+                """
+            ),
+            {"id": first, "ws": ctx.user.workspace_id},
+        )
+    ).fetchone()
+    if row is None:
+        return "Name the agent first, then the people: `/allow @agent @name`."
+    if row.owner_user_id is None:
+        return f"{row.display_name} is the workspace's agent — everybody can already use it."
+    if row.owner_user_id != ctx.user.id:
+        return f"{row.display_name} is not yours to lend."
+    return str(row.plugin_id), str(row.display_name)
+
+
+async def _allow(ctx: CommandContext) -> CommandResult:
+    """Let somebody else command your agent in this channel.
+
+    An owned agent answers its owner and nobody else, which is the point of owning one.
+    This is how that bends without breaking — you say who, here, and you can take it back.
+    """
+    await channel_service.assert_channel_access(
+        ctx.session, ctx.user.id, ctx.channel_id, require_member=True
+    )
+    user_ids, _rest = await _resolve_people(ctx)
+    if not user_ids:
+        return CommandResult(ephemeral="Who? `/allow @agent @name` lends your agent to somebody.")
+
+    found = await _agent_owner_and_bot(ctx, user_ids)
+    if isinstance(found, str):
+        return CommandResult(ephemeral=found)
+    plugin_id, agent_name = found
+
+    grantees = user_ids[1:]
+    if not grantees:
+        current = await agent_access.listeners(
+            ctx.session, plugin_id=plugin_id, channel_id=ctx.channel_id
+        )
+        if not current:
+            return CommandResult(ephemeral=f"Only you can command {agent_name}.")
+        names = ", ".join(name for name, _ in current)
+        return CommandResult(ephemeral=f"{agent_name} also answers {names} here.")
+
+    for grantee in grantees:
+        await agent_access.grant(
+            ctx.session,
+            workspace_id=ctx.user.workspace_id,
+            plugin_id=plugin_id,
+            grantee_user_id=grantee,
+            granted_by=ctx.user.id,
+            channel_id=ctx.channel_id,
+        )
+    count = len(grantees)
+    return CommandResult(
+        ephemeral=(
+            f"{agent_name} now answers {count} more {'person' if count == 1 else 'people'} "
+            "in this channel. `/disallow` takes it back."
+        )
+    )
+
+
+async def _disallow(ctx: CommandContext) -> CommandResult:
+    """Take back what `/allow` gave."""
+    await channel_service.assert_channel_access(
+        ctx.session, ctx.user.id, ctx.channel_id, require_member=True
+    )
+    user_ids, _rest = await _resolve_people(ctx)
+    if not user_ids:
+        return CommandResult(ephemeral="Who? `/disallow @agent @name`.")
+
+    found = await _agent_owner_and_bot(ctx, user_ids)
+    if isinstance(found, str):
+        return CommandResult(ephemeral=found)
+    plugin_id, agent_name = found
+
+    grantees = user_ids[1:]
+    if not grantees:
+        return CommandResult(ephemeral=f"Who should stop commanding {agent_name}?")
+
+    ended = 0
+    for grantee in grantees:
+        ended += await agent_access.revoke(
+            ctx.session,
+            plugin_id=plugin_id,
+            grantee_user_id=grantee,
+            channel_id=ctx.channel_id,
+        )
+    if ended == 0:
+        return CommandResult(ephemeral=f"They could not command {agent_name} anyway.")
+    return CommandResult(ephemeral=f"{agent_name} answers only you here again.")
 
 
 async def _remove(ctx: CommandContext) -> CommandResult:
@@ -639,6 +747,8 @@ COMMANDS: dict[str, Command] = {
         Command("dm", "@name [text]", "Open a direct message, and optionally say it.", _dm),
         Command("status", "[:emoji: text]", "Set your status, or clear it.", _status),
         Command("remind", "me to <text> <when>", "Send yourself a note later.", _remind),
+        Command("allow", "@agent @name…", "Let somebody command your agent here.", _allow),
+        Command("disallow", "@agent @name…", "Stop somebody commanding your agent.", _disallow),
     ]
 }
 
@@ -694,8 +804,17 @@ async def find_app_command(
     )
 
 
-async def app_specs(session: AsyncSession, workspace_id: str) -> list[tuple[str, str, str]]:
-    """(name, usage, summary) for every app command, for the composer's list."""
+async def app_specs(
+    session: AsyncSession, workspace_id: str, actor_id: str
+) -> list[tuple[str, str, str]]:
+    """(name, usage, summary) for every app command this person can actually run.
+
+    Filtered by ownership, because the list is what the composer offers and offering
+    somebody a command that will answer "isn't a command here" is worse than not
+    offering it. Delegation is checked without a channel: this list is workspace-wide,
+    and a grant made in one channel still makes the command worth knowing about — the
+    dispatch is where the channel is decided.
+    """
     rows = (
         await session.execute(
             text(
@@ -704,10 +823,18 @@ async def app_specs(session: AsyncSession, workspace_id: str) -> list[tuple[str,
                   FROM plugin_commands pc
                   JOIN plugins p ON p.id = pc.plugin_id
                  WHERE pc.workspace_id = :ws AND p.status = 'enabled'
+                   AND (p.owner_user_id IS NULL
+                        OR p.owner_user_id = :actor_id
+                        OR EXISTS (
+                             SELECT 1 FROM agent_delegations d
+                              WHERE d.plugin_id = p.id
+                                AND d.grantee_user_id = :actor_id
+                                AND d.revoked_at IS NULL
+                           ))
                  ORDER BY pc.name
                 """
             ),
-            {"ws": workspace_id},
+            {"ws": workspace_id, "actor_id": actor_id},
         )
     ).fetchall()
     return [(r.name, r.usage, r.summary) for r in rows]
