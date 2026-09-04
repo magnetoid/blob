@@ -5445,3 +5445,28 @@ button.person-trigger:hover {
     min-height: 44px;
   }
 }
+
+/* ─── threads you follow ──────────────────────────────────────────────────── */
+/* `muted` and `last_read_reply_id` sat on thread_subscriptions from the first migration
+   with nothing reading them, so a thread you had read looked like one with ten new
+   replies and there was no way to stop following one you had answered once. */
+.thread-follow {
+  flex: none;
+  font-size: var(--text-sm);
+}
+
+.thread-follow[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+.thread-new {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}

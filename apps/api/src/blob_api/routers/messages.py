@@ -28,6 +28,7 @@ from ..schemas.base import CamelModel
 from ..schemas.models import Message, MessageTranslation, ReadStateOut, ScheduledMessage
 from ..schemas.requests import (
     EditMessageInput,
+    FollowThreadInput,
     MarkReadInput,
     MarkUnreadInput,
     PinInput,
@@ -261,12 +262,63 @@ async def translate_message(
     return MessageTranslationOut(translation=stored)
 
 
-@router.get("/api/threads", response_model=MessagesOut)
-async def list_threads(user: SessionUser = Depends(current_user)) -> MessagesOut:
-    """Threads the user started or replied to — the sidebar's Threads view."""
+class ThreadsOut(CamelModel):
+    messages: list[Message]
+    #: Which of them have replies you have not seen. A separate list rather than a field
+    #: on Message, because unread is about you and a message is about everybody.
+    unread_root_ids: list[str] = []
+
+
+class ThreadFollowOut(CamelModel):
+    following: bool
+
+
+@router.get("/api/threads", response_model=ThreadsOut)
+async def list_threads(user: SessionUser = Depends(current_user)) -> ThreadsOut:
+    """Threads you follow — the sidebar's Threads view."""
     async with session_scope() as session:
-        messages = await message_service.threads_for_user(session, user.id)
-    return MessagesOut(messages=messages)
+        messages, unread = await message_service.threads_for_user(session, user.id)
+    return ThreadsOut(messages=messages, unread_root_ids=unread)
+
+
+@router.get("/api/messages/{message_id}/thread/following", response_model=ThreadFollowOut)
+async def thread_following(
+    message_id: IdParam, user: SessionUser = Depends(current_user)
+) -> ThreadFollowOut:
+    async with session_scope() as session:
+        await load_message_for(session, user, message_id, allow_deleted=True)
+        following = await message_service.thread_following(session, user.id, message_id)
+    return ThreadFollowOut(following=following)
+
+
+@router.put("/api/messages/{message_id}/thread/following", response_model=ThreadFollowOut)
+async def set_thread_following(
+    message_id: IdParam,
+    payload: FollowThreadInput,
+    user: SessionUser = Depends(current_user),
+) -> ThreadFollowOut:
+    """Follow a thread, or stop following one.
+
+    Replying has always subscribed you and nothing could unsubscribe you: the `muted`
+    column existed from the first migration and no code ever wrote it. This is the write.
+    """
+    async with transaction() as (session, _after):
+        await load_message_for(session, user, message_id, allow_deleted=True)
+        await message_service.set_thread_following(
+            session, user.id, message_id, payload.following
+        )
+    return ThreadFollowOut(following=payload.following)
+
+
+@router.post("/api/messages/{message_id}/thread/read", response_model=OkOut)
+async def mark_thread_read(
+    message_id: IdParam, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    """Move the thread's read cursor to its newest reply."""
+    async with transaction() as (session, _after):
+        await load_message_for(session, user, message_id, allow_deleted=True)
+        await message_service.mark_thread_read(session, user.id, message_id)
+    return OkOut()
 
 
 @router.patch("/api/messages/{message_id}", response_model=MessageOut)

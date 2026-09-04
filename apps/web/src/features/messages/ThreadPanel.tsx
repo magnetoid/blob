@@ -10,6 +10,7 @@ import type {
 } from "@blob/shared";
 import { ApiError, api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
+import { showError } from "../../lib/toasts.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { closeThread } from "../../lib/navigation.ts";
 import { MessageList } from "./MessageList.tsx";
@@ -64,6 +65,76 @@ function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error && error.message) return error.message;
   return fallback;
+}
+
+/**
+ * Follow, or stop following, the thread on screen.
+ *
+ * Replying subscribed you and nothing could unsubscribe you: `thread_subscriptions.muted`
+ * has been on the table since the first migration and no code ever wrote it, so the only
+ * escape from a thread you had once answered was muting the whole channel. This is both
+ * halves — the control, and the way to follow one you have not replied in.
+ */
+function FollowToggle({ rootId }: { rootId: string }) {
+  const [following, setFollowing] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFollowing(null);
+    void api.messages
+      .threadFollowing(rootId)
+      .then((r) => {
+        if (!cancelled) setFollowing(r.following);
+      })
+      .catch(() => {
+        // A panel that cannot answer "are you following this?" should say nothing
+        // rather than claim either answer.
+        if (!cancelled) setFollowing(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rootId]);
+
+  // Opening a thread is how you read it, so the cursor moves here. It does not
+  // subscribe you: looking is not asking to be told about it for ever.
+  useEffect(() => {
+    void api.messages.markThreadRead(rootId).catch(() => {});
+  }, [rootId]);
+
+  if (following === null) return null;
+
+  async function toggle() {
+    if (busy) return;
+    setBusy(true);
+    const next = !following;
+    setFollowing(next);
+    try {
+      await api.messages.followThread(rootId, next);
+    } catch (err) {
+      setFollowing(!next);
+      showError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      className="btn btn-ghost thread-follow"
+      aria-pressed={following}
+      disabled={busy}
+      onClick={() => void toggle()}
+      title={
+        following
+          ? "You are told about new replies here"
+          : "Be told about new replies here"
+      }
+    >
+      {following ? "Following" : "Follow"}
+    </button>
+  );
 }
 
 export function ThreadPanel({ rootId }: { rootId: string }) {
@@ -316,6 +387,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
               ` · ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`}
           </div>
         </div>
+        <FollowToggle rootId={rootId} />
         <button
           className="icon-btn"
           onClick={() => closeThread()}

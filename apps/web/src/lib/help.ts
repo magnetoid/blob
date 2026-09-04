@@ -314,7 +314,8 @@ export const SECTIONS: Section[] = [
         blurb: 'Replying subscribes you to the thread. Writing the message it grew under does not.',
         body: [
           'That is the part worth knowing, because it is not what Slack does: if you post something and three people reply underneath it, you are not notified and the thread does not join your Threads view until you reply yourself. A mention still reaches you, and so does a channel set to Every message.',
-          'There is no Follow or Unfollow. Once you have replied you are subscribed, and the only way out is to mute the whole channel — muting silences thread replies along with everything else.',
+          'Follow at the top of the thread panel is the control for both halves: it takes you off a thread you answered once and no longer care about, and it puts you on one you have not replied in at all. Following from scratch starts you at the end — you asked to hear what happens next, not to be handed everything already said.',
+          'Threads with replies you have not seen are marked New in the Threads view, and opening one clears the mark. Looking at a thread does not subscribe you to it.',
           'A thread notification is deliberately quiet: it can raise a notification on your device, but it never adds to the mention count beside the channel.',
         ],
         keywords: ['follow', 'unfollow', 'subscribe', 'notified', 'thread'],
@@ -509,7 +510,7 @@ export const SECTIONS: Section[] = [
         blurb: '/topic, /rename, /archive, /join, /leave, /who and /mute.',
         body: [
           'Archiving is the one to be careful with. An archived channel becomes read-only for everybody, it leaves the sidebar, and anything scheduled into it stops going out and says why. Its history stays searchable and readable — archiving is not deleting.',
-          'There is no undo. Nothing in the app brings an archived channel back, so treat it as a decision rather than as tidying up. Direct messages cannot be archived at all.',
+          'An admin can reopen one from Manage workspace → Channels, so it is a decision rather than a demolition — but everyone loses the channel from their sidebar in the meantime. Direct messages cannot be archived at all.',
           '/mute toggles this channel between notifying you about everything and notifying you only about mentions.',
         ],
         commands: ['topic', 'rename', 'archive', 'join', 'leave', 'who', 'mute'],

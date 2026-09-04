@@ -39,6 +39,18 @@ export const RELEASES: readonly Release[] = [
     entries: [
       {
         kind: 'added',
+        text: 'Follow and unfollow a thread. Replying used to subscribe you for good — the column that would have switched it off had been on the table since the first migration with nothing to write it — so the only escape from a thread you answered once was muting the whole channel. Following one you have never replied in works too, and starts you at the end rather than handing you everything already said.',
+      },
+      {
+        kind: 'added',
+        text: 'Threads with replies you have not seen are marked New, and opening one clears it. The read position was recorded every time you replied and read by nothing, so a thread you had read to the end looked exactly like one with ten new replies in it.',
+      },
+      {
+        kind: 'fixed',
+        text: 'An archived channel can be reopened, from Manage workspace → Channels. Nothing in the product set that back before — no button, no command, no route — so a channel closed by mistake stayed closed and its history stayed readable and unwritable for ever. Archiving is also an admin\'s now on every path into it; the REST route had been accepting it from any member.',
+      },
+      {
+        kind: 'added',
         text: 'Twelve colour themes, six light and six dark — Paper, Linen, Harbour, Sage, Blossom, High contrast, Midnight, Slate, Plum, Forest, Carbon and Ember. Preferences shows them as a gallery where each tile is drawn in its own colours, so you pick a look rather than a name. Yours alone: choosing one changes nothing on anybody else\'s screen.',
       },
       {

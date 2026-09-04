@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T23:42:00'
-updated: '2026-09-02T23:42:00'
+created: '2026-09-04T07:26:43'
+updated: '2026-09-04T07:26:43'
 ---
 
 # apps/api/tests/test_membership_commands.py
@@ -42,33 +42,34 @@ Symbols in `apps/api/tests/test_membership_commands.py`.
 - L194 `TestArchive` (class)
 - L195 `test_archives(self, team: dict)` (method)
 - L207 `test_a_direct_message_cannot_be(self, team: dict)` (method)
-- L216 `TestWho` (class)
-- L217 `test_names_the_people_here(self, team: dict)` (method)
-- L225 `test_and_never_posts_it(self, team: dict)` (method)
-- L236 `TestTheyAreDiscoverable` (class)
-- L237 `test_help_lists_them(self, team: dict)` (method)
-- L243 `test_and_so_does_the_composer_s_autocomplete(self, team: dict)` (method)
-- L251 `TestDm` (class)
-- L252 `test_opens_the_conversation(self, team: dict)` (method)
-- L259 `test_and_says_the_thing_if_one_is_given(self, team: dict)` (method)
-- L266 `test_the_message_does_not_land_in_the_channel_it_was_typed_in(self, team: dict)` (method)
-- L278 `test_naming_two_people_makes_a_group(self, team: dict)` (method)
-- L286 `test_opening_the_same_one_twice_is_the_same_channel(self, team: dict)` (method)
-- L293 `TestStatus` (class)
-- L294 `test_sets_an_emoji_and_words(self, team: dict)` (method)
-- L302 `test_words_alone_are_fine(self, team: dict)` (method)
-- L309 `test_clearing_it(self, team: dict)` (method)
-- L319 `test_and_a_bare_slash_status_clears_it_too(self, team: dict)` (method)
-- L328 `TestNamesInTheMessageAreNotInstructions` (class) — The one that mattered most in this file.
-- L337 `test_dm_does_not_invite_whoever_the_message_mentions(self, team: dict)` (method)
-- L351 `test_and_the_mention_stays_in_the_message(self, team: dict)` (method)
-- L361 `test_remove_takes_out_only_the_people_it_names_first(self, team: dict)` (method)
-- L373 `TestADirectMessageReachesBothSides` (class)
-- L374 `test_the_other_person_can_see_it_at_once(self, team: dict)` (method)
-- L384 `TestAGroupMessageHasACeiling` (class)
-- L385 `test_the_command_and_the_route_cap_it_the_same(self)` (method)
-- L397 `test_and_the_command_refuses_past_it(self, team: dict)` (method)
-- L408 `TestMuteAndStatusLeaveThingsAsTheyFound` (class)
-- L409 `test_unmuting_returns_to_the_default_not_the_loudest(self, team: dict)` (method)
-- L422 `test_a_status_is_not_born_expired(self, team: dict)` (method)
-- L435 `test_a_status_longer_than_the_dialog_allows_is_refused(self, team: dict)` (method)
+- L215 `test_a_member_cannot(self, team: dict)` (method) — The menu row is admin-only; the command was not, and archiving has no undo.
+- L237 `TestWho` (class)
+- L238 `test_names_the_people_here(self, team: dict)` (method)
+- L246 `test_and_never_posts_it(self, team: dict)` (method)
+- L257 `TestTheyAreDiscoverable` (class)
+- L258 `test_help_lists_them(self, team: dict)` (method)
+- L264 `test_and_so_does_the_composer_s_autocomplete(self, team: dict)` (method)
+- L272 `TestDm` (class)
+- L273 `test_opens_the_conversation(self, team: dict)` (method)
+- L280 `test_and_says_the_thing_if_one_is_given(self, team: dict)` (method)
+- L287 `test_the_message_does_not_land_in_the_channel_it_was_typed_in(self, team: dict)` (method)
+- L299 `test_naming_two_people_makes_a_group(self, team: dict)` (method)
+- L307 `test_opening_the_same_one_twice_is_the_same_channel(self, team: dict)` (method)
+- L314 `TestStatus` (class)
+- L315 `test_sets_an_emoji_and_words(self, team: dict)` (method)
+- L323 `test_words_alone_are_fine(self, team: dict)` (method)
+- L330 `test_clearing_it(self, team: dict)` (method)
+- L340 `test_and_a_bare_slash_status_clears_it_too(self, team: dict)` (method)
+- L349 `TestNamesInTheMessageAreNotInstructions` (class) — The one that mattered most in this file.
+- L358 `test_dm_does_not_invite_whoever_the_message_mentions(self, team: dict)` (method)
+- L372 `test_and_the_mention_stays_in_the_message(self, team: dict)` (method)
+- L382 `test_remove_takes_out_only_the_people_it_names_first(self, team: dict)` (method)
+- L394 `TestADirectMessageReachesBothSides` (class)
+- L395 `test_the_other_person_can_see_it_at_once(self, team: dict)` (method)
+- L405 `TestAGroupMessageHasACeiling` (class)
+- L406 `test_the_command_and_the_route_cap_it_the_same(self)` (method)
+- L418 `test_and_the_command_refuses_past_it(self, team: dict)` (method)
+- L429 `TestMuteAndStatusLeaveThingsAsTheyFound` (class)
+- L430 `test_unmuting_returns_to_the_default_not_the_loudest(self, team: dict)` (method)
+- L443 `test_a_status_is_not_born_expired(self, team: dict)` (method)
+- L456 `test_a_status_longer_than_the_dialog_allows_is_refused(self, team: dict)` (method)

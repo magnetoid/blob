@@ -181,12 +181,15 @@ async def update_channel(
 
 @router.post("/api/channels/{channel_id}/archive", response_model=OkOut)
 async def archive_channel(channel_id: IdParam, user: SessionUser = Depends(current_user)) -> OkOut:
+    """Close a channel. Admins only — the client has always said so; this enforces it."""
     async with transaction() as (session, after):
         access = await channel_service.assert_channel_access(
             session, user.id, channel_id, require_member=True
         )
         if access.kind in ("dm", "group_dm"):
             raise forbidden("Direct messages cannot be archived.")
+        if not user.is_admin:
+            raise forbidden("Only an admin can archive a channel.")
 
         await session.execute(
             text("UPDATE channels SET archived_at = now() WHERE id = :id"), {"id": channel_id}
@@ -195,6 +198,37 @@ async def archive_channel(channel_id: IdParam, user: SessionUser = Depends(curre
             lambda: hub.to_channel(channel_id, {"t": "channel.archived", "channelId": channel_id})
         )
     return OkOut()
+
+
+@router.post("/api/channels/{channel_id}/unarchive", response_model=ChannelOut)
+async def unarchive_channel(
+    channel_id: IdParam, user: SessionUser = Depends(current_user)
+) -> ChannelOut:
+    """Open an archived channel again.
+
+    Archiving had no undo anywhere in the product — no route, no command, no console
+    control, and nothing that set `archived_at` back to null. That made a reversible
+    decision permanent by omission: the history was intact the whole time and simply
+    unreachable for writing.
+    """
+    async with transaction() as (session, after):
+        access = await channel_service.assert_channel_access(session, user.id, channel_id)
+        if access.kind in ("dm", "group_dm"):
+            raise forbidden("Direct messages cannot be archived.")
+        if not user.is_admin:
+            raise forbidden("Only an admin can reopen a channel.")
+
+        await session.execute(
+            text("UPDATE channels SET archived_at = NULL WHERE id = :id"), {"id": channel_id}
+        )
+        channel = await channel_service.get_for_user(session, channel_id, user.id)
+        if channel is not None:
+            after.add(
+                lambda: hub.to_channel(channel_id, _channel_event("channel.updated", channel))
+            )
+    if channel is None:
+        raise not_found("That channel is gone.")
+    return ChannelOut(channel=channel)
 
 
 @router.post("/api/channels/{channel_id}/join", response_model=ChannelOut)

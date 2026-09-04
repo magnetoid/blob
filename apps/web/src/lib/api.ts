@@ -600,7 +600,17 @@ export const api = {
     get: (id: string) => get<{ message: Message }>(`/api/messages/${id}`),
     thread: (rootId: string) =>
       get<{ messages: Message[] }>(`/api/messages/${rootId}/thread`),
-    threads: () => get<{ messages: Message[] }>("/api/threads"),
+    threads: () =>
+      get<{ messages: Message[]; unreadRootIds: string[] }>("/api/threads"),
+    /** Whether you are following a thread, and the write that changes it. */
+    threadFollowing: (rootId: string) =>
+      get<{ following: boolean }>(`/api/messages/${rootId}/thread/following`),
+    followThread: (rootId: string, following: boolean) =>
+      put<{ following: boolean }>(`/api/messages/${rootId}/thread/following`, {
+        following,
+      }),
+    markThreadRead: (rootId: string) =>
+      post<{ ok: true }>(`/api/messages/${rootId}/thread/read`),
     pin: (id: string, pinned: boolean) =>
       put<{ message: Message }>(`/api/messages/${id}/pin`, { pinned }),
     save: (id: string, saved: boolean) =>
@@ -781,6 +791,8 @@ export const api = {
     channels: () => get<{ channels: AdminChannel[] }>("/api/admin/channels"),
     archiveChannel: (id: string) =>
       post<{ ok: true }>(`/api/admin/channels/${id}/archive`),
+    unarchiveChannel: (id: string) =>
+      post<{ ok: true }>(`/api/admin/channels/${id}/unarchive`),
 
     serverLogs: (params: { level?: string; limit?: number } = {}) => {
       const query = new URLSearchParams();

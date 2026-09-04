@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest_asyncio
 
-from .helpers import Client, invite_and_sign_up, sign_up
+from .helpers import Client, client_msg_id, invite_and_sign_up, sign_up
 
 
 @pytest_asyncio.fixture
@@ -99,3 +99,51 @@ class TestWhatItMustNotShow:
 
         assert listed == []
         assert (await owner.post(f"/api/workspaces/{here}/switch")).status == 200
+
+
+class TestArchivingIsReversible:
+    """Archiving had no undo anywhere — and no gate on the route, either.
+
+    The client hid "Archive channel" from members and the REST route accepted it from any
+    of them, which is a rule enforced in the one place that cannot enforce it. And nothing
+    in the repository ever set `archived_at` back to null: no route, no command, no
+    console control. The history stayed intact and simply became unwritable for ever.
+    """
+
+    @staticmethod
+    async def a_channel(team: dict, name: str) -> str:
+        made = await team["owner"].post("/api/channels", {"name": name, "kind": "public"})
+        assert made.status == 200, made.body
+        return str(made.body["channel"]["id"])
+
+    async def test_a_member_cannot_archive(self, team: dict) -> None:
+        channel_id = await self.a_channel(team, "gate-check")
+        await team["member"].post(f"/api/channels/{channel_id}/join")
+
+        refused = await team["member"].post(f"/api/channels/{channel_id}/archive", {})
+
+        assert refused.status == 403, refused.body
+
+    async def test_an_admin_can_reopen_one(self, team: dict) -> None:
+        channel_id = await self.a_channel(team, "reopen-me")
+        await team["owner"].post(f"/api/channels/{channel_id}/archive", {})
+
+        back = await team["owner"].post(f"/api/channels/{channel_id}/unarchive", {})
+
+        assert back.status == 200, back.body
+        assert back.body["channel"]["archivedAt"] is None
+        # And it takes messages again, which is the whole point.
+        sent = await team["owner"].post(
+            f"/api/channels/{channel_id}/messages",
+            {"body": "open again", "clientMsgId": client_msg_id()},
+        )
+        assert sent.status == 201, sent.body
+
+    async def test_a_member_cannot_reopen_one(self, team: dict) -> None:
+        channel_id = await self.a_channel(team, "not-yours")
+        await team["member"].post(f"/api/channels/{channel_id}/join")
+        await team["owner"].post(f"/api/channels/{channel_id}/archive", {})
+
+        refused = await team["member"].post(f"/api/channels/{channel_id}/unarchive", {})
+
+        assert refused.status == 403, refused.body

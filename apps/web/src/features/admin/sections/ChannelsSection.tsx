@@ -54,9 +54,20 @@ export function ChannelsSection({
                 : " · never used"}
             </div>
           </div>
-          {!channel.archivedAt &&
-            channel.kind !== "dm" &&
-            channel.kind !== "group_dm" && (
+          {channel.kind !== "dm" &&
+            channel.kind !== "group_dm" &&
+            (channel.archivedAt ? (
+              // Archiving used to be permanent by omission: nothing anywhere set
+              // `archived_at` back to null, so a channel closed by mistake stayed closed
+              // and its history stayed readable but unwritable for ever.
+              <button
+                className="btn"
+                aria-label={`Reopen #${channel.name}`}
+                onClick={() => void act(() => api.admin.unarchiveChannel(channel.id))}
+              >
+                Reopen
+              </button>
+            ) : (
               <button
                 className="btn"
                 aria-label={`Archive #${channel.name}`}
@@ -64,7 +75,7 @@ export function ChannelsSection({
               >
                 Archive
               </button>
-            )}
+            ))}
         </div>
       ))}
 

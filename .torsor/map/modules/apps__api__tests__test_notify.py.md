@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T23:42:00'
-updated: '2026-09-02T23:42:00'
+created: '2026-09-04T07:26:43'
+updated: '2026-09-04T07:26:43'
 ---
 
 # apps/api/tests/test_notify.py
@@ -36,16 +36,22 @@ Symbols in `apps/api/tests/test_notify.py`.
 - L177 `test_respects_a_manual_snooze()` (function)
 - L182 `test_notifies_thread_subscribers_without_counting_a_badge()` (function)
 - L187 `test_channel_wide_mentions_skip_people_who_muted()` (function)
-- L196 `with_dnd(**overrides)` (function)
-- L202 `test_quiet_outside_working_hours()` (function)
-- L207 `test_allows_notifications_during_working_hours()` (function)
-- L211 `test_quiet_on_a_non_working_day()` (function)
-- L216 `test_handles_a_window_that_wraps_midnight()` (function)
-- L222 `test_respects_the_recipient_timezone_rather_than_the_server_clock()` (function)
-- L232 `test_does_nothing_when_dnd_is_off()` (function)
-- L249 `test_unfurl_refuses_private_addresses(address: str, private: bool)` (function)
-- L253 `test_first_url_finds_the_leading_link()` (function)
-- L258 `TestUnfurlFollowsRedirectsSafely` (class) — A link is attacker-controlled input that makes the server fetch something.
-- L268 `test_a_redirect_into_a_private_address_is_refused(self, monkeypatch: pytest.MonkeyPatch)` (method)
-- L308 `test_a_redirect_to_a_public_page_is_still_followed(self, monkeypatch: pytest.MonkeyPatch)` (method)
-- L344 `test_an_inert_guard_now_refuses_rather_than_returning_a_reason(monkeypatch: pytest.MonkeyPatch)` (function) — Two call sites awaited the checker and dropped its answer on the floor.
+- L200 `test_here_reaches_the_people_who_are_active()` (function)
+- L209 `test_here_does_not_reach_someone_who_is_away()` (function)
+- L220 `test_channel_still_reaches_everybody()` (function)
+- L230 `test_here_notifies_everyone_when_presence_cannot_be_read()` (function)
+- L242 `test_someone_here_skips_is_still_reachable_another_way()` (function)
+- L252 `test_a_direct_mention_beats_being_away()` (function)
+- L262 `with_dnd(**overrides)` (function)
+- L268 `test_quiet_outside_working_hours()` (function)
+- L273 `test_allows_notifications_during_working_hours()` (function)
+- L277 `test_quiet_on_a_non_working_day()` (function)
+- L282 `test_handles_a_window_that_wraps_midnight()` (function)
+- L288 `test_respects_the_recipient_timezone_rather_than_the_server_clock()` (function)
+- L298 `test_does_nothing_when_dnd_is_off()` (function)
+- L315 `test_unfurl_refuses_private_addresses(address: str, private: bool)` (function)
+- L319 `test_first_url_finds_the_leading_link()` (function)
+- L324 `TestUnfurlFollowsRedirectsSafely` (class) — A link is attacker-controlled input that makes the server fetch something.
+- L334 `test_a_redirect_into_a_private_address_is_refused(self, monkeypatch: pytest.MonkeyPatch)` (method)
+- L374 `test_a_redirect_to_a_public_page_is_still_followed(self, monkeypatch: pytest.MonkeyPatch)` (method)
+- L410 `test_an_inert_guard_now_refuses_rather_than_returning_a_reason(monkeypatch: pytest.MonkeyPatch)` (function) — Two call sites awaited the checker and dropped its answer on the floor.

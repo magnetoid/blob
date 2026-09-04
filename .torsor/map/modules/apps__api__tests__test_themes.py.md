@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-02T23:42:00'
-updated: '2026-09-02T23:42:00'
+created: '2026-09-04T07:26:44'
+updated: '2026-09-04T07:26:44'
 ---
 
 # apps/api/tests/test_themes.py
@@ -21,7 +21,7 @@ Symbols in `apps/api/tests/test_themes.py`.
 - L77 `test_themes_ride_along_on_bootstrap(team: dict)` (function)
 - L84 `test_a_member_cannot_save_a_theme(team: dict)` (function)
 - L91 `test_an_admin_creates_edits_and_deletes_a_theme(team: dict)` (function)
-- L117 `test_presets_cannot_be_edited_or_deleted(team: dict)` (function)
-- L130 `test_a_theme_with_an_injected_value_is_refused(team: dict)` (function)
-- L139 `test_choosing_a_palette_is_a_user_preference(team: dict)` (function)
-- L150 `test_saving_a_theme_is_audited(team: dict)` (function)
+- L121 `test_presets_cannot_be_edited_or_deleted(team: dict)` (function)
+- L134 `test_a_theme_with_an_injected_value_is_refused(team: dict)` (function)
+- L143 `test_choosing_a_palette_is_a_user_preference(team: dict)` (function)
+- L154 `test_saving_a_theme_is_audited(team: dict)` (function)

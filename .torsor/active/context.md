@@ -750,3 +750,25 @@ touched only the first query would have looked right until somebody scrolled up.
 
 The lesson both share: a column nothing selects is not a feature, it is a promise the UI
 is making on the product's behalf. Grep for the reader before believing the writer.
+
+## Trap: `max(uuid)` is not a Postgres aggregate
+
+Ids are UUIDv7 and sort chronologically, so "the newest reply" reads like `max(r.id)` —
+and Postgres has no `max` for uuid: `function max(uuid) does not exist`, at runtime, from
+asyncpg. The shape that works is `ORDER BY r.id DESC LIMIT 1`, which uses the index anyway.
+
+`GREATEST(uuid, uuid)` *is* fine — it needs only the comparison operators, which uuid has.
+So the read cursor still ratchets forward with `GREATEST`; only the aggregate had to go.
+
+## Trap: two columns on `thread_subscriptions` were write-only
+
+`muted` was never written by anything, so replying subscribed you permanently and the only
+escape was muting the whole channel. `last_read_reply_id` *was* written — set to your own
+reply each time you posted — and read by nothing, so a thread read to the end looked like
+one with ten new replies.
+
+Both are live now: `set_thread_following` writes `muted` (keeping the row, so unfollowing
+and refollowing does not present a thread you have read as new), and `threads_for_user`
+compares the newest reply id against the cursor as a string, the same trick the channel
+list uses. Reading a thread advances the cursor and deliberately does **not** subscribe
+you — looking is not asking to be told about it for ever.

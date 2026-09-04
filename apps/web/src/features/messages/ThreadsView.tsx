@@ -24,10 +24,8 @@ export function ThreadsView() {
   // ordered by last reply, so keeping it fresh would mean recomputing that order on
   // every `message.new` in every thread anyone is in — for a screen nobody is looking
   // at. Opening it is the moment it needs to be right.
-  const { data: threads, error } = useFetch(
-    async () => (await api.messages.threads()).messages,
-    [],
-  );
+  const { data: threads, error } = useFetch(async () => api.messages.threads(), []);
+  const unread = new Set(threads?.unreadRootIds ?? []);
 
   async function go(message: Message) {
     // Channel first: the thread panel renders beside the conversation, so opening the
@@ -42,7 +40,7 @@ export function ThreadsView() {
           <div className="pane-heading">
             <h1 className="pane-title">Threads</h1>
           </div>
-          <div className="pane-sub">Conversations you started or replied to</div>
+          <div className="pane-sub">Threads you follow, newest reply first</div>
         </div>
       </header>
 
@@ -50,7 +48,7 @@ export function ThreadsView() {
         {error && <p className="error-text">Those could not be loaded.</p>}
         {!error && threads === null && <p className="muted">Loading…</p>}
 
-        {threads?.length === 0 && (
+        {threads?.messages.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-mark">
               <ReplyIcon size="xl" />
@@ -63,7 +61,7 @@ export function ThreadsView() {
           </div>
         )}
 
-        {threads?.map((message) => (
+        {threads?.messages.map((message) => (
           <MessageResultRow
             key={message.id}
             message={message}
@@ -72,6 +70,10 @@ export function ThreadsView() {
             footer={
               <div className="search-result-meta">
                 {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
+                {/* `last_read_reply_id` was written every time you replied and read by
+                    nothing, so a thread you had read to the end looked exactly like one
+                    with ten new replies in it. */}
+                {unread.has(message.id) && <span className="thread-new">New</span>}
               </div>
             }
           />

@@ -88,8 +88,8 @@ grant scopes explicitly, and both end up as a real member of the workspace.
 - **Messages** — a small deliberate Markdown subset (bold, italics, strike, inline and
   fenced code, quotes, lists, links), edit and delete, pin to channel, forward with a
   note, permalinks, and optimistic send that is idempotent on a client-generated id.
-- **Threads** — Slack-style reply chains in a side panel, with live reply counts and a
-  Threads view of everything you have replied in.
+- **Threads** — Slack-style reply chains in a side panel, with live reply counts, a
+  Follow control, per-thread unread, and a Threads view of everything you follow.
 - **Reactions** — three quick reactions on hover plus a searchable picker over a curated
   built-in set and the workspace's own uploads, which work anywhere `:name:` does.
 - **Mentions** — `@person`, `@group`, `@channel`, `@here` and `@everyone`, never fired from
@@ -202,8 +202,6 @@ afternoon:
   unread with the keyboard is what Blob has instead.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
 - **SSO, SAML, OIDC and 2FA** — email and password is the only way in.
-- **Unarchiving a channel** — archiving is one-way, deliberately noted here because it has
-  no undo anywhere in the product.
 - Console rows marked **Soon** — Moderation, Deliveries, Approvals, Storage, Import/export.
 
 ---

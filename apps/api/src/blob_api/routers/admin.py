@@ -30,6 +30,7 @@ from ..lib.redis import redis
 from ..realtime import hub
 from ..schemas.base import CamelModel, iso, require_iso
 from ..services import audit as audit_service
+from ..services import channels as channel_service
 from ..services import handles as handle_service
 from ..services.audit import AuditEntry, actor_for
 from ..services.serialize import USER_COLUMNS, to_user
@@ -588,6 +589,48 @@ async def archive_any_channel(
 
 
 # ─── audit log ────────────────────────────────────────────────────────────────
+
+@router.post("/channels/{channel_id}/unarchive", response_model=OkOut)
+async def unarchive_any_channel(
+    channel_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
+) -> OkOut:
+    """Reopen an archived channel.
+
+    Archiving had no undo anywhere: no route, no command, no console button, and nothing
+    in the repository that set `archived_at` back to null. The history was intact the
+    whole time and simply unreachable for writing, which made a reversible decision
+    permanent by omission.
+    """
+    async with transaction() as (session, after):
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    UPDATE channels SET archived_at = NULL
+                     WHERE id = :id AND workspace_id = :ws
+                       AND kind IN ('public', 'private')
+                    RETURNING id
+                    """
+                ),
+                {"id": channel_id, "ws": admin.workspace_id},
+            )
+        ).fetchall()
+        if not rows:
+            raise not_found("That channel no longer exists.")
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "channel.unarchived",
+            target_type="channel",
+            target_id=channel_id,
+        )
+        # The same event a rename sends: clients hold channels by id and re-read the row,
+        # so "it is not archived any more" needs no event of its own.
+        channel = await channel_service.get_for_user(session, channel_id, admin.id)
+        if channel is not None:
+            payload = {"t": "channel.updated", "channel": channel.model_dump(by_alias=True)}
+            after.add(lambda: hub.to_channel(channel_id, payload))
+    return OkOut()
 @router.get("/audit", response_model=AuditOut)
 async def audit_log(
     actor_id: str | None = None,
