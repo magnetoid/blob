@@ -192,6 +192,72 @@ def test_channel_wide_mentions_skip_people_who_muted() -> None:
     assert [d.user_id for d in decisions] == ["u1"]
 
 
+# ─── @here ────────────────────────────────────────────────────────────────────
+# `here_only` was parsed from the day mentions were written and then read by nobody:
+# `decide` branched on `mentions_everyone` alone, so `@here` woke exactly the room
+# `@channel` woke. The whole point of the quieter one is that it spares the people who
+# are not at their desk.
+def test_here_reaches_the_people_who_are_active() -> None:
+    decisions = decide(
+        message(mentions_everyone=True, here_only=True),
+        [recipient("u1"), recipient("u2")],
+        active_user_ids={"u1"},
+    )
+    assert [d.user_id for d in decisions] == ["u1"]
+
+
+def test_here_does_not_reach_someone_who_is_away() -> None:
+    assert (
+        decide(
+            message(mentions_everyone=True, here_only=True),
+            [recipient("u1")],
+            active_user_ids=set(),
+        )
+        == []
+    )
+
+
+def test_channel_still_reaches_everybody() -> None:
+    # The distinction is the feature. @channel is unchanged by presence.
+    decisions = decide(
+        message(mentions_everyone=True),
+        [recipient("u1"), recipient("u2")],
+        active_user_ids={"u1"},
+    )
+    assert [d.user_id for d in decisions] == ["u1", "u2"]
+
+
+def test_here_notifies_everyone_when_presence_cannot_be_read() -> None:
+    # Redis is where presence lives. If it cannot be asked, the honest failure is the
+    # old behaviour — a mention that reaches too many people, rather than one that
+    # silently reaches nobody.
+    decisions = decide(
+        message(mentions_everyone=True, here_only=True),
+        [recipient("u1"), recipient("u2")],
+        active_user_ids=None,
+    )
+    assert [d.user_id for d in decisions] == ["u1", "u2"]
+
+
+def test_someone_here_skips_is_still_reachable_another_way() -> None:
+    # Being passed over by @here is not being silenced: the branches below it still run.
+    [decision] = decide(
+        message(mentions_everyone=True, here_only=True, body="the build is red"),
+        [recipient("u1", prefs=UserPrefs(keywords=["build"]))],
+        active_user_ids=set(),
+    )
+    assert decision.reason == "keyword"
+
+
+def test_a_direct_mention_beats_being_away() -> None:
+    [decision] = decide(
+        message(mentions_everyone=True, here_only=True, mention_user_ids=["u1"]),
+        [recipient("u1")],
+        active_user_ids=set(),
+    )
+    assert decision.reason == "mention"
+
+
 # ─── quiet hours ──────────────────────────────────────────────────────────────
 def with_dnd(**overrides) -> Recipient:
     dnd = {"enabled": True, "startHour": 9, "endHour": 18, "days": [1, 2, 3, 4, 5]}

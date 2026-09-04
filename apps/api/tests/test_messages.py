@@ -120,6 +120,121 @@ async def test_thread_replies_stay_out_of_the_channel_timeline(team: dict) -> No
     assert len(after.body["messages"]) == len(before.body["messages"]) + 1
 
 
+async def test_a_reply_ticked_also_send_joins_the_channel_timeline(team: dict) -> None:
+    """The tick above the thread composer, which used to promise a broadcast and do nothing.
+
+    `also_in_channel` has been stored since threads shipped and read by nobody: channel
+    history filtered on `thread_root_id IS NULL` in all three of its paging modes, so the
+    reply appeared in the thread and nowhere else — including for the person who ticked
+    the box.
+    """
+    before = await team["owner"].get(f"/api/channels/{team['general']['id']}/messages?limit=100")
+    root = await send_message(team["owner"], team["general"]["id"], "root for the tick")
+    root_id = root.body["message"]["id"]
+    await send_message(
+        team["owner"],
+        team["general"]["id"],
+        "everyone should see this",
+        threadRootId=root_id,
+        alsoInChannel=True,
+    )
+
+    after = await team["owner"].get(f"/api/channels/{team['general']['id']}/messages?limit=100")
+
+    bodies = [m["body"] for m in after.body["messages"]]
+    assert "everyone should see this" in bodies
+    # The root and the reply, where the plain-reply test above adds only the root.
+    assert len(after.body["messages"]) == len(before.body["messages"]) + 2
+    # And it is still a thread reply, not a loose message that lost its thread.
+    reply = next(m for m in after.body["messages"] if m["body"] == "everyone should see this")
+    assert reply["threadRootId"] == root_id
+    assert reply["alsoInChannel"] is True
+
+
+async def test_a_plain_reply_does_not_move_the_channel_pointer(team: dict) -> None:
+    """`last_message_id` names the newest message in the channel's own history.
+
+    It used to advance for every message, thread replies included — so it named a row
+    channel history never returns. The client compares the last message it has loaded
+    against that pointer to decide whether a live message extends the list or belongs to
+    an older window it is looking at, and after any reply the two could never be equal
+    again: every later message in that channel was dropped from the open view until a
+    reload. It also made a reply mark the channel unread, which is the opposite of what a
+    thread is for.
+    """
+    root = await send_message(team["owner"], team["general"]["id"], "pointer root")
+    root_id = root.body["message"]["id"]
+    await send_message(team["owner"], team["general"]["id"], "quiet reply", threadRootId=root_id)
+
+    channels = (await team["owner"].get("/api/channels")).body["channels"]
+    general = next(c for c in channels if c["id"] == team["general"]["id"])
+
+    assert general["lastMessageId"] == root_id
+
+
+async def test_but_one_sent_to_the_channel_does(team: dict) -> None:
+    root = await send_message(team["owner"], team["general"]["id"], "pointer root two")
+    root_id = root.body["message"]["id"]
+    shouted = await send_message(
+        team["owner"],
+        team["general"]["id"],
+        "loud reply",
+        threadRootId=root_id,
+        alsoInChannel=True,
+    )
+
+    channels = (await team["owner"].get("/api/channels")).body["channels"]
+    general = next(c for c in channels if c["id"] == team["general"]["id"])
+
+    assert general["lastMessageId"] == shouted.body["message"]["id"]
+
+
+async def test_it_is_still_in_the_thread_as_well(team: dict) -> None:
+    root = await send_message(team["owner"], team["general"]["id"], "root for both")
+    root_id = root.body["message"]["id"]
+    await send_message(
+        team["owner"],
+        team["general"]["id"],
+        "both places",
+        threadRootId=root_id,
+        alsoInChannel=True,
+    )
+
+    thread = await team["owner"].get(f"/api/messages/{root_id}/thread")
+
+    assert "both places" in [m["body"] for m in thread.body["messages"]]
+
+
+async def test_paging_back_through_history_still_finds_it(team: dict) -> None:
+    # The `before` cursor is a second query with its own copy of the filter, and the
+    # `around` permalink window is a third. A fix that only touched the first would look
+    # right until somebody scrolled up.
+    root = await send_message(team["owner"], team["general"]["id"], "root for paging")
+    root_id = root.body["message"]["id"]
+    reply = await send_message(
+        team["owner"],
+        team["general"]["id"],
+        "paged reply",
+        threadRootId=root_id,
+        alsoInChannel=True,
+    )
+    for _ in range(3):
+        await send_message(team["owner"], team["general"]["id"], "filler")
+
+    newest = await team["owner"].get(f"/api/channels/{team['general']['id']}/messages?limit=2")
+    oldest_loaded = newest.body["messages"][0]["id"]
+    page = await team["owner"].get(
+        f"/api/channels/{team['general']['id']}/messages?limit=50&before={oldest_loaded}"
+    )
+    around = await team["owner"].get(
+        f"/api/channels/{team['general']['id']}/messages"
+        f"?limit=10&around={reply.body['message']['id']}"
+    )
+
+    assert "paged reply" in [m["body"] for m in page.body["messages"]]
+    assert "paged reply" in [m["body"] for m in around.body["messages"]]
+
+
 async def test_replying_subscribes_you_to_the_thread(team: dict) -> None:
     root = await send_message(team["owner"], team["general"]["id"], "root")
     root_id = root.body["message"]["id"]

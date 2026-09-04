@@ -212,6 +212,27 @@ class TestArchive:
 
         assert "cannot be archived" in body["ephemeral"]
 
+    async def test_a_member_cannot(self, team: dict) -> None:
+        """The menu row is admin-only; the command was not, and archiving has no undo.
+
+        A hidden button is the client's opinion. Any member of the channel could type
+        eight characters and close it for everybody, permanently — there is no route
+        anywhere that sets `archived_at` back to null.
+        """
+        design = team["design"]["id"]
+        await team["member"].post(f"/api/channels/{design}/join")
+
+        body = await run(team["member"], design, "/archive")
+
+        assert "Only an admin" in body["ephemeral"]
+        # And it really did not happen: the channel still takes messages.
+        sent = await team["member"].post(
+            f"/api/channels/{design}/messages",
+            {"body": "still open", "clientMsgId": client_msg_id()},
+        )
+        # 201: a first write. The repeat of an idempotent send is what answers 200.
+        assert sent.status == 201, sent.body
+
 
 class TestWho:
     async def test_names_the_people_here(self, team: dict) -> None:

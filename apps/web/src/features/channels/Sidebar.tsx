@@ -19,6 +19,7 @@ import {
   SearchIcon,
 } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
+import { NewMessageDialog } from './NewMessageDialog.tsx';
 
 export function Sidebar() {
   const channels = useStore((s) => s.channels);
@@ -30,6 +31,7 @@ export function Sidebar() {
   const savedCount = useStore((s) => s.savedMessageIds.size);
 
   const [creating, setCreating] = useState(false);
+  const [composing, setComposing] = useState(false);
 
   // The two sections come from `lib/conversations`, which is also what ⌥↑ and ⌥↓ walk.
   // They were the same sort written twice and had already drifted — the keyboard copy
@@ -147,7 +149,20 @@ export function Sidebar() {
         </section>
 
         <section className="sidebar-section">
-          <h2 className="section-label">Direct messages</h2>
+          <div className="section-label-row">
+            <h2 className="section-label">Direct messages</h2>
+            {/* The counterpart to "New channel", which had none: starting a conversation
+                meant knowing ⌘⇧K or scrolling for a name, and a group message could only
+                be made by typing a slash command. */}
+            <button
+              className="sidebar-inline-add"
+              onClick={() => setComposing(true)}
+              aria-label="New message"
+              data-tooltip="New message"
+            >
+              <PlusIcon size="sm" />
+            </button>
+          </div>
           {dms.map((channel) => (
             <ChannelRow key={channel.id} channel={channel} />
           ))}
@@ -166,6 +181,7 @@ export function Sidebar() {
       </div>
 
       {creating && <CreateChannelDialog onClose={() => setCreating(false)} />}
+      {composing && <NewMessageDialog onClose={() => setComposing(false)} />}
     </div>
   );
 }

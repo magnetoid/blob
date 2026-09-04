@@ -95,14 +95,16 @@ grant scopes explicitly, and both end up as a real member of the workspace.
 - **Mentions** — `@person`, `@group`, `@channel`, `@here` and `@everyone`, never fired from
   inside a code block. People are resolved when the message is written; a group is resolved
   at notify time against current membership, so an edit reaches whoever is in it now. Be
-  warned that `@here` is currently parsed and then treated exactly like `@channel` — it
-  does not spare the people who are away.
+  `@channel` and `@everyone` reach everybody; `@here` reaches only the people who are
+  actually at their desk.
 - **Files** — up to ten per message, 100 MB each, uploaded straight to object storage so
   file bytes never pass through the API process. Executable extensions are refused.
 - **Link previews** — the first URL in a message, fetched with an SSRF guard, a 5-second
   timeout and a 512 KB ceiling.
 - **Translation** — per-message, or automatic for everything arriving in another language.
   Needs a preferred language and a configured provider (DeepL or LibreTranslate).
+- **Themes** — twelve palettes, six light and six dark, each chosen per person from a
+  gallery that draws every one in its own colours. Admins can add more, token by token.
 
 ### Attention
 
@@ -202,8 +204,6 @@ afternoon:
 - **SSO, SAML, OIDC and 2FA** — email and password is the only way in.
 - **Unarchiving a channel** — archiving is one-way, deliberately noted here because it has
   no undo anywhere in the product.
-- **A timezone picker** — the account field exists and defaults to UTC, but no screen sets
-  it, so quiet hours and `/remind` phrases are UTC unless an operator changes it directly.
 - Console rows marked **Soon** — Moderation, Deliveries, Approvals, Storage, Import/export.
 
 ---

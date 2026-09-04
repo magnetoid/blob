@@ -15,3 +15,8 @@ data/
 # …except the ones the README shows. Screenshots are ignored by default because they are
 # usually debugging leftovers; these four are documentation and have to survive a clone.
 !docs/images/*.png
+# …and the app's own icons, which is a sharper version of the same mistake: index.html
+# and the manifest have always pointed at these, they were never committed, and the SPA
+# fallback answered every request for one with index.html and a 200 — so the favicon and
+# the Home Screen icon were missing in production without anything looking broken.
+!apps/web/public/**/*.png

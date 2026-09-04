@@ -431,11 +431,23 @@ async def _mute(ctx: CommandContext) -> CommandResult:
 
 
 async def _archive(ctx: CommandContext) -> CommandResult:
+    """Archive this channel — admins only, and there is no way back.
+
+    The gate matters more here than anywhere else in this file. Archiving cannot be
+    undone: no route, no command and no console control sets `archived_at` back to null,
+    so a member who typed eight characters would have closed the channel for everybody
+    permanently. `ChannelMenu` has always hidden the row from members, but a hidden
+    button is a client's opinion — this is the rule.
+    """
     access = await channel_service.assert_channel_access(
         ctx.session, ctx.user.id, ctx.channel_id, require_member=True
     )
     if access.kind in ("dm", "group_dm"):
         return CommandResult(ephemeral="A direct message cannot be archived.")
+    if not ctx.user.is_admin:
+        return CommandResult(
+            ephemeral="Only an admin can archive a channel, and it cannot be undone."
+        )
 
     await ctx.session.execute(
         text("UPDATE channels SET archived_at = now() WHERE id = :id"), {"id": ctx.channel_id}

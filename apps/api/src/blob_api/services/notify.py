@@ -46,6 +46,12 @@ class NotifiableMessage:
     #: at notify time, against *current* membership — not frozen into the message row.
     mention_group_ids: list[str] = field(default_factory=list)
     mentions_everyone: bool = False
+    #: True when the message said `@here` rather than `@channel` or `@everyone`.
+    #:
+    #: Not a column: it is re-derived from the body at notify time with the same parser
+    #: the write path uses, so code blocks are stripped identically and no migration is
+    #: needed to carry one bit.
+    here_only: bool = False
     thread_root_id: str | None = None
 
 
@@ -63,6 +69,7 @@ def decide(
     now: datetime | None = None,
     thread_subscribers: set[str] | None = None,
     group_recipients: set[str] | None = None,
+    active_user_ids: set[str] | None = None,
 ) -> list[Decision]:
     now = now or datetime.now(UTC)
     thread_subscribers = thread_subscribers or set()
@@ -70,6 +77,10 @@ def decide(
     # muted the group. Resolved by the caller, because that is a query and this stays a
     # pure function — the same arrangement `thread_subscribers` uses.
     group_recipients = group_recipients or set()
+    # Who is at their desk, for `@here`. None means the caller could not ask — presence
+    # lives in Redis, and a Redis that is down must not silently turn `@here` into a
+    # message nobody is told about. So None means "notify everyone", which is the old
+    # behaviour and the safe direction to fail in.
     decisions: list[Decision] = []
 
     for recipient in recipients:
@@ -93,7 +104,9 @@ def decide(
             # apart downstream. Below a direct mention: somebody named personally *and*
             # via a group has been named personally.
             decisions.append(Decision(recipient.user_id, "group", True))
-        elif message.mentions_everyone:
+        elif message.mentions_everyone and _reached_by_everyone(
+            message, recipient.user_id, active_user_ids
+        ):
             # Muted channels already returned above, so reaching here means they opted in.
             decisions.append(Decision(recipient.user_id, "everyone", True))
         elif matches_keywords(message.body, recipient.prefs.keywords):
@@ -104,6 +117,24 @@ def decide(
             decisions.append(Decision(recipient.user_id, "all_activity", False))
 
     return decisions
+
+
+def _reached_by_everyone(
+    message: NotifiableMessage, user_id: str, active_user_ids: set[str] | None
+) -> bool:
+    """Whether a channel-wide mention reaches this person.
+
+    `@channel` and `@everyone` reach everybody. `@here` is the quieter one and is
+    supposed to spare the people who are away — it had been parsed and then ignored, so
+    for a long time all three woke the same room. A recipient `@here` skips is not
+    silenced: the branches below this one still get their turn, so a keyword still fires
+    and a channel set to Every message still delivers.
+    """
+    if not message.here_only:
+        return True
+    if active_user_ids is None:
+        return True
+    return user_id in active_user_ids
 
 
 def is_snoozed(recipient: Recipient, now: datetime) -> bool:

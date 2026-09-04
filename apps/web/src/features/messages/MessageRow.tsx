@@ -13,6 +13,7 @@ import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { permalinkFor } from "../../lib/navigation.ts";
 import { useMentionIndex } from "./mentionIndex.ts";
+import { PersonCard } from "../../components/PersonCard.tsx";
 import type { LocalMessageDeliveryStatus } from "../../lib/outbox.ts";
 import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
@@ -132,6 +133,7 @@ export const MessageRow = memo(function MessageRow({
   const [deleting, setDeleting] = useState(false);
   const [forwarding, setForwarding] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const author = message.authorId ? users[message.authorId] : undefined;
@@ -269,9 +271,26 @@ export const MessageRow = memo(function MessageRow({
       <div className="message-main">
         {!grouped && (
           <div className="message-head">
-            <span className="message-author">
-              {author?.displayName ?? "Someone"}
-            </span>
+            {author ? (
+              <span className="person-trigger-wrap">
+                <button
+                  type="button"
+                  className="message-author person-trigger"
+                  aria-haspopup="menu"
+                  aria-expanded={cardOpen}
+                  onClick={() => setCardOpen((v) => !v)}
+                >
+                  {author.displayName}
+                </button>
+                <PersonCard
+                  person={author}
+                  open={cardOpen}
+                  onClose={() => setCardOpen(false)}
+                />
+              </span>
+            ) : (
+              <span className="message-author">Someone</span>
+            )}
             <time className="message-time" dateTime={message.createdAt}>
               {formatTime(message.createdAt)}
             </time>

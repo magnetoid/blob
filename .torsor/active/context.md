@@ -710,3 +710,43 @@ Writing it found two things the code says and the product does not:
 * **`@here` notifies exactly who `@channel` does.** `lib/mentions.py` parses `here_only`
   and nothing reads it — `notify.decide` branches on `mentions_everyone` alone. The
   parsed distinction has never reached a recipient.
+
+## Trap: a popover inside the virtualised message list
+
+Every row in `MessageList` is absolutely positioned and carries a `transform`, which makes
+it a **stacking context** — so a panel opened inside one is trapped there no matter how
+high its own `z-index`, and the next row down paints straight over it. The person card
+looked half-drawn; the `•••` menu had the same latent problem.
+
+Raising the panel cannot work. Raise the *row*: `.message-list-row:has(.menu)` lifts the
+whole subtree, because the row is the context. `Menu` unmounts its panel after the exit
+animation, so the selector matches only while something is genuinely open.
+
+## Trap: the SPA fallback made a missing file look like a working one
+
+`SinglePageApp` answered any 404 with index.html so that `/c/<uuid>` survives a reload.
+That also meant `/icons/icon-192.png` returned **HTML with a 200** — and the four PWA
+icons had never been committed, because `.gitignore` said `*.png` repo-wide. The favicon
+and the Home Screen icon were missing in production for months with nothing to see: no
+error, no log line, a 200 every time.
+
+A path whose last segment has a suffix is now a file request and keeps its 404. Use
+`PurePosixPath(path).suffix`, not "contains a dot": StaticFiles normalises the root to
+`"."`, which the cruder test read as a file and answered 404 — taking the whole app down.
+
+## Trap: `here_only` and `also_in_channel` were parsed, stored, and read by nobody
+
+Two bits travelled the whole write path and then died. `lib/mentions` set `here_only` and
+`notify.decide` branched on `mentions_everyone` alone, so `@here` woke exactly the room
+`@channel` did. `messages.send` stored `also_in_channel` and channel history filtered
+`thread_root_id IS NULL` in all three paging modes, so the tick above the thread composer
+promised a broadcast that reached nobody — including the person who ticked it.
+
+Both are now read. `@here` needs presence, which lives in Redis, so `decide` takes
+`active_user_ids` and treats `None` as "notify everyone": a Redis that cannot answer must
+not silently turn a mention into a message nobody is told about. History states the rule
+once as `IN_CHANNEL_HISTORY` rather than repeating a predicate three times — a fix that
+touched only the first query would have looked right until somebody scrolled up.
+
+The lesson both share: a column nothing selects is not a feature, it is a promise the UI
+is making on the product's behalf. Grep for the reader before believing the writer.

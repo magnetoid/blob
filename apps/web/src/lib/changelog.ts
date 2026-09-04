@@ -34,6 +34,44 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-03',
+    title: 'Six things that said one thing and did another',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Twelve colour themes, six light and six dark — Paper, Linen, Harbour, Sage, Blossom, High contrast, Midnight, Slate, Plum, Forest, Carbon and Ember. Preferences shows them as a gallery where each tile is drawn in its own colours, so you pick a look rather than a name. Yours alone: choosing one changes nothing on anybody else\'s screen.',
+      },
+      {
+        kind: 'added',
+        text: 'A time zone, at last, under Preferences — with the current time in it beside the picker, because that is the fastest way to see a wrong one. Quiet hours and every /remind phrase are read in it, and until now every account quietly kept UTC, so "remind me tomorrow at 9" meant 09:00 UTC and the confirmation printed 09:00 back at you either way.',
+      },
+      {
+        kind: 'added',
+        text: 'A New message button beside Direct messages, and with it the first way to start a group conversation without typing a slash command. Click somebody\'s name on a message and a card opens with a Message button — the gesture every chat app trains you to make, which until now did nothing at all.',
+      },
+      {
+        kind: 'fixed',
+        text: '"Also send to #channel" now sends to the channel. The tick above the thread composer had been stored and read by nobody: the reply went to the thread and stopped there, for everyone including whoever ticked it.',
+      },
+      {
+        kind: 'fixed',
+        text: '@here no longer wakes the whole channel. It had been parsed and then treated exactly like @channel; it now reaches the people who are actually around, and anyone it passes over is still reachable by a keyword or a channel set to Every message.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Archiving a channel is an admin\'s again. The menu row had always been admin-only, but /archive was accepted from any member — and archiving cannot be undone.',
+      },
+      {
+        kind: 'fixed',
+        text: 'The app\'s own icons ship. The favicon and the Home Screen icon had never been committed, and a missing file was answered with the app\'s HTML and a 200, so nothing ever looked broken. A request for a file that is not there is now a 404, which is how the four missing PNGs were found.',
+      },
+      {
+        kind: 'added',
+        text: 'A link to Blob pasted elsewhere now unfurls with a card and an image rather than a bare URL. It describes the product and never the conversation: a permalink needs a session to open, and a preview must not leak what is behind one.',
+      },
+    ],
+  },
+  {
     date: '2026-09-02',
     title: 'Commands you already know, and messages that come back',
     entries: [

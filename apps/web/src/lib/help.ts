@@ -172,7 +172,7 @@ export const SECTIONS: Section[] = [
         title: 'Mentioning people',
         blurb: 'Type @ and part of a name; @channel, @everyone and @here reach the whole channel.',
         body: [
-          'All three of those notify everybody in the channel. @here is accepted and reads as the gentler one, but in this build it is not: it does not narrow itself to the people who are around. Reach for it knowing it wakes the same people @channel does.',
+          '@channel and @everyone notify everybody in the channel. @here is the quieter one: it reaches only the people who are at their desk, and passes over anyone away or offline. Being passed over is not being silenced — a keyword still fires, and a channel set to Every message still delivers.',
           'A mention is counted separately from ordinary messages, which is why the number beside a channel in the sidebar is a count of mentions rather than of messages.',
           'A group your workspace has defined can be mentioned the same way, and mentioning it counts as mentioning you if you are in it. A mention inside a code block or inline code notifies nobody — pasting a shell snippet with @channel in it is safe.',
         ],
@@ -300,7 +300,7 @@ export const SECTIONS: Section[] = [
         title: 'Starting and reading one',
         blurb: 'Hover a message and press “Reply in thread”. The thread opens in a panel on the right.',
         body: [
-          'A thread keeps a tangent out of everyone else’s way: the channel shows that replies exist and how many, and only the people who open it read them. A reply stays in the thread — it never also appears in the channel, whatever the tick above the reply box suggests.',
+          'A thread keeps a tangent out of everyone else’s way: the channel shows that replies exist and how many, and only the people who open it read them. Tick “Also send to #channel” above the reply box and that one reply goes to both places — the tick clears itself afterwards, so it is a decision per message rather than a mode.',
           'Threads is a view of its own in the sidebar, listing the ones you have replied in, so a conversation you are part of does not disappear because the channel moved on. It shows the thirty most recent and does not refresh while you sit on it.',
           'Slash commands do not work in a thread. A leading slash there is ordinary text, which is also the only way to send a message that starts with one.',
         ],
@@ -409,13 +409,23 @@ export const SECTIONS: Section[] = [
         blurb: 'The people-only jump box, a name in the sidebar, or /dm @name.',
         body: [
           'Adding more names makes it a group message, up to eight people. A group message is not a channel: it has no topic, nobody can join it later, and it cannot be archived.',
-          'Those are the three ways in, and they are worth knowing precisely because there is no “New message” button anywhere: clicking somebody’s name on a message does not open a conversation with them.',
+          'Clicking somebody’s name or avatar on a message opens a small card with a Message button, which is the fourth way and usually the nearest one.',
           'A group message can only be started by naming everybody at once — /dm @ana @bob — and once it exists nobody can be added, removed or given it a name.',
           'A direct message cannot be left, closed or hidden; its menu offers only starring, so /mute is the only way to quieten one.',
         ],
         commands: ['dm', 'mute'],
         shortcuts: ['dms'],
         keywords: ['dm', 'direct message', 'private message', 'group', 'mute'],
+      },
+      {
+        id: 'group-dm',
+        title: 'Starting a group message',
+        blurb: 'The + beside Direct messages opens a recipient field; add up to seven other people.',
+        body: [
+          'It is a conversation, not a channel: no topic, nobody can be added afterwards, and it cannot be named or archived. If you find yourself wanting any of that, a channel is the thing you actually want.',
+        ],
+        commands: ['dm'],
+        keywords: ['group', 'new message', 'compose', 'several people'],
       },
       {
         id: 'self-dm',
@@ -477,7 +487,7 @@ export const SECTIONS: Section[] = [
           'Type / in the message box and a list appears; keep typing to narrow it, and press Tab or Enter to pick one.',
         body: [
           'Most commands answer only you — a note that appears in the conversation, that nobody else sees and that is gone on reload. A few of them post a real message instead, and those say so in their description.',
-          'Most of them need membership of the channel you are in, and a channel that is not archived. One is worth naming: “Archive channel” is hidden from the menu for anyone who is not an admin, but /archive is accepted from any member of the channel. The menu is stricter than the command.',
+          'Most of them need membership of the channel you are in, and a channel that is not archived. /archive needs more than that: it is an admin’s, the same as the menu row, because archiving cannot be undone.',
         ],
         commands: ['help', 'shrug', 'me'],
         keywords: ['slash', 'command', '/'],
@@ -544,7 +554,7 @@ export const SECTIONS: Section[] = [
         body: [
           'A repeat is rebuilt from the wall clock in your time zone each time it goes, so a standup at 9:00 stays at 9:00 across daylight saving rather than drifting to 8:00 for half the year.',
           'A worker that was down does not wake up owing you a week of standups: missed occurrences are skipped and the next one is the next real slot ahead. Cancelling on the Scheduled list stops the whole series.',
-          'Those three rules are the whole list — there is no monthly, no every-other-week, no “Monday and Thursday”, and no end date. And the clock a repeat keeps is your account’s, which defaults to UTC unless somebody set it for you.',
+          'Those three rules are the whole list — there is no monthly, no every-other-week, no “Monday and Thursday”, and no end date. The clock a repeat keeps is your account’s, set under Time zone in Preferences.',
         ],
         path: '/scheduled',
         keywords: ['repeat', 'recurring', 'daily', 'weekly', 'standup', 'every'],
@@ -556,7 +566,7 @@ export const SECTIONS: Section[] = [
         body: [
           'It reads durations (“in 20 minutes”, “in 2 hours”), clock times (“at 5pm”, “18:30”), days (“tomorrow”, “Monday”) and repeats (“every weekday at 9am”). A time it cannot read is answered with the shapes it does understand rather than with a guess. It has to be typed in a channel: the thread reply box does not read commands at all, and a slash there is just a slash.',
           'Reminders are ordinary scheduled messages to yourself, which is why they show on the Scheduled list with the same Cancel button as everything else — and it is also why they arrive quietly. Blob never notifies you about your own message, so the note appears in your own conversation without a ping. When you want to be interrupted, “Remind me…” on a message is the one that comes back at you.',
-          'Times are read in your account’s time zone. That defaults to UTC and the app has no picker for it, so “tomorrow at 9” means 09:00 UTC unless somebody has set yours — and the confirmation is printed in the same zone, so it will read 09:00 either way and not give the mismatch away.',
+          'Times are read in your account’s time zone, which is under Time zone in Preferences — it shows the clock in whatever zone is set, so a wrong one is visible at a glance. Set it before you trust “tomorrow at 9”.',
         ],
         commands: ['remind'],
         path: '/scheduled',
@@ -615,7 +625,7 @@ export const SECTIONS: Section[] = [
         body: [
           'Quiet hours stop the interruption, not the message: a conversation still goes bold, so nothing is hidden from you. The numbered mention badge is the exception — a mention that arrives while you are paused or outside your hours is not counted into it, so the badge tells you about the mentions you were available for.',
           'Pause is the short version: 30 minutes, 1 hour, 2 hours, or until tomorrow (a flat sixteen hours), with Resume to end it early. A reminder due while you are paused is held rather than lost.',
-          'One thing to check before relying on the hours: they are read in your account’s time zone, and that defaults to UTC with no picker in the app to change it. Unless whoever runs this server set yours, “22:00 to 07:00” means UTC.',
+          'The hours are read in your account’s time zone, which is set under Time zone in Preferences. Check it first: an account that has never been told keeps UTC, and “22:00 to 07:00” would then mean UTC.',
         ],
         path: '/workspace/notifications',
         keywords: ['quiet', 'do not disturb', 'dnd', 'pause', 'snooze', 'hours'],
@@ -666,10 +676,10 @@ export const SECTIONS: Section[] = [
       {
         id: 'appearance',
         title: 'Theme and density',
-        blurb: 'System, Light or Dark, and three text densities: Comfortable, Compact and Airy.',
+        blurb: 'System, Light or Dark, a palette for each, and three text densities.',
         body: [
           'System follows whatever your computer is set to, including switching at sunset if that is what it does.',
-          'If your workspace has made its own palettes, Light palette and Dark palette pick which one each mode uses. Both are yours: choosing one changes nothing for anyone else.',
+          'Under it are two galleries — one for light, one for dark — with a dozen palettes between them: Paper, Linen, Harbour, Sage, Blossom, High contrast; Midnight, Slate, Plum, Forest, Carbon, Ember. Each tile is drawn in its own colours, so you are choosing a look rather than a name. Both are yours: picking one changes nothing on anyone else’s screen, and an admin can add more.',
           'Animation follows your operating system’s “reduce motion” setting and has no switch of its own here. Text size has no setting either — browser zoom is the lever.',
         ],
         path: '/workspace/preferences',

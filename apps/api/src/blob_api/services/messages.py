@@ -209,10 +209,21 @@ async def send(
         if len(bound) != len(attachment_ids):
             raise bad_request("One of those attachments is no longer available.")
 
-    await session.execute(
-        text("UPDATE channels SET last_message_id = :message_id WHERE id = :channel_id"),
-        {"message_id": message_id, "channel_id": channel_id},
-    )
+    # Only what the channel's own history will return. The pointer means "the newest
+    # message in this channel", and the client compares the last row it has loaded against
+    # it to decide whether a live message extends the list or belongs to some older window
+    # it is looking at.
+    #
+    # Advancing it for a thread reply broke that comparison permanently: the pointer named
+    # a message channel history never returns, so the two could never be equal again and
+    # every later message in that channel was dropped from the open view until a reload.
+    # It also made a reply mark the channel unread, which is the opposite of what a thread
+    # is for — and is why "Mark unread" is deliberately absent from a reply's menu.
+    if thread_root_id is None or also_in_channel:
+        await session.execute(
+            text("UPDATE channels SET last_message_id = :message_id WHERE id = :channel_id"),
+            {"message_id": message_id, "channel_id": channel_id},
+        )
 
     thread_update: ThreadUpdate | None = None
     if thread_root_id:
@@ -293,6 +304,15 @@ async def send(
     return SendResult(message=to_message(row), created=True, thread_update=thread_update)
 
 
+#: What belongs in a channel's own history.
+#:
+#: Thread replies are kept out of the channel, which is the whole point of a thread — but
+#: not the ones whose author ticked "Also send to #channel". That tick had been stored and
+#: never read: the filter said `thread_root_id IS NULL` in all three paging modes, so the
+#: box promised a broadcast that reached nobody, including the person who ticked it.
+IN_CHANNEL_HISTORY = "(m.thread_root_id IS NULL OR m.also_in_channel)"
+
+
 async def history(
     session: AsyncSession,
     channel_id: str,
@@ -313,12 +333,12 @@ async def history(
                 text(
                     f"""
                     (SELECT {MESSAGE_SELECT} FROM messages m
-                      WHERE m.channel_id = :channel_id AND m.thread_root_id IS NULL
+                      WHERE m.channel_id = :channel_id AND {IN_CHANNEL_HISTORY}
                         AND m.id <= :around
                       ORDER BY m.id DESC LIMIT :half)
                     UNION ALL
                     (SELECT {MESSAGE_SELECT} FROM messages m
-                      WHERE m.channel_id = :channel_id AND m.thread_root_id IS NULL
+                      WHERE m.channel_id = :channel_id AND {IN_CHANNEL_HISTORY}
                         AND m.id > :around
                       ORDER BY m.id ASC LIMIT :half)
                     """
@@ -337,7 +357,7 @@ async def history(
                 f"""
                 SELECT {MESSAGE_SELECT} FROM messages m
                  WHERE m.channel_id = :channel_id
-                   AND m.thread_root_id IS NULL
+                   AND {IN_CHANNEL_HISTORY}
                    AND (cast(:before AS uuid) IS NULL OR m.id < cast(:before AS uuid))
                    AND (cast(:after AS uuid) IS NULL OR m.id > cast(:after AS uuid))
                  ORDER BY m.id {order}

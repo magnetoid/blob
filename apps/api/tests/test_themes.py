@@ -91,18 +91,22 @@ async def test_a_member_cannot_save_a_theme(team: dict) -> None:
 async def test_an_admin_creates_edits_and_deletes_a_theme(team: dict) -> None:
     created = await team["owner"].put(
         "/api/admin/themes",
-        {"name": "Forest", "mode": "dark", "tokens": {"--accent": "#3fb394"}},
+        # A name no shipped preset uses, and deliberately not a plausible one: this
+        # test is about create/edit/delete, and naming it something the product might
+        # one day ship as a palette makes it fail the day somebody adds that palette.
+        # It did — "Forest" became a preset and this test started answering 409.
+        {"name": "Testbed", "mode": "dark", "tokens": {"--accent": "#3fb394"}},
     )
     assert created.status == 200
     theme = created.body["theme"]
-    assert theme["slug"] == "forest"
+    assert theme["slug"] == "testbed"
     assert theme["isPreset"] is False
 
     edited = await team["owner"].put(
         "/api/admin/themes",
         {
             "id": theme["id"],
-            "name": "Forest",
+            "name": "Testbed",
             "mode": "dark",
             "tokens": {"--accent": "#55c7a8", "--bg": "#0e1210"},
         },

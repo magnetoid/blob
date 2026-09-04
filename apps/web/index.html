@@ -12,6 +12,35 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="theme-color" content="#1f5c3d" />
     <title>Blob</title>
+    <meta
+      name="description"
+      content="Open-source, self-hosted team chat where agents are members, not widgets."
+    />
+
+    <!-- What a link to this workspace looks like when somebody pastes it somewhere else.
+         Deliberately about the product and never about the content: a permalink needs a
+         session to open, and a crawler that follows one must not be handed a preview of
+         a private conversation. Every route serves the same card for the same reason. -->
+    <meta property="og:site_name" content="Blob" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Blob" />
+    <meta
+      property="og:description"
+      content="Open-source, self-hosted team chat where agents are members, not widgets."
+    />
+    <!-- Relative on purpose: the origin is decided at deploy time and this file is built
+         once. Every unfurler in practice resolves it against the page it found it on. -->
+    <meta property="og:image" content="/og.png" />
+    <meta property="og:image:width" content="2400" />
+    <meta property="og:image:height" content="1260" />
+    <meta property="og:image:alt" content="Blob — open-source, self-hosted team chat" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Blob" />
+    <meta
+      name="twitter:description"
+      content="Open-source, self-hosted team chat where agents are members, not widgets."
+    />
+    <meta name="twitter:image" content="/og.png" />
     <script>
       // Runs before first paint: the server's answer is a round trip away, so the last
       // known palette is mirrored in localStorage and replayed here.

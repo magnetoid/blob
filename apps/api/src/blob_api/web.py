@@ -12,7 +12,7 @@ not exist should hear 404, not receive a page.
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from fastapi import FastAPI
 from starlette.exceptions import HTTPException
@@ -44,6 +44,19 @@ class SinglePageApp(StaticFiles):
             response = await super().get_response(path, scope)
         except HTTPException as exc:
             if exc.status_code != 404:
+                raise
+            # A request that names a file is not a client route, and answering it with
+            # index.html is worse than answering nothing: the browser asked for a PNG and
+            # got HTML with a 200, so a missing asset looks like a working one. That is
+            # exactly how the app's own icons went missing in production without anything
+            # appearing broken — index.html and the manifest pointed at four PNGs that
+            # were never committed, and every request for one came back 200.
+            #
+            # Client routes have no extension: /c/<uuid>, /workspace/members, /help.
+            # `suffix` rather than "contains a dot", because StaticFiles normalises the
+            # root to "." — which the cruder test read as a file and answered 404, taking
+            # the whole app down with it.
+            if PurePosixPath(path).suffix:
                 raise
             # A deep link like /channel/general is the client's route, not a file.
             response = await super().get_response("index.html", scope)

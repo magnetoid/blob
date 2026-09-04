@@ -15,6 +15,7 @@ from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import transaction
+from ..lib.mentions import parse_mentions
 from ..lib.webpush import send_push
 from ..realtime import presence
 from ..schemas.models import ReadStateOut
@@ -75,6 +76,24 @@ async def handle_notify(message_id: str) -> None:
             session, list(message.mention_group_ids or [])
         )
 
+        # `@here` is the only mention whose audience depends on who is at their desk, so
+        # presence is only read when one was written. An empty target map is enough: the
+        # bare-token branch of the parser is what recognises `here`, and it needs no
+        # handle index — while `strip_code` still runs, so `@here` inside a fenced block
+        # is as inert here as it is on the write path.
+        active_ids: set[str] | None = None
+        if message.mentions_everyone:
+            mentions = parse_mentions(message.body, {})
+            if mentions.here_only:
+                try:
+                    seen = await presence.get_presence([r.user_id for r in recipients])
+                    active_ids = {uid for uid, state in seen.items() if state == "active"}
+                except Exception:  # any Redis failure, and none of them is fatal
+                    # Presence is a nicety; the notification is not. Leaving `active_ids`
+                    # as None means `@here` notifies everybody, which is what it did
+                    # before it learned to be quieter — the right direction to fail in.
+                    log.warning("presence unavailable for @here on %s", message_id)
+
         decisions = notify_service.decide(
             notify_service.NotifiableMessage(
                 id=message.id,
@@ -85,11 +104,13 @@ async def handle_notify(message_id: str) -> None:
                 mention_user_ids=list(message.mention_user_ids or []),
                 mention_group_ids=list(message.mention_group_ids or []),
                 mentions_everyone=message.mentions_everyone,
+                here_only=active_ids is not None,
                 thread_root_id=message.thread_root_id,
             ),
             recipients,
             thread_subscribers=subscribers,
             group_recipients=group_recipients,
+            active_user_ids=active_ids,
         )
         if not decisions:
             return

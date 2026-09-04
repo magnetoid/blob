@@ -233,6 +233,17 @@ function upsert(items: Message[], message: Message): Message[] {
   return next;
 }
 
+/**
+ * Whether a message belongs in its channel's own list.
+ *
+ * Thread replies live in the thread. The exception is the one whose author ticked "Also
+ * send to #channel", which is deliberately in both — `services/messages.IN_CHANNEL_HISTORY`
+ * is the server half of this same sentence.
+ */
+function inChannelHistory(message: Message): boolean {
+  return !message.threadRootId || message.alsoInChannel;
+}
+
 export const useStore = create<State>((set, get) => ({
   ready: false,
   status: "offline",
@@ -928,7 +939,13 @@ export const useStore = create<State>((set, get) => ({
                 ),
               };
             }
-          } else {
+          }
+
+          // A reply goes into the thread and stops there — unless its author ticked
+          // "Also send to #channel", which is the one case a threaded message belongs in
+          // both. Routing every reply into the thread alone is what made that tick a
+          // no-op on the client even after history started returning it.
+          if (inChannelHistory(message)) {
             const existing = s.messages[message.channelId];
             // Was the loaded list ending at the channel's newest message *before* this
             // one arrived? That is the difference between extending the tail and
@@ -968,7 +985,13 @@ export const useStore = create<State>((set, get) => ({
           }
 
           const channel = s.channels[message.channelId];
-          if (channel && event.t === "message.new") {
+          // The same rule the server keeps: the pointer names the newest message in the
+          // channel's own history, and a thread reply is not one of those unless it was
+          // also sent to the channel. Advancing it for a plain reply left the pointer
+          // naming a message the channel list can never contain — so "is the list at the
+          // tail?" was false from then on, and every later message in that channel was
+          // dropped from the open view until a reload.
+          if (channel && event.t === "message.new" && inChannelHistory(message)) {
             const isMine = message.authorId === s.currentUser?.id;
             const isActive = s.activeChannelId === message.channelId;
             next.channels = {

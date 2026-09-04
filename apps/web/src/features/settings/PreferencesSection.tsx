@@ -11,9 +11,11 @@
 
 import { useEffect, useState } from 'react';
 import { api, type AuthSession } from '../../lib/api.ts';
+import { deviceZone, knownZones, timeIn } from './timezones.ts';
 import { showError } from '../../lib/toasts.ts';
 import { useStore } from '../../lib/store.ts';
 import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
+import type { Theme } from '@blob/shared';
 
 const THEMES = [
   { label: 'System', value: 'system' },
@@ -75,40 +77,20 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
       <h2 className="section-label" style={{ marginTop: 26 }}>
         Light palette
       </h2>
-      <div className="chip-row">
-        {themes
-          .filter((t) => t.mode === 'light')
-          .map((theme) => (
-            <button
-              key={theme.id}
-              className="chip"
-              aria-pressed={prefs.themeLight === theme.slug}
-              onClick={() => void setPrefs({ themeLight: theme.slug })}
-            >
-              <span className="swatch" style={{ background: theme.tokens['--accent'] }} />
-              {theme.name}
-            </button>
-          ))}
-      </div>
+      <PaletteGallery
+        themes={themes.filter((t) => t.mode === 'light')}
+        chosen={prefs.themeLight}
+        onChoose={(slug) => void setPrefs({ themeLight: slug })}
+      />
 
       <h2 className="section-label" style={{ marginTop: 26 }}>
         Dark palette
       </h2>
-      <div className="chip-row">
-        {themes
-          .filter((t) => t.mode === 'dark')
-          .map((theme) => (
-            <button
-              key={theme.id}
-              className="chip"
-              aria-pressed={prefs.themeDark === theme.slug}
-              onClick={() => void setPrefs({ themeDark: theme.slug })}
-            >
-              <span className="swatch" style={{ background: theme.tokens['--accent'] }} />
-              {theme.name}
-            </button>
-          ))}
-      </div>
+      <PaletteGallery
+        themes={themes.filter((t) => t.mode === 'dark')}
+        chosen={prefs.themeDark}
+        onChoose={(slug) => void setPrefs({ themeDark: slug })}
+      />
 
       <h2 className="section-label" style={{ marginTop: 26 }}>
         Density
@@ -125,6 +107,11 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
           </button>
         ))}
       </div>
+
+      <h2 className="section-label" style={{ marginTop: 26 }}>
+        Time zone
+      </h2>
+      <TimeZoneRow />
 
       <h2 className="section-label" style={{ marginTop: 26 }}>
         Language and input
@@ -219,6 +206,146 @@ export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
         </button>
       </div>
     </section>
+  );
+}
+
+/**
+ * The palettes for one mode, each showing what it actually looks like.
+ *
+ * A single accent dot beside a name told you almost nothing — two themes with the same
+ * accent were indistinguishable until you picked one and looked at the app. A palette is
+ * mostly its page, its sidebar and its surfaces, so the tile draws those, in miniature,
+ * in the theme's own colours. Slack sells its themes this way for the same reason.
+ */
+function PaletteGallery({
+  themes,
+  chosen,
+  onChoose,
+}: {
+  themes: Theme[];
+  chosen: string;
+  onChoose: (slug: string) => void;
+}) {
+  if (themes.length === 0) {
+    return <p className="pref-hint">This workspace has no palettes for this mode yet.</p>;
+  }
+  return (
+    <div className="palette-gallery">
+      {themes.map((theme) => {
+        const token = (name: string, fallback: string) => theme.tokens[name] ?? fallback;
+        const base = theme.mode === 'dark';
+        return (
+          <button
+            key={theme.id}
+            className="palette-tile"
+            aria-pressed={chosen === theme.slug}
+            onClick={() => onChoose(theme.slug)}
+            title={theme.name}
+          >
+            <span
+              className="palette-preview"
+              style={{ background: token('--bg', base ? '#141614' : '#fcfcfa') }}
+              aria-hidden="true"
+            >
+              <span
+                className="palette-preview-rail"
+                style={{ background: token('--bg-sidebar', base ? '#171a17' : '#faf9f6') }}
+              />
+              <span className="palette-preview-body">
+                <span
+                  className="palette-preview-line"
+                  style={{ background: token('--surface-muted', base ? '#1f221f' : '#f7f6f1') }}
+                />
+                <span
+                  className="palette-preview-line short"
+                  style={{ background: token('--surface-muted', base ? '#1f221f' : '#f7f6f1') }}
+                />
+                <span
+                  className="palette-preview-accent"
+                  style={{ background: token('--accent', base ? '#5fb287' : '#1f5c3d') }}
+                />
+              </span>
+            </span>
+            <span className="palette-name">{theme.name}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The zone quiet hours and reminders are read in.
+ *
+ * It had no control at all, so every account kept the `UTC` default and "remind me
+ * tomorrow at 9" meant 09:00 UTC — printed back in the same zone, so it read as correct.
+ * The clock beside the picker is the part that makes a wrong setting obvious.
+ */
+function TimeZoneRow() {
+  const currentUser = useStore((s) => s.currentUser);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Ticks so the sample clock is not frozen at mount. A minute is plenty for a clock
+  // that shows hours and minutes.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!currentUser) return null;
+
+  const zone = currentUser.timezone || 'UTC';
+  const device = deviceZone();
+  const zones = knownZones();
+  // Whatever the account holds stays selectable even if this browser has never heard of
+  // it — otherwise opening this page on an old browser would silently offer to move you.
+  const options = zones.includes(zone) ? zones : [zone, ...zones];
+  const clock = timeIn(zone, now);
+
+  async function choose(next: string) {
+    if (next === zone || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { user } = await api.me.update({ timezone: next });
+      useStore.setState({ currentUser: user });
+    } catch {
+      setError('That did not save. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <p className="pref-hint" style={{ marginTop: 8 }}>
+        Quiet hours and <code>/remind</code> are read in this zone.
+        {clock && ` It is ${clock} there now.`}
+      </p>
+      <select
+        className="input"
+        aria-label="Time zone"
+        style={{ maxWidth: 320, marginTop: 8 }}
+        value={zone}
+        disabled={saving}
+        onChange={(event) => void choose(event.target.value)}
+      >
+        {options.map((name) => (
+          <option key={name} value={name}>
+            {name.replace(/_/g, ' ')}
+          </option>
+        ))}
+      </select>
+      {device && device !== zone && (
+        <div style={{ marginTop: 8 }}>
+          <button className="btn" disabled={saving} onClick={() => void choose(device)}>
+            Use this device’s zone ({device.replace(/_/g, ' ')})
+          </button>
+        </div>
+      )}
+      {error && <p className="error-text">{error}</p>}
+    </>
   );
 }
 

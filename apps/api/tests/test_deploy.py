@@ -58,6 +58,28 @@ async def test_a_deep_link_serves_the_app(web: httpx.AsyncClient) -> None:
     assert "<title>Blob</title>" in response.text
 
 
+async def test_a_missing_file_is_a_404_and_not_the_app(web: httpx.AsyncClient) -> None:
+    """A request that names a file must not be answered with index.html.
+
+    This is how the app's own icons went missing in production without anything looking
+    wrong: index.html and the manifest pointed at four PNGs that `.gitignore` had never
+    let anybody commit, and every request for one came back 200 with HTML in it. The
+    browser asked for an image, was handed a web page, and drew nothing — a broken
+    favicon and no Home Screen icon, reported by no log line anywhere.
+    """
+    response = await web.get("/icons/icon-192.png")
+
+    assert response.status_code == 404
+    assert "<title>Blob</title>" not in response.text
+
+
+async def test_a_file_that_is_there_is_still_served(web: httpx.AsyncClient) -> None:
+    response = await web.get("/favicon.svg")
+
+    assert response.status_code == 200
+    assert response.text == "<svg/>"
+
+
 async def test_real_files_are_served_as_themselves(web: httpx.AsyncClient) -> None:
     assert (await web.get("/assets/main-a1b2c3d4.js")).text == "console.log('hi')"
     assert (await web.get("/favicon.svg")).text == "<svg/>"

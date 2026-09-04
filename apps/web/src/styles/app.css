@@ -5170,3 +5170,278 @@ a.build-commit-sha:hover {
 .shortcut-help-more:hover {
   background: var(--surface-hover);
 }
+
+/* ─── who somebody is ─────────────────────────────────────────────────────── */
+/* The author's name is a button now. It has to look like the text it replaced until it
+   is hovered, or every message row would grow a control nobody asked for. */
+.person-trigger-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+button.person-trigger {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+}
+
+button.person-trigger:hover {
+  text-decoration: underline;
+}
+
+.person-card {
+  width: 260px;
+  padding: 12px;
+}
+
+/* A popover inside the virtualised message list.
+ *
+ * Every row is absolutely positioned and carries a transform, which makes it a stacking
+ * context — so a panel inside one is trapped there however high its own z-index, and the
+ * next row down paints straight over it. Raising the *row* is what lifts the panel,
+ * because the row is the context. `.menu` rather than `.person-card`: the ••• menu hangs
+ * off the same kind of row and has the same problem. The panel is only in the DOM while
+ * it is open (Menu unmounts it after the exit), so this never raises a quiet row. */
+.message-list-row:has(.menu) {
+  z-index: var(--z-popover);
+}
+
+.person-card-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.person-card-name {
+  font-weight: 600;
+  font-size: var(--text-base);
+}
+
+.person-card-title,
+.person-card-status {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+
+.person-card-status {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+/* ─── new message ─────────────────────────────────────────────────────────── */
+/* A recipient field, which the app had nowhere else: the only way to a group message was
+   a slash command. */
+.section-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-inline-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-rail);
+  cursor: pointer;
+}
+
+.sidebar-inline-add:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.new-message {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.new-message-to {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.new-message-label {
+  padding-top: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-4);
+}
+
+.new-message-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.new-message-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.new-message-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 5px 2px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.new-message-list {
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+.new-message-person {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font-size: var(--text-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.new-message-person:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.new-message-person:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (pointer: coarse) {
+  .sidebar-inline-add {
+    width: 44px;
+    height: 44px;
+  }
+
+  .new-message-person {
+    min-height: 44px;
+  }
+}
+
+/* ─── choosing a palette ──────────────────────────────────────────────────── */
+/* A tile that shows the palette rather than naming it: page, sidebar, surfaces and the
+   accent, in miniature and in the theme's own colours. The single accent dot this
+   replaced made two themes with the same accent indistinguishable until you picked one. */
+.palette-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  max-width: 620px;
+}
+
+.palette-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.palette-tile:hover {
+  background: var(--surface-hover);
+}
+
+.palette-tile[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--text);
+}
+
+.palette-preview {
+  display: flex;
+  height: 62px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  /* A ring rather than a border: a preview of a pale theme on a pale page needs an edge,
+     and the ring does not eat a pixel of the palette it is showing. */
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+
+.palette-tile[aria-pressed='true'] .palette-preview {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.palette-preview-rail {
+  width: 30%;
+  flex: none;
+}
+
+.palette-preview-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  flex: 1;
+  padding: 0 8px;
+}
+
+.palette-preview-line {
+  height: 5px;
+  border-radius: var(--radius-full);
+}
+
+.palette-preview-line.short {
+  width: 62%;
+}
+
+.palette-preview-accent {
+  width: 34%;
+  height: 8px;
+  margin-top: 2px;
+  border-radius: var(--radius-full);
+}
+
+.palette-name {
+  padding-left: 2px;
+  font-weight: 500;
+}
+
+@media (pointer: coarse) {
+  .palette-tile {
+    min-height: 44px;
+  }
+}
