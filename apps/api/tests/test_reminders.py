@@ -209,9 +209,9 @@ class TestItIsAnOrdinaryScheduledMessage:
 
         await send_scheduled({})
 
-        messages = (
-            await owner.get(f"/api/channels/{rows[0]['channel_id']}/messages")
-        ).body["messages"]
+        messages = (await owner.get(f"/api/channels/{rows[0]['channel_id']}/messages")).body[
+            "messages"
+        ]
         assert [m["body"] for m in messages] == ["water the plants"]
 
 

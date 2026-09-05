@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-05T04:19:23'
-updated: '2026-09-05T04:19:23'
+created: '2026-09-05T04:58:13'
+updated: '2026-09-05T04:58:13'
 ---
 
 # Repository Map
@@ -120,7 +120,10 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0026_agent_chains.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 39 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0027_agent_state.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 40 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -175,7 +178,4 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/lib/ids.py** — 3 symbol(s)
   - `new_id()` (function)
   - `new_token(nbytes: int=32)` (function)
-  - `looks_like_id(value: object)` (function)
-- **apps/api/src/blob_api/lib/jsonpatch.py** — 9 symbol(s)
-  - `PatchError` (class)
-  - `_get(document: Any…[truncated]
+  - `looks_l…[truncated]

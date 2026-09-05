@@ -91,6 +91,12 @@ export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
         description: 'When Blob is allowed to interrupt you, and what counts as urgent.',
         keywords: ['quiet hours', 'do not disturb', 'dnd', 'keywords', 'alerts'],
       },
+      {
+        id: 'my-agents',
+        label: 'My agents',
+        description: 'Agents that run on your machine, answer only you, and go where you put them.',
+        keywords: ['agent', 'personal agent', 'bridge', 'token', 'connect', 'desktop', 'laptop'],
+      },
     ],
   },
   {

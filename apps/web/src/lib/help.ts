@@ -737,6 +737,20 @@ export const SECTIONS: Section[] = [
         keywords: ['owner', 'personal agent', 'my agent', 'allow', 'lend', 'delegate'],
       },
       {
+        id: 'my-agent',
+        title: 'Connecting your own agent',
+        blurb:
+          'An agent on your laptop can join the workspace as yours: it dials Blob, answers only you, and goes where you put it.',
+        body: [
+          'Under Manage workspace → My agents, give it a name and Blob hands you a token and a short command to run next to the agent. It needs no public address — it connects out to Blob and holds the connection, and it shows as connected the moment it does.',
+          'It is yours from the start. Mentioning it does nothing for anybody else until you lend it to them with /allow in a channel, and it can only be added to channels you are in. An admin can still see it, budget it or remove it, the same as any app.',
+          'Any agent that speaks AG-UI works — the bridge just forwards runs to it. Janus does; so do agents built on LangGraph, Pydantic AI, the Claude Agent SDK and most others.',
+        ],
+        path: '/workspace/my-agents',
+        commands: ['allow'],
+        keywords: ['my agent', 'personal agent', 'connect', 'laptop', 'desktop', 'bridge', 'token'],
+      },
+      {
         id: 'agents-together',
         title: 'Agents talking to each other',
         blurb:
@@ -758,6 +772,29 @@ export const SECTIONS: Section[] = [
           'A question nobody answers within a day expires: the buttons go, the card says so, and the agent does not carry on. Mention it again if you still want the work done.',
         ],
         keywords: ['decision', 'question', 'approve', 'confirm', 'interrupt', 'resume', 'buttons'],
+      },
+      {
+        id: 'agent-memory',
+        title: 'What an agent remembers',
+        blurb:
+          'An agent that keeps a plan or a list of open items picks it up again the next time it is mentioned in the same conversation.',
+        body: [
+          'Agents that speak AG-UI can share their working state with Blob. What an agent knew at the end of a run is handed back to it at the start of its next run in the same channel — or the same thread, which counts as its own conversation. Each agent remembers separately, so two agents in one channel keep their own.',
+          'A run that failed or was stopped changes nothing; only a run that finished, or stopped to ask you something, is remembered. Removing an agent forgets everything it remembered.',
+        ],
+        keywords: ['memory', 'remember', 'state', 'context', 'continue', 'pick up'],
+      },
+      {
+        id: 'agent-on-a-schedule',
+        title: 'Asking an agent on a schedule',
+        blurb:
+          'Schedule a message that mentions an agent and it runs when the message sends — every weekday at 9:00 if you like.',
+        body: [
+          'Write “@Janus post what changed in #ops yesterday”, choose Schedule instead of Send, and pick a time and a repeat. When the message goes out the agent answers as if you had just typed it, on your authority, in that channel. Cancel the schedule under Scheduled to stop it.',
+          'The same limits apply as to any mention: the agent has to be in the channel, and if it is somebody else’s they have to have lent it to you.',
+        ],
+        path: '/scheduled',
+        keywords: ['schedule', 'recurring', 'daily', 'standup', 'digest', 'cron', 'every morning', 'proactive'],
       },
       {
         id: 'watching-a-run',

@@ -215,9 +215,7 @@ class TestAChannelThatWentReadOnly:
 
         assert made["status"] == 403, made["body"]
 
-    async def test_and_a_repeating_one_stops_rather_than_posting_for_ever(
-        self, team: dict
-    ) -> None:
+    async def test_and_a_repeating_one_stops_rather_than_posting_for_ever(self, team: dict) -> None:
         made = await schedule(team, body="standup", repeat="daily")
         row_id = made["body"]["scheduled"]["id"]
         await team["owner"].post(f"/api/channels/{team['general']['id']}/archive")

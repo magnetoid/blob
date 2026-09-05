@@ -154,6 +154,13 @@ grant scopes explicitly, and both end up as a real member of the workspace.
   the person who started it, inside a depth budget (`agent_chain_max_depth` per workspace,
   `AGENT_CHAIN_MAX_DEPTH` as the server ceiling), a per-agent cap that ends ping-pong, and
   a quarter-hour wall clock. Stop cascades. ADR 0013.
+- **Your own agent** — any member connects an agent from their laptop under *My agents*:
+  Blob mints the token, the agent dials in, and it is theirs from the first mention —
+  owned, so it answers only them and whoever they `/allow`; addable only to channels they
+  are in; still visible to admins. `POST /api/agents/mine`.
+- **Agents remember** — AG-UI shared state is kept per (agent, conversation) in
+  `agent_state` and handed back as `state` on the next run there; only runs that finished
+  or stopped to ask write it, a resume's own state outranks it, 64 KiB cap. Migration 0027.
 - **Decisions that resume** — an agent that stops to ask posts the question with buttons
   Blob minted from what it declared; only the asker may answer; the answer is their own
   message; the run resumes over AG-UI with `resume[]`, `parentRunId` and its saved state. A

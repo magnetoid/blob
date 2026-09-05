@@ -22,13 +22,20 @@ interface Props {
   botToken: string;
   /** The secret the bridge signs runs with, and the agent verifies them against. */
   signingSecret: string | null;
+  /** Where to fetch the bridge from. The admin route by default; a member has their own. */
+  bridgeHref?: string;
 }
 
 /** Where Janus serves AG-UI when it runs locally. Any AG-UI server works; this is the
  * one the person asking is most likely to be running. */
 const DEFAULT_AGENT_URL = 'http://127.0.0.1:8642/v1/agui';
 
-export function DesktopAgentSetup({ agentName, botToken, signingSecret }: Props) {
+export function DesktopAgentSetup({
+  agentName,
+  botToken,
+  signingSecret,
+  bridgeHref = '/api/admin/plugins/bridge',
+}: Props) {
   const [agentUrl, setAgentUrl] = useState(DEFAULT_AGENT_URL);
   const [copied, setCopied] = useState(false);
 
@@ -70,7 +77,7 @@ export function DesktopAgentSetup({ agentName, botToken, signingSecret }: Props)
         <li style={{ marginBottom: 8 }}>
           <a
             className="btn btn-ghost"
-            href="/api/admin/plugins/bridge"
+            href={bridgeHref}
             download="agent_bridge.py"
           >
             Download agent_bridge.py

@@ -425,3 +425,45 @@ class TestThePolicyRoundTrips:
 
         read = await owner.get(f"/api/admin/instance/workspaces/{workspace_id}/policy")
         assert read.body["agentChainMaxDepth"] == 2
+
+
+class TestAnAgentOnASchedule:
+    async def test_a_scheduled_message_that_mentions_an_agent_roots_a_chain(
+        self, room: dict
+    ) -> None:
+        """Proactive agents need no new machinery: a scheduled message is sent through the
+        ordinary send path, so one that mentions an agent starts a run when it sends — on
+        the author's authority, exactly as if they had typed it then. This pins that the
+        path stays wired; the guide now says so out loud."""
+        from datetime import UTC, datetime, timedelta
+
+        from blob_api.jobs.scheduled import send_scheduled
+
+        seen = speak(room)
+        when = (datetime.now(UTC) + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+        scheduled = await room["owner"].post(
+            f"/api/channels/{room['general']}/schedule",
+            {"body": "@Helper morning report, please", "sendAt": when, "clientMsgId": "sched-1"},
+        )
+        assert scheduled.status in (200, 201), scheduled.body
+        async with SessionFactory() as session:
+            async with session.begin():
+                await session.execute(
+                    text("UPDATE scheduled_messages SET send_at = now() - interval '1 minute'")
+                )
+
+        await send_scheduled({})
+
+        # The send announced itself, which asked for a root run of the new message.
+        roots = [args for args in room["enqueued"] if args[0] == "agui_run" and len(args) == 2]
+        assert len(roots) == 1
+        await agui_job.handle_agui_run(roots[0][1])
+
+        assert len(seen["/agui"]) == 1
+        context = {
+            c["description"]: c["value"] for c in json.loads(seen["/agui"][0].content)["context"]
+        }
+        assert context["asked_by"] == "Owner"
+        [run] = await runs(room)
+        assert run["depth"] == 0
+        assert str(run["initiated_by_user_id"]) == room["owner"].user_id

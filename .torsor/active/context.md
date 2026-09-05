@@ -830,3 +830,19 @@ Reading `jobs/agui.py::_run` is the map, and these are the traps around it:
 And one about tests: `agent_runs.chain_id` is NOT NULL. A test that hand‑inserts a run row
 (`test_agui.py::TestBudget`) has to give it a `chain_id` — its own id is right, since a
 run nobody chained is its own root.
+
+## Personal agents and memory (slice 3): three things to keep straight
+
+* **`POST /api/agents/mine` is the member's install, and it sets `owner_user_id` in the
+  same transaction as `registry.install`.** There is no moment at which the agent is the
+  workspace's. Everything under `/api/agents/mine/{id}` answers **404** for an agent that
+  is not the caller's — whose agent something is stays private, like a private channel's
+  existence. The scopes are fixed (`PERSONAL_SCOPES`); the member never picks.
+* **`agent_state` is replaced whole, and only by a run that finished or stopped to ask.**
+  A failed or cancelled run's fold was never the agent's considered state, so it must not
+  overwrite what was remembered. The key is the AG‑UI `threadId` (thread root, else
+  channel), so a thread is its own conversation. A resume's own `state` outranks memory.
+* **A scheduled message that mentions an agent already roots a chain** — `send_scheduled`
+  goes through `announce`, which enqueues `agui_run`. "Proactive agents" needed no new
+  path; `test_a_scheduled_message_that_mentions_an_agent_roots_a_chain` pins that it
+  stays wired. Event triggers ("on message.created in #ops") would be the new path.

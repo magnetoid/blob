@@ -304,16 +304,12 @@ async def set_thread_following(
     """
     async with transaction() as (session, _after):
         await load_message_for(session, user, message_id, allow_deleted=True)
-        await message_service.set_thread_following(
-            session, user.id, message_id, payload.following
-        )
+        await message_service.set_thread_following(session, user.id, message_id, payload.following)
     return ThreadFollowOut(following=payload.following)
 
 
 @router.post("/api/messages/{message_id}/thread/read", response_model=OkOut)
-async def mark_thread_read(
-    message_id: IdParam, user: SessionUser = Depends(current_user)
-) -> OkOut:
+async def mark_thread_read(message_id: IdParam, user: SessionUser = Depends(current_user)) -> OkOut:
     """Move the thread's read cursor to its newest reply."""
     async with transaction() as (session, _after):
         await load_message_for(session, user, message_id, allow_deleted=True)

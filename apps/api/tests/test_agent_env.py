@@ -297,9 +297,7 @@ class TestWhatBlobKeepsForItself:
         assert response.status == 400
         assert response.body["error"]["code"] == "reserved_env_key"
 
-    async def test_the_port_cannot_be_removed_either(
-        self, hosted: Runner, client: Client
-    ) -> None:
+    async def test_the_port_cannot_be_removed_either(self, hosted: Runner, client: Client) -> None:
         owner, plugin_id = await install(client)
 
         response = await owner.put(

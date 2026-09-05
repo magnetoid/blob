@@ -408,9 +408,7 @@ async def describe(
         # frame, and an integer build number — which any client that JSON-encodes one
         # produces — made `re.match` raise TypeError out of the handshake and drop the
         # connection.
-        "version": (
-            version if isinstance(version, str) and VERSION_RE.match(version) else None
-        ),
+        "version": (version if isinstance(version, str) and VERSION_RE.match(version) else None),
     }
     given = {key: value for key, value in fields.items() if value}
     if not given:

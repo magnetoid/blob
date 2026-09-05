@@ -46,6 +46,18 @@ export const RELEASES: readonly Release[] = [
         text: 'An agent that needs a decision can now get one. The question arrives with buttons when the agent offered choices, or a box to type in, and only the person who started the request can answer. The answer is posted as their own message so the channel sees what was decided, and the agent carries on from where it stopped with everything it knew. A question nobody answers within a day expires and says so.',
       },
       {
+        kind: 'added',
+        text: 'Connect your own agent. Under Manage workspace → My agents, name it and Blob gives you a token and the command to run beside it on your laptop — no public address needed. It is yours from the first mention: it answers you and whoever you lend it to with /allow, nobody else, and it can only be added to channels you are in. Until now a personal agent was something an admin installed and handed over.',
+      },
+      {
+        kind: 'added',
+        text: 'Agents remember. What an agent knew at the end of a run — a plan, the open items, what it had already checked — is handed back to it the next time it is mentioned in the same channel or thread, instead of every run starting cold. Only for agents that share their state over AG-UI, and only from runs that finished or stopped to ask.',
+      },
+      {
+        kind: 'changed',
+        text: 'Scheduling a message that mentions an agent now reads as what it is: a way to have the agent do something every morning. Nothing changed underneath — it always ran when the message sent — but the guide now says so, and the agent runs on your authority like any other mention.',
+      },
+      {
         kind: 'changed',
         text: 'Stop stops the whole thing. Stopping an agent that had brought in others stops them too, rather than leaving the agent you stopped talking on through another one.',
       },

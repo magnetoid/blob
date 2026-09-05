@@ -50,6 +50,7 @@ export const WORKSPACE_SECTIONS = [
   // looked different and lived somewhere else.
   'preferences',
   'notifications',
+  'my-agents',
   // The workspace's. Admin-only, enforced in `WorkspaceConsole` rather than here: a
   // route that exists for one person and 404s for another is a route that leaks who is
   // an admin.
@@ -72,7 +73,11 @@ export const DEFAULT_WORKSPACE_SECTION: WorkspaceSection = 'general';
 export const DEFAULT_MEMBER_SECTION: WorkspaceSection = 'preferences';
 
 /** Sections anyone may open. Everything else on this page needs admin. */
-export const PERSONAL_SECTIONS: readonly WorkspaceSection[] = ['preferences', 'notifications'];
+export const PERSONAL_SECTIONS: readonly WorkspaceSection[] = [
+  'preferences',
+  'notifications',
+  'my-agents',
+];
 
 export function isPersonalSection(section: WorkspaceSection): boolean {
   return PERSONAL_SECTIONS.includes(section);

@@ -48,6 +48,9 @@ LIMITS: dict[str, Limit] = {
     # Safe to gate hard because the limiter fails open — a Redis blip cannot turn
     # this guard into the outage.
     "catchup": Limit(10, 300),
+    # Registering an agent mints credentials and a bot user. Nobody needs more than a
+    # handful an hour, and a loop that does would fill the workspace with bots.
+    "agent_attach": Limit(5, 3600),
 }
 
 

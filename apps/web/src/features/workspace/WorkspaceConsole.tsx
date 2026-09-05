@@ -32,6 +32,7 @@ import { ThemesSection } from '../admin/sections/ThemesSection.tsx';
 import { WebhooksSection } from '../admin/sections/WebhooksSection.tsx';
 import { PreferencesSection } from '../../features/settings/PreferencesSection.tsx';
 import { NotificationsSection } from '../../features/settings/NotificationsSection.tsx';
+import { MyAgentsSection } from '../../features/settings/MyAgentsSection.tsx';
 
 const NAV_ID = 'workspace-console-nav';
 
@@ -42,6 +43,7 @@ const NAV_ID = 'workspace-console-nav';
 const SECTION_COMPONENTS: Record<WorkspaceSection, ComponentType<AdminSectionProps>> = {
   preferences: PreferencesSection,
   notifications: NotificationsSection,
+  'my-agents': MyAgentsSection,
   general: GeneralSection,
   members: PeopleSection,
   groups: GroupsSection,

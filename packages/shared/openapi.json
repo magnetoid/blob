@@ -388,6 +388,56 @@
         "title": "AdminUsersOut",
         "type": "object"
       },
+      "AgentChannel": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "joined": {
+            "title": "Joined",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "joined"
+        ],
+        "title": "AgentChannel",
+        "type": "object"
+      },
+      "AgentChannelsOut": {
+        "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/AgentChannel"
+            },
+            "title": "Channels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "channels"
+        ],
+        "title": "AgentChannelsOut",
+        "type": "object"
+      },
       "AgentOwnerInput": {
         "properties": {
           "userId": {
@@ -774,6 +824,43 @@
           "channels"
         ],
         "title": "AppChannelsOut",
+        "type": "object"
+      },
+      "AttachInput": {
+        "properties": {
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AttachInput",
+        "type": "object"
+      },
+      "AttachedOut": {
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/MyAgentOut"
+          },
+          "botToken": {
+            "title": "Bottoken",
+            "type": "string"
+          },
+          "signingSecret": {
+            "title": "Signingsecret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent",
+          "botToken",
+          "signingSecret"
+        ],
+        "title": "AttachedOut",
         "type": "object"
       },
       "Attachment": {
@@ -3768,6 +3855,82 @@
           "muted"
         ],
         "title": "MuteGroupInput",
+        "type": "object"
+      },
+      "MyAgentOut": {
+        "properties": {
+          "botUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Botuserid"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "online": {
+            "title": "Online",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "status",
+          "online",
+          "createdAt"
+        ],
+        "title": "MyAgentOut",
+        "type": "object"
+      },
+      "MyAgentsOut": {
+        "properties": {
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/MyAgentOut"
+            },
+            "title": "Agents",
+            "type": "array"
+          }
+        },
+        "required": [
+          "agents"
+        ],
+        "title": "MyAgentsOut",
         "type": "object"
       },
       "MyWorkspacesOut": {
@@ -9951,6 +10114,281 @@
         "summary": "Cancel Agent Run",
         "tags": [
           "agentic"
+        ]
+      }
+    },
+    "/api/agents/bridge": {
+      "get": {
+        "description": "The bridge script, for anybody with an agent to connect.\n\nThe admin console serves the same file at `/api/admin/plugins/bridge`; a member's\nsetup screen cannot link there. The script itself holds nothing secret \u2014 the token\nand the secret travel in the environment the person sets up beside it.",
+        "operationId": "bridge_source_api_agents_bridge_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Bridge Source",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
+    "/api/agents/mine": {
+      "get": {
+        "operationId": "list_mine_api_agents_mine_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAgentsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Mine",
+        "tags": [
+          "my-agents"
+        ]
+      },
+      "post": {
+        "description": "Register an agent that is yours, and get the token it dials in with.\n\nThe agent does not exist yet; it becomes real when something connects with the\ntoken. Everything the admin route checks for a socket agent is checked here too \u2014\nthe same policy, the same scope rules, the same app limit \u2014 because this is the same\ninstall with one column set.",
+        "operationId": "attach_api_agents_mine_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
+    "/api/agents/mine/{agent_id}": {
+      "delete": {
+        "description": "Remove your agent. Everything it said stays; its bot is retired the way any app's is.",
+        "operationId": "detach_api_agents_mine__agent_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detach",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
+    "/api/agents/mine/{agent_id}/channels": {
+      "get": {
+        "description": "Where your agent could be, and where it is.\n\nOnly channels *you* are in are offered \u2014 an agent you own may not be put somewhere\nyou cannot read, which is the rule the admin route applies to the admin.",
+        "operationId": "agent_channels_api_agents_mine__agent_id__channels_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentChannelsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Channels",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
+    "/api/agents/mine/{agent_id}/channels/{channel_id}": {
+      "delete": {
+        "operationId": "agent_leave_channel_api_agents_mine__agent_id__channels__channel_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Leave Channel",
+        "tags": [
+          "my-agents"
+        ]
+      },
+      "post": {
+        "operationId": "agent_join_channel_api_agents_mine__agent_id__channels__channel_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Join Channel",
+        "tags": [
+          "my-agents"
         ]
       }
     },

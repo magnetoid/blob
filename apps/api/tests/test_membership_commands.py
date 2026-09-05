@@ -248,9 +248,9 @@ class TestWho:
 
         # Ephemeral: who is in a channel is a question, not an announcement.
         assert body["message"] is None
-        messages = (
-            await team["owner"].get(f"/api/channels/{team['design']['id']}/messages")
-        ).body["messages"]
+        messages = (await team["owner"].get(f"/api/channels/{team['design']['id']}/messages")).body[
+            "messages"
+        ]
         assert all("here:" not in m["body"] for m in messages)
 
 
@@ -291,9 +291,9 @@ class TestDm:
         # as `message` would have the client paint it into #general.
         await run(team["owner"], team["general"]["id"], "/dm @Member secret")
 
-        here = (
-            await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")
-        ).body["messages"]
+        here = (await team["owner"].get(f"/api/channels/{team['general']['id']}/messages")).body[
+            "messages"
+        ]
         assert all(m["body"] != "secret" for m in here)
 
     async def test_naming_two_people_makes_a_group(self, team: dict) -> None:
@@ -374,9 +374,9 @@ class TestNamesInTheMessageAreNotInstructions:
 
         body = await run(team["owner"], team["general"]["id"], "/dm @Member ask @Third")
 
-        sent = (
-            await team["owner"].get(f"/api/channels/{body['channel']['id']}/messages")
-        ).body["messages"]
+        sent = (await team["owner"].get(f"/api/channels/{body['channel']['id']}/messages")).body[
+            "messages"
+        ]
         assert [m["body"] for m in sent] == ["ask @Third"]
 
     async def test_remove_takes_out_only_the_people_it_names_first(self, team: dict) -> None:

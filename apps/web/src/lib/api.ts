@@ -81,6 +81,26 @@ export type WorkspacePolicyInput = Pick<
   | "agentChainMaxDepth"
 > & { maxApps: number | null };
 
+/** An agent that belongs to the signed-in member. */
+export interface MyAgent {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  status: string;
+  /** Holding its connection right now. */
+  online: boolean;
+  botUserId: string | null;
+  createdAt: string;
+}
+
+export interface AttachedAgent {
+  agent: MyAgent;
+  /** Shown once: what the bridge dials in with, and what it signs runs with. */
+  botToken: string;
+  signingSecret: string;
+}
+
 /** One workspace on the server, with enough to tell them apart at a glance. */
 export interface InstanceWorkspace {
   id: string;
@@ -660,6 +680,16 @@ export const api = {
       get<{ pluginId: string; agentName: string }>(
         `/api/agents/terminal/${userId}`,
       ),
+    /** Your own agents: attached by you, owned by you, answering only you. */
+    mine: () => get<{ agents: MyAgent[] }>("/api/agents/mine"),
+    attach: (name: string) => post<AttachedAgent>("/api/agents/mine", { name }),
+    detach: (agentId: string) => del<{ ok: true }>(`/api/agents/mine/${agentId}`),
+    channels: (agentId: string) =>
+      get<{ channels: AppChannel[] }>(`/api/agents/mine/${agentId}/channels`),
+    joinChannel: (agentId: string, channelId: string) =>
+      post<{ ok: true }>(`/api/agents/mine/${agentId}/channels/${channelId}`),
+    leaveChannel: (agentId: string, channelId: string) =>
+      del<{ ok: true }>(`/api/agents/mine/${agentId}/channels/${channelId}`),
   },
 
   agentic: {

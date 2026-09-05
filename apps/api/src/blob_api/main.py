@@ -233,6 +233,7 @@ def create_app() -> FastAPI:
     from .routers.groups import router as group_router
     from .routers.interactions import router as interaction_router
     from .routers.messages import router as message_router
+    from .routers.my_agents import router as my_agents_router
     from .routers.plugin_hosting import router as plugin_hosting_router
     from .routers.plugins import router as plugin_router
     from .routers.search import router as search_router
@@ -258,6 +259,7 @@ def create_app() -> FastAPI:
     app.include_router(group_member_router)
     app.include_router(theme_router)
     app.include_router(plugin_router)
+    app.include_router(my_agents_router)
     app.include_router(plugin_hosting_router)
     app.include_router(bot_api_router)
     app.include_router(ws_router)

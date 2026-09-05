@@ -740,6 +740,29 @@ class AgentRun(Base):
     expires_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
+class AgentState(Base):
+    """What an agent knew at the end of its last run in a conversation.
+
+    AG-UI shared state, kept past the run so the next one in the same place starts from
+    it rather than cold. One row per (agent, conversation), replaced whole each time the
+    agent shares a snapshot. See migration 0027.
+    """
+
+    __tablename__ = "agent_state"
+    __table_args__ = (PrimaryKeyConstraint("plugin_id", "thread_key", name="agent_state_pkey"),)
+
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
+    )
+    #: The AG-UI `threadId`: a thread root's id, or the channel's when not in a thread.
+    thread_key: Mapped[str] = mapped_column(UUIDStr, nullable=False)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    state: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class SavedItem(Base):
     """A message somebody put aside for themselves. Slack's Later.
 

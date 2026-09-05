@@ -41,6 +41,7 @@ from ..realtime import hub, presence
 from ..realtime.protocol import TYPING_TTL_MS
 from ..services import agent_access, agent_chains
 from ..services import agent_runs as agent_run_service
+from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
@@ -654,6 +655,15 @@ async def _run_one(
                 if row.kind == "bot" and str(row.id) != listener.bot_user_id
             }
         )
+        # What this agent remembers here. A resume carries the state the run had when it
+        # stopped, which is newer than anything saved, so it wins; otherwise the last
+        # state the agent left in this conversation is where it picks up.
+        thread_key = thread_root_id or channel_id
+        state = chain.state
+        if state is None and refusal is None:
+            state = await agent_state_service.load(
+                session, plugin_id=listener.plugin_id, thread_key=thread_key
+            )
 
     if refusal is not None:
         async with transaction() as (session, after):
@@ -706,7 +716,7 @@ async def _run_one(
         asked_by_agent=chain.asked_by,
         on_behalf_of=on_behalf_of,
         participants=participants,
-        state=chain.state,
+        state=state,
         parent_run_id=chain.parent_agui_run_id,
         resume=chain.resume,
     )
@@ -845,6 +855,11 @@ async def _run_one(
         if decision.expires_at is not None and decision.expires_at < expires_at:
             expires_at = decision.expires_at
 
+    shared_state = (
+        json.dumps(fold.state, default=str)
+        if not fold.state_dropped and fold.state is not None
+        else None
+    )
     async with transaction() as (session, after):
         await agent_run_service.finish(
             session,
@@ -854,13 +869,20 @@ async def _run_one(
             post_count=len(posts),
             card=final_card,
             interrupt=fold.interrupts if status == "interrupted" else None,
-            state_json=(
-                json.dumps(fold.state, default=str)
-                if status == "interrupted" and not fold.state_dropped and fold.state is not None
-                else None
-            ),
+            state_json=shared_state if status == "interrupted" else None,
             expires_at=expires_at,
         )
+        if shared_state is not None and status in ("succeeded", "interrupted"):
+            # Kept past the run, per conversation: the next run here starts from it. A
+            # failed or stopped run leaves the memory as it was — what it had folded
+            # was never the agent's considered state.
+            await agent_state_service.save(
+                session,
+                workspace_id=workspace_id,
+                plugin_id=listener.plugin_id,
+                thread_key=thread_key,
+                state_json=shared_state,
+            )
         finished_event = {
             "t": "agent_run.finished",
             "runId": run_id,
