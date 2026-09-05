@@ -18,6 +18,8 @@ import {
 import { PinnedPanel } from "./PinnedPanel.tsx";
 import { ChannelMenu } from "../channels/ChannelMenu.tsx";
 import { ChannelDetails } from "../channels/ChannelDetails.tsx";
+import { WorkPanel, WorkTabs, type WorkTab } from "../work/WorkPanel.tsx";
+import { useWork } from "../work/useWork.ts";
 import { TYPING_TTL_MS } from "@blob/shared";
 
 export function ChannelView() {
@@ -40,6 +42,12 @@ export function ChannelView() {
   const openChannel = useStore((s) => s.openChannel);
   const requestScrollToMessage = useStore((s) => s.requestScrollToMessage);
   const agentRuns = useStore((s) => s.agentRuns);
+  // The work behind this channel, if it is a work channel (ADR 0014). A hook, so it
+  // sits above the early returns like every other one here.
+  const { work, artifacts } = useWork(
+    activeChannelId ?? "",
+    channel?.workId ?? null,
+  );
 
   // Runs anchored under their trigger. Thread replies carry threadRootId and anchor in
   // the thread panel instead — the trigger row is not in channel history there.
@@ -63,6 +71,9 @@ export function ChannelView() {
   const [pinsOpen, setPinsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // Which tab each work channel is on, keyed by channel so switching channels never
+  // shows one channel's Changes over another's conversation. No effect needed to reset.
+  const [workTabs, setWorkTabs] = useState<Record<string, WorkTab>>({});
 
   /**
    * Bring a pinned message into view.
@@ -187,6 +198,9 @@ export function ChannelView() {
           .find((u) => u?.kind === "bot")
       : undefined;
   const archived = channel.archivedAt !== null;
+  const workTab: WorkTab = channel.workId
+    ? (workTabs[activeChannelId] ?? "conversation")
+    : "conversation";
   const memberCount = memberCounts[activeChannelId] ?? null;
   const queuedCount = Object.values(outbox).filter(
     (entry) => entry.status === "queued",
@@ -334,61 +348,83 @@ export function ChannelView() {
         </div>
       )}
 
-      <MessageList
-        messages={messages?.items ?? []}
-        hasMore={messages?.hasMore ?? false}
-        loading={messages?.loading ?? false}
-        onLoadOlder={handleLoadOlder}
-        onOpenThread={handleOpenThread}
-        unreadAfterId={unreadMarkers[activeChannelId] ?? null}
-        runsByMessageId={runsByMessageId}
-        error={messages?.error ?? false}
-        onRetry={() => void openChannel(activeChannelId)}
-        emptyState={
-          <div className="empty-state">
-            <div className="empty-state-mark">{isDm ? "@" : "#"}</div>
-            <div className="empty-state-title">
-              This is the start of {isDm ? title : `#${title}`}
-            </div>
-            <div className="empty-state-body">
-              {agent
-                ? `Ask ${agent.displayName} anything — no need to mention it by name here. It can see this conversation and nothing else in the workspace yet.`
-                : isDm
-                  ? "Say hello. Nobody else can see this conversation."
-                  : "No messages yet. Set a topic so people know what belongs here, or invite the folks who should be in the loop."}
-            </div>
-          </div>
-        }
-      />
-
-      <div className="typing-line" aria-live="polite">
-        {typingNames.length > 0 && (
-          <span className="typing-dots">
-            <i />
-            <i />
-            <i />
-            <span className="typing-text">
-              {typingNames.length === 1
-                ? `${typingNames[0]} is typing…`
-                : typingNames.length === 2
-                  ? `${typingNames[0]} and ${typingNames[1]} are typing…`
-                  : "Several people are typing…"}
-            </span>
-          </span>
-        )}
-      </div>
-
-      {!archived && (
-        <Composer
-          // Keyed to the conversation. Only the prop changed on a channel switch, so the
-          // composer's local state survived it — and an attachment that had finished
-          // uploading in #general was still in the tray, and still sent, after clicking
-          // #random. The draft text switched correctly because it is keyed per channel in
-          // the store, which is exactly what hid the mismatch.
-          key={draftKey(activeChannelId, null)}
-          channelId={activeChannelId}
-          placeholder={isDm ? `Message ${title}` : `Message #${title}`}
+      {channel.workId && (
+        <WorkTabs
+          tab={workTab}
+          onChange={(next) =>
+            setWorkTabs((current) => ({ ...current, [activeChannelId]: next }))
+          }
+          work={work}
+          artifacts={artifacts}
         />
+      )}
+
+      {workTab !== "conversation" && channel.workId ? (
+        <WorkPanel
+          tab={workTab}
+          channelId={activeChannelId}
+          work={work}
+          artifacts={artifacts}
+        />
+      ) : (
+        <>
+          <MessageList
+            messages={messages?.items ?? []}
+            hasMore={messages?.hasMore ?? false}
+            loading={messages?.loading ?? false}
+            onLoadOlder={handleLoadOlder}
+            onOpenThread={handleOpenThread}
+            unreadAfterId={unreadMarkers[activeChannelId] ?? null}
+            runsByMessageId={runsByMessageId}
+            error={messages?.error ?? false}
+            onRetry={() => void openChannel(activeChannelId)}
+            emptyState={
+              <div className="empty-state">
+                <div className="empty-state-mark">{isDm ? "@" : "#"}</div>
+                <div className="empty-state-title">
+                  This is the start of {isDm ? title : `#${title}`}
+                </div>
+                <div className="empty-state-body">
+                  {agent
+                    ? `Ask ${agent.displayName} anything — no need to mention it by name here. It can see this conversation and nothing else in the workspace yet.`
+                    : isDm
+                      ? "Say hello. Nobody else can see this conversation."
+                      : "No messages yet. Set a topic so people know what belongs here, or invite the folks who should be in the loop."}
+                </div>
+              </div>
+            }
+          />
+
+          <div className="typing-line" aria-live="polite">
+            {typingNames.length > 0 && (
+              <span className="typing-dots">
+                <i />
+                <i />
+                <i />
+                <span className="typing-text">
+                  {typingNames.length === 1
+                    ? `${typingNames[0]} is typing…`
+                    : typingNames.length === 2
+                      ? `${typingNames[0]} and ${typingNames[1]} are typing…`
+                      : "Several people are typing…"}
+                </span>
+              </span>
+            )}
+          </div>
+
+          {!archived && (
+            <Composer
+              // Keyed to the conversation. Only the prop changed on a channel switch, so the
+              // composer's local state survived it — and an attachment that had finished
+              // uploading in #general was still in the tray, and still sent, after clicking
+              // #random. The draft text switched correctly because it is keyed per channel in
+              // the store, which is exactly what hid the mismatch.
+              key={draftKey(activeChannelId, null)}
+              channelId={activeChannelId}
+              placeholder={isDm ? `Message ${title}` : `Message #${title}`}
+            />
+          )}
+        </>
       )}
     </main>
   );

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-05T04:58:13'
-updated: '2026-09-05T04:58:13'
+created: '2026-09-05T07:22:54'
+updated: '2026-09-05T07:22:54'
 ---
 
 # Repository Map
@@ -123,7 +123,10 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0027_agent_state.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 40 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0028_work_channels.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 42 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -174,8 +177,4 @@ Modules and their key symbols (ranked by references).
   - `not_found(message: str="That doesn't exist.")` (function)
   - `AppError` (class)
   - `forbidden(message: str="You don't have access to that.")` (function)
-  - `conflict(message: str, code: str='conflict')` (function)
-- **apps/api/src/blob_api/lib/ids.py** — 3 symbol(s)
-  - `new_id()` (function)
-  - `new_token(nbytes: int=32)` (function)
-  - `looks_l…[truncated]
+  - `conflict(message: str, code: str='conflict')` (f…[truncated]

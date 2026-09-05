@@ -66,6 +66,11 @@ STATE_MAX_BYTES = 64 * 1024
 #: Buttons a decision may offer. Matches the block element cap.
 DECISION_MAX_CHOICES = 5
 
+#: Artifacts one run may publish into a work channel (ADR 0014), and how big each may be.
+ARTIFACT_MAX_ITEMS = 10
+ARTIFACT_MAX_BYTES = 200_000
+ARTIFACT_KINDS = frozenset({"diff", "html", "markdown"})
+
 
 @dataclass(slots=True)
 class Post:
@@ -128,6 +133,10 @@ class Fold:
         #: `state` when the run resumes, which is the whole reason to keep it.
         self.state: Any = None
         self.state_dropped = False
+        #: `CUSTOM` events named `blob.artifact`: what the agent made, for a work channel.
+        #: Kept here as data; the job decides whether there is a work channel to put
+        #: them in. Anywhere else they are inert.
+        self.artifacts: list[dict[str, str]] = []
         self.finished = False
 
     @property
@@ -180,6 +189,10 @@ class Fold:
             self.interrupt = interrupt_prompt(self.interrupts)
             return self.finish()
 
+        if kind == "CUSTOM" and event.get("name") == "blob.artifact":
+            self._take_artifact(event.get("value"))
+            return []
+
         if kind == "STATE_SNAPSHOT":
             self._take_state(event.get("snapshot"))
             return []
@@ -201,6 +214,24 @@ class Fold:
         # inert. Reasoning in particular is never posted: it is the agent's working-out,
         # not its answer.
         return []
+
+    def _take_artifact(self, value: Any) -> None:
+        """Keep a well-formed artifact; log and drop anything else. Never fatal."""
+        if len(self.artifacts) >= ARTIFACT_MAX_ITEMS:
+            log.info("agui: more than %d artifacts in one run; dropping", ARTIFACT_MAX_ITEMS)
+            return
+        if not isinstance(value, Mapping):
+            return
+        kind, title, body = value.get("kind"), value.get("title"), value.get("body")
+        if kind not in ARTIFACT_KINDS or not isinstance(title, str) or not isinstance(body, str):
+            log.info("agui: an artifact was malformed; dropped")
+            return
+        if not title.strip() or not body.strip():
+            return
+        if len(body.encode("utf-8")) > ARTIFACT_MAX_BYTES:
+            log.info("agui: an artifact over %d bytes was dropped", ARTIFACT_MAX_BYTES)
+            return
+        self.artifacts.append({"kind": kind, "title": title.strip()[:200], "body": body})
 
     def _take_state(self, state: Any) -> None:
         """Keep the state if it fits; drop it for the rest of the run if it does not."""

@@ -46,6 +46,7 @@ from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
 from ..services import policies as policy_service
+from ..services import work as work_service
 from ..services.serialize import message_event
 
 log = logging.getLogger("blob.jobs.agui")
@@ -883,6 +884,30 @@ async def _run_one(
                 thread_key=thread_key,
                 state_json=shared_state,
             )
+        if fold.artifacts and status in ("succeeded", "interrupted"):
+            # What the agent made, into the work this channel is — if it is one. Elsewhere
+            # the events were inert, on purpose: an artifact needs the tabs to be seen in.
+            work = await work_service.by_channel(session, channel_id)
+            if work is not None and work.status == "open":
+                for made in fold.artifacts:
+                    await work_service.publish(
+                        session,
+                        work_id=work.id,
+                        kind=made["kind"],
+                        title=made["title"],
+                        body=made["body"],
+                        author_user_id=listener.bot_user_id,
+                        run_id=run_id,
+                    )
+                updated = await work_service.get(session, work.id, workspace_id)
+                work_update = {
+                    "t": "work.updated",
+                    "workId": updated.id,
+                    "channelId": channel_id,
+                    "status": updated.status,
+                    "artifactCount": updated.artifact_count,
+                }
+                after.add(lambda: hub.to_channel(channel_id, work_update))
         finished_event = {
             "t": "agent_run.finished",
             "runId": run_id,

@@ -751,6 +751,18 @@ export const SECTIONS: Section[] = [
         keywords: ['my agent', 'personal agent', 'connect', 'laptop', 'desktop', 'bridge', 'token'],
       },
       {
+        id: 'work-channels',
+        title: 'Starting work from a message',
+        blurb:
+          'Turn a conversation into a place to build something: a private channel for one job, with the agents you name, and tabs for what they make.',
+        body: [
+          'From any message’s ••• menu, choose Start work from here. Give the job a title, tick the agents to bring, and Blob spins a private channel that quotes the message and links back to it from its thread. The agents start at once, on your say‑so, exactly as if you had mentioned them.',
+          'Beside the conversation the channel has three tabs. Plan shows what the agents are doing right now and what they did. Changes lists every diff an agent (or a person) has published, with a viewer. Preview lists pages and documents — a page runs only when you click Run preview, in a sandbox with no network and no access to the workspace.',
+          'You can bring the workspace’s agents and your own. Somebody else’s personal agent is not on offer. When the job is finished, Mark done on the Plan tab archives the channel; its history stays searchable.',
+        ],
+        keywords: ['work', 'work channel', 'assignment', 'code', 'diff', 'preview', 'artifacts', 'build', 'project'],
+      },
+      {
         id: 'agents-together',
         title: 'Agents talking to each other',
         blurb:

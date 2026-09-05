@@ -74,6 +74,38 @@ export interface Channel {
   createdAt: string;
   /** Present only for dm / group_dm. */
   memberIds?: string[];
+  /** Set when this is a work channel: the assignment behind it. */
+  workId: string | null;
+}
+
+/** One assignment, living in a private channel spun from a conversation. */
+export interface Work {
+  id: string;
+  channelId: string;
+  rootMessageId: string | null;
+  rootChannelId: string | null;
+  title: string;
+  status: 'open' | 'done';
+  createdBy: string | null;
+  createdAt: string;
+  doneBy: string | null;
+  doneAt: string | null;
+  artifactCount: number;
+}
+
+export type WorkArtifactKind = 'diff' | 'html' | 'markdown';
+
+/** Something made in a work channel. Text, drawn by the client — never executed by it,
+ * except an `html` page in a sandboxed frame on request. */
+export interface WorkArtifact {
+  id: string;
+  workId: string;
+  runId: string | null;
+  kind: WorkArtifactKind;
+  title: string;
+  body: string;
+  authorUserId: string | null;
+  createdAt: string;
 }
 
 /** A channel as it appears in the sidebar, with this user's own state folded in. */

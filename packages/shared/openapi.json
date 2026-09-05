@@ -826,6 +826,78 @@
         "title": "AppChannelsOut",
         "type": "object"
       },
+      "Artifact": {
+        "properties": {
+          "authorUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authoruserid"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "runId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runid"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "workId": {
+            "title": "Workid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workId",
+          "kind",
+          "title",
+          "body",
+          "createdAt"
+        ],
+        "title": "Artifact",
+        "type": "object"
+      },
+      "ArtifactOut": {
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/Artifact"
+          }
+        },
+        "required": [
+          "artifact"
+        ],
+        "title": "ArtifactOut",
+        "type": "object"
+      },
       "AttachInput": {
         "properties": {
           "name": {
@@ -1512,6 +1584,17 @@
               }
             ],
             "title": "Topic"
+          },
+          "workId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workid"
           }
         },
         "required": [
@@ -1669,6 +1752,17 @@
               }
             ],
             "title": "Topic"
+          },
+          "workId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workid"
           }
         },
         "required": [
@@ -4434,6 +4528,75 @@
         "title": "PrefsOut",
         "type": "object"
       },
+      "PublishArtifactInput": {
+        "properties": {
+          "body": {
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "diff",
+              "html",
+              "markdown"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel",
+          "kind",
+          "title",
+          "body"
+        ],
+        "title": "PublishArtifactInput",
+        "type": "object"
+      },
+      "PublishInput": {
+        "properties": {
+          "body": {
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "diff",
+              "html",
+              "markdown"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "body"
+        ],
+        "title": "PublishInput",
+        "type": "object"
+      },
       "PushKeyOut": {
         "properties": {
           "key": {
@@ -5363,6 +5526,36 @@
           "displayName"
         ],
         "title": "SignupInput",
+        "type": "object"
+      },
+      "StartWorkInput": {
+        "properties": {
+          "agentPluginIds": {
+            "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Agentpluginids",
+            "type": "array"
+          },
+          "rootMessageId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+            "title": "Rootmessageid",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rootMessageId",
+          "title"
+        ],
+        "title": "StartWorkInput",
         "type": "object"
       },
       "SwitchedOut": {
@@ -6710,6 +6903,134 @@
         "title": "WebhooksOut",
         "type": "object"
       },
+      "Work": {
+        "properties": {
+          "artifactCount": {
+            "default": 0,
+            "title": "Artifactcount",
+            "type": "integer"
+          },
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdby"
+          },
+          "doneAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doneat"
+          },
+          "doneBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doneby"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "rootChannelId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rootchannelid"
+          },
+          "rootMessageId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rootmessageid"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "channelId",
+          "title",
+          "status",
+          "createdAt"
+        ],
+        "title": "Work",
+        "type": "object"
+      },
+      "WorkDetailOut": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "work": {
+            "$ref": "#/components/schemas/Work"
+          }
+        },
+        "required": [
+          "work",
+          "artifacts"
+        ],
+        "title": "WorkDetailOut",
+        "type": "object"
+      },
+      "WorkOut": {
+        "properties": {
+          "channel": {
+            "title": "Channel"
+          },
+          "work": {
+            "$ref": "#/components/schemas/Work"
+          }
+        },
+        "required": [
+          "work"
+        ],
+        "title": "WorkOut",
+        "type": "object"
+      },
       "Workspace": {
         "properties": {
           "createdAt": {
@@ -6736,6 +7057,61 @@
           "createdAt"
         ],
         "title": "Workspace",
+        "type": "object"
+      },
+      "WorkspaceAgentOut": {
+        "properties": {
+          "botUserId": {
+            "title": "Botuserid",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "online": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Online"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "botUserId",
+          "mine"
+        ],
+        "title": "WorkspaceAgentOut",
+        "type": "object"
+      },
+      "WorkspaceAgentsOut": {
+        "properties": {
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceAgentOut"
+            },
+            "title": "Agents",
+            "type": "array"
+          }
+        },
+        "required": [
+          "agents"
+        ],
+        "title": "WorkspaceAgentsOut",
         "type": "object"
       },
       "WorkspaceMembership": {
@@ -10117,6 +10493,28 @@
         ]
       }
     },
+    "/api/agents": {
+      "get": {
+        "description": "The agents this person may bring into a piece of work: the workspace's, and theirs.\n\nSomebody else's owned agent is not listed. Not out of secrecy \u2014 its bot is a member\npeople can see \u2014 but because offering it would produce a refusal, and a list that\nrefuses half its entries is worse than a shorter list.",
+        "operationId": "list_available_api_agents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceAgentsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Available",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
     "/api/agents/bridge": {
       "get": {
         "description": "The bridge script, for anybody with an agent to connect.\n\nThe admin console serves the same file at `/api/admin/plugins/bridge`; a member's\nsetup screen cannot link there. The script itself holds nothing secret \u2014 the token\nand the secret travel in the environment the person sets up beside it.",
@@ -11683,6 +12081,49 @@
         "summary": "Mark Unread",
         "tags": [
           "messages"
+        ]
+      }
+    },
+    "/api/channels/{channel_id}/work": {
+      "get": {
+        "operationId": "work_for_channel_api_channels__channel_id__work_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Work For Channel",
+        "tags": [
+          "work"
         ]
       }
     },
@@ -14275,6 +14716,231 @@
         "summary": "List Users",
         "tags": [
           "apps"
+        ]
+      }
+    },
+    "/api/v1/work.publishArtifact": {
+      "post": {
+        "description": "Put a diff, a page or a document into the work channel the bot is in (ADR 0014).\n\nThe AG-UI way is a `CUSTOM` event named `blob.artifact` in the run's stream; this is\nthe same thing for an app that talks to Blob over the bot API instead. Same\nvalidation, same table, same tabs. In a channel that is not a work channel there is\nnothing to publish into, and it says so rather than storing something nobody can see.",
+        "operationId": "publish_artifact_api_v1_work_publishArtifact_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishArtifactInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Artifact",
+        "tags": [
+          "apps"
+        ]
+      }
+    },
+    "/api/work": {
+      "post": {
+        "description": "Spin a channel for this assignment from the message it began with.",
+        "operationId": "start_work_api_work_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartWorkInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Work",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/api/work/{work_id}": {
+      "get": {
+        "operationId": "read_work_api_work__work_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Work",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/api/work/{work_id}/artifacts": {
+      "post": {
+        "description": "A person puts something into the work by hand \u2014 a diff they wrote, a page, notes.",
+        "operationId": "publish_artifact_api_work__work_id__artifacts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Artifact",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/api/work/{work_id}/done": {
+      "post": {
+        "description": "Done. The channel archives; the history stays.",
+        "operationId": "finish_work_api_work__work_id__done_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finish Work",
+        "tags": [
+          "work"
         ]
       }
     },

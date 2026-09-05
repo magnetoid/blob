@@ -763,6 +763,72 @@ class AgentState(Base):
     updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class WorkItem(Base):
+    """One assignment, living in a private channel spun from a conversation. ADR 0014.
+
+    Not a channel kind: everything a channel does keeps working, and this row is what
+    tells the client to draw the tabs. `channel_id` is unique — one assignment per room.
+    """
+
+    __tablename__ = "work_items"
+    __table_args__ = (
+        CheckConstraint("status IN ('open', 'done')", name="work_items_status_check"),
+        Index("work_items_workspace", "workspace_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    #: Where it was started from. SET NULL: deleting the message must not delete the work.
+    root_message_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="SET NULL")
+    )
+    root_channel_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="SET NULL")
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'open'"))
+    created_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    done_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    done_at: Mapped[Any | None] = mapped_column(Timestamp)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class WorkArtifact(Base):
+    """Something made in a work channel: a diff, a page, a document. Text, capped, data."""
+
+    __tablename__ = "work_artifacts"
+    __table_args__ = (
+        CheckConstraint("kind IN ('diff', 'html', 'markdown')", name="work_artifacts_kind_check"),
+        Index("work_artifacts_by_work", "work_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    work_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("work_items.id", ondelete="CASCADE"), nullable=False
+    )
+    #: The run that published it, when an agent did. SET NULL: runs are swept after 30 days.
+    run_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("agent_runs.id", ondelete="SET NULL")
+    )
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    #: A person or a bot: both are users rows (ADR 0005).
+    author_user_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class SavedItem(Base):
     """A message somebody put aside for themselves. Slack's Later.
 

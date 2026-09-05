@@ -117,6 +117,7 @@ def to_channel(row: Any) -> Channel:
         last_message_id=row.last_message_id,
         created_at=require_iso(row.created_at),
         member_ids=list(member_ids) if member_ids else None,
+        work_id=str(row.work_id) if getattr(row, "work_id", None) else None,
     )
 
 

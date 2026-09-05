@@ -63,6 +63,11 @@ interface State {
   themes: Theme[];
   /** The workspace's own emoji, for the picker and for `:name:` in a body. */
   customEmoji: CustomEmoji[];
+  /**
+   * Per channel, how many times its work changed since load. Bumped by `work.updated`;
+   * the work panel refetches when it moves, so the frame carries no artifact bodies.
+   */
+  workVersions: Record<string, number>;
   /** Message ids you have put aside. A Set: the message menu asks per row. */
   savedMessageIds: Set<string>;
   /** Every group here, by id — a message can name one you are not in. */
@@ -251,6 +256,7 @@ export const useStore = create<State>((set, get) => ({
   workspaceName: "",
   themes: [],
   customEmoji: [],
+  workVersions: {},
   savedMessageIds: new Set<string>(),
   groups: {},
   myGroupIds: new Set<string>(),
@@ -305,6 +311,7 @@ export const useStore = create<State>((set, get) => ({
       workspaceName: "",
       themes: [],
       customEmoji: [],
+  workVersions: {},
       savedMessageIds: new Set<string>(),
       groups: {},
       myGroupIds: new Set<string>(),
@@ -1247,6 +1254,15 @@ export const useStore = create<State>((set, get) => ({
       case "agent_run.started":
         set((s) => ({
           agentRuns: { ...s.agentRuns, [event.run.id]: event.run },
+        }));
+        break;
+
+      case "work.updated":
+        set((s) => ({
+          workVersions: {
+            ...s.workVersions,
+            [event.channelId]: (s.workVersions[event.channelId] ?? 0) + 1,
+          },
         }));
         break;
 

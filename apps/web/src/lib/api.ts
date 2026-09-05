@@ -24,6 +24,9 @@ import type {
   User,
   UserGroup,
   UserPrefs,
+  Work,
+  WorkArtifact,
+  WorkArtifactKind,
 } from "@blob/shared";
 
 /** One account anywhere on the server, with the workspace it belongs to. */
@@ -92,6 +95,15 @@ export interface MyAgent {
   online: boolean;
   botUserId: string | null;
   createdAt: string;
+}
+
+/** An agent a member may bring into a piece of work: the workspace's, or their own. */
+export interface WorkspaceAgent {
+  id: string;
+  name: string;
+  botUserId: string;
+  mine: boolean;
+  online: boolean | null;
 }
 
 export interface AttachedAgent {
@@ -477,6 +489,19 @@ export const api = {
     ) => patch<{ ok: true }>(`/api/saved/${messageId}`, input),
   },
 
+  /** Work channels: a conversation that became a place to build something. */
+  work: {
+    start: (input: { rootMessageId: string; title: string; agentPluginIds: string[] }) =>
+      post<{ work: Work; channel: ChannelWithState | null }>("/api/work", input),
+    byChannel: (channelId: string) =>
+      get<{ work: Work; artifacts: WorkArtifact[] }>(`/api/channels/${channelId}/work`),
+    get: (workId: string) =>
+      get<{ work: Work; artifacts: WorkArtifact[] }>(`/api/work/${workId}`),
+    publish: (workId: string, input: { kind: WorkArtifactKind; title: string; body: string }) =>
+      post<{ artifact: WorkArtifact }>(`/api/work/${workId}/artifacts`, input),
+    done: (workId: string) => post<{ work: Work }>(`/api/work/${workId}/done`),
+  },
+
   agentRuns: {
     forChannel: (channelId: string) =>
       get<{ runs: AgentRunView[] }>(`/api/channels/${channelId}/agent-runs`),
@@ -680,6 +705,8 @@ export const api = {
       get<{ pluginId: string; agentName: string }>(
         `/api/agents/terminal/${userId}`,
       ),
+    /** The agents you may bring into a piece of work. */
+    list: () => get<{ agents: WorkspaceAgent[] }>("/api/agents"),
     /** Your own agents: attached by you, owned by you, answering only you. */
     mine: () => get<{ agents: MyAgent[] }>("/api/agents/mine"),
     attach: (name: string) => post<AttachedAgent>("/api/agents/mine", { name }),

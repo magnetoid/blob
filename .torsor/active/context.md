@@ -863,3 +863,19 @@ and `https:` in `img-src`/`media-src` (attachments are a 302 to storage, and CSP
 redirect target; link previews show the remote page's own image). `/docs` and `/redoc` get
 no CSP because Swagger and ReDoc load from a CDN. A route that already set a policy keeps
 it — the feedback snapshot's is stricter on purpose.
+
+## Work channels (ADR 0014): the three places it bites
+
+* **A work channel is a private channel plus a `work_items` row; `work_id` reaches the
+  client through a LEFT JOIN in `CHANNEL_STATE_SELECT`.** Anything that builds a channel
+  from another query (`browse`, the bot API's `conversations.list`) shows `workId: null`,
+  which is correct — those never list private channels — but a new listing must join too
+  or the tabs vanish there.
+* **A bot cannot join a private channel by itself**, so `agentPluginIds` at start is the
+  way an agent gets into a work channel (the starter's `add_members`). Tests that want a
+  bot inside one must bring it at start rather than call `conversations.join`.
+* **An HTML artifact runs only in `<iframe sandbox="allow-scripts" srcdoc>` with its own
+  `default-src 'none'` meta CSP, and only after a click.** `allow-same-origin` beside
+  `allow-scripts` hands the page the person's session — never add it. The outer page's
+  `frame-src 'self'` is what permits a `srcdoc` frame; loosening the outer CSP to
+  `frame-src *` is not needed and would allow real cross-origin frames.

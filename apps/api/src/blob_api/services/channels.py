@@ -30,10 +30,12 @@ CHANNEL_STATE_SELECT = """
          CASE WHEN c.kind IN ('dm', 'group_dm')
               THEN (SELECT array_agg(m2.user_id) FROM channel_members m2
                      WHERE m2.channel_id = c.id)
-              ELSE NULL END AS member_ids
+              ELSE NULL END AS member_ids,
+         w.id AS work_id
     FROM channels c
     LEFT JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = :user_id
     LEFT JOIN read_states  rs ON rs.channel_id = c.id AND rs.user_id = :user_id
+    LEFT JOIN work_items   w  ON w.channel_id = c.id
 """
 
 

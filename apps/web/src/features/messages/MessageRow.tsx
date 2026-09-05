@@ -20,6 +20,7 @@ import { BlockRenderer } from "./BlockRenderer.tsx";
 import { MessageEditor } from "./MessageEditor.tsx";
 import { MessageMenu } from "./MessageMenu.tsx";
 import { ForwardDialog } from "./ForwardDialog.tsx";
+import { StartWorkDialog } from "../work/StartWorkDialog.tsx";
 import { moveFocusBetweenMessages } from "./arrowNavigation.ts";
 import { MessageTranslation } from "./MessageTranslation.tsx";
 import { formatRelative, formatTime } from "./messageFormatting.ts";
@@ -132,6 +133,9 @@ export const MessageRow = memo(function MessageRow({
     setEditingMessage(open ? message.id : null);
   const [deleting, setDeleting] = useState(false);
   const [forwarding, setForwarding] = useState(false);
+  const [startingWork, setStartingWork] = useState(false);
+  // No "start work" from inside a work channel: the work is already here.
+  const inWorkChannel = useStore((s) => Boolean(s.channels[message.channelId]?.workId));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -552,6 +556,7 @@ export const MessageRow = memo(function MessageRow({
             tabIndex={tab}
             onCopyLink={copyLink}
             onForward={() => setForwarding(true)}
+            onStartWork={inWorkChannel ? undefined : () => setStartingWork(true)}
             onEdit={() => setEditing(true)}
             onDelete={() => setDeleting(true)}
           />
@@ -561,6 +566,9 @@ export const MessageRow = memo(function MessageRow({
       {/* At the article level, not inside the menu: `.message-actions` is
           display:none unless the row is hovered or has focus within, and a dialog
           opened from the keyboard must not depend on where the pointer sits. */}
+      {startingWork && (
+        <StartWorkDialog message={message} onClose={() => setStartingWork(false)} />
+      )}
       {forwarding && (
         <ForwardDialog message={message} onClose={() => setForwarding(false)} />
       )}

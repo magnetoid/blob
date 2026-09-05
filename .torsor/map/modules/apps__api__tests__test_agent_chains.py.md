@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-05T04:58:13'
-updated: '2026-09-05T04:58:13'
+created: '2026-09-05T07:22:54'
+updated: '2026-09-05T07:22:54'
 ---
 
 # apps/api/tests/test_agent_chains.py
@@ -44,3 +44,5 @@ Symbols in `apps/api/tests/test_agent_chains.py`.
 - L405 `test_being_asked_by_an_agent_is_described_as_such(self)` (method)
 - L414 `TestThePolicyRoundTrips` (class)
 - L415 `test_through_the_console_route(self, client: Client)` (method)
+- L430 `TestAnAgentOnASchedule` (class)
+- L431 `test_a_scheduled_message_that_mentions_an_agent_roots_a_chain(self, room: dict)` (method) — Proactive agents need no new machinery: a scheduled message is sent through the

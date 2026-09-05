@@ -109,6 +109,58 @@ async def bridge_source(_user: SessionUser = Depends(current_user)) -> str:
     return path.read_text(encoding="utf-8")
 
 
+class WorkspaceAgentOut(CamelModel):
+    id: str
+    name: str
+    bot_user_id: str
+    #: Whether this one is the caller's own. The workspace's (unowned) ones are everybody's.
+    mine: bool
+    online: bool | None = None
+
+
+class WorkspaceAgentsOut(CamelModel):
+    agents: list[WorkspaceAgentOut]
+
+
+@router.get("", response_model=WorkspaceAgentsOut)
+async def list_available(user: SessionUser = Depends(current_user)) -> WorkspaceAgentsOut:
+    """The agents this person may bring into a piece of work: the workspace's, and theirs.
+
+    Somebody else's owned agent is not listed. Not out of secrecy — its bot is a member
+    people can see — but because offering it would produce a refusal, and a list that
+    refuses half its entries is worse than a shorter list.
+    """
+    async with session_scope() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT p.id, p.name, p.runtime, p.owner_user_id, u.id AS bot_user_id
+                      FROM plugins p JOIN users u ON u.bot_plugin_id = p.id
+                     WHERE p.workspace_id = :ws AND p.status = 'enabled'
+                       AND u.deactivated_at IS NULL
+                       AND (p.agui_url IS NOT NULL OR p.runtime IN ('socket', 'builtin'))
+                       AND (p.owner_user_id IS NULL OR p.owner_user_id = :me)
+                     ORDER BY p.owner_user_id IS NOT NULL, lower(p.name)
+                    """
+                ),
+                {"ws": user.workspace_id, "me": user.id},
+            )
+        ).fetchall()
+    agents = []
+    for row in rows:
+        agents.append(
+            WorkspaceAgentOut(
+                id=str(row.id),
+                name=row.name,
+                bot_user_id=str(row.bot_user_id),
+                mine=row.owner_user_id is not None,
+                online=await gateway.is_online(str(row.id)) if row.runtime == "socket" else None,
+            )
+        )
+    return WorkspaceAgentsOut(agents=agents)
+
+
 @router.get("/mine", response_model=MyAgentsOut)
 async def list_mine(user: SessionUser = Depends(current_user)) -> MyAgentsOut:
     async with session_scope() as session:

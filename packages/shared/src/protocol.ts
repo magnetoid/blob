@@ -60,6 +60,15 @@ export type ServerEvent =
   /** A reminder you set came due — yours alone, on every device you have open. */
   | { t: 'reminder.due'; messageId: string; channelId: string; note: string | null }
   /** An agent began answering — the card that follows renders under its trigger. */
+  | {
+      /** The work behind a channel changed: an artifact landed, or it finished. The
+       * client refetches; the frame carries only what decides whether to. */
+      t: 'work.updated';
+      workId: string;
+      channelId: string;
+      status: 'open' | 'done';
+      artifactCount: number;
+    }
   | { t: 'agent_run.started'; run: AgentRunView }
   /** Throttled snapshots of the live card — whole each time, so a reconnect needs no replay. */
   | { t: 'agent_run.updated'; runId: string; channelId: string; card: AgentRunCard }

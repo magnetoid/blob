@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-05T04:58:13'
-updated: '2026-09-05T04:58:13'
+created: '2026-09-05T07:22:54'
+updated: '2026-09-05T07:22:54'
 ---
 
 # apps/api/tests/test_agent_env.py
@@ -43,7 +43,7 @@ Symbols in `apps/api/tests/test_agent_env.py`.
 - L278 `test_a_reserved_key_cannot_be_removed(self, hosted: Runner, client: Client)` (method)
 - L290 `test_the_port_is_reserved_too(self, hosted: Runner, client: Client)` (method)
 - L300 `test_the_port_cannot_be_removed_either(self, hosted: Runner, client: Client)` (method)
-- L317 `test_the_reserved_names_are_listed(self, hosted: Runner, client: Client)` (method)
-- L328 `TestAuthorization` (class)
-- L329 `test_a_member_cannot_read_configuration(self, hosted: Runner, client: Client)` (method)
-- L337 `test_a_member_cannot_write_it(self, hosted: Runner, client: Client)` (method)
+- L315 `test_the_reserved_names_are_listed(self, hosted: Runner, client: Client)` (method)
+- L326 `TestAuthorization` (class)
+- L327 `test_a_member_cannot_read_configuration(self, hosted: Runner, client: Client)` (method)
+- L335 `test_a_member_cannot_write_it(self, hosted: Runner, client: Client)` (method)

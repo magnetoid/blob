@@ -40,6 +40,7 @@ SERVER_EVENTS: frozenset[str] = frozenset(
         "agent_run.started",
         "agent_run.updated",
         "agent_run.finished",
+        "work.updated",
         "error",
     }
 )

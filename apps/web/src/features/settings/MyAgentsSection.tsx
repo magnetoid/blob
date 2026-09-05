@@ -12,11 +12,11 @@
  * offered, for the same reason an admin may not add an app somewhere they cannot read.
  */
 
-import { useState } from 'react';
-import { api, type AppChannel, type MyAgent } from '../../lib/api.ts';
-import { DesktopAgentSetup } from '../admin/DesktopAgentSetup.tsx';
-import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
-import { useAdminAction, useAdminData } from '../admin/hooks.ts';
+import { useState } from "react";
+import { api, type AppChannel, type MyAgent } from "../../lib/api.ts";
+import { DesktopAgentSetup } from "../admin/DesktopAgentSetup.tsx";
+import type { AdminSectionProps } from "../admin/AdminConsole.tsx";
+import { useAdminAction, useAdminData } from "../admin/hooks.ts";
 
 interface Minted {
   name: string;
@@ -29,10 +29,10 @@ export function MyAgentsSection({ onError }: AdminSectionProps) {
     () => api.agents.mine(),
     [],
     onError,
-    'Could not load your agents.',
+    "Could not load your agents.",
   );
   const act = useAdminAction(onError, reload);
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [minted, setMinted] = useState<Minted | null>(null);
   const agents = data?.agents ?? [];
@@ -49,25 +49,29 @@ export function MyAgentsSection({ onError }: AdminSectionProps) {
         botToken: attached.botToken,
         signingSecret: attached.signingSecret,
       });
-      setName('');
+      setName("");
       reload();
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'That agent could not be registered.');
+      onError(
+        err instanceof Error
+          ? err.message
+          : "That agent could not be registered.",
+      );
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+    <section style={{ display: "flex", flexDirection: "column", gap: 26 }}>
       <div>
         <h3 className="section-label">Connect an agent</h3>
         <p className="pref-hint" style={{ marginBottom: 10 }}>
-          For an agent running on your laptop or a private network. It dials Blob, so it
-          needs no public address, and it answers only you — lend it to somebody in a
-          channel with <code>/allow</code>.
+          For an agent running on your laptop or a private network. It dials
+          Blob, so it needs no public address, and it answers only you — lend it
+          to somebody in a channel with <code>/allow</code>.
         </p>
-        <div style={{ display: 'flex', gap: 8, maxWidth: 480 }}>
+        <div style={{ display: "flex", gap: 8, maxWidth: 480 }}>
           <input
             className="input"
             value={name}
@@ -75,11 +79,15 @@ export function MyAgentsSection({ onError }: AdminSectionProps) {
             aria-label="Agent name"
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') void attach();
+              if (event.key === "Enter") void attach();
             }}
           />
-          <button className="btn btn-primary" disabled={!usable} onClick={() => void attach()}>
-            {busy ? 'Registering…' : 'Get a token'}
+          <button
+            className="btn btn-primary"
+            disabled={!usable}
+            onClick={() => void attach()}
+          >
+            {busy ? "Registering…" : "Get a token"}
           </button>
         </div>
       </div>
@@ -95,11 +103,15 @@ export function MyAgentsSection({ onError }: AdminSectionProps) {
 
       <div>
         <h3 className="section-label">Your agents</h3>
-        {loading && agents.length === 0 && <p className="pref-hint">Loading…</p>}
-        {!loading && agents.length === 0 && (
-          <p className="pref-hint">None yet. Connect one above and it will appear here.</p>
+        {loading && agents.length === 0 && (
+          <p className="pref-hint">Loading…</p>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {!loading && agents.length === 0 && (
+          <p className="pref-hint">
+            None yet. Connect one above and it will appear here.
+          </p>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {agents.map((agent) => (
             <AgentRow
               key={agent.id}
@@ -129,10 +141,11 @@ function AgentRow({
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const channels = useAdminData(
-    () => (open ? api.agents.channels(agent.id) : Promise.resolve({ channels: [] })),
+    () =>
+      open ? api.agents.channels(agent.id) : Promise.resolve({ channels: [] }),
     [open, agent.id],
     onError,
-    'Could not load channels.',
+    "Could not load channels.",
   );
   const channelAct = useAdminAction(onError, channels.reload);
 
@@ -147,25 +160,26 @@ function AgentRow({
               data-muted={!agent.online}
               title={
                 agent.online
-                  ? 'Holding a connection to Blob'
-                  : 'Not connected — run the bridge next to the agent'
+                  ? "Holding a connection to Blob"
+                  : "Not connected — run the bridge next to the agent"
               }
             >
-              {agent.online ? 'connected' : 'not connected'}
+              {agent.online ? "connected" : "not connected"}
             </span>
-            {agent.status !== 'enabled' && (
+            {agent.status !== "enabled" && (
               <span className="role-pill" data-muted>
-                {agent.status.replace('_', ' ')}
+                {agent.status.replace("_", " ")}
               </span>
             )}
           </div>
           <div className="admin-row-meta">
-            {agent.description || agent.slug} · answers you, and whoever you /allow
+            {agent.description || agent.slug} · answers you, and whoever you
+            /allow
           </div>
         </div>
         <div className="admin-row-actions">
           <button className="btn btn-ghost" onClick={() => setOpen((v) => !v)}>
-            {open ? 'Hide channels' : 'Channels'}
+            {open ? "Hide channels" : "Channels"}
           </button>
           {confirming ? (
             <>
@@ -180,12 +194,18 @@ function AgentRow({
               >
                 Remove {agent.name}
               </button>
-              <button className="btn btn-ghost" onClick={() => setConfirming(false)}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setConfirming(false)}
+              >
                 Keep
               </button>
             </>
           ) : (
-            <button className="btn btn-ghost" onClick={() => setConfirming(true)}>
+            <button
+              className="btn btn-ghost"
+              onClick={() => setConfirming(true)}
+            >
               Remove
             </button>
           )}
@@ -195,15 +215,15 @@ function AgentRow({
       {open && (
         <div style={{ marginTop: 10 }}>
           <div className="pref-hint" style={{ marginBottom: 8 }}>
-            Mentioning {agent.name} reaches it only in channels it has been added to. Only
-            channels you are in are offered.
+            Mentioning {agent.name} reaches it only in channels it has been
+            added to. Only channels you are in are offered.
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {(channels.data?.channels ?? []).map((channel: AppChannel) => (
               <div className="pref-row" key={channel.id}>
                 <div className="pref-label">#{channel.name ?? channel.id}</div>
                 <button
-                  className={channel.joined ? 'btn btn-ghost' : 'btn'}
+                  className={channel.joined ? "btn btn-ghost" : "btn"}
                   onClick={() =>
                     void channelAct(() =>
                       channel.joined
@@ -212,12 +232,14 @@ function AgentRow({
                     )
                   }
                 >
-                  {channel.joined ? 'Remove' : 'Add'}
+                  {channel.joined ? "Remove" : "Add"}
                 </button>
               </div>
             ))}
             {channels.data && channels.data.channels.length === 0 && (
-              <div className="pref-hint">You are not in any channel it could join.</div>
+              <div className="pref-hint">
+                You are not in any channel it could join.
+              </div>
             )}
           </div>
         </div>

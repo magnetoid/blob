@@ -349,7 +349,9 @@ What Blob does with the stream:
 | `TEXT_MESSAGE_START` / `CONTENT` / `END` | One message in the channel, posted by your bot |
 | `TEXT_MESSAGE_CHUNK` | The same, for agents that use the compact form |
 | `TOOL_CALL_START` | The tool's name is listed under the answer |
-| `RUN_FINISHED` with an `interrupt` outcome | The question is posted; mention the agent again to continue |
+| `RUN_FINISHED` with an `interrupt` outcome | The question is posted **with buttons or a text box**, minted from your `interrupts[].responseSchema` (an `enum`, a `oneOf` with `const`/`title`, or a boolean) — or from `metadata.options`. Only the person the run is on behalf of can answer. Their answer is posted as their own message and your agent is called again with `resume: [{interruptId, status: "resolved", payload}]`, `parentRunId` (the `runId` of the run that asked) and `state` (below). A question nobody answers within a day expires. |
+| `STATE_SNAPSHOT` / `STATE_DELTA` | Folded (deltas are RFC 6902) and **remembered per conversation**: the next run in the same channel or thread receives it as `state`. A resume receives the state the run had when it stopped. 64 KiB cap. |
+| `CUSTOM` with `name: "blob.artifact"` | In a work channel, publishes an artifact — see below. Elsewhere, ignored. |
 | `RUN_ERROR` | A short message saying it could not finish, and `lastError` on the app |
 | everything else | Ignored, including all reasoning events — an agent's working-out is not its answer |
 
@@ -361,8 +363,15 @@ edited forty times is marked "(edited)" for ever and broadcast forty times. If y
 takes a while, say so in its first message. After `AGUI_TIMEOUT_SEC` (120s by default) the
 person is told it could not finish.
 
-**Only people start runs.** A message from another bot never triggers your agent, which is
-what stops two agents talking to each other until someone notices the bill.
+**A person starts every chain; agents may extend it.** A message from another bot never
+starts anything on its own — the bot API stays inert. But when your agent's *reply*
+mentions another agent, that agent may be run as the next hop of the same chain, on the
+authority of the person who started it (so an agent only its owner may command stays that
+way), inside a depth budget the workspace sets, with a per-agent cap that ends ping-pong
+and a quarter-hour wall clock. Your run's `context` carries `asked_by_agent` and
+`on_behalf_of` when you were mentioned by an agent, and `participants` names the other
+agents in the room so yours can address one by writing `@Name`. Stop on any run stops the
+hops it caused.
 
 **AG-UI is a transport, not a permission.** Your bot still needs `messages:write`, and it
 still has to be a member of a channel to answer in it. In a channel it cannot see, it says
@@ -371,3 +380,22 @@ nothing at all — not even an error, because a private channel's existence is p
 > **Any member of a channel your agent is in can make it speak, and whatever it says is
 > posted as your app.** That is the feature, and it is also the threat model: treat channel
 > content as untrusted input to your agent.
+
+### Publishing artifacts into a work channel
+
+A *work channel* is a channel spun from a conversation for one assignment (a person
+starts it from a message's menu, naming the agents to bring along). Inside it, an agent
+can publish artifacts the team reviews in tabs beside the conversation:
+
+```json
+{"type": "CUSTOM", "name": "blob.artifact",
+ "value": {"kind": "diff", "title": "Add the rate limit", "body": "--- a/x.py\n+++ b/x.py\n@@ ..."}}
+```
+
+`kind` is `diff` (a unified diff, shown with a diff viewer), `html` (a self-contained
+page, shown in a sandboxed frame only after a person clicks *Run preview* — no network, no
+cookies, no access to the workspace) or `markdown` (a document). `body` is capped at
+200 KiB; `title` at 200 characters. Outside a work channel the event is ignored.
+
+An app that posts through the bot API can publish the same thing with
+`POST /api/v1/work.publishArtifact {"channel": "…", "kind": "…", "title": "…", "body": "…"}`.

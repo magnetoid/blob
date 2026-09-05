@@ -111,6 +111,8 @@ class Channel(CamelModel):
     created_at: str
     #: Present only for dm / group_dm.
     member_ids: list[str] | None = None
+    #: Set when this channel is a work channel (ADR 0014): the assignment's id.
+    work_id: str | None = None
 
 
 class BrowsableChannel(CamelModel):

@@ -19,6 +19,7 @@ import re
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import Field
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
@@ -36,6 +37,7 @@ from ..services import agentic as agentic_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services import work as work_service
 from ..services.serialize import message_event, to_agent_task, to_channel, to_user
 
 router = APIRouter(prefix="/api/v1", tags=["apps"])
@@ -315,6 +317,64 @@ async def delete_message(
         after.add(broadcast)
 
     return OkOut()
+
+
+class PublishArtifactInput(CamelModel):
+    channel: str
+    kind: work_service.ArtifactKind
+    title: str = Field(min_length=1, max_length=work_service.TITLE_MAX)
+    body: str = Field(min_length=1, max_length=work_service.ARTIFACT_BODY_MAX)
+
+
+class ArtifactOut(CamelModel):
+    artifact: work_service.Artifact
+
+
+@router.post("/work.publishArtifact", response_model=ArtifactOut, status_code=201)
+async def publish_artifact(
+    payload: PublishArtifactInput, bot: BotCaller = requires("messages:write")
+) -> ArtifactOut:
+    """Put a diff, a page or a document into the work channel the bot is in (ADR 0014).
+
+    The AG-UI way is a `CUSTOM` event named `blob.artifact` in the run's stream; this is
+    the same thing for an app that talks to Blob over the bot API instead. Same
+    validation, same table, same tabs. In a channel that is not a work channel there is
+    nothing to publish into, and it says so rather than storing something nobody can see.
+    """
+    async with transaction() as (session, after):
+        channel_id = await _resolve_channel(session, bot.workspace_id, payload.channel)
+        await channel_service.assert_channel_access(
+            session, bot.user_id, channel_id, require_member=True, require_writable=True
+        )
+        work = await work_service.by_channel(session, channel_id)
+        if work is None:
+            raise bad_request("That channel is not a work channel.", code="not_work")
+        artifact = await work_service.publish(
+            session,
+            work_id=work.id,
+            kind=payload.kind,
+            title=payload.title,
+            body=payload.body,
+            author_user_id=bot.user_id,
+        )
+        updated = await work_service.get(session, work.id, bot.workspace_id)
+        await audit_service.record(
+            session,
+            _bot_actor(bot),
+            "work.artifact_published",
+            target_type="work",
+            target_id=work.id,
+            metadata={"artifactId": artifact.id, "kind": artifact.kind, "channelId": channel_id},
+        )
+        event = {
+            "t": "work.updated",
+            "workId": updated.id,
+            "channelId": channel_id,
+            "status": updated.status,
+            "artifactCount": updated.artifact_count,
+        }
+        after.add(lambda: hub.to_channel(channel_id, event))
+    return ArtifactOut(artifact=artifact)
 
 
 @router.post("/reactions.add", response_model=OkOut)

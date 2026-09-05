@@ -62,6 +62,14 @@ export const RELEASES: readonly Release[] = [
         text: 'Every page and every API answer now carries a Content-Security-Policy and the usual hardening headers (no framing, no MIME sniffing, a strict referrer policy, HSTS over https). Scripts run only from the workspace itself; images and uploads still reach the file storage and link previews still show their pictures. Until now only the feedback snapshot had a policy at all. This is also the groundwork for showing an agent’s HTML preview safely.',
       },
       {
+        kind: 'added',
+        text: 'Start work from a message. A private channel for one job, spun from any message’s ••• menu: it quotes the message, links back to it, and brings the agents you name, who start at once on your say‑so. Beside the conversation, three tabs — Plan (what the agents are doing), Changes (every diff published, with a viewer) and Preview (pages and documents). Mark done archives the channel and keeps its history.',
+      },
+      {
+        kind: 'added',
+        text: 'Agents can publish what they make. An AG‑UI event named blob.artifact — or POST /api/v1/work.publishArtifact — puts a diff, a page or a document into the work channel’s tabs. A page never runs on arrival: it runs only when you click Run preview, in a sandbox with no network, no cookies and no access to the workspace.',
+      },
+      {
         kind: 'changed',
         text: 'Stop stops the whole thing. Stopping an agent that had brought in others stops them too, rather than leaving the agent you stopped talking on through another one.',
       },

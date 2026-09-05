@@ -43,6 +43,8 @@ interface Props {
   mine: boolean;
   onCopyLink: () => void;
   onForward: () => void;
+  /** Absent inside a work channel, where the work already is. */
+  onStartWork?: () => void;
   onEdit: () => void;
   onDelete: () => void;
   /** Follows the row's roving tabindex: only the list's one tab stop is tabbable. */
@@ -54,6 +56,7 @@ export function MessageMenu({
   mine,
   onCopyLink,
   onForward,
+  onStartWork,
   onEdit,
   onDelete,
   tabIndex,
@@ -113,6 +116,22 @@ export function MessageMenu({
         >
           Forward…
         </button>
+        {/* Where a conversation becomes a place to build something: a private
+              channel spun from this message, with the agents you name. Not offered
+              inside a work channel — the work is already here. */}
+        {onStartWork && (
+          <button
+            className="menu-item"
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              onStartWork();
+            }}
+          >
+            Start work from here…
+          </button>
+        )}
         {/* Only in the channel, not in a thread: the read cursor is a channel
               cursor, so marking a reply unread would move a marker pointing at
               something the channel list does not show. */}

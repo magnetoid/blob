@@ -161,6 +161,13 @@ grant scopes explicitly, and both end up as a real member of the workspace.
 - **Agents remember** — AG-UI shared state is kept per (agent, conversation) in
   `agent_state` and handed back as `state` on the next run there; only runs that finished
   or stopped to ask write it, a resume's own state outranks it, 64 KiB cap. Migration 0027.
+- **Work channels** — *Start work from here* on any message spins a private channel for
+  that one job, quoting the message, linking back, and bringing the agents you name on
+  your authority. Tabs beside the conversation: Plan (the run cards), Changes (diffs, with
+  a viewer), Preview (pages and documents). Agents publish artifacts with an AG-UI
+  `CUSTOM` event named `blob.artifact` or `POST /api/v1/work.publishArtifact`; a page runs
+  only on click, in an `allow-scripts`-only sandbox with its own no-network CSP. Mark
+  done archives the channel. ADR 0014.
 - **Decisions that resume** — an agent that stops to ask posts the question with buttons
   Blob minted from what it declared; only the asker may answer; the answer is their own
   message; the run resumes over AG-UI with `resume[]`, `parentRunId` and its saved state. A

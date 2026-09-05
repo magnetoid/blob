@@ -11,6 +11,13 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "cc35443bff34a0394e8deb2c4f470c041edc7535",
+    "shortSha": "cc35443",
+    "subject": "Put a Content-Security-Policy on every response",
+    "date": "2026-09-05T07:13:45+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "e4df5e80abe7d1fa21864318325bf6fd56791c6a",
     "shortSha": "e4df5e8",
     "subject": "Let a member connect their own agent, and let an agent remember",
@@ -421,13 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "73a8005",
     "subject": "Stop @-mention autocomplete from offering people the query is merely inside",
     "date": "2026-09-01T14:30:21+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "f0ecef9bbee74d3c2562188a94ea6e942ccecd87",
-    "shortSha": "f0ecef9",
-    "subject": "Stop a search modifier that names nobody from returning everybody",
-    "date": "2026-08-31T22:02:07+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

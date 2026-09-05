@@ -243,6 +243,7 @@ def create_app() -> FastAPI:
     from .routers.search import router as search_router
     from .routers.themes import router as theme_router
     from .routers.users import router as user_router
+    from .routers.work import router as work_router
     from .routers.workspaces import router as workspace_router
 
     app.include_router(auth_router)
@@ -264,6 +265,7 @@ def create_app() -> FastAPI:
     app.include_router(theme_router)
     app.include_router(plugin_router)
     app.include_router(my_agents_router)
+    app.include_router(work_router)
     app.include_router(plugin_hosting_router)
     app.include_router(bot_api_router)
     app.include_router(ws_router)
