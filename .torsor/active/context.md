@@ -846,3 +846,20 @@ run nobody chained is its own root.
   goes through `announce`, which enqueues `agui_run`. "Proactive agents" needed no new
   path; `test_a_scheduled_message_that_mentions_an_agent_roots_a_chain` pins that it
   stays wired. Event triggers ("on message.created in #ops") would be the new path.
+
+## Trap: the CSP is `script-src 'self'`, so nothing inline runs
+
+`lib/security_headers.py` puts a Content-Security-Policy on every response. The theme
+bootstrap that lived inline in `index.html` had to move to `public/theme-boot.js` for it —
+an inline `<script>` needs a hash that changes on every build or a nonce that needs a
+server-rendered page, and Blob has neither. Anything added to `index.html` as an inline
+script will be blocked in production and work in `pnpm dev` (Vite serves the page, the API
+sets no headers there), which is the worst kind of difference. Inline *style attributes*
+are allowed (`style-src 'unsafe-inline'`), because React's `style={{}}` is everywhere.
+
+Two things the policy has to keep allowing or the app breaks without an error anyone sees:
+the object-storage origin in `connect-src` (uploads are a presigned PUT from the browser)
+and `https:` in `img-src`/`media-src` (attachments are a 302 to storage, and CSP checks the
+redirect target; link previews show the remote page's own image). `/docs` and `/redoc` get
+no CSP because Swagger and ReDoc load from a CDN. A route that already set a policy keeps
+it — the feedback snapshot's is stricter on purpose.

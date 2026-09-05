@@ -167,6 +167,15 @@ class Settings(BaseSettings):
     #: talk to something one hop away. Turning this on is a statement that the operator
     #: controls the network the app sits on.
     AGENT_ALLOW_PRIVATE_ENDPOINTS: bool = False
+    #: Every response carries a Content-Security-Policy and the usual hardening headers
+    #: (see `lib/security_headers.py`). Off only for an operator whose proxy sets its own
+    #: — two policies on one response are enforced as their intersection, which is how a
+    #: working deployment breaks the day the proxy's policy is loosened.
+    SECURITY_HEADERS: bool = True
+    #: Extra origins for `connect-src` and `img-src`, space-separated, for a deployment
+    #: whose object storage or previews live somewhere the policy cannot infer from
+    #: `S3_PUBLIC_ENDPOINT`.
+    CSP_EXTRA_SOURCES: str = ""
 
     @field_validator(
         "SMTP_USER",

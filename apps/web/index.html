@@ -41,23 +41,9 @@
       content="Open-source, self-hosted team chat where agents are members, not widgets."
     />
     <meta name="twitter:image" content="/og.png" />
-    <script>
-      // Runs before first paint: the server's answer is a round trip away, so the last
-      // known palette is mirrored in localStorage and replayed here.
-      try {
-        var saved = JSON.parse(localStorage.getItem('blob.theme') || 'null');
-        if (saved) {
-          var root = document.documentElement;
-          if (saved.preference && saved.preference !== 'system') {
-            root.setAttribute('data-theme', saved.preference);
-          }
-          if (saved.mode) root.style.colorScheme = saved.mode;
-          for (var name in saved.tokens || {}) {
-            root.style.setProperty(name, saved.tokens[name]);
-          }
-        }
-      } catch (e) {}
-    </script>
+    <!-- Before first paint, from a file rather than inline: the Content-Security-Policy
+         is script-src 'self'. See public/theme-boot.js. -->
+    <script src="/theme-boot.js"></script>
   </head>
   <body>
     <div id="root"></div>

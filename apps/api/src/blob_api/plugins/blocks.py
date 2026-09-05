@@ -213,6 +213,7 @@ def action_ids_of(raw: list[dict[str, object]] | None) -> set[str]:
 
 def _action_ids_from_raw(raw: list[dict[str, object]]) -> set[str]:
     """The same answer, without the models. Shapes it does not recognise contribute none."""
+
     def add(holder: dict[str, object], into: set[str]) -> None:
         # Both spellings: what a plugin sends over the wire and what is stored after the
         # models round-trip it.

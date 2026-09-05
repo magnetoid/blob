@@ -590,6 +590,7 @@ async def archive_any_channel(
 
 # ─── audit log ────────────────────────────────────────────────────────────────
 
+
 @router.post("/channels/{channel_id}/unarchive", response_model=OkOut)
 async def unarchive_any_channel(
     channel_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
@@ -631,6 +632,8 @@ async def unarchive_any_channel(
             payload = {"t": "channel.updated", "channel": channel.model_dump(by_alias=True)}
             after.add(lambda: hub.to_channel(channel_id, payload))
     return OkOut()
+
+
 @router.get("/audit", response_model=AuditOut)
 async def audit_log(
     actor_id: str | None = None,

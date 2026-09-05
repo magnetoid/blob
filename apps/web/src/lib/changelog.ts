@@ -58,6 +58,10 @@ export const RELEASES: readonly Release[] = [
         text: 'Scheduling a message that mentions an agent now reads as what it is: a way to have the agent do something every morning. Nothing changed underneath — it always ran when the message sent — but the guide now says so, and the agent runs on your authority like any other mention.',
       },
       {
+        kind: 'fixed',
+        text: 'Every page and every API answer now carries a Content-Security-Policy and the usual hardening headers (no framing, no MIME sniffing, a strict referrer policy, HSTS over https). Scripts run only from the workspace itself; images and uploads still reach the file storage and link previews still show their pictures. Until now only the feedback snapshot had a policy at all. This is also the groundwork for showing an agent’s HTML preview safely.',
+      },
+      {
         kind: 'changed',
         text: 'Stop stops the whole thing. Stopping an agent that had brought in others stops them too, rather than leaving the agent you stopped talking on through another one.',
       },

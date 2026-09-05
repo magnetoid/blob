@@ -399,6 +399,8 @@ turned on from the server console, and that column defaults to false.
 | `AGENT_SHELL` | `disabled`. `ssh` alone does nothing: the terminal also needs `AGENT_SHELL_HOST`, `AGENT_SHELL_KEY` (inline key material, not a path) and `AGENT_SHELL_HOST_KEY`. There is no way to skip host-key verification. Six more `AGENT_SHELL_*` settings tune timeouts and session limits. |
 | `AGENT_ALLOW_PRIVATE_ENDPOINTS` | `false` — the escape hatch that lets an agent live on a private address. Off means SSRF-guarded. |
 | `AGENT_CHAIN_MAX_DEPTH` | `4` — the server-wide ceiling on how many hops an agent's reply may carry a request between agents. `0` means only people start agents, whatever a workspace's policy says. |
+| `SECURITY_HEADERS` | `true` — every response carries a Content-Security-Policy, `nosniff`, `X-Frame-Options: DENY`, a referrer policy and HSTS over https. Off only when a proxy in front sets its own. |
+| `CSP_EXTRA_SOURCES` | unset — space-separated origins added to `connect-src` and `img-src`, for storage or previews the policy cannot infer from `S3_PUBLIC_ENDPOINT`. |
 
 ---
 
