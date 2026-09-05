@@ -149,6 +149,15 @@ grant scopes explicitly, and both end up as a real member of the workspace.
 - **Whose agent it is** — an agent with no owner is the workspace's and answers anyone; an
   agent with an owner answers that person, and whoever they lend it to with `/allow` in a
   given channel. That is what makes a personal assistant personal.
+- **Agents talking to each other** — an agent's reply may mention another agent, which
+  answers in the same channel; the card says who asked. Every hop runs on the authority of
+  the person who started it, inside a depth budget (`agent_chain_max_depth` per workspace,
+  `AGENT_CHAIN_MAX_DEPTH` as the server ceiling), a per-agent cap that ends ping-pong, and
+  a quarter-hour wall clock. Stop cascades. ADR 0013.
+- **Decisions that resume** — an agent that stops to ask posts the question with buttons
+  Blob minted from what it declared; only the asker may answer; the answer is their own
+  message; the run resumes over AG-UI with `resume[]`, `parentRunId` and its saved state. A
+  question nobody answers within a day expires.
 - **Where an agent runs is a manifest field.** `external` is an HTTPS endpoint you host;
   `container` is one Blob deploys from a repository; `socket` dials in from a laptop
   behind NAT and needs no address at all; `builtin` is the agent Blob runs itself. (A
@@ -382,6 +391,7 @@ turned on from the server console, and that column defaults to false.
 | `COOLIFY_ENVIRONMENT` | `production` |
 | `AGENT_SHELL` | `disabled`. `ssh` alone does nothing: the terminal also needs `AGENT_SHELL_HOST`, `AGENT_SHELL_KEY` (inline key material, not a path) and `AGENT_SHELL_HOST_KEY`. There is no way to skip host-key verification. Six more `AGENT_SHELL_*` settings tune timeouts and session limits. |
 | `AGENT_ALLOW_PRIVATE_ENDPOINTS` | `false` — the escape hatch that lets an agent live on a private address. Off means SSRF-guarded. |
+| `AGENT_CHAIN_MAX_DEPTH` | `4` — the server-wide ceiling on how many hops an agent's reply may carry a request between agents. `0` means only people start agents, whatever a workspace's policy says. |
 
 ---
 
@@ -533,6 +543,7 @@ The twelve ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture/deci
 | 0010 | Agents deploy as containers |
 | 0011 | AG-UI is an inbound transport |
 | 0012 | Agents may dial in |
+| 0013 | Agent chains carry human authority |
 
 ---
 

@@ -217,9 +217,14 @@ class PolicyOut(CamelModel):
     may_connect_socket_agents: bool
     denied_scopes: list[str]
     max_apps: int | None = None
+    #: Hops an agent's reply may carry a chain past the person who started it; 0 = off.
+    agent_chain_max_depth: int
     #: What the environment allows at all. Policy narrows this and can never widen it.
     server_allows_hosting: bool
     server_allows_private_endpoints: bool
+    #: The server's own ceiling on chain depth, so the console can say when a row's
+    #: value is being narrowed rather than show a number that does nothing.
+    server_chain_max_depth: int
 
 
 class PolicyInput(CamelModel):
@@ -230,6 +235,7 @@ class PolicyInput(CamelModel):
     may_connect_socket_agents: bool | None = None
     denied_scopes: list[str] | None = None
     max_apps: int | None = Field(default=None, ge=0, le=1000)
+    agent_chain_max_depth: int | None = Field(default=None, ge=0, le=16)
 
 
 def _policy_out(workspace_id: str, policy: policy_service.Policy) -> PolicyOut:
@@ -240,8 +246,10 @@ def _policy_out(workspace_id: str, policy: policy_service.Policy) -> PolicyOut:
         may_connect_socket_agents=policy.may_connect_socket_agents,
         denied_scopes=sorted(policy.denied_scopes),
         max_apps=policy.max_apps,
+        agent_chain_max_depth=policy.agent_chain_max_depth,
         server_allows_hosting=settings.AGENT_RUNNER != "disabled",
         server_allows_private_endpoints=settings.AGENT_ALLOW_PRIVATE_ENDPOINTS,
+        server_chain_max_depth=settings.AGENT_CHAIN_MAX_DEPTH,
     )
 
 

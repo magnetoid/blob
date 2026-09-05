@@ -244,6 +244,12 @@ class WorkspacePolicy(Base):
     )
     #: NULL means no cap.
     max_apps: Mapped[int | None] = mapped_column(Integer)
+    #: How many hops an agent's reply may carry a chain past the person who started it.
+    #: 0 means only people start runs — the behaviour before migration 0026. The
+    #: environment's `AGENT_CHAIN_MAX_DEPTH` is the ceiling, as with every policy field.
+    agent_chain_max_depth: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("4")
+    )
     updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     updated_by: Mapped[str | None] = mapped_column(
         UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
@@ -650,7 +656,8 @@ class AgentRun(Base):
     __tablename__ = "agent_runs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('running', 'succeeded', 'failed', 'interrupted', 'cancelled', 'refused')",
+            "status IN ('running', 'succeeded', 'failed', 'interrupted', 'cancelled', "
+            "'refused', 'expired')",
             name="agent_runs_status_check",
         ),
         CheckConstraint(
@@ -659,6 +666,14 @@ class AgentRun(Base):
         # The console reads one app's runs, newest first, which is the only query here.
         Index("agent_runs_plugin_recent", "plugin_id", text("started_at DESC")),
         Index("agent_runs_workspace_recent", "workspace_id", text("started_at DESC")),
+        # A chain's runs, oldest first — what admission counts and what a Stop cascades over.
+        Index("agent_runs_chain", "chain_id", "started_at"),
+        # The expiry sweep's whole working set: decisions still waiting on a person.
+        Index(
+            "agent_runs_waiting",
+            "expires_at",
+            postgresql_where=text("status = 'interrupted' AND answered_at IS NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
@@ -692,6 +707,37 @@ class AgentRun(Base):
     #: When somebody pressed Stop. The worker reads the redis key, not this column;
     #: this is the durable record of who-asked-when for the log.
     cancel_requested_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+    # ── lineage (migration 0026, ADR 0013) ───────────────────────────────────────
+    #: The person's message that rooted this chain. Every run is in exactly one chain;
+    #: a run a person started is its own root. UUIDv7, so a chain's runs sort.
+    chain_id: Mapped[str] = mapped_column(UUIDStr, nullable=False)
+    #: The run whose reply caused this one, or NULL at the root. Self-referential, no
+    #: cycle with anything, so no `use_alter`.
+    parent_run_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("agent_runs.id", ondelete="SET NULL")
+    )
+    #: Hops from the person: 0 at the root. The policy's `agent_chain_max_depth` bounds it.
+    depth: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    #: Whose authority a hop runs on — the person at the root, never the agent between.
+    #: Only `users` ↔ `plugins` form a cycle, so this FK needs no `use_alter`.
+    initiated_by_user_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+    # ── a decision the agent is waiting on ──────────────────────────────────────
+    #: The raw `interrupts[]` from RUN_FINISHED, so a resume can name what it answers.
+    interrupt: Mapped[dict[str, Any] | list[Any] | None] = mapped_column(JSONB)
+    #: What the agent knew when it stopped: STATE_SNAPSHOT with STATE_DELTAs applied.
+    #: Sent back as `state` when the run resumes.
+    state: Mapped[Any | None] = mapped_column(JSONB)
+    #: The bot's "Needs a decision" message carrying the buttons, settled when answered.
+    decision_message_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="SET NULL")
+    )
+    answered_at: Mapped[Any | None] = mapped_column(Timestamp)
+    #: When a waiting decision stops waiting and the run becomes `expired`.
+    expires_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
 class SavedItem(Base):

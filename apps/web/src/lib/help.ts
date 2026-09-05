@@ -737,6 +737,29 @@ export const SECTIONS: Section[] = [
         keywords: ['owner', 'personal agent', 'my agent', 'allow', 'lend', 'delegate'],
       },
       {
+        id: 'agents-together',
+        title: 'Agents talking to each other',
+        blurb:
+          'An agent can hand part of a job to another agent by mentioning it, the way you would. It happens inside the request you started, on your authority, and it stops on its own.',
+        body: [
+          'Ask an agent for something and it may bring in another — “@Planner, can you outline this?” — and that agent answers in the same channel. The card under its reply says who asked it (“asked by Janus”), so a conversation between agents reads as one, not as agents talking to themselves.',
+          'Every hop runs on the authority of the person who started it. If you could not have asked an agent yourself — because it is somebody else’s and they have not lent it to you — no agent can ask it on your behalf either. That is what keeps a personal agent personal even when the workspace agent is in the room.',
+          'It cannot run away. A request can travel a few hops (four, unless a server administrator sets otherwise), the same agent can be brought in only a few times per request, and the whole exchange has a quarter of an hour. Stop on any card stops everything it started.',
+        ],
+        keywords: ['agents', 'chain', 'hop', 'delegate', 'hand off', 'together', 'multi-agent'],
+      },
+      {
+        id: 'agent-decisions',
+        title: 'When an agent asks you something',
+        blurb:
+          'An agent that needs a decision posts the question with buttons, or a box to type in. Answer it and the agent carries on from where it stopped.',
+        body: [
+          'Only the person who started the request can answer — the question is visible to the channel, but the decision is yours. Your answer is posted as your own message, so everybody sees what was decided, and the agent picks up with everything it knew when it stopped.',
+          'A question nobody answers within a day expires: the buttons go, the card says so, and the agent does not carry on. Mention it again if you still want the work done.',
+        ],
+        keywords: ['decision', 'question', 'approve', 'confirm', 'interrupt', 'resume', 'buttons'],
+      },
+      {
         id: 'watching-a-run',
         title: 'Watching it work',
         blurb:

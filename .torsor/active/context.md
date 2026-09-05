@@ -785,9 +785,9 @@ and the same fix.
 
 `plugins.owner_user_id` NULL means the workspace's agent — installed by an admin,
 answering anyone who mentions it. Set, it means one person's, answering them and whoever
-`agent_delegations` says. Both gates live in `jobs/agui.py` and are different questions:
-the older one asks whether a *machine* may start a run (only a human message triggers one,
-which is the loop guard), and this one whether this *person* may command this agent.
+`agent_delegations` says. The gate lives in `jobs/agui.py` and is asked of the person the
+*chain* runs on (`chain.initiated_by_user_id`), which at a hop is the person at the root,
+not the agent whose reply did the mentioning — see ADR 0013 and the traps below.
 
 A refusal is **silence**, deliberately. Telling the channel "that is not your agent" makes
 an owned agent's existence and its owner discoverable by anyone who guesses a name, and the
@@ -802,3 +802,31 @@ cycles between tables plugins, users … foreign key constraints involving these
 not be considered", which surfaces as a warning during `alembic check` and nowhere else.
 Any further FK across that pair needs `use_alter=True` too. Migrations are unaffected;
 this is about metadata-level DDL ordering, not the database.
+
+## Agent chains (ADR 0013): the five places it bites
+
+The loop guard ("only `kind == 'user'` triggers a run") is gone; a *chain* replaced it.
+Reading `jobs/agui.py::_run` is the map, and these are the traps around it:
+
+* **Lineage travels through the queue, not the messages table.** A hop is
+  `agui_run(message_id, parent_run_id)`, enqueued by `_post_as_bot` itself. Deriving
+  "this bot message came from a run" from `messages` alone would make every bot‑API post a
+  trigger — and the bot API must stay inert (no person behind it).
+* **The answer to a decision must not root a second chain.** `services/agent_chains.answer`
+  posts the person's answer through `message_service.announce(..., start_agent_runs=False)`.
+  Drop that flag and the answer (which often mentions the agent) roots a fresh chain that
+  races the resume on `_claim`, and the agent runs twice.
+* **`/api/interactions` branches on `agent_answer:` before forwarding.** The decision
+  message's `plugin_id` is the agent's, so without the branch a button press is webhooked to
+  the agent as an `interaction.triggered` on a button it never published.
+* **`views_for_channel` had a one‑hour window.** A run waiting on a decision is answerable
+  for a day; it now stays listed while `status='interrupted' AND answered_at IS NULL`.
+  Anything else that lists "recent" runs must make the same exception or the buttons
+  outlive the card.
+* **`resume` and `parentRunId` only when resuming.** `build_run_input` adds them only for a
+  resume. An agent built on an older AG‑UI model with `extra="forbid"` 422s on unknown keys,
+  and that failure looks exactly like the agent being down.
+
+And one about tests: `agent_runs.chain_id` is NOT NULL. A test that hand‑inserts a run row
+(`test_agui.py::TestBudget`) has to give it a `chain_id` — its own id is right, since a
+run nobody chained is its own root.

@@ -38,6 +38,7 @@ POLICY_FIELDS = (
     "may_connect_socket_agents",
     "denied_scopes",
     "max_apps",
+    "agent_chain_max_depth",
 )
 
 
@@ -50,6 +51,9 @@ class Policy:
     may_connect_socket_agents: bool = True
     denied_scopes: frozenset[str] = field(default_factory=frozenset)
     max_apps: int | None = None
+    #: How many hops an agent's reply may carry a chain past the person who rooted it.
+    #: 0 means only people start runs. See ADR 0013.
+    agent_chain_max_depth: int = 4
 
 
 def _row_to_policy(row: Any) -> Policy:
@@ -59,6 +63,7 @@ def _row_to_policy(row: Any) -> Policy:
         may_connect_socket_agents=row.may_connect_socket_agents,
         denied_scopes=frozenset(row.denied_scopes or []),
         max_apps=row.max_apps,
+        agent_chain_max_depth=row.agent_chain_max_depth,
     )
 
 
@@ -74,7 +79,8 @@ async def stored_for(session: AsyncSession, workspace_id: str) -> Policy:
             text(
                 """
                 SELECT may_host_agents, may_use_private_endpoints,
-                       may_connect_socket_agents, denied_scopes, max_apps
+                       may_connect_socket_agents, denied_scopes, max_apps,
+                       agent_chain_max_depth
                   FROM workspace_policies WHERE workspace_id = :ws
                 """
             ),
@@ -99,6 +105,9 @@ async def effective_for(session: AsyncSession, workspace_id: str) -> Policy:
         may_connect_socket_agents=stored.may_connect_socket_agents,
         denied_scopes=stored.denied_scopes,
         max_apps=stored.max_apps,
+        # The environment is the ceiling here too: `AGENT_CHAIN_MAX_DEPTH=0` turns
+        # agent-to-agent off server-wide whatever any workspace's row says.
+        agent_chain_max_depth=min(stored.agent_chain_max_depth, settings.AGENT_CHAIN_MAX_DEPTH),
     )
 
 
@@ -125,6 +134,7 @@ async def write(
         ),
         "denied_scopes": list(fields.get("denied_scopes", sorted(current.denied_scopes))),
         "max_apps": fields.get("max_apps", current.max_apps),
+        "agent_chain_max_depth": fields.get("agent_chain_max_depth", current.agent_chain_max_depth),
     }
 
     await session.execute(
@@ -132,14 +142,17 @@ async def write(
             """
             INSERT INTO workspace_policies
                 (workspace_id, may_host_agents, may_use_private_endpoints,
-                 may_connect_socket_agents, denied_scopes, max_apps, updated_by)
-            VALUES (:ws, :host, :private, :socket, cast(:denied AS text[]), :max_apps, :actor)
+                 may_connect_socket_agents, denied_scopes, max_apps,
+                 agent_chain_max_depth, updated_by)
+            VALUES (:ws, :host, :private, :socket, cast(:denied AS text[]), :max_apps,
+                    :chain_depth, :actor)
             ON CONFLICT (workspace_id) DO UPDATE SET
                 may_host_agents = EXCLUDED.may_host_agents,
                 may_use_private_endpoints = EXCLUDED.may_use_private_endpoints,
                 may_connect_socket_agents = EXCLUDED.may_connect_socket_agents,
                 denied_scopes = EXCLUDED.denied_scopes,
                 max_apps = EXCLUDED.max_apps,
+                agent_chain_max_depth = EXCLUDED.agent_chain_max_depth,
                 updated_at = now(),
                 updated_by = EXCLUDED.updated_by
             """
@@ -151,6 +164,7 @@ async def write(
             "socket": merged["may_connect_socket_agents"],
             "denied": merged["denied_scopes"],
             "max_apps": merged["max_apps"],
+            "chain_depth": merged["agent_chain_max_depth"],
             "actor": actor_id,
         },
     )

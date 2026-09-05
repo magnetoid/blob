@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T17:42:51'
-updated: '2026-09-04T17:42:51'
+created: '2026-09-05T04:19:24'
+updated: '2026-09-05T04:19:24'
 ---
 
 # apps/api/tests/test_recurring_schedules.py
@@ -36,5 +36,5 @@ Symbols in `apps/api/tests/test_recurring_schedules.py`.
 - L207 `TestAChannelThatWentReadOnly` (class)
 - L208 `test_nothing_can_be_scheduled_into_an_archived_one(self, team: dict)` (method)
 - L218 `test_and_a_repeating_one_stops_rather_than_posting_for_ever(self, team: dict)` (method)
-- L230 `test_and_the_author_is_told_why(self, team: dict)` (method)
-- L244 `test_and_can_dismiss_the_notice(self, team: dict)` (method)
+- L228 `test_and_the_author_is_told_why(self, team: dict)` (method)
+- L242 `test_and_can_dismiss_the_notice(self, team: dict)` (method)

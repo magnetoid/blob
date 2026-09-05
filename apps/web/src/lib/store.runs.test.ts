@@ -37,6 +37,12 @@ function run(overrides: Partial<AgentRunView> = {}): AgentRunView {
     startedAt: new Date().toISOString(),
     finishedAt: null,
     card: null,
+    chainId: 'm1',
+    parentRunId: null,
+    depth: 0,
+    askedBy: null,
+    answeredAt: null,
+    expiresAt: null,
     ...overrides,
   };
 }
@@ -47,6 +53,19 @@ beforeEach(() => {
 });
 
 describe('agent run events', () => {
+  it('a second started for the same run replaces the view — how answeredAt lands', () => {
+    // `agent_run.started` is an upsert: the server re-sends the whole view when a waiting
+    // run is answered, because the finished event has no room for the new fields.
+    useStore.getState().applyEvent({ t: 'agent_run.started', run: run({ status: 'interrupted' }) });
+    useStore.getState().applyEvent({
+      t: 'agent_run.started',
+      run: run({ status: 'interrupted', answeredAt: '2026-09-05T10:01:00.000Z' }),
+    });
+
+    expect(useStore.getState().agentRuns['r1']?.answeredAt).toBe('2026-09-05T10:01:00.000Z');
+    expect(Object.keys(useStore.getState().agentRuns)).toHaveLength(1);
+  });
+
   it('started registers the run; updated attaches the card', () => {
     useStore.getState().applyEvent({ t: 'agent_run.started', run: run() });
     expect(useStore.getState().agentRuns['r1']?.status).toBe('running');

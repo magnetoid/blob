@@ -69,9 +69,11 @@ conformance oracle, not a runtime one.
 - An app declares `aguiUrl` in its manifest and needs no webhook handler and no bot token
   to answer a mention. It still needs `messages:write`, and its bot still has to be a
   member of the channel: AG-UI adds a transport, never a capability.
-- Only a message from a *person* starts a run. This is the loop guard and it is
-  structural, not a depth counter — two agents that mention each other cannot converse
-  for ever, because neither one's messages are a trigger.
+- Only a message from a *person* starts a run. This was the loop guard, structural rather
+  than a depth counter. **Qualified by [[0013-agent-chains-carry-human-authority]]:** a
+  person still roots every chain, but an agent's reply may now extend the chain it is in
+  by one hop, on that person's authority and inside a depth budget. A bot's message with
+  no parent run — the bot API — still starts nothing.
 - A run's identity is `agui:{trigger message id}:{agui message id}`, written to
   `client_msg_id`. The unique index that already makes every write idempotent is therefore
   the run ledger, and no new table was needed to hold one.

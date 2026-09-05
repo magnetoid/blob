@@ -18,9 +18,12 @@ own, so a failure on the third answer cannot roll back the first two.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager, suppress
+from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any
 
 from sqlalchemy import text
@@ -31,16 +34,17 @@ from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.redis import redis, redis_sub
-from ..plugins import agui, builtin, run_card
+from ..plugins import agui, builtin, decisions, run_card
 from ..plugins import events as plugin_events
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub, presence
 from ..realtime.protocol import TYPING_TTL_MS
-from ..services import agent_access
+from ..services import agent_access, agent_chains
 from ..services import agent_runs as agent_run_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services import policies as policy_service
 from ..services.serialize import message_event
 
 log = logging.getLogger("blob.jobs.agui")
@@ -237,12 +241,21 @@ async def _post_as_bot(
     body: str,
     client_msg_id: str,
     blocks: list[dict[str, Any]] | None,
-) -> None:
-    """One message, the way the bot API posts one.
+    run_id: str | None = None,
+    spawn: bool = False,
+) -> str | None:
+    """One message, the way the bot API posts one. Returns its id, or None if an earlier
+    run of this job already posted it.
 
     Duplicated rather than shared for now because `jobs/` and `plugins/` may not import
     `routers/`; the tidy-up is for `bot_api` to adopt this, in a commit that is allowed
     to touch the `/api/v1/` contract.
+
+    `spawn` is how a chain grows (ADR 0013). When this reply mentions somebody and the
+    run it came from may extend its chain, the mention is handed to the run job with this
+    run as the parent — the job decides whether the mentioned agent may actually go.
+    Never for the apology or the decision prompt: those are Blob's words, and an agent
+    must not be able to start a hop by failing.
     """
     async with transaction() as (session, after):
         result = await message_service.send(
@@ -258,7 +271,7 @@ async def _post_as_bot(
             blocks=blocks,
         )
         if not result.created:
-            return  # Already posted by an earlier run of this job.
+            return None  # Already posted by an earlier run of this job.
 
         message = result.message
         thread_update = result.thread_update
@@ -284,9 +297,12 @@ async def _post_as_bot(
             if thread_update:
                 hub.to_channel(channel_id, thread_update.as_event())
             fire_and_forget(enqueue("notify", message.id))
+            if spawn and run_id is not None and message.mention_user_ids:
+                fire_and_forget(enqueue("agui_run", message.id, run_id))
             fire_and_forget(enqueue("deliver_plugin_events"))
 
         after.add(broadcast)
+    return message.id
 
 
 async def _record_error(plugin_id: str, reason: str) -> None:
@@ -312,15 +328,50 @@ async def _claim(message_id: str) -> bool:
         return True
 
 
-async def handle_agui_run(message_id: str) -> None:
+async def handle_agui_run(message_id: str, parent_run_id: str | None = None) -> None:
     try:
-        await _run(message_id)
+        await _run(message_id, parent_run_id)
     except Exception:
         # Nothing above this catches, and an arq retry would re-run the agent.
         log.warning("agui run failed for %s", message_id, exc_info=True)
 
 
-async def _run(message_id: str) -> None:
+async def expire_agent_decisions() -> int:
+    """Decisions nobody made in time: mark the runs, take the buttons off their cards."""
+    async with transaction() as (session, after):
+        expired = await agent_run_service.expire_waiting(session)
+        for row in expired:
+            channel_id = row["channel_id"]
+            if row["decision_message_id"]:
+                stored = row["interrupt"] if isinstance(row["interrupt"], dict) else {}
+                decision = agui.decision_of(stored.get("items"))
+                settled = await message_service.replace_blocks(
+                    session, row["decision_message_id"], decisions.expired_blocks(decision)
+                )
+                if settled is not None:
+                    after.add(
+                        partial(
+                            hub.to_channel, channel_id, message_event("message.updated", settled)
+                        )
+                    )
+            after.add(
+                partial(
+                    hub.to_channel,
+                    channel_id,
+                    {
+                        "t": "agent_run.finished",
+                        "runId": row["id"],
+                        "channelId": channel_id,
+                        "status": "expired",
+                        "error": None,
+                        "postCount": 0,
+                    },
+                )
+            )
+    return len(expired)
+
+
+async def _run(message_id: str, parent_run_id: str | None = None) -> None:
     if not await _claim(message_id):
         return
 
@@ -329,21 +380,44 @@ async def _run(message_id: str) -> None:
             await session.execute(
                 text(
                     """
-                    SELECT id, workspace_id, channel_id, author_id, kind,
-                           thread_root_id, mention_user_ids, deleted_at
+                    SELECT id, workspace_id, channel_id, author_id, kind, plugin_id,
+                           client_msg_id, thread_root_id, mention_user_ids, deleted_at
                       FROM messages WHERE id = :id
                     """
                 ),
                 {"id": message_id},
             )
         ).first()
-
-        # Only a person starts a run. This is the loop guard, and it is structural: two
-        # agents that mention each other cannot converse forever because neither one's
-        # messages are a trigger.
-        if not trigger or trigger.deleted_at or trigger.kind != "user":
+        if not trigger or trigger.deleted_at or trigger.kind == "system":
             return
-        mentioned = list(trigger.mention_user_ids or [])
+
+        # Who is asking, and on whose authority. A person's message roots a chain; an
+        # agent's reply may extend one by a hop, on the person's authority; a person's
+        # answer to a decision resumes the run that asked. Anything else — above all a
+        # bot's message with no parent run, which is how the bot API posts — starts
+        # nothing: there is no person behind it to run on the authority of. ADR 0013.
+        chain: agent_chains.Chain | None
+        resume_bot: str | None = None
+        if trigger.kind == "user" and parent_run_id is None:
+            chain = agent_chains.root(trigger)
+        elif trigger.kind == "user" and parent_run_id is not None:
+            resumed = await agent_chains.resume_of(
+                session, parent_run_id=parent_run_id, trigger=trigger
+            )
+            if resumed is None:
+                return
+            chain, resume_bot = resumed
+        elif trigger.kind == "bot" and parent_run_id is not None:
+            chain = await agent_chains.child_of(
+                session, parent_run_id=parent_run_id, trigger=trigger
+            )
+            if chain is None:
+                return
+        else:
+            return
+
+        # A resume runs the one agent that asked, whatever else the answer mentions.
+        mentioned = [resume_bot] if resume_bot else list(trigger.mention_user_ids or [])
         listeners = (
             await listeners_for(
                 session, workspace_id=trigger.workspace_id, mention_user_ids=mentioned
@@ -356,21 +430,27 @@ async def _run(message_id: str) -> None:
         # there is nobody else in it, so making people type `@Blob` at a wall would be
         # ceremony. Slack's own assistant works this way and so does every DM anyone has
         # ever sent, which is the point — this is the Slack reflex, not a new one.
-        personal = await personal_agent_for(
-            session, workspace_id=trigger.workspace_id, channel_id=trigger.channel_id
-        )
-        if personal and all(known.plugin_id != personal.plugin_id for known in listeners):
-            # Deduped because mentioning it *inside* its own DM is a thing people do out
-            # of habit, and it must not answer twice for one message.
-            listeners = [*listeners, personal]
+        #
+        # Only for a person's own message. An agent's reply in a two-member room is never
+        # a trigger here, which is what keeps two built-in agents from talking to each
+        # other for ever in a DM that happens to hold them both.
+        if chain.is_root:
+            personal = await personal_agent_for(
+                session, workspace_id=trigger.workspace_id, channel_id=trigger.channel_id
+            )
+            if personal and all(known.plugin_id != personal.plugin_id for known in listeners):
+                # Deduped because mentioning it *inside* its own DM is a thing people do
+                # out of habit, and it must not answer twice for one message.
+                listeners = [*listeners, personal]
 
         if not listeners:
             return
 
         # Whose agent is it? An agent with no owner is the workspace's and answers anyone;
-        # an owned one answers its owner and whoever they have lent it to. This is a
-        # second gate beside the loop guard above, and a different question: that one asks
-        # whether a *machine* may start a run, this one whether this *person* may.
+        # an owned one answers its owner and whoever they have lent it to. Asked of the
+        # person the chain runs on — at a hop that is the person at the root, not the
+        # agent whose reply did the mentioning, so an agent everyone can talk to does not
+        # become a way to command one only its owner may.
         #
         # A refusal is silence, deliberately. Telling the room "that is not your agent"
         # would make an owned agent's existence, and its owner, discoverable by anyone who
@@ -379,14 +459,14 @@ async def _run(message_id: str) -> None:
         allowed_bots = await agent_access.commandable_by(
             session,
             workspace_id=trigger.workspace_id,
-            actor_id=trigger.author_id,
+            actor_id=chain.initiated_by_user_id,
             channel_id=trigger.channel_id,
             bot_user_ids=[known.bot_user_id for known in listeners],
         )
         for known in [k for k in listeners if k.bot_user_id not in allowed_bots]:
             log.info(
                 "agui: %s may not command agent %s in %s",
-                trigger.author_id,
+                chain.initiated_by_user_id,
                 known.plugin_id,
                 trigger.channel_id,
             )
@@ -394,12 +474,28 @@ async def _run(message_id: str) -> None:
         if not listeners:
             return
 
-        asker = (
-            await session.execute(
-                text("SELECT display_name FROM users WHERE id = :id"),
-                {"id": trigger.author_id},
+        policy = await policy_service.effective_for(session, trigger.workspace_id)
+        max_depth = policy.agent_chain_max_depth
+        if chain.depth > 0:
+            admitted = await agent_chains.admit(
+                session,
+                chain,
+                candidates=[(known.plugin_id, known.bot_user_id) for known in listeners],
+                max_depth=max_depth,
             )
-        ).scalar_one_or_none()
+            listeners = [known for known in listeners if known.bot_user_id in admitted]
+            if not listeners:
+                return
+
+        rows = (
+            await session.execute(
+                text("SELECT id, display_name FROM users WHERE id = ANY(cast(:ids AS uuid[]))"),
+                {"ids": [trigger.author_id, chain.initiated_by_user_id]},
+            )
+        ).fetchall()
+        display = {str(row.id): row.display_name for row in rows}
+        asker = display.get(str(trigger.author_id)) or "someone"
+        on_behalf_of = display.get(chain.initiated_by_user_id) if chain.depth > 0 else None
         channel_name = (
             await session.execute(
                 text("SELECT name FROM channels WHERE id = :id"), {"id": trigger.channel_id}
@@ -419,8 +515,11 @@ async def _run(message_id: str) -> None:
                 thread_root_id=trigger.thread_root_id,
                 trigger_id=trigger.id,
                 trigger_user_id=trigger.author_id,
-                asker=asker or "someone",
+                asker=asker,
                 channel_name=channel_name or "a conversation",
+                chain=chain,
+                max_depth=max_depth,
+                on_behalf_of=on_behalf_of,
             )
             for listener in listeners
         ),
@@ -500,6 +599,9 @@ async def _run_one(
     trigger_user_id: str | None,
     asker: str,
     channel_name: str,
+    chain: agent_chains.Chain,
+    max_depth: int,
+    on_behalf_of: str | None,
 ) -> None:
     async with session_scope() as session:
         try:
@@ -535,7 +637,7 @@ async def _run_one(
             await session.execute(
                 text(
                     """
-                    SELECT id, display_name FROM users
+                    SELECT id, display_name, kind FROM users
                      WHERE id = ANY(cast(:ids AS uuid[]))
                     """
                 ),
@@ -543,6 +645,15 @@ async def _run_one(
             )
         ).fetchall()
         names: dict[str, str] = {row.id: row.display_name for row in rows}
+        # The other agents in the room, so this one can address them. Its own name is
+        # left out: an agent mentioning itself is dropped at admission anyway.
+        participants = sorted(
+            {
+                row.display_name
+                for row in rows
+                if row.kind == "bot" and str(row.id) != listener.bot_user_id
+            }
+        )
 
     if refusal is not None:
         async with transaction() as (session, after):
@@ -570,6 +681,12 @@ async def _run_one(
                 "startedAt": _now_iso(),
                 "finishedAt": _now_iso(),
                 "card": None,
+                "chainId": trigger_id,
+                "parentRunId": None,
+                "depth": 0,
+                "askedBy": None,
+                "answeredAt": None,
+                "expiresAt": None,
             }
             # `agent_run.started` announces that a run row exists, whatever its status —
             # the client upserts the whole view, so a run terminal at birth needs no
@@ -586,6 +703,12 @@ async def _run_one(
         messages=agui.to_agui_messages(history, bot_user_id=listener.bot_user_id, names=names),
         channel_name=channel_name,
         trigger_user=asker,
+        asked_by_agent=chain.asked_by,
+        on_behalf_of=on_behalf_of,
+        participants=participants,
+        state=chain.state,
+        parent_run_id=chain.parent_agui_run_id,
+        resume=chain.resume,
     )
 
     # Written before the call, not after: a run that never returns — a process killed
@@ -601,6 +724,10 @@ async def _run_one(
             trigger_message_id=trigger_id,
             trigger_user_id=trigger_user_id,
             transport=listener.transport,
+            chain_id=chain.chain_id,
+            initiated_by_user_id=chain.initiated_by_user_id,
+            parent_run_id=chain.parent_run_id,
+            depth=chain.depth,
         )
         run_view: dict[str, Any] = {
             "id": run_id,
@@ -615,6 +742,12 @@ async def _run_one(
             "startedAt": _now_iso(),
             "finishedAt": None,
             "card": None,
+            "chainId": chain.chain_id,
+            "parentRunId": chain.parent_run_id,
+            "depth": chain.depth,
+            "askedBy": chain.asked_by,
+            "answeredAt": None,
+            "expiresAt": None,
         }
         after.add(lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": run_view}))
 
@@ -673,6 +806,9 @@ async def _run_one(
         with suppress(Exception):
             await pubsub.aclose()  # type: ignore[no-untyped-call]
 
+    # Whether a reply from this run may carry the chain a hop further. Decided once, here,
+    # from the depth budget; the job that picks the hop up applies the rest of the rules.
+    spawn = agent_chains.can_spawn(chain, max_depth)
     for post in posts:
         await _post_as_bot(
             listener,
@@ -682,6 +818,8 @@ async def _run_one(
             body=post.body,
             client_msg_id=post.client_msg_id(trigger_id),
             blocks=post.blocks(),
+            run_id=run_id,
+            spawn=spawn,
         )
 
     reason = transport_error or fold.error
@@ -698,6 +836,15 @@ async def _run_one(
         else "succeeded"
     )
     final_card = card.snapshot() if card.has_content else None
+
+    decision: agui.Decision | None = None
+    expires_at: datetime | None = None
+    if status == "interrupted":
+        decision = agui.decision_of(fold.interrupts)
+        expires_at = datetime.now(UTC) + timedelta(seconds=agent_chains.INTERRUPT_TTL_SEC)
+        if decision.expires_at is not None and decision.expires_at < expires_at:
+            expires_at = decision.expires_at
+
     async with transaction() as (session, after):
         await agent_run_service.finish(
             session,
@@ -706,6 +853,13 @@ async def _run_one(
             error=reason,
             post_count=len(posts),
             card=final_card,
+            interrupt=fold.interrupts if status == "interrupted" else None,
+            state_json=(
+                json.dumps(fold.state, default=str)
+                if status == "interrupted" and not fold.state_dropped and fold.state is not None
+                else None
+            ),
+            expires_at=expires_at,
         )
         finished_event = {
             "t": "agent_run.finished",
@@ -730,6 +884,16 @@ async def _run_one(
                     },
                 )
             )
+        if status == "interrupted":
+            # The finished event has no room for `expiresAt`; the started event is an
+            # upsert of the whole view, and the client renders the deadline from it.
+            waiting_view = await agent_run_service.view_of(session, run_id)
+            if waiting_view is not None:
+                after.add(
+                    lambda: hub.to_channel(
+                        channel_id, {"t": "agent_run.started", "run": waiting_view}
+                    )
+                )
 
     if cancelled:
         return  # Stopped on request; no apology, nothing posted.
@@ -745,18 +909,21 @@ async def _run_one(
             client_msg_id=f"agui:{trigger_id}:error",
             blocks=None,
         )
-    elif fold.interrupt:
-        await _post_as_bot(
+    elif decision is not None:
+        decision_message_id = await _post_as_bot(
             listener,
             workspace_id=workspace_id,
             channel_id=channel_id,
             thread_root_id=thread_root_id,
-            body=f"Needs a decision: {fold.interrupt}",
+            body=f"Needs a decision: {decision.prompt}",
             client_msg_id=f"agui:{trigger_id}:interrupt",
-            blocks=None,
+            blocks=decisions.decision_blocks(run_id, decision),
         )
+        if decision_message_id is not None:
+            async with transaction() as (session, _after):
+                await agent_run_service.set_decision_message(session, run_id, decision_message_id)
     # A run that finished cleanly and said nothing posts nothing. Silence is a legitimate
     # answer, and "the agent had no reply" is worse noise than no reply.
 
 
-__all__ = ["Listener", "handle_agui_run", "listeners_for", "stream_run"]
+__all__ = ["Listener", "expire_agent_decisions", "handle_agui_run", "listeners_for", "stream_run"]

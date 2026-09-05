@@ -382,7 +382,9 @@ export type AgentRunStatus =
   | 'interrupted'
   | 'cancelled'
   /** Never started: the agent was over its daily budget when the mention arrived. */
-  | 'refused';
+  | 'refused'
+  /** Stopped to ask something and nobody answered within a day. */
+  | 'expired';
 
 /** The live view of what an agent is doing, folded server-side from AG-UI events. */
 export interface AgentRunCard {
@@ -412,6 +414,18 @@ export interface AgentRunView {
   startedAt: string;
   finishedAt: string | null;
   card: AgentRunCard | null;
+  /** The person's message that rooted the chain this run is in. A root run's own trigger. */
+  chainId: string;
+  /** The run whose reply caused this one, or null at the root. */
+  parentRunId: string | null;
+  /** Hops from the person: 0 when they mentioned the agent themselves. */
+  depth: number;
+  /** The agent whose reply asked this one, when depth > 0. */
+  askedBy: string | null;
+  /** Set once the decision an interrupted run was waiting on has been made. */
+  answeredAt: string | null;
+  /** When a waiting decision stops waiting. */
+  expiresAt: string | null;
 }
 
 export type LaterState = 'in_progress' | 'archived' | 'done';

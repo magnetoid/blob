@@ -4686,6 +4686,12 @@ a.build-commit-sha:hover {
   min-width: 0;
 }
 
+.agent-run-lineage {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
 .agent-run-stop {
   flex: none;
 }

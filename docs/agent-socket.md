@@ -67,6 +67,16 @@ next month's addition into a dead agent.
 working. `input` is a standard AG-UI `RunAgentInput`: `threadId`, `runId`, `state`,
 `messages`, `tools`, `context`, `forwardedProps`.
 
+Two optional keys appear only when the run **resumes** one that stopped to ask a question
+(ADR 0013): `parentRunId` is the `runId` Blob sent for the run that asked, and `resume` is
+`[{"interruptId", "status": "resolved", "payload"}]` — one entry per interrupt the agent
+raised, with the person's answer as the payload. `state` on a resume is the last
+`STATE_SNAPSHOT` the agent sent, with every `STATE_DELTA` applied. An agent that never
+raises an interrupt never sees either key.
+
+`context` may also carry `asked_by_agent`, `on_behalf_of` and `participants` when the run
+is a hop in a chain — another agent's reply mentioned this one, on a person's behalf.
+
 ### Agent → Blob
 
 ```jsonc

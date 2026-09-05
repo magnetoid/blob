@@ -24,9 +24,11 @@ from ..lib.ids import IdParam
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
 from ..lib.redis import redis
+from ..plugins import decisions
 from ..plugins import events as plugin_events
 from ..plugins.blocks import action_ids_of
 from ..schemas.base import CamelModel
+from ..services import agent_chains
 from ..services import channels as channel_service
 
 router = APIRouter(tags=["interactions"])
@@ -77,6 +79,26 @@ async def interact(payload: InteractionInput, user: SessionUser = Depends(curren
             # Deliberately not "unknown action": whether an id exists on a message the
             # caller can see is not worth leaking a distinction over.
             raise bad_request("That action is not available.", code="unknown_action")
+
+        # A decision an agent is waiting on. Blob minted these blocks, so the press is
+        # Blob's to handle — and it has to be handled *before* the forwarding below,
+        # because the message's `plugin_id` is the agent's, and the agent would otherwise
+        # be webhooked an interaction on a button it never published.
+        run_id = decisions.run_id_of(payload.action_id)
+        if run_id is not None:
+            await consume("send_message", user.id)
+            await agent_chains.answer(
+                session,
+                after,
+                workspace_id=user.workspace_id,
+                run_id=run_id,
+                user_id=user.id,
+                user_name=user.display_name,
+                action_id=payload.action_id,
+                value=payload.value,
+                client_action_id=payload.client_action_id,
+            )
+            return OkOut()
 
         if not row.plugin_id:
             raise bad_request("Nothing is listening for that action.", code="no_listener")

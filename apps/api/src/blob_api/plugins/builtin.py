@@ -57,7 +57,14 @@ class Persona:
     owner_name: str | None = None
 
 
-def system_prompt(persona: Persona, *, channel_name: str) -> str:
+def system_prompt(
+    persona: Persona,
+    *,
+    channel_name: str,
+    participants: Sequence[str] = (),
+    asked_by_agent: str | None = None,
+    on_behalf_of: str | None = None,
+) -> str:
     """What the agent is told before it sees a word of the conversation.
 
     Written as house rules rather than personality. The failure modes worth spending
@@ -75,7 +82,13 @@ def system_prompt(persona: Persona, *, channel_name: str) -> str:
     """
     if persona.owner_name:
         return _personal_prompt(persona, persona.owner_name)
-    return _channel_prompt(persona, channel_name)
+    return _channel_prompt(
+        persona,
+        channel_name,
+        participants=participants,
+        asked_by_agent=asked_by_agent,
+        on_behalf_of=on_behalf_of,
+    )
 
 
 def _shared_rules() -> str:
@@ -98,19 +111,53 @@ def _shared_rules() -> str:
     )
 
 
-def _channel_prompt(persona: Persona, channel_name: str) -> str:
-    return "\n\n".join(
-        [
-            f"You are {persona.name}, an assistant in the {persona.workspace_name} "
-            f"workspace. You are talking in #{channel_name}, a group chat, and you were "
-            "mentioned by name. Everyone can see what you write.",
-            _shared_rules(),
-            "- You can read the recent conversation above and answer from it and from "
-            "what you know.\n"
-            "- Several people are talking. Each message is prefixed with who wrote it. "
-            "Your own earlier replies are unprefixed.",
-        ]
-    )
+def _channel_prompt(
+    persona: Persona,
+    channel_name: str,
+    *,
+    participants: Sequence[str] = (),
+    asked_by_agent: str | None = None,
+    on_behalf_of: str | None = None,
+) -> str:
+    """A group room, and — when other agents are in it — how to work with them.
+
+    The hand-off rule is the whole of agent-to-agent conversation from this agent's side
+    (ADR 0013): writing `@Name` in a reply is what carries a chain one hop. It is stated
+    once and plainly, because a model that does not know it is possible will describe
+    what the other agent should do instead of asking it, and a model that thinks it is
+    free will mention everyone in every reply. Being asked *by* an agent is described the
+    same way a person's question is, with one instruction the person's would not need:
+    do not mention them back unless something is actually needed, since the reply itself
+    is what closes the loop.
+    """
+    parts = [
+        f"You are {persona.name}, an assistant in the {persona.workspace_name} "
+        f"workspace. You are talking in #{channel_name}, a group chat, and you were "
+        "mentioned by name. Everyone can see what you write.",
+        _shared_rules(),
+        "- You can read the recent conversation above and answer from it and from "
+        "what you know.\n"
+        "- Several people are talking. Each message is prefixed with who wrote it. "
+        "Your own earlier replies are unprefixed.",
+    ]
+    others = [name for name in participants if name and name != persona.name]
+    if others:
+        listed = ", ".join(others)
+        parts.append(
+            f"Other agents in this conversation: {listed}. To hand something to one of "
+            "them, write @Name in your reply and say what you need; they answer here, on "
+            "behalf of the person who started this. Do that only when you actually need "
+            "their help — not to be polite, and never to every agent at once."
+        )
+    if asked_by_agent:
+        whose = f" on behalf of {on_behalf_of}" if on_behalf_of else ""
+        parts.append(
+            f"You were mentioned by {asked_by_agent}, another agent{whose}. Treat it as a "
+            "colleague's question: answer it here, directly. Do not mention them back "
+            "unless you need something more from them — your reply is what they were "
+            "waiting for."
+        )
+    return "\n\n".join(parts)
 
 
 def _personal_prompt(persona: Persona, owner_name: str) -> str:
@@ -190,8 +237,17 @@ async def stream(run_input: Mapping[str, Any], persona: Persona) -> AsyncIterato
 
     messages = run_input.get("messages")
     turns = turns_from(messages if isinstance(messages, list) else [])
+    participants = [
+        name.strip()
+        for name in _context_value(run_input, "participants").split(",")
+        if name.strip()
+    ]
     prompt = system_prompt(
-        persona, channel_name=_context_value(run_input, "channel") or "a channel"
+        persona,
+        channel_name=_context_value(run_input, "channel") or "a channel",
+        participants=participants,
+        asked_by_agent=_context_value(run_input, "asked_by_agent") or None,
+        on_behalf_of=_context_value(run_input, "on_behalf_of") or None,
     )
 
     message_id = new_id()

@@ -11,6 +11,13 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "645d2505faeccabb52665b176ced6c0c42340a07",
+    "shortSha": "645d250",
+    "subject": "Give an agent an owner, so a personal one is personal",
+    "date": "2026-09-04T18:06:11+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "a8556752f55f17b3380436df73adc2ce1375d218",
     "shortSha": "a855675",
     "subject": "Let a thread be left, and a channel be reopened",
@@ -421,13 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "e08e69d",
     "subject": "Add scheduling a message for later",
     "date": "2026-08-31T21:20:14+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "bd2c80657111b0147ef8813dc0728c0614db7ac9",
-    "shortSha": "bd2c806",
-    "subject": "Give the icons one scale instead of thirty-seven opinions",
-    "date": "2026-08-31T20:43:43+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

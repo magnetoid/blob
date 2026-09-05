@@ -64,9 +64,12 @@ export interface WorkspacePolicy {
   mayConnectSocketAgents: boolean;
   deniedScopes: string[];
   maxApps: number | null;
+  /** Hops an agent's reply may carry a chain past the person who started it. 0 = off. */
+  agentChainMaxDepth: number;
   /** What the environment permits at all. Policy narrows this and can never widen it. */
   serverAllowsHosting: boolean;
   serverAllowsPrivateEndpoints: boolean;
+  serverChainMaxDepth: number;
 }
 
 export type WorkspacePolicyInput = Pick<
@@ -75,6 +78,7 @@ export type WorkspacePolicyInput = Pick<
   | "mayUsePrivateEndpoints"
   | "mayConnectSocketAgents"
   | "deniedScopes"
+  | "agentChainMaxDepth"
 > & { maxApps: number | null };
 
 /** One workspace on the server, with enough to tell them apart at a glance. */
@@ -284,13 +288,20 @@ export interface AdminAgentRun {
   triggerMessageId: string | null;
   triggerUserName: string | null;
   transport: string;
-  /** running | succeeded | failed | interrupted — four, because the run has four ends. */
+  /**
+   * running | succeeded | failed | interrupted | cancelled | refused | expired — one per
+   * way a run can end, plus the one that is still waiting on a person.
+   */
   status: string;
   error: string | null;
   postCount: number;
   startedAt: string;
   finishedAt: string | null;
   durationMs: number | null;
+  /** Hops from the person who rooted the chain; 0 when they mentioned it themselves. */
+  depth: number;
+  /** The agent whose reply asked this one, when depth > 0. */
+  askedBy: string | null;
 }
 
 export interface AdminPluginDelivery {
@@ -451,6 +462,12 @@ export const api = {
       get<{ runs: AgentRunView[] }>(`/api/channels/${channelId}/agent-runs`),
     cancel: (runId: string) =>
       post<{ ok: true }>(`/api/agent-runs/${runId}/cancel`),
+    /** Answer the decision an interrupted run is waiting on. Only its asker may. */
+    answer: (runId: string, value: string, clientActionId?: string) =>
+      post<{ ok: true }>(`/api/agent-runs/${runId}/answer`, {
+        value,
+        clientActionId,
+      }),
   },
 
   groups: {

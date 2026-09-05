@@ -29,11 +29,17 @@ Three details cost more to rediscover than to record:
 
 from __future__ import annotations
 
+import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
+from ..lib import jsonpatch
 from ..schemas.models import Message
+
+log = logging.getLogger("blob.plugins.agui")
 
 #: One Blob row's worth of agent text. A longer message is split into parts rather than
 #: truncated: losing the end of an answer silently is worse than showing two rows.
@@ -47,6 +53,18 @@ TOOL_LINE_LIMIT = 5
 
 #: Roles AG-UI allows on a text message. "tool" is deliberately not among them.
 _TEXT_ROLES = frozenset({"developer", "system", "assistant", "user"})
+
+#: How much of an interrupt Blob keeps: a handful of questions, each a few kilobytes.
+#: An agent that stops to ask must be able to be answered, not to store a document.
+INTERRUPT_MAX_ITEMS = 8
+INTERRUPT_MAX_BYTES = 4 * 1024
+
+#: The folded shared state a run may leave behind for its resume. Beyond this the state
+#: is dropped and the resume runs without it — the agent still gets the conversation.
+STATE_MAX_BYTES = 64 * 1024
+
+#: Buttons a decision may offer. Matches the block element cap.
+DECISION_MAX_CHOICES = 5
 
 
 @dataclass(slots=True)
@@ -101,7 +119,15 @@ class Fold:
         self._calls: dict[str, str] = {}
         self._posted = 0
         self.error: str | None = None
+        #: The question the agent stopped to ask, as one line; see `interrupt_prompt`.
         self.interrupt: str | None = None
+        #: The raw `interrupts[]` from RUN_FINISHED, kept so a resume can name what it
+        #: answers. None unless the run ended in an interrupt.
+        self.interrupts: list[dict[str, Any]] | None = None
+        #: Shared state, folded from STATE_SNAPSHOT and STATE_DELTA. Handed back as
+        #: `state` when the run resumes, which is the whole reason to keep it.
+        self.state: Any = None
+        self.state_dropped = False
         self.finished = False
 
     @property
@@ -150,14 +176,44 @@ class Fold:
 
         if kind == "RUN_FINISHED":
             self.finished = True
-            self.interrupt = _interrupt_prompt(event)
+            self.interrupts = interrupts_of(event)
+            self.interrupt = interrupt_prompt(self.interrupts)
             return self.finish()
 
-        # Everything else — RUN_STARTED, STEP_*, STATE_*, MESSAGES_SNAPSHOT, every
-        # REASONING_* and THINKING_* event, TOOL_CALL_ARGS, TOOL_CALL_RESULT, CUSTOM —
-        # is deliberately inert. Reasoning in particular is never posted: it is the
-        # agent's working-out, not its answer.
+        if kind == "STATE_SNAPSHOT":
+            self._take_state(event.get("snapshot"))
+            return []
+
+        if kind == "STATE_DELTA":
+            delta = event.get("delta")
+            if self.state_dropped or not isinstance(delta, list):
+                return []
+            try:
+                self._take_state(jsonpatch.apply(self.state, delta))
+            except jsonpatch.PatchError:
+                # Keep the last good state rather than half of a patch: a resume handed
+                # a state the agent never had is worse than one handed no state.
+                log.info("agui: a STATE_DELTA did not apply; keeping the last snapshot")
+            return []
+
+        # Everything else — RUN_STARTED, STEP_*, MESSAGES_SNAPSHOT, every REASONING_* and
+        # THINKING_* event, TOOL_CALL_ARGS, TOOL_CALL_RESULT, CUSTOM — is deliberately
+        # inert. Reasoning in particular is never posted: it is the agent's working-out,
+        # not its answer.
         return []
+
+    def _take_state(self, state: Any) -> None:
+        """Keep the state if it fits; drop it for the rest of the run if it does not."""
+        try:
+            size = len(json.dumps(state, separators=(",", ":"), default=str))
+        except (TypeError, ValueError):
+            size = STATE_MAX_BYTES + 1
+        if size > STATE_MAX_BYTES:
+            self.state = None
+            self.state_dropped = True
+            log.info("agui: shared state over %d bytes was dropped", STATE_MAX_BYTES)
+            return
+        self.state = state
 
     def finish(self) -> list[Post]:
         """Seal every message still open, oldest first."""
@@ -212,26 +268,147 @@ def _message_id(event: Mapping[str, Any]) -> str:
     return value if isinstance(value, str) and value else "default"
 
 
-def _interrupt_prompt(event: Mapping[str, Any]) -> str | None:
-    """The question an agent stopped to ask, if it stopped to ask one.
+def interrupts_of(event: Mapping[str, Any]) -> list[dict[str, Any]] | None:
+    """The `interrupts[]` a RUN_FINISHED carried, capped, or None if it ended cleanly.
 
-    Slice one renders it and stops. There is no resume path: answering means mentioning
-    the agent again, which is what a person would do anyway.
+    `outcome: {type: "interrupt", interrupts: [...]}` is how AG-UI says "I stopped to
+    ask". Each item may carry `id`, `reason`, `message`, `responseSchema`, `expiresAt`
+    and `metadata`; the ids are what a resume echoes back, so the items are kept whole
+    rather than reduced to their text.
     """
     outcome = event.get("outcome")
     if not isinstance(outcome, Mapping) or outcome.get("type") != "interrupt":
         return None
-    interrupts = outcome.get("interrupts")
-    if not isinstance(interrupts, Sequence) or isinstance(interrupts, (str, bytes)):
-        return None
-    for item in interrupts:
+    raw = outcome.get("interrupts")
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        return []
+    kept: list[dict[str, Any]] = []
+    for item in raw:
         if not isinstance(item, Mapping):
             continue
+        as_dict = dict(item)
+        try:
+            size = len(json.dumps(as_dict, separators=(",", ":"), default=str))
+        except (TypeError, ValueError):
+            continue
+        if size > INTERRUPT_MAX_BYTES:
+            log.info("agui: an interrupt over %d bytes was dropped", INTERRUPT_MAX_BYTES)
+            continue
+        kept.append(as_dict)
+        if len(kept) >= INTERRUPT_MAX_ITEMS:
+            break
+    return kept
+
+
+def interrupt_prompt(interrupts: Sequence[Mapping[str, Any]] | None) -> str | None:
+    """The question an agent stopped to ask, as one line, or None if it did not stop."""
+    if interrupts is None:
+        return None
+    for item in interrupts:
         for key in ("message", "reason", "value"):
             text = item.get(key)
             if isinstance(text, str) and text.strip():
                 return text.strip()
     return "The agent is waiting on a decision."
+
+
+@dataclass(slots=True)
+class Choice:
+    label: str
+    value: Any
+
+
+@dataclass(slots=True)
+class Decision:
+    """What the person is being asked, and how they may answer it.
+
+    Choices come only from what the agent declared — a JSON-schema `enum`, `oneOf` with
+    `const`/`title`, a boolean, or `metadata.options` — never from Blob guessing at the
+    prose. No declared choices means a free-text answer.
+    """
+
+    prompt: str
+    choices: list[Choice]
+    interrupt_ids: list[str]
+    expires_at: datetime | None
+
+    @property
+    def free_text(self) -> bool:
+        return not self.choices
+
+
+def decision_of(interrupts: Sequence[Mapping[str, Any]] | None) -> Decision:
+    items = list(interrupts or [])
+    prompt = interrupt_prompt(items) or "The agent is waiting on a decision."
+    ids = [str(item["id"]) for item in items if isinstance(item.get("id"), str) and item["id"]]
+    choices: list[Choice] = []
+    for item in items:
+        choices = _choices_of(item)
+        if choices:
+            break
+    return Decision(
+        prompt=prompt,
+        choices=choices[:DECISION_MAX_CHOICES],
+        interrupt_ids=ids or ["default"],
+        expires_at=_earliest_expiry(items),
+    )
+
+
+def _choices_of(item: Mapping[str, Any]) -> list[Choice]:
+    schema = item.get("responseSchema")
+    if isinstance(schema, Mapping):
+        enum = schema.get("enum")
+        if isinstance(enum, list) and enum and all(isinstance(v, str) for v in enum):
+            return [Choice(label=v, value=v) for v in enum]
+        one_of = schema.get("oneOf")
+        if isinstance(one_of, list) and one_of:
+            found: list[Choice] = []
+            for option in one_of:
+                if not isinstance(option, Mapping) or "const" not in option:
+                    continue
+                title = option.get("title")
+                label = title if isinstance(title, str) and title else str(option["const"])
+                found.append(Choice(label=label, value=option["const"]))
+            if found:
+                return found
+        if schema.get("type") == "boolean":
+            return [Choice(label="Yes", value=True), Choice(label="No", value=False)]
+    metadata = item.get("metadata")
+    if isinstance(metadata, Mapping):
+        for key in ("options", "choices"):
+            options = metadata.get(key)
+            if not isinstance(options, list) or not options:
+                continue
+            found = []
+            for option in options:
+                if isinstance(option, str) and option:
+                    found.append(Choice(label=option, value=option))
+                elif isinstance(option, Mapping):
+                    text_label = option.get("label")
+                    if isinstance(text_label, str) and text_label:
+                        found.append(
+                            Choice(label=text_label, value=option.get("value", text_label))
+                        )
+            if found:
+                return found
+    return []
+
+
+def _earliest_expiry(items: Sequence[Mapping[str, Any]]) -> datetime | None:
+    earliest: datetime | None = None
+    for item in items:
+        raw = item.get("expiresAt")
+        if not isinstance(raw, str):
+            continue
+        try:
+            when = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if when.tzinfo is None:
+            continue
+        if earliest is None or when < earliest:
+            earliest = when
+    return earliest
 
 
 def to_agui_messages(
@@ -269,6 +446,12 @@ def build_run_input(
     messages: list[dict[str, Any]],
     channel_name: str,
     trigger_user: str,
+    asked_by_agent: str | None = None,
+    on_behalf_of: str | None = None,
+    participants: Sequence[str] = (),
+    state: Any = None,
+    parent_run_id: str | None = None,
+    resume: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """The POST body.
 
@@ -277,18 +460,39 @@ def build_run_input(
     leaving them out is a 422 from every FastAPI-hosted agent — a failure that looks like
     the agent being broken.
 
+    `parentRunId` and `resume` are the opposite case: newer optional fields that an agent
+    built on an older model with `extra="forbid"` would refuse. They are present only
+    when this run resumes one that stopped to ask, which is the only time they mean
+    anything.
+
     `tools` is empty by design. Offering frontend tools would mean Blob executing work on
     an agent's say-so; an app that wants to act already has a bot token and scopes.
+
+    The extra context items exist for a chain (ADR 0013): `asked_by_agent` names the agent
+    whose reply mentioned this one, `on_behalf_of` the person whose authority the hop runs
+    on, and `participants` the other agents in the room, so an agent can address one.
     """
-    return {
+    context: list[dict[str, str]] = [
+        {"description": "channel", "value": channel_name},
+        {"description": "asked_by", "value": trigger_user},
+    ]
+    if asked_by_agent:
+        context.append({"description": "asked_by_agent", "value": asked_by_agent})
+    if on_behalf_of:
+        context.append({"description": "on_behalf_of", "value": on_behalf_of})
+    if participants:
+        context.append({"description": "participants", "value": ", ".join(participants)})
+    body: dict[str, Any] = {
         "threadId": thread_id,
         "runId": run_id,
-        "state": None,
+        "state": state,
         "messages": messages,
         "tools": [],
-        "context": [
-            {"description": "channel", "value": channel_name},
-            {"description": "asked_by", "value": trigger_user},
-        ],
+        "context": context,
         "forwardedProps": {},
     }
+    if parent_run_id is not None:
+        body["parentRunId"] = parent_run_id
+    if resume is not None:
+        body["resume"] = [dict(item) for item in resume]
+    return body

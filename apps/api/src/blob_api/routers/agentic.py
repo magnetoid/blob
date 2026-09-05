@@ -6,6 +6,7 @@ from contextlib import suppress
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import Field
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
@@ -18,6 +19,7 @@ from ..plugins import events as plugin_events
 from ..schemas.base import CamelModel
 from ..schemas.models import AgentTask, ThreadSummary
 from ..schemas.requests import CreateAgentTaskInput, UpdateAgentTaskInput
+from ..services import agent_chains
 from ..services import agent_runs as agent_run_service
 from ..services import agentic as agentic_service
 from ..services import audit as audit_service
@@ -393,11 +395,18 @@ async def cancel_agent_run(
         )
         if marked is None:
             raise not_found("That run is not running.")
+        # Stop is Stop for the whole piece of work: the hops this run's reply caused
+        # end with it, or the person watches the agent they stopped keep talking
+        # through another agent's mouth. ADR 0013.
+        descendants = await agent_run_service.request_cancel_descendants(
+            session, workspace_id=user.workspace_id, run_id=run_id
+        )
 
-    with suppress(Exception):
-        await redis.set(f"agui:cancel:{run_id}", user.id, nx=True, ex=600)
-    with suppress(Exception):
-        await redis.publish(f"agent:ctl:{run_id}", "cancel")
+    for stopped in (run_id, *descendants):
+        with suppress(Exception):
+            await redis.set(f"agui:cancel:{stopped}", user.id, nx=True, ex=600)
+        with suppress(Exception):
+            await redis.publish(f"agent:ctl:{stopped}", "cancel")
 
     async with transaction() as (session, _):
         await audit_service.record(
@@ -406,6 +415,55 @@ async def cancel_agent_run(
             "agent.run_cancelled",
             target_type="agent_run",
             target_id=run_id,
-            metadata={"channelId": marked["channelId"]},
+            metadata={"channelId": marked["channelId"], "cascaded": len(descendants)},
+        )
+    return OkOut()
+
+
+class AnswerInput(CamelModel):
+    """A free-text answer to the decision a run is waiting on.
+
+    The buttons go through `/api/interactions` like every other block; this is the same
+    entrance for a client that has the run rather than the message — and for text, which
+    the input block also submits through interactions. One service behind both.
+    """
+
+    value: str = Field(min_length=1, max_length=2000)
+    client_action_id: str | None = Field(default=None, max_length=64)
+
+
+@router.post("/api/agent-runs/{run_id}/answer", response_model=OkOut)
+async def answer_agent_run(
+    run_id: IdParam,
+    payload: AnswerInput,
+    request: Request,
+    user: SessionUser = Depends(current_user),
+) -> OkOut:
+    """Answer the question an agent stopped to ask, and let it carry on.
+
+    Only the person the run is on behalf of may — the card is public, the decision is
+    theirs. The answer is posted as their own message so the channel sees it as a
+    decision, and the agent resumes with it. See `services/agent_chains.answer`.
+    """
+    await consume("send_message", user.id)
+    async with transaction() as (session, after):
+        answered = await agent_chains.answer(
+            session,
+            after,
+            workspace_id=user.workspace_id,
+            run_id=run_id,
+            user_id=user.id,
+            user_name=user.display_name,
+            action_id=None,
+            value=payload.value,
+            client_action_id=payload.client_action_id,
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, user),
+            "agent.run_answered",
+            target_type="agent_run",
+            target_id=run_id,
+            metadata={"channelId": answered.channel_id},
         )
     return OkOut()

@@ -760,6 +760,10 @@ class AgentRunOut(CamelModel):
     #: Milliseconds, computed here so the console does not do date arithmetic to show
     #: the one number that says whether an agent is slow.
     duration_ms: int | None = None
+    #: Hops from the person who rooted the chain; 0 when they mentioned it themselves.
+    depth: int = 0
+    #: The agent whose reply asked this one, when depth > 0. ADR 0013.
+    asked_by: str | None = None
 
 
 class AgentRunsOut(CamelModel):
@@ -797,6 +801,8 @@ async def list_runs(
                 status=run.status,
                 error=run.error,
                 post_count=run.post_count,
+                depth=run.depth,
+                asked_by=run.asked_by,
                 started_at=require_iso(run.started_at),
                 finished_at=iso(run.finished_at),
                 duration_ms=(

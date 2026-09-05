@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T17:42:50'
-updated: '2026-09-04T17:42:50'
+created: '2026-09-05T04:19:23'
+updated: '2026-09-05T04:19:23'
 ---
 
 # apps/api/src/blob_api/routers/admin.py
@@ -37,11 +37,11 @@ Symbols in `apps/api/src/blob_api/routers/admin.py`.
 - L484 `revoke_invite(invite_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
 - L514 `list_all_channels(admin: SessionUser=Depends(require_admin))` (function) — Every channel, including private ones the admin is not a member of.
 - L559 `archive_any_channel(channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L594 `unarchive_any_channel(channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function) — Reopen an archived channel.
-- L635 `audit_log(actor_id: str | None=None, action: str | None=None, before: str | None=None, limit: Annotated[int, Query(ge=1, le=200)]=50, admin: SessionUser=Depends(require_admin))` (function)
-- L656 `get_settings(admin: SessionUser=Depends(require_admin))` (function)
-- L677 `update_settings(payload: SettingsInput, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L732 `health(admin: SessionUser=Depends(require_admin))` (function)
-- L780 `list_webhooks(admin: SessionUser=Depends(require_admin))` (function)
-- L808 `create_webhook(payload: CreateWebhookInput, request: Request, admin: SessionUser=Depends(require_admin))` (function) — The URL comes back once. The raw token is never recoverable afterwards.
-- L866 `revoke_webhook(webhook_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L595 `unarchive_any_channel(channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function) — Reopen an archived channel.
+- L638 `audit_log(actor_id: str | None=None, action: str | None=None, before: str | None=None, limit: Annotated[int, Query(ge=1, le=200)]=50, admin: SessionUser=Depends(require_admin))` (function)
+- L659 `get_settings(admin: SessionUser=Depends(require_admin))` (function)
+- L680 `update_settings(payload: SettingsInput, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L735 `health(admin: SessionUser=Depends(require_admin))` (function)
+- L783 `list_webhooks(admin: SessionUser=Depends(require_admin))` (function)
+- L811 `create_webhook(payload: CreateWebhookInput, request: Request, admin: SessionUser=Depends(require_admin))` (function) — The URL comes back once. The raw token is never recoverable afterwards.
+- L869 `revoke_webhook(webhook_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)

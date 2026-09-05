@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T17:42:50'
-updated: '2026-09-04T17:42:50'
+created: '2026-09-05T04:19:23'
+updated: '2026-09-05T04:19:23'
 ---
 
 # Repository Map
@@ -117,6 +117,9 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0025_agent_ownership.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0026_agent_chains.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 39 symbol(s)
   - `_now()` (function)
   - `Base` (class)
@@ -127,9 +130,9 @@ Modules and their key symbols (ranked by references).
   - `seed()` (function)
   - `main()` (function)
   - `_run()` (function)
-- **apps/api/src/blob_api/jobs/agui.py** — 16 symbol(s)
+- **apps/api/src/blob_api/jobs/agui.py** — 17 symbol(s)
   - `_now_iso()` (function)
-  - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None)` (function)
+  - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None, run_id: str | None=None, spawn: bool=False)` (function)
   - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
   - `personal_agent_for(session: AsyncSession, *, workspace_id: str, channel_id: str)` (function)
   - `_looks_busy(listener: Listener, channel_id: str, thread_root_id: str | None)` (function)
@@ -151,12 +154,12 @@ Modules and their key symbols (ranked by references).
   - `_allowed(url: str)` (function)
   - `first_url(body: str)` (function)
   - `fetch_unfurl(raw_url: str)` (function)
-- **apps/api/src/blob_api/jobs/worker.py** — 9 symbol(s)
+- **apps/api/src/blob_api/jobs/worker.py** — 10 symbol(s)
+  - `expire_agent_decisions(_ctx: dict[str, Any])` (function)
   - `sweep_agent_runs(_ctx: dict[str, Any])` (function)
   - `sweep_orphans(_ctx: dict[str, Any])` (function)
   - `deliver_plugin_events(_ctx: dict[str, Any])` (function)
   - `notify(_ctx: dict[str, Any], message_id: str)` (function)
-  - `unfurl(_ctx: dict[str, Any], message_id: str)` (function)
 - **apps/api/src/blob_api/lib/auth.py** — 15 symbol(s)
   - `SessionUser` (class)
   - `current_user(request: Request)` (function)
@@ -173,10 +176,6 @@ Modules and their key symbols (ranked by references).
   - `new_id()` (function)
   - `new_token(nbytes: int=32)` (function)
   - `looks_like_id(value: object)` (function)
-- **apps/api/src/blob_api/lib/llm.py** — 11 symbol(s)
-  - `LlmError` (class)
-  - `Turn` (class)
-  - `model_name()` (function)
-  - `_collapse(turns: Sequence[Turn])` (function)
-  - `_stream_sse(url: str, headers: Mapping[str, str], body: dict[str, object])` (function)
-- **apps/api/src/blob_api…[truncated]
+- **apps/api/src/blob_api/lib/jsonpatch.py** — 9 symbol(s)
+  - `PatchError` (class)
+  - `_get(document: Any…[truncated]

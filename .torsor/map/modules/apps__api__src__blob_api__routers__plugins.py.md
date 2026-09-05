@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T17:42:50'
-updated: '2026-09-04T17:42:50'
+created: '2026-09-05T04:19:24'
+updated: '2026-09-05T04:19:24'
 ---
 
 # apps/api/src/blob_api/routers/plugins.py
@@ -47,11 +47,11 @@ Symbols in `apps/api/src/blob_api/routers/plugins.py`.
 - L705 `issue_token(plugin_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function) — Mint a fresh bot token. Existing ones keep working until revoked.
 - L723 `revoke_tokens(plugin_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
 - L747 `AgentRunOut` (class)
-- L765 `AgentRunsOut` (class)
-- L770 `list_runs(plugin_id: IdParam, limit: Annotated[int, Query(ge=1, le=100)]=30, admin: SessionUser=Depends(require_admin))` (function) — What happened the last few times this agent was asked something.
-- L814 `list_deliveries(plugin_id: IdParam, limit: Annotated[int, Query(ge=1, le=200)]=50, admin: SessionUser=Depends(require_admin))` (function) — The delivery log — the first place to look when an app says it heard nothing.
-- L841 `read_delivery(plugin_id: IdParam, delivery_id: IdParam, admin: SessionUser=Depends(require_admin))` (function) — One delivery in full, including the payload the app was sent.
-- L868 `app_channels(plugin_id: IdParam, admin: SessionUser=Depends(require_admin))` (function) — Where this app can speak, and where it could.
-- L913 `app_join_channel(plugin_id: IdParam, channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L940 `app_leave_channel(plugin_id: IdParam, channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
-- L965 `uninstall_plugin(plugin_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L769 `AgentRunsOut` (class)
+- L774 `list_runs(plugin_id: IdParam, limit: Annotated[int, Query(ge=1, le=100)]=30, admin: SessionUser=Depends(require_admin))` (function) — What happened the last few times this agent was asked something.
+- L820 `list_deliveries(plugin_id: IdParam, limit: Annotated[int, Query(ge=1, le=200)]=50, admin: SessionUser=Depends(require_admin))` (function) — The delivery log — the first place to look when an app says it heard nothing.
+- L847 `read_delivery(plugin_id: IdParam, delivery_id: IdParam, admin: SessionUser=Depends(require_admin))` (function) — One delivery in full, including the payload the app was sent.
+- L874 `app_channels(plugin_id: IdParam, admin: SessionUser=Depends(require_admin))` (function) — Where this app can speak, and where it could.
+- L919 `app_join_channel(plugin_id: IdParam, channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L946 `app_leave_channel(plugin_id: IdParam, channel_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)
+- L971 `uninstall_plugin(plugin_id: IdParam, request: Request, admin: SessionUser=Depends(require_admin))` (function)

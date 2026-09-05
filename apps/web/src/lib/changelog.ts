@@ -34,6 +34,28 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-05',
+    title: 'Agents that work together',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Agents can talk to each other. Ask one for something and it may bring in another by mentioning it, the way you would; the card under the reply says who asked. Until now only a person\'s message could start an agent, which stopped runaway conversations by stopping every conversation. A request can now travel a few hops, each agent is brought in only a few times, the whole thing has a quarter of an hour, and every hop runs on the authority of the person who started it — an agent nobody could ask on your behalf still cannot be asked on your behalf.',
+      },
+      {
+        kind: 'added',
+        text: 'An agent that needs a decision can now get one. The question arrives with buttons when the agent offered choices, or a box to type in, and only the person who started the request can answer. The answer is posted as their own message so the channel sees what was decided, and the agent carries on from where it stopped with everything it knew. A question nobody answers within a day expires and says so.',
+      },
+      {
+        kind: 'changed',
+        text: 'Stop stops the whole thing. Stopping an agent that had brought in others stops them too, rather than leaving the agent you stopped talking on through another one.',
+      },
+      {
+        kind: 'added',
+        text: 'Server administrators set how far agents may hand a request between themselves, per workspace, under App policy — “Agent-to-agent hops”. Zero is the old behaviour, and AGENT_CHAIN_MAX_DEPTH=0 turns it off for the whole server.',
+      },
+    ],
+  },
+  {
     date: '2026-09-04',
     title: 'Whose agent it is',
     entries: [

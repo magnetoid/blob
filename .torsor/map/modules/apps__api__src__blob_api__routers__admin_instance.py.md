@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-04T17:42:50'
-updated: '2026-09-04T17:42:50'
+created: '2026-09-05T04:19:23'
+updated: '2026-09-05T04:19:23'
 ---
 
 # apps/api/src/blob_api/routers/admin_instance.py
@@ -23,11 +23,11 @@ Symbols in `apps/api/src/blob_api/routers/admin_instance.py`.
 - L161 `CreatedWorkspaceOut` (class)
 - L168 `create_workspace(payload: CreateWorkspaceInput, request: Request, admin: SessionUser=Depends(require_instance_admin))` (function) — Make another workspace, owned by whoever made it.
 - L206 `PolicyOut` (class) — A workspace's policy, and what the server permits regardless.
-- L225 `PolicyInput` (class) — Every field optional: a PUT that sets one switch should not clear the others.
-- L235 `_policy_out(workspace_id: str, policy: policy_service.Policy)` (function)
-- L249 `read_policy(workspace_id: IdParam, _admin: SessionUser=Depends(require_instance_admin))` (function) — What is written down for this workspace — not what the guards compute.
-- L263 `write_policy(workspace_id: IdParam, payload: PolicyInput, request: Request, admin: SessionUser=Depends(require_instance_admin))` (function) — Set what a workspace may do to this machine.
-- L299 `ServerLogEntry` (class)
-- L311 `ServerLogsOut` (class)
-- L319 `list_server_logs(level: str | None=None, limit: Annotated[int, Query(ge=1, le=500)]=100, _admin: SessionUser=Depends(require_instance_admin))` (function) — Recent warnings and errors, newest first.
-- L338 `clear_server_logs(request: Request, admin: SessionUser=Depends(require_instance_admin))` (function) — Empty the buffer — "I have dealt with these", which is its only state.
+- L230 `PolicyInput` (class) — Every field optional: a PUT that sets one switch should not clear the others.
+- L241 `_policy_out(workspace_id: str, policy: policy_service.Policy)` (function)
+- L257 `read_policy(workspace_id: IdParam, _admin: SessionUser=Depends(require_instance_admin))` (function) — What is written down for this workspace — not what the guards compute.
+- L271 `write_policy(workspace_id: IdParam, payload: PolicyInput, request: Request, admin: SessionUser=Depends(require_instance_admin))` (function) — Set what a workspace may do to this machine.
+- L307 `ServerLogEntry` (class)
+- L319 `ServerLogsOut` (class)
+- L327 `list_server_logs(level: str | None=None, limit: Annotated[int, Query(ge=1, le=500)]=100, _admin: SessionUser=Depends(require_instance_admin))` (function) — Recent warnings and errors, newest first.
+- L346 `clear_server_logs(request: Request, admin: SessionUser=Depends(require_instance_admin))` (function) — Empty the buffer — "I have dealt with these", which is its only state.

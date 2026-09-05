@@ -452,6 +452,32 @@ async def edit(
     return message
 
 
+async def replace_blocks(
+    session: AsyncSession, message_id: str, blocks: list[dict[str, Any]] | None
+) -> Message | None:
+    """Swap the structured content under a message without touching its text.
+
+    This is Blob settling its own card — a decision that has been answered, buttons that
+    have expired — not the author editing, so `edited_at` is deliberately left alone: an
+    "(edited)" mark would claim the bot changed its mind. None if the message is gone.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                UPDATE messages SET blocks = cast(:blocks AS jsonb)
+                 WHERE id = :id AND deleted_at IS NULL
+                RETURNING id
+                """
+            ),
+            {"id": message_id, "blocks": json.dumps(blocks) if blocks is not None else None},
+        )
+    ).fetchone()
+    if row is None:
+        return None
+    return await by_id(session, message_id)
+
+
 async def remove(
     session: AsyncSession, message_id: str, user_id: str, is_admin: bool
 ) -> tuple[str, str | None]:
@@ -870,6 +896,7 @@ async def announce(
     *,
     workspace_id: str,
     channel_id: str,
+    start_agent_runs: bool = True,
 ) -> None:
     """Everything that has to happen because a message now exists.
 
@@ -919,9 +946,13 @@ async def announce(
         if URL_RE.search(result.message.body):
             fire_and_forget(enqueue("unfurl", result.message.id))
         # A mention might be of an app that answers over AG-UI. Which one is the job's
-        # problem, not this one's. Only a person's message starts a run — a bot's own
-        # must not, which is what stops two agents talking to each other for ever.
-        if result.message.mention_user_ids:
+        # problem, not this one's. A person's message roots a chain; an agent's reply
+        # extends one only through `jobs/agui.py`, which is why bot posts through the
+        # bot API never reach here with a parent — see ADR 0013. `start_agent_runs` is
+        # False for exactly one caller: the message that answers a decision an agent
+        # was waiting on. That message *resumes* the run that asked, and rooting a
+        # second chain from it would race the resume for the same agent.
+        if start_agent_runs and result.message.mention_user_ids:
             fire_and_forget(enqueue("agui_run", result.message.id))
         # The outbox drains on a timer too, so this is latency rather than delivery.
         fire_and_forget(enqueue("deliver_plugin_events"))

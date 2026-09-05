@@ -407,6 +407,17 @@
       },
       "AgentRunOut": {
         "properties": {
+          "askedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Askedby"
+          },
           "channelId": {
             "title": "Channelid",
             "type": "string"
@@ -421,6 +432,11 @@
               }
             ],
             "title": "Channelname"
+          },
+          "depth": {
+            "default": 0,
+            "title": "Depth",
+            "type": "integer"
           },
           "durationMs": {
             "anyOf": [
@@ -680,6 +696,34 @@
           "updatedAt"
         ],
         "title": "AgentTask",
+        "type": "object"
+      },
+      "AnswerInput": {
+        "description": "A free-text answer to the decision a run is waiting on.\n\nThe buttons go through `/api/interactions` like every other block; this is the same\nentrance for a client that has the run rather than the message \u2014 and for text, which\nthe input block also submits through interactions. One service behind both.",
+        "properties": {
+          "clientActionId": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientactionid"
+          },
+          "value": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "AnswerInput",
         "type": "object"
       },
       "AppChannel": {
@@ -4009,6 +4053,19 @@
       "PolicyInput": {
         "description": "Every field optional: a PUT that sets one switch should not clear the others.",
         "properties": {
+          "agentChainMaxDepth": {
+            "anyOf": [
+              {
+                "maximum": 16.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agentchainmaxdepth"
+          },
           "deniedScopes": {
             "anyOf": [
               {
@@ -4076,6 +4133,10 @@
       "PolicyOut": {
         "description": "A workspace's policy, and what the server permits regardless.\n\nBoth halves are returned because a tick that does nothing is worse than no tick: if\nthe operator has turned hosting off server-wide, the console has to say so rather\nthan show an enabled switch whose value never reaches a guard.",
         "properties": {
+          "agentChainMaxDepth": {
+            "title": "Agentchainmaxdepth",
+            "type": "integer"
+          },
           "deniedScopes": {
             "items": {
               "type": "string"
@@ -4114,6 +4175,10 @@
             "title": "Serverallowsprivateendpoints",
             "type": "boolean"
           },
+          "serverChainMaxDepth": {
+            "title": "Serverchainmaxdepth",
+            "type": "integer"
+          },
           "workspaceId": {
             "title": "Workspaceid",
             "type": "string"
@@ -4125,8 +4190,10 @@
           "mayUsePrivateEndpoints",
           "mayConnectSocketAgents",
           "deniedScopes",
+          "agentChainMaxDepth",
           "serverAllowsHosting",
-          "serverAllowsPrivateEndpoints"
+          "serverAllowsPrivateEndpoints",
+          "serverChainMaxDepth"
         ],
         "title": "PolicyOut",
         "type": "object"
@@ -9786,6 +9853,60 @@
         "summary": "Revoke Webhook",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/agent-runs/{run_id}/answer": {
+      "post": {
+        "description": "Answer the question an agent stopped to ask, and let it carry on.\n\nOnly the person the run is on behalf of may \u2014 the card is public, the decision is\ntheirs. The answer is posted as their own message so the channel sees it as a\ndecision, and the agent resumes with it. See `services/agent_chains.answer`.",
+        "operationId": "answer_agent_run_api_agent_runs__run_id__answer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Answer Agent Run",
+        "tags": [
+          "agentic"
         ]
       }
     },

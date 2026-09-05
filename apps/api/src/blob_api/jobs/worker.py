@@ -21,6 +21,7 @@ from ..lib.storage import delete_object
 from ..plugins import delivery as plugin_delivery
 from ..realtime import hub
 from ..services import agent_runs as agent_run_service
+from .agui import expire_agent_decisions as expire_decisions
 from .agui import handle_agui_run
 from .deployments import sync_hosted_agents
 from .notify import handle_notify
@@ -42,13 +43,24 @@ async def unfurl(_ctx: dict[str, Any], message_id: str) -> None:
     await handle_unfurl(message_id)
 
 
-async def agui_run(_ctx: dict[str, Any], message_id: str) -> None:
+async def agui_run(_ctx: dict[str, Any], message_id: str, parent_run_id: str | None = None) -> None:
     """Answer a mention of an AG-UI app's bot.
 
     No cron behind this one, unlike the plugin outbox: there is no durable table of owed
     runs, and re-running an agent an hour late is worse than not running it at all.
+
+    `parent_run_id` is set when the mention came from an agent's own reply, or when the
+    message answers a decision an agent was waiting on — the two ways a run can be part
+    of a chain rather than the start of one. See ADR 0013.
     """
-    await handle_agui_run(message_id)
+    await handle_agui_run(message_id, parent_run_id)
+
+
+async def expire_agent_decisions(_ctx: dict[str, Any]) -> None:
+    """Decisions nobody made within their day become `expired`, and their buttons go."""
+    expired = await expire_decisions()
+    if expired:
+        log.info("expired %d agent decision(s)", expired)
 
 
 async def sweep_agent_runs(_ctx: dict[str, Any]) -> None:
@@ -143,12 +155,16 @@ class WorkerSettings:
         agui_run,
         sweep_orphans,
         sweep_agent_runs,
+        expire_agent_decisions,
         deliver_plugin_events,
     ]
     # arq's stub types cron() more narrowly than it accepts at runtime.
     cron_jobs = [
         cron(sweep_orphans, hour=4, minute=0),  # type: ignore[arg-type]
         cron(sweep_agent_runs, hour=4, minute=10),  # type: ignore[arg-type]
+        # A decision waits a day; a quarter of an hour's slack on that is fine, a day's
+        # (from riding the nightly sweep) is not.
+        cron(expire_agent_decisions, minute={0, 15, 30, 45}),  # type: ignore[arg-type]
         # The safety net under the enqueue: retries that came due, and anything whose
         # enqueue was lost, go out within the minute.
         cron(deliver_plugin_events, second=0),  # type: ignore[arg-type]

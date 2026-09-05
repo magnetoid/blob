@@ -150,6 +150,10 @@ class Settings(BaseSettings):
     #: what lets real multi-minute agent work exist at all, where the old shape made
     #: AGUI_TIMEOUT_SEC a 120-second ceiling on the whole run.
     AGUI_MAX_RUN_SEC: float = 600.0
+    #: How many hops an agent's reply may carry a chain past the person who started it,
+    #: server-wide. The ceiling over every workspace's `agent_chain_max_depth`: 0 turns
+    #: agent-to-agent off for the whole server, whatever a policy row says. ADR 0013.
+    AGENT_CHAIN_MAX_DEPTH: int = 4
     #: Allow an app endpoint on a private address, over plain HTTP.
     #:
     #: Off by default and it should stay off on anything public: the guard it relaxes is

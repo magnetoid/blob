@@ -183,6 +183,33 @@ function PolicyEditor({
         />
       </div>
 
+      <div className="pref-row">
+        <div style={{ flex: 1 }}>
+          <div className="pref-label">Agent-to-agent hops</div>
+          <div className="pref-hint">
+            {policy.serverChainMaxDepth === 0
+              ? "Off for the whole server: AGENT_CHAIN_MAX_DEPTH is 0, so only people can start an agent."
+              : `How many times agents may hand a request between themselves after a person starts it. 0 means only people start agents. The server caps this at ${policy.serverChainMaxDepth}.`}
+          </div>
+        </div>
+        <input
+          className="input"
+          type="number"
+          min={0}
+          max={16}
+          aria-label="Agent-to-agent hops"
+          style={{ maxWidth: 110 }}
+          disabled={policy.serverChainMaxDepth === 0}
+          defaultValue={policy.agentChainMaxDepth}
+          onBlur={(event) => {
+            const next = Number(event.target.value.trim());
+            if (!Number.isInteger(next) || next < 0) return;
+            if (next === policy.agentChainMaxDepth) return;
+            save({ agentChainMaxDepth: next });
+          }}
+        />
+      </div>
+
       <p className="pref-hint" style={{ marginTop: 18 }}>
         A workspace admin cannot read or change any of this. Blocking a scope
         here stops it being granted to any app in that workspace, whatever its

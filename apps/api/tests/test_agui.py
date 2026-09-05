@@ -214,6 +214,8 @@ def test_an_interrupt_becomes_a_question_not_an_error() -> None:
     )
     assert reducer.interrupt == "Deploy to prod?"
     assert reducer.error is None
+    # Kept whole, so a resume can name what it answers.
+    assert reducer.interrupts == [{"message": "Deploy to prod?"}]
 
 
 def test_the_run_input_is_camel_case_and_complete() -> None:
@@ -224,6 +226,10 @@ def test_the_run_input_is_camel_case_and_complete() -> None:
     )
     required = {"threadId", "runId", "state", "messages", "tools", "context", "forwardedProps"}
     assert required <= set(body)
+    # And no more than that unless resuming: an agent built on an older model with
+    # `extra="forbid"` refuses keys it does not know, so `resume`/`parentRunId` are
+    # present only when they mean something.
+    assert "resume" not in body and "parentRunId" not in body
 
 
 def test_history_casts_the_listening_bot_as_the_assistant() -> None:
@@ -408,11 +414,13 @@ class TestRoundTrip:
         assert contents.index("first thing") < contents.index("@Helper second thing")
         assert body["messages"][0]["role"] == "user"
 
-    async def test_a_bot_message_never_triggers_a_run(
+    async def test_a_bot_api_post_never_starts_a_run(
         self, team: dict, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # The loop guard, and it is structural: two agents that mention each other cannot
-        # converse for ever, because neither one's messages are a trigger.
+        # A bot's message with no parent run — which is how the bot API posts — starts
+        # nothing: there is no person behind it to run on the authority of. An agent's
+        # *reply* may extend the chain it is in, and `test_agent_chains` covers that; this
+        # is the case that must stay inert whatever chains allow. ADR 0013.
         app_body = await install(team["owner"])
         app_client = await join_channel(team["owner"], app_body, team["general"])
         transport, seen = agent_speaks(*ANSWER)
@@ -732,9 +740,9 @@ class TestBudget:
                     """
                     INSERT INTO agent_runs
                       (id, workspace_id, plugin_id, channel_id, transport, status,
-                       started_at, finished_at)
+                       started_at, finished_at, chain_id)
                     VALUES (:id, :ws, :p, :c, 'http', 'succeeded',
-                            now() - interval '15 minutes', now() - interval '5 minutes')
+                            now() - interval '15 minutes', now() - interval '5 minutes', :id)
                     """
                 ),
                 {"id": new_id(), "ws": ws, "p": plugin_id, "c": team["general"]},
@@ -764,11 +772,11 @@ class TestBudget:
                     """
                     INSERT INTO agent_runs
                       (id, workspace_id, plugin_id, channel_id, transport, status,
-                       started_at, finished_at)
+                       started_at, finished_at, chain_id)
                     VALUES
                       (:old, :ws, :p, :c, 'http', 'succeeded',
-                       now() - interval '25 hours', now() - interval '25 hours'),
-                      (:refused, :ws, :p, :c, 'http', 'refused', now(), now())
+                       now() - interval '25 hours', now() - interval '25 hours', :old),
+                      (:refused, :ws, :p, :c, 'http', 'refused', now(), now(), :refused)
                     """
                 ),
                 {

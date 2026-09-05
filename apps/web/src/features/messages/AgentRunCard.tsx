@@ -24,6 +24,15 @@ export function AgentRunCard({ run }: { run: AgentRunView }) {
       <div className="agent-run-head">
         <span className={`agent-run-dot ${running ? 'agent-run-dot-live' : ''}`} aria-hidden />
         <span className="agent-run-name">{run.agentName}</span>
+        {run.askedBy && (
+          // Whose question this is. A card under an agent's message reads as that
+          // agent talking to itself unless it says which agent asked — and how far
+          // from the person the chain has travelled.
+          <span className="agent-run-lineage">
+            asked by {run.askedBy}
+            {run.depth > 1 ? ` · hop ${run.depth}` : ''}
+          </span>
+        )}
         <span className="agent-run-state">
           {running
             ? card?.activity ??
@@ -110,7 +119,9 @@ function statusLabel(run: AgentRunView): string {
     case 'refused':
       return run.error ?? 'refused — over its daily budget';
     case 'interrupted':
-      return 'needs a decision';
+      return run.answeredAt ? 'answered' : 'needs a decision — see below';
+    case 'expired':
+      return 'nobody answered in time';
     default:
       return run.status;
   }
