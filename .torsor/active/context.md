@@ -879,3 +879,30 @@ it — the feedback snapshot's is stricter on purpose.
   `allow-scripts` hands the page the person's session — never add it. The outer page's
   `frame-src 'self'` is what permits a `srcdoc` frame; loosening the outer CSP to
   `frame-src *` is not needed and would allow real cross-origin frames.
+
+## Trap: two Coolify builds at once crashed dockerd and took the whole host down
+
+On 2026-09-05 a push to `main` (the imba webhook build) and the hadley API deploy ran their
+image builds at the same time. Docker 26.1.3's BuildKit panicked
+(`llbsolver.captureProvenance` … `flightcontrol`), systemd restarted dockerd, and because
+`/etc/docker/daemon.json` has no `"live-restore": true` the new daemon SIGKILLed every
+container on the box — some two hundred, Blob's among them — and marked them *manually
+stopped*, so `restart: unless-stopped` did nothing and only `restart: always` stacks
+(Coolify itself, mailcow) came back. Coolify then regenerated its proxy compose with the
+default ports (`80`, `443`, `8080`) which cannot bind beside the host nginx and mailcow, so
+the proxy sat in `Created` and every nginx vhost that forwards to it answered 502.
+
+What the box actually looks like, because nothing on it says so: **host nginx
+(`/etc/nginx/conf.d/*.conf`) → `https://127.0.0.1:8445` = `coolify-proxy` (Traefik) published
+on loopback only as `127.0.0.1:8081:80` and `127.0.0.1:8445:443` (+udp) → containers by their
+Coolify `Host()` labels on port 3000.** Those ports are now stored in Coolify's
+`servers.proxy.last_saved_proxy_configuration` so a proxy restart keeps them; the proxy also
+has to be `docker network connect`ed to every app's UUID-named network, which Coolify does at
+deploy time and nobody does after a crash. `127.0.0.1:8090` is a separate `tetra-caddy` for
+ACME. Blob's databases live in named volumes and survived; `docker start` of the killed
+containers and a redeploy restored everything but nothing here is automatic.
+
+Two rules: **one build at a time** — check `application_deployment_queues` has no
+`in_progress` row before triggering the hadley deploy, and after a push wait for the imba
+row to finish first. And a deployment row left `in_progress` by a crash blocks nothing
+visibly but must be set to `failed` before the app is redeployed.
