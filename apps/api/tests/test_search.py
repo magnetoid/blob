@@ -334,3 +334,98 @@ class TestAModifierThatCannotBeHonoured:
 
         assert answer.status == 200
         assert answer.body["parsed"]["text"] == "https://example.com/thing"
+
+
+class TestOrdering:
+    """Relevance is the default; recency is the other question people ask.
+
+    Both are keyset-paged, and each cursor names its own ordering — a page from one
+    continued in the other would silently answer a different question.
+    """
+
+    async def test_most_recent_puts_the_newest_first(self, team: dict) -> None:
+        general = team["general"]["id"]
+        for n in range(3):
+            await send_message(team["owner"], general, f"quokka sighting number {n}")
+
+        newest = await team["owner"].get("/api/search?q=quokka&sort=newest")
+        assert newest.status == 200, newest.body
+        bodies = [m["body"] for m in newest.body["messages"]]
+        assert bodies == [
+            "quokka sighting number 2",
+            "quokka sighting number 1",
+            "quokka sighting number 0",
+        ]
+        assert newest.body["sort"] == "newest"
+
+    async def test_relevance_is_what_you_get_without_asking(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "wombat wombat wombat")
+        await send_message(team["owner"], team["general"]["id"], "a wombat, once, in passing")
+
+        answer = await team["owner"].get("/api/search?q=wombat")
+        assert answer.body["sort"] == "relevance"
+        assert answer.body["messages"][0]["body"] == "wombat wombat wombat"
+
+    async def test_paging_by_recency_walks_the_whole_result_set_once(self, team: dict) -> None:
+        general = team["general"]["id"]
+        for n in range(9):
+            await send_message(team["owner"], general, f"axolotl {n}")
+
+        seen: list[str] = []
+        cursor: str | None = None
+        for _ in range(6):
+            url = "/api/search?q=axolotl&limit=4&sort=newest"
+            if cursor:
+                url += f"&cursor={cursor}"
+            answer = await team["owner"].get(url)
+            assert answer.status == 200, answer.body
+            seen.extend(m["id"] for m in answer.body["messages"])
+            cursor = answer.body["nextCursor"]
+            if not cursor:
+                break
+
+        assert cursor is None, "the walk should end rather than offer another page"
+        assert len(seen) == 9
+        assert len(set(seen)) == 9, "a page boundary repeated a message"
+        assert seen == sorted(seen, reverse=True), "newest first, all the way down"
+
+    async def test_a_cursor_cannot_be_replayed_into_the_other_ordering(self, team: dict) -> None:
+        general = team["general"]["id"]
+        for n in range(6):
+            await send_message(team["owner"], general, f"pangolin {n}")
+
+        by_date = await team["owner"].get("/api/search?q=pangolin&limit=2&sort=newest")
+        cursor = by_date.body["nextCursor"]
+        assert cursor
+
+        crossed = await team["owner"].get(f"/api/search?q=pangolin&limit=2&cursor={cursor}")
+        assert crossed.status == 400
+        assert "ordering" in crossed.body["error"]["message"]
+
+    async def test_an_ordering_nobody_offers_is_refused(self, team: dict) -> None:
+        answer = await team["owner"].get("/api/search?q=anything&sort=sideways")
+        assert answer.status == 400
+        assert answer.body["error"]["code"] == "invalid_input"
+
+
+class TestAccents:
+    """A team that types without diacritics still finds what was written with them."""
+
+    async def test_a_word_typed_plainly_finds_the_accented_one(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "šta se dešava sa deployom")
+
+        found = await team["owner"].get("/api/search?q=sta")
+        assert found.status == 200, found.body
+        assert [m["body"] for m in found.body["messages"]] == ["šta se dešava sa deployom"]
+
+    async def test_and_the_other_way_round(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "sta je sa staging okruzenjem")
+
+        found = await team["owner"].get("/api/search?q=šta")
+        assert [m["body"] for m in found.body["messages"]] == ["sta je sa staging okruzenjem"]
+
+    async def test_english_stemming_survived_the_folding(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "we deployed it on Friday")
+
+        found = await team["owner"].get("/api/search?q=deploys")
+        assert [m["body"] for m in found.body["messages"]] == ["we deployed it on Friday"]

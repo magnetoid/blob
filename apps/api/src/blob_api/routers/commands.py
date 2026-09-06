@@ -39,7 +39,7 @@ from ..services import agent_access
 from ..services import channels as channel_service
 from ..services import commands as command_service
 from ..services import messages as message_service
-from ..services.serialize import message_event
+from ..services.serialize import channel_event, membership_event, message_event
 
 router = APIRouter()
 
@@ -177,10 +177,7 @@ async def run_command(
                     fire_and_forget(enqueue("agui_run", result.message.id))
 
             if result.channel is not None:
-                hub.to_channel(
-                    channel_id,
-                    {"t": "channel.updated", "channel": result.channel.model_dump(by_alias=True)},
-                )
+                hub.to_channel(channel_id, channel_event("channel.updated", result.channel))
 
             if result.left_channel:
                 # Unsubscribe first: the member.left that follows is for the people still
@@ -200,10 +197,8 @@ async def run_command(
                 # they are held — the command may have landed on a sibling process.
                 hub.subscribe_users([member_id], [joined_channel_id])
                 if view is not None:
-                    hub.to_users(
-                        [member_id],
-                        {"t": "channel.created", "channel": view.model_dump(by_alias=True)},
-                    )
+                    hub.to_users([member_id], channel_event("channel.created", view))
+                    hub.to_users([member_id], membership_event(view))
 
             for member_id in result.removed_user_ids:
                 # Unsubscribe first: the member.left that follows is for the people still
@@ -218,17 +213,13 @@ async def run_command(
                 assert opened is not None  # opened_views is empty otherwise
                 hub.subscribe_users([member_id], [opened.id])
                 if view is not None:
-                    hub.to_users(
-                        [member_id],
-                        {"t": "channel.created", "channel": view.model_dump(by_alias=True)},
-                    )
+                    hub.to_users([member_id], channel_event("channel.created", view))
+                    hub.to_users([member_id], membership_event(view))
 
             if opened is not None:
                 hub.subscribe_users([user.id], [opened.id])
-                hub.to_users(
-                    [user.id],
-                    {"t": "channel.created", "channel": opened.model_dump(by_alias=True)},
-                )
+                hub.to_users([user.id], channel_event("channel.created", opened))
+                hub.to_users([user.id], membership_event(opened))
                 if user.id in result.added_user_ids:
                     hub.to_channel(
                         opened.id,
@@ -251,13 +242,7 @@ async def run_command(
             if result.own_channel is not None:
                 # Only to them: how loud a channel is for one person is nobody else's
                 # business, unlike `channel`, which goes to everyone in it.
-                hub.to_users(
-                    [user.id],
-                    {
-                        "t": "channel.updated",
-                        "channel": result.own_channel.model_dump(by_alias=True),
-                    },
-                )
+                hub.to_users([user.id], membership_event(result.own_channel))
 
             if result.user is not None:
                 changed = result.user

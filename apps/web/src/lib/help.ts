@@ -450,9 +450,11 @@ export const SECTIONS: Section[] = [
       {
         id: 'searching',
         title: 'Finding a message',
-        blurb: 'Type what you remember. Results are ranked by relevance, newest first among equals.',
+        blurb: 'Type what you remember, and choose whether the best match or the latest one comes first.',
         body: [
           'Search covers the conversations you are in and nothing else — channels you have joined, and your direct messages. An open channel you have not joined is not searched, so if a search comes back empty, joining the channel and searching again is worth trying.',
+          'Most relevant is the default and ranks by how well a message matches. Most recent ignores that and answers in time order, which is the one you want for “what was said about this lately”. Both page the same way, and the button that loads more keeps the order you chose.',
+          'Accents are ignored on both sides, so sta finds šta and šta finds sta — useful when half the team types diacritics and half does not. Word endings are matched the English way: deploys finds deployed.',
           'Archived channels are still searched. Their history does not go anywhere when they close.',
         ],
         shortcuts: ['search'],

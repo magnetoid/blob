@@ -27,6 +27,7 @@ SERVER_EVENTS: frozenset[str] = frozenset(
         "channel.created",
         "channel.updated",
         "channel.archived",
+        "channel.membership",
         "member.joined",
         "member.left",
         "typing",

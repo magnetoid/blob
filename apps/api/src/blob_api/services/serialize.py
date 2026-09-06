@@ -287,6 +287,36 @@ def message_event(name: str, message: Message) -> dict[str, Any]:
     return {"t": name, "message": message.model_dump(by_alias=True)}
 
 
+def channel_event(name: str, channel: Channel) -> dict[str, Any]:
+    """A channel event for the room: what the channel *is*, never who you are in it.
+
+    `ChannelWithState` folds the reader's own membership, unread flag, mention count and
+    read cursor into the channel, which is right for the sidebar and wrong for a
+    broadcast. Sent to a room it used to carry the *editor's* state, and the client
+    replaces its copy wholesale — so renaming a channel moved everyone else's unread
+    line to wherever the editor had read to, and an admin reopening a channel they were
+    not in told every member they had no membership. Narrowing to `Channel` is what
+    makes that impossible rather than remembered; the per-viewer half rides
+    `membership_event`, the way `group.membership` already does for groups.
+    """
+    plain = Channel.model_validate(channel.model_dump())
+    return {"t": name, "channel": plain.model_dump(by_alias=True)}
+
+
+def membership_event(channel: ChannelWithState) -> dict[str, Any]:
+    """One person's own state in one channel. Only ever sent to that person."""
+    return {
+        "t": "channel.membership",
+        "channelId": channel.id,
+        "membership": (
+            channel.membership.model_dump(by_alias=True) if channel.membership else None
+        ),
+        "hasUnread": channel.has_unread,
+        "mentionCount": channel.mention_count,
+        "lastReadMessageId": channel.last_read_message_id,
+    }
+
+
 #: Every column of `messages` except `search_tsv`, which is the point of the list.
 #:
 #: `m.*` used to stand here, which meant every message read — opening a channel, a

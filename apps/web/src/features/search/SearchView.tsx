@@ -7,10 +7,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Message } from "@blob/shared";
-import { api, ApiError } from "../../lib/api.ts";
+import { api, ApiError, type SearchSort } from "../../lib/api.ts";
 import { showMessage } from "../../lib/navigation.ts";
 import { SearchIcon } from "../../components/Icon.tsx";
 import { MessageResultRow } from "../messages/MessageResultRow.tsx";
+
+const SORTS: Array<{ value: SearchSort; label: string }> = [
+  { value: 'relevance', label: 'Most relevant' },
+  { value: 'newest', label: 'Most recent' },
+];
 
 const FILTERS = [
   { label: "All", value: "" },
@@ -21,6 +26,9 @@ const FILTERS = [
 export function SearchView() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<string>("");
+  /** Relevance answers "find the thing I remember"; recency answers "what was said
+   *  about this lately". Slack offers both and people use both. */
+  const [sort, setSort] = useState<SearchSort>("relevance");
   const [results, setResults] = useState<Message[] | null>(null);
   const [total, setTotal] = useState(0);
   const [searching, setSearching] = useState(false);
@@ -66,7 +74,7 @@ export function SearchView() {
       }
       setSearching(true);
       try {
-        const result = await api.search(term);
+        const result = await api.search(term, undefined, sort);
         if (!live) return;
         setResults(result.messages);
         setTotal(result.total);
@@ -95,7 +103,7 @@ export function SearchView() {
       live = false;
       clearTimeout(timer);
     };
-  }, [query, filter]);
+  }, [query, filter, sort]);
 
   /**
    * The next page, appended.
@@ -111,7 +119,8 @@ export function SearchView() {
     if (!term || !nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const result = await api.search(term, nextCursor);
+      // The cursor carries its ordering, so it must go back with the one it came from.
+      const result = await api.search(term, nextCursor, sort);
       setResults((current) => [...(current ?? []), ...result.messages]);
       setNextCursor(result.nextCursor);
     } catch {
@@ -149,6 +158,19 @@ export function SearchView() {
               {f.label}
             </button>
           ))}
+          <div className="search-sort" role="group" aria-label="Sort results">
+            {SORTS.map((option) => (
+              <button
+                key={option.value}
+                className="chip"
+                type="button"
+                aria-pressed={sort === option.value}
+                onClick={() => setSort(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

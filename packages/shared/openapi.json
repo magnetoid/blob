@@ -5222,6 +5222,11 @@
             "title": "Parsed",
             "type": "object"
           },
+          "sort": {
+            "default": "relevance",
+            "title": "Sort",
+            "type": "string"
+          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -13715,6 +13720,17 @@
                 }
               ],
               "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "relevance",
+              "pattern": "^(relevance|newest)$",
+              "title": "Sort",
+              "type": "string"
             }
           }
         ],

@@ -43,8 +43,9 @@ export function ChannelMenu({ channel, onClose, onOpenDetails }: Props) {
   const level = channel.membership?.notifyLevel ?? 'mentions';
   const starred = channel.membership?.isStarred ?? false;
 
-  /** The server echoes the channel to this user's own sockets, so there is nothing to
-   *  write here — `channel.updated` arrives and the store applies it. */
+  /** The server echoes this to this user's own sockets, so there is nothing to write
+   *  here — `channel.membership` arrives and the store applies it. Only to them: how
+   *  loud a channel is for one person is nobody else's business. */
   async function setMembership(input: { notifyLevel?: NotifyLevel; isStarred?: boolean }) {
     setError(null);
     try {

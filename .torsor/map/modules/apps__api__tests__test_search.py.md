@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T03:24:52'
-updated: '2026-09-06T03:24:52'
+created: '2026-09-06T04:17:08'
+updated: '2026-09-06T04:17:08'
 ---
 
 # apps/api/tests/test_search.py
@@ -42,3 +42,13 @@ Symbols in `apps/api/tests/test_search.py`.
 - L316 `test_an_unknown_has_value_is_refused(self, team: dict)` (method)
 - L324 `test_the_two_it_accepts_still_work(self, team: dict)` (method)
 - L330 `test_a_colon_in_ordinary_text_is_still_searchable(self, team: dict)` (method)
+- L339 `TestOrdering` (class) — Relevance is the default; recency is the other question people ask.
+- L346 `test_most_recent_puts_the_newest_first(self, team: dict)` (method)
+- L361 `test_relevance_is_what_you_get_without_asking(self, team: dict)` (method)
+- L369 `test_paging_by_recency_walks_the_whole_result_set_once(self, team: dict)` (method)
+- L392 `test_a_cursor_cannot_be_replayed_into_the_other_ordering(self, team: dict)` (method)
+- L405 `test_an_ordering_nobody_offers_is_refused(self, team: dict)` (method)
+- L411 `TestAccents` (class) — A team that types without diacritics still finds what was written with them.
+- L414 `test_a_word_typed_plainly_finds_the_accented_one(self, team: dict)` (method)
+- L421 `test_and_the_other_way_round(self, team: dict)` (method)
+- L427 `test_english_stemming_survived_the_folding(self, team: dict)` (method)

@@ -16,7 +16,7 @@ from ..schemas.base import CamelModel
 from ..schemas.models import ChannelWithState, Message, ReadStateOut
 from ..services import channels as channel_service
 from ..services import read_state as read_state_service
-from ..services.search import SearchCursor, parse_query, search
+from ..services.search import SORTS, SearchCursor, parse_query, search
 from ..services.serialize import MESSAGE_SELECT, to_message
 
 router = APIRouter(tags=["search"])
@@ -35,6 +35,8 @@ class SearchOut(CamelModel):
     messages: list[Message]
     total: int
     parsed: dict[str, Any]
+    #: Which ordering answered — echoed so the client can show what it got.
+    sort: str = "relevance"
     #: Pass back as `cursor` for the next page. Null when this page is the last one.
     next_cursor: str | None = None
 
@@ -52,9 +54,11 @@ async def search_messages(
     q: Annotated[str, Query(min_length=1, max_length=200)],
     limit: Annotated[int, Query(ge=1, le=50)] = 25,
     cursor: Annotated[str | None, Query(max_length=100)] = None,
+    sort: Annotated[str, Query(pattern="^(relevance|newest)$")] = "relevance",
     user: SessionUser = Depends(current_user),
 ) -> SearchOut:
     await consume("search", user.id)
+    assert sort in SORTS  # the pattern above is the guard; this is the reminder
     parsed = parse_query(q)
     # Modifiers name people and channels by label; the client shows what it parsed.
     parsed_payload = {
@@ -67,7 +71,7 @@ async def search_messages(
     }
 
     if not parsed.text:
-        return SearchOut(messages=[], total=0, parsed=parsed_payload)
+        return SearchOut(messages=[], total=0, parsed=parsed_payload, sort=sort)
 
     async with session_scope() as session:
         author_id = channel_id = None
@@ -126,7 +130,10 @@ async def search_messages(
             # Nothing matches a person or channel that does not exist. Said plainly, so
             # the client can explain the empty result rather than implying silence.
             return SearchOut(
-                messages=[], total=0, parsed={**parsed_payload, "unresolved": unresolved}
+                messages=[],
+                total=0,
+                parsed={**parsed_payload, "unresolved": unresolved},
+                sort=sort,
             )
 
         messages, total, next_cursor = await search(
@@ -141,12 +148,14 @@ async def search_messages(
             has=parsed.has,
             limit=limit,
             cursor=SearchCursor.decode(cursor) if cursor else None,
+            sort=sort,
         )
 
     return SearchOut(
         messages=messages,
         total=total,
         parsed=parsed_payload,
+        sort=sort,
         next_cursor=next_cursor.encode() if next_cursor else None,
     )
 

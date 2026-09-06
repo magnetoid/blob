@@ -436,8 +436,10 @@ class Message(Base):
         UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
     )
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    #: Folded through `blob_unaccent` so a search for `sta` finds `šta` — migration
+    #: 0030. Both sides fold, or neither matches.
     search_tsv: Mapped[Any] = mapped_column(
-        TSVECTOR, Computed("to_tsvector('english', body)", persisted=True)
+        TSVECTOR, Computed("to_tsvector('english', blob_unaccent(body))", persisted=True)
     )
     # Added by 002; link previews live beside the message so an edit cannot forge one.
     link_preview: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

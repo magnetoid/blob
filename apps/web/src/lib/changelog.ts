@@ -38,6 +38,18 @@ export const RELEASES: readonly Release[] = [
     title: 'Summaries you can check, and questions that come back',
     entries: [
       {
+        kind: 'added',
+        text: 'Search can answer in time order. “Most recent” beside the filters ignores ranking and gives you the latest first, which is the question you are usually asking when you search a channel you were just in. “Most relevant” is still the default, and loading more keeps whichever you chose.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Search no longer cares about accents. Typing sta finds šta, and typing šta finds sta — so a team that writes with diacritics half the time can find what it wrote either way. English word endings still match as before: deploys finds deployed.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Renaming a channel, setting its topic or reopening it no longer disturbs what everyone else had read. Those updates were carrying the editor’s own place in the channel — their unread line, their mention count, whether they had muted it — and every other member’s copy was overwritten with it until they reloaded. An admin reopening a channel they were not in even told the people in it that they had left. A channel update now carries the channel; your own standing in it reaches you alone.',
+      },
+      {
         kind: 'changed',
         text: 'Thread summaries are written by a model when the server has one. Every decision, action item and open question it lists points at the message it came from — the arrow beside a line jumps there — and a line it could not source is dropped rather than shown. The panel says which you are looking at: “AI summary” with the model’s name, or “Keyword scan” when no model is configured, which is what it always was and what it still is without one. A model that fails says so and leaves the previous summary in place.',
       },

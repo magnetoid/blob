@@ -33,7 +33,7 @@ from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import handles as handle_service
 from ..services.audit import AuditEntry, actor_for
-from ..services.serialize import USER_COLUMNS, to_user
+from ..services.serialize import USER_COLUMNS, channel_event, to_user
 
 router = APIRouter(tags=["admin"], prefix="/api/admin")
 
@@ -627,9 +627,11 @@ async def unarchive_any_channel(
         )
         # The same event a rename sends: clients hold channels by id and re-read the row,
         # so "it is not archived any more" needs no event of its own.
+        # The admin reopening it need not be in it, so the frame carries the channel and
+        # nothing about anybody's standing in it — see `channel_event`.
         channel = await channel_service.get_for_user(session, channel_id, admin.id)
         if channel is not None:
-            payload = {"t": "channel.updated", "channel": channel.model_dump(by_alias=True)}
+            payload = channel_event("channel.updated", channel)
             after.add(lambda: hub.to_channel(channel_id, payload))
     return OkOut()
 

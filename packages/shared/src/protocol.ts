@@ -41,8 +41,20 @@ export type ServerEvent =
       replyUserIds: string[];
       lastReplyAt: string | null;
     }
-  | { t: 'channel.created' | 'channel.updated'; channel: ChannelWithState }
+  /** What the channel *is*, and the same for everybody in it. Your own membership,
+   *  unread flag and read cursor never ride a shared payload — `channel.membership`
+   *  carries those, to you alone. */
+  | { t: 'channel.created' | 'channel.updated'; channel: Channel }
   | { t: 'channel.archived'; channelId: string }
+  /** Per-viewer: your standing in one channel. */
+  | {
+      t: 'channel.membership';
+      channelId: string;
+      membership: ChannelWithState['membership'];
+      hasUnread: boolean;
+      mentionCount: number;
+      lastReadMessageId: string | null;
+    }
   | { t: 'member.joined' | 'member.left'; channelId: string; userId: string }
   | { t: 'typing'; channelId: string; userId: string; threadRootId: string | null }
   | { t: 'presence'; userId: string; state: PresenceState }

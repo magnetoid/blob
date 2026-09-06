@@ -29,6 +29,9 @@ import type {
   WorkArtifactKind,
 } from "@blob/shared";
 
+/** How search orders what it found. Slack's two: most relevant, or most recent. */
+export type SearchSort = "relevance" | "newest";
+
 /** One account anywhere on the server, with the workspace it belongs to. */
 export interface InstanceUser {
   id: string;
@@ -1018,9 +1021,15 @@ export const api = {
   interact: (input: { messageId: string; actionId: string; value: string }) =>
     post<{ ok: true }>("/api/interactions", input),
 
-  search: (q: string, cursor?: string) =>
-    get<{ messages: Message[]; total: number; nextCursor: string | null }>(
+  search: (q: string, cursor?: string, sort: SearchSort = "relevance") =>
+    get<{
+      messages: Message[];
+      total: number;
+      sort: SearchSort;
+      nextCursor: string | null;
+    }>(
       `/api/search?q=${encodeURIComponent(q)}` +
+        (sort === "newest" ? "&sort=newest" : "") +
         (cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""),
     ),
 

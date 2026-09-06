@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 
@@ -25,6 +23,7 @@ from ..schemas.requests import (
 )
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services.serialize import channel_event, membership_event
 
 router = APIRouter(tags=["channels"])
 
@@ -47,10 +46,6 @@ class MessagesOut(CamelModel):
 
 class OkOut(CamelModel):
     ok: bool = True
-
-
-def _channel_event(name: str, channel: ChannelWithState) -> dict[str, Any]:
-    return {"t": name, "channel": channel.model_dump(by_alias=True)}
 
 
 @router.get("/api/channels", response_model=ChannelsOut)
@@ -101,6 +96,10 @@ async def create_channel(
         if channel is None:
             raise not_found("Could not create that channel.")
         members = await channel_service.member_ids(session, channel_id)
+        views = {
+            member_id: await channel_service.get_for_user(session, channel_id, member_id)
+            for member_id in members
+        }
         # Catalogued in every app's manifest since the beginning; emitted since now.
         # Scoped by channel, so a private channel is announced only to apps invited in.
         await plugin_events.emit(
@@ -114,9 +113,15 @@ async def create_channel(
         def broadcast() -> None:
             # Public channels appear in everyone's browser; private ones only for members.
             if payload.kind == "public":
-                hub.to_workspace(user.workspace_id, _channel_event("channel.created", channel))
+                hub.to_workspace(user.workspace_id, channel_event("channel.created", channel))
             else:
-                hub.to_users(members, _channel_event("channel.created", channel))
+                hub.to_users(members, channel_event("channel.created", channel))
+            # Then, to each member alone, their own standing in it. A public channel's
+            # arrival reaches the whole workspace and almost nobody there is in it, so
+            # the membership half cannot ride the same frame.
+            for member_id, view in views.items():
+                if view is not None:
+                    hub.to_users([member_id], membership_event(view))
             hub.subscribe_users(members, [channel_id])
             fire_and_forget(enqueue("deliver_plugin_events"))
 
@@ -174,9 +179,7 @@ async def update_channel(
         )
         channel = await channel_service.get_for_user(session, channel_id, user.id)
         if channel is not None:
-            after.add(
-                lambda: hub.to_channel(channel_id, _channel_event("channel.updated", channel))
-            )
+            after.add(lambda: hub.to_channel(channel_id, channel_event("channel.updated", channel)))
 
     return ChannelOut(channel=channel)
 
@@ -225,9 +228,7 @@ async def unarchive_channel(
         )
         channel = await channel_service.get_for_user(session, channel_id, user.id)
         if channel is not None:
-            after.add(
-                lambda: hub.to_channel(channel_id, _channel_event("channel.updated", channel))
-            )
+            after.add(lambda: hub.to_channel(channel_id, channel_event("channel.updated", channel)))
     if channel is None:
         raise not_found("That channel is gone.")
     return ChannelOut(channel=channel)
@@ -333,7 +334,8 @@ async def add_members(
                 )
                 hub.subscribe_users([member_id], [channel_id])
                 if view is not None:
-                    hub.to_users([member_id], _channel_event("channel.created", view))
+                    hub.to_users([member_id], channel_event("channel.created", view))
+                    hub.to_users([member_id], membership_event(view))
             fire_and_forget(enqueue("deliver_plugin_events"))
 
         after.add(broadcast)
@@ -379,7 +381,9 @@ async def update_membership(
         )
         channel = await channel_service.get_for_user(session, channel_id, user.id)
         if channel is not None:
-            after.add(lambda: hub.to_users([user.id], _channel_event("channel.updated", channel)))
+            # How loud a channel is for one person is nobody else's business, and the
+            # channel itself did not change.
+            after.add(lambda: hub.to_users([user.id], membership_event(channel)))
     return ChannelOut(channel=channel)
 
 
@@ -428,7 +432,8 @@ async def open_dm(payload: CreateDmInput, user: SessionUser = Depends(current_us
                 for member_id, view in views.items():
                     hub.subscribe_users([member_id], [channel_id])
                     if view is not None:
-                        hub.to_users([member_id], _channel_event("channel.created", view))
+                        hub.to_users([member_id], channel_event("channel.created", view))
+                        hub.to_users([member_id], membership_event(view))
 
             after.add(broadcast)
 

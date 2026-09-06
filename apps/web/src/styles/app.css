@@ -1738,6 +1738,14 @@ button {
   border-bottom: 1px solid var(--hairline-soft);
 }
 
+/* The ordering sits at the end of the filter row, pushed right so it reads as a
+   different kind of control than the filters beside it. */
+.search-sort {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
 .search-field {
   display: flex;
   align-items: center;

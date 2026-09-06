@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T03:24:50'
-updated: '2026-09-06T03:24:50'
+created: '2026-09-06T04:17:08'
+updated: '2026-09-06T04:17:08'
 ---
 
 # apps/api/src/blob_api/services/serialize.py
@@ -26,4 +26,6 @@ Symbols in `apps/api/src/blob_api/services/serialize.py`.
 - L247 `to_agent_task(row: Any)` (function)
 - L269 `to_message_translation(row: Any, *, cached: bool=False)` (function)
 - L285 `message_event(name: str, message: Message)` (function) — The socket envelope carrying a message. Shared so every sender emits one shape.
-- L335 `to_feedback_ticket(row: Any)` (function)
+- L290 `channel_event(name: str, channel: Channel)` (function) — A channel event for the room: what the channel *is*, never who you are in it.
+- L306 `membership_event(channel: ChannelWithState)` (function) — One person's own state in one channel. Only ever sent to that person.
+- L365 `to_feedback_ticket(row: Any)` (function)

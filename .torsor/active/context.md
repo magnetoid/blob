@@ -948,16 +948,45 @@ visibly but must be set to `failed` before the app is redeployed.
 * **`channels.nudge_unanswered` reaches the client through `CHANNEL_STATE_SELECT` only.**
   A new listing query that builds a `Channel` without it shows `false`, silently.
 
-## Known defect: `channel.updated` from a channel edit carries the editor's own state
+## Rule: a channel frame says what the channel is, never who you are in it
 
-`routers/channels.py:update_channel` broadcasts `channel.updated` to the whole room with a
-`ChannelWithState` built *for the editor* — their `membership`, `hasUnread`, `mentionCount`
-and `lastReadMessageId` — and `store.ts` replaces the channel object wholesale. So a topic
-edit, a rename, or (since ADR 0015) flipping "Nudge unanswered questions" overwrites every
-other member's local read position and mute state with the editor's until the next
-bootstrap. Pre-existing; found by the slice-4a review on 2026-09-06 and left for its own
-slice because the fix is a protocol change: the membership route's echo and the join/leave
-echoes need their own event (`membership.updated`, to one user) so that `channel.updated`
-can carry channel-level fields only and the store can merge instead of replace. Both
-protocol twins and `test_protocol_parity.py` move together.
+`ChannelWithState` is the sidebar's shape — the channel plus *this reader's* membership,
+unread flag, mention count and read cursor — and for a long time every channel frame
+carried it, including the ones broadcast to a whole room or workspace. So a topic edit
+sent everyone the editor's read position and the client applied it wholesale (it replaced
+its copy), an admin reopening a channel they were not in told every member they had no
+membership, and creating a public channel put it in the whole workspace's sidebar as
+though everyone had joined. Fixed 2026-09-06: `services/serialize.py:channel_event` narrows
+to `Channel` for anything sent to more than one person, and `membership_event` carries the
+per-viewer half as `channel.membership`, addressed to one user — the same split
+`group.membership` has always had for groups. The client merges the shared half and
+applies the personal half separately.
+
+Two things follow. **Never hand a `ChannelWithState` to `hub.to_channel` or
+`hub.to_workspace`** — `channel_event` will strip it, so use it rather than a dict
+literal. **A member arriving needs two frames**, `channel.created` then
+`channel.membership`; sending only the first leaves the channel in their sidebar looking
+unjoined. `tests/test_channel_events.py` pins both directions, including that the room
+hears nothing when one person mutes.
+
+## Trap: the search index and the query have to fold the same way
+
+`messages.search_tsv` is `to_tsvector('english', blob_unaccent(body))` since migration
+0030, and `services/search.py` matches with
+`websearch_to_tsquery('english', blob_unaccent(:query))`. Change one side and the other
+stops agreeing — silently, as a search that finds nothing rather than as an error.
+`blob_unaccent` is a wrapper that claims IMMUTABLE because a generated column insists on
+it and `unaccent(text)` is only STABLE; it is the documented workaround and the price is
+a stale index if somebody edits the unaccent dictionary, which nobody does.
+
+A generated column's expression cannot be altered, so 0030 drops and re-adds the column
+and rebuilds `messages_search` under the same name — a table rewrite. `db/models.py` has
+to carry the same expression verbatim or `alembic check` fails, and `search_tsv` moves to
+the end of the column order, which nothing depends on (`MESSAGE_COLUMNS` names columns
+and deliberately omits it).
+
+Search has two orderings and each cursor names its own: `rank:id` for relevance, `n:id`
+for recency. A cursor from one ordering sent with the other is refused with a 400 rather
+than silently answering a different question — `SearchView` passes the sort back with
+the cursor for that reason.
 

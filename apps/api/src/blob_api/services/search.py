@@ -6,6 +6,18 @@ later touches this file only. At this scale it will never need to be.
 The join against channel_members is the security boundary — it is what stops
 private-channel content appearing in someone else's results. It is not optional, and
 there is a test that fails if it is removed.
+
+Two orderings, because "find the thing I remember" and "what was said about this
+lately" are different questions and Slack answers both: `relevance` ranks by
+`ts_rank`, `newest` by id — which is the same thing as by time, since ids are UUIDv7.
+Each carries its own cursor shape, so a page from one ordering can never be continued
+in the other.
+
+Both the index and the query fold accents (`blob_unaccent`, migration 0030): a team
+writing Serbian, German or French types without diacritics half the time, and a search
+that answers nothing to `sta` while the channel is full of `šta` is a search people
+stop using. Stemming stays English — it is the language most of these workspaces write
+code in, and English suffix stripping leaves other languages' words alone.
 """
 
 from __future__ import annotations
@@ -21,31 +33,41 @@ from ..lib.errors import bad_request
 from ..schemas.models import Message
 from .serialize import MESSAGE_SELECT, to_message
 
+#: How results are ordered. `relevance` is the default, as it is in Slack.
+SORTS = ("relevance", "newest")
+
 
 @dataclass(slots=True)
 class SearchCursor:
     """Where the previous page stopped, as the sort key it stopped on.
 
-    Both halves are needed. `ts_rank` reports a coarse score, so a common word leaves
-    thousands of messages sharing one rank; a cursor holding the rank alone would skip
-    every one of its ties or repeat all of them. The id is the tiebreaker the ordering
-    already uses, so carrying it makes the boundary exact.
+    For `relevance` both halves are needed. `ts_rank` reports a coarse score, so a
+    common word leaves thousands of messages sharing one rank; a cursor holding the
+    rank alone would skip every one of its ties or repeat all of them. The id is the
+    tiebreaker the ordering already uses, so carrying it makes the boundary exact. For
+    `newest` the id *is* the sort key and `rank` is None — which also makes the two
+    cursor shapes distinguishable, so a cursor cannot be replayed into the other
+    ordering and quietly answer a different question.
     """
 
-    rank: float
     message_id: str
+    rank: float | None = None
 
     def encode(self) -> str:
         # `repr` rather than a fixed number of decimal places: a float that does not
         # round-trip exactly comes back as a slightly different cursor, and a slightly
         # different cursor lands between two rows instead of on one.
+        if self.rank is None:
+            return f"n:{self.message_id}"
         return f"{self.rank!r}:{self.message_id}"
 
     @staticmethod
     def decode(raw: str) -> SearchCursor:
-        rank, _, message_id = raw.partition(":")
+        head, _, rest = raw.partition(":")
         try:
-            return SearchCursor(rank=float(rank), message_id=str(UUID(message_id)))
+            if head == "n":
+                return SearchCursor(message_id=str(UUID(rest)))
+            return SearchCursor(rank=float(head), message_id=str(UUID(rest)))
         except ValueError:
             # A cursor is opaque and always came from us, so a malformed one is a bug or
             # a hand-edited URL. Refusing beats silently answering a different question.
@@ -142,7 +164,41 @@ async def search(
     has: str | None = None,
     limit: int = 25,
     cursor: SearchCursor | None = None,
+    sort: str = "relevance",
 ) -> tuple[list[Message], int, SearchCursor | None]:
+    newest_first = sort == "newest"
+    if cursor is not None and (cursor.rank is None) != newest_first:
+        # The page after a relevance cursor is not the page after a recency one.
+        raise bad_request("That search cursor belongs to a different ordering.")
+    # Two keysets, one statement. Each is "the rows that sort strictly below the cursor",
+    # which is one row comparison and no re-scan of what has already been shown.
+    hits = (
+        """
+                  SELECT id, rank
+                    FROM filtered
+                   WHERE (cast(:cursor_id AS uuid) IS NULL
+                          OR id < cast(:cursor_id AS uuid))
+                   ORDER BY id DESC
+                   LIMIT :limit
+        """
+        if newest_first
+        else """
+                  SELECT id, rank
+                    FROM filtered
+                   -- `rank` alone does not separate rows — thousands of messages tie on
+                   -- it — so the id breaks the tie in both the ordering and the
+                   -- comparison, and the two have to agree exactly or a page boundary
+                   -- drops a row.
+                   WHERE (cast(:cursor_rank AS double precision) IS NULL
+                          OR (rank::double precision, id)
+                             < (cast(:cursor_rank AS double precision),
+                                cast(:cursor_id AS uuid)))
+                   ORDER BY rank DESC,
+                            id DESC
+                   LIMIT :limit
+        """
+    )
+    order = "ORDER BY m.id DESC" if newest_first else "ORDER BY hits.rank DESC, m.id DESC"
     rows = (
         await session.execute(
             text(
@@ -150,14 +206,15 @@ async def search(
                 WITH filtered AS (
                   SELECT
                     m.id,
-                    ts_rank(m.search_tsv, websearch_to_tsquery('english', :query)) AS rank
+                    ts_rank(m.search_tsv,
+                            websearch_to_tsquery('english', blob_unaccent(:query))) AS rank
                     FROM messages m
                     JOIN channel_members cm
                       ON cm.channel_id = m.channel_id
                      AND cm.user_id = :user_id          -- the security boundary
                    WHERE m.workspace_id = :workspace_id
                      AND m.deleted_at IS NULL
-                     AND m.search_tsv @@ websearch_to_tsquery('english', :query)
+                     AND m.search_tsv @@ websearch_to_tsquery('english', blob_unaccent(:query))
                      AND (cast(:author_id AS uuid) IS NULL
                           OR m.author_id = cast(:author_id AS uuid))
                      AND (cast(:channel_id AS uuid) IS NULL
@@ -172,27 +229,14 @@ async def search(
                                 SELECT 1 FROM attachments a WHERE a.message_id = m.id)))
                 ),
                 hits AS (
-                  SELECT id, rank
-                    FROM filtered
-                   -- Keyset, not OFFSET: the page after the cursor is the rows that
-                   -- sort strictly below it, which is one row comparison and no
-                   -- re-scan of everything already shown. `rank` alone does not
-                   -- separate rows — thousands of messages tie on it — so the id
-                   -- breaks the tie in both the ordering and the comparison, and the
-                   -- two have to agree exactly or a page boundary drops a row.
-                   WHERE (cast(:cursor_rank AS double precision) IS NULL
-                          OR (rank::double precision, id)
-                             < (cast(:cursor_rank AS double precision),
-                                cast(:cursor_id AS uuid)))
-                   ORDER BY rank DESC,
-                            id DESC
-                   LIMIT :limit
+                  -- Keyset, never OFFSET (ADR 0003).
+                  {hits}
                 )
                 SELECT {MESSAGE_SELECT}, (SELECT count(*) FROM filtered)::int AS total,
                        hits.rank::double precision AS hit_rank
                   FROM messages m
                   JOIN hits ON hits.id = m.id
-                 ORDER BY hits.rank DESC, m.id DESC
+                 {order}
                 """
             ),
             {
@@ -215,7 +259,10 @@ async def search(
     # Only when the page is full. A short page is the end of the results, and offering
     # to continue past it costs a request that can only come back empty.
     next_cursor = (
-        SearchCursor(rank=rows[-1].hit_rank, message_id=str(rows[-1].id))
+        SearchCursor(
+            message_id=str(rows[-1].id),
+            rank=None if newest_first else rows[-1].hit_rank,
+        )
         if len(rows) == limit
         else None
     )

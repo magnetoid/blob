@@ -1134,10 +1134,44 @@ export const useStore = create<State>((set, get) => ({
       }
 
       case "channel.created":
-      case "channel.updated":
-        set((s) => ({
-          channels: { ...s.channels, [event.channel.id]: event.channel },
-        }));
+      case "channel.updated": {
+        // Merge, never replace: these frames carry what the channel *is*, which is the
+        // same for everyone in it, and nothing about this viewer's standing in it. Our
+        // own membership, unread flag, mention count and read cursor stay ours — they
+        // arrive on `channel.membership`, addressed to us alone.
+        set((s) => {
+          const existing = s.channels[event.channel.id];
+          const merged: ChannelWithState = existing
+            ? { ...existing, ...event.channel }
+            : {
+                ...event.channel,
+                membership: null,
+                hasUnread: false,
+                mentionCount: 0,
+                lastReadMessageId: null,
+              };
+          return { channels: { ...s.channels, [event.channel.id]: merged } };
+        });
+        break;
+      }
+
+      case "channel.membership":
+        set((s) => {
+          const existing = s.channels[event.channelId];
+          if (!existing) return {};
+          return {
+            channels: {
+              ...s.channels,
+              [event.channelId]: {
+                ...existing,
+                membership: event.membership,
+                hasUnread: event.hasUnread,
+                mentionCount: event.mentionCount,
+                lastReadMessageId: event.lastReadMessageId,
+              },
+            },
+          };
+        });
         break;
 
       case "channel.archived":

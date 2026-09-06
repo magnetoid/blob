@@ -11,6 +11,13 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "47cac0bf47cb3038ccacf9c5077eb768c64b0acf",
+    "shortSha": "47cac0b",
+    "subject": "Summaries a model writes and you can check; questions that come back to whoever asked",
+    "date": "2026-09-06T03:46:45+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "1533f4ae5a6d0be40eb9285ac71b8afd45fd8f08",
     "shortSha": "1533f4a",
     "subject": "Record the trap that took the host down: two Coolify builds at once",
@@ -421,13 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "4367ad3",
     "subject": "Make a search result, a permalink and a saved item land on the message",
     "date": "2026-09-01T15:06:03+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "98fac28d7f7389335085ad7d3decf198b8f47eb0",
-    "shortSha": "98fac28",
-    "subject": "Say out loud whether a reaction is already yours",
-    "date": "2026-09-01T14:49:44+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

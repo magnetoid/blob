@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T03:24:45'
-updated: '2026-09-06T03:24:45'
+created: '2026-09-06T04:17:07'
+updated: '2026-09-06T04:17:07'
 ---
 
 # Repository Map
@@ -129,6 +129,10 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0029_unanswered_nudges.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0030_search_folds_accents.py** — 3 symbol(s)
+  - `_rebuild(expression: str)` (function)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 43 symbol(s)
   - `_now()` (function)
   - `Base` (class)
@@ -173,8 +177,4 @@ Modules and their key symbols (ranked by references).
   - `notify(_ctx: dict[str, Any], message_id: str)` (function)
 - **apps/api/src/blob_api/lib/auth.py** — 15 symbol(s)
   - `SessionUser` (class)
-  - `current_user(request: Request)` (function)
-  - `require_admin(request: Request)` (function)
-  - `hash_token(token: str)` (function)
-  - `require_instance_admin(request: Request)` (function)
-- **apps/api/src/blob_api/lib/errors.py** —…[truncated]
+  - `current_user(request: Request)` (functio…[truncated]
