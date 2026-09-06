@@ -195,7 +195,7 @@ export const SECTIONS: Section[] = [
         body: [
           'The paperclip beside the composer attaches a file, and so does dropping one on the conversation. Both limits are enforced on the server as well as in the browser, so a file refused here would have been refused there too.',
           'Anything executable is refused by extension — .exe, .msi, .bat, .cmd, .com, .scr, .ps1, .sh, .app and .jar — and so are .svg and .html, which are executable in a browser even though they do not look it.',
-          'An image is shown in the conversation at full size: nothing makes thumbnails, so a 100 MB photo is a 100 MB download for everyone who scrolls past it. Clicking any attachment opens it in a new tab rather than in a viewer here.',
+          'An image is shown in the conversation as a small copy made when you upload it, so a large photo is not a large download for everyone who scrolls past. Clicking it opens the original full size in place — Escape closes it, and Download keeps it. A photo taken sideways is turned upright, and the copy the channel sees carries none of the camera data the original does; the original itself is untouched. Anything that is not an image opens in a new tab as before.',
         ],
         keywords: ['upload', 'attach', 'image', 'photo', 'document', 'size'],
       },

@@ -38,6 +38,10 @@ export const RELEASES: readonly Release[] = [
     title: 'Summaries you can check, and questions that come back',
     entries: [
       {
+        kind: 'fixed',
+        text: 'Images in a channel are now small copies rather than the originals. A photo from a phone was being sent to every reader at full size and scaled down by their browser, so a channel with twenty screenshots in it cost tens of megabytes to look at; it now sends a version sized for the screen. Clicking one opens it full size in place, with Escape to close and the original a download away — rather than throwing you into a new tab. Photos also arrive the right way up, and the copy the channel sees carries none of the camera data the original does.',
+      },
+      {
         kind: 'added',
         text: 'Activity, at the top of the sidebar (⌘⇧A): everybody who mentioned you and everybody who reacted to something you wrote, newest first, with a filter for each. A mention used to leave a number beside a channel and nothing you could open, and a reaction to your message left no trace outside the message itself — so a ✅ on something you posted in a channel you had scrolled past was invisible. Anything since your last visit is marked New.',
       },

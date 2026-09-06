@@ -1163,9 +1163,62 @@ button {
 .attachment-image {
   max-width: 360px;
   max-height: 320px;
+  /* The width and height attributes give the browser the ratio; `auto` here is what
+     lets it keep that ratio while the two maximums do the constraining. */
+  width: auto;
+  height: auto;
+  cursor: zoom-in;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
   display: block;
+}
+
+/* The image at full size, over everything. Its own backdrop is darker than a dialog's
+   because the point is the picture, and the surface under it is black rather than
+   --surface so a screenshot with a white background does not bleed into the frame. */
+.lightbox-backdrop {
+  background: rgb(0 0 0 / 0.82);
+  padding: 24px;
+}
+
+.lightbox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(1200px, 92vw);
+  max-height: 92vh;
+}
+
+.lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* On a black backdrop rather than a surface, so the one place in the app that does not
+     take its colour from the theme — the frame around a picture is not the room. */
+  color: #f4f4f4;
+}
+
+.lightbox-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: calc(92vh - 48px);
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: rgb(0 0 0 / 0.4);
+  opacity: 0;
+  transition: opacity var(--dur-open) var(--ease-out);
+}
+
+.lightbox-image[data-loaded='true'] {
+  opacity: 1;
 }
 
 .attachment-file {

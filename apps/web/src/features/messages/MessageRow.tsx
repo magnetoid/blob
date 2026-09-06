@@ -338,11 +338,31 @@ export const MessageRow = memo(function MessageRow({
                   href={attachment.url}
                   target="_blank"
                   rel="noreferrer"
+                  onClick={(event) => {
+                    // Plain click opens it here; a modified click is somebody asking
+                    // for a tab, and that still works.
+                    if (
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    )
+                      return;
+                    event.preventDefault();
+                    useStore.setState({ lightbox: attachment });
+                  }}
                 >
                   <img
                     className="attachment-image"
                     src={attachment.thumbUrl ?? attachment.url}
                     alt={attachment.filename}
+                    // The intrinsic size, so the row is the right height before the
+                    // bytes arrive — a virtualised list re-measures every image that
+                    // resizes under it.
+                    width={attachment.width ?? undefined}
+                    height={attachment.height ?? undefined}
+                    loading="lazy"
+                    decoding="async"
                   />
                 </a>
               ) : (

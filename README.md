@@ -98,7 +98,10 @@ grant scopes explicitly, and both end up as a real member of the workspace.
   `@channel` and `@everyone` reach everybody; `@here` reaches only the people who are
   actually at their desk.
 - **Files** — up to ten per message, 100 MB each, uploaded straight to object storage so
-  file bytes never pass through the API process. Executable extensions are refused.
+  file bytes never pass through the API process. Executable extensions are refused. An
+  image gets a small copy made on upload — turned upright and stripped of its camera
+  metadata — so a channel of screenshots is cheap to scroll; clicking one opens the
+  original in place.
 - **Link previews** — the first URL in a message, fetched with an SSRF guard, a 5-second
   timeout and a 512 KB ceiling.
 - **Translation** — per-message, or automatic for everything arriving in another language.

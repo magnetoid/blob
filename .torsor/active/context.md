@@ -1009,3 +1009,29 @@ out loud in three places.
 arrives. There is no server-side seen cursor and no badge — deliberately, for now: a
 badge means a count in bootstrap and a write on every visit, and the list is the value.
 
+## Thumbnails: made at completion, not in the worker
+
+`attachments.thumb_key` was dead from the first migration until 2026-09-06. It is written
+in `routers/files.py:complete_upload` — deliberately in the request rather than in an arq
+job, because an attachment is completed *before* the message carrying it is sent, so the
+small copy exists by the time anyone can see the image. A job would need a second
+broadcast and would leave a window where the row is wrong. The cost is that the request
+does a `get_object`, a resize and a `put_object`; every one of those failing is caught
+and logged, and the upload still completes with no thumbnail rather than failing.
+
+Three things that look optional and are not. `ImageOps.exif_transpose` first, or a phone
+photo's thumbnail is sideways while the original is upright. The width and height stored
+are the *transposed* ones, and they override what the client reported — the client reads
+the raw bitmap and does not apply the tag. The re-encode is what strips EXIF, so the copy
+the room sees carries no GPS or camera serial while the original still does; do not
+"optimise" by copying the original through when it is already small.
+
+The thumbnail is a second object key (`<key>.thumb.webp`) belonging to the same
+attachment row, so `routers/files.py:download` matches `object_key OR thumb_key` and
+answers with the WebP mime for the latter. A new key derived from an attachment has to be
+added to that WHERE clause or it 404s for everyone including the uploader.
+
+`tests/test_thumbnails.py` splits into a pure half that runs anywhere and a half that
+needs MinIO and skips loudly without it — `docker compose up -d minio minio-init` before
+trusting a green run of the storage tests.
+

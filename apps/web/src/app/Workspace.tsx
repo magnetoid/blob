@@ -18,6 +18,7 @@ import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadsView } from '../features/messages/ThreadsView.tsx';
 import { ActivityView } from '../features/messages/ActivityView.tsx';
+import { ImageLightbox } from '../features/messages/ImageLightbox.tsx';
 import { TasksView } from '../features/agentic/TasksView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
@@ -58,6 +59,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const activeChannelId = useStore((s) => s.activeChannelId);
   const activeThreadRootId = useStore((s) => s.activeThreadRootId);
   const catchupScope = useStore((s) => s.catchupScope);
+  const lightbox = useStore((s) => s.lightbox);
   const terminalTarget = useStore((s) => s.terminalTarget);
   const openChannel = useStore((s) => s.openChannel);
   const openThread = useStore((s) => s.openThread);
@@ -432,6 +434,13 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         )}
       {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+      {lightbox && (
+        <ImageLightbox
+          attachment={lightbox}
+          onClose={() => useStore.setState({ lightbox: null })}
+        />
+      )}
+
       {catchupScope && (
         <CatchUpPanel
           channelId={catchupScope === 'channel' ? activeChannelId : null}

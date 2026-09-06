@@ -7,6 +7,7 @@ message payloads hold a stable URL rather than an expiring one.
 
 from __future__ import annotations
 
+import logging
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends
@@ -14,13 +15,23 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
+from ..lib import images
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam, new_id
 from ..lib.rate_limit import consume
-from ..lib.storage import build_object_key, ensure_bucket, presign_download, presign_upload
+from ..lib.storage import (
+    build_object_key,
+    ensure_bucket,
+    get_object,
+    presign_download,
+    presign_upload,
+    put_object,
+)
 from ..schemas.base import CamelModel
 from ..schemas.requests import UploadCompleteInput, UploadRequestInput
+
+log = logging.getLogger("blob.files")
 
 router = APIRouter(tags=["files"])
 
@@ -101,8 +112,52 @@ async def complete_upload(
     payload: UploadCompleteInput | None = None,
     user: SessionUser = Depends(current_user),
 ) -> OkOut:
-    """Step 2: tell us the upload finished (and, for images, how big it is)."""
+    """Step 2: tell us the upload finished (and, for images, how big it is).
+
+    This is also where an image gets its thumbnail. Here rather than in the worker
+    because an attachment is completed *before* the message that carries it is sent, so
+    by the time anybody can see the image its small copy already exists — no second
+    broadcast, no row that is briefly wrong. The cost is that this request waits on a
+    download, a resize and an upload; the browser has just finished uploading the
+    original, so it is a fraction of what the person already waited for, and a failure
+    anywhere in it leaves an attachment that works and simply has no thumbnail.
+    """
     payload = payload or UploadCompleteInput()
+
+    async with session_scope() as session:
+        attachment = (
+            await session.execute(
+                text(
+                    """
+                    SELECT object_key, mime, size_bytes FROM attachments
+                     WHERE id = :id AND uploader_id = :uploader_id
+                    """
+                ),
+                {"id": attachment_id, "uploader_id": user.id},
+            )
+        ).fetchone()
+    if attachment is None:
+        raise not_found("That upload has expired.")
+
+    thumb_key: str | None = None
+    width, height = payload.width, payload.height
+    if images.can_thumbnail(attachment.mime, attachment.size_bytes or 0):
+        # Outside every transaction: two round trips to object storage.
+        try:
+            rendered = images.render(await get_object(attachment.object_key))
+        except Exception:
+            log.warning("could not read %s back for a thumbnail", attachment_id, exc_info=True)
+            rendered = None
+        if rendered is not None:
+            key = images.thumb_key_for(attachment.object_key)
+            try:
+                await put_object(key, rendered.thumb, rendered.thumb_mime)
+                thumb_key = key
+                # The server's own measurement beats the client's: it is what the pixels
+                # say after the orientation tag has been applied.
+                width, height = rendered.width, rendered.height
+            except Exception:
+                log.warning("could not store the thumbnail for %s", attachment_id, exc_info=True)
 
     async with transaction() as (session, _):
         rows = (
@@ -112,7 +167,8 @@ async def complete_upload(
                     UPDATE attachments
                        SET uploaded_at = now(),
                            width = COALESCE(:width, width),
-                           height = COALESCE(:height, height)
+                           height = COALESCE(:height, height),
+                           thumb_key = COALESCE(:thumb_key, thumb_key)
                      WHERE id = :id AND uploader_id = :uploader_id
                     RETURNING id
                     """
@@ -120,8 +176,9 @@ async def complete_upload(
                 {
                     "id": attachment_id,
                     "uploader_id": user.id,
-                    "width": payload.width,
-                    "height": payload.height,
+                    "width": width,
+                    "height": height,
+                    "thumb_key": thumb_key,
                 },
             )
         ).fetchall()
@@ -147,12 +204,15 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
                 text(
                     """
                     SELECT a.filename, a.mime, a.message_id, a.uploader_id,
-                           cm.user_id AS channel_member
+                           a.thumb_key, cm.user_id AS channel_member
                       FROM attachments a
                       LEFT JOIN messages m ON m.id = a.message_id
                       LEFT JOIN channel_members cm
                              ON cm.channel_id = m.channel_id AND cm.user_id = :user_id
-                     WHERE a.object_key = :key AND a.workspace_id = :ws
+                     -- A thumbnail is the same attachment and answers to the same rule:
+                     -- one row, either of its two keys.
+                     WHERE (a.object_key = :key OR a.thumb_key = :key)
+                       AND a.workspace_id = :ws
                     """
                 ),
                 {"key": key, "user_id": user.id, "ws": user.workspace_id},
@@ -186,6 +246,9 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
             return _redirect(presign_download(key, mime="image/png"))
 
     assert file is not None  # allowed implies a row
+    if file.thumb_key == key:
+        # Inline, and its own type: the thumbnail is a WebP whatever the original was.
+        return _redirect(presign_download(key, mime=images.THUMB_MIME))
     return _redirect(presign_download(key, filename=file.filename, mime=file.mime))
 
 

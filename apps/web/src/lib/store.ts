@@ -10,6 +10,7 @@
 import { create, type StateCreator } from "zustand";
 import type {
   AgentRunView,
+  Attachment,
   Bootstrap,
   ChannelWithState,
   CommandSpec,
@@ -120,6 +121,9 @@ interface State {
   unreadMarkers: Record<string, string | null>;
   /** Bumped on member.joined/left so member-list caches know to refetch. */
   membershipVersion: Record<string, number>;
+  /** The image being looked at full size, or null. Held here so the shell renders it
+   *  once rather than every message row rendering a dialog it might need. */
+  lightbox: Attachment | null;
   /** Which Catch Me Up is open — one channel, everything, or neither. Lives in the
    * store so the palette (rendered anywhere) can open a panel the shell renders. */
   catchupScope: "channel" | "all" | null;
@@ -277,6 +281,7 @@ export const useStore = create<State>((set, get) => ({
   activeThreadRootId: null,
   unreadMarkers: {},
   membershipVersion: {},
+  lightbox: null,
   agentRuns: {},
   catchupScope: null,
   terminalTarget: null,

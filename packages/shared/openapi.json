@@ -14340,7 +14340,7 @@
     },
     "/api/uploads/{attachment_id}/complete": {
       "post": {
-        "description": "Step 2: tell us the upload finished (and, for images, how big it is).",
+        "description": "Step 2: tell us the upload finished (and, for images, how big it is).\n\nThis is also where an image gets its thumbnail. Here rather than in the worker\nbecause an attachment is completed *before* the message that carries it is sent, so\nby the time anybody can see the image its small copy already exists \u2014 no second\nbroadcast, no row that is briefly wrong. The cost is that this request waits on a\ndownload, a resize and an upload; the browser has just finished uploading the\noriginal, so it is a fraction of what the person already waited for, and a failure\nanywhere in it leaves an attachment that works and simply has no thumbnail.",
         "operationId": "complete_upload_api_uploads__attachment_id__complete_post",
         "parameters": [
           {
