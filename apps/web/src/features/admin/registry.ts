@@ -97,6 +97,12 @@ export const WORKSPACE_NAV: NavGroup<WorkspaceSection>[] = [
         description: 'Agents that run on your machine, answer only you, and go where you put them.',
         keywords: ['agent', 'personal agent', 'bridge', 'token', 'connect', 'desktop', 'laptop'],
       },
+      {
+        id: 'assistants',
+        label: 'Assistants',
+        description: 'Let an assistant you already use read this workspace as you, and post if you say so.',
+        keywords: ['mcp', 'claude', 'claude code', 'assistant', 'model context protocol', 'token', 'connect', 'chatgpt', 'cursor', 'editor'],
+      },
     ],
   },
   {

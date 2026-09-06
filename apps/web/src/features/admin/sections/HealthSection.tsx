@@ -96,6 +96,32 @@ export function HealthSection({
               : 'Nobody can be notified while their tab is closed. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY.'
           }
         />
+        {/* The third silent failure, and the one that fooled everybody: uploads never
+            touch this server. The browser PUTs straight to the bucket, so storage the
+            app can reach and a browser cannot is every attachment failing in a console
+            message nobody reads. */}
+        <Stat
+          label="File uploads"
+          value={
+            health.storage === 'ok'
+              ? 'Working'
+              : health.storage === 'unconfigured'
+                ? 'No address'
+                : health.storage === 'private'
+                  ? 'Not public'
+                  : 'Unreachable'
+          }
+          bad={health.storage !== 'ok'}
+          hint={
+            health.storage === 'ok'
+              ? undefined
+              : health.storage === 'unconfigured'
+                ? 'Nothing can be uploaded: S3_PUBLIC_ENDPOINT names no host, so there is nothing to sign an upload against.'
+                : health.storage === 'private'
+                  ? 'Object storage is only reachable from inside this network. Set S3_PUBLIC_ENDPOINT to a hostname a browser can resolve.'
+                  : 'Object storage does not answer at S3_PUBLIC_ENDPOINT. Check that the hostname points here and that the proxy forwards it to the bucket’s own port.'
+          }
+        />
         <Stat label="Queue depth" value={String(health.queueDepth)} />
         <Stat label="Live sockets" value={String(health.connections)} />
         <Stat label="People online" value={String(health.usersOnline)} />

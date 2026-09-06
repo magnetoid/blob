@@ -100,6 +100,15 @@ export type WorkspacePolicyInput = Pick<
 > & { maxApps: number | null };
 
 /** An agent that belongs to the signed-in member. */
+export interface AssistantToken {
+  id: string;
+  name: string;
+  /** Always contains "read"; "write" is the second, separate decision. */
+  scopes: string[];
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
 export interface MyAgent {
   id: string;
   slug: string;
@@ -216,6 +225,9 @@ export interface AdminHealth {
   mail: string;
   /** Whether push keys are set. Without them a closed tab is told nothing. */
   push: boolean;
+  /** "ok" | "unconfigured" | "private" | "unreachable" — whether a browser can reach
+   *  object storage, which is what an upload actually needs. */
+  storage: string;
   queueDepth: number;
   connections: number;
   usersOnline: number;
@@ -747,6 +759,19 @@ export const api = {
       post<{ ok: true }>(`/api/agents/mine/${agentId}/channels/${channelId}`),
     leaveChannel: (agentId: string, channelId: string) =>
       del<{ ok: true }>(`/api/agents/mine/${agentId}/channels/${channelId}`),
+  },
+
+  /** Connections an assistant uses to reach this workspace as you (ADR 0016). */
+  assistants: {
+    list: () =>
+      get<{ tokens: AssistantToken[]; url: string }>("/api/me/mcp-tokens"),
+    create: (name: string, canWrite: boolean) =>
+      post<{ token: AssistantToken; secret: string; url: string }>(
+        "/api/me/mcp-tokens",
+        { name, canWrite },
+      ),
+    revoke: (tokenId: string) =>
+      del<{ ok: true }>(`/api/me/mcp-tokens/${tokenId}`),
   },
 
   agentic: {

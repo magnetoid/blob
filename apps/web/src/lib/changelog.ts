@@ -34,9 +34,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    // One date, one release: everything that went out on the 6th is this entry, which is
+    // what "newer than the last time I looked" means to somebody reading it.
     date: '2026-09-06',
-    title: 'Summaries you can check, and questions that come back',
+    title: 'Your own assistant can read this workspace',
     entries: [
+      {
+        kind: 'added',
+        text: 'Connect the assistant you already use — Claude Code in a terminal, Claude on the web, your editor — and ask it about this workspace directly: “what did I miss in #ops?”, “find the thread about the deploy”. Settings → Assistants mints a token and shows the single command to paste. It connects as you, so it sees the channels you see and nothing else, and a private channel you are not in stays invisible to it.',
+      },
+      {
+        kind: 'added',
+        text: 'An assistant can post too, if you tick the box when you connect it. That is off by default and deliberately a separate decision: a message it sends appears under your name, and everybody will read it as you writing it.',
+      },
+      {
+        kind: 'added',
+        text: 'Push notifications now work when a server has keys configured. Turn them on under Notifications; Health says whether the server can reach anybody at all.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Health says whether files can actually be uploaded. A file never touches this server — the browser sends it straight to object storage — so a storage address the server can reach and a browser cannot means every upload fails, including profile photos, with nothing anywhere saying why. Health now checks the address a browser would use and names what is wrong with it, and the server says so in its log at start-up.',
+      },
       {
         kind: 'fixed',
         text: 'The server now says whether it can reach anybody. Email and push both fail quietly on purpose — a dead mail server must not fail the invitation you just created — but quietly had become invisibly: an invitation to an address that was never emailed looked exactly like one that was, and “check your email” appeared on the password screen of a server that cannot send email. Invitations now say whether the email went, the reset screen says when nothing was sent, and Health shows both paths with what to set if they are off.',

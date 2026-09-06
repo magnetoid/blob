@@ -839,6 +839,19 @@ export const SECTIONS: Section[] = [
         keywords: ['schedule', 'recurring', 'daily', 'standup', 'digest', 'cron', 'every morning', 'proactive'],
       },
       {
+        id: 'connect-your-assistant',
+        title: 'Reading Blob from your own assistant',
+        blurb:
+          'Give Claude Code, Claude on the web or your editor a token, and it can read the channels you can read — and post as you if you let it.',
+        body: [
+          'This is the other direction from an agent in a channel. Here the assistant stays where it is and reaches into Blob: ask it “what did I miss in #ops?” or “find the thread about the deploy” and it looks for itself, in the app you were already in.',
+          'It connects as you, not as a bot with its own membership. Whatever you can see it can see, a private channel you are not in stays invisible to it, and the moment you leave a channel it loses that channel too. Posting is a separate tick when you make the connection, and is off unless you turn it on — a message it sends looks exactly like one you typed, because as far as everybody else is concerned, it is.',
+          'Settings → Assistants mints the token and shows the one command to paste. The token is shown once; revoke it there whenever you like, and the connection stops at once.',
+        ],
+        path: '/workspace/assistants',
+        keywords: ['mcp', 'claude', 'claude code', 'assistant', 'model context protocol', 'token', 'connect', 'editor', 'cursor', 'chatgpt'],
+      },
+      {
         id: 'watching-a-run',
         title: 'Watching it work',
         blurb:

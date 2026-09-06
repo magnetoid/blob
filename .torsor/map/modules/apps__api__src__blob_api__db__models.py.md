@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T13:47:06'
-updated: '2026-09-06T13:47:06'
+created: '2026-09-06T18:21:59'
+updated: '2026-09-06T18:21:59'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -55,3 +55,4 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L1344 `BotToken` (class)
 - L1358 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
 - L1390 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
+- L1429 `McpToken` (class) — A person's own assistant, holding their permissions from outside the browser.

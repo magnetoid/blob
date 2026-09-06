@@ -18,7 +18,7 @@ from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
-from ..lib import mail
+from ..lib import mail, storage
 from ..lib.auth import (
     SessionUser,
     hash_token,
@@ -125,6 +125,10 @@ class HealthOut(CamelModel):
     #: Whether VAPID keys are set. Without them nobody can be told anything while their
     #: tab is closed.
     push: bool
+    #: "ok" | "unconfigured" | "private" | "unreachable". Whether a *browser* can reach
+    #: object storage, which is a different question from whether this process can —
+    #: uploads go straight from the browser to the bucket.
+    storage: str
     queue_depth: int
     connections: int
     users_online: int
@@ -844,6 +848,7 @@ async def health(admin: SessionUser = Depends(require_admin)) -> HealthOut:
         redis=redis_ok,
         mail=await mail.probe(),
         push=settings.push_enabled,
+        storage=await storage.probe(),
         queue_depth=queue_depth,
         connections=stats["connections"],
         users_online=stats["users"],

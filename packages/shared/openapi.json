@@ -2164,6 +2164,26 @@
         "title": "CreateInviteInput",
         "type": "object"
       },
+      "CreateTokenInput": {
+        "properties": {
+          "canWrite": {
+            "default": false,
+            "title": "Canwrite",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateTokenInput",
+        "type": "object"
+      },
       "CreateWebhookInput": {
         "properties": {
           "channelId": {
@@ -2195,6 +2215,28 @@
           "name"
         ],
         "title": "CreateWorkspaceInput",
+        "type": "object"
+      },
+      "CreatedTokenOut": {
+        "properties": {
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          },
+          "token": {
+            "$ref": "#/components/schemas/TokenSummary"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "secret",
+          "url"
+        ],
+        "title": "CreatedTokenOut",
         "type": "object"
       },
       "CreatedWorkspaceOut": {
@@ -3028,6 +3070,10 @@
             "title": "Redis",
             "type": "boolean"
           },
+          "storage": {
+            "title": "Storage",
+            "type": "string"
+          },
           "storageBytes": {
             "title": "Storagebytes",
             "type": "integer"
@@ -3046,6 +3092,7 @@
           "redis",
           "mail",
           "push",
+          "storage",
           "queueDepth",
           "connections",
           "usersOnline",
@@ -6169,6 +6216,69 @@
           "botToken"
         ],
         "title": "TokenOut",
+        "type": "object"
+      },
+      "TokenSummary": {
+        "properties": {
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastusedat"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scopes",
+          "createdAt"
+        ],
+        "title": "TokenSummary",
+        "type": "object"
+      },
+      "TokensOut": {
+        "properties": {
+          "tokens": {
+            "items": {
+              "$ref": "#/components/schemas/TokenSummary"
+            },
+            "title": "Tokens",
+            "type": "array"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tokens",
+          "url"
+        ],
+        "title": "TokensOut",
         "type": "object"
       },
       "TranslateMessageInput": {
@@ -12959,6 +13069,61 @@
         ]
       }
     },
+    "/api/mcp": {
+      "delete": {
+        "description": "The GET stream and DELETE session of the older transport, which we do not host.\n\n`405` rather than `404` is what tells a client the endpoint exists and this verb does\nnot, which is the difference between falling back and giving up.",
+        "operationId": "mcp_not_allowed_api_mcp_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mcp Not Allowed",
+        "tags": [
+          "mcp"
+        ]
+      },
+      "get": {
+        "description": "The GET stream and DELETE session of the older transport, which we do not host.\n\n`405` rather than `404` is what tells a client the endpoint exists and this verb does\nnot, which is the difference between falling back and giving up.",
+        "operationId": "mcp_not_allowed_api_mcp_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mcp Not Allowed",
+        "tags": [
+          "mcp"
+        ]
+      },
+      "post": {
+        "operationId": "mcp_endpoint_api_mcp_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mcp Endpoint",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
     "/api/me": {
       "patch": {
         "operationId": "update_me_api_me_patch",
@@ -12997,6 +13162,113 @@
         "summary": "Update Me",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/api/me/mcp-tokens": {
+      "get": {
+        "operationId": "list_tokens_api_me_mcp_tokens_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokensOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Tokens",
+        "tags": [
+          "mcp"
+        ]
+      },
+      "post": {
+        "operationId": "create_token_api_me_mcp_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTokenInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTokenOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Token",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/me/mcp-tokens/{token_id}": {
+      "delete": {
+        "operationId": "revoke_token_api_me_mcp_tokens__token_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Token Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Revoke Token Api Me Mcp Tokens  Token Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Token",
+        "tags": [
+          "mcp"
         ]
       }
     },

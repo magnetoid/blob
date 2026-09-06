@@ -190,6 +190,14 @@ grant scopes explicitly, and both end up as a real member of the workspace.
   fifth value, `local`, is reserved and not implemented.) [AG-UI](https://ag-ui.com) is
   orthogonal to all of them — declare `aguiUrl` or `aguiPath` and Blob speaks it as the
   client, which is the direction every agent framework already ships.
+- **Your assistant reads Blob** — Blob is an [MCP](https://modelcontextprotocol.io) server.
+  Under *Settings → Assistants* a member mints a token and pastes one command; Claude Code,
+  Claude on the web or an editor then reads the workspace **as them** — same channels, same
+  private conversations, nothing more — with seven tools (`whoami`, `list_channels`,
+  `read_channel`, `read_thread`, `search_messages`, `list_people`, `post_message`). Posting
+  is a separate tick and off by default. One stateless endpoint at `POST /api/mcp`, speaking
+  both the `initialize` handshake of `2025-06-18`/`2025-11-25` and the per-request metadata
+  of `2026-07-28`. ADR 0016, migration 0031.
 - **Tasks** — shared human/agent work items, extracted from a thread or created directly.
 - **Thread summaries** — decisions, open questions and action items pulled out of a long
   thread, each pointing at the message it came from. With `LLM_PROVIDER` set a model
@@ -238,8 +246,6 @@ afternoon:
 
 - **Huddles** — the button exists in the channel header and is disabled.
 - **Canvases and workflows** — not started.
-- **An Activity inbox** — nothing collects your mentions on one screen; stepping through
-  unread with the keyboard is what Blob has instead.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
 - **SSO, SAML, OIDC and 2FA** — email and password is the only way in.
 - Console rows marked **Soon** — Moderation, Deliveries, Approvals, Storage, Import/export.

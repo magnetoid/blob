@@ -51,6 +51,7 @@ export const WORKSPACE_SECTIONS = [
   'preferences',
   'notifications',
   'my-agents',
+  'assistants',
   // The workspace's. Admin-only, enforced in `WorkspaceConsole` rather than here: a
   // route that exists for one person and 404s for another is a route that leaks who is
   // an admin.
@@ -77,6 +78,7 @@ export const PERSONAL_SECTIONS: readonly WorkspaceSection[] = [
   'preferences',
   'notifications',
   'my-agents',
+  'assistants',
 ];
 
 export function isPersonalSection(section: WorkspaceSection): boolean {

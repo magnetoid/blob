@@ -18,6 +18,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .config import settings
 from .db.engine import SessionFactory, close_engine
+from .lib import storage
 from .lib.auth import SESSION_COOKIE, resolve_session
 from .lib.errors import AppError
 from .lib.logbuf import close_log_buffer, install_log_capture
@@ -40,6 +41,13 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("POST", "/api/auth/logout"),
     ("POST", "/api/auth/forgot-password"),
     ("POST", "/api/auth/reset-password"),
+    # The MCP endpoint authenticates with its own bearer token, the way `/api/v1/` does.
+    # Listed as exact routes rather than as a prefix on purpose: `PUBLIC_PREFIXES` is a
+    # `startswith` test, so a `/api/mcp` prefix would also open anything that merely
+    # begins with those characters — and the routes next door mint credentials.
+    ("POST", "/api/mcp"),
+    ("GET", "/api/mcp"),
+    ("DELETE", "/api/mcp"),
 }
 
 #: Prefixes whose whole subtree is public (invite previews, incoming webhooks).
@@ -130,6 +138,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             log.info("seeded the built-in agent into %d workspace(s)", seeded)
     except Exception:
         log.exception("could not reconcile built-in agents")
+
+    # Said once, at boot, where an operator reading a bad deploy will see it. Uploads go
+    # straight from the browser to the bucket, so a storage endpoint this process can
+    # reach and a browser cannot is a workspace where every attachment silently fails —
+    # and nothing else in the app is in a position to notice.
+    try:
+        reach = await storage.probe()
+        if reach != "ok":
+            log.warning(
+                "object storage is %s at %s — uploads from a browser will fail. "
+                "Set S3_PUBLIC_ENDPOINT to a hostname the browser can reach, on the port "
+                "the proxy forwards to the bucket.",
+                reach,
+                settings.s3_public_endpoint,
+            )
+    except Exception:
+        log.exception("could not check object storage")
     yield
     await hub.stop_redis_bridge()
     await close_log_buffer()
@@ -236,6 +261,8 @@ def create_app() -> FastAPI:
     from .routers.groups import member_router as group_member_router
     from .routers.groups import router as group_router
     from .routers.interactions import router as interaction_router
+    from .routers.mcp import router as mcp_router
+    from .routers.mcp import tokens_router as mcp_tokens_router
     from .routers.messages import router as message_router
     from .routers.my_agents import router as my_agents_router
     from .routers.plugin_hosting import router as plugin_hosting_router
@@ -254,6 +281,8 @@ def create_app() -> FastAPI:
     app.include_router(command_router)
     app.include_router(agentic_router)
     app.include_router(search_router)
+    app.include_router(mcp_router)
+    app.include_router(mcp_tokens_router)
     app.include_router(file_router)
     app.include_router(feedback_router)
     app.include_router(interaction_router)

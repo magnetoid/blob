@@ -1426,6 +1426,44 @@ class FeedbackTicket(Base):
     )
 
 
+class McpToken(Base):
+    """A person's own assistant, holding their permissions from outside the browser.
+
+    Not a bot: the token resolves to a `users` row, so every tool call runs the same
+    channel check a browser tab runs and there is no second answer to "what can it see?".
+    """
+
+    __tablename__ = "mcp_tokens"
+    __table_args__ = (
+        CheckConstraint(
+            "scopes <@ ARRAY['read', 'write']::text[] AND 'read' = ANY(scopes)",
+            name="mcp_tokens_scopes_check",
+        ),
+        Index(
+            "mcp_tokens_owner",
+            "user_id",
+            text("created_at DESC"),
+            postgresql_where=text("revoked_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    scopes: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{read}'::text[]")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    last_used_at: Mapped[Any | None] = mapped_column(Timestamp)
+    revoked_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
 __all__ = [
     "AgentTask",
     "Attachment",

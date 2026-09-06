@@ -55,6 +55,11 @@ LIMITS: dict[str, Limit] = {
     # Registering an agent mints credentials and a bot user. Nobody needs more than a
     # handful an hour, and a loop that does would fill the workspace with bots.
     "agent_attach": Limit(5, 3600),
+    # An assistant reads far faster than a person and can loop. Generous enough that
+    # working through a channel's history never trips it, and keyed by the *person*, so
+    # minting a second connection does not buy a second allowance. A write still spends
+    # `send_message` on top of this.
+    "mcp_tool": Limit(120, 60),
 }
 
 

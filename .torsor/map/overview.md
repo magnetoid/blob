@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T13:47:05'
-updated: '2026-09-06T13:47:05'
+created: '2026-09-06T18:21:58'
+updated: '2026-09-06T18:21:58'
 ---
 
 # Repository Map
@@ -133,7 +133,10 @@ Modules and their key symbols (ranked by references).
   - `_rebuild(expression: str)` (function)
   - `upgrade()` (function)
   - `downgrade()` (function)
-- **apps/api/src/blob_api/db/models.py** — 43 symbol(s)
+- **apps/api/src/blob_api/db/migrations/versions/0031_mcp_tokens.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/models.py** — 44 symbol(s)
   - `_now()` (function)
   - `Base` (class)
   - `Workspace` (class)
@@ -174,7 +177,4 @@ Modules and their key symbols (ranked by references).
   - `sweep_agent_runs(_ctx: dict[str, Any])` (function)
   - `sweep_orphans(_ctx: dict[str, Any])` (function)
   - `deliver_plugin_events(_ctx: dict[str, Any])` (function)
-  - `notify(_ctx: dict[str, Any], message_id: str)` (function)
-- **apps/api/src/blob_api/lib/auth.py** — 15 symbol(s)
-  - `SessionUser` (class)
-  - `current_user(request: Request)` (functio…[truncated]
+  - `notify(_ctx: dict[str, Any], message_id: str…[truncated]

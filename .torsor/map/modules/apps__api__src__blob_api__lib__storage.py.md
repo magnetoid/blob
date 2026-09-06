@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T13:47:06'
-updated: '2026-09-06T13:47:06'
+created: '2026-09-06T18:21:59'
+updated: '2026-09-06T18:21:59'
 ---
 
 # apps/api/src/blob_api/lib/storage.py
@@ -24,3 +24,4 @@ Symbols in `apps/api/src/blob_api/lib/storage.py`.
 - L145 `delete_object(key: str)` (function)
 - L149 `get_object(key: str)` (function) — Read an object through the app rather than redirecting the browser to it.
 - L160 `put_object(key: str, body: bytes, mime: str)` (function)
+- L170 `probe()` (function) — Whether *a browser* could reach object storage — not whether this process can.

@@ -15,7 +15,7 @@ from sqlalchemy import text
 
 from blob_api.config import settings
 from blob_api.db.engine import SessionFactory
-from blob_api.lib import mail, webpush
+from blob_api.lib import mail, storage, webpush
 
 from .helpers import Client, invite_and_sign_up, sign_up
 
@@ -238,3 +238,82 @@ class TestTheAdminCanUnlockSomebody:
             )
         refused = await team["owner"].post(f"/api/admin/users/{team['member'].user_id}/reset-link")
         assert refused.status == 404
+
+
+class TestStorageSaysWhetherABrowserCanReachIt:
+    """The third silent path, and the one that fooled two live deployments at once.
+
+    Uploads never touch this server: the browser PUTs straight to the bucket. So every
+    check the app already had — "can I open a socket to MinIO?" — was answering a
+    different question from the one that matters, and answering it cheerfully while every
+    avatar and attachment failed.
+    """
+
+    async def test_no_host_to_sign_against_is_named_as_such(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Exactly what one instance had in production: a scheme and nothing after it.
+        monkeypatch.setattr(settings, "S3_PUBLIC_ENDPOINT", "https://")
+        assert await storage.probe() == "unconfigured"
+
+    async def test_a_name_only_this_network_knows_is_not_public(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "S3_PUBLIC_ENDPOINT", "http://minio:9000")
+        monkeypatch.setattr(settings, "NODE_ENV", "production")
+        assert await storage.probe() == "private"
+
+        # The same shape is correct in development, and must not be reported as broken.
+        monkeypatch.setattr(settings, "NODE_ENV", "test")
+        monkeypatch.setattr(settings, "S3_PUBLIC_ENDPOINT", "http://localhost:1")
+        assert await storage.probe() == "unreachable"
+
+    async def test_a_proxy_that_cannot_reach_the_bucket_is_unreachable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A 502 is what a bucket published on the wrong container port looks like."""
+
+        class Answer:
+            status_code = 502
+
+        class FakeClient:
+            async def __aenter__(self) -> FakeClient:
+                return self
+
+            async def __aexit__(self, *_exc: object) -> None:
+                return None
+
+            async def get(self, _url: str) -> Answer:
+                return Answer()
+
+        monkeypatch.setattr(settings, "S3_PUBLIC_ENDPOINT", "https://files.example.com")
+        monkeypatch.setattr("httpx.AsyncClient", lambda **_kwargs: FakeClient())
+        assert await storage.probe() == "unreachable"
+
+    async def test_a_bucket_that_refuses_anonymous_reads_is_still_reachable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class Answer:
+            status_code = 403
+
+        class FakeClient:
+            async def __aenter__(self) -> FakeClient:
+                return self
+
+            async def __aexit__(self, *_exc: object) -> None:
+                return None
+
+            async def get(self, _url: str) -> Answer:
+                return Answer()
+
+        monkeypatch.setattr(settings, "S3_PUBLIC_ENDPOINT", "https://files.example.com")
+        monkeypatch.setattr("httpx.AsyncClient", lambda **_kwargs: FakeClient())
+        assert await storage.probe() == "ok"
+
+    async def test_health_reports_it(
+        self, team: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "S3_PUBLIC_ENDPOINT", "https://")
+        health = await team["owner"].get("/api/admin/health")
+        assert health.status == 200, health.body
+        assert health.body["storage"] == "unconfigured"

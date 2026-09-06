@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T13:47:09'
-updated: '2026-09-06T13:47:09'
+created: '2026-09-06T18:22:00'
+updated: '2026-09-06T18:22:00'
 ---
 
 # apps/api/tests/test_notifications_reach.py
@@ -35,3 +35,9 @@ Symbols in `apps/api/tests/test_notifications_reach.py`.
 - L221 `test_a_member_cannot_mint_one(self, team: dict[str, Any])` (method)
 - L225 `test_somebody_who_is_not_here_is_a_404(self, team: dict[str, Any])` (method)
 - L231 `test_a_deactivated_account_is_not_unlocked_this_way(self, team: dict[str, Any])` (method)
+- L243 `TestStorageSaysWhetherABrowserCanReachIt` (class) — The third silent path, and the one that fooled two live deployments at once.
+- L252 `test_no_host_to_sign_against_is_named_as_such(self, monkeypatch: pytest.MonkeyPatch)` (method)
+- L259 `test_a_name_only_this_network_knows_is_not_public(self, monkeypatch: pytest.MonkeyPatch)` (method)
+- L271 `test_a_proxy_that_cannot_reach_the_bucket_is_unreachable(self, monkeypatch: pytest.MonkeyPatch)` (method) — A 502 is what a bucket published on the wrong container port looks like.
+- L293 `test_a_bucket_that_refuses_anonymous_reads_is_still_reachable(self, monkeypatch: pytest.MonkeyPatch)` (method)
+- L313 `test_health_reports_it(self, team: dict[str, Any], monkeypatch: pytest.MonkeyPatch)` (method)

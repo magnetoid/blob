@@ -1069,3 +1069,37 @@ VAPID keys must be set on **both** the app and the worker: the API serves the pu
 and the test button, but the worker does the real fan-out. `docker-compose.prod.yml` sets
 them twice for that reason.
 
+
+## Traps from the MCP endpoint (2026-09-06, ADR 0016)
+
+* **`PUBLIC_ROUTES` is exact; `PUBLIC_PREFIXES` is `startswith`.** `/api/mcp` authenticates
+  with its own bearer token and so has to bypass the cookie check — but adding it to
+  `PUBLIC_PREFIXES` would have opened every path *beginning* with those characters, and
+  the ones next door mint credentials. It is three exact `(method, path)` entries instead.
+  Anything under `/api/mcp…` added later needs the same thought.
+* **`messages.history()` already answers oldest-first.** Its last act is
+  `sorted(..., key=lambda m: m.id)`, whichever direction it paged in. Reversing the list
+  on the way out — which looks right, because the SQL says `ORDER BY m.id DESC` — reads a
+  channel backwards, and a transcript read backwards still looks like a transcript.
+* **`messages.thread()` returns the root *and* the replies.** Fetching the root separately
+  and prepending it prints the first message twice.
+* **`users` has no `handle` column.** Mentions resolve against `lower(display_name)`
+  (`users_display_name_uniq`, partial on `deactivated_at IS NULL`); `handle` belongs to
+  `user_groups` and `workspace_handles`. Anything telling a model how to @ somebody has to
+  say the display name.
+* **The modern MCP revision's mirrored headers have to be *checked*, not merely accepted.**
+  `Mcp-Method` and `Mcp-Name` exist so a proxy routing on the header and a server executing
+  the body cannot disagree; a server that reads the body and ignores the headers makes the
+  guarantee worthless. `routers/mcp.py` compares them — after decoding the `=?base64?…?=`
+  sentinel — and answers `-32020` on a mismatch.
+* **`from:` has to resolve the same way in both places.** `routers/search.py` accepts an
+  exact display name or a prefix that names exactly one person; `services/mcp.py` repeats
+  that rule rather than inventing an easier one, because the same query typed in the app
+  and at an assistant must not mean two different things. The one deliberate difference is
+  the answer to an unresolved name: the app narrows to nothing and says so in `parsed`,
+  while the tool raises — an assistant reading an empty result cannot tell a misspelled
+  name from a quiet workspace.
+* **A tool that says no is not a broken connection.** MCP separates protocol errors from
+  tool errors: a missing channel, a spent rate limit or a read-only token is
+  `result.isError`, and a JSON-RPC `error` there has the client treat the *server* as
+  faulty. Only genuinely malformed requests get JSON-RPC errors.

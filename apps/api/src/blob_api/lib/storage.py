@@ -161,3 +161,55 @@ async def put_object(key: str, body: bytes, mime: str) -> None:
     await asyncio.to_thread(
         _client().put_object, Bucket=settings.S3_BUCKET, Key=key, Body=body, ContentType=mime
     )
+
+
+#: Long enough for a proxy hop, short enough that the health page never hangs on it.
+PROBE_TIMEOUT_SEC = 3.0
+
+
+async def probe() -> str:
+    """Whether *a browser* could reach object storage — not whether this process can.
+
+    The distinction is the whole point, and it is the failure this exists for. Uploads are
+    a presigned PUT straight from the browser to the bucket, so the signing endpoint has to
+    be a name the browser can resolve and a port the proxy actually forwards. The app talks
+    to MinIO over the compose network and is perfectly happy while both of those are wrong.
+
+    Two real deployments were broken this way at once and nothing anywhere said so:
+    one had a bucket hostname routed to the wrong container port and answered 502; the
+    other had `S3_PUBLIC_ENDPOINT` set to the bare string `https://`, which signs URLs
+    against no host at all *and* silently drops the storage origin from the CSP, so the
+    browser blocked the request before it was even made. In both, every upload failed with
+    a console message nobody reads, and the app's own health page said storage was fine.
+
+    Returns `"ok"`, `"unconfigured"` (no host to sign against), `"private"` (a name only
+    this network can resolve — correct in dev, fatal in production) or `"unreachable"`.
+    """
+    from urllib.parse import urlparse
+
+    endpoint = settings.s3_public_endpoint
+    parsed = urlparse(endpoint)
+    if not parsed.hostname:
+        return "unconfigured"
+
+    # A container name has no dot. In dev that is `localhost` and fine; in production it
+    # is `minio`, which resolves for this process and for nobody holding a browser.
+    if settings.is_prod and "." not in parsed.hostname and parsed.hostname != "localhost":
+        return "private"
+
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=PROBE_TIMEOUT_SEC, follow_redirects=False) as http:
+            response = await http.get(endpoint.rstrip("/") + "/minio/health/live")
+    except Exception:
+        # A closed port, a name that does not resolve, a certificate nobody signed. Any
+        # of them is an upload the browser cannot make.
+        return "unreachable"
+
+    # 502/503/504 is a proxy that knows the name and cannot reach what is behind it —
+    # which is exactly a bucket published on the wrong container port. Anything else,
+    # including a 403 from a bucket that refuses anonymous reads, proves the path works.
+    if response.status_code in (502, 503, 504):
+        return "unreachable"
+    return "ok"
