@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T04:17:08'
-updated: '2026-09-06T04:17:08'
+created: '2026-09-06T05:53:39'
+updated: '2026-09-06T05:53:39'
 ---
 
 # apps/api/src/blob_api/plugins/events.py

@@ -17,6 +17,7 @@ import {
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadsView } from '../features/messages/ThreadsView.tsx';
+import { ActivityView } from '../features/messages/ActivityView.tsx';
 import { TasksView } from '../features/agentic/TasksView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
@@ -228,6 +229,10 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           event.preventDefault();
           navigate('/search');
           return;
+        case 'activity':
+          event.preventDefault();
+          navigate('/activity');
+          return;
         case 'threads':
           event.preventDefault();
           navigate('/threads');
@@ -399,6 +404,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       )}
       {(view === 'messages' || view === 'channel') && <ChannelView />}
       {view === 'threads' && <ThreadsView />}
+      {view === 'activity' && <ActivityView />}
       {view === 'tasks' && <TasksView />}
       {view === 'saved' && <SavedView />}
       {view === 'browse' && <BrowseChannels />}

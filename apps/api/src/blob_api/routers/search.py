@@ -12,8 +12,9 @@ from ..db.engine import session_scope
 from ..lib.auth import SessionUser, current_user
 from ..lib.rate_limit import consume
 from ..realtime.protocol import MAX_REPLAY_PER_CHANNEL
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, require_iso
 from ..schemas.models import ChannelWithState, Message, ReadStateOut
+from ..services import activity as activity_service
 from ..services import channels as channel_service
 from ..services import read_state as read_state_service
 from ..services.search import SORTS, SearchCursor, parse_query, search
@@ -38,6 +39,22 @@ class SearchOut(CamelModel):
     #: Which ordering answered — echoed so the client can show what it got.
     sort: str = "relevance"
     #: Pass back as `cursor` for the next page. Null when this page is the last one.
+    next_cursor: str | None = None
+
+
+class ActivityItemOut(CamelModel):
+    #: "mention" or "reaction".
+    kind: str
+    at: str
+    #: Who did it: who named you, or who reacted.
+    actor_id: str | None = None
+    #: The emoji, on a reaction.
+    emoji: str | None = None
+    message: Message
+
+
+class ActivityOut(CamelModel):
+    items: list[ActivityItemOut]
     next_cursor: str | None = None
 
 
@@ -156,6 +173,38 @@ async def search_messages(
         total=total,
         parsed=parsed_payload,
         sort=sort,
+        next_cursor=next_cursor.encode() if next_cursor else None,
+    )
+
+
+@router.get("/api/activity", response_model=ActivityOut)
+async def activity(
+    kind: Annotated[str, Query(pattern="^(all|mention|reaction)$")] = "all",
+    limit: Annotated[int, Query(ge=1, le=50)] = 30,
+    cursor: Annotated[str | None, Query(max_length=120)] = None,
+    user: SessionUser = Depends(current_user),
+) -> ActivityOut:
+    """Mentions of you and reactions to what you wrote, newest first."""
+    async with session_scope() as session:
+        items, next_cursor = await activity_service.feed(
+            session,
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            kind=kind,
+            limit=limit,
+            cursor=activity_service.ActivityCursor.decode(cursor) if cursor else None,
+        )
+    return ActivityOut(
+        items=[
+            ActivityItemOut(
+                kind=item.kind,
+                at=require_iso(item.at),
+                actor_id=item.actor_id,
+                emoji=item.emoji,
+                message=item.message,
+            )
+            for item in items
+        ],
         next_cursor=next_cursor.encode() if next_cursor else None,
     )
 

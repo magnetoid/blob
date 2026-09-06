@@ -74,6 +74,16 @@ export const SHORTCUTS: readonly Shortcut[] = [
     whileTyping: true,
   },
   {
+    id: 'activity',
+    label: 'Mentions and reactions',
+    group: 'Navigation',
+    // Slack's chord for the Activity tab, unchanged.
+    key: 'a',
+    meta: true,
+    shift: true,
+    whileTyping: true,
+  },
+  {
     id: 'threads',
     label: 'Threads you are in',
     group: 'Navigation',

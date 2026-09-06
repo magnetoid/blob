@@ -123,10 +123,15 @@ grant scopes explicitly, and both end up as a real member of the workspace.
 
 ### Finding things
 
+- **Activity** — everybody who mentioned you and everybody who reacted to something you
+  wrote, newest first, filtered by either. Only what you can still read: leaving a channel
+  takes its mentions with it, and muting one keeps the direct mentions while dropping the
+  `@channel` ones.
 - **Search** — Postgres full-text across every conversation you are in, with `from:`,
-  `in:`, `has:link`, `has:file`, `before:` and `after:`. A bad *value* — `has:files`,
-  `before:yesterday` — is refused rather than silently dropped; an unrecognised modifier
-  *name* is treated as words to search for.
+  `in:`, `has:link`, `has:file`, `before:` and `after:`, ranked by relevance or answered
+  in time order. Accents fold on both sides, so `sta` finds `šta`. A bad *value* —
+  `has:files`, `before:yesterday` — is refused rather than silently dropped; an
+  unrecognised modifier *name* is treated as words to search for.
 - **⌘K** — jump to a channel, a person or an action. ⌘⇧K is the same picker with only
   people in it.
 - **Keyboard** — ⌥↑/⌥↓ walk the sidebar, ⌥⇧↑/⌥⇧↓ and ⌘⇧J step through unread, ⇧Esc marks

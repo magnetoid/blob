@@ -11,6 +11,13 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "a7e2da802c9a9790678ef65eef6b26dd8433495b",
+    "shortSha": "a7e2da8",
+    "subject": "A channel frame stops carrying your place in the channel; search learns time order",
+    "date": "2026-09-06T04:41:39+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "47cac0bf47cb3038ccacf9c5077eb768c64b0acf",
     "shortSha": "47cac0b",
     "subject": "Summaries a model writes and you can check; questions that come back to whoever asked",
@@ -421,13 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "5debce9",
     "subject": "Make a pinned message land where the search results now do",
     "date": "2026-09-01T15:51:12+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "4367ad370bdb8f075eda4de73c8c64264608c842",
-    "shortSha": "4367ad3",
-    "subject": "Make a search result, a permalink and a saved item land on the message",
-    "date": "2026-09-01T15:06:03+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

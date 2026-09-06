@@ -10,14 +10,7 @@ import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
 import { directMessages, joinedChannels } from '../../lib/conversations.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
-import {
-  ClockIcon,
-  FileIcon,
-  PinIcon,
-  PlusIcon,
-  ReplyIcon,
-  SearchIcon,
-} from '../../components/Icon.tsx';
+import { ClockIcon, FileIcon, MentionIcon, PinIcon, PlusIcon, ReplyIcon, SearchIcon } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 import { NewMessageDialog } from './NewMessageDialog.tsx';
 
@@ -76,6 +69,16 @@ export function Sidebar() {
         {/* Above the channel list, where Slack keeps it. `GET /api/threads` has been
             answering this question since the port; nothing asked it. */}
         <section className="sidebar-section">
+          <button
+            className="channel-row"
+            aria-current={activeView === 'activity'}
+            onClick={() => navigate('/activity')}
+          >
+            <span className="channel-hash" aria-hidden="true">
+              <MentionIcon size="sm" />
+            </span>
+            <span className="channel-name">Activity</span>
+          </button>
           <button
             className="channel-row"
             aria-current={activeView === 'threads'}

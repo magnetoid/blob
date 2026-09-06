@@ -29,6 +29,18 @@ import type {
   WorkArtifactKind,
 } from "@blob/shared";
 
+/** What Activity is narrowed to. */
+export type ActivityKind = "all" | "mention" | "reaction";
+
+/** One thing that happened to you: somebody named you, or reacted to what you wrote. */
+export interface ActivityItem {
+  kind: "mention" | "reaction";
+  at: string;
+  actorId: string | null;
+  emoji: string | null;
+  message: Message;
+}
+
 /** How search orders what it found. Slack's two: most relevant, or most recent. */
 export type SearchSort = "relevance" | "newest";
 
@@ -1020,6 +1032,14 @@ export const api = {
 
   interact: (input: { messageId: string; actionId: string; value: string }) =>
     post<{ ok: true }>("/api/interactions", input),
+
+  activity: {
+    list: (kind: ActivityKind = "all", cursor?: string) =>
+      get<{ items: ActivityItem[]; nextCursor: string | null }>(
+        `/api/activity?kind=${kind}` +
+          (cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""),
+      ),
+  },
 
   search: (q: string, cursor?: string, sort: SearchSort = "relevance") =>
     get<{

@@ -990,3 +990,22 @@ for recency. A cursor from one ordering sent with the other is refused with a 40
 than silently answering a different question — `SearchView` passes the sort back with
 the cursor for that reason.
 
+## Activity (`services/activity.py`): what the list may and may not contain
+
+Two sources in one `UNION ALL` — mentions of you, reactions to your messages — ordered by
+when they happened and keyset-paged on the **triple** `(at, message_id, actor_id)`. The
+triple is not decoration: two people reacting to the same message share `at` to the
+microsecond often enough, and a pair would drop one at a page boundary. The cursor is
+digits and tildes for the same class of reason: an ISO timestamp's `+00:00` decodes as a
+space in a query string, so the second page is a 400 that looks like a paging bug.
+
+Membership is the boundary and it lives in the statement, as in search — leaving a
+channel takes its activity with it. Muting is deliberately partial: a *direct* mention in
+a muted channel still appears (somebody addressed you), a `@channel` one does not (that is
+what muting asked for). If that rule changes, the help topic and `test_activity.py` say it
+out loud in three places.
+
+"New" is `localStorage['blob.activity.seen']`, written only after a page actually
+arrives. There is no server-side seen cursor and no badge — deliberately, for now: a
+badge means a count in bootstrap and a write on every visit, and the list is the value.
+

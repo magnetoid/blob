@@ -585,6 +585,20 @@ export const SECTIONS: Section[] = [
     intro: 'What reaches you, when, and how to get through what you missed.',
     topics: [
       {
+        id: 'activity',
+        title: 'Mentions and reactions',
+        blurb:
+          'Activity, at the top of the sidebar: everybody who named you and everybody who reacted to something you wrote, newest first.',
+        body: [
+          'A mention used to leave a number beside a channel and nothing you could open; a reaction to your message left nothing at all. Both are here now, with who did it and where, and clicking one takes you to the message.',
+          'Only what you can still read: a channel you have left takes its mentions with it, and a deleted message takes its own. Muting a channel keeps somebody naming you directly and drops the @channel ones, which is what muting is for.',
+          'Anything that arrived since your last visit is marked New. That mark is remembered in this browser alone — nobody is told when you look.',
+        ],
+        shortcuts: ['activity'],
+        path: '/activity',
+        keywords: ['activity', 'mentions', 'reactions', 'notifications', 'unread', 'at me'],
+      },
+      {
         id: 'unanswered-questions',
         title: 'Questions nobody answered',
         blurb:

@@ -39,6 +39,10 @@ export const RELEASES: readonly Release[] = [
     entries: [
       {
         kind: 'added',
+        text: 'Activity, at the top of the sidebar (⌘⇧A): everybody who mentioned you and everybody who reacted to something you wrote, newest first, with a filter for each. A mention used to leave a number beside a channel and nothing you could open, and a reaction to your message left no trace outside the message itself — so a ✅ on something you posted in a channel you had scrolled past was invisible. Anything since your last visit is marked New.',
+      },
+      {
+        kind: 'added',
         text: 'Search can answer in time order. “Most recent” beside the filters ignores ranking and gives you the latest first, which is the question you are usually asking when you search a channel you were just in. “Most relevant” is still the default, and loading more keeps whichever you chose.',
       },
       {

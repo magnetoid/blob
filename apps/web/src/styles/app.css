@@ -1738,6 +1738,13 @@ button {
   border-bottom: 1px solid var(--hairline-soft);
 }
 
+/* The emoji somebody reacted with, in the activity list's footer line. Slightly larger
+   than the text beside it because a 12px emoji reads as a smudge. */
+.activity-emoji {
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
 /* The ordering sits at the end of the filter row, pushed right so it reads as a
    different kind of control than the filters beside it. */
 .search-sort {

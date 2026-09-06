@@ -110,6 +110,7 @@ export type Route =
   /** One conversation, addressable: /c/:channelId, optionally with an open thread. */
   | { view: 'channel'; channelId: string; threadRootId?: string }
   | { view: 'threads' }
+  | { view: 'activity' }
   | { view: 'tasks' }
   | { view: 'saved' }
   | { view: 'browse' }
@@ -137,6 +138,7 @@ export function parseRoute(path: string): Route {
       : { view: 'channel', channelId: channel[1] as string };
   }
   if (clean === '/threads') return { view: 'threads' };
+  if (clean === '/activity') return { view: 'activity' };
   if (clean === '/tasks') return { view: 'tasks' };
   if (clean === '/later') return { view: 'saved' };
   if (clean === '/channels') return { view: 'browse' };
