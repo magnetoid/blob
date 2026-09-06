@@ -102,7 +102,7 @@ backlog instead of starting from a pile of failures.
 | `message.created` | A message was posted |
 | `message.updated` | A message was edited |
 | `message.deleted` | A message was deleted |
-| `thread.summary.updated` | A thread summary was generated or refreshed |
+| `thread.summary.updated` | A thread summary was generated or refreshed. The payload is the summary: `provider` is `heuristic-v1` (keyword scan) or `llm:<model>`; every entry in `decisions`, `actionItems` and `openQuestions` carries the id of the message it rests on, or `null` |
 | `task.created` | A human or agent task was created |
 | `task.updated` | A human or agent task changed state |
 | `reaction.added` / `reaction.removed` | Someone reacted |

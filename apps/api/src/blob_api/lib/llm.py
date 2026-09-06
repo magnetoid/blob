@@ -5,15 +5,21 @@ manifest, scopes, signed delivery, four runtimes, a run log — and was not one:
 workspace had no agent at all until somebody wrote an AG-UI server, deployed it, and paid
 for a key. "Agent-native" was true of the plumbing and not yet of the product.
 
-This is deliberately the smallest possible provider layer, and it is only ever called by
-`plugins/builtin.py`. Blob is not becoming an LLM framework: it needs one call — stream a
-reply to a conversation — and everything else that makes agents interesting (history,
-identity, permissions, what gets posted where) is already Blob's and stays Blob's.
+This is deliberately the smallest possible provider layer, with three callers:
+`plugins/builtin.py` (the agent), `services/catchup.py` (the unread recap) and
+`services/agentic.py` (thread summaries). Blob is not becoming an LLM framework: it needs
+two calls — stream a reply to a conversation, and complete one document whole — and
+everything else that makes agents interesting (history, identity, permissions, what gets
+posted where) is already Blob's and stays Blob's.
 
-**Streaming, not a single response.** The AG-UI fold downstream is built around deltas,
-and a channel where the answer appears as it is written is the difference between a
-teammate and a form submission. Both providers stream SSE, the same wire format AG-UI
-uses, so this reuses `lib/sse.py` rather than parsing events twice.
+**Streaming for conversation, `complete` for documents.** The AG-UI fold downstream is
+built around deltas, and a channel where the answer appears as it is written is the
+difference between a teammate and a form submission. Both providers stream SSE, the same
+wire format AG-UI uses, so this reuses `lib/sse.py` rather than parsing events twice. A
+summary is different: nobody reads it as it is typed, it has to parse as JSON, and a
+stream that stops early is indistinguishable from one that finished. `complete` reads the
+provider's *stop reason* and turns "ran out of room" and "declined" into typed errors
+instead of a fragment that looks like an answer.
 
 **Disabled is a first-class state, not an error path.** Self-hosted Blob with no API key
 is a completely reasonable deployment, and the promise is that a workspace stays up. So
@@ -25,8 +31,10 @@ a person can act on rather than a traceback.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -222,4 +230,247 @@ def _provider_error(event: Mapping[str, object]) -> str:
     return f"the model refused: {json.dumps(event)[:200]}"
 
 
-__all__ = ["LlmError", "Turn", "configured", "model_name", "stream_reply"]
+# --- one whole reply -----------------------------------------------------------------
+
+
+class ProviderRefusedError(LlmError):
+    """The provider answered with an HTTP error. Carries the status and its own words.
+
+    A subclass rather than a flag so that `complete` can tell "the request shape was
+    refused" (retry once without the structured-output hint) from "the model could not
+    be reached" (do not), and callers that only want a sentence still get one.
+    """
+
+    def __init__(self, status: int, detail: str) -> None:
+        super().__init__(f"the model provider answered {status}: {detail}")
+        self.status = status
+        self.detail = detail
+
+
+async def complete(
+    *,
+    system: str,
+    turns: Sequence[Turn],
+    max_tokens: int,
+    timeout_sec: float,
+    json_schema: Mapping[str, Any] | None = None,
+) -> str:
+    """One reply, whole — for a summary, not a conversation.
+
+    `max_tokens` is a hard cap that on current Anthropic models covers the model's
+    *thinking* as well as its text, so size it for the document plus real headroom (the
+    thread summary uses 4096 for at most ~1200 tokens of JSON), never for the document
+    alone. `timeout_sec` bounds the whole call: with no stream there is no first byte
+    until the model has finished, so the streaming read timeout would be the wrong knob.
+    `json_schema` asks the provider to shape its output (Anthropic `output_config.format`,
+    OpenAI `response_format`); a provider that refuses the hint with a 400 is asked once
+    more without it, because OpenAI-compatible servers behind `LLM_BASE_URL` know these
+    fields unevenly and the caller's parser is the guarantee either way. The system prompt
+    should still say "JSON" — OpenAI's plain JSON mode refuses a request whose messages
+    never mention it.
+    """
+    if not configured():
+        raise LlmError("no model is configured for this server")
+    if settings.LLM_PROVIDER == "anthropic":
+        return await _anthropic_complete(
+            system=system,
+            turns=turns,
+            max_tokens=max_tokens,
+            timeout_sec=timeout_sec,
+            json_schema=json_schema,
+        )
+    return await _openai_complete(
+        system=system,
+        turns=turns,
+        max_tokens=max_tokens,
+        timeout_sec=timeout_sec,
+        json_schema=json_schema,
+    )
+
+
+def extract_json(text: str) -> dict[str, Any]:
+    """The one JSON object in a model's reply, fences and preamble tolerated.
+
+    Even with a schema hint some servers wrap the object in a code fence or a sentence.
+    What is not tolerated is *no* object: that is a typed failure, not an empty summary.
+    """
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```[A-Za-z]*\s*", "", stripped)
+        stripped = re.sub(r"\s*```$", "", stripped)
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start == -1 or end < start:
+        raise LlmError("the model did not answer in the expected shape")
+    try:
+        data = json.loads(stripped[start : end + 1])
+    except ValueError as error:
+        raise LlmError("the model did not answer in the expected shape") from error
+    if not isinstance(data, dict):
+        raise LlmError("the model did not answer in the expected shape")
+    return data
+
+
+async def _post_json(
+    url: str, headers: Mapping[str, str], body: Mapping[str, object], *, timeout_sec: float
+) -> dict[str, Any]:
+    """POST once and return the decoded body, with the same failure vocabulary as the stream."""
+    try:
+        async with open_client() as client:
+            response = await client.post(
+                url,
+                json=body,
+                headers=headers,
+                timeout=httpx.Timeout(timeout_sec, connect=10.0),
+            )
+    except httpx.TimeoutException as error:
+        raise LlmError("the model did not answer in time") from error
+    except httpx.HTTPError as error:
+        raise LlmError(f"the model could not be reached: {error}") from error
+    if response.status_code >= 400:
+        raise ProviderRefusedError(response.status_code, response.text[:400])
+    try:
+        data = response.json()
+    except ValueError as error:
+        raise LlmError("the model provider answered with something that was not JSON") from error
+    if not isinstance(data, dict):
+        raise LlmError("the model provider answered with something that was not JSON")
+    return data
+
+
+_HINT_WORDS = ("output_config", "response_format", "json_schema", "structured", "format")
+
+
+def _refused_the_hint(refused: ProviderRefusedError) -> bool:
+    return refused.status == 400 and any(word in refused.detail for word in _HINT_WORDS)
+
+
+async def _anthropic_complete(
+    *,
+    system: str,
+    turns: Sequence[Turn],
+    max_tokens: int,
+    timeout_sec: float,
+    json_schema: Mapping[str, Any] | None,
+) -> str:
+    messages = _collapse(turns)
+    if not messages:
+        return ""
+    base = (settings.LLM_BASE_URL or "https://api.anthropic.com").rstrip("/")
+    body: dict[str, object] = {
+        "model": model_name(),
+        "max_tokens": max_tokens,
+        "system": system,
+        "messages": messages,
+    }
+    if json_schema is not None:
+        body["output_config"] = {"format": {"type": "json_schema", "schema": dict(json_schema)}}
+    headers = {
+        "x-api-key": settings.LLM_API_KEY or "",
+        "anthropic-version": ANTHROPIC_VERSION,
+        "content-type": "application/json",
+    }
+    url = f"{base}/v1/messages"
+    try:
+        data = await _post_json(url, headers, body, timeout_sec=timeout_sec)
+    except ProviderRefusedError as refused:
+        if json_schema is None or not _refused_the_hint(refused):
+            raise
+        body.pop("output_config", None)
+        data = await _post_json(url, headers, body, timeout_sec=timeout_sec)
+    if data.get("type") == "error":
+        raise LlmError(_provider_error(data))
+    stop = data.get("stop_reason")
+    if stop == "max_tokens":
+        raise LlmError("the model ran out of room before it finished")
+    if stop == "refusal":
+        raise LlmError("the model declined to answer")
+    content = data.get("content")
+    if not isinstance(content, list):
+        return ""
+    return "".join(
+        block["text"]
+        for block in content
+        if isinstance(block, dict)
+        and block.get("type") == "text"
+        and isinstance(block.get("text"), str)
+    )
+
+
+async def _openai_complete(
+    *,
+    system: str,
+    turns: Sequence[Turn],
+    max_tokens: int,
+    timeout_sec: float,
+    json_schema: Mapping[str, Any] | None,
+) -> str:
+    messages = [{"role": "system", "content": system}, *_collapse(turns)]
+    if len(messages) == 1:
+        return ""
+    base = (settings.LLM_BASE_URL or "https://api.openai.com").rstrip("/")
+    body: dict[str, object] = {
+        "model": model_name(),
+        "max_tokens": max_tokens,
+        "messages": messages,
+    }
+    if json_schema is not None:
+        # Real OpenAI takes the strict schema; a compatible server behind LLM_BASE_URL
+        # more often knows plain JSON mode, and unevenly at that — see the retry below.
+        if settings.LLM_BASE_URL is None:
+            body["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "reply", "strict": True, "schema": dict(json_schema)},
+            }
+        else:
+            body["response_format"] = {"type": "json_object"}
+    headers = {
+        "authorization": f"Bearer {settings.LLM_API_KEY or ''}",
+        "content-type": "application/json",
+    }
+    url = f"{base}/v1/chat/completions"
+    try:
+        data = await _post_json(url, headers, body, timeout_sec=timeout_sec)
+    except ProviderRefusedError as refused:
+        # Two shapes of "not like that": the structured-output hint (compatible servers),
+        # and `max_tokens`, which OpenAI's reasoning families reject in favour of
+        # `max_completion_tokens`. One more try, with the offending field changed.
+        retry = False
+        if json_schema is not None and _refused_the_hint(refused):
+            body.pop("response_format", None)
+            retry = True
+        if refused.status == 400 and "max_completion_tokens" in refused.detail:
+            body["max_completion_tokens"] = body.pop("max_tokens")
+            retry = True
+        if not retry:
+            raise
+        data = await _post_json(url, headers, body, timeout_sec=timeout_sec)
+    if data.get("error"):
+        raise LlmError(_provider_error(data))
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return ""
+    first = choices[0]
+    finish = first.get("finish_reason")
+    if finish == "length":
+        raise LlmError("the model ran out of room before it finished")
+    if finish == "content_filter":
+        raise LlmError("the model declined to answer")
+    message = first.get("message")
+    if isinstance(message, dict) and message.get("refusal"):
+        raise LlmError("the model declined to answer")
+    if isinstance(message, dict) and isinstance(message.get("content"), str):
+        return message["content"]
+    return ""
+
+
+__all__ = [
+    "LlmError",
+    "ProviderRefusedError",
+    "Turn",
+    "complete",
+    "configured",
+    "extract_json",
+    "model_name",
+    "stream_reply",
+]

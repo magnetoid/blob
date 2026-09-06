@@ -23,9 +23,11 @@ from pydantic import Field
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
+from ..lib import llm
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam, new_id
 from ..lib.queue import enqueue, fire_and_forget
+from ..lib.rate_limit import consume
 from ..plugins import events as plugin_events
 from ..plugins.auth import BotCaller, current_bot, requires
 from ..plugins.blocks import validate_blocks
@@ -480,18 +482,27 @@ async def join_conversation(
 async def summarize_thread(
     payload: DeleteMessageInput, bot: BotCaller = requires("summaries:write")
 ) -> ThreadSummaryOut:
-    async with transaction() as (session, _after):
+    async with session_scope() as session:
         root = await message_service.by_id(session, payload.message_id)
         if root is None:
             raise not_found("That thread no longer exists.")
         thread_root_id = root.thread_root_id or root.id
         await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
-        summary = await agentic_service.generate_summary(
+        messages, names = await agentic_service.read_thread(session, thread_root_id)
+    # The same split as the session route: the model call holds no transaction, and an
+    # app pressing the button is metered like a person would be.
+    if llm.configured():
+        await consume("summarize", bot.user_id)
+    summary_payload, provider = await agentic_service.build_summary(messages, names=names)
+    async with transaction() as (session, _after):
+        summary = await agentic_service.store_summary(
             session,
             workspace_id=bot.workspace_id,
             channel_id=root.channel_id,
             thread_root_id=thread_root_id,
             created_by=bot.user_id,
+            provider=provider,
+            payload=summary_payload,
         )
         await audit_service.record(
             session,

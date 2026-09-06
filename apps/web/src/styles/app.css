@@ -1570,6 +1570,35 @@ button {
   color: var(--text-4);
 }
 
+/* The arrow beside a summary line: the message it rests on, one press away. Text-coloured
+   and quiet until hovered, so a list of five cited lines does not read as five buttons. */
+.summary-cite {
+  margin-left: 6px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+.summary-cite:hover,
+.summary-cite:focus-visible {
+  opacity: 1;
+  background: var(--accent-wash);
+}
+@media (pointer: coarse) {
+  .summary-cite {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 10px;
+  }
+}
+
 .agentic-list-title {
   margin-top: 12px;
   font-size: var(--text-meta);

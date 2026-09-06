@@ -1574,6 +1574,11 @@
             ],
             "title": "Name"
           },
+          "nudgeUnanswered": {
+            "default": false,
+            "title": "Nudgeunanswered",
+            "type": "boolean"
+          },
           "topic": {
             "anyOf": [
               {
@@ -1741,6 +1746,11 @@
               }
             ],
             "title": "Name"
+          },
+          "nudgeUnanswered": {
+            "default": false,
+            "title": "Nudgeunanswered",
+            "type": "boolean"
           },
           "topic": {
             "anyOf": [
@@ -5819,7 +5829,7 @@
           },
           "openQuestions": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ThreadSummaryOpenQuestion"
             },
             "title": "Openquestions",
             "type": "array"
@@ -5917,6 +5927,42 @@
           "text"
         ],
         "title": "ThreadSummaryDecision",
+        "type": "object"
+      },
+      "ThreadSummaryOpenQuestion": {
+        "description": "A question the thread never answered, pointing at the message that asked it.\n\nWas a bare string. It carries the message so the client can jump to it and so a\nnudge can find who asked; rows written before this shape are strings and are read\nback as `{text}` with nothing to point at.",
+        "properties": {
+          "askedByUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Askedbyuserid"
+          },
+          "messageId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messageid"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ThreadSummaryOpenQuestion",
         "type": "object"
       },
       "ThreadsOut": {
@@ -6120,6 +6166,17 @@
             ],
             "title": "Name"
           },
+          "nudgeUnanswered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nudgeunanswered"
+          },
           "topic": {
             "anyOf": [
               {
@@ -6255,6 +6312,17 @@
               }
             ],
             "title": "Language"
+          },
+          "nudges": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nudges"
           },
           "snoozeUntil": {
             "anyOf": [
@@ -6720,6 +6788,11 @@
               }
             ],
             "title": "Language"
+          },
+          "nudges": {
+            "default": true,
+            "title": "Nudges",
+            "type": "boolean"
           },
           "snoozeUntil": {
             "anyOf": [

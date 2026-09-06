@@ -59,6 +59,9 @@ class UserPrefs(CamelModel):
     dnd: QuietHours | None = None
     #: Manual snooze until this ISO timestamp.
     snooze_until: str | None = None
+    #: Be reminded when a question of mine goes a day without an answer, in channels
+    #: that nudge. Default on: it is private, cheap and about my own message.
+    nudges: bool = True
     enter_to_send: bool = True
     language: str | None = None
     auto_translate: bool = False
@@ -113,6 +116,8 @@ class Channel(CamelModel):
     member_ids: list[str] | None = None
     #: Set when this channel is a work channel (ADR 0014): the assignment's id.
     work_id: str | None = None
+    #: The room's switch for nudging whoever asked a question nobody answered (ADR 0015).
+    nudge_unanswered: bool = False
 
 
 class BrowsableChannel(CamelModel):
@@ -262,16 +267,31 @@ class ThreadSummaryActionItem(CamelModel):
     source_message_id: str | None = None
 
 
+class ThreadSummaryOpenQuestion(CamelModel):
+    """A question the thread never answered, pointing at the message that asked it.
+
+    Was a bare string. It carries the message so the client can jump to it and so a
+    nudge can find who asked; rows written before this shape are strings and are read
+    back as `{text}` with nothing to point at.
+    """
+
+    text: str
+    message_id: str | None = None
+    asked_by_user_id: str | None = None
+
+
 class ThreadSummary(CamelModel):
     id: str
     channel_id: str
     thread_root_id: str
     created_by: str | None = None
+    #: `heuristic-v1` for the keyword scan, `llm:<model>` for a model-written summary.
+    #: The client shows which, because the two deserve different amounts of trust.
     provider: str
     overview: str
     decisions: list[ThreadSummaryDecision] = Field(default_factory=list)
     action_items: list[ThreadSummaryActionItem] = Field(default_factory=list)
-    open_questions: list[str] = Field(default_factory=list)
+    open_questions: list[ThreadSummaryOpenQuestion] = Field(default_factory=list)
     participant_ids: list[str] = Field(default_factory=list)
     message_count: int = 0
     created_at: str

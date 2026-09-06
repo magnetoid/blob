@@ -82,6 +82,8 @@ class UpdateChannelInput(CamelModel, ChannelNameMixin):
     name: str | None = None
     topic: str | None = Field(default=None, max_length=250)
     description: str | None = Field(default=None, max_length=2000)
+    #: The room's switch for nudging whoever asked a question nobody answered.
+    nudge_unanswered: bool | None = None
 
     @field_validator("name")
     @classmethod
@@ -199,6 +201,7 @@ class UpdatePrefsInput(CamelModel):
     keywords: list[str] | None = Field(default=None, max_length=30)
     dnd: QuietHours | None = None
     snooze_until: str | None = None
+    nudges: bool | None = None
     enter_to_send: bool | None = None
     language: str | None = Field(default=None, min_length=2, max_length=16)
     auto_translate: bool | None = None

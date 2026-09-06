@@ -10,6 +10,7 @@ from pydantic import Field
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
+from ..lib import llm
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import forbidden, not_found
 from ..lib.ids import IdParam
@@ -71,13 +72,22 @@ async def refresh_thread_summary(
     user: SessionUser = Depends(current_user),
 ) -> ThreadSummaryOut:
     thread_root_id, channel_id = await _root_message(message_id, user)
+    # Read, then call the model with nothing held, then store: a transaction must never
+    # wait on a provider. The keyword scan is free, so only a model call is metered.
+    async with session_scope() as session:
+        messages, names = await agentic_service.read_thread(session, thread_root_id)
+    if llm.configured():
+        await consume("summarize", user.id)
+    payload, provider = await agentic_service.build_summary(messages, names=names)
     async with transaction() as (session, _after):
-        summary = await agentic_service.generate_summary(
+        summary = await agentic_service.store_summary(
             session,
             workspace_id=user.workspace_id,
             channel_id=channel_id,
             thread_root_id=thread_root_id,
             created_by=user.id,
+            provider=provider,
+            payload=payload,
         )
         await audit_service.record(
             session,

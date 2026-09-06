@@ -157,7 +157,8 @@ async def update_channel(
                    SET name = COALESCE(:name, name),
                        topic = CASE WHEN :has_topic THEN :topic ELSE topic END,
                        description = CASE WHEN :has_description THEN :description
-                                          ELSE description END
+                                          ELSE description END,
+                       nudge_unanswered = COALESCE(:nudge_unanswered, nudge_unanswered)
                  WHERE id = :id
                 """
             ),
@@ -168,6 +169,7 @@ async def update_channel(
                 "topic": payload.topic,
                 "has_description": "description" in given,
                 "description": payload.description,
+                "nudge_unanswered": payload.nudge_unanswered,
             },
         )
         channel = await channel_service.get_for_user(session, channel_id, user.id)

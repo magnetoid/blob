@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-05T07:22:54'
-updated: '2026-09-05T07:22:54'
+created: '2026-09-06T03:24:49'
+updated: '2026-09-06T03:24:49'
 ---
 
 # apps/api/src/blob_api/routers/channels.py
@@ -24,12 +24,12 @@ Symbols in `apps/api/src/blob_api/routers/channels.py`.
 - L86 `create_channel(payload: CreateChannelInput, user: SessionUser=Depends(current_user))` (function)
 - L129 `get_channel(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function)
 - L139 `update_channel(channel_id: IdParam, payload: UpdateChannelInput, user: SessionUser=Depends(current_user))` (function)
-- L183 `archive_channel(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function) — Close a channel. Admins only — the client has always said so; this enforces it.
-- L204 `unarchive_channel(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function) — Open an archived channel again.
-- L235 `join_channel(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function)
-- L273 `leave_channel(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function)
-- L302 `add_members(channel_id: IdParam, payload: AddMembersInput, user: SessionUser=Depends(current_user))` (function)
-- L342 `list_members(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function)
-- L352 `update_membership(channel_id: IdParam, payload: MembershipUpdateInput, user: SessionUser=Depends(current_user))` (function) — Per-user channel settings: notification level and starring.
-- L385 `list_pins(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function)
-- L393 `open_dm(payload: CreateDmInput, user: SessionUser=Depends(current_user))` (function) — Open (or reopen) a DM. Idempotent: the same member set returns the same channel.
+- L185 `archive_channel(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function) — Close a channel. Admins only — the client has always said so; this enforces it.
+- L206 `unarchive_channel(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function) — Open an archived channel again.
+- L237 `join_channel(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function)
+- L275 `leave_channel(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function)
+- L304 `add_members(channel_id: IdParam, payload: AddMembersInput, user: SessionUser=Depends(current_user))` (function)
+- L344 `list_members(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function)
+- L354 `update_membership(channel_id: IdParam, payload: MembershipUpdateInput, user: SessionUser=Depends(current_user))` (function) — Per-user channel settings: notification level and starring.
+- L387 `list_pins(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function)
+- L395 `open_dm(payload: CreateDmInput, user: SessionUser=Depends(current_user))` (function) — Open (or reopen) a DM. Idempotent: the same member set returns the same channel.

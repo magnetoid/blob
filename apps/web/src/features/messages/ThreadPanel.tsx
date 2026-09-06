@@ -12,7 +12,9 @@ import { ApiError, api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import { showError } from "../../lib/toasts.ts";
 import { draftKey } from "../../lib/drafts.ts";
-import { closeThread } from "../../lib/navigation.ts";
+import { closeThread, showMessage } from "../../lib/navigation.ts";
+import { renderInline, renderMarkdown } from "../../lib/markdown.tsx";
+import { useMentionIndex } from "./mentionIndex.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
 import { CloseIcon, PlusIcon } from "../../components/Icon.tsx";
@@ -41,6 +43,39 @@ const TASK_PRIORITY_OPTIONS: Array<{
   { value: "high", label: "High" },
   { value: "critical", label: "Critical" },
 ];
+
+/** `llm:<model>` is the model; anything else is the keyword scan the server falls back to. */
+function isModelWritten(summary: ThreadSummary): boolean {
+  return summary.provider.startsWith("llm:");
+}
+
+function providerLabel(provider: string): string {
+  if (provider.startsWith("llm:")) {
+    const model = provider.slice("llm:".length);
+    return model ? `AI summary · ${model}` : "AI summary";
+  }
+  return "Keyword scan";
+}
+
+/** The message a line rests on, one press away — a summary you can check is one you can trust. */
+function Cite({ messageId }: { messageId: string | null }) {
+  if (!messageId) return null;
+  return (
+    <button
+      type="button"
+      className="summary-cite"
+      title="Go to the message"
+      aria-label="Go to the message"
+      onClick={() =>
+        void showMessage(messageId).then((shown) => {
+          if (!shown) showError(new Error("That message is no longer there."));
+        })
+      }
+    >
+      ↗
+    </button>
+  );
+}
 
 function formatWhen(value: string | null): string {
   if (!value) return "Not yet";
@@ -143,6 +178,13 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
   const currentUser = useStore((s) => s.currentUser);
   const users = useStore((s) => s.users);
   const channelTitle = useStore((s) => s.channelTitle);
+  const customEmoji = useStore((s) => s.customEmoji);
+  const knownNames = useMentionIndex();
+  // The summary's text is rendered like a message: a model writes @names and bullets.
+  const renderOptions = useMemo(
+    () => ({ knownNames, currentUserId: currentUser?.id ?? null, customEmoji }),
+    [knownNames, currentUser, customEmoji],
+  );
 
   const [summary, setSummary] = useState<ThreadSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -417,7 +459,9 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
             >
               <div className="agentic-head">
                 <div>
-                  <div className="agentic-kicker">AI Summary</div>
+                  <div className="agentic-kicker">
+                    {summary && isModelWritten(summary) ? "AI summary" : "Summary"}
+                  </div>
                   <h3 className="agentic-title" id="thread-summary-title">
                     Catch up without rereading
                   </h3>
@@ -435,10 +479,13 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                 <div className="agentic-empty">Loading summary…</div>
               ) : summary ? (
                 <div className="agentic-body">
-                  <p className="summary-overview">{summary.overview}</p>
+                  <div className="summary-overview">
+                    {renderMarkdown(summary.overview, renderOptions)}
+                  </div>
                   <div className="summary-meta">
-                    {summary.provider} · {summary.messageCount} messages · updated{" "}
-                    {formatWhen(summary.updatedAt)}
+                    {providerLabel(summary.provider)} · {summary.messageCount} messages
+                    · updated {formatWhen(summary.updatedAt)}
+                    {isModelWritten(summary) && " · check the sources"}
                   </div>
 
                   {summary.decisions.length > 0 && (
@@ -447,7 +494,8 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                       <ul className="agentic-list">
                         {summary.decisions.map((item, index) => (
                           <li key={`${item.messageId ?? "decision"}-${index}`}>
-                            {item.text}
+                            {renderInline(item.text, renderOptions)}
+                            <Cite messageId={item.messageId} />
                           </li>
                         ))}
                       </ul>
@@ -456,11 +504,12 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
 
                   {summary.actionItems.length > 0 && (
                     <div>
-                      <div className="agentic-list-title">Action Items</div>
+                      <div className="agentic-list-title">Action items</div>
                       <ul className="agentic-list">
                         {summary.actionItems.map((item, index) => (
                           <li key={`${item.sourceMessageId ?? "action"}-${index}`}>
-                            {item.text}
+                            {renderInline(item.text, renderOptions)}
+                            <Cite messageId={item.sourceMessageId} />
                             {item.assigneeUserId && (
                               <span className="agentic-inline-meta">
                                 {" "}
@@ -477,10 +526,13 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
 
                   {summary.openQuestions.length > 0 && (
                     <div>
-                      <div className="agentic-list-title">Open Questions</div>
+                      <div className="agentic-list-title">Open questions</div>
                       <ul className="agentic-list">
                         {summary.openQuestions.map((item, index) => (
-                          <li key={`${item}-${index}`}>{item}</li>
+                          <li key={`${item.messageId ?? "question"}-${index}`}>
+                            {renderInline(item.text, renderOptions)}
+                            <Cite messageId={item.messageId} />
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -488,8 +540,8 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
                 </div>
               ) : (
                 <div className="agentic-empty">
-                  No thread summary yet. Generate one to capture decisions, action
-                  items, and open questions.
+                  No summary yet. Generate one to pull out the decisions, the action
+                  items and the questions nobody answered.
                 </div>
               )}
 

@@ -545,8 +545,10 @@ export const api = {
       topic?: string;
       memberIds?: string[];
     }) => post<{ channel: ChannelWithState }>("/api/channels", input),
-    update: (id: string, input: { name?: string; topic?: string | null }) =>
-      patch<{ channel: ChannelWithState }>(`/api/channels/${id}`, input),
+    update: (
+      id: string,
+      input: { name?: string; topic?: string | null; nudgeUnanswered?: boolean },
+    ) => patch<{ channel: ChannelWithState }>(`/api/channels/${id}`, input),
     join: (id: string) =>
       post<{ channel: ChannelWithState }>(`/api/channels/${id}/join`),
     leave: (id: string) => post<{ ok: true }>(`/api/channels/${id}/leave`),

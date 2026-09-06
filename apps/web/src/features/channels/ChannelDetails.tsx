@@ -38,6 +38,7 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
   const membershipVersion = useStore((s) => s.membershipVersion[channel.id] ?? 0);
   const [memberIds, setMemberIds] = useState<string[] | null>(null);
   const [topic, setTopic] = useState(channel.topic ?? '');
+  const [savingNudge, setSavingNudge] = useState(false);
   const [savingTopic, setSavingTopic] = useState(false);
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState<string | null>(null);
@@ -117,6 +118,18 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
 
   // The backdrop is presentational. It was role="button" tabIndex={0}, which put a tab
   // stop announced as a button in front of the dialog and answered Space by closing it.
+  async function toggleNudge() {
+    setSavingNudge(true);
+    setError(null);
+    try {
+      await api.channels.update(channel.id, { nudgeUnanswered: !channel.nudgeUnanswered });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'That setting did not save.');
+    } finally {
+      setSavingNudge(false);
+    }
+  }
+
   // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
     <div
@@ -157,6 +170,27 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
               style={{ marginLeft: 8 }}
             >
               Cancel
+            </button>
+          </div>
+        )}
+
+        {!archived && (
+          <div className="pref-row">
+            <div style={{ flex: 1 }}>
+              <div className="pref-label">Nudge unanswered questions</div>
+              <div className="pref-hint">
+                When a question here goes a day with no reply, no reaction and nobody else
+                saying anything, remind the person who asked — only them, in Later.
+              </div>
+            </div>
+            <button
+              className="toggle"
+              aria-pressed={channel.nudgeUnanswered}
+              aria-label="Nudge unanswered questions"
+              disabled={savingNudge}
+              onClick={() => void toggleNudge()}
+            >
+              <span />
             </button>
           </div>
         )}

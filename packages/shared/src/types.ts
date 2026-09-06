@@ -46,6 +46,8 @@ export interface UserPrefs {
   enterToSend: boolean;
   language: string | null;
   autoTranslate: boolean;
+  /** Be reminded when a question of mine goes a day without an answer. */
+  nudges: boolean;
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -59,6 +61,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   enterToSend: true,
   language: null,
   autoTranslate: false,
+  nudges: true,
 };
 
 export interface Channel {
@@ -76,6 +79,8 @@ export interface Channel {
   memberIds?: string[];
   /** Set when this is a work channel: the assignment behind it. */
   workId: string | null;
+  /** The room's switch for nudging whoever asked a question nobody answered. */
+  nudgeUnanswered: boolean;
 }
 
 /** One assignment, living in a private channel spun from a conversation. */
@@ -272,6 +277,13 @@ export interface ThreadSummaryActionItem {
   sourceMessageId: string | null;
 }
 
+export interface ThreadSummaryOpenQuestion {
+  text: string;
+  /** The message that asked it, when the summary could tell; null on older rows. */
+  messageId: string | null;
+  askedByUserId: string | null;
+}
+
 export interface ThreadSummary {
   id: string;
   channelId: string;
@@ -281,7 +293,7 @@ export interface ThreadSummary {
   overview: string;
   decisions: ThreadSummaryDecision[];
   actionItems: ThreadSummaryActionItem[];
-  openQuestions: string[];
+  openQuestions: ThreadSummaryOpenQuestion[];
   participantIds: string[];
   messageCount: number;
   createdAt: string;

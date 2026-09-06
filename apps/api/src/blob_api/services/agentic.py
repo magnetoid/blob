@@ -1,17 +1,35 @@
-"""Thread summaries and human/agent task orchestration."""
+"""Thread summaries and human/agent task orchestration.
+
+A summary has two providers and says which one wrote it. `heuristic-v1` is a keyword
+scan — sentences that say *decided* or *please*, sentences that end in a question mark —
+and it runs when no model is configured, because a self-hosted Blob with no API key is a
+reasonable deployment and the index it produces is still worth having. `llm:<model>` is
+the model, asked for JSON against a numbered transcript so that every decision, action
+item and open question can point back at the message it rests on; ids are resolved here
+from those numbers and never asked of the model.
+
+The model call never runs inside a transaction (see `routers/messages.py:translate_message`
+for the same split): read the thread, call the model with nothing held, then store in a
+short transaction. A model that fails is a typed 502, not a keyword scan in disguise —
+the person pressed Refresh expecting the model, and the previous summary stays.
+"""
 
 from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable, Sequence
+from collections import Counter
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import bad_request, forbidden, not_found
+from ..lib import llm
+from ..lib.errors import AppError, bad_request, forbidden, not_found
 from ..lib.ids import new_id
 from ..lib.times import parse_client_time
 from ..schemas.models import AgentTask, Message, ThreadSummary
@@ -28,15 +46,108 @@ _ACTION_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: What the keyword scan writes into `thread_summaries.provider`.
+HEURISTIC_PROVIDER = "heuristic-v1"
+
+#: Caps shared by both providers, so a summary is a summary whoever wrote it.
+MAX_DECISIONS = 5
+MAX_ACTION_ITEMS = 6
+MAX_OPEN_QUESTIONS = 5
+TEXT_LIMIT = 280
+
+#: What the model is shown. A thread longer than this is the root plus the most recent
+#: messages with a note about what was skipped; a single pasted log is clipped; the whole
+#: transcript is bounded in characters (~6-8k tokens) because input is what costs.
+MAX_MESSAGES = 120
+MAX_MESSAGE_CHARS = 600
+MAX_TRANSCRIPT_CHARS = 24_000
+#: A cap, not spend. On current Anthropic models it covers the model's *thinking* as well as
+#: its text, and a full summary of a busy thread is 600-1200 tokens of JSON on its own —
+#: size it for both, or long threads answer "ran out of room" exactly when they matter.
+MAX_OUTPUT_TOKENS = 4096
+#: A person is waiting in a panel. Longer than this and the honest answer is "try again".
+TIMEOUT_SEC = 45.0
+
+SUMMARY_SYSTEM = (
+    "You summarise one team-chat thread for somebody who has not read it. Answer with a "
+    "single JSON object and nothing else, shaped exactly like this: "
+    '{"overview": string, "decisions": [{"text": string, "sources": [int]}], '
+    '"action_items": [{"text": string, "owner": string | null, "sources": [int]}], '
+    '"open_questions": [{"text": string, "sources": [int]}]}. '
+    "The transcript numbers every message like [3]; sources lists the numbers of the "
+    "messages a line rests on, and every decision, action item and open question needs at "
+    "least one. overview: two to four plain sentences saying what the thread is about and "
+    "where it stands. decisions: things that were actually settled, not proposed. "
+    "action_items: who is going to do what; owner is the speaker's name exactly as written "
+    "in the transcript, or null. open_questions: questions nobody answered. Keep @names "
+    "verbatim, write in the thread's language, never invent facts, and use empty lists "
+    "when there is nothing to list. At most 5 decisions, 6 action items and 5 open questions."
+)
+
+_SOURCED = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "text": {"type": "string"},
+        "sources": {"type": "array", "items": {"type": "integer"}},
+    },
+    "required": ["text", "sources"],
+}
+
+SUMMARY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "overview": {"type": "string"},
+        "decisions": {"type": "array", "items": _SOURCED},
+        "action_items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "text": {"type": "string"},
+                    "owner": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "sources": {"type": "array", "items": {"type": "integer"}},
+                },
+                "required": ["text", "owner", "sources"],
+            },
+        },
+        "open_questions": {"type": "array", "items": _SOURCED},
+    },
+    "required": ["overview", "decisions", "action_items", "open_questions"],
+}
+
 
 @dataclass(slots=True)
 class SummaryPayload:
     overview: str
     decisions: list[dict[str, str | None]]
     action_items: list[dict[str, str | None]]
-    open_questions: list[str]
+    open_questions: list[dict[str, str | None]]
     participant_ids: list[str]
     message_count: int
+
+
+class _ModelItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    text: str = ""
+    owner: str | None = None
+    sources: list[int] = Field(default_factory=list)
+
+
+class _ModelSummary(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    overview: str = ""
+    decisions: list[_ModelItem] = Field(default_factory=list)
+    action_items: list[_ModelItem] = Field(default_factory=list)
+    open_questions: list[_ModelItem] = Field(default_factory=list)
+
+
+def model_provider() -> str:
+    return f"llm:{llm.model_name()}"
 
 
 def _normalize_text(raw: str) -> str:
@@ -44,8 +155,19 @@ def _normalize_text(raw: str) -> str:
     return text_value
 
 
-def _message_sentences(messages: Iterable[Message]) -> list[tuple[str, str, list[str]]]:
-    sentences: list[tuple[str, str, list[str]]] = []
+def _clip(raw: str) -> str:
+    return _normalize_text(raw)[:TEXT_LIMIT]
+
+
+def _participants(messages: Iterable[Message]) -> list[str]:
+    return list(dict.fromkeys([message.author_id for message in messages if message.author_id]))
+
+
+# --- the keyword scan ------------------------------------------------------------------
+
+
+def _message_sentences(messages: Iterable[Message]) -> list[tuple[Message, str]]:
+    sentences: list[tuple[Message, str]] = []
     for message in messages:
         body = _normalize_text(message.body)
         if not body:
@@ -54,46 +176,47 @@ def _message_sentences(messages: Iterable[Message]) -> list[tuple[str, str, list
         for part in parts:
             cleaned = _normalize_text(part)
             if cleaned:
-                sentences.append(
-                    (
-                        message.id,
-                        cleaned,
-                        list(message.mention_user_ids or []),
-                    )
-                )
+                sentences.append((message, cleaned))
     return sentences
 
 
 def summarize_messages(messages: Sequence[Message]) -> SummaryPayload:
+    """The keyword scan. Never empty-handed: a thread with nothing that matches still
+    gets its root as the decision and its last reply as the action item."""
     if not messages:
         raise bad_request("There is nothing in that thread yet.", code="empty_thread")
 
     root_body = _normalize_text(messages[0].body)
-    participant_ids = list(
-        dict.fromkeys([message.author_id for message in messages if message.author_id])
-    )
+    participant_ids = _participants(messages)
     sentences = _message_sentences(messages)
 
     decisions: list[dict[str, str | None]] = []
     action_items: list[dict[str, str | None]] = []
-    open_questions: list[str] = []
+    open_questions: list[dict[str, str | None]] = []
 
-    for message_id, sentence, mention_user_ids in sentences:
-        if sentence.endswith("?") and len(open_questions) < 5:
-            open_questions.append(sentence)
-        if _DECISION_RE.search(sentence) and len(decisions) < 5:
-            decisions.append({"text": sentence[:280], "messageId": message_id})
-        if _ACTION_RE.search(sentence) and len(action_items) < 6:
+    for message, sentence in sentences:
+        mention_user_ids = list(message.mention_user_ids or [])
+        if sentence.endswith("?") and len(open_questions) < MAX_OPEN_QUESTIONS:
+            open_questions.append(
+                {
+                    "text": sentence[:TEXT_LIMIT],
+                    "messageId": message.id,
+                    "askedByUserId": message.author_id,
+                }
+            )
+        if _DECISION_RE.search(sentence) and len(decisions) < MAX_DECISIONS:
+            decisions.append({"text": sentence[:TEXT_LIMIT], "messageId": message.id})
+        if _ACTION_RE.search(sentence) and len(action_items) < MAX_ACTION_ITEMS:
             action_items.append(
                 {
-                    "text": sentence[:280],
+                    "text": sentence[:TEXT_LIMIT],
                     "assigneeUserId": mention_user_ids[0] if mention_user_ids else None,
-                    "sourceMessageId": message_id,
+                    "sourceMessageId": message.id,
                 }
             )
 
     if not decisions and root_body:
-        decisions.append({"text": root_body[:280], "messageId": messages[0].id})
+        decisions.append({"text": root_body[:TEXT_LIMIT], "messageId": messages[0].id})
 
     if not action_items and len(messages) > 1:
         tail = messages[-1]
@@ -101,7 +224,7 @@ def summarize_messages(messages: Sequence[Message]) -> SummaryPayload:
         if tail_body:
             action_items.append(
                 {
-                    "text": tail_body[:280],
+                    "text": tail_body[:TEXT_LIMIT],
                     "assigneeUserId": None,
                     "sourceMessageId": tail.id,
                 }
@@ -129,6 +252,183 @@ def summarize_messages(messages: Sequence[Message]) -> SummaryPayload:
     )
 
 
+# --- the model -------------------------------------------------------------------------
+
+
+def transcript(
+    messages: Sequence[Message], names: Mapping[str, str]
+) -> tuple[list[tuple[int, Message]], str]:
+    """Number the thread for the model, bounded on every axis.
+
+    Returns the (number, message) pairs the text names, so a `sources` entry maps back to
+    a real id. When the thread is long the root and the most recent messages survive and
+    the middle is replaced by one line saying how much was skipped; numbers are assigned
+    before anything is dropped, so they stay stable whatever the model cites.
+    """
+    usable = [
+        message
+        for message in messages
+        if message.body.strip() and message.kind != "system" and message.deleted_at is None
+    ]
+    omitted = 0
+    if len(usable) > MAX_MESSAGES:
+        omitted = len(usable) - MAX_MESSAGES
+        usable = [usable[0], *usable[-(MAX_MESSAGES - 1) :]]
+    numbered = list(enumerate(usable, start=1))
+
+    def line(number: int, message: Message) -> str:
+        body = _normalize_text(message.body)
+        if len(body) > MAX_MESSAGE_CHARS:
+            body = body[: MAX_MESSAGE_CHARS - 1] + "…"
+        who = names.get(message.author_id or "", "someone")
+        return f"[{number}] {who}: {body}"
+
+    lines = [line(number, message) for number, message in numbered]
+    while sum(len(entry) + 1 for entry in lines) > MAX_TRANSCRIPT_CHARS and len(lines) > 2:
+        middle = len(lines) // 2
+        del lines[middle]
+        del numbered[middle]
+        omitted += 1
+    if omitted:
+        plural = "s" if omitted != 1 else ""
+        lines.insert(1, f"… {omitted} message{plural} from the middle of the thread omitted …")
+    return numbered, "\n".join(lines)
+
+
+async def model_summary(messages: Sequence[Message], *, names: Mapping[str, str]) -> SummaryPayload:
+    """Ask the model, then turn its numbers into ids. Raises `llm.LlmError` when it cannot
+    be trusted: no reply, no JSON, no overview, out of room, declined."""
+    numbered, body = transcript(messages, names)
+    if not numbered:
+        raise bad_request("There is nothing in that thread yet.", code="empty_thread")
+
+    raw = await llm.complete(
+        system=SUMMARY_SYSTEM,
+        turns=[llm.Turn(role="user", content=f"Thread ({len(numbered)} messages shown):\n{body}")],
+        max_tokens=MAX_OUTPUT_TOKENS,
+        timeout_sec=TIMEOUT_SEC,
+        json_schema=SUMMARY_SCHEMA,
+    )
+    try:
+        parsed = _ModelSummary.model_validate(llm.extract_json(raw))
+    except ValidationError as error:
+        raise llm.LlmError("the model did not answer in the expected shape") from error
+
+    overview = _normalize_text(parsed.overview)[:1000]
+    if not overview:
+        raise llm.LlmError("the model did not answer in the expected shape")
+
+    by_number = dict(numbered)
+    # Display names are unique among active users, but a deactivated speaker can share one:
+    # an owner that could be two people is nobody rather than the wrong one.
+    name_counts = Counter(name.casefold() for name in names.values())
+    ids_by_name = {
+        name.casefold(): user_id
+        for user_id, name in names.items()
+        if name_counts[name.casefold()] == 1
+    }
+
+    def source_of(item: _ModelItem) -> Message | None:
+        for number in item.sources:
+            found = by_number.get(number)
+            if found is not None:
+                return found
+        return None
+
+    def owner_of(owner: str | None) -> str | None:
+        if not owner:
+            return None
+        return ids_by_name.get(owner.strip().lstrip("@").casefold())
+
+    # A model that cites at all is held to citing correctly: an uncited line beside cited
+    # ones, or a line citing a number that is not there, is the one most likely invented.
+    # A model that never cites (a compatible server that ignored the schema) keeps its
+    # lines, uncited and honest. "Cites at all" means it *tried* — resolved or not.
+    groups = (parsed.decisions, parsed.action_items, parsed.open_questions)
+    cited_any = any(item.sources for group in groups for item in group)
+
+    def kept(items: Sequence[_ModelItem], limit: int) -> list[tuple[_ModelItem, Message | None]]:
+        out: list[tuple[_ModelItem, Message | None]] = []
+        for item in items:
+            if not item.text.strip():
+                continue
+            source = source_of(item)
+            if cited_any and source is None:
+                continue
+            out.append((item, source))
+            if len(out) == limit:
+                break
+        return out
+
+    decisions: list[dict[str, str | None]] = [
+        {"text": _clip(item.text), "messageId": source.id if source else None}
+        for item, source in kept(parsed.decisions, MAX_DECISIONS)
+    ]
+    action_items: list[dict[str, str | None]] = [
+        {
+            "text": _clip(item.text),
+            "assigneeUserId": owner_of(item.owner),
+            "sourceMessageId": source.id if source else None,
+        }
+        for item, source in kept(parsed.action_items, MAX_ACTION_ITEMS)
+    ]
+    open_questions: list[dict[str, str | None]] = [
+        {
+            "text": _clip(item.text),
+            "messageId": source.id if source else None,
+            "askedByUserId": source.author_id if source else None,
+        }
+        for item, source in kept(parsed.open_questions, MAX_OPEN_QUESTIONS)
+    ]
+    return SummaryPayload(
+        overview=overview,
+        decisions=decisions,
+        action_items=action_items,
+        open_questions=open_questions,
+        participant_ids=_participants(messages),
+        message_count=len(messages),
+    )
+
+
+# --- reading, choosing, storing ---------------------------------------------------------
+
+
+async def read_thread(
+    session: AsyncSession, thread_root_id: str
+) -> tuple[list[Message], dict[str, str]]:
+    """The thread and its speakers' names — everything a summary needs, read once."""
+    messages = await message_service.thread(session, thread_root_id)
+    if not messages:
+        raise bad_request("There is nothing in that thread yet.", code="empty_thread")
+    ids = _participants(messages)
+    names: dict[str, str] = {}
+    if ids:
+        rows = (
+            await session.execute(
+                text("SELECT id, display_name FROM users WHERE id = ANY(cast(:ids AS uuid[]))"),
+                {"ids": ids},
+            )
+        ).fetchall()
+        names = {str(row.id): row.display_name for row in rows}
+    return messages, names
+
+
+async def build_summary(
+    messages: Sequence[Message], *, names: Mapping[str, str]
+) -> tuple[SummaryPayload, str]:
+    """The summary and who wrote it. Call with no session held: this is the model call."""
+    if not llm.configured():
+        return summarize_messages(messages), HEURISTIC_PROVIDER
+    numbered, _ = transcript(messages, names)
+    if not numbered:
+        # Attachments and system rows only: nothing to show a model. The scan copes.
+        return summarize_messages(messages), HEURISTIC_PROVIDER
+    try:
+        return await model_summary(messages, names=names), model_provider()
+    except llm.LlmError as error:
+        raise AppError(502, "llm_failed", f"The model could not summarise: {error}") from error
+
+
 async def get_summary(session: AsyncSession, thread_root_id: str) -> ThreadSummary | None:
     row = (
         await session.execute(
@@ -139,18 +439,18 @@ async def get_summary(session: AsyncSession, thread_root_id: str) -> ThreadSumma
     return to_thread_summary(row) if row else None
 
 
-async def generate_summary(
+async def store_summary(
     session: AsyncSession,
     *,
     workspace_id: str,
     channel_id: str,
     thread_root_id: str,
     created_by: str | None,
+    provider: str,
+    payload: SummaryPayload,
 ) -> ThreadSummary:
-    messages = await message_service.thread(session, thread_root_id)
-    payload = summarize_messages(messages)
+    """One row per thread; a refresh keeps the row's id, which tasks point at."""
     summary_id = new_id()
-
     row = (
         await session.execute(
             text(
@@ -160,7 +460,7 @@ async def generate_summary(
                    decisions, action_items, open_questions, participant_ids, message_count)
                 VALUES
                   (:id, :workspace_id, :channel_id, :thread_root_id, cast(:created_by AS uuid),
-                   'heuristic-v1', :overview, cast(:decisions AS jsonb),
+                   :provider, :overview, cast(:decisions AS jsonb),
                    cast(:action_items AS jsonb), cast(:open_questions AS jsonb),
                    cast(:participant_ids AS uuid[]), :message_count)
                 ON CONFLICT (thread_root_id) DO UPDATE
@@ -182,6 +482,7 @@ async def generate_summary(
                 "channel_id": channel_id,
                 "thread_root_id": thread_root_id,
                 "created_by": created_by,
+                "provider": provider,
                 "overview": payload.overview,
                 "decisions": json.dumps(payload.decisions),
                 "action_items": json.dumps(payload.action_items),

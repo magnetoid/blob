@@ -231,6 +231,7 @@ export const SECTIONS: Section[] = [
         body: [
           'It is private and it is yours — the author is not told that you kept their message, and nobody sees the list. Removing something is the same menu item that put it there.',
           'Saving works in a channel that has been archived, which reacting and pinning do not: those need a channel you can still post in.',
+          'A reminder here that you did not set is a nudge: in a channel with “Nudge unanswered questions” switched on, a question of yours that went a day without an answer comes back to you this way. The note says so. Nobody else is told.',
         ],
         path: '/later',
         keywords: ['later', 'saved', 'bookmark', 'shortlist', 'keep'],
@@ -335,12 +336,12 @@ export const SECTIONS: Section[] = [
         blurb:
           'The thread panel pulls out the decisions, the open questions and the action items. Press Generate, or Refresh once the thread has moved on.',
         body: [
-          'It is labelled AI Summary and it is worth knowing what it actually is: keyword matching over the sentences in the thread, not a language model. Decisions are sentences that say decided, agreed, approved or we will; action items say todo, please, need to or next step; open questions are the sentences ending in a question mark. It reads the thread you are looking at and nothing else.',
-          'So it is a good index of a long thread and a bad substitute for reading one. What it finds it finds exactly; what nobody phrased that way it misses entirely.',
+          'It says which of two things wrote it. With a model configured on the server it is an AI summary: the model reads the thread with every message numbered and every speaker named, and each decision, action item and open question it lists points at the message it came from — the arrow beside a line jumps there. When the model cites its sources, a line it could not source is dropped rather than shown; a model that cites nothing keeps its lines, with no arrow beside them. Without a model it is a keyword scan: decisions are sentences that say decided, agreed, approved or we will; action items say todo, please, need to or next step; open questions are the sentences ending in a question mark.',
+          'Either way it reads the thread you are looking at and nothing else, and it is an index of a long thread rather than a substitute for reading one. Check the sources before acting on an AI summary; a model is sometimes confidently wrong, and the arrow is there so you do not have to take its word.',
           'Action items can be turned into tasks and assigned. A member can assign a person; handing work to an agent is an admin’s to do.',
         ],
         path: '/tasks',
-        keywords: ['summary', 'summarise', 'ai', 'action items', 'decisions', 'tasks'],
+        keywords: ['summary', 'summarise', 'ai', 'ai summary', 'model', 'sources', 'action items', 'decisions', 'tasks'],
       },
     ],
   },
@@ -581,6 +582,19 @@ export const SECTIONS: Section[] = [
     title: 'Notifications and unread',
     intro: 'What reaches you, when, and how to get through what you missed.',
     topics: [
+      {
+        id: 'unanswered-questions',
+        title: 'Questions nobody answered',
+        blurb:
+          'In a channel that has it switched on, a question of yours that goes a day without an answer comes back to you as a reminder in Later — to you alone.',
+        body: [
+          'Switch it on per channel, in the channel’s details: “Nudge unanswered questions”. Off by default, because it acts on the room’s conversation and the room decides. Any member who can write there can flip it.',
+          'A day after you ask, if nobody has replied in the thread, nobody else has reacted, nobody else has said anything in the channel since and nobody has mentioned you, the question lands in your Later as a reminder — inside your quiet hours it waits for the morning. It happens once per question.',
+          'Only you are told. Nothing about who saw the question is ever looked at; Blob has no read receipts to look at. Turn it off for yourself here under Notifications, or mute the channel, which counts as turning it off.',
+        ],
+        path: '/workspace/notifications',
+        keywords: ['nudge', 'unanswered', 'question', 'no answer', 'reminder', 'later', 'follow up'],
+      },
       {
         id: 'what-notifies',
         title: 'What notifies you',

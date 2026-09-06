@@ -139,6 +139,10 @@ grant scopes explicitly, and both end up as a real member of the workspace.
 - **Repeating messages** — daily, weekdays or weekly, rebuilt from the wall clock each
   time so a standup does not drift when the clocks change, and skipping missed
   occurrences rather than owing you a backlog.
+- **Unanswered-question nudges** — switch it on in a channel's details and a question that
+  goes a day there without a reply, a reaction or anyone chiming in comes back to the
+  person who asked, as a reminder in their Later. Only to them: nothing about who saw
+  the question is ever looked at, because Blob has no read receipts to look at.
 - **Reminders** — `/remind me to water the plants tomorrow at 9`, understanding durations,
   clock times, weekdays and "every weekday at 9am".
 
@@ -180,8 +184,10 @@ grant scopes explicitly, and both end up as a real member of the workspace.
   client, which is the direction every agent framework already ships.
 - **Tasks** — shared human/agent work items, extracted from a thread or created directly.
 - **Thread summaries** — decisions, open questions and action items pulled out of a long
-  thread. Worth knowing: this one is keyword extraction rather than a model, which is why
-  it works with no LLM configured and why it finds only what somebody phrased plainly.
+  thread, each pointing at the message it came from. With `LLM_PROVIDER` set a model
+  writes it and the panel says so; without one it is a keyword scan, labelled as such,
+  that finds only what somebody phrased plainly. A model that fails says so rather than
+  pretending.
 - **Apps** — a manifest, a scope catalogue, SSRF-guarded registration, HMAC-signed
   delivery through a transactional outbox, interactive blocks and buttons, and
   app-provided slash commands that appear in the same list as the built-ins.
@@ -367,7 +373,7 @@ password needs an admin.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `LLM_PROVIDER` | `disabled` | `anthropic` or `openai`. Turns on **@Blob** and the Catch-up summaries. |
+| `LLM_PROVIDER` | `disabled` | `anthropic` or `openai`. Turns on **@Blob**, the Catch-up summaries and model-written thread summaries. |
 | `LLM_API_KEY` | unset | The server's key, unlike an installed agent's, which its own container holds. |
 | `LLM_BASE_URL` | unset | A proxy, or an OpenAI-compatible server you run. |
 | `LLM_MODEL` | unset | Empty means a current model rather than a cheap one. |

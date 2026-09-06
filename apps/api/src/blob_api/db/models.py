@@ -309,6 +309,38 @@ class Channel(Base):
     # Sorted member-id digest; makes DM creation idempotent.
     dm_key: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    #: The room's switch for nudging whoever asked a question nobody answered. Off by
+    #: default; a member's own opt-out is in `users.prefs`. Migration 0029.
+    nudge_unanswered: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+
+
+class UnansweredNudge(Base):
+    """One row per question the nudge sweep has acted on — the once-only ratchet.
+
+    Keyed on the message so the claim is `INSERT ... ON CONFLICT DO NOTHING RETURNING`:
+    the row that wins is the worker that nudges, and a question stays claimed even if
+    the reminder it produced is later dismissed. Cascades from the message.
+    """
+
+    __tablename__ = "unanswered_nudges"
+    __table_args__ = (Index("unanswered_nudges_channel", "channel_id", text("nudged_at DESC")),)
+
+    message_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE"), primary_key=True
+    )
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    #: Who asked, and so who was nudged.
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    nudged_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
 class ChannelMember(Base):

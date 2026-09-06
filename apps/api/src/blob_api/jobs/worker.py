@@ -27,6 +27,7 @@ from .deployments import sync_hosted_agents
 from .notify import handle_notify
 from .reminders import fire_reminders
 from .scheduled import send_scheduled
+from .unanswered import nudge_unanswered
 from .unfurl import handle_unfurl
 
 log = logging.getLogger("blob.worker")
@@ -165,6 +166,9 @@ class WorkerSettings:
         # A decision waits a day; a quarter of an hour's slack on that is fine, a day's
         # (from riding the nightly sweep) is not.
         cron(expire_agent_decisions, minute={0, 15, 30, 45}),  # type: ignore[arg-type]
+        # A question a day old is not a minute-sensitive thing; a quarter of an hour's slack
+        # is fine. Offset from the decision sweep so the two never share a tick.
+        cron(nudge_unanswered, minute={5, 20, 35, 50}),  # type: ignore[arg-type]
         # The safety net under the enqueue: retries that came due, and anything whose
         # enqueue was lost, go out within the minute.
         cron(deliver_plugin_events, second=0),  # type: ignore[arg-type]

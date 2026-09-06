@@ -24,7 +24,7 @@ DEFAULT_CHANNELS = ("general", "random")
 
 CHANNEL_STATE_SELECT = """
   SELECT c.id, c.kind, c.name, c.topic, c.description, c.created_by,
-         c.archived_at, c.last_message_id, c.created_at,
+         c.archived_at, c.last_message_id, c.created_at, c.nudge_unanswered,
          cm.notify_level, cm.is_starred, cm.joined_at,
          rs.last_read_message_id, rs.mention_count,
          CASE WHEN c.kind IN ('dm', 'group_dm')

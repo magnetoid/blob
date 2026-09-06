@@ -25,6 +25,7 @@ from ..schemas.models import (
     ThreadSummary,
     ThreadSummaryActionItem,
     ThreadSummaryDecision,
+    ThreadSummaryOpenQuestion,
     User,
     UserPrefs,
     Workspace,
@@ -118,6 +119,7 @@ def to_channel(row: Any) -> Channel:
         created_at=require_iso(row.created_at),
         member_ids=list(member_ids) if member_ids else None,
         work_id=str(row.work_id) if getattr(row, "work_id", None) else None,
+        nudge_unanswered=bool(getattr(row, "nudge_unanswered", False)),
     )
 
 
@@ -227,7 +229,14 @@ def to_thread_summary(row: Any) -> ThreadSummary:
             for item in (row.action_items or [])
             if item is not None
         ],
-        open_questions=list(row.open_questions or []),
+        open_questions=[
+            # Rows from before 0029's shape hold bare strings; they still read.
+            ThreadSummaryOpenQuestion(text=item)
+            if isinstance(item, str)
+            else ThreadSummaryOpenQuestion.model_validate(item)
+            for item in (row.open_questions or [])
+            if item is not None
+        ],
         participant_ids=list(row.participant_ids or []),
         message_count=row.message_count,
         created_at=require_iso(row.created_at),

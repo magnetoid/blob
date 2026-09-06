@@ -906,3 +906,58 @@ Two rules: **one build at a time** — check `application_deployment_queues` has
 `in_progress` row before triggering the hadley deploy, and after a push wait for the imba
 row to finish first. And a deployment row left `in_progress` by a crash blocks nothing
 visibly but must be set to `failed` before the app is redeployed.
+
+## Summaries and nudges (ADR 0015): what bites
+
+* **`llm.complete` is the call for documents; `stream_reply` stays for conversation.** On
+  current Anthropic models `max_tokens` caps thinking *and* text, so size it for the
+  document plus real headroom (summaries use 4096; a full one is ~1200 tokens of JSON)
+  and always read
+  `stop_reason`: `max_tokens` and `refusal` are typed `LlmError`s, never a fragment parsed
+  as an answer. The structured-output hint is dropped for one retry when the provider
+  answers 400 about it — servers behind `LLM_BASE_URL` know the field unevenly.
+  `open_client()` stays zero-arg; per-call timeouts go on the request.
+* **The provider string is a contract with the client.** `heuristic-v1` is the keyword
+  scan; `llm:<model>` is the model. `ThreadPanel` branches on the `llm:` prefix for the
+  kicker, the label and the "check the sources" note. A new provider value that is not
+  one of these renders as a keyword scan.
+* **Ids are never asked of the model.** The transcript numbers messages; `sources: [n]`
+  maps back in `services/agentic.py:model_summary`. A model that cites at all loses its
+  uncited lines; a model that never cites keeps them. Changing that rule changes what an
+  "AI summary" promises — update the help topic with it.
+* **`open_questions` are objects now** (`{text, messageId, askedByUserId}`); rows written
+  before 0029 hold bare strings and `to_thread_summary` reads them as `{text}`. Do not
+  "clean up" that branch — the rows exist.
+* **A model failure is a 502, not a keyword scan.** `build_summary` only falls back to the
+  heuristic when `llm.configured()` is false. The summary route is metered
+  (`summarize`) only when a model is configured.
+* **The nudge sweep is bounded by UUIDv7 id range**, so a test cannot rewind `created_at`
+  to make a question old — its id does not move. Drive time through
+  `nudge_unanswered({}, now=…)`; `tests/test_unanswered.py` shows the shape. The window
+  is `[now − 24 h − 2 h, now − 24 h]`; a question that slips out is never nudged.
+* **"Answered" is one SQL statement** in `services/unanswered.py:candidates`: a live thread
+  reply, a reaction by somebody else, a later channel message by another *person* (not an
+  app) before the sweep, or any later message in the channel mentioning the asker. Muted
+  and opted-out askers are filtered in the same statement so they never occupy the batch. Nothing from `read_states` or
+  presence may ever join that statement — that would be a read receipt.
+* **The nudge is a `saved_items` row with `remind_at = now()`**, delivered by
+  `fire_reminders`. `ON CONFLICT … DO UPDATE` only when the person's own row is still
+  `in_progress` with no reminder fired; their own `remind_at` and `note` win. The
+  `unanswered_nudges` row is the once-only ratchet — a deleted reminder does not
+  re-qualify the question.
+* **`channels.nudge_unanswered` reaches the client through `CHANNEL_STATE_SELECT` only.**
+  A new listing query that builds a `Channel` without it shows `false`, silently.
+
+## Known defect: `channel.updated` from a channel edit carries the editor's own state
+
+`routers/channels.py:update_channel` broadcasts `channel.updated` to the whole room with a
+`ChannelWithState` built *for the editor* — their `membership`, `hasUnread`, `mentionCount`
+and `lastReadMessageId` — and `store.ts` replaces the channel object wholesale. So a topic
+edit, a rename, or (since ADR 0015) flipping "Nudge unanswered questions" overwrites every
+other member's local read position and mute state with the editor's until the next
+bootstrap. Pre-existing; found by the slice-4a review on 2026-09-06 and left for its own
+slice because the fix is a protocol change: the membership route's echo and the join/leave
+echoes need their own event (`membership.updated`, to one user) so that `channel.updated`
+can carry channel-level fields only and the store can merge instead of replace. Both
+protocol twins and `test_protocol_parity.py` move together.
+

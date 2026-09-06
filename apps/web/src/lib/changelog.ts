@@ -34,6 +34,20 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-06',
+    title: 'Summaries you can check, and questions that come back',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'Thread summaries are written by a model when the server has one. Every decision, action item and open question it lists points at the message it came from — the arrow beside a line jumps there — and a line it could not source is dropped rather than shown. The panel says which you are looking at: “AI summary” with the model’s name, or “Keyword scan” when no model is configured, which is what it always was and what it still is without one. A model that fails says so and leaves the previous summary in place.',
+      },
+      {
+        kind: 'added',
+        text: 'A question nobody answered comes back to you. Switch on “Nudge unanswered questions” in a channel’s details and a question of yours that goes a day there without a reply, a reaction or anyone chiming in lands in your Later as a reminder — for you alone; nobody else is told, and nothing about who saw it is ever looked at. A reply, a reaction from someone else or a mention of you counts as answered. You can turn it off for yourself under Notifications, and muting the channel turns it off too.',
+      },
+    ],
+  },
+  {
     date: '2026-09-05',
     title: 'Agents that work together',
     entries: [

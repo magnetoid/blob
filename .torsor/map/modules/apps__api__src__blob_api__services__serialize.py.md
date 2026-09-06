@@ -4,26 +4,26 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-05T07:22:54'
-updated: '2026-09-05T07:22:54'
+created: '2026-09-06T03:24:50'
+updated: '2026-09-06T03:24:50'
 ---
 
 # apps/api/src/blob_api/services/serialize.py
 
 Symbols in `apps/api/src/blob_api/services/serialize.py`.
 
-- L40 `read_prefs(raw: dict[str, Any] | None)` (function) — Stored preferences, tolerant of what an older, looser schema let in.
-- L72 `_prefs(raw: dict[str, Any] | None)` (function)
-- L76 `to_user(row: Any)` (function)
-- L96 `to_current_user(row: Any)` (function)
-- L101 `to_workspace(row: Any)` (function)
-- L107 `to_channel(row: Any)` (function)
-- L124 `to_channel_with_state(row: Any)` (function)
-- L148 `to_attachment(raw: dict[str, Any])` (function)
-- L161 `to_message(row: Any)` (function)
-- L206 `_as_datetime(value: Any)` (function)
-- L212 `to_thread_summary(row: Any)` (function)
-- L238 `to_agent_task(row: Any)` (function)
-- L260 `to_message_translation(row: Any, *, cached: bool=False)` (function)
-- L276 `message_event(name: str, message: Message)` (function) — The socket envelope carrying a message. Shared so every sender emits one shape.
-- L326 `to_feedback_ticket(row: Any)` (function)
+- L41 `read_prefs(raw: dict[str, Any] | None)` (function) — Stored preferences, tolerant of what an older, looser schema let in.
+- L73 `_prefs(raw: dict[str, Any] | None)` (function)
+- L77 `to_user(row: Any)` (function)
+- L97 `to_current_user(row: Any)` (function)
+- L102 `to_workspace(row: Any)` (function)
+- L108 `to_channel(row: Any)` (function)
+- L126 `to_channel_with_state(row: Any)` (function)
+- L150 `to_attachment(raw: dict[str, Any])` (function)
+- L163 `to_message(row: Any)` (function)
+- L208 `_as_datetime(value: Any)` (function)
+- L214 `to_thread_summary(row: Any)` (function)
+- L247 `to_agent_task(row: Any)` (function)
+- L269 `to_message_translation(row: Any, *, cached: bool=False)` (function)
+- L285 `message_event(name: str, message: Message)` (function) — The socket envelope carrying a message. Shared so every sender emits one shape.
+- L335 `to_feedback_ticket(row: Any)` (function)

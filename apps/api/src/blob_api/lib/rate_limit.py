@@ -48,6 +48,10 @@ LIMITS: dict[str, Limit] = {
     # Safe to gate hard because the limiter fails open — a Redis blip cannot turn
     # this guard into the outage.
     "catchup": Limit(10, 300),
+    # A model-written thread summary is one metered call per press of Refresh, and any
+    # member can press it on any thread they can read. Only consumed when a model is
+    # configured — the keyword scan is free and should never 429.
+    "summarize": Limit(10, 300),
     # Registering an agent mints credentials and a bot user. Nobody needs more than a
     # handful an hour, and a loop that does would fill the workspace with bots.
     "agent_attach": Limit(5, 3600),

@@ -11,6 +11,20 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "1533f4ae5a6d0be40eb9285ac71b8afd45fd8f08",
+    "shortSha": "1533f4a",
+    "subject": "Record the trap that took the host down: two Coolify builds at once",
+    "date": "2026-09-05T10:34:24+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "ab21354b54502d50e430b98b1339cdd0ae334f0a",
+    "shortSha": "ab21354",
+    "subject": "Work channels: a channel spun from a thread, with plan, changes and preview tabs",
+    "date": "2026-09-05T09:48:36+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "cc35443bff34a0394e8deb2c4f470c041edc7535",
     "shortSha": "cc35443",
     "subject": "Put a Content-Security-Policy on every response",
@@ -414,20 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "98fac28",
     "subject": "Say out loud whether a reaction is already yours",
     "date": "2026-09-01T14:49:44+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "9bb06ceff453b06f67a01725f1e80b54eb4196fc",
-    "shortSha": "9bb06ce",
-    "subject": "Write down the flushSync warnings, so nobody trades them for a real bug",
-    "date": "2026-09-01T14:30:58+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "73a80054ad199c516a5531beed6e91734da27822",
-    "shortSha": "73a8005",
-    "subject": "Stop @-mention autocomplete from offering people the query is merely inside",
-    "date": "2026-09-01T14:30:21+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

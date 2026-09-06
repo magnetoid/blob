@@ -123,6 +123,25 @@ export function NotificationsSection() {
 
       <div className="pref-row">
         <div style={{ flex: 1 }}>
+          <div className="pref-label">Nudge me about unanswered questions</div>
+          <div className="pref-hint">
+            In channels that have it switched on, a question of yours that goes
+            a day without a reply comes back to you in Later. Nobody else is
+            told.
+          </div>
+        </div>
+        <button
+          className="toggle"
+          aria-pressed={prefs.nudges}
+          aria-label="Nudge me about unanswered questions"
+          onClick={() => void setPrefs({ nudges: !prefs.nudges })}
+        >
+          <span />
+        </button>
+      </div>
+
+      <div className="pref-row">
+        <div style={{ flex: 1 }}>
           <div className="pref-label">Quiet hours</div>
           <div className="pref-hint">
             Only the hours you choose will notify you. Unread counts still
