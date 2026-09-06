@@ -18,6 +18,7 @@ from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
+from ..lib import mail
 from ..lib.auth import (
     SessionUser,
     hash_token,
@@ -118,6 +119,12 @@ class SettingsInput(CamelModel):
 class HealthOut(CamelModel):
     database: bool
     redis: bool
+    #: "ok" | "unreachable" | "unconfigured". An invitation whose email never goes is
+    #: indistinguishable from one that does, from the inside, so it is reported here.
+    mail: str
+    #: Whether VAPID keys are set. Without them nobody can be told anything while their
+    #: tab is closed.
+    push: bool
     queue_depth: int
     connections: int
     users_online: int
@@ -636,6 +643,70 @@ async def unarchive_any_channel(
     return OkOut()
 
 
+class ResetLinkOut(CamelModel):
+    url: str
+    expires_at: str
+
+
+@router.post("/users/{user_id}/reset-link", response_model=ResetLinkOut)
+async def create_reset_link(
+    user_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
+) -> ResetLinkOut:
+    """Mint a password-reset link for somebody, for an admin to hand over.
+
+    The README has always said that without mail "a forgotten password needs an admin",
+    and no such path existed: `password_resets` was written in exactly one place, the
+    self-service route that emails the link. On a server whose SMTP is not configured —
+    which is every server until somebody configures one — that made a forgotten password
+    permanent.
+
+    It is the same token the email would have carried, with the same hour of life, so a
+    link handed over in person expires like any other. Audited loudly, because an admin
+    minting one can take an account over, and the record is what makes that visible.
+    """
+    async with transaction() as (session, _):
+        person = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id, email FROM users
+                     WHERE id = :id AND workspace_id = :ws
+                       AND deactivated_at IS NULL AND kind = 'human'
+                    """
+                ),
+                {"id": user_id, "ws": admin.workspace_id},
+            )
+        ).fetchone()
+        if person is None:
+            raise not_found("No such person here.")
+
+        token = new_token()
+        row = (
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO password_resets (id, user_id, token_hash, expires_at)
+                    VALUES (:id, :user_id, :token_hash, now() + interval '1 hour')
+                    RETURNING expires_at
+                    """
+                ),
+                {"id": new_id(), "user_id": person.id, "token_hash": hash_token(token)},
+            )
+        ).fetchone()
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "user.reset_link_created",
+            target_type="user",
+            target_id=str(person.id),
+            metadata={"email": person.email},
+        )
+    return ResetLinkOut(
+        url=f"{settings.PUBLIC_URL}/reset/{token}",
+        expires_at=iso(row.expires_at) if row else "",
+    )
+
+
 @router.get("/audit", response_model=AuditOut)
 async def audit_log(
     actor_id: str | None = None,
@@ -771,6 +842,8 @@ async def health(admin: SessionUser = Depends(require_admin)) -> HealthOut:
     return HealthOut(
         database=database,
         redis=redis_ok,
+        mail=await mail.probe(),
+        push=settings.push_enabled,
         queue_depth=queue_depth,
         connections=stats["connections"],
         users_online=stats["users"],

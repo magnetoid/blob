@@ -39,6 +39,18 @@ export const RELEASES: readonly Release[] = [
     entries: [
       {
         kind: 'fixed',
+        text: 'The server now says whether it can reach anybody. Email and push both fail quietly on purpose — a dead mail server must not fail the invitation you just created — but quietly had become invisibly: an invitation to an address that was never emailed looked exactly like one that was, and “check your email” appeared on the password screen of a server that cannot send email. Invitations now say whether the email went, the reset screen says when nothing was sent, and Health shows both paths with what to set if they are off.',
+      },
+      {
+        kind: 'added',
+        text: 'An admin can hand somebody a password reset link. The guide has always said that without email a forgotten password needs an admin; there was no way for an admin to do it, so it meant being locked out for good. It is in People beside Sign out, lasts an hour like any other reset link, and is written to the audit log.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Testing push notifications tells you what happened. It used to say “Sent — check the device” whenever the server had not been told the subscription was dead — including when the server’s own keys were wrong and nothing could possibly have been delivered. It now counts what actually landed, and says so when this browser is subscribed to something the server has no record of.',
+      },
+      {
+        kind: 'fixed',
         text: 'Images in a channel are now small copies rather than the originals. A photo from a phone was being sent to every reader at full size and scaled down by their browser, so a channel with twenty screenshots in it cost tens of megabytes to look at; it now sends a version sized for the screen. Clicking one opens it full size in place, with Escape to close and the original a download away — rather than throwing you into a new tab. Photos also arrive the right way up, and the copy the channel sees carries none of the camera data the original does.',
       },
       {

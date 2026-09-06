@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T06:59:43'
-updated: '2026-09-06T06:59:43'
+created: '2026-09-06T13:47:07'
+updated: '2026-09-06T13:47:07'
 ---
 
 # apps/api/src/blob_api/routers/users.py
@@ -27,6 +27,6 @@ Symbols in `apps/api/src/blob_api/routers/users.py`.
 - L375 `PushKeyOut` (class)
 - L382 `push_public_key(user: SessionUser=Depends(current_user))` (function) — The VAPID public key a browser needs to subscribe.
 - L392 `PushTestOut` (class)
-- L400 `push_test(user: SessionUser=Depends(current_user))` (function) — Send yourself a test notification, so "did I set this up right" has a button.
-- L442 `add_push_subscription(payload: PushSubscriptionInput, user: SessionUser=Depends(current_user))` (function)
-- L469 `remove_push_subscription(payload: PushUnsubscribeInput, user: SessionUser=Depends(current_user))` (function)
+- L404 `push_test(user: SessionUser=Depends(current_user))` (function) — Send yourself a test notification, so "did I set this up right" has a button.
+- L449 `add_push_subscription(payload: PushSubscriptionInput, user: SessionUser=Depends(current_user))` (function)
+- L476 `remove_push_subscription(payload: PushUnsubscribeInput, user: SessionUser=Depends(current_user))` (function)

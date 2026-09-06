@@ -4,12 +4,14 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T06:59:43'
-updated: '2026-09-06T06:59:43'
+created: '2026-09-06T13:47:06'
+updated: '2026-09-06T13:47:06'
 ---
 
 # apps/api/src/blob_api/lib/webpush.py
 
 Symbols in `apps/api/src/blob_api/lib/webpush.py`.
 
-- L16 `send_push(subs: Sequence[Any], payload: dict[str, Any])` (function) — Fan out web push, returning subscriptions the browser has thrown away.
+- L32 `PushResult` (class) — What became of a fan-out: what landed, and what the browser has thrown away.
+- L42 `push(subs: Sequence[Any], payload: dict[str, Any])` (function) — Fan out web push and report honestly what happened to each subscription.
+- L89 `send_push(subs: Sequence[Any], payload: dict[str, Any])` (function) — The dead-subscription ids alone, for callers that only prune.

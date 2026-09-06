@@ -212,6 +212,10 @@ export interface AdminWebhook {
 export interface AdminHealth {
   database: boolean;
   redis: boolean;
+  /** "ok" | "unreachable" | "unconfigured" — whether mail can leave the server at all. */
+  mail: string;
+  /** Whether push keys are set. Without them a closed tab is told nothing. */
+  push: boolean;
   queueDepth: number;
   connections: number;
   usersOnline: number;
@@ -463,9 +467,15 @@ export const api = {
       email?: string;
       role?: "member" | "admin";
       expiresInDays?: number;
-    }) => post<{ url: string; expiresAt: string }>("/api/invites", input),
+    }) =>
+      post<{ url: string; expiresAt: string; emailed: boolean | null }>(
+        "/api/invites",
+        input,
+      ),
     forgotPassword: (email: string) =>
-      post<{ ok: true }>("/api/auth/forgot-password", { email }),
+      post<{ ok: true; mailReachable: boolean }>("/api/auth/forgot-password", {
+        email,
+      }),
     resetPassword: (token: string, password: string) =>
       post<{ ok: true }>("/api/auth/reset-password", { token, password }),
   },
@@ -484,7 +494,10 @@ export const api = {
     }) => post<{ ok: true }>("/api/me/push-subscription", subscription),
     unsubscribePush: (endpoint: string) =>
       del<{ ok: true }>("/api/me/push-subscription", { endpoint }),
-    pushTest: () => post<{ ok: true; sent: number }>("/api/me/push-test"),
+    pushTest: () =>
+      post<{ ok: true; sent: number; stale: number; failed: number }>(
+        "/api/me/push-test",
+      ),
   },
 
   users: {
@@ -880,6 +893,10 @@ export const api = {
       post<{ ok: true }>(`/api/admin/users/${id}/deactivate`),
     reactivate: (id: string) =>
       post<{ ok: true }>(`/api/admin/users/${id}/reactivate`),
+    resetLink: (userId: string) =>
+      post<{ url: string; expiresAt: string }>(
+        `/api/admin/users/${userId}/reset-link`,
+      ),
     revokeSessions: (id: string) =>
       post<{ ok: true }>(`/api/admin/users/${id}/revoke-sessions`),
 

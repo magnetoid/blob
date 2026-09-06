@@ -21,6 +21,10 @@ export function PeopleSection({
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [deactivating, setDeactivating] = useState<AdminUser | null>(null);
+  /** A reset link just minted, shown once so it can be handed over. */
+  const [resetLink, setResetLink] = useState<{ name: string; url: string } | null>(
+    null,
+  );
 
   const load = useCallback(() => {
     setLoading(true);
@@ -108,6 +112,21 @@ export function PeopleSection({
                       <option value="owner">owner</option>
                     </select>
                   )}
+                {!user.deactivatedAt && (
+                  <button
+                    className="btn btn-ghost"
+                    aria-label={`Make a password reset link for ${user.displayName}`}
+                    title="For when this server cannot send email"
+                    onClick={() =>
+                      void act(async () => {
+                        const made = await api.admin.resetLink(user.id);
+                        setResetLink({ name: user.displayName, url: made.url });
+                      })
+                    }
+                  >
+                    Reset link
+                  </button>
+                )}
                 {!user.deactivatedAt && user.sessionCount > 0 && (
                   <button
                     className="btn btn-ghost"
@@ -148,6 +167,23 @@ export function PeopleSection({
           {users.length === 0 && (
             <p className="muted">Nobody matched “{query}”.</p>
           )}
+        </div>
+      )}
+
+      {resetLink && (
+        <div className="draft-chip" style={{ margin: "12px 0", width: "100%" }}>
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+            For {resetLink.name}, good for an hour: {resetLink.url}
+          </span>
+          <button
+            className="btn btn-ghost"
+            onClick={() => void navigator.clipboard.writeText(resetLink.url)}
+          >
+            Copy
+          </button>
+          <button className="btn btn-ghost" onClick={() => setResetLink(null)}>
+            Done
+          </button>
         </div>
       )}
 

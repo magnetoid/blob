@@ -93,6 +93,23 @@ describe('asking for a link', () => {
     const note = await screen.findByText(/If ana@example.com has an account/);
     expect(note.textContent).toMatch(/has an account/);
   });
+
+  it('stops promising an email the server cannot send', async () => {
+    // The one outright lie the screen could tell: "a link is on its way" while SMTP is
+    // refusing connections. The server answers the same way for every address, so this
+    // says nothing about the account either.
+    forgotPassword.mockResolvedValueOnce({ ok: true, mailReachable: false } as never);
+    renderScreen();
+    fireEvent.click(screen.getByText('Forgot your password?'));
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'ana@example.com' },
+    });
+    fireEvent.click(screen.getByText('Email me a link'));
+
+    expect(await screen.findByText('This server cannot send email')).toBeTruthy();
+    expect(screen.getByText(/Ask an admin for a reset link/)).toBeTruthy();
+    expect(screen.queryByText(/on its way/)).toBeNull();
+  });
 });
 
 describe('following the link', () => {

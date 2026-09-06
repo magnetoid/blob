@@ -2678,6 +2678,14 @@ button {
   color: var(--text-label);
 }
 
+/* Only drawn when something is wrong, so it says what to do rather than what is. */
+.stat-hint {
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
 .stat-value {
   margin-top: 5px;
   font-size: var(--text-title);

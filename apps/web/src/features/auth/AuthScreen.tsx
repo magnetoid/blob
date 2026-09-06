@@ -34,6 +34,8 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   const [inviteWorkspace, setInviteWorkspace] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  /** Whether this server can send email at all — nothing about the address typed. */
+  const [mailReachable, setMailReachable] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -79,13 +81,17 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
             inviteToken: inviteToken ?? undefined,
           });
           break;
-        case "forgot":
+        case "forgot": {
           // Always answers ok, whether or not the address has an account — so the
-          // screen must not imply one either way. Nothing to sign in to yet.
-          await api.auth.forgotPassword(email);
+          // screen must not imply one either way. What it does say is whether this
+          // server can send email at all, which is about the server and not the
+          // address. Nothing to sign in to yet.
+          const answer = await api.auth.forgotPassword(email);
+          setMailReachable(answer.mailReachable !== false);
           setSent(true);
           setBusy(false);
           return;
+        }
         case "reset":
           if (!resetToken) return;
           // The server sets a fresh session cookie on success, having deleted every
@@ -130,11 +136,12 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
               B
             </div>
             <h1 className="auth-title" style={{ marginTop: 18 }}>
-              Check your email
+              {mailReachable ? "Check your email" : "This server cannot send email"}
             </h1>
             <p className="auth-subtitle">
-              If {email} has an account here, a link to choose a new password is
-              on its way. It expires in an hour.
+              {mailReachable
+                ? `If ${email} has an account here, a link to choose a new password is on its way. It expires in an hour.`
+                : "Nothing was sent, because this server has no mail server it can reach. Ask an admin for a reset link — they can make one from the console."}
             </p>
           </div>
           <p className="auth-switch">

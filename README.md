@@ -367,8 +367,11 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 | `SMTP_USER` / `SMTP_PASS` | unset |
 | `MAIL_FROM` | `Blob <chat@example.com>` |
 
-Without mail, invite links still work — they are shown in the console — but a forgotten
-password needs an admin.
+Without mail, invite links still work — they are shown in the console, which says plainly
+that the email did not go — and a forgotten password needs an admin, who makes a reset
+link from **People** in the workspace console and hands it over. **System → Health** says
+whether mail is reachable at all, so a server that quietly delivers nothing is visible
+rather than assumed.
 
 ### Web Push
 

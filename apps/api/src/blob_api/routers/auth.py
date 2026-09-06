@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
+from ..lib import mail
 from ..lib.auth import (
     SessionUser,
     clear_session_cookie,
@@ -58,9 +59,19 @@ class OkOut(CamelModel):
     ok: bool = True
 
 
+class ForgotOut(CamelModel):
+    ok: bool = True
+    #: Whether mail leaves this server at all. Nothing about the address that was typed.
+    mail_reachable: bool = True
+
+
 class InviteOut(CamelModel):
     url: str
     expires_at: str
+    #: Whether the invitation actually reached them by email. None when no address was
+    #: given (a shareable link is not emailed to anybody). False means the link on
+    #: screen is the only copy that exists — somebody has to send it.
+    emailed: bool | None = None
 
 
 class InvitePreviewOut(CamelModel):
@@ -419,11 +430,12 @@ async def create_invite(
         raise bad_request("Could not create that invitation.")
 
     url = f"{settings.PUBLIC_URL}/join/{token}"
+    emailed: bool | None = None
     if payload.email:
-        await send_invite(
+        emailed = await send_invite(
             payload.email, user.display_name, url, workspace.name if workspace else "the workspace"
         )
-    return InviteOut(url=url, expires_at=iso(row.expires_at) or "")
+    return InviteOut(url=url, expires_at=iso(row.expires_at) or "", emailed=emailed)
 
 
 @router.get("/api/invites/{token}", response_model=InvitePreviewOut)
@@ -450,8 +462,8 @@ async def preview_invite(token: str) -> InvitePreviewOut:
 
 
 # ─── password reset ───────────────────────────────────────────────────────────
-@router.post("/api/auth/forgot-password", response_model=OkOut)
-async def forgot_password(payload: ForgotPasswordInput, request: Request) -> OkOut:
+@router.post("/api/auth/forgot-password", response_model=ForgotOut)
+async def forgot_password(payload: ForgotPasswordInput, request: Request) -> ForgotOut:
     await consume("password_reset", request.client.host if request.client else "unknown")
 
     async with transaction() as (session, _):
@@ -481,10 +493,14 @@ async def forgot_password(payload: ForgotPasswordInput, request: Request) -> OkO
                 {"id": new_id(), "user_id": user.id, "token_hash": hash_token(token)},
             )
 
-    # Always report success — otherwise this endpoint enumerates accounts.
     if token:
         await send_password_reset(payload.email, f"{settings.PUBLIC_URL}/reset/{token}")
-    return OkOut()
+    # Always the same answer about the *account* — otherwise this endpoint enumerates
+    # them. What can be said without leaking anything is whether this server can send
+    # email at all, which is about the server and is asked the same way either way: a
+    # screen that promises a link while SMTP is refusing connections is the one outright
+    # lie in the app.
+    return ForgotOut(mail_reachable=await mail.probe() == "ok")
 
 
 @router.post("/api/auth/reset-password", response_model=OkOut)

@@ -150,7 +150,15 @@ async def handle_notify(message_id: str) -> None:
     for sub in subs:
         user_id = str(sub.user_id)
         if user_id not in focused:
-            focused[user_id] = message.channel_id in await presence.focused_channels(user_id)
+            try:
+                focused[user_id] = message.channel_id in await presence.focused_channels(user_id)
+            except Exception:
+                # Fail toward telling them, the way the `@here` read above does. This
+                # runs *after* the mention counters have committed, so letting it raise
+                # would have arq retry the whole job and count every badge a second
+                # time — a Redis blip that turns one mention into two.
+                log.warning("could not read focus for %s; pushing anyway", user_id)
+                focused[user_id] = False
         if not focused[user_id]:
             targets.append(sub)
     if not targets:

@@ -16,7 +16,7 @@ from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import IdParam, new_id
 from ..lib.storage import public_file_url
 from ..lib.times import parse_client_time
-from ..lib.webpush import send_push
+from ..lib.webpush import push as push_all
 from ..realtime import hub
 from ..schemas.base import CamelModel
 from ..schemas.models import (
@@ -391,9 +391,13 @@ async def push_public_key(user: SessionUser = Depends(current_user)) -> PushKeyO
 
 class PushTestOut(CamelModel):
     ok: bool = True
-    #: How many of the caller's devices were pushed at. Zero means "subscribe first",
-    #: which the settings screen already prevents by only offering the button when on.
+    #: How many of the caller's devices took it. Zero with `stale` or `failed` set is the
+    #: interesting case: the browser thinks it is subscribed and the server disagrees.
     sent: int
+    #: Subscriptions the push service says are gone; they have just been deleted.
+    stale: int = 0
+    #: Endpoints that refused for any other reason — a bad server key, a timeout.
+    failed: int = 0
 
 
 @router.post("/api/me/push-test", response_model=PushTestOut)
@@ -420,7 +424,7 @@ async def push_test(user: SessionUser = Depends(current_user)) -> PushTestOut:
         ).fetchall()
     if not subs:
         return PushTestOut(sent=0)
-    dead = await send_push(
+    result = await push_all(
         subs,
         {
             "title": "Blob",
@@ -429,13 +433,16 @@ async def push_test(user: SessionUser = Depends(current_user)) -> PushTestOut:
             "tag": "push-test",
         },
     )
-    if dead:
+    if result.dead:
         async with transaction() as (session, _):
             await session.execute(
                 text("DELETE FROM push_subscriptions WHERE id = ANY(cast(:ids AS uuid[]))"),
-                {"ids": dead},
+                {"ids": result.dead},
             )
-    return PushTestOut(sent=len(subs) - len(dead))
+    # Counted, not inferred: a subscription that failed for a reason other than being
+    # gone used to be reported as delivered, which is the one answer a test must never
+    # give.
+    return PushTestOut(sent=result.delivered, stale=len(result.dead), failed=result.failed)
 
 
 @router.post("/api/me/push-subscription", response_model=OkOut)

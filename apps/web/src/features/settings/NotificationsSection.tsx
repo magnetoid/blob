@@ -335,7 +335,8 @@ export function NotificationsSection() {
 function PushPanel() {
   const [state, setState] = useState<PushState | "loading">("loading");
   const [busy, setBusy] = useState(false);
-  const [tested, setTested] = useState(false);
+  /** What the last test actually did, in the words the person needs. */
+  const [tested, setTested] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -373,7 +374,7 @@ function PushPanel() {
         <div style={{ flex: 1 }}>
           <div className="pref-label">Notify this device</div>
           <div className="pref-hint">
-            {state === "loading" ? "Checking…" : explanation}
+            {state === "loading" ? "Checking…" : (tested ?? explanation)}
           </div>
         </div>
         {(state === "on" || state === "off") && (
@@ -390,18 +391,28 @@ function PushPanel() {
         {state === "on" && (
           <button
             className="btn btn-ghost"
-            disabled={busy || tested}
+            disabled={busy || tested !== null}
             onClick={async () => {
               try {
-                await api.me.pushTest();
-                setTested(true);
-                setTimeout(() => setTested(false), 4000);
+                // What came back, not what was hoped for: this switch reads "on" from
+                // the browser's own subscription, which can outlive the server's record
+                // of it — and a push that failed for a bad server key used to be
+                // counted as sent.
+                const result = await api.me.pushTest();
+                setTested(
+                  result.sent > 0
+                    ? `Sent to ${result.sent} ${result.sent === 1 ? "device" : "devices"} — check it`
+                    : result.failed > 0
+                      ? "The server could not send it. An admin can check the push keys."
+                      : "This browser is subscribed but the server has no record of it. Turn the switch off and on again.",
+                );
+                setTimeout(() => setTested(null), 6000);
               } catch (err) {
                 showError(err);
               }
             }}
           >
-            {tested ? "Sent — check the device" : "Send a test"}
+            Send a test
           </button>
         )}
       </div>

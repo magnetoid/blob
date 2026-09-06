@@ -16,10 +16,13 @@ function Stat({
   label,
   value,
   bad,
+  hint,
 }: {
   label: string;
   value: string;
   bad?: boolean;
+  /** What to do about it, shown only when there is something to do. */
+  hint?: string;
 }) {
   return (
     <div className="stat">
@@ -27,6 +30,7 @@ function Stat({
       <div className="stat-value" data-bad={bad}>
         {value}
       </div>
+      {hint && <div className="stat-hint">{hint}</div>}
     </div>
   );
 }
@@ -62,6 +66,35 @@ export function HealthSection({
           label="Redis"
           value={health.redis ? "Reachable" : "Down"}
           bad={!health.redis}
+        />
+        {/* The two ways something can reach a person who is not looking at the app.
+            Both fail silently by design — a dead mail server must not fail the request
+            that triggered it — so this is the only place they are visible. */}
+        <Stat
+          label="Email"
+          value={
+            health.mail === 'ok'
+              ? 'Reachable'
+              : health.mail === 'unconfigured'
+                ? 'Not configured'
+                : 'Unreachable'
+          }
+          bad={health.mail !== 'ok'}
+          hint={
+            health.mail === 'ok'
+              ? undefined
+              : 'Invitations and password resets are not being delivered. Set SMTP_HOST, SMTP_PORT and MAIL_FROM.'
+          }
+        />
+        <Stat
+          label="Push notifications"
+          value={health.push ? 'On' : 'No keys'}
+          bad={!health.push}
+          hint={
+            health.push
+              ? undefined
+              : 'Nobody can be notified while their tab is closed. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY.'
+          }
         />
         <Stat label="Queue depth" value={String(health.queueDepth)} />
         <Stat label="Live sockets" value={String(health.connections)} />

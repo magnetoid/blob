@@ -2927,6 +2927,22 @@
         "title": "FollowThreadInput",
         "type": "object"
       },
+      "ForgotOut": {
+        "properties": {
+          "mailReachable": {
+            "default": true,
+            "title": "Mailreachable",
+            "type": "boolean"
+          },
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "ForgotOut",
+        "type": "object"
+      },
       "ForgotPasswordInput": {
         "properties": {
           "email": {
@@ -2992,9 +3008,17 @@
             "title": "Database",
             "type": "boolean"
           },
+          "mail": {
+            "title": "Mail",
+            "type": "string"
+          },
           "messageCount": {
             "title": "Messagecount",
             "type": "integer"
+          },
+          "push": {
+            "title": "Push",
+            "type": "boolean"
           },
           "queueDepth": {
             "title": "Queuedepth",
@@ -3020,6 +3044,8 @@
         "required": [
           "database",
           "redis",
+          "mail",
+          "push",
           "queueDepth",
           "connections",
           "usersOnline",
@@ -3239,6 +3265,17 @@
       },
       "InviteOut": {
         "properties": {
+          "emailed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emailed"
+          },
           "expiresAt": {
             "title": "Expiresat",
             "type": "string"
@@ -4735,6 +4772,11 @@
       },
       "PushTestOut": {
         "properties": {
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
           "ok": {
             "default": true,
             "title": "Ok",
@@ -4742,6 +4784,11 @@
           },
           "sent": {
             "title": "Sent",
+            "type": "integer"
+          },
+          "stale": {
+            "default": 0,
+            "title": "Stale",
             "type": "integer"
           }
         },
@@ -4980,6 +5027,24 @@
           "scopes"
         ],
         "title": "RepoPreviewOut",
+        "type": "object"
+      },
+      "ResetLinkOut": {
+        "properties": {
+          "expiresAt": {
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expiresAt"
+        ],
+        "title": "ResetLinkOut",
         "type": "object"
       },
       "ResetPasswordInput": {
@@ -10416,6 +10481,50 @@
         ]
       }
     },
+    "/api/admin/users/{user_id}/reset-link": {
+      "post": {
+        "description": "Mint a password-reset link for somebody, for an admin to hand over.\n\nThe README has always said that without mail \"a forgotten password needs an admin\",\nand no such path existed: `password_resets` was written in exactly one place, the\nself-service route that emails the link. On a server whose SMTP is not configured \u2014\nwhich is every server until somebody configures one \u2014 that made a forgotten password\npermanent.\n\nIt is the same token the email would have carried, with the same hour of life, so a\nlink handed over in person expires like any other. Audited loudly, because an admin\nminting one can take an account over, and the record is what makes that visible.",
+        "operationId": "create_reset_link_api_admin_users__user_id__reset_link_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetLinkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Reset Link",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/users/{user_id}/revoke-sessions": {
       "post": {
         "description": "Sign someone out of every device without disabling their account.",
@@ -11076,7 +11185,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OkOut"
+                  "$ref": "#/components/schemas/ForgotOut"
                 }
               }
             },

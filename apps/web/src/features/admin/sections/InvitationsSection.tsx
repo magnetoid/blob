@@ -14,6 +14,8 @@ export function InvitationsSection({
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"member" | "admin">("member");
   const [link, setLink] = useState<string | null>(null);
+  /** Whether the invitation actually went by email: null when nobody asked it to. */
+  const [emailed, setEmailed] = useState<boolean | null>(null);
 
   const load = useCallback(() => {
     void api.admin
@@ -45,6 +47,7 @@ export function InvitationsSection({
               role,
             });
             setLink(created.url);
+            setEmailed(created.emailed ?? null);
             setEmail("");
           });
         }}
@@ -74,6 +77,19 @@ export function InvitationsSection({
           Create invitation
         </button>
       </form>
+
+      {link && emailed === false && (
+        <p className="error-text" style={{ marginBottom: 8 }}>
+          The email did not go out — this server cannot reach a mail server, so the link
+          below is the only copy. Send it to them yourself, or set SMTP_HOST and
+          MAIL_FROM and try again.
+        </p>
+      )}
+      {link && emailed === true && (
+        <p className="pref-hint" style={{ marginBottom: 8 }}>
+          Emailed. The link is here too, in case it does not arrive.
+        </p>
+      )}
 
       {link && (
         <div className="draft-chip" style={{ marginBottom: 18, width: "100%" }}>

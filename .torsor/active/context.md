@@ -1035,3 +1035,37 @@ added to that WHERE clause or it 404s for everyone including the uploader.
 needs MinIO and skips loudly without it — `docker compose up -d minio minio-init` before
 trusting a green run of the storage tests.
 
+## Quietly is not invisibly: the two delivery paths
+
+Mail and push both swallow their failures on purpose — a dead mail server must not fail
+the request that triggered it, and a push service refusing must not take the notify job
+down. Until 2026-09-06 neither told anybody afterwards, and both had a way of reporting
+success while delivering nothing.
+
+* **`lib/mail.py:send_mail` returns a bool now.** The invite route passes it on as
+  `emailed` (null when no address was given), and `forgot-password` answers
+  `mailReachable`, which is about the *server* and identical for an address that exists
+  and one that does not — the enumeration guard is why it cannot simply say "sent".
+  `mail.probe()` opens a connection and says nothing, so it needs no credentials and can
+  never send anything by accident; `/api/admin/health` calls it.
+* **`lib/webpush.push` replaces the guessing.** It returns `delivered`, `dead` and
+  `failed` counts. Before, only `WebPushException` was caught, so a malformed
+  `VAPID_PRIVATE_KEY` or a `VAPID_SUBJECT` without `mailto:` raised `VapidException`,
+  vanished into `gather(return_exceptions=True)` with no log line, and the test button
+  counted it as delivered. `send_push` remains as the dead-ids-only entrance for callers
+  that only prune. Every push now carries `timeout=PUSH_TIMEOUT_SEC` — `pywebpush`
+  defaults to *no* timeout, and the fan-out runs on `to_thread`, so one unresponsive push
+  service used to pin one of the worker's eight threads for good.
+* **`jobs/notify.py` guards the focus read.** `presence.focused_channels` runs *after*
+  the mention counters have committed; letting a Redis blip raise had arq retry the whole
+  job and count every badge twice. It now fails toward notifying, like the `@here`
+  presence read forty lines above it.
+* **An admin can mint a reset link** (`POST /api/admin/users/{id}/reset-link`, audited as
+  `user.reset_link_created`). Before this, `password_resets` was written in exactly one
+  place — the self-service route that emails the link — so on a server without working
+  mail a forgotten password was permanent, while the README claimed an admin could help.
+
+VAPID keys must be set on **both** the app and the worker: the API serves the public key
+and the test button, but the worker does the real fan-out. `docker-compose.prod.yml` sets
+them twice for that reason.
+
