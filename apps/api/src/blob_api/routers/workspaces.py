@@ -22,6 +22,7 @@ from ..lib.auth import (
     destroy_session,
     set_session_cookie,
 )
+from ..lib.caller import client_ip
 from ..lib.ids import IdParam
 from ..schemas.base import CamelModel
 from ..services import workspaces as workspace_service
@@ -89,7 +90,7 @@ async def switch_workspace(
     token = await create_session(
         target.id,
         request.headers.get("user-agent"),
-        request.client.host if request.client else None,
+        client_ip(request),
     )
     set_session_cookie(response, token)
     return SwitchedOut(workspace_id=workspace_id, user_id=target.id)

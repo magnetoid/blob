@@ -30,6 +30,11 @@ services:
       # sign-in with "Blocked request." Set PUBLIC_URL explicitly to the full public
       # origin and this falls back to it.
       - PUBLIC_URL=${PUBLIC_URL:-${SERVICE_FQDN_APP}}
+      # How many proxies append to X-Forwarded-For after the one naming the caller.
+      # Coolify puts Traefik in front, and most installs put a TLS terminator in front of
+      # that — which is 1. Behind a single reverse proxy it is 0. Get this wrong upwards
+      # and the rate limits count against a header the caller writes; see lib/caller.py.
+      - TRUSTED_PROXY_HOPS=${TRUSTED_PROXY_HOPS:-1}
       # Not decoration: this is what marks the session cookie Secure and drops the
       # localhost exemption in the origin check.
       - NODE_ENV=production
@@ -132,6 +137,11 @@ services:
       # The app has already migrated by the time this starts.
       - RUN_MIGRATIONS=false
       - PUBLIC_URL=${PUBLIC_URL:-${SERVICE_FQDN_APP}}
+      # How many proxies append to X-Forwarded-For after the one naming the caller.
+      # Coolify puts Traefik in front, and most installs put a TLS terminator in front of
+      # that — which is 1. Behind a single reverse proxy it is 0. Get this wrong upwards
+      # and the rate limits count against a header the caller writes; see lib/caller.py.
+      - TRUSTED_PROXY_HOPS=${TRUSTED_PROXY_HOPS:-1}
       - NODE_ENV=production
       - DATABASE_URL=postgres://blob:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/blob
       - REDIS_URL=redis://redis:6379

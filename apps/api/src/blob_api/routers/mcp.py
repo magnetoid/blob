@@ -273,9 +273,13 @@ async def _legacy(
     """A client that opens with `initialize` and expects a session that we do not need."""
     if method == "initialize":
         asked = params.get("protocolVersion")
-        # Echo what they asked for when we speak it; otherwise name our newest legacy
-        # revision, which is what a client compares against and can act on.
-        agreed = asked if asked in SUPPORTED_VERSIONS else LEGACY_VERSIONS[0]
+        # Echo what they asked for when we speak it *in this era*, otherwise name our
+        # newest legacy revision. `SUPPORTED_VERSIONS` here was a bug with one word in
+        # it: a legacy client politely asking for a modern revision was told yes, then
+        # 400'd on every request after, because `_modern` demands a `params._meta` an
+        # `initialize` handshake never sends. A handshake can only ever agree a handshake
+        # version.
+        agreed = asked if asked in LEGACY_VERSIONS else LEGACY_VERSIONS[0]
         return _json(
             _result(
                 request_id,

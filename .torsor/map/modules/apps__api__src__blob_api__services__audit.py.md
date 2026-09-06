@@ -4,16 +4,16 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T18:21:59'
-updated: '2026-09-06T18:21:59'
+created: '2026-09-07T00:07:27'
+updated: '2026-09-07T00:07:27'
 ---
 
 # apps/api/src/blob_api/services/audit.py
 
 Symbols in `apps/api/src/blob_api/services/audit.py`.
 
-- L26 `Actor` (class)
-- L32 `actor_for(request: Request, user: SessionUser)` (function) — Who did it, and from where. The address is what makes the log forensic.
-- L41 `AuditEntry` (class)
-- L54 `record(session: AsyncSession, actor: Actor, action: str, *, target_type: str | None=None, target_id: str | None=None, metadata: dict[str, Any] | None=None)` (function)
-- L85 `list_events(session: AsyncSession, workspace_id: str, *, actor_id: str | None=None, action: str | None=None, before: str | None=None, limit: int=50)` (function) — Newest first. UUIDv7 ids sort chronologically, so `before` is a keyset cursor.
+- L27 `Actor` (class)
+- L33 `actor_for(request: Request, user: SessionUser)` (function) — Who did it, and from where. The address is what makes the log forensic.
+- L42 `AuditEntry` (class)
+- L55 `record(session: AsyncSession, actor: Actor, action: str, *, target_type: str | None=None, target_id: str | None=None, metadata: dict[str, Any] | None=None)` (function)
+- L86 `list_events(session: AsyncSession, workspace_id: str, *, actor_id: str | None=None, action: str | None=None, before: str | None=None, limit: int=50)` (function) — Newest first. UUIDv7 ids sort chronologically, so `before` is a keyset cursor.

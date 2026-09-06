@@ -117,7 +117,19 @@ def presign_upload(key: str, mime: str) -> str:
 
 
 def presign_download(key: str, filename: str | None = None, mime: str | None = None) -> str:
-    if mime and is_inline_image(mime):
+    """A short-lived GET, with the response's own type and disposition pinned.
+
+    `ResponseContentType` is not decoration. Without it the object is served with the
+    Content-Type it was *stored* with, which came from the `mime` the uploader declared
+    at ticket time and was never checked against anything. Pair that with the `inline`
+    disposition an image gets and a member could upload `text/html`, make it their
+    avatar, and have the storage origin serve their markup as a document.
+
+    So the type the browser is told is the type this server decided, and anything that is
+    not an image it is willing to render inline is served as a download of octet-stream.
+    """
+    inline = bool(mime and is_inline_image(mime))
+    if inline:
         disposition = "inline"
     else:
         safe = (filename or "file").replace('"', "")
@@ -128,6 +140,9 @@ def presign_download(key: str, filename: str | None = None, mime: str | None = N
             "Bucket": settings.S3_BUCKET,
             "Key": key,
             "ResponseContentDisposition": disposition,
+            # Only an allowlisted image type is ever echoed back; everything else is
+            # bytes to save, whatever the uploader called it.
+            "ResponseContentType": mime if inline else "application/octet-stream",
         },
         ExpiresIn=DOWNLOAD_URL_TTL_SEC,
     )

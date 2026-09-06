@@ -23,6 +23,7 @@ from ..lib.auth import (
     set_session_cookie,
     verify_password,
 )
+from ..lib.caller import client_ip, client_key
 from ..lib.errors import bad_request, conflict, not_found, unauthorized, unique_violation
 from ..lib.ids import new_id, new_token
 from ..lib.mail import send_invite, send_password_reset
@@ -107,7 +108,7 @@ async def auth_state() -> AuthStateOut:
 
 @router.post("/api/auth/signup", response_model=SessionOut)
 async def signup(payload: SignupInput, request: Request, response: Response) -> SessionOut:
-    await consume("signup", request.client.host if request.client else "unknown")
+    await consume("signup", client_key(request))
     email = payload.email.lower()
 
     async with transaction() as (session, _):
@@ -271,7 +272,7 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
     token = await create_session(
         user_id,
         request.headers.get("user-agent"),
-        request.client.host if request.client else None,
+        client_ip(request),
     )
     set_session_cookie(response, token)
     return SessionOut(user=user)
@@ -279,7 +280,7 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
 
 @router.post("/api/auth/login", response_model=SessionOut)
 async def login(payload: LoginInput, request: Request, response: Response) -> SessionOut:
-    await consume("login", request.client.host if request.client else "unknown")
+    await consume("login", client_key(request))
 
     async with session_scope() as session:
         # One address can hold an account in several workspaces, so this has to say
@@ -314,7 +315,7 @@ async def login(payload: LoginInput, request: Request, response: Response) -> Se
     token = await create_session(
         row.id,
         request.headers.get("user-agent"),
-        request.client.host if request.client else None,
+        client_ip(request),
     )
     set_session_cookie(response, token)
     return SessionOut(user=to_current_user(row))
@@ -332,6 +333,17 @@ async def logout(request: Request, response: Response) -> OkOut:
 @router.post("/api/auth/logout-others", response_model=OkOut)
 async def logout_others(user: SessionUser = Depends(current_user)) -> OkOut:
     await destroy_other_sessions(user.id, user.session_id)
+    # "Everywhere else" has to mean everywhere else. An assistant holding an MCP token is
+    # a session in every sense that matters here — it reads what this person reads — and
+    # it is not in the `sessions` table, so nothing above would have touched it.
+    async with transaction() as (session, _after):
+        await session.execute(
+            text(
+                "UPDATE mcp_tokens SET revoked_at = now()"
+                " WHERE user_id = :user_id AND revoked_at IS NULL"
+            ),
+            {"user_id": user.id},
+        )
     # Deleting the session rows stops the *next* request; it does not stop a socket
     # that authenticated once at connect and never asks again. Without this, "sign out
     # everywhere else" left every other tab — including a stolen one — receiving every
@@ -464,7 +476,7 @@ async def preview_invite(token: str) -> InvitePreviewOut:
 # ─── password reset ───────────────────────────────────────────────────────────
 @router.post("/api/auth/forgot-password", response_model=ForgotOut)
 async def forgot_password(payload: ForgotPasswordInput, request: Request) -> ForgotOut:
-    await consume("password_reset", request.client.host if request.client else "unknown")
+    await consume("password_reset", client_key(request))
 
     async with transaction() as (session, _):
         user = (
@@ -552,6 +564,22 @@ async def reset_password(
             ),
             {"email": owner.email},
         )
+        # And every assistant connection, for the same reason and in the same breath. An
+        # MCP token resolves to this user and reads everything they can read (ADR 0016);
+        # leaving it alive through a password reset means somebody who lost control of
+        # their account, reset it, and was told they had been signed out everywhere still
+        # has an attacker reading their channels. `services/mcp.py` said this happened
+        # long before it did.
+        await session.execute(
+            text(
+                """
+                UPDATE mcp_tokens SET revoked_at = now()
+                 WHERE revoked_at IS NULL
+                   AND user_id IN (SELECT id FROM users WHERE email = :email)
+                """
+            ),
+            {"email": owner.email},
+        )
         # And the sockets those sessions are holding. Same reason as logout-others: a
         # connection authenticates once, so a socket opened with a since-deleted session
         # keeps delivering until the tab is closed. Past COMMIT, because nothing may be
@@ -570,7 +598,7 @@ async def reset_password(
     token = await create_session(
         user_id,
         request.headers.get("user-agent"),
-        request.client.host if request.client else None,
+        client_ip(request),
     )
     set_session_cookie(response, token)
     return OkOut()

@@ -34,6 +34,32 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-07',
+    title: 'Five places a member could reach further than they are',
+    entries: [
+      {
+        kind: 'fixed',
+        text: 'The limit on failed sign-ins now counts the person trying, not a header they can write. Behind a proxy the caller’s address arrives in a header that anybody can start, and the server was reading the part the caller wrote — so the cap on password attempts, sign-ups and reset requests could be stepped around by changing one value, and the audit log recorded whatever address the attacker chose. Self-hosters behind more than one proxy should set TRUSTED_PROXY_HOPS; the README says what to.',
+      },
+      {
+        kind: 'fixed',
+        text: 'An app can no longer be used to find out whether a private channel exists. Naming one it had not been added to answered differently from naming one that was not there, which is enough to confirm it — and any member can create an app for themselves. Both now answer the same way, which is what “private channels answer 404 because their existence is private” has always meant everywhere else.',
+      },
+      {
+        kind: 'fixed',
+        text: 'A profile picture has to be a picture. The type of an upload was whatever the uploader said it was, and an avatar is shown to the whole workspace, so a file that claimed to be an image and was not could be served as a page. Uploads that are not images are refused as pictures, and files now download with the type this server decided rather than the one they were labelled with.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Resetting your password, or signing out everywhere else, now also disconnects any assistant you connected under Settings → Assistants. It reads what you read, so it is a session in every sense that matters, and it was outliving the password that was supposed to end them all.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Finishing an upload twice no longer redoes the work, and cannot be asked for in a loop.',
+      },
+    ],
+  },
+  {
     // One date, one release: everything that went out on the 6th is this entry, which is
     // what "newer than the last time I looked" means to somebody reading it.
     date: '2026-09-06',
@@ -370,7 +396,9 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
-    date: '2026-08-24',
+    // Was a second 2026-08-24 block. Dates are the identity here and have to be unique,
+    // so the earlier of the two releases takes the day before it.
+    date: '2026-08-23',
     title: 'Emoji, slash commands, and more than one workspace',
     entries: [
       {

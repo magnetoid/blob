@@ -16,6 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.auth import SessionUser
+from ..lib.caller import client_ip
 from ..lib.ids import new_id
 from ..schemas.base import CamelModel, require_iso
 
@@ -34,7 +35,7 @@ def actor_for(request: Request, user: SessionUser) -> Actor:
     return Actor(
         id=user.id,
         workspace_id=user.workspace_id,
-        ip=request.client.host if request.client else None,
+        ip=client_ip(request),
     )
 
 

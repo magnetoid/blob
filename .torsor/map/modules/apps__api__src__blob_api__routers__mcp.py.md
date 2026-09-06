@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-06T18:21:59'
-updated: '2026-09-06T18:21:59'
+created: '2026-09-07T00:07:27'
+updated: '2026-09-07T00:07:27'
 ---
 
 # apps/api/src/blob_api/routers/mcp.py
@@ -22,15 +22,15 @@ Symbols in `apps/api/src/blob_api/routers/mcp.py`.
 - L160 `mcp_endpoint(request: Request)` (function)
 - L192 `_modern(request: Request, caller: mcp_service.McpCaller, body: dict[str, Any], method: str, request_id: Any, params: dict[str, Any], meta_version: Any)` (function) — A request that carries its own version and mirrors its shape into headers.
 - L266 `_legacy(caller: mcp_service.McpCaller, method: str, request_id: Any, params: dict[str, Any], header_version: str | None)` (function) — A client that opens with `initialize` and expects a session that we do not need.
-- L317 `_discovery()` (function)
-- L326 `_call_tool(caller: mcp_service.McpCaller, request_id: Any, params: dict[str, Any])` (function)
-- L352 `mcp_not_allowed()` (function) — The GET stream and DELETE session of the older transport, which we do not host.
-- L369 `TokenSummary` (class)
-- L377 `TokensOut` (class)
-- L384 `CreateTokenInput` (class)
-- L390 `CreatedTokenOut` (class)
-- L397 `_summary(row: Any)` (function)
-- L407 `_endpoint_url()` (function)
-- L412 `list_tokens(user: SessionUser=Depends(current_user))` (function)
-- L431 `create_token(payload: CreateTokenInput, user: SessionUser=Depends(current_user))` (function)
-- L471 `revoke_token(token_id: IdParam, user: SessionUser=Depends(current_user))` (function)
+- L321 `_discovery()` (function)
+- L330 `_call_tool(caller: mcp_service.McpCaller, request_id: Any, params: dict[str, Any])` (function)
+- L356 `mcp_not_allowed()` (function) — The GET stream and DELETE session of the older transport, which we do not host.
+- L373 `TokenSummary` (class)
+- L381 `TokensOut` (class)
+- L388 `CreateTokenInput` (class)
+- L394 `CreatedTokenOut` (class)
+- L401 `_summary(row: Any)` (function)
+- L411 `_endpoint_url()` (function)
+- L416 `list_tokens(user: SessionUser=Depends(current_user))` (function)
+- L435 `create_token(payload: CreateTokenInput, user: SessionUser=Depends(current_user))` (function)
+- L475 `revoke_token(token_id: IdParam, user: SessionUser=Depends(current_user))` (function)

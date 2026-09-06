@@ -225,6 +225,22 @@ class TestLegacyClients:
         response = await mcp.send("initialize", {"protocolVersion": "1999-01-01"})
         assert response.json()["result"]["protocolVersion"] == "2025-11-25"
 
+    async def test_a_handshake_can_only_agree_a_handshake_version(
+        self, team: dict[str, Any]
+    ) -> None:
+        """A legacy client that asks for a modern revision must not be told yes.
+
+        It has no `_meta` to send, so agreeing would 400 every request it made after —
+        a server that says "yes" and then refuses everything.
+        """
+        mcp = Mcp(team["owner"].fork(), await mint(team["owner"]))
+        agreed = (await mcp.send("initialize", {"protocolVersion": MODERN})).json()["result"]
+        assert agreed["protocolVersion"] == "2025-11-25"
+
+        # And the client can then actually use what it was given.
+        listed = await mcp.send("tools/list")
+        assert listed.status_code == 200, listed.text
+
     async def test_the_initialized_notification_is_accepted_and_silent(
         self, team: dict[str, Any]
     ) -> None:

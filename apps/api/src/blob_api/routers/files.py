@@ -7,6 +7,7 @@ message payloads hold a stable URL rather than an expiring one.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from urllib.parse import unquote
 
@@ -123,13 +124,18 @@ async def complete_upload(
     anywhere in it leaves an attachment that works and simply has no thumbnail.
     """
     payload = payload or UploadCompleteInput()
+    # The same bucket the ticket spent. This route downloads, decodes and re-encodes an
+    # image, so it is the most expensive thing an authenticated caller can ask for, and
+    # it had no limit of its own at all.
+    await consume("upload", user.id)
 
     async with session_scope() as session:
         attachment = (
             await session.execute(
                 text(
                     """
-                    SELECT object_key, mime, size_bytes FROM attachments
+                    SELECT object_key, mime, size_bytes, thumb_key, uploaded_at
+                      FROM attachments
                      WHERE id = :id AND uploader_id = :uploader_id
                     """
                 ),
@@ -139,12 +145,23 @@ async def complete_upload(
     if attachment is None:
         raise not_found("That upload has expired.")
 
+    # Completing twice is a retry, not a second upload. Without this each repeat paid for
+    # the whole download-decode-encode again and overwrote a thumbnail with an identical
+    # one — free work for anyone who asked for it in a loop.
+    if attachment.uploaded_at is not None:
+        return OkOut()
+
     thumb_key: str | None = None
     width, height = payload.width, payload.height
     if images.can_thumbnail(attachment.mime, attachment.size_bytes or 0):
         # Outside every transaction: two round trips to object storage.
         try:
-            rendered = images.render(await get_object(attachment.object_key))
+            # Off the event loop. Decoding and resizing is CPU work measured in hundreds
+            # of milliseconds for a phone photo, and on the loop it stalls every other
+            # request this process is serving — including the socket writes. Every
+            # sibling in `lib/storage.py` is wrapped for the same reason.
+            source = await get_object(attachment.object_key)
+            rendered = await asyncio.to_thread(images.render, source)
         except Exception:
             log.warning("could not read %s back for a thumbnail", attachment_id, exc_info=True)
             rendered = None

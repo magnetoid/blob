@@ -343,6 +343,7 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 | Variable | Default | Notes |
 |---|---|---|
 | `PUBLIC_URL` | `http://localhost:5173` | The public origin, **scheme included**. Every mutating request is checked against it; a mismatch shows up as "Blocked request." on sign-in and nothing else explains it. It has a default, so the app starts without it and then refuses every write from your real domain. |
+| `TRUSTED_PROXY_HOPS` | `0` | How many proxies append to `X-Forwarded-For` **after** the one that names the real caller. The proxy nearest the caller contributes their address, so it does not count; anything behind it does. **One reverse proxy: `0`. nginx in front of Coolify's Traefik: `1`.** This decides what the login, signup and password-reset rate limits count against and what the audit log records. Set it too high and those become a header the caller writes; too low and everyone shares one bucket — which is why the default is low. |
 
 ### Core
 

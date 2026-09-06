@@ -90,10 +90,14 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
 
 ENTRYPOINT ["blob-entrypoint"]
 
-# --proxy-headers is not optional behind a reverse proxy: without it every request
-# appears to come from the proxy, so one person failing logins rate-limits everybody and
-# every audit row records the same address. The container is only reachable from the
-# proxy network, which is what makes trusting the header safe here.
+# --proxy-headers carries X-Forwarded-Proto, which is what tells the app it is being
+# served over TLS and therefore whether to send HSTS. The wildcard is about the *peer*
+# being trusted, and the container is only reachable from the proxy network — but note
+# what it does NOT make safe: with a wildcard, uvicorn takes the **leftmost**
+# X-Forwarded-For entry, and that entry is written by the caller. So `request.client.host`
+# is a value the caller chooses, and nothing in this codebase may use it for identity.
+# `lib/caller.client_ip` counts from the right instead, using TRUSTED_PROXY_HOPS, and a
+# test fails the build if any module reads `.client.host` directly.
 CMD ["uvicorn", "blob_api.main:app", \
      "--host", "0.0.0.0", "--port", "3000", \
      "--proxy-headers", "--forwarded-allow-ips", "*", \

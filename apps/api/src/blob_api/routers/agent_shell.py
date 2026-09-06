@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 
 from ..config import settings
 from ..lib.auth import SessionUser, current_user
+from ..lib.caller import client_ip
 from ..lib.errors import AppError, forbidden
 from ..lib.ids import IdParam
 from ..plugins.shell import ShellSession, clamp_size
@@ -66,7 +67,7 @@ async def agent_terminal_target(
     actor = Actor(
         id=user.id,
         workspace_id=user.workspace_id,
-        ip=request.client.host if request.client else None,
+        ip=client_ip(request),
     )
     target = await shell_service.resolve_for_bot_user(actor, user_id)
     return {"pluginId": target.plugin_id, "agentName": target.name}
@@ -85,7 +86,7 @@ async def agent_shell_socket(websocket: WebSocket, plugin_id: IdParam) -> None:
     actor = Actor(
         id=user.id,
         workspace_id=user.workspace_id,
-        ip=websocket.client.host if websocket.client else None,
+        ip=client_ip(websocket),
     )
 
     # Resolved *before* accepting, so a refusal is an error the console can render as

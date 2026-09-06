@@ -122,8 +122,10 @@ class AgentTasksOut(CamelModel):
     tasks: list[AgentTask]
 
 
-async def _resolve_channel(session: Any, workspace_id: str, reference: str) -> str:
-    """Accept either an id or a #name."""
+async def _resolve_channel(
+    session: Any, workspace_id: str, reference: str, bot_user_id: str
+) -> str:
+    """Accept either an id or a #name, resolved as the bot itself."""
     reference = reference.strip()
     if "-" in reference and len(reference) == 36:
         return reference
@@ -135,12 +137,21 @@ async def _resolve_channel(session: Any, workspace_id: str, reference: str) -> s
         await session.execute(
             text(
                 """
-                SELECT id FROM channels
-                 WHERE workspace_id = :ws AND lower(name) = :name
-                   AND kind IN ('public', 'private')
+                SELECT c.id FROM channels c
+                  LEFT JOIN channel_members cm
+                         ON cm.channel_id = c.id AND cm.user_id = :bot_user_id
+                 WHERE c.workspace_id = :ws AND lower(c.name) = :name
+                   -- A private channel the bot is not in must not resolve by name.
+                   -- Without this clause the *name* was the leak: "there is no channel
+                   -- by that name" for one that does not exist and a permission error
+                   -- for one that does is a working oracle, and any member can mint a
+                   -- bot token for themselves through `POST /api/agents/mine`. Private
+                   -- channels answer 404 because their existence is private — that
+                   -- principle has to hold on the app API too, not only in the client's.
+                   AND (c.kind = 'public' OR cm.user_id IS NOT NULL)
                 """
             ),
-            {"ws": workspace_id, "name": match.group(1)},
+            {"ws": workspace_id, "name": match.group(1), "bot_user_id": bot_user_id},
         )
     ).fetchone()
     if row is None:
@@ -169,7 +180,7 @@ async def post_message(
     payload: PostMessageInput, bot: BotCaller = requires("messages:write")
 ) -> MessageOut:
     async with transaction() as (session, after):
-        channel_id = await _resolve_channel(session, bot.workspace_id, payload.channel)
+        channel_id = await _resolve_channel(session, bot.workspace_id, payload.channel, bot.user_id)
         # The bot's own access, checked the same way a person's would be.
         await channel_service.assert_channel_access(
             session, bot.user_id, channel_id, require_member=True, require_writable=True
@@ -344,7 +355,7 @@ async def publish_artifact(
     nothing to publish into, and it says so rather than storing something nobody can see.
     """
     async with transaction() as (session, after):
-        channel_id = await _resolve_channel(session, bot.workspace_id, payload.channel)
+        channel_id = await _resolve_channel(session, bot.workspace_id, payload.channel, bot.user_id)
         await channel_service.assert_channel_access(
             session, bot.user_id, channel_id, require_member=True, require_writable=True
         )
@@ -453,7 +464,7 @@ async def join_conversation(
     payload: JoinInput, bot: BotCaller = requires("channels:join")
 ) -> OkOut:
     async with transaction() as (session, after):
-        channel_id = await _resolve_channel(session, bot.workspace_id, payload.channel)
+        channel_id = await _resolve_channel(session, bot.workspace_id, payload.channel, bot.user_id)
         # A private channel is invisible to a non-member, so this is a 404 rather than a
         # way to discover that it exists.
         await channel_service.assert_channel_access(session, bot.user_id, channel_id)

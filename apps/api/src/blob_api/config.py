@@ -50,6 +50,13 @@ class Settings(BaseSettings):
     SMTP_PASS: str | None = None
     MAIL_FROM: str = "Blob <chat@example.com>"
 
+    #: How many proxies append to `X-Forwarded-For` *after* the one that names the real
+    #: caller. The proxy nearest the caller contributes their address, so it does not
+    #: count; anything behind it does. One reverse proxy: 0. nginx in front of Coolify's
+    #: Traefik, which is the reference deployment: 1. See `lib/net.py` for why the safe
+    #: default is a value that is too low rather than a guess.
+    TRUSTED_PROXY_HOPS: int = 0
+
     VAPID_PUBLIC_KEY: str | None = None
     VAPID_PRIVATE_KEY: str | None = None
     VAPID_SUBJECT: str = "mailto:admin@example.com"

@@ -1103,3 +1103,36 @@ them twice for that reason.
   tool errors: a missing channel, a spent rate limit or a read-only token is
   `result.isError`, and a JSON-RPC `error` there has the client treat the *server* as
   faulty. Only genuinely malformed requests get JSON-RPC errors.
+
+## Traps from the trust-boundary pass (2026-09-06)
+
+* **`request.client.host` is a value the caller chooses.** The image runs uvicorn with
+  `--forwarded-allow-ips "*"`, which makes it read the **leftmost** `X-Forwarded-For`
+  entry — and that header is append-only, started by whoever calls. So the login, signup
+  and password-reset limits were all bypassable by varying one header, and
+  `audit_events.ip` recorded whatever the caller wrote. The wildcard stays, because it is
+  also what carries `X-Forwarded-Proto` and therefore HSTS; what changed is that no module
+  may read the peer for identity. `lib/caller.client_ip` counts from the *right* using
+  `TRUSTED_PROXY_HOPS`, and `test_caller_address.py` fails the build on any `.client.host`
+  outside that module. The two ways to misconfigure it are not symmetrical: too low is one
+  shared bucket and a useless audit column, too high is the header again — hence a default
+  of 0 and an explicit 1 for the nginx→Traefik deployment.
+* **A member can mint a bot token for themselves** (`POST /api/agents/mine`), so anything
+  the app API will do for a bot, a member can do. `bot_api._resolve_channel` matched
+  `kind IN ('public','private')` with no membership clause, which made the *name* an
+  existence oracle for private channels — the one thing the 404-not-403 rule exists to
+  prevent. `services/mcp.py` had the correct clause and a comment explaining it; the two
+  had simply never been compared.
+* **A presigned GET serves the stored `Content-Type` unless you pin it.** `mime` comes
+  from the uploader (the ticket route validates the *extension*), and an avatar is served
+  `inline` to the whole workspace — so `mime: text/html` was stored XSS on the storage
+  origin. `presign_download` now sets `ResponseContentType`, echoing only allowlisted image
+  types and serving everything else as octet-stream, and `PATCH /api/me` refuses an
+  attachment that is not an image.
+* **An MCP token is a session that is not in the `sessions` table.** Password reset and
+  "sign out everywhere else" deleted rows and closed sockets, and left every assistant
+  connection reading. Both now revoke `mcp_tokens` in the same transaction.
+* **`initialize` can only agree a handshake version.** `routers/mcp.py` checked the asked
+  version against `SUPPORTED_VERSIONS` (modern *and* legacy), so a legacy client politely
+  asking for `2026-07-28` was told yes and then 400'd on every request after, because the
+  modern path demands a `params._meta` a handshake never sends.

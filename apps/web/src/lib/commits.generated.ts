@@ -11,6 +11,13 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "55bafe08114487550b1900d28decb83ea70d6b31",
+    "shortSha": "55bafe0",
+    "subject": "Let your own assistant read this workspace, and say when a file cannot be uploaded",
+    "date": "2026-09-06T18:23:49+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "a8e0535eb4fa4b52d789bdaf2ca18779f422ea63",
     "shortSha": "a8e0535",
     "subject": "Say when a notification cannot reach anybody, and stop reporting failures as delivery",
@@ -421,13 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "4aaad94",
     "subject": "Put messages typed offline back in the order they were typed",
     "date": "2026-09-01T17:05:30+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "41180a8e62f0d4c903e8b156abeaf0aeaf91928f",
-    "shortSha": "41180a8",
-    "subject": "Make ⌘K and @-autocomplete audible, not just visible",
-    "date": "2026-09-01T16:52:10+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

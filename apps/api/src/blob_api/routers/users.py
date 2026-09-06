@@ -14,7 +14,7 @@ from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import IdParam, new_id
-from ..lib.storage import public_file_url
+from ..lib.storage import is_inline_image, public_file_url
 from ..lib.times import parse_client_time
 from ..lib.webpush import push as push_all
 from ..realtime import hub
@@ -195,7 +195,7 @@ async def update_me(
                 await session.execute(
                     text(
                         """
-                        SELECT object_key FROM attachments
+                        SELECT object_key, mime FROM attachments
                          WHERE id = :id AND uploader_id = :uploader
                            AND workspace_id = :ws AND message_id IS NULL
                         """
@@ -209,6 +209,13 @@ async def update_me(
             ).fetchone()
             if owned is None:
                 raise bad_request("That upload is not yours to use as a picture.")
+            # A picture, checked here rather than trusted from the ticket. `mime` is
+            # whatever the uploader typed — the upload route validates the *extension*
+            # and nothing else — and an avatar is the one attachment served inline to
+            # the whole workspace. `presign_download` refuses to echo a type it does not
+            # allowlist, so this is the second of two locks rather than the only one.
+            if not is_inline_image(str(owned.mime)):
+                raise bad_request("A profile picture has to be an image.")
             avatar_key = str(owned.object_key)
         # Renaming can lose two indexes — `users_display_name_uniq` and the handle
         # table's primary key — and both mean the same thing to the person typing.
