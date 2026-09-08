@@ -1,16 +1,10 @@
-/** The instance console: this server, across every workspace on it.
+/** The server console: this machine, its people, its channels, its health.
  *
- * A page of its own rather than a third column in the chat shell. The old layout put a
- * channel list beside the audit log, which was 264px of the screen spent on something
- * nobody administering a workspace is looking for, and gave every section the same
- * unlabelled heading. Here the nav says where you are and the heading says what you are
- * looking at.
+ * One page rather than two. General, members, channels and apps used to live under
+ * /workspace, while accounts, audit and health lived under /admin — which made one
+ * open-source server look like a grid of workspaces. They are the same job now.
  *
- * Members, invitations, channels, apps and webhooks used to live here. Every one of them
- * is a question about a single workspace, so every one of them moved to /workspace —
- * an owner should not have to open something called "superadmin" to invite a colleague.
- * What is left is what genuinely belongs to the machine: the accounts on it, the
- * workspaces on it, and whether it is healthy.
+ * Your own preferences are a different page (/settings). They are private.
  *
  * The chat shell is not rendered at all while this is open — see Workspace.tsx. ⌘K still
  * works, because switching to a conversation is exactly what you want after finishing
@@ -29,7 +23,15 @@ import { AuditSection } from './sections/AuditSection.tsx';
 import { FeedbackSection } from './sections/FeedbackSection.tsx';
 import { HealthSection } from './sections/HealthSection.tsx';
 import { LogsSection } from './sections/LogsSection.tsx';
-import { WorkspacesSection } from './sections/WorkspacesSection.tsx';
+import { AppsSection } from './sections/AppsSection.tsx';
+import { ChannelsSection } from './sections/ChannelsSection.tsx';
+import { EmojiSection } from './sections/EmojiSection.tsx';
+import { GeneralSection } from './sections/GeneralSection.tsx';
+import { GroupsSection } from './sections/GroupsSection.tsx';
+import { InvitationsSection } from './sections/InvitationsSection.tsx';
+import { PeopleSection } from './sections/PeopleSection.tsx';
+import { ThemesSection } from './sections/ThemesSection.tsx';
+import { WebhooksSection } from './sections/WebhooksSection.tsx';
 
 const NAV_ID = 'admin-console-nav';
 
@@ -49,9 +51,17 @@ export interface AdminSectionProps {
  * ADMIN_SECTIONS without building it is a typecheck failure rather than a blank page.
  */
 const SECTION_COMPONENTS: Record<AdminSection, ComponentType<AdminSectionProps>> = {
+  general: GeneralSection,
+  appearance: ThemesSection,
+  members: PeopleSection,
+  groups: GroupsSection,
+  invitations: InvitationsSection,
+  channels: ChannelsSection,
+  emoji: EmojiSection,
+  apps: AppsSection,
+  webhooks: WebhooksSection,
   users: AccountsSection,
   'app-policy': AppPolicySection,
-  workspaces: WorkspacesSection,
   feedback: FeedbackSection,
   audit: AuditSection,
   logs: LogsSection,
@@ -81,7 +91,7 @@ export function AdminConsole({
         groups: ADMIN_NAV,
         basePath: '/admin',
         title: 'This server',
-        subtitle: 'Every workspace on this instance.',
+        subtitle: isOwner ? 'You own this server.' : 'You are an admin of this server.',
       }}
       section={section}
       isOwner={isOwner}

@@ -545,6 +545,7 @@ export const api = {
   agentRuns: {
     forChannel: (channelId: string) =>
       get<{ runs: AgentRunView[] }>(`/api/channels/${channelId}/agent-runs`),
+    mine: () => get<{ runs: AgentRunView[] }>("/api/agent-runs"),
     cancel: (runId: string) =>
       post<{ ok: true }>(`/api/agent-runs/${runId}/cancel`),
     /** Answer the decision an interrupted run is waiting on. Only its asker may. */

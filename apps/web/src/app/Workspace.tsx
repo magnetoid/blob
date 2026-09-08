@@ -6,14 +6,13 @@ import { showError } from '../lib/toasts.ts';
 import { socket } from '../lib/socket.ts';
 import { stepConversation, stepUnread } from '../lib/conversations.ts';
 import {
-  DEFAULT_MEMBER_SECTION,
-  isPersonalSection,
   navigate,
   parseRoute,
   pathForChannel,
   pathForRoute,
   usePath,
 } from '../lib/router.ts';
+import { HomeView } from '../features/home/HomeView.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadsView } from '../features/messages/ThreadsView.tsx';
@@ -33,9 +32,9 @@ import { SearchView } from '../features/search/SearchView.tsx';
 const AdminConsole = lazy(() =>
   import('../features/admin/AdminConsole.tsx').then((m) => ({ default: m.AdminConsole })),
 );
-const WorkspaceConsole = lazy(() =>
-  import('../features/workspace/WorkspaceConsole.tsx').then((m) => ({
-    default: m.WorkspaceConsole,
+const SettingsConsole = lazy(() =>
+  import('../features/settings/SettingsConsole.tsx').then((m) => ({
+    default: m.SettingsConsole,
   })),
 );
 // Lazy for the same reason as the consoles: the guide is a few thousand words of prose
@@ -89,15 +88,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // bar never disagrees with the screen.
   useEffect(() => {
     const resolved = parseRoute(path);
-    // /workspace is no longer admin-only: it holds everyone's preferences as well as the
-    // workspace's settings. A member is sent to their own section rather than off the
-    // page — bouncing them to the conversation would mean the gear icon did nothing.
-    if (resolved.view === 'workspace' && !isAdmin && !isPersonalSection(resolved.section)) {
-      navigate(pathForRoute({ view: 'workspace', section: DEFAULT_MEMBER_SECTION }), {
-        replace: true,
-      });
-      return;
-    }
     if (resolved.view === 'admin' && !isAdmin) {
       navigate('/', { replace: true });
       return;
@@ -329,13 +319,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // account menu, ⌘K, and the feedback dialog — which matters most here, because the
   // report attaches a snapshot of the screen you are on, and leaving the console to file
   // one would attach a channel instead of the page that went wrong.
-  if (route.view === 'workspace') {
+  if (route.view === 'settings') {
     return (
       <>
         <Suspense fallback={<div className="auth"><p className="muted">Loading…</p></div>}>
-          <WorkspaceConsole
+          <SettingsConsole
             section={route.section}
-            detailId={route.detailId}
             onFeedback={() => setFeedbackOpen(true)}
             onSignedOut={onSignedOut}
           />
@@ -398,12 +387,13 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             {permalinkFailure && <div className="empty-state-body">{permalinkFailure}</div>}
             {permalinkFailure && (
               <button className="btn" onClick={() => navigate('/')} style={{ marginTop: 12 }}>
-                Back to the conversation
+                Back home
               </button>
             )}
           </div>
         </main>
       )}
+      {view === 'home' && <HomeView />}
       {(view === 'messages' || view === 'channel') && <ChannelView />}
       {view === 'threads' && <ThreadsView />}
       {view === 'activity' && <ActivityView />}
