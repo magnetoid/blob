@@ -1,6 +1,6 @@
 /** The signed-in shell: top bar, sidebar, main view, optional thread panel. */
 
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useStore } from '../lib/store.ts';
 import { showError } from '../lib/toasts.ts';
 import { socket } from '../lib/socket.ts';
@@ -72,17 +72,50 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   /** Which list ⌘K opened. ⌘⇧K opens the same picker showing only people. */
   const [paletteOnly, setPaletteOnly] = useState<'people' | undefined>(undefined);
-  // The channel drawer on narrow viewports. Closed on every conversation change so
-  // picking a channel dismisses it, the way every mobile drawer behaves.
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // The channel drawer on narrow viewports. Scoped to the conversation it was opened
+  // from, so changing channels dismisses it without an effect-driven reset.
+  const [sidebarDrawer, setSidebarDrawer] = useState<{ open: boolean; scope: string }>({
+    open: false,
+    scope: '',
+  });
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem('blob.sidebar.collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   // Held with the id it belongs to, so following a second link shows no error without
   // an effect having to clear one — a synchronous reset in the effect below would be a
   // cascading render for a value that can simply be derived.
   const [permalinkError, setPermalinkError] = useState<{ id: string; message: string } | null>(
     null,
   );
+  const sidebarScope = `${view}:${activeChannelId ?? ''}`;
+  const sidebarOpen = sidebarDrawer.open && sidebarDrawer.scope === sidebarScope;
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('blob.sidebar.collapsed', String(sidebarCollapsed));
+    } catch {
+      // Private browsing and hardened environments can refuse storage.
+    }
+  }, [sidebarCollapsed]);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarDrawer((current) =>
+      current.open && current.scope === sidebarScope
+        ? { open: false, scope: sidebarScope }
+        : { open: true, scope: sidebarScope },
+    );
+  }, [sidebarScope]);
+
+  const closeSidebar = useCallback(() => {
+    setSidebarDrawer({ open: false, scope: sidebarScope });
+  }, [sidebarScope]);
 
   // Two jobs, one effect: send a member who typed /admin back to the conversation, and
   // rewrite a stale or misspelt URL to the route it actually resolved to, so the address
@@ -181,10 +214,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       navigate(pathForChannel(first.id), { replace: true });
     }
   }, [channels, activeChannelId, openChannel, route.view]);
-
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [activeChannelId, view]);
 
   // The tab title carries the unread state a backgrounded tab cannot show any
   // other way; the OS badge rides along where the app is installed.
@@ -287,7 +316,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           else if (paletteOpen) setPaletteOpen(false);
           // The drawer is an overlay over the conversation, so it closes before the
           // thread underneath it and long before Esc means "mark this channel read".
-          else if (sidebarOpen) setSidebarOpen(false);
+          else if (sidebarOpen) closeSidebar();
           else if (activeThreadRootId) closeThread();
           else if (activeChannelId) {
             // Nothing left to close: Slack's Esc — the channel is read. Deliberately
@@ -311,6 +340,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     helpOpen,
     feedbackOpen,
     sidebarOpen,
+    closeSidebar,
     activeThreadRootId,
     openThread,
     channels,
@@ -373,19 +403,25 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       className="shell"
       data-panel={panelOpen ? 'open' : 'closed'}
       data-sidebar={sidebarOpen ? 'open' : 'closed'}
+      data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
     >
       <TopBar
         onFeedback={() => setFeedbackOpen(true)}
-        onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        onToggleSidebar={toggleSidebar}
         view={view}
+        minimal
       />
-      <Sidebar />
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
+        onFeedback={() => setFeedbackOpen(true)}
+      />
       {sidebarOpen && (
         <button
           type="button"
           className="drawer-scrim"
           aria-label="Close channel list"
-          onClick={() => setSidebarOpen(false)}
+          onClick={closeSidebar}
         />
       )}
 
@@ -450,4 +486,3 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     </div>
   );
 }
-

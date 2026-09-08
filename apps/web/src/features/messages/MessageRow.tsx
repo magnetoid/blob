@@ -307,7 +307,11 @@ export const MessageRow = memo(function MessageRow({
         )}
 
         {editing ? (
-          <MessageEditor message={message} onClose={() => setEditing(false)} />
+          <MessageEditor
+            key={`${message.id}:${message.editedAt ?? message.createdAt}`}
+            message={message}
+            onClose={() => setEditing(false)}
+          />
         ) : (
           <div className="message-body">
             {rendered}

@@ -50,44 +50,51 @@ interface Props {
 export function MessageTranslation({ message, pending, editing }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const preferredLanguage = currentUser?.prefs.language ?? null;
-  const autoTranslate = Boolean(
-    currentUser?.prefs.autoTranslate && preferredLanguage,
-  );
+  const autoTranslate = Boolean(currentUser?.prefs.autoTranslate && preferredLanguage);
   const mine = message.authorId === currentUser?.id;
-  const canTranslate =
-    !pending &&
-    !editing &&
-    !message.deletedAt &&
-    !!message.body.trim() &&
-    !!preferredLanguage;
+  if (!preferredLanguage) return null;
 
+  return (
+    <MessageTranslationBody
+      key={translationCacheKey(message, preferredLanguage)}
+      message={message}
+      pending={pending}
+      editing={editing}
+      preferredLanguage={preferredLanguage}
+      autoTranslate={autoTranslate}
+      mine={mine}
+    />
+  );
+}
+
+function MessageTranslationBody({
+  message,
+  pending,
+  editing,
+  preferredLanguage,
+  autoTranslate,
+  mine,
+}: Props & {
+  preferredLanguage: string;
+  autoTranslate: boolean;
+  mine: boolean;
+}) {
+  const canTranslate = !pending && !editing && !message.deletedAt && !!message.body.trim();
+  const cacheKey = translationCacheKey(message, preferredLanguage);
   const [translation, setTranslation] = useState<MessageTranslationData | null>(
-    null,
+    () => translationCache.get(cacheKey) ?? null,
   );
   const [translationBusy, setTranslationBusy] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
-  const [translationVisible, setTranslationVisible] = useState(false);
-
-  useEffect(() => {
-    if (!preferredLanguage) {
-      setTranslation(null);
-      setTranslationVisible(false);
-      setTranslationError(null);
-      return;
-    }
-    const cached =
-      translationCache.get(translationCacheKey(message, preferredLanguage)) ??
-      null;
-    setTranslation(cached);
-    setTranslationVisible((current) =>
-      cached !== null ? autoTranslate || current : false,
-    );
-    setTranslationError(null);
-  }, [autoTranslate, message, preferredLanguage]);
+  const [translationVisibleOverride, setTranslationVisibleOverride] = useState<boolean | null>(
+    null,
+  );
+  const translationVisible =
+    translationVisibleOverride ?? (translation !== null && autoTranslate);
 
   const requestTranslation = useCallback(
     async (forceRefresh = false) => {
-      if (!preferredLanguage || !canTranslate) return;
+      if (!canTranslate) return;
       setTranslationBusy(true);
       setTranslationError(null);
       try {
@@ -95,9 +102,9 @@ export function MessageTranslation({ message, pending, editing }: Props) {
           targetLanguage: preferredLanguage,
           forceRefresh,
         });
-        cacheTranslation(translationCacheKey(message, preferredLanguage), next);
+        cacheTranslation(cacheKey, next);
         setTranslation(next);
-        setTranslationVisible(true);
+        setTranslationVisibleOverride(true);
       } catch (error) {
         const nextError =
           error instanceof ApiError
@@ -110,7 +117,7 @@ export function MessageTranslation({ message, pending, editing }: Props) {
         setTranslationBusy(false);
       }
     },
-    [canTranslate, message, preferredLanguage],
+    [cacheKey, canTranslate, message.id, preferredLanguage],
   );
 
   // What stops the retry loop. `translationBusy` is a dependency of the effect below
@@ -135,19 +142,18 @@ export function MessageTranslation({ message, pending, editing }: Props) {
       !preferredLanguage
     )
       return;
-    const key = translationCacheKey(message, preferredLanguage);
-    if (autoAttemptedRef.current === key) return;
-    autoAttemptedRef.current = key;
+    if (autoAttemptedRef.current === cacheKey) return;
+    autoAttemptedRef.current = cacheKey;
     void requestTranslation();
   }, [
     autoTranslate,
+    cacheKey,
     canTranslate,
     mine,
+    preferredLanguage,
     requestTranslation,
     translation,
     translationBusy,
-    message,
-    preferredLanguage,
   ]);
 
   return (
@@ -159,7 +165,7 @@ export function MessageTranslation({ message, pending, editing }: Props) {
             type="button"
             onClick={() => {
               if (translation) {
-                setTranslationVisible((visible) => !visible);
+                setTranslationVisibleOverride(!translationVisible);
                 return;
               }
               void requestTranslation();

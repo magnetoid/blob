@@ -22,36 +22,6 @@ export function TasksView() {
   const currentUserId = useStore((s) => s.currentUser?.id ?? null);
 
   const [scope, setScope] = useState<'mine' | 'all'>('mine');
-  const [tasks, setTasks] = useState<AgentTask[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setTasks(null);
-    setError(null);
-    void api.agentic
-      .listTasks(scope === 'mine' && currentUserId ? { assignee: currentUserId } : {})
-      .then((r) => {
-        if (cancelled) return;
-        // Yours first even in the unfiltered view; sort is stable, so the server's
-        // order survives within each half.
-        const mine = (t: AgentTask) => t.assigneeUserId === currentUserId;
-        setTasks([...r.tasks].sort((a, b) => Number(mine(b)) - Number(mine(a))));
-      })
-      .catch(() => {
-        if (!cancelled) setError('Those could not be loaded.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [scope, currentUserId]);
-
-  async function go(task: AgentTask) {
-    // Channel first, same as ThreadsView: the thread panel renders beside its
-    // conversation. A task with no thread still lives somewhere — open that channel.
-    if (task.threadRootId) await showThread(task.channelId, task.threadRootId);
-    else await showChannel(task.channelId);
-  }
 
   return (
     <main className="pane">
@@ -72,49 +42,100 @@ export function TasksView() {
         </div>
       </header>
 
-      <div className="search-results">
-        {error && <p className="error-text">{error}</p>}
-        {!error && tasks === null && <p className="muted">Loading…</p>}
-
-        {tasks?.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-mark">
-              <FileIcon size="xl" />
-            </div>
-            <div className="empty-state-title">No tasks yet</div>
-            <div className="empty-state-body">
-              When an agent or a teammate files a task {scope === 'mine' ? 'for you ' : ''}
-              from a thread, it shows up here.
-            </div>
-          </div>
-        )}
-
-        {tasks?.map((task) => {
-          const channel = channels[task.channelId];
-          return (
-            <button
-              key={task.id}
-              className="search-result"
-              type="button"
-              onClick={() => void go(task)}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="search-result-head">
-                  <span className="search-result-author">{task.title}</span>
-                  <span className="search-result-meta">
-                    {channel && (channel.name ? `#${channel.name}` : channelTitle(channel))}
-                    {channel && ' · '}
-                    {formatRelative(task.createdAt)}
-                  </span>
-                </div>
-                <div className="search-result-meta">
-                  {task.status.replace('_', ' ')} · {task.priority} priority
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      <TaskResults
+        key={`${scope}:${currentUserId ?? ''}`}
+        scope={scope}
+        currentUserId={currentUserId}
+        channels={channels}
+        channelTitle={channelTitle}
+      />
     </main>
+  );
+}
+
+function TaskResults({
+  scope,
+  currentUserId,
+  channels,
+  channelTitle,
+}: {
+  scope: 'mine' | 'all';
+  currentUserId: string | null;
+  channels: ReturnType<typeof useStore.getState>['channels'];
+  channelTitle: ReturnType<typeof useStore.getState>['channelTitle'];
+}) {
+  const [tasks, setTasks] = useState<AgentTask[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api.agentic
+      .listTasks(scope === 'mine' && currentUserId ? { assignee: currentUserId } : {})
+      .then((r) => {
+        if (cancelled) return;
+        // Yours first even in the unfiltered view; sort is stable, so the server's
+        // order survives within each half.
+        const mine = (task: AgentTask) => task.assigneeUserId === currentUserId;
+        setTasks([...r.tasks].sort((left, right) => Number(mine(right)) - Number(mine(left))));
+      })
+      .catch(() => {
+        if (!cancelled) setError('Those could not be loaded.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scope, currentUserId]);
+
+  async function go(task: AgentTask) {
+    // Channel first, same as ThreadsView: the thread panel renders beside its
+    // conversation. A task with no thread still lives somewhere — open that channel.
+    if (task.threadRootId) await showThread(task.channelId, task.threadRootId);
+    else await showChannel(task.channelId);
+  }
+
+  return (
+    <div className="search-results">
+      {error && <p className="error-text">{error}</p>}
+      {!error && tasks === null && <p className="muted">Loading…</p>}
+
+      {tasks?.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-mark">
+            <FileIcon size="xl" />
+          </div>
+          <div className="empty-state-title">No tasks yet</div>
+          <div className="empty-state-body">
+            When an agent or a teammate files a task {scope === 'mine' ? 'for you ' : ''}
+            from a thread, it shows up here.
+          </div>
+        </div>
+      )}
+
+      {tasks?.map((task) => {
+        const channel = channels[task.channelId];
+        return (
+          <button
+            key={task.id}
+            className="search-result"
+            type="button"
+            onClick={() => void go(task)}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="search-result-head">
+                <span className="search-result-author">{task.title}</span>
+                <span className="search-result-meta">
+                  {channel && (channel.name ? `#${channel.name}` : channelTitle(channel))}
+                  {channel && ' · '}
+                  {formatRelative(task.createdAt)}
+                </span>
+              </div>
+              <div className="search-result-meta">
+                {task.status.replace('_', ' ')} · {task.priority} priority
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
   );
 }

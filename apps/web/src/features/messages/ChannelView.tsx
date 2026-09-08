@@ -105,30 +105,25 @@ export function ChannelView() {
   const membershipVersion = useStore((s) =>
     s.activeChannelId ? (s.membershipVersion[s.activeChannelId] ?? 0) : 0,
   );
-  useEffect(() => {
-    // Version changes drop the cached count so the fetch below re-runs.
-    if (!activeChannelId || membershipVersion === 0) return;
-    setMemberCounts((current) => {
-      if (current[activeChannelId] === undefined) return current;
-      const rest = { ...current };
-      delete rest[activeChannelId];
-      return rest;
-    });
-  }, [activeChannelId, membershipVersion]);
+  const memberCountKey =
+    activeChannelId && membershipVersion > 0
+      ? `${activeChannelId}:${membershipVersion}`
+      : null;
 
   useEffect(() => {
-    if (!activeChannelId || memberCounts[activeChannelId] !== undefined) return;
+    if (!activeChannelId || !memberCountKey || memberCounts[memberCountKey] !== undefined)
+      return;
     void api.channels
       .members(activeChannelId)
       .then((r) =>
         setMemberCounts((current) =>
-          current[activeChannelId] === r.userIds.length
+          current[memberCountKey] === r.userIds.length
             ? current
-            : { ...current, [activeChannelId]: r.userIds.length },
+            : { ...current, [memberCountKey]: r.userIds.length },
         ),
       )
       .catch(() => {});
-  }, [activeChannelId, memberCounts]);
+  }, [activeChannelId, memberCountKey, memberCounts]);
 
   // Defined here, above the early return, because hooks have to be — and memoised
   // because `MessageRow` is wrapped in `memo` and these reach it as props. An arrow
@@ -151,14 +146,12 @@ export function ChannelView() {
   // fetching the member list on a loop.
   const reportMemberCount = useCallback(
     (count: number) => {
-      if (!activeChannelId) return;
+      if (!memberCountKey) return;
       setMemberCounts((current) =>
-        current[activeChannelId] === count
-          ? current
-          : { ...current, [activeChannelId]: count },
+        current[memberCountKey] === count ? current : { ...current, [memberCountKey]: count },
       );
     },
-    [activeChannelId],
+    [memberCountKey],
   );
 
   const typingNames = useMemo(() => {
@@ -201,7 +194,7 @@ export function ChannelView() {
   const workTab: WorkTab = channel.workId
     ? (workTabs[activeChannelId] ?? "conversation")
     : "conversation";
-  const memberCount = memberCounts[activeChannelId] ?? null;
+  const memberCount = memberCountKey ? (memberCounts[memberCountKey] ?? null) : null;
   const queuedCount = Object.values(outbox).filter(
     (entry) => entry.status === "queued",
   ).length;

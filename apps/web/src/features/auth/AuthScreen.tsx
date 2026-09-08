@@ -24,6 +24,7 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   const inviteToken = inviteTokenFromUrl();
   const resetToken = resetTokenFromUrl();
   const workspaceNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<Mode>(
     resetToken ? "reset" : needsSetup || inviteToken ? "signup" : "login",
   );
@@ -60,6 +61,11 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
     if (!needsSetup) return;
     workspaceNameRef.current?.focus();
   }, [needsSetup]);
+
+  useEffect(() => {
+    if (needsSetup || mode !== "login") return;
+    emailRef.current?.focus();
+  }, [mode, needsSetup]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -225,9 +231,9 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
             {/* Only on login: first-run and invites open in signup, where the
                 workspace-name field already takes focus. */}
             <input
+              ref={emailRef}
               className="input"
               type="email"
-              autoFocus={mode === "login"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

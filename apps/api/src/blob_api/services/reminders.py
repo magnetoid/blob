@@ -94,6 +94,7 @@ async def create(
         client_msg_id=new_id(),
         repeat=parsed.repeat,
         timezone=zone,
+        now=now,
     )
 
     channel = await channel_service.get_for_user(session, channel_id, user_id) if created else None
