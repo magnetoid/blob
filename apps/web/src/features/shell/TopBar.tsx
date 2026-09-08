@@ -153,8 +153,8 @@ export function TopBar({ onFeedback, onToggleSidebar, view, minimal = false }: P
         )}
         <button
           className="topbar-nav-btn"
-          aria-pressed={view === 'workspace'}
-          onClick={() => navigate(pathForRoute({ view: 'workspace', section: 'preferences' }))}
+          aria-pressed={view === 'settings'}
+          onClick={() => navigate(pathForRoute({ view: 'settings', section: 'preferences' }))}
           aria-label="Preferences"
           data-tooltip="Preferences"
         >

@@ -17,6 +17,7 @@ import {
   ClockIcon,
   FeedbackIcon,
   FileIcon,
+  HomeIcon,
   MentionIcon,
   PinIcon,
   PlusIcon,
@@ -95,8 +96,8 @@ export function Sidebar({
       id: 'preferences',
       label: 'Preferences',
       icon: <SettingsIcon size="sm" />,
-      onClick: () => navigate(pathForRoute({ view: 'workspace', section: 'preferences' })),
-      active: activeView === 'workspace',
+      onClick: () => navigate(pathForRoute({ view: 'settings', section: 'preferences' })),
+      active: activeView === 'settings',
     },
     ...(isAdmin
       ? [
@@ -104,8 +105,8 @@ export function Sidebar({
             id: 'console',
             label: 'Workspace',
             icon: <MembersIcon size="sm" />,
-            onClick: () => navigate(pathForRoute({ view: 'workspace', section: 'general' })),
-            active: activeView === 'workspace',
+            onClick: () => navigate(pathForRoute({ view: 'admin', section: 'general' })),
+            active: activeView === 'admin',
           },
         ]
       : []),
@@ -144,6 +145,13 @@ export function Sidebar({
 
       <div className="sidebar-scroll">
         <section className="sidebar-section">
+          <SidebarNavButton
+            collapsed={collapsed}
+            icon={<HomeIcon size="sm" />}
+            label="Home"
+            active={activeView === 'home'}
+            onClick={() => navigate('/')}
+          />
           <SidebarNavButton
             collapsed={collapsed}
             icon={<MentionIcon size="sm" />}

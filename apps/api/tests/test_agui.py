@@ -631,6 +631,9 @@ class TestRunCards:
         assert run["card"]["steps"] == [{"name": "think", "status": "done"}]
         assert run["card"]["tools"][0]["name"] == "search"
 
+        home = (await team["owner"].get("/api/agent-runs")).body["runs"]
+        assert any(row["id"] == run["id"] for row in home)
+
     async def test_the_listing_is_channel_scoped(self, team: dict) -> None:
         # Access is by channel visibility — the same 404-shaped rule as everything else.
         private = (

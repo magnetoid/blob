@@ -1,8 +1,8 @@
 /** User groups — teams that can be mentioned as one name.
  *
  * Two screens behind one section: the list, and one group's membership at
- * `/workspace/groups/<id>`. That second URL is why `groups` is in
- * `WORKSPACE_DETAIL_SECTIONS` — without it the deep link falls through to the
+ * `/admin/groups/<id>`. That second URL is why `groups` is in
+ * `ADMIN_DETAIL_SECTIONS` — without it the deep link falls through to the
  * conversation view and looks like a dead click.
  *
  * Built on `useAdminData`/`useAdminAction` like EmojiSection, rather than on the older
@@ -151,7 +151,7 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
                     onClick={() =>
                       navigate(
                         pathForRoute({
-                          view: "workspace",
+                          view: "admin",
                           section: "groups",
                           detailId: group.id,
                         }),
@@ -303,7 +303,7 @@ function GroupMembers({
       <button
         className="btn btn-ghost"
         onClick={() =>
-          navigate(pathForRoute({ view: "workspace", section: "groups" }))
+          navigate(pathForRoute({ view: "admin", section: "groups" }))
         }
       >
         ← All groups

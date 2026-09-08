@@ -92,6 +92,12 @@ export function CommandPalette({
     const density = currentUser?.prefs.density ?? "comfortable";
     const actionItems: Item[] = [
       {
+        id: "a-home",
+        label: "Home — what needs you",
+        kind: "Action",
+        run: () => navigate("/"),
+      },
+      {
         id: "a-theme",
         label:
           theme === "dark" ? "Switch to light theme" : "Switch to dark theme",

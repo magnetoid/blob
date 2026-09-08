@@ -1,12 +1,7 @@
 /** How this account looks and behaves.
  *
- * Was `/settings`, a page of its own with its own layout. It is a section of the
- * workspace page now — same nav, same header, same shell as everything else you can
- * configure — because "settings" being two differently-shaped screens was the confusing
- * part, not where any individual control lived.
- *
- * Everything here is *yours*, so it is visible to every member. The workspace sections
- * below it are not, and `WorkspaceConsole` is what draws that line.
+ * A private page at /settings. Server settings live under /admin. The two used to share
+ * a console named after the workspace, which made a preference look like an admin screen.
  */
 
 import { useEffect, useState } from 'react';

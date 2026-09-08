@@ -6377,3 +6377,85 @@ button.person-trigger:hover {
 .diff-meta {
   color: var(--text-4);
 }
+
+/* ─── home dashboard ─────────────────────────────────────────────────────── */
+.home-body {
+  overflow: auto;
+  padding: 20px var(--pane-gutter) 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.home-ask {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+.home-ask .input {
+  min-height: 44px;
+}
+.home-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.stat-value[data-live='true'] {
+  color: var(--ok, var(--success, #1f7a3d));
+}
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.home-card {
+  padding: 14px 16px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  min-width: 0;
+}
+.home-card h2 {
+  margin: 0 0 10px;
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+.home-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.home-row:last-of-type {
+  border-bottom: 0;
+}
+.home-row:hover strong {
+  color: var(--accent);
+}
+.home-run {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.home-pulse p {
+  margin: 0 0 6px;
+}
+@media (max-width: 860px) {
+  .home-stats,
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+}
