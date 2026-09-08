@@ -37,25 +37,19 @@ function seed() {
 }
 
 describe('the sidebar header', () => {
-  it('names the workspace and how many people are in it', () => {
+  it('does not repeat the workspace name, but still says how large it is', () => {
     seed();
     render(<Sidebar />);
 
-    expect(screen.getByText('Imba')).toBeTruthy();
-    // The only place the conversation view says how large the workspace is.
+    expect(screen.queryByText('Imba')).toBeNull();
     expect(screen.getByText('2 members')).toBeTruthy();
   });
 
-  it('has no menu behind the workspace name', () => {
-    // Both of its rows were reachable twice over from the bar, and its
-    // Administration row pointed at the owner-gated instance console while
-    // showing itself to any admin.
+  it('offers a collapse control instead of a workspace-name header', () => {
     seed();
-    const { container } = render(<Sidebar />);
+    render(<Sidebar onToggleCollapse={vi.fn()} />);
 
-    expect(container.querySelector('.workspace-trigger')).toBeNull();
-    expect(container.querySelector('.workspace-menu')).toBeNull();
-    expect(container.querySelector('[aria-haspopup="menu"]')).toBeNull();
+    expect(screen.getByLabelText('Collapse left menu')).toBeTruthy();
   });
 
   it('has no search button, because the bar and ⌘F already have one', () => {
@@ -71,5 +65,13 @@ describe('the sidebar header', () => {
     render(<Sidebar />);
 
     expect(screen.getByText('general')).toBeTruthy();
+  });
+
+  it('collapses to icons only', () => {
+    seed();
+    render(<Sidebar collapsed />);
+
+    expect(screen.queryByText('general')).toBeNull();
+    expect(screen.getByLabelText('general')).toBeTruthy();
   });
 });

@@ -3,7 +3,7 @@
  * while its message is the one being edited — the store decides which one that is.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
@@ -16,19 +16,13 @@ interface Props {
 
 export function MessageEditor({ message, onClose }: Props) {
   const [draft, setDraft] = useState(message.body);
-  const editRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const focusEditor = useCallback((node: HTMLTextAreaElement | null) => {
+    node?.focus();
+  }, []);
   // The same preference the composer reads, because this is the same gesture. Someone
   // who has turned Enter into a newline there has not asked for it to save here.
   const enterToSend = useStore((s) => s.currentUser?.prefs.enterToSend ?? true);
-
-  // Re-seeded whenever the body changes under an open editor — an edit landing over
-  // the socket — so saving cannot overwrite that edit with a stale draft. Running on
-  // mount is what focuses the textarea for the ↑-from-composer path too.
-  useEffect(() => {
-    setDraft(message.body);
-    editRef.current?.focus();
-  }, [message.body]);
 
   return (
     <form
@@ -55,7 +49,7 @@ export function MessageEditor({ message, onClose }: Props) {
       }}
     >
       <textarea
-        ref={editRef}
+        ref={focusEditor}
         className="input"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

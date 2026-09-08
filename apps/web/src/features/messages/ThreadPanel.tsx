@@ -116,7 +116,6 @@ function FollowToggle({ rootId }: { rootId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    setFollowing(null);
     void api.messages
       .threadFollowing(rootId)
       .then((r) => {
@@ -429,7 +428,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
               ` · ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`}
           </div>
         </div>
-        <FollowToggle rootId={rootId} />
+        <FollowToggle key={rootId} rootId={rootId} />
         <button
           className="icon-btn"
           onClick={() => closeThread()}

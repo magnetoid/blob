@@ -133,34 +133,13 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
                 </td>
                 <td>
                   {renaming?.id === group.id ? (
-                    <form
-                      style={{ display: "flex", gap: 6 }}
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const trimmed = renameDraft.trim();
-                        setRenaming(null);
-                        if (!trimmed || trimmed === group.name) return;
-                        void act(async () => {
-                          await api.admin.updateGroup(group.id, {
-                            name: trimmed,
-                          });
-                        });
-                      }}
-                    >
-                      <input
-                        className="input"
-                        value={renameDraft}
-                        maxLength={80}
-                        autoFocus
-                        onChange={(e) => setRenameDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") setRenaming(null);
-                        }}
-                      />
-                      <button className="btn" type="submit">
-                        Save
-                      </button>
-                    </form>
+                    <RenameGroupForm
+                      group={group}
+                      renameDraft={renameDraft}
+                      setRenameDraft={setRenameDraft}
+                      setRenaming={setRenaming}
+                      act={act}
+                    />
                   ) : (
                     group.name
                   )}
@@ -228,6 +207,55 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
         />
       )}
     </section>
+  );
+}
+
+function RenameGroupForm({
+  group,
+  renameDraft,
+  setRenameDraft,
+  setRenaming,
+  act,
+}: {
+  group: UserGroup;
+  renameDraft: string;
+  setRenameDraft: (value: string) => void;
+  setRenaming: (group: UserGroup | null) => void;
+  act: (run: () => Promise<unknown>) => Promise<void>;
+}) {
+  const focusInput = useCallback((node: HTMLInputElement | null) => {
+    node?.focus();
+  }, []);
+
+  return (
+    <form
+      style={{ display: "flex", gap: 6 }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        const trimmed = renameDraft.trim();
+        setRenaming(null);
+        if (!trimmed || trimmed === group.name) return;
+        void act(async () => {
+          await api.admin.updateGroup(group.id, {
+            name: trimmed,
+          });
+        });
+      }}
+    >
+      <input
+        ref={focusInput}
+        className="input"
+        value={renameDraft}
+        maxLength={80}
+        onChange={(e) => setRenameDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setRenaming(null);
+        }}
+      />
+      <button className="btn" type="submit">
+        Save
+      </button>
+    </form>
   );
 }
 

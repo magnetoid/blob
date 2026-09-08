@@ -946,12 +946,18 @@ export const api = {
     clearServerLogs: () => del<{ ok: true }>("/api/admin/instance/logs"),
 
     audit: (
-      params: { action?: string; actorId?: string; before?: string } = {},
+      params: {
+        action?: string;
+        actorId?: string;
+        before?: string;
+        limit?: number;
+      } = {},
     ) => {
       const search = new URLSearchParams();
       if (params.action) search.set("action", params.action);
       if (params.actorId) search.set("actor_id", params.actorId);
       if (params.before) search.set("before", params.before);
+      if (params.limit) search.set("limit", String(params.limit));
       return get<{ events: AuditEvent[] }>(`/api/admin/audit?${search}`);
     },
 

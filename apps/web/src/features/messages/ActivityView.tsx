@@ -47,17 +47,55 @@ function writeSeen(at: string): void {
 export function ActivityView() {
   const users = useStore((s) => s.users);
   const [kind, setKind] = useState<ActivityKind>('all');
+  /** Read once, on arrival: the marks must not move while the list is being read. */
+  const [seenAt] = useState(readSeen);
+
+  return (
+    <main className="pane">
+      <header className="pane-header">
+        <div style={{ minWidth: 0 }}>
+          <div className="pane-heading">
+            <h1 className="pane-title">Activity</h1>
+          </div>
+          <div className="pane-sub">Mentions of you, and reactions to what you wrote</div>
+        </div>
+      </header>
+
+      <div className="chip-row" style={{ padding: '0 16px 8px' }}>
+        {FILTERS.map((filter) => (
+          <button
+            key={filter.value}
+            className="chip"
+            type="button"
+            aria-pressed={kind === filter.value}
+            onClick={() => setKind(filter.value)}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      <ActivityResults key={kind} kind={kind} seenAt={seenAt} users={users} />
+    </main>
+  );
+}
+
+function ActivityResults({
+  kind,
+  seenAt,
+  users,
+}: {
+  kind: ActivityKind;
+  seenAt: string;
+  users: ReturnType<typeof useStore.getState>['users'];
+}) {
   const [items, setItems] = useState<ActivityItem[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [failed, setFailed] = useState(false);
-  /** Read once, on arrival: the marks must not move while the list is being read. */
-  const [seenAt] = useState(readSeen);
 
   useEffect(() => {
     let live = true;
-    setItems(null);
-    setFailed(false);
     void api.activity
       .list(kind)
       .then((page) => {
@@ -108,83 +146,58 @@ export function ActivityView() {
   }
 
   return (
-    <main className="pane">
-      <header className="pane-header">
-        <div style={{ minWidth: 0 }}>
-          <div className="pane-heading">
-            <h1 className="pane-title">Activity</h1>
+    <div className="search-results">
+      {failed && <p className="error-text">That could not be loaded.</p>}
+      {!failed && items === null && <p className="muted">Loading…</p>}
+
+      {items?.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-mark">
+            <MentionIcon size="xl" />
           </div>
-          <div className="pane-sub">Mentions of you, and reactions to what you wrote</div>
+          <div className="empty-state-title">Nothing yet</div>
+          <div className="empty-state-body">
+            When somebody names you or reacts to something you wrote, it shows up here
+            — so you can find your way back to it without hunting through channels.
+          </div>
         </div>
-      </header>
+      )}
 
-      <div className="chip-row" style={{ padding: '0 16px 8px' }}>
-        {FILTERS.map((filter) => (
-          <button
-            key={filter.value}
-            className="chip"
-            type="button"
-            aria-pressed={kind === filter.value}
-            onClick={() => setKind(filter.value)}
-          >
-            {filter.label}
+      {rows.map(({ item, key, isNew }) => (
+        <MessageResultRow
+          key={key}
+          message={item.message}
+          timestamp={item.at}
+          onOpen={() => void go(item.message)}
+          footer={
+            <div className="search-result-meta">
+              {item.kind === 'reaction' ? (
+                <>
+                  <span className="activity-emoji" aria-hidden="true">
+                    {item.emoji}
+                  </span>{' '}
+                  {item.actorId ? (users[item.actorId]?.displayName ?? 'Someone') : 'Someone'}{' '}
+                  reacted to this
+                </>
+              ) : (
+                <>
+                  {item.actorId ? (users[item.actorId]?.displayName ?? 'Someone') : 'Someone'}{' '}
+                  mentioned you
+                </>
+              )}
+              {isNew && <span className="thread-new">New</span>}
+            </div>
+          }
+        />
+      ))}
+
+      {nextCursor && (
+        <div style={{ padding: 12 }}>
+          <button className="btn" onClick={() => void loadMore()} disabled={loadingMore}>
+            {loadingMore ? 'Loading…' : 'Show more'}
           </button>
-        ))}
-      </div>
-
-      <div className="search-results">
-        {failed && <p className="error-text">That could not be loaded.</p>}
-        {!failed && items === null && <p className="muted">Loading…</p>}
-
-        {items?.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-mark">
-              <MentionIcon size="xl" />
-            </div>
-            <div className="empty-state-title">Nothing yet</div>
-            <div className="empty-state-body">
-              When somebody names you or reacts to something you wrote, it shows up here
-              — so you can find your way back to it without hunting through channels.
-            </div>
-          </div>
-        )}
-
-        {rows.map(({ item, key, isNew }) => (
-          <MessageResultRow
-            key={key}
-            message={item.message}
-            timestamp={item.at}
-            onOpen={() => void go(item.message)}
-            footer={
-              <div className="search-result-meta">
-                {item.kind === 'reaction' ? (
-                  <>
-                    <span className="activity-emoji" aria-hidden="true">
-                      {item.emoji}
-                    </span>{' '}
-                    {item.actorId ? (users[item.actorId]?.displayName ?? 'Someone') : 'Someone'}{' '}
-                    reacted to this
-                  </>
-                ) : (
-                  <>
-                    {item.actorId ? (users[item.actorId]?.displayName ?? 'Someone') : 'Someone'}{' '}
-                    mentioned you
-                  </>
-                )}
-                {isNew && <span className="thread-new">New</span>}
-              </div>
-            }
-          />
-        ))}
-
-        {nextCursor && (
-          <div style={{ padding: 12 }}>
-            <button className="btn" onClick={() => void loadMore()} disabled={loadingMore}>
-              {loadingMore ? 'Loading…' : 'Show more'}
-            </button>
-          </div>
-        )}
-      </div>
-    </main>
+        </div>
+      )}
+    </div>
   );
 }

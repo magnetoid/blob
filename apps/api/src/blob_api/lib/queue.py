@@ -54,7 +54,13 @@ def fire_and_forget(coro: Coroutine[Any, Any, None]) -> None:
     Callers are in after-commit callbacks, which are synchronous by design, so this is
     how they reach an async function at all.
     """
-    task = asyncio.create_task(coro)
+    try:
+        task = asyncio.create_task(coro)
+    except RuntimeError:
+        # A coroutine that never made it onto a loop must still be closed, or Python
+        # warns about it later while the real failure has long since passed.
+        coro.close()
+        raise
     _pending.add(task)
     task.add_done_callback(_pending.discard)
 

@@ -74,6 +74,7 @@ async def schedule(
     thread_root_id: str | None = None,
     repeat: str | None = None,
     timezone: str = "UTC",
+    now: datetime | None = None,
 ) -> ScheduledMessage:
     """Put a message aside to be sent at `send_at`.
 
@@ -85,8 +86,8 @@ async def schedule(
     if not body.strip():
         raise bad_request("A scheduled message needs something in it.", code="invalid_input")
 
-    now = datetime.now(UTC)
-    ahead = (send_at - now).total_seconds()
+    current_time = now or datetime.now(UTC)
+    ahead = (send_at - current_time).total_seconds()
     if ahead < MIN_AHEAD_SECONDS:
         raise bad_request(
             "That time has passed, or is too close to schedule — send it instead.",
