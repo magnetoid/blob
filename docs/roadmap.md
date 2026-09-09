@@ -32,25 +32,25 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 **Backend hardening**
 - [x] notify job: `webpush(timeout=10)`, split transaction so fanout runs outside it (worker `max_jobs=8`); first `handle_notify` test — `jobs/notify.py`, `lib/webpush.py` — **M**
 - [x] arq worker: `job_timeout`, `max_tries=3`, failure logging hook — `jobs/worker.py` — **S**
-- [ ] Security headers middleware (CSP, nosniff, frame-ancestors) + magic-number upload validation + attachment disposition for non-allowlisted types; first files-router tests — `main.py`, `routers/files.py` — **S+M**
-- [ ] Kill the tsvector-over-the-wire: explicit column list on message reads — `services/serialize.py:243` — **S**
-- [ ] Serbian search (one migration to the middle rung): `'simple'` config + IMMUTABLE `blob_unaccent` wrapper + regenerated column/GIN + `pg_trgm` fallback + trailing-token prefix; query side `services/search.py:92,105` — **M**
-- [ ] Structured logging + request-id middleware (born-instrumented before the new backends) — `main.py`, new `lib/logging.py` — **S**
-- [ ] Retention sweeps: sessions, password_resets, deliveries, audit crons — `jobs/` — **M**
-- [ ] `.env.example` reconciliation (incl. VAPID) + backup/restore doc — **S**
-- [ ] M1 settings-become-real (schema slice): typed settings table + readers (feature toggles, agents kill switch, signup mode, retention days, upload limits, banner) — **S–M**
+- [x] Security headers middleware (CSP, nosniff, frame-ancestors) + magic-number upload validation + attachment disposition for non-allowlisted types; first files-router tests — `main.py`, `routers/files.py`, `lib/magic.py` — **S+M**
+- [x] Kill the tsvector-over-the-wire: explicit column list on message reads — `services/serialize.py` — **S**
+- [x] Serbian search: unaccent + english stemming + `pg_trgm` fallback + trailing-token prefix (kept `english`, not `simple`, so `deploys` still finds `deployed`) — `services/search.py`, migration 0032 — **M**
+- [x] Structured logging + request-id middleware (born-instrumented before the new backends) — `main.py`, `lib/logging.py` — **S**
+- [x] Retention sweeps: sessions, password_resets, deliveries, audit crons — `jobs/retention.py` — **M**
+- [x] `.env.example` reconciliation (incl. VAPID) + backup/restore doc — **S**
+- [x] M1 settings-become-real (schema slice): typed readers over workspace_settings JSONB (signup policy, agents kill switch, retention days, upload limits, banner) — `services/workspace_settings.py` — **S–M**
 
 **Member quick wins** (row/composer-level; none touch the shell, so nothing is rebuilt twice)
-- [ ] Composer draft: `key={channelId}` at `ChannelView.tsx:176` + drafts slice mirrored to localStorage; same for thread composer — **S**
-- [ ] MessageRow memo fix: hoist inline `onOpenThread` at `ChannelView.tsx:141` — **S**
-- [ ] Thread-typing bleed: key typing by `(channelId, threadRootId)` — `store.ts`, `socket.ts`, protocol — **S**
+- [x] Composer draft: `key={channelId}` at `ChannelView.tsx` + drafts slice mirrored to localStorage; same for thread composer — **S**
+- [x] MessageRow memo fix: hoist inline `onOpenThread` at `ChannelView.tsx` — **S**
+- [x] Thread-typing bleed: key typing by `(channelId, threadRootId)` — `store.ts`, `lib/typing.ts` — **S**
 - [x] Also-send-to-channel checkbox (`outbox.ts:64` hardcodes false; server ready) — **S**
 - [x] Display stored statuses on rows/hovers — **S**
-- [ ] Per-channel mute/notify/star via existing PATCH membership; sidebar kebab + starred sort — `Sidebar.tsx`, `api.ts:267` — **S**
-- [ ] Title + favicon badge counts (create a favicon at all; respects mutes; prereq for R7 PWA) — new `lib/badge.ts` — **S**
-- [ ] Image lazy-load + width/height at upload (kills layout shift; feeds R6 Files) — attachments, BlockRenderer — **S–M**
-- [ ] Cache-Control on file 302s + stable presign window (ends per-visit re-download) — `routers/files.py`, `lib/storage.py` — **S**
-- [ ] Pinned bar (shallow: click scrolls if loaded; R5 upgrades to jump) — `ChannelView.tsx` — **S**
+- [x] Per-channel mute/notify/star via existing PATCH membership; sidebar kebab + starred sort — `Sidebar.tsx`, `ChannelMenu.tsx` — **S**
+- [x] Title + favicon badge counts (create a favicon at all; respects mutes; prereq for R7 PWA) — `lib/badge.ts` — **S**
+- [x] Image lazy-load + width/height at upload (kills layout shift; feeds R6 Files) — attachments, BlockRenderer — **S–M**
+- [x] Cache-Control on file 302s + stable presign window (ends per-visit re-download) — `routers/files.py`, `lib/storage.py` — **S**
+- [x] Pinned bar (shallow: click scrolls if loaded; R5 upgrades to jump) — `ChannelView.tsx` — **S**
 
 **Done when:** search finds "čćšžđ" and Serbian homographs; drafts survive reload and channel switches; images cache across visits; sweep/rate-limit/notify/files tests in the suite.
 

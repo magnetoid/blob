@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentRunView } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
 import { draftKey } from "../../lib/drafts.ts";
+import { typingKey } from "../../lib/typing.ts";
 import { scrollToMessage } from "../../lib/navigation.ts";
 import { api } from "../../lib/api.ts";
 import { showThread } from "../../lib/navigation.ts";
@@ -32,7 +33,7 @@ export function ChannelView() {
   );
   const outbox = useStore((s) => s.outbox);
   const typing = useStore((s) =>
-    s.activeChannelId ? s.typing[s.activeChannelId] : undefined,
+    s.activeChannelId ? s.typing[typingKey(s.activeChannelId)] : undefined,
   );
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);

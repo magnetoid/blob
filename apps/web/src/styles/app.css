@@ -622,6 +622,42 @@ button {
     transform var(--dur-fast) var(--ease-standard);
 }
 
+.channel-row-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.channel-row-wrap .channel-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.channel-kebab {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  font-size: 14px;
+  letter-spacing: 1px;
+  opacity: 0;
+}
+
+.channel-row-wrap:hover .channel-kebab,
+.channel-kebab[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.channel-kebab:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.channel-row[data-muted='true'] .channel-name {
+  opacity: 0.55;
+}
+
 .channel-row:hover {
   background: var(--surface-hover-warm);
   transform: translate3d(var(--motion-slide), 0, 0);

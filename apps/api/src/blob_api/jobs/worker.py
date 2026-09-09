@@ -26,6 +26,7 @@ from .agui import handle_agui_run
 from .deployments import sync_hosted_agents
 from .notify import handle_notify
 from .reminders import fire_reminders
+from .retention import sweep_retention
 from .scheduled import send_scheduled
 from .unanswered import nudge_unanswered
 from .unfurl import handle_unfurl
@@ -76,6 +77,12 @@ async def sweep_agent_runs(_ctx: dict[str, Any]) -> None:
         removed = await agent_run_service.sweep(session)
     if removed:
         log.info("swept %d agent run(s)", removed)
+
+
+async def sweep_expired(_ctx: dict[str, Any]) -> None:
+    counts = await sweep_retention()
+    if sum(counts.values()):
+        log.info("retention sweep %s", counts)
 
 
 async def sweep_orphans(_ctx: dict[str, Any]) -> None:
@@ -181,6 +188,7 @@ class WorkerSettings:
         unfurl,
         agui_run,
         sweep_orphans,
+        sweep_expired,
         sweep_agent_runs,
         expire_agent_decisions,
         deliver_plugin_events,
@@ -188,6 +196,7 @@ class WorkerSettings:
     # arq's stub types cron() more narrowly than it accepts at runtime.
     cron_jobs = [
         cron(sweep_orphans, hour=4, minute=0),  # type: ignore[arg-type]
+        cron(sweep_expired, hour=4, minute=20),  # type: ignore[arg-type]
         cron(sweep_agent_runs, hour=4, minute=10),  # type: ignore[arg-type]
         # A decision waits a day; a quarter of an hour's slack on that is fine, a day's
         # (from riding the nightly sweep) is not.

@@ -22,6 +22,7 @@ code in, and English suffix stripping leaves other languages' words alone.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
@@ -35,6 +36,34 @@ from .serialize import MESSAGE_SELECT, to_message
 
 #: How results are ordered. `relevance` is the default, as it is in Slack.
 SORTS = ("relevance", "newest")
+
+_PREFIX_SAFE = re.compile(r"[^0-9A-Za-z]+")
+
+
+def prefix_lexeme(query: str) -> str | None:
+    """`deplo:*` for the last token, so a partial word still hits the tsvector.
+
+    Quoted tokens and junk that would not be a tsquery lexeme are skipped: a bad
+    `to_tsquery` argument 500s the search, which is worse than missing a prefix hit.
+    """
+    tokens = query.split()
+    if not tokens:
+        return None
+    last = tokens[-1]
+    if last[:1] == '"' or last[-1:] == '"':
+        return None
+    safe = _PREFIX_SAFE.sub("", last)
+    if len(safe) < 2:
+        return None
+    return f"{safe}:*"
+
+
+def ilike_needle(query: str) -> str | None:
+    """Substring fallback for short queries; `%`/`_` in the input stay literal."""
+    stripped = query.strip()
+    if not (2 <= len(stripped) <= 64):
+        return None
+    return stripped.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 @dataclass(slots=True)
@@ -214,7 +243,14 @@ async def search(
                      AND cm.user_id = :user_id          -- the security boundary
                    WHERE m.workspace_id = :workspace_id
                      AND m.deleted_at IS NULL
-                     AND m.search_tsv @@ websearch_to_tsquery('english', blob_unaccent(:query))
+                     AND (
+                           m.search_tsv @@ websearch_to_tsquery('english', blob_unaccent(:query))
+                        OR (cast(:prefix AS text) IS NOT NULL
+                            AND m.search_tsv @@ to_tsquery('english', :prefix))
+                        OR (cast(:needle AS text) IS NOT NULL
+                            AND blob_unaccent(m.body)
+                                ILIKE '%' || blob_unaccent(:needle) || '%' ESCAPE '\\')
+                     )
                      AND (cast(:author_id AS uuid) IS NULL
                           OR m.author_id = cast(:author_id AS uuid))
                      AND (cast(:channel_id AS uuid) IS NULL
@@ -243,6 +279,8 @@ async def search(
                 "workspace_id": workspace_id,
                 "user_id": user_id,
                 "query": query,
+                "prefix": prefix_lexeme(query),
+                "needle": ilike_needle(query),
                 "author_id": author_id,
                 "channel_id": channel_id,
                 "before": before,

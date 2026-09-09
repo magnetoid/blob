@@ -209,8 +209,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // other way; the OS badge rides along where the app is installed.
   useEffect(() => {
     const rows = Object.values(channels);
-    const mentions = rows.reduce((sum, c) => sum + (c.mentionCount ?? 0), 0);
-    const hasUnread = rows.some((c) => c.hasUnread);
+    const live = rows.filter((c) => c.membership?.notifyLevel !== "none");
+    const mentions = live.reduce((sum, c) => sum + (c.mentionCount ?? 0), 0);
+    const hasUnread = live.some((c) => c.hasUnread);
     updateBadge(mentions, hasUnread);
   }, [channels]);
 
