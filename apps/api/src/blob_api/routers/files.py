@@ -16,21 +16,24 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
-from ..lib import images
+from ..lib import images, magic
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam, new_id
 from ..lib.rate_limit import consume
 from ..lib.storage import (
     build_object_key,
+    delete_object,
     ensure_bucket,
     get_object,
+    get_object_head,
     presign_download,
     presign_upload,
     put_object,
 )
 from ..schemas.base import CamelModel
 from ..schemas.requests import UploadCompleteInput, UploadRequestInput
+from ..services.workspace_settings import load as load_settings
 
 log = logging.getLogger("blob.files")
 
@@ -76,6 +79,9 @@ async def create_upload(
     extension = payload.filename.rsplit(".", 1)[-1].lower() if "." in payload.filename else ""
     if extension in BLOCKED_EXTENSIONS:
         raise bad_request(f".{extension} files can't be shared here.")
+    limits = await load_settings(user.workspace_id)
+    if payload.size_bytes > limits.upload_limit_bytes:
+        raise bad_request("That file is too large for this workspace.")
 
     attachment_id = new_id()
     object_key = build_object_key(user.workspace_id, payload.filename)
@@ -150,6 +156,25 @@ async def complete_upload(
     # one — free work for anyone who asked for it in a loop.
     if attachment.uploaded_at is not None:
         return OkOut()
+
+    try:
+        head = await get_object_head(attachment.object_key, magic.HEAD_BYTES)
+    except Exception:
+        log.warning("could not read %s to check its type", attachment_id, exc_info=True)
+        head = b""
+    if head:
+        reason = magic.reject_reason(head, attachment.mime)
+        if reason:
+            try:
+                await delete_object(attachment.object_key)
+            except Exception:
+                log.warning("could not delete a refused upload %s", attachment_id, exc_info=True)
+            async with transaction() as (session, _):
+                await session.execute(
+                    text("DELETE FROM attachments WHERE id = :id AND uploader_id = :uploader_id"),
+                    {"id": attachment_id, "uploader_id": user.id},
+                )
+            raise bad_request(reason)
 
     thumb_key: str | None = None
     width, height = payload.width, payload.height

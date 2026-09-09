@@ -383,6 +383,11 @@ class Message(Base):
         # Idempotent sends: retrying the same client_msg_id is a no-op.
         Index("messages_client_idem", "channel_id", "author_id", "client_msg_id", unique=True),
         Index("messages_search", "search_tsv", postgresql_using="gin"),
+        Index(
+            "messages_body_trgm",
+            text("blob_unaccent(body) gin_trgm_ops"),
+            postgresql_using="gin",
+        ),
         Index("messages_mentions", "mention_user_ids", postgresql_using="gin"),
         Index(
             "messages_pinned",

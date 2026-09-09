@@ -9,6 +9,7 @@ under test is made entirely in Postgres.
 
 from __future__ import annotations
 
+import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
@@ -132,6 +133,26 @@ class TestUploadRefusals:
             {"filename": "payload.exe", "mime": "application/x-msdownload", "sizeBytes": 10},
         )
         assert response.status == 400, response.body
+
+    async def test_html_named_as_a_png_is_refused_on_complete(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ticket = await team["owner"].post(
+            "/api/uploads",
+            {"filename": "shot.png", "mime": "image/png", "sizeBytes": 20},
+        )
+        assert ticket.status == 200, ticket.body
+
+        async def html_head(_key: str, _n: int = 64) -> bytes:
+            return b"<!DOCTYPE html><html>"
+
+        async def noop_delete(_key: str) -> None:
+            return None
+
+        monkeypatch.setattr("blob_api.routers.files.get_object_head", html_head)
+        monkeypatch.setattr("blob_api.routers.files.delete_object", noop_delete)
+        complete = await team["owner"].post(f"/api/uploads/{ticket.body['attachmentId']}/complete")
+        assert complete.status == 400, complete.body
 
 
 class TestAvatars:

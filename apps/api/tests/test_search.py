@@ -429,3 +429,10 @@ class TestAccents:
 
         found = await team["owner"].get("/api/search?q=deploys")
         assert [m["body"] for m in found.body["messages"]] == ["we deployed it on Friday"]
+
+    async def test_a_partial_token_still_finds_the_word(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "we deployed it on Friday")
+
+        found = await team["owner"].get("/api/search?q=deplo")
+        assert found.status == 200, found.body
+        assert [m["body"] for m in found.body["messages"]] == ["we deployed it on Friday"]

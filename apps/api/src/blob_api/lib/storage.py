@@ -172,6 +172,18 @@ async def get_object(key: str) -> bytes:
     return body
 
 
+async def get_object_head(key: str, n: int = 64) -> bytes:
+    """The first `n` bytes, for magic-number checks that must not download a 100MB file."""
+    response = await asyncio.to_thread(
+        _client().get_object,
+        Bucket=settings.S3_BUCKET,
+        Key=key,
+        Range=f"bytes=0-{n - 1}",
+    )
+    body: bytes = await asyncio.to_thread(response["Body"].read)
+    return body
+
+
 async def put_object(key: str, body: bytes, mime: str) -> None:
     await asyncio.to_thread(
         _client().put_object, Bucket=settings.S3_BUCKET, Key=key, Body=body, ContentType=mime

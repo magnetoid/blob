@@ -23,6 +23,7 @@ import {
 } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 import { NewMessageDialog } from './NewMessageDialog.tsx';
+import { ChannelMenu } from './ChannelMenu.tsx';
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -277,6 +278,7 @@ function ChannelRow({ channel, collapsed }: { channel: ChannelWithState; collaps
   const presence = useStore((s) => s.presence);
   const drafts = useStore((s) => s.drafts);
   const channelTitle = useStore((s) => s.channelTitle);
+  const [menu, setMenu] = useState(false);
 
   const active = channel.id === activeChannelId;
   const isDm = channel.kind === 'dm' || channel.kind === 'group_dm';
@@ -285,31 +287,60 @@ function ChannelRow({ channel, collapsed }: { channel: ChannelWithState; collaps
       ? (channel.memberIds ?? []).find((id) => id !== currentUserId)
       : undefined;
   const name = channel.name ?? channelTitle(channel);
+  const muted = channel.membership?.notifyLevel === 'none';
 
   return (
-    <button
-      className="channel-row"
-      aria-current={active}
-      data-unread={channel.hasUnread && !active}
-      data-collapsed={collapsed ? 'true' : 'false'}
-      onClick={() => void showChannel(channel.id)}
-      title={name}
-      aria-label={name}
-    >
-      {otherId ? (
-        <AvatarWithPresence user={users[otherId]} state={presence[otherId] ?? 'offline'} />
-      ) : (
-        <span className="channel-hash" aria-hidden="true">
-          {isDm ? '•' : '#'}
-        </span>
+    <div className="channel-row-wrap">
+      <button
+        className="channel-row"
+        aria-current={active}
+        data-unread={channel.hasUnread && !active}
+        data-muted={muted ? 'true' : undefined}
+        data-collapsed={collapsed ? 'true' : 'false'}
+        onClick={() => void showChannel(channel.id)}
+        title={name}
+        aria-label={name}
+      >
+        {otherId ? (
+          <AvatarWithPresence user={users[otherId]} state={presence[otherId] ?? 'offline'} />
+        ) : (
+          <span className="channel-hash" aria-hidden="true">
+            {isDm ? '•' : '#'}
+          </span>
+        )}
+        {!collapsed && <span className="channel-name">{name}</span>}
+        {!collapsed && !active && channelHasDraft(drafts, channel.id) && (
+          <span className="channel-draft" title="You have an unsent draft here">
+            draft
+          </span>
+        )}
+        {channel.mentionCount > 0 && <span className="badge">{channel.mentionCount}</span>}
+      </button>
+      {!collapsed && (
+        <button
+          type="button"
+          className="channel-kebab"
+          aria-label={`Options for ${name}`}
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          onClick={(event) => {
+            event.stopPropagation();
+            setMenu(true);
+          }}
+        >
+          ···
+        </button>
       )}
-      {!collapsed && <span className="channel-name">{name}</span>}
-      {!collapsed && !active && channelHasDraft(drafts, channel.id) && (
-        <span className="channel-draft" title="You have an unsent draft here">
-          draft
-        </span>
+      {menu && (
+        <ChannelMenu
+          channel={channel}
+          onClose={() => setMenu(false)}
+          onOpenDetails={() => {
+            setMenu(false);
+            void showChannel(channel.id);
+          }}
+        />
       )}
-      {channel.mentionCount > 0 && <span className="badge">{channel.mentionCount}</span>}
-    </button>
+    </div>
   );
 }

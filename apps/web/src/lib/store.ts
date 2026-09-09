@@ -35,6 +35,7 @@ import {
   withDraft,
   type Drafts,
 } from "./drafts.ts";
+import { typingKey } from "./typing.ts";
 import {
   isRecoverableSendError,
   loadOutbox,
@@ -1226,15 +1227,18 @@ export const useStore = create<State>((set, get) => ({
         break;
 
       case "typing":
-        set((s) => ({
-          typing: {
-            ...s.typing,
-            [event.channelId]: {
-              ...(s.typing[event.channelId] ?? {}),
-              [event.userId]: Date.now(),
+        set((s) => {
+          const key = typingKey(event.channelId, event.threadRootId);
+          return {
+            typing: {
+              ...s.typing,
+              [key]: {
+                ...(s.typing[key] ?? {}),
+                [event.userId]: Date.now(),
+              },
             },
-          },
-        }));
+          };
+        });
         break;
 
       case "user.updated":
