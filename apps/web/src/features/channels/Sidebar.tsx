@@ -209,12 +209,21 @@ export function Sidebar({
                 key={person.id}
                 className="channel-row"
                 onClick={() => void openDm(person.id)}
-                title={person.displayName}
+                title={
+                  person.statusText
+                    ? `${person.displayName} — ${person.statusText}`
+                    : person.displayName
+                }
                 aria-label={person.displayName}
                 data-collapsed={collapsed ? 'true' : 'false'}
               >
                 <AvatarWithPresence user={person} state={presence[person.id] ?? 'offline'} />
-                {!collapsed && <span className="channel-name">{person.displayName}</span>}
+                {!collapsed && (
+                  <span className="channel-name">
+                    {person.displayName}
+                    {person.statusEmoji ? ` ${person.statusEmoji}` : ''}
+                  </span>
+                )}
               </button>
             ))}
         </section>

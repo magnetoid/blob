@@ -427,6 +427,7 @@ export const useStore = create<State>((set, get) => ({
           clientMsgId: latest.clientMsgId,
           threadRootId: latest.threadRootId,
           attachmentIds: latest.attachmentIds,
+          alsoInChannel: latest.alsoInChannel && latest.threadRootId !== null,
         });
         setOutbox(set, get, (outbox) => {
           const next = { ...outbox };
@@ -745,6 +746,7 @@ export const useStore = create<State>((set, get) => ({
       threadRootId,
       body,
       attachmentIds,
+      alsoInChannel: alsoInChannel && threadRootId !== null,
       createdAt: new Date().toISOString(),
       status: get().status === "online" ? "sending" : "queued",
       attempts: 0,
