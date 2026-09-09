@@ -15,12 +15,12 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 ## R1 — Trust Patch + Janus Ship (days)
 **Goal:** close the exploitable holes and the two silent-death bugs, prove the deploy artifact, ship Janus one-click.
 
-- [ ] Janus one-click install remainder (branch near done) — `plugins/runner.py`, `plugins/source.py` — **S**
-- [ ] Inert SSRF guards: `check_outbound_url` return value discarded at `runner.py:96` + `source.py:71`; add a raising `assert_outbound_url` wrapper in `lib/net.py` + tests — **S** (same PR as Janus: it guards Janus's fetch path)
-- [ ] Unfurl redirect SSRF: `follow_redirects=False`, manual ≤3-hop walk re-checking `is_private_host` per hop — `jobs/unfurl.py:60-70` — **S**
-- [ ] Translate endpoint: add `consume()` rate limit; move DeepL call outside the transaction — `routers/messages.py:168-213` — **S**
-- [ ] `remove_reaction` access oracle: add `assert_channel_access` (private-404 charter) — `routers/messages.py:358-367` — **S**
-- [ ] Zombie socket on outbox overflow: `closed_event` on Connection, writer exits on close, ws endpoint tears down on FIRST_COMPLETED; first hub backpressure test — `realtime/hub.py:54-64`, `realtime/ws.py:78-83` — **S**
+- [x] Janus one-click install remainder (branch near done) — `plugins/runner.py`, `plugins/source.py` — **S**
+- [x] Inert SSRF guards: `check_outbound_url` return value discarded at `runner.py:96` + `source.py:71`; add a raising `assert_outbound_url` wrapper in `lib/net.py` + tests — **S** (same PR as Janus: it guards Janus's fetch path)
+- [x] Unfurl redirect SSRF: `follow_redirects=False`, manual ≤3-hop walk re-checking `is_private_host` per hop — `jobs/unfurl.py:60-70` — **S**
+- [x] Translate endpoint: add `consume()` rate limit; move DeepL call outside the transaction — `routers/messages.py:168-213` — **S**
+- [x] `remove_reaction` access oracle: add `assert_channel_access` (private-404 charter) — `routers/messages.py:358-367` — **S**
+- [x] Zombie socket on outbox overflow: `closed_event` on Connection, writer exits on close, ws endpoint tears down on FIRST_COMPLETED; first hub backpressure test — `realtime/hub.py:54-64`, `realtime/ws.py:78-83` — **S**
 - [ ] Redis pub/sub bridge supervision (backoff + resubscribe + loud logging) — `hub.py:219-233` — **S**
 - [x] ~~CI job that builds and boots the Docker image~~ — **already existed.** CI's `image` job builds, boots `docker-compose.prod.yml --wait`, checks `/healthz` + `/readyz`, and asserts the schema reached head. The audit called this the largest unverified deploy risk on the strength of a stale note in `.torsor/active/context.md`, now corrected.
 
@@ -44,7 +44,8 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 - [ ] Composer draft: `key={channelId}` at `ChannelView.tsx:176` + drafts slice mirrored to localStorage; same for thread composer — **S**
 - [ ] MessageRow memo fix: hoist inline `onOpenThread` at `ChannelView.tsx:141` — **S**
 - [ ] Thread-typing bleed: key typing by `(channelId, threadRootId)` — `store.ts`, `socket.ts`, protocol — **S**
-- [ ] Also-send-to-channel checkbox (`outbox.ts:64` hardcodes false; server ready) — **S**
+- [x] Also-send-to-channel checkbox (`outbox.ts:64` hardcodes false; server ready) — **S**
+- [x] Display stored statuses on rows/hovers — **S**
 - [ ] Per-channel mute/notify/star via existing PATCH membership; sidebar kebab + starred sort — `Sidebar.tsx`, `api.ts:267` — **S**
 - [ ] Title + favicon badge counts (create a favicon at all; respects mutes; prereq for R7 PWA) — new `lib/badge.ts` — **S**
 - [ ] Image lazy-load + width/height at upload (kills layout shift; feeds R6 Files) — attachments, BlockRenderer — **S–M**

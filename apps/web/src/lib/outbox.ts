@@ -12,6 +12,12 @@ export interface LocalOutboxEntry {
   body: string;
   /** Uploaded before the message was queued, so a replay re-sends the same ids. */
   attachmentIds: string[];
+  /**
+   * A thread reply that should also appear in the channel. Must survive the outbox:
+   * flush used to drop it, so an offline "Also send to #channel" landed only in the
+   * thread.
+   */
+  alsoInChannel: boolean;
   createdAt: string;
   status: LocalMessageDeliveryStatus;
   attempts: number;
@@ -32,7 +38,11 @@ export function loadOutbox(): Record<string, LocalOutboxEntry> {
     return Object.fromEntries(
       Object.entries(parsed).map(([key, entry]) => [
         key,
-        { ...entry, attachmentIds: entry.attachmentIds ?? [] },
+        {
+          ...entry,
+          attachmentIds: entry.attachmentIds ?? [],
+          alsoInChannel: entry.alsoInChannel ?? false,
+        },
       ]),
     );
   } catch {
@@ -88,7 +98,7 @@ export function materializeOutboxMessage(
     kind: "user",
     body: entry.body,
     threadRootId: entry.threadRootId,
-    alsoInChannel: false,
+    alsoInChannel: entry.alsoInChannel,
     replyCount: 0,
     replyUserIds: [],
     lastReplyAt: null,
@@ -127,8 +137,9 @@ function hasStorage(): boolean {
   );
 }
 
-type StoredEntry = Omit<LocalOutboxEntry, "attachmentIds"> & {
+type StoredEntry = Omit<LocalOutboxEntry, "attachmentIds" | "alsoInChannel"> & {
   attachmentIds?: string[];
+  alsoInChannel?: boolean;
 };
 
 function isOutbox(value: unknown): value is Record<string, StoredEntry> {
@@ -149,7 +160,8 @@ function isOutboxEntry(value: unknown): value is StoredEntry {
     (typeof value.lastError === "string" || value.lastError === null) &&
     (value.attachmentIds === undefined ||
       (Array.isArray(value.attachmentIds) &&
-        value.attachmentIds.every((id) => typeof id === "string")))
+        value.attachmentIds.every((id) => typeof id === "string"))) &&
+    (value.alsoInChannel === undefined || typeof value.alsoInChannel === "boolean")
   );
 }
 

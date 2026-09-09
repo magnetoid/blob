@@ -286,6 +286,14 @@ export const MessageRow = memo(function MessageRow({
                 >
                   {author.displayName}
                 </button>
+                {(author.statusEmoji || author.statusText) && (
+                  <span
+                    className="message-status"
+                    title={author.statusText ?? undefined}
+                  >
+                    {author.statusEmoji ?? author.statusText}
+                  </span>
+                )}
                 <PersonCard
                   person={author}
                   open={cardOpen}

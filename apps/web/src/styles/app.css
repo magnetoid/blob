@@ -1132,6 +1132,12 @@ button {
   letter-spacing: -0.005em;
 }
 
+.message-status {
+  font-size: var(--text-sm);
+  color: var(--text-label);
+  font-weight: 400;
+}
+
 .message-time {
   font-size: var(--text-sm);
   color: var(--text-label);
