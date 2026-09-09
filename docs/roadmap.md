@@ -21,7 +21,7 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 - [x] Translate endpoint: add `consume()` rate limit; move DeepL call outside the transaction — `routers/messages.py:168-213` — **S**
 - [x] `remove_reaction` access oracle: add `assert_channel_access` (private-404 charter) — `routers/messages.py:358-367` — **S**
 - [x] Zombie socket on outbox overflow: `closed_event` on Connection, writer exits on close, ws endpoint tears down on FIRST_COMPLETED; first hub backpressure test — `realtime/hub.py:54-64`, `realtime/ws.py:78-83` — **S**
-- [ ] Redis pub/sub bridge supervision (backoff + resubscribe + loud logging) — `hub.py:219-233` — **S**
+- [x] Redis pub/sub bridge supervision (backoff + resubscribe + loud logging) — `hub.py` — **S**
 - [x] ~~CI job that builds and boots the Docker image~~ — **already existed.** CI's `image` job builds, boots `docker-compose.prod.yml --wait`, checks `/healthz` + `/readyz`, and asserts the schema reached head. The audit called this the largest unverified deploy risk on the strength of a stale note in `.torsor/active/context.md`, now corrected.
 
 **Done when:** fixes merged with regression tests, Docker image green in CI, Janus installs one-click on Coolify.
@@ -30,8 +30,8 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 **Goal:** finish the trust arc, fix daily-pain items that survive the rebuild untouched, make search work in Serbian.
 
 **Backend hardening**
-- [ ] notify job: `webpush(timeout=10)`, split transaction so fanout runs outside it (worker `max_jobs=8`); first `handle_notify` test — `jobs/notify.py:43/125/141` — **M**
-- [ ] arq worker: `job_timeout`, `max_tries=3`, failure logging hook — `jobs/worker.py:90-102` — **S**
+- [x] notify job: `webpush(timeout=10)`, split transaction so fanout runs outside it (worker `max_jobs=8`); first `handle_notify` test — `jobs/notify.py`, `lib/webpush.py` — **M**
+- [x] arq worker: `job_timeout`, `max_tries=3`, failure logging hook — `jobs/worker.py` — **S**
 - [ ] Security headers middleware (CSP, nosniff, frame-ancestors) + magic-number upload validation + attachment disposition for non-allowlisted types; first files-router tests — `main.py`, `routers/files.py` — **S+M**
 - [ ] Kill the tsvector-over-the-wire: explicit column list on message reads — `services/serialize.py:243` — **S**
 - [ ] Serbian search (one migration to the middle rung): `'simple'` config + IMMUTABLE `blob_unaccent` wrapper + regenerated column/GIN + `pg_trgm` fallback + trailing-token prefix; query side `services/search.py:92,105` — **M**

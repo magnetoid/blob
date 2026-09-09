@@ -149,6 +149,32 @@ async def shutdown(_ctx: dict[str, Any]) -> None:
     await close_engine()
 
 
+async def after_job_end(ctx: dict[str, Any]) -> None:
+    """A line in *our* log after arq has written the result.
+
+    arq already logs the traceback at the moment of failure. That line is easy to miss
+    in a retry storm: try 1 fails, try 2 fails, try 3 gives up, and the only record is
+    three identical exceptions. This fires once the result is stored, so a job that
+    died for good is greppable as `job … failed` without reconstructing the earlier
+    frames. Success is silent — arq already logs those.
+    """
+    job_id = ctx.get("job_id")
+    redis = ctx.get("redis")
+    if not job_id or redis is None:
+        return
+    from arq.jobs import Job
+
+    info = await Job(str(job_id), redis).result_info()
+    if info is None or info.success:
+        return
+    log.error(
+        "job %s failed (try %s): %r",
+        info.function,
+        ctx.get("job_try"),
+        info.result,
+    )
+
+
 class WorkerSettings:
     functions = [
         notify,
@@ -189,3 +215,13 @@ class WorkerSettings:
     on_shutdown = shutdown
     redis_settings = redis_settings()
     max_jobs = 8
+    # Explicit, not "whatever arq ships". A hung unfurl or a stuck SSH session in an
+    # agent run used to sit on a worker slot until the process was killed: webpush now
+    # times out at 10s, but the job itself still needs a ceiling. Five minutes is long
+    # enough for an AG-UI turn and short enough that a wedged job is visible.
+    job_timeout = 300
+    # Three, not arq's five. A notify that failed because Redis blinked should retry;
+    # a notify that failed because the payload is poison should not occupy the queue
+    # for the rest of the morning.
+    max_tries = 3
+    after_job_end = after_job_end
