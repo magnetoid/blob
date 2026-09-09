@@ -28,7 +28,7 @@ def current_request_id() -> str:
 
 class RequestIdFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        record.request_id = current_request_id()  # type: ignore[attr-defined]
+        record.request_id = current_request_id()
         return True
 
 
