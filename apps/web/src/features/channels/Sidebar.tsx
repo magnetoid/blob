@@ -4,18 +4,15 @@ import { useMemo, useState, type ReactNode } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { showError } from '../../lib/toasts.ts';
-import { navigate, parseRoute, pathForRoute, usePath } from '../../lib/router.ts';
+import { navigate, parseRoute, usePath } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
 import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
 import { directMessages, joinedChannels } from '../../lib/conversations.ts';
-import { Avatar, AvatarWithPresence } from '../../components/Avatar.tsx';
-import { Menu } from '../../components/Menu.tsx';
+import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import {
-  ChevronDownIcon,
   ChevronLeftIcon,
   ClockIcon,
-  FeedbackIcon,
   FileIcon,
   HomeIcon,
   MentionIcon,
@@ -23,24 +20,18 @@ import {
   PlusIcon,
   ReplyIcon,
   SearchIcon,
-  SettingsIcon,
-  MembersIcon,
 } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 import { NewMessageDialog } from './NewMessageDialog.tsx';
-import { ITEMS } from '../shell/menu.ts';
-import { hasUnseenRelease } from '../../lib/changelog.ts';
 
 interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  onFeedback?: () => void;
 }
 
 export function Sidebar({
   collapsed = false,
   onToggleCollapse,
-  onFeedback,
 }: SidebarProps = {}) {
   const channels = useStore((s) => s.channels);
   const users = useStore((s) => s.users);
@@ -48,12 +39,9 @@ export function Sidebar({
   const currentUser = useStore((s) => s.currentUser);
   const activeView = parseRoute(usePath()).view;
   const savedCount = useStore((s) => s.savedMessageIds.size);
-  const status = useStore((s) => s.status);
 
   const [creating, setCreating] = useState(false);
   const [composing, setComposing] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [unseenRelease, setUnseenRelease] = useState(hasUnseenRelease);
 
   const { joined, dms, browsable } = useMemo(
     () => ({
@@ -75,11 +63,6 @@ export function Sidebar({
   );
 
   const memberCount = Object.values(users).filter((u) => !u.deactivated).length;
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
-  const isOwner = currentUser?.role === 'owner';
-  const visibleMenuItems = ITEMS.filter(
-    (item) => (!item.adminOnly || isAdmin) && (!item.ownerOnly || isOwner),
-  );
 
   async function openDm(userId: string) {
     try {
@@ -90,34 +73,6 @@ export function Sidebar({
       showError(err);
     }
   }
-
-  const utilityActions = [
-    {
-      id: 'preferences',
-      label: 'Preferences',
-      icon: <SettingsIcon size="sm" />,
-      onClick: () => navigate(pathForRoute({ view: 'settings', section: 'preferences' })),
-      active: activeView === 'settings',
-    },
-    ...(isAdmin
-      ? [
-          {
-            id: 'console',
-            label: 'Workspace',
-            icon: <MembersIcon size="sm" />,
-            onClick: () => navigate(pathForRoute({ view: 'admin', section: 'general' })),
-            active: activeView === 'admin',
-          },
-        ]
-      : []),
-    {
-      id: 'feedback',
-      label: 'Feedback',
-      icon: <FeedbackIcon size="sm" />,
-      onClick: () => onFeedback?.(),
-      active: false,
-    },
-  ];
 
   return (
     <aside className="sidebar" data-collapsed={collapsed ? 'true' : 'false'}>
@@ -264,102 +219,6 @@ export function Sidebar({
             ))}
         </section>
       </div>
-
-      {currentUser && (
-        <div className="sidebar-footer">
-          <div className="sidebar-footer-actions">
-            {utilityActions.map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                className="sidebar-utility-btn"
-                aria-label={action.label}
-                aria-pressed={action.active}
-                title={action.label}
-                onClick={action.onClick}
-              >
-                {action.icon}
-                {!collapsed && <span>{action.label}</span>}
-              </button>
-            ))}
-          </div>
-
-          <div className="sidebar-account">
-            <button
-              type="button"
-              className="sidebar-account-trigger"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMenuOpen((open) => !open)}
-              title={currentUser.displayName}
-            >
-              <span className="sidebar-account-avatar">
-                <Avatar user={currentUser} size="sm" />
-                <span
-                  className="presence-dot"
-                  data-state={status === 'online' ? 'active' : 'offline'}
-                  title={status === 'online' ? 'Connected' : 'Reconnecting…'}
-                />
-              </span>
-              {!collapsed && (
-                <>
-                  <span className="sidebar-account-copy">
-                    <span className="sidebar-account-name">{currentUser.displayName}</span>
-                    <span className="sidebar-account-role">
-                      {currentUser.role === 'owner'
-                        ? 'Owner'
-                        : currentUser.role === 'admin'
-                          ? 'Admin'
-                          : 'Member'}
-                    </span>
-                  </span>
-                  {unseenRelease && <span className="menu-dot" aria-hidden="true" />}
-                  <ChevronDownIcon size="sm" />
-                </>
-              )}
-            </button>
-
-            <Menu open={menuOpen} onClose={() => setMenuOpen(false)} className="user-menu-panel">
-              <div className="user-menu-header">
-                <div className="user-menu-header-name">{currentUser.displayName}</div>
-                <div className="user-menu-header-email">{currentUser.email}</div>
-              </div>
-
-              {visibleMenuItems.map((item) =>
-                item.soon ? (
-                  <button
-                    key={item.label}
-                    className="user-menu-item"
-                    role="menuitem"
-                    disabled
-                    title="Not built yet"
-                  >
-                    {item.label}
-                    <span className="user-menu-soon">Soon</span>
-                  </button>
-                ) : (
-                  <button
-                    key={item.label}
-                    className="user-menu-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      if (item.path === '/whats-new') setUnseenRelease(false);
-                      if (item.action === 'feedback') onFeedback?.();
-                      else navigate(item.path as string);
-                    }}
-                  >
-                    {item.label}
-                    {item.path === '/whats-new' && unseenRelease && (
-                      <span className="menu-dot" aria-label="New since you last looked" />
-                    )}
-                  </button>
-                ),
-              )}
-            </Menu>
-          </div>
-        </div>
-      )}
 
       {creating && <CreateChannelDialog onClose={() => setCreating(false)} />}
       {composing && <NewMessageDialog onClose={() => setComposing(false)} />}

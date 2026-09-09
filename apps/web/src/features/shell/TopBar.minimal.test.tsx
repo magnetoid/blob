@@ -27,7 +27,7 @@ vi.mock('./WorkspaceSwitcher.tsx', () => ({
 }));
 
 describe('the minimal top bar', () => {
-  it('shows only the team name and search', () => {
+  it('shows the team name, search, and the account menu', () => {
     useStore.setState({
       workspaceName: 'Imba',
       currentUser: { id: 'u1', displayName: 'Marko', role: 'owner' },
@@ -38,6 +38,7 @@ describe('the minimal top bar', () => {
 
     expect(screen.getByText('Imba')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
+    expect(screen.getByText('Marko')).toBeTruthy();
     expect(screen.queryByText('Messages')).toBeNull();
     expect(screen.queryByText('Feedback')).toBeNull();
   });

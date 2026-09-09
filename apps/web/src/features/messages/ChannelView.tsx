@@ -362,6 +362,10 @@ export function ChannelView() {
       ) : (
         <>
           <MessageList
+            // Keyed to the conversation so the virtualizer does not keep the previous
+            // channel's measured heights. That cache is how switching chats left holes
+            // between rows until you scrolled far enough to remeasure.
+            key={activeChannelId}
             messages={messages?.items ?? []}
             hasMore={messages?.hasMore ?? false}
             loading={messages?.loading ?? false}
