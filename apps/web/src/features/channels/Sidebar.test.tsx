@@ -67,6 +67,15 @@ describe('the sidebar header', () => {
     expect(screen.getByText('general')).toBeTruthy();
   });
 
+  it('does not keep an account menu or utility buttons in the channel list', () => {
+    seed();
+    const { container } = render(<Sidebar />);
+
+    expect(container.querySelector('.sidebar-footer')).toBeNull();
+    expect(screen.queryByLabelText('Preferences')).toBeNull();
+    expect(screen.queryByLabelText('Feedback')).toBeNull();
+  });
+
   it('collapses to icons only', () => {
     seed();
     render(<Sidebar collapsed />);

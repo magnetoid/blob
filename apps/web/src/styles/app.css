@@ -403,6 +403,7 @@ button {
   color: inherit;
   font: inherit;
   cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-color);
 }
 
 .user-menu-trigger:hover {
@@ -623,7 +624,7 @@ button {
 
 .channel-row:hover {
   background: var(--surface-hover-warm);
-  transform: translateX(1px);
+  transform: translate3d(var(--motion-slide), 0, 0);
 }
 
 .channel-row[aria-current="true"] {
@@ -980,6 +981,9 @@ button {
      an empty pane. See the auto margin below. */
   display: flex;
   flex-direction: column;
+  /* Browser scroll-anchoring fights the virtualizer: a row that grows (image load,
+     grouped padding) would yank the rest of the list and leave a hole. */
+  overflow-anchor: none;
 }
 
 .message-list-viewport {
@@ -1005,6 +1009,11 @@ button {
   top: 0;
   left: 0;
   width: 100%;
+  overflow-anchor: none;
+  /* Layout only — `size` would freeze the height the virtualizer needs to measure. */
+  contain: layout style;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .day-divider {
@@ -1059,15 +1068,19 @@ button {
   gap: 12px;
   position: relative;
   padding: var(--message-padding-y) var(--pane-gutter);
+  transition: background-color var(--dur-fast) var(--ease-color);
 }
 
 .message:hover {
   background: var(--surface-row-hover);
 }
 
-.message[data-grouped="false"] + .message,
+/* Padding, not margin: offsetHeight / getBoundingClientRect skip collapsing margins, so
+   a 6px gap between groups was painted and never measured — the next row sat 6px too
+   high and left a hole. The sibling combinator also fails once the previous message is
+   virtualized out of the DOM; `data-starts-group` is on this row itself. */
 .message[data-starts-group="true"] {
-  margin-top: 6px;
+  padding-top: calc(var(--message-padding-y) + 6px);
 }
 
 .message[data-mentions-me="true"] {
@@ -1524,20 +1537,36 @@ button {
   height: 5px;
   border-radius: var(--radius-full);
   background: var(--text-faint);
+  animation: typing-dot var(--dur-open) var(--ease-standard) infinite;
 }
 
 .typing-dots i:nth-child(2) {
   background: var(--hairline-strong);
+  animation-delay: 120ms;
 }
 
 .typing-dots i:nth-child(3) {
   background: var(--track-off);
+  animation-delay: 240ms;
 }
 
 .typing-text {
   margin-left: 6px;
   font-size: var(--text-meta);
   color: var(--text-5);
+}
+
+@keyframes typing-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+    transform: translate3d(0, 0, 0);
+  }
+  40% {
+    opacity: 1;
+    transform: translate3d(0, -2px, 0);
+  }
 }
 
 /* ─── composer ───────────────────────────────────────────────────────────── */
@@ -1550,11 +1579,14 @@ button {
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  transition: border-color var(--dur-fast) var(--ease-color);
+  transition:
+    border-color var(--dur-fast) var(--ease-color),
+    box-shadow var(--dur-fast) var(--ease-color);
 }
 
 .composer-box:focus-within {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .composer-toolbar {

@@ -10837,6 +10837,28 @@
         ]
       }
     },
+    "/api/agent-runs": {
+      "get": {
+        "description": "The home dashboard's live strip: running, waiting, and today's tail.\n\nChannel listings stay the conversation's; this is the same wire shape folded\nacross every room the caller can see, so a Stop on the home card is the\nsame Stop as the one under the mention.",
+        "operationId": "workspace_agent_runs_api_agent_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/blob_api__routers__agentic__AgentRunsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Workspace Agent Runs",
+        "tags": [
+          "agentic"
+        ]
+      }
+    },
     "/api/agent-runs/{run_id}/answer": {
       "post": {
         "description": "Answer the question an agent stopped to ask, and let it carry on.\n\nOnly the person the run is on behalf of may \u2014 the card is public, the decision is\ntheirs. The answer is posted as their own message so the channel sees it as a\ndecision, and the agent resumes with it. See `services/agent_chains.answer`.",

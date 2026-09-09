@@ -403,7 +403,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
-        onFeedback={() => setFeedbackOpen(true)}
       />
       {sidebarOpen && (
         <button
