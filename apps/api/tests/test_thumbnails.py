@@ -198,6 +198,20 @@ class TestThroughTheUploadPath:
     async def test_something_that_claims_to_be_an_image_and_is_not(
         self, team: dict[str, Any]
     ) -> None:
-        attachment_id = await upload(team["owner"], b"definitely not a png")
-        row = await attachment_row(attachment_id)
-        assert row.thumb_key is None, "no thumbnail, and no failed upload either"
+        """Used to complete anyway and just skip the thumbnail. Now the lie is refused."""
+        import httpx
+
+        who = team["owner"]
+        data = b"definitely not a png"
+        ticket = await who.post(
+            "/api/uploads", {"filename": "shot.png", "mime": "image/png", "sizeBytes": len(data)}
+        )
+        assert ticket.status == 200, ticket.body
+        async with httpx.AsyncClient(timeout=30) as http:
+            put = await http.put(
+                ticket.body["uploadUrl"], content=data, headers=ticket.body["headers"]
+            )
+            assert put.status_code in (200, 204), put.text
+        done = await who.post(f"/api/uploads/{ticket.body['attachmentId']}/complete", {})
+        assert done.status == 400, done.body
+        assert "image" in done.body["error"]["message"]
