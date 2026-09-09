@@ -396,6 +396,7 @@ class Message(Base):
             postgresql_where=text("pinned_at IS NOT NULL"),
         ),
         Index("messages_author", "author_id", text("id DESC")),
+        Index("messages_last_reply_at", text("last_reply_at DESC NULLS LAST")),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)

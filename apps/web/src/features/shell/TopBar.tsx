@@ -20,6 +20,7 @@ import { WorkspaceSwitcher } from './WorkspaceSwitcher.tsx';
 import {
   ChevronDownIcon,
   FeedbackIcon,
+  HuddleIcon,
   MembersIcon,
   MessagesIcon,
   SearchIcon,
@@ -60,6 +61,45 @@ export function TopBar({ onFeedback, onToggleSidebar, view, minimal = false }: P
         </button>
       )}
       <WorkspaceSwitcher name={workspaceName} />
+
+      {minimal && (
+        <nav className="topbar-tabs" aria-label="Workspace">
+          <button
+            type="button"
+            className="topbar-tab"
+            aria-pressed={
+              view === 'messages' || view === 'channel' || view === 'home' || view === 'threads'
+            }
+            onClick={() => navigate(pathForView('messages'))}
+          >
+            Messages
+          </button>
+          <button
+            type="button"
+            className="topbar-tab"
+            aria-pressed={view === 'activity'}
+            onClick={() => navigate(pathForView('activity'))}
+          >
+            Activity
+          </button>
+          <button
+            type="button"
+            className="topbar-tab"
+            disabled
+            title="Files arrive in a later release"
+          >
+            Files
+          </button>
+          <button
+            type="button"
+            className="topbar-tab"
+            aria-pressed={view === 'browse'}
+            onClick={() => navigate(pathForView('browse'))}
+          >
+            Channels
+          </button>
+        </nav>
+      )}
 
       {!minimal && (
         <nav className="topbar-nav" aria-label="Views">
@@ -108,28 +148,53 @@ export function TopBar({ onFeedback, onToggleSidebar, view, minimal = false }: P
         </nav>
       )}
 
-      <div className="topbar-spacer" />
-
       {minimal ? (
-        <button
-          className="topbar-search-btn"
-          aria-pressed={view === 'search'}
-          onClick={() => navigate(pathForView('search'))}
-          aria-label="Search"
-          title="Search"
-        >
-          <SearchIcon size="lg" />
-          <span className="topbar-search-label">Search</span>
-        </button>
+        <>
+          <div className="topbar-spacer" />
+          <button
+            className="topbar-search-btn"
+            aria-pressed={view === 'search'}
+            onClick={() => navigate(pathForView('search'))}
+            aria-label="Search"
+            title="Search"
+          >
+            <SearchIcon size="lg" />
+            <span className="topbar-search-label">Search</span>
+          </button>
+          <div className="topbar-spacer" />
+          <button
+            type="button"
+            className="topbar-huddle"
+            disabled
+            title="Huddles arrive in a later release"
+          >
+            <HuddleIcon size="md" />
+            <span className="topbar-huddle-label">Huddle</span>
+          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="topbar-invite"
+              onClick={() => navigate('/admin/invitations')}
+              title="Invite people"
+            >
+              <MembersIcon size="md" />
+              <span className="topbar-invite-label">Invite</span>
+            </button>
+          )}
+        </>
       ) : (
-        <button
-          className="btn btn-ghost topbar-feedback"
-          onClick={onFeedback}
-          title="Report a bug or send feedback"
-        >
-          <FeedbackIcon size="md" />
-          <span className="topbar-feedback-label">Feedback</span>
-        </button>
+        <>
+          <div className="topbar-spacer" />
+          <button
+            className="btn btn-ghost topbar-feedback"
+            onClick={onFeedback}
+            title="Report a bug or send feedback"
+          >
+            <FeedbackIcon size="md" />
+            <span className="topbar-feedback-label">Feedback</span>
+          </button>
+        </>
       )}
 
       <AccountMenu onFeedback={onFeedback} />
