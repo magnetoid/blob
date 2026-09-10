@@ -430,6 +430,86 @@ export function reactionValue(emoji: ResolvedEmoji): string {
 }
 
 /**
+ * Fitzpatrick modifiers. Default is no modifier — the catalog yellow.
+ *
+ * Stored as the id, not the character, so a future extra tone does not invalidate
+ * whatever people already picked.
+ */
+export const SKIN_TONES = [
+  { id: 'default', modifier: '', label: 'Default', swatch: '👋' },
+  { id: 'light', modifier: '🏻', label: 'Light', swatch: '👋🏻' },
+  { id: 'medium-light', modifier: '🏼', label: 'Medium-light', swatch: '👋🏼' },
+  { id: 'medium', modifier: '🏽', label: 'Medium', swatch: '👋🏽' },
+  { id: 'medium-dark', modifier: '🏾', label: 'Medium-dark', swatch: '👋🏾' },
+  { id: 'dark', modifier: '🏿', label: 'Dark', swatch: '👋🏿' },
+] as const;
+
+export type SkinToneId = (typeof SKIN_TONES)[number]['id'];
+
+const SKIN_TONE_KEY = 'blob.emoji.skin-tone';
+
+/** Hands and people in this catalog that actually take a modifier. */
+const TONE_CAPABLE = new Set([
+  'thumbsup',
+  'thumbsdown',
+  'ok_hand',
+  'pinching_hand',
+  'v',
+  'crossed_fingers',
+  'love_you_gesture',
+  'call_me_hand',
+  'point_up',
+  'point_right',
+  'point_left',
+  'point_down',
+  'raised_hand',
+  'wave',
+  'raised_hands',
+  'clap',
+  'pray',
+  'muscle',
+  'writing_hand',
+  'nail_care',
+  'facepalm',
+  'shrug',
+]);
+
+export function takesSkinTone(name: string): boolean {
+  return TONE_CAPABLE.has(name);
+}
+
+const TONE_RE = /[\u{1F3FB}-\u{1F3FF}]/gu;
+const VS16 = '\uFE0F';
+
+/** Apply (or strip) a Fitzpatrick modifier. Empty modifier is the catalog default. */
+export function applySkinTone(char: string, modifier: string): string {
+  const base = char.replace(TONE_RE, '').replaceAll(VS16, '');
+  return modifier ? `${base}${modifier}` : base;
+}
+
+export function skinToneById(id: string): (typeof SKIN_TONES)[number] {
+  return SKIN_TONES.find((tone) => tone.id === id) ?? SKIN_TONES[0];
+}
+
+export function loadSkinToneId(): SkinToneId {
+  try {
+    const raw = localStorage.getItem(SKIN_TONE_KEY);
+    if (raw && SKIN_TONES.some((tone) => tone.id === raw)) return raw as SkinToneId;
+  } catch {
+    // Storage can be missing (happy-dom) or throw (privacy mode). Default is fine.
+  }
+  return 'default';
+}
+
+export function saveSkinToneId(id: SkinToneId): void {
+  try {
+    localStorage.setItem(SKIN_TONE_KEY, id);
+  } catch {
+    // Same as load — the in-memory picker state still holds for this session.
+  }
+}
+
+/**
  * Search both sets by name and keyword.
  *
  * Ranked so that an exact name comes first and a prefix beats a mid-word hit — typing

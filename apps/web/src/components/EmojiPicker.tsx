@@ -13,9 +13,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   EMOJI_CATEGORIES,
+  SKIN_TONES,
+  applySkinTone,
+  loadSkinToneId,
   reactionValue,
+  saveSkinToneId,
   searchEmoji,
+  skinToneById,
+  takesSkinTone,
   type ResolvedEmoji,
+  type SkinToneId,
 } from "../lib/emoji.ts";
 import { useStore } from "../lib/store.ts";
 
@@ -27,14 +34,25 @@ interface Props {
   label: string;
 }
 
+function displayedChar(emoji: Extract<ResolvedEmoji, { kind: "unicode" }>, modifier: string): string {
+  return takesSkinTone(emoji.name) ? applySkinTone(emoji.char, modifier) : emoji.char;
+}
+
+function pickValue(emoji: ResolvedEmoji, modifier: string): string {
+  if (emoji.kind === "custom") return reactionValue(emoji);
+  return displayedChar(emoji, modifier);
+}
+
 /** One button in the grid. Custom emoji are images; the built-in set is text. */
 function EmojiButton({
   emoji,
   active,
+  modifier,
   onPick,
 }: {
   emoji: ResolvedEmoji;
   active: boolean;
+  modifier: string;
   onPick: (value: string) => void;
 }) {
   return (
@@ -44,12 +62,12 @@ function EmojiButton({
       type="button"
       title={`:${emoji.name}:`}
       aria-label={`:${emoji.name}:`}
-      onClick={() => onPick(reactionValue(emoji))}
+      onClick={() => onPick(pickValue(emoji, modifier))}
     >
       {emoji.kind === "custom" ? (
         <img className="custom-emoji" src={emoji.url} alt="" loading="lazy" />
       ) : (
-        emoji.char
+        displayedChar(emoji, modifier)
       )}
     </button>
   );
@@ -59,7 +77,9 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
   const customEmoji = useStore((s) => s.customEmoji);
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
+  const [toneId, setToneId] = useState<SkinToneId>(loadSkinToneId);
   const inputRef = useRef<HTMLInputElement>(null);
+  const modifier = skinToneById(toneId).modifier;
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -84,7 +104,7 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
     if (event.key === "Enter") {
       event.preventDefault();
       const chosen = results[clamped];
-      if (chosen) onPick(reactionValue(chosen));
+      if (chosen) onPick(pickValue(chosen, modifier));
       return;
     }
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
@@ -129,6 +149,7 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
                   key={`${emoji.kind}:${emoji.name}`}
                   emoji={emoji}
                   active={index === clamped}
+                  modifier={modifier}
                   onPick={onPick}
                 />
               ))}
@@ -161,6 +182,7 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
                       key={`custom:${emoji.name}`}
                       emoji={emoji}
                       active={false}
+                      modifier={modifier}
                       onPick={onPick}
                     />
                   ))}
@@ -188,6 +210,7 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
                         char: entry.char,
                       }}
                       active={false}
+                      modifier={modifier}
                       onPick={onPick}
                     />
                   ))}
@@ -196,6 +219,24 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
             ))}
           </>
         )}
+      </div>
+
+      <div className="emoji-tones" role="group" aria-label="Skin tone">
+        {SKIN_TONES.map((tone) => (
+          <button
+            key={tone.id}
+            className="emoji-tone"
+            type="button"
+            aria-label={tone.label}
+            aria-pressed={tone.id === toneId}
+            onClick={() => {
+              setToneId(tone.id);
+              saveSkinToneId(tone.id);
+            }}
+          >
+            {tone.swatch}
+          </button>
+        ))}
       </div>
     </div>
   );

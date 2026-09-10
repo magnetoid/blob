@@ -262,6 +262,7 @@ export function SearchView() {
                 key={message.id}
                 message={message}
                 timestamp={message.createdAt}
+                highlight={parsed?.text || undefined}
                 onOpen={() => void showMessage(message.id)}
               />
             ))}

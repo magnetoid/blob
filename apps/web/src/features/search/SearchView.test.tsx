@@ -154,6 +154,27 @@ describe('the parsed query echo', () => {
     expect(screen.getByText('hello from ana')).toBeTruthy();
   });
 
+  it('marks the leftover words in the result body', async () => {
+    search.mockResolvedValue({
+      messages: [message('m1', 'please deploy now')],
+      total: 1,
+      nextCursor: null,
+      parsed: {
+        text: 'deploy',
+        from: null,
+        in: null,
+        has: null,
+        before: null,
+        after: null,
+      },
+    });
+
+    render(<SearchView />);
+    await type('deploy');
+
+    expect(document.querySelector('mark.search-hit')?.textContent).toBe('deploy');
+  });
+
   it('says which name it could not place instead of a generic miss', async () => {
     search.mockResolvedValue({
       messages: [],

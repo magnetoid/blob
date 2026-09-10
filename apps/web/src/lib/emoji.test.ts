@@ -10,12 +10,14 @@
 import { describe, expect, it } from 'vitest';
 import type { CustomEmoji } from '@blob/shared';
 import {
+  applySkinTone,
   isShortcode,
   reactionValue,
   resolveName,
   resolveReaction,
   searchEmoji,
   shortcodeName,
+  takesSkinTone,
 } from './emoji.ts';
 
 const shipit: CustomEmoji = { name: 'shipit', url: 'https://files.test/shipit.png' };
@@ -117,5 +119,32 @@ describe('searchEmoji', () => {
 
   it('finds nothing for a query nothing matches', () => {
     expect(searchEmoji('zzzzzzz', [shipit])).toEqual([]);
+  });
+});
+
+describe('skin tones', () => {
+  it('applies a Fitzpatrick modifier to a hand', () => {
+    expect(applySkinTone('👍', '🏽')).toBe('👍🏽');
+  });
+
+  it('leaves the default unmodified', () => {
+    expect(applySkinTone('👍', '')).toBe('👍');
+  });
+
+  it('strips the text-vs-emoji selector before adding a tone', () => {
+    // ✌️ is U+270C U+FE0F. A tone after the selector does not render as a hand.
+    expect(applySkinTone('✌️', '🏿')).toBe('✌🏿');
+  });
+
+  it('replaces an existing tone rather than stacking one', () => {
+    expect(applySkinTone('👍🏽', '🏻')).toBe('👍🏻');
+  });
+
+  it('only tones the hands and people that actually take a modifier', () => {
+    expect(takesSkinTone('thumbsup')).toBe(true);
+    expect(takesSkinTone('wave')).toBe(true);
+    expect(takesSkinTone('tada')).toBe(false);
+    expect(takesSkinTone('handshake')).toBe(false);
+    expect(takesSkinTone('heart')).toBe(false);
   });
 });

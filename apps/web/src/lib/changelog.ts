@@ -49,6 +49,14 @@ export const RELEASES: readonly Release[] = [
         kind: 'added',
         text: 'The formatting bar now has Link and List next to bold, italic, code and strikethrough.',
       },
+      {
+        kind: 'added',
+        text: 'The emoji picker has skin tones. Pick a colour once and every hand after that uses it; party poppers stay party poppers.',
+      },
+      {
+        kind: 'added',
+        text: 'Search marks the words you typed in each result, so you can see why a message matched without reading the whole thing.',
+      },
     ],
   },
   {

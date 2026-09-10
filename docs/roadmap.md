@@ -82,12 +82,12 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 
 - [x] Emoji picker (unicode, search) + custom emoji from bootstrap + M5 emoji CRUD admin — **done on main**
 - [x] `:autocomplete:` in the composer
-- [ ] Skin tones in the picker
+- [x] Skin tones in the picker
 - [x] Reaction hover bar (quick 👍🎉👀 + picker); reserve the Saved bookmark slot for R6
 - [x] Formatting toolbar B/i/S/link/list/code — `Composer.tsx`
 - [x] Permalinks `/m/:id`, copy-link, search-result jump, pin-click jump via `?around=`
 - [x] Search UX: `from:`/`in:`/`has:` alone, parsed-query echo, honest totals, keyset pagination
-- [ ] Search UX: hit highlighting
+- [x] Search UX: hit highlighting
 - [x] Display stored statuses on rows/hovers
 - [x] `socket.ts` reconnect tests
 - [x] `markdown.tsx` XSS goldens (javascript: / unknown-scheme hrefs; tags stay text)
