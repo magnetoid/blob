@@ -73,4 +73,22 @@ describe('the composer formatting toolbar', () => {
     fireEvent.click(screen.getByLabelText('Italic'));
     expect(box.value).toBe('_x_');
   });
+
+  it('wraps the selection as a markdown link', () => {
+    renderComposer();
+    const box = type('hello');
+
+    fireEvent.click(screen.getByLabelText('Link'));
+
+    expect(box.value).toBe('[hello](url)');
+  });
+
+  it('prefixes the selection as a list', () => {
+    renderComposer();
+    const box = type('hello');
+
+    fireEvent.click(screen.getByLabelText('List'));
+
+    expect(box.value).toBe('- hello');
+  });
 });
