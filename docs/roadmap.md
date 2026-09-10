@@ -62,8 +62,8 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 - [x] Threads view on existing `GET /api/threads`; first fix the 2N correlated subqueries + add `last_reply_at` index — **S+S**
 - [x] Browse Channels screen (list/join endpoints exist) — **S**
 - [x] `/c/{id}` and `/c/{id}/{messageId}` routes (kills the dead push deep-link; feeds R5 permalinks, R7 push) — `lib/router.ts` — **S**
-- [ ] Sync completeness: replay edits/deletes/reactions offline; fix resync discarding readStates + replacing channels map; convergence + >200-backlog tests — `routers/sync`, `store.ts` — **M**
-- [ ] First `store.ts` test batch: insert/ordering, unread string-compare, resync merge — **M**
+- [x] Sync completeness: replay edits/deletes/reactions offline; fix resync discarding readStates + replacing channels map; convergence + >200-backlog tests — `routers/sync`, `store.ts` — **M**
+- [x] First `store.ts` test batch: insert/ordering, unread string-compare, resync merge — **M**
 
 **Done when:** new shell on main, Threads and Browse live, disconnect-edit-reconnect converges, store tests in CI.
 

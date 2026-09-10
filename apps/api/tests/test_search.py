@@ -153,6 +153,34 @@ async def test_sync_without_cursors_replays_nothing(team: dict) -> None:
     assert len(response.body["channels"]) > 0
 
 
+async def test_sync_replays_an_edit_of_the_cursor_message(team: dict) -> None:
+    first = await send_message(team["owner"], team["general"]["id"], "before the gap")
+    cursor = first.body["message"]["id"]
+    await team["owner"].patch(f"/api/messages/{cursor}", {"body": "typo fixed"})
+
+    import json
+
+    response = await team["member"].get(
+        f"/api/sync?cursors={json.dumps({team['general']['id']: cursor})}"
+    )
+    bodies = [m["body"] for m in response.body["messages"]]
+    assert "typo fixed" in bodies
+
+
+async def test_sync_replays_a_reaction_on_the_cursor_message(team: dict) -> None:
+    first = await send_message(team["owner"], team["general"]["id"], "react to me")
+    cursor = first.body["message"]["id"]
+    await team["member"].put(f"/api/messages/{cursor}/reactions", {"emoji": ":tada:"})
+
+    import json
+
+    response = await team["owner"].get(
+        f"/api/sync?cursors={json.dumps({team['general']['id']: cursor})}"
+    )
+    hit = next(m for m in response.body["messages"] if m["id"] == cursor)
+    assert any(r["emoji"] == ":tada:" for r in hit["reactions"])
+
+
 class TestDateModifiers:
     async def test_a_bad_date_is_refused_as_input(self, team: dict) -> None:
         # `before:` lands in a `CAST(:x AS timestamptz)`; anything Postgres cannot

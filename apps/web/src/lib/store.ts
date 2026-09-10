@@ -1412,18 +1412,77 @@ export const useStore = create<State>((set, get) => ({
       return;
     }
 
-    set((s) => ({
-      channels: Object.fromEntries(result.channels.map((c) => [c.id, c])),
-      // Channels whose gap was too large get dropped and refetched on next open.
-      messages: Object.fromEntries(
-        Object.entries(s.messages).filter(
-          ([id]) => !result.resyncChannelIds.includes(id),
+    set((s) => {
+      // Merge, do not replace: a channel the payload omitted is still the one you
+      // were in. Replacing the map used to drop local lastRead on a brief empty
+      // `channels` list, and it never applied `readStates` at all.
+      const channels = { ...s.channels };
+      for (const channel of result.channels) {
+        channels[channel.id] = { ...channels[channel.id], ...channel };
+      }
+      for (const state of result.readStates) {
+        const channel = channels[state.channelId];
+        if (!channel) continue;
+        channels[state.channelId] = {
+          ...channel,
+          lastReadMessageId: state.lastReadMessageId,
+          mentionCount: state.mentionCount,
+        };
+      }
+      return {
+        channels,
+        messages: Object.fromEntries(
+          Object.entries(s.messages).filter(
+            ([id]) => !result.resyncChannelIds.includes(id),
+          ),
         ),
-      ),
-    }));
+      };
+    });
 
     for (const message of result.messages) {
-      get().applyEvent({ t: "message.new", message });
+      if (message.deletedAt) {
+        get().applyEvent({
+          t: "message.deleted",
+          id: message.id,
+          channelId: message.channelId,
+          threadRootId: message.threadRootId,
+        });
+        continue;
+      }
+      // Gap fill, not a live arrival: fold even when the open list is a permalink
+      // window that is not at the tail. `applyEvent` would drop those on purpose.
+      set((s) => {
+        const next: Partial<State> = {};
+        if (message.threadRootId && s.threads[message.threadRootId]) {
+          next.threads = {
+            ...s.threads,
+            [message.threadRootId]: overlayThreadOutbox(
+              s.currentUser,
+              s.outbox,
+              message.threadRootId,
+              upsert(stripPending(s.threads[message.threadRootId] ?? []), message),
+            ),
+          };
+        }
+        if (inChannelHistory(message)) {
+          const existing = s.messages[message.channelId];
+          if (existing) {
+            next.messages = {
+              ...s.messages,
+              [message.channelId]: {
+                ...existing,
+                items: overlayChannelOutbox(
+                  s.currentUser,
+                  s.outbox,
+                  message.channelId,
+                  upsert(stripPending(existing.items), message),
+                ),
+              },
+            };
+          }
+        }
+        return next;
+      });
     }
 
     const active = get().activeChannelId;
