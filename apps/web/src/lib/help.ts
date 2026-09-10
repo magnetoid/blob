@@ -470,7 +470,7 @@ export const SECTIONS: Section[] = [
           'Modifiers combine: “from:@ana in:#eng has:link deploy” finds Ana’s links in #eng about a deploy. Anything that is not one of these is treated as words to search for, so a colon in the middle of a sentence is harmless.',
           'after: excludes the day you name and before: excludes it too, which is Slack’s behaviour — “after:2026-01-01” means from the 2nd onward.',
           'A modifier that is wrong is refused rather than ignored: has:files and before:yesterday both answer with what to write instead. A search that silently dropped half of what you asked for would look like it had filtered when it had not.',
-          'Those five are the whole vocabulary — there is no is:saved, no has:image, no to: and no way to scope to a direct message. And modifiers alone find nothing: “in:#eng has:file” with no words after it returns an empty list, because search matches text and there is none to match.',
+          'Those five are the whole vocabulary — there is no is:saved, no has:image, no to: and no way to scope to a direct message. Modifiers alone are enough: “from:@ana” lists Ana’s messages, “in:#eng has:file” lists files in #eng. Words after them, if any, are extra narrowing, not a requirement.',
         ],
         keywords: ['modifier', 'from', 'in', 'has', 'before', 'after', 'filter', 'operator'],
       },

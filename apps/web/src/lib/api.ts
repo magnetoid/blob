@@ -44,6 +44,20 @@ export interface ActivityItem {
 /** How search orders what it found. Slack's two: most relevant, or most recent. */
 export type SearchSort = "relevance" | "newest";
 
+/**
+ * How the server read the query. Echoed so the box can show `from:@ana` even
+ * when the leftover text is empty — modifiers-alone are a complete question.
+ */
+export type ParsedSearchQuery = {
+  text: string;
+  from: string | null;
+  in: string | null;
+  has: string | null;
+  before: string | null;
+  after: string | null;
+  unresolved?: string[];
+};
+
 /** One account anywhere on the server, with the workspace it belongs to. */
 export interface InstanceUser {
   id: string;
@@ -1111,6 +1125,7 @@ export const api = {
       total: number;
       sort: SearchSort;
       nextCursor: string | null;
+      parsed: ParsedSearchQuery;
     }>(
       `/api/search?q=${encodeURIComponent(q)}` +
         (sort === "newest" ? "&sort=newest" : "") +

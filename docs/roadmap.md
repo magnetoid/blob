@@ -80,13 +80,17 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 ## R5 — Rebuild III: Message-Surface Parity (~2 wk)
 **Goal:** everything on the message row and composer, batched once.
 
-- [ ] Real emoji picker (unicode, search, skin tones) + `:autocomplete:` + custom emoji from bootstrap + M5 emoji CRUD admin slice — **M**
-- [ ] Reaction hover bar (blocked by picker); reserve the Saved bookmark slot for R6 — **S**
-- [ ] Formatting toolbar B/i/S/link/list/code (renderer already supports it) — `Composer.tsx` — **S**
-- [ ] Generalize the `?around=` anchored loader → permalinks/copy-link, search-result jump, pin-click jump (one mechanism, four features) — `MessageList`, `api.ts:281-284` — **M**
-- [ ] Search UX honest pass: `from:`/`in:` alone, parsed-query echo, honest totals, keyset pagination, hit highlighting — `routers/search.py`, `SearchView` — **M**
-- [ ] Display stored statuses on rows/hovers — **S**
-- [ ] `markdown.tsx` XSS golden tests + `socket.ts` reconnect tests — **S–M**
+- [x] Emoji picker (unicode, search) + custom emoji from bootstrap + M5 emoji CRUD admin — **done on main**
+- [ ] Skin tones + `:autocomplete:` in the composer
+- [x] Reaction hover bar (quick 👍🎉👀 + picker); reserve the Saved bookmark slot for R6
+- [x] Formatting toolbar B/i/S/code — `Composer.tsx`
+- [ ] Formatting toolbar link/list
+- [x] Permalinks `/m/:id`, copy-link, search-result jump, pin-click jump via `?around=`
+- [x] Search UX: `from:`/`in:`/`has:` alone, parsed-query echo, honest totals, keyset pagination
+- [ ] Search UX: hit highlighting
+- [x] Display stored statuses on rows/hovers
+- [x] `socket.ts` reconnect tests
+- [ ] `markdown.tsx` XSS goldens (javascript: / unknown-scheme hrefs) — shortcodes already refuse unknown names
 
 **Done when:** any message is linkable and jumpable; reactions/formatting match the design; XSS goldens green.
 

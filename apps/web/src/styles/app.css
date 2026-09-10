@@ -2189,9 +2189,24 @@ button {
 }
 
 .search-count {
-  margin-bottom: 14px;
+  margin-bottom: 8px;
   font-size: var(--text-label-size);
   color: var(--text-4);
+}
+
+.search-parsed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.search-parsed code {
+  padding: 2px 7px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-label-size);
+  color: var(--text-3);
 }
 
 .search-result {
