@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Message } from "@blob/shared";
-import { api, ApiError, type SearchSort } from "../../lib/api.ts";
+import { api, ApiError, type ParsedSearchQuery, type SearchSort } from "../../lib/api.ts";
 import { showMessage } from "../../lib/navigation.ts";
 import { SearchIcon } from "../../components/Icon.tsx";
 import { MessageResultRow } from "../messages/MessageResultRow.tsx";
@@ -22,6 +22,17 @@ const FILTERS = [
   { label: "Has file", value: "has:file" },
   { label: "Has link", value: "has:link" },
 ] as const;
+
+function echoTokens(parsed: ParsedSearchQuery): string[] {
+  const tokens: string[] = [];
+  if (parsed.from) tokens.push(`from:@${parsed.from}`);
+  if (parsed.in) tokens.push(`in:#${parsed.in}`);
+  if (parsed.has) tokens.push(`has:${parsed.has}`);
+  if (parsed.before) tokens.push(`before:${parsed.before}`);
+  if (parsed.after) tokens.push(`after:${parsed.after}`);
+  if (parsed.text) tokens.push(parsed.text);
+  return tokens;
+}
 
 export function SearchView() {
   const [query, setQuery] = useState("");
@@ -46,6 +57,7 @@ export function SearchView() {
   const failed = failure !== "none";
   /** Where the results so far stopped. Null once there is nothing after them. */
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [parsed, setParsed] = useState<ParsedSearchQuery | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -68,6 +80,7 @@ export function SearchView() {
         setResults(null);
         setTotal(0);
         setNextCursor(null);
+        setParsed(null);
         setSearching(false);
         setFailure("none");
         return;
@@ -79,6 +92,7 @@ export function SearchView() {
         setResults(result.messages);
         setTotal(result.total);
         setNextCursor(result.nextCursor);
+        setParsed(result.parsed ?? null);
         setFailure("none");
       } catch (err) {
         // A failed request is not "no results" — telling someone nothing matched
@@ -90,6 +104,7 @@ export function SearchView() {
         setResults(null);
         setTotal(0);
         setNextCursor(null);
+        setParsed(null);
         setFailure(
           err instanceof ApiError && err.code === "rate_limited"
             ? "rate-limited"
@@ -223,7 +238,9 @@ export function SearchView() {
               {searching ? "Searching…" : `Nothing matched “${query}”`}
             </div>
             <div className="empty-state-body">
-              Try a shorter phrase, or drop the filters.
+              {parsed?.unresolved?.length
+                ? `Could not place ${parsed.unresolved.join(", ")}.`
+                : "Try a shorter phrase, or drop the filters."}
             </div>
           </div>
         ) : (
@@ -233,6 +250,13 @@ export function SearchView() {
                 ? `Showing ${results.length} of ${total}`
                 : `${total} ${total === 1 ? "result" : "results"}`}
             </div>
+            {parsed && echoTokens(parsed).length > 0 && (
+              <div className="search-parsed" aria-label="Parsed query">
+                {echoTokens(parsed).map((token) => (
+                  <code key={token}>{token}</code>
+                ))}
+              </div>
+            )}
             {results.map((message) => (
               <MessageResultRow
                 key={message.id}

@@ -130,3 +130,49 @@ describe('a search that has been overtaken', () => {
     expect(screen.queryByText('orphaned')).toBeNull();
   });
 });
+
+describe('the parsed query echo', () => {
+  it('shows the modifiers the server read, even with no leftover words', async () => {
+    search.mockResolvedValue({
+      messages: [message('m1', 'hello from ana')],
+      total: 1,
+      nextCursor: null,
+      parsed: {
+        text: '',
+        from: 'ana',
+        in: null,
+        has: null,
+        before: null,
+        after: null,
+      },
+    });
+
+    render(<SearchView />);
+    await type('from:@ana');
+
+    expect(screen.getByLabelText('Parsed query').textContent).toContain('from:@ana');
+    expect(screen.getByText('hello from ana')).toBeTruthy();
+  });
+
+  it('says which name it could not place instead of a generic miss', async () => {
+    search.mockResolvedValue({
+      messages: [],
+      total: 0,
+      nextCursor: null,
+      parsed: {
+        text: '',
+        from: 'nobodyatall',
+        in: null,
+        has: null,
+        before: null,
+        after: null,
+        unresolved: ['from:nobodyatall'],
+      },
+    });
+
+    render(<SearchView />);
+    await type('from:@nobodyatall');
+
+    expect(screen.getByText('Could not place from:nobodyatall.')).toBeTruthy();
+  });
+});

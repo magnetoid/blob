@@ -70,7 +70,7 @@ async def search_messages(
         "after": parsed.after.date().isoformat() if parsed.after else None,
     }
 
-    if not parsed.text:
+    if not parsed.text and not parsed.scoped():
         return SearchOut(messages=[], total=0, parsed=parsed_payload, sort=sort)
 
     async with session_scope() as session:
