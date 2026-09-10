@@ -432,7 +432,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {view === 'home' && <HomeView />}
       {(view === 'messages' || view === 'channel') && <ChannelView />}
       {view === 'threads' && <ThreadsView />}
-      {view === 'activity' && <ActivityView />}
+      {view === 'activity' && (
+        <ActivityView
+          key={route.kind ?? 'all'}
+          initialKind={route.kind ?? 'all'}
+        />
+      )}
       {view === 'tasks' && <TasksView />}
       {view === 'saved' && <SavedView />}
       {view === 'browse' && <BrowseChannels />}

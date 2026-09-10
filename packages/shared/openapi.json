@@ -218,6 +218,109 @@
         "title": "AdminChannelsOut",
         "type": "object"
       },
+      "AdminDeliveriesOut": {
+        "properties": {
+          "deliveries": {
+            "items": {
+              "$ref": "#/components/schemas/AdminDeliveryOut"
+            },
+            "title": "Deliveries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "deliveries"
+        ],
+        "title": "AdminDeliveriesOut",
+        "type": "object"
+      },
+      "AdminDeliveryOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "deliveredAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deliveredat"
+          },
+          "event": {
+            "title": "Event",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "lastStatusCode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Laststatuscode"
+          },
+          "nextAttemptAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextattemptat"
+          },
+          "pluginId": {
+            "title": "Pluginid",
+            "type": "string"
+          },
+          "pluginName": {
+            "title": "Pluginname",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "pluginId",
+          "pluginName",
+          "event",
+          "status",
+          "attempts",
+          "createdAt"
+        ],
+        "title": "AdminDeliveryOut",
+        "type": "object"
+      },
       "AdminInvite": {
         "properties": {
           "acceptedAt": {
@@ -7809,7 +7912,7 @@
   "paths": {
     "/api/activity": {
       "get": {
-        "description": "Mentions of you and reactions to what you wrote, newest first.",
+        "description": "Mentions of you, reactions to what you wrote, and stored extra kinds.",
         "operationId": "activity_api_activity_get",
         "parameters": [
           {
@@ -7818,7 +7921,7 @@
             "required": false,
             "schema": {
               "default": "all",
-              "pattern": "^(all|mention|reaction)$",
+              "pattern": "^(all|mention|reaction|reminder|recap)$",
               "title": "Kind",
               "type": "string"
             }
@@ -7877,7 +7980,7 @@
         },
         "summary": "Activity",
         "tags": [
-          "search"
+          "activity"
         ]
       }
     },
@@ -8078,6 +8181,52 @@
           }
         },
         "summary": "Unarchive Any Channel",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/deliveries": {
+      "get": {
+        "description": "Every app's recent deliveries, for the console log.",
+        "operationId": "list_workspace_deliveries_api_admin_deliveries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workspace Deliveries",
         "tags": [
           "admin"
         ]
@@ -9697,6 +9846,60 @@
           }
         },
         "summary": "Read Delivery",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/{plugin_id}/deliveries/{delivery_id}/replay": {
+      "post": {
+        "description": "Queue a failed or dead delivery to be sent again.\n\nPending rows are already in the drain; delivered ones already arrived. Replaying\nthose would either no-op or double-send. Failed and dead are the ones an operator\ncan usefully push \u2014 after a fix on the app side, or after the circuit is closed.",
+        "operationId": "replay_delivery_api_admin_plugins__plugin_id__deliveries__delivery_id__replay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "delivery_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Delivery Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay Delivery",
         "tags": [
           "admin"
         ]

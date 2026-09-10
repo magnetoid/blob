@@ -502,6 +502,65 @@ async def test_a_member_cannot_read_a_delivery(team: dict) -> None:
     assert response.status == 403
 
 
+async def test_the_workspace_delivery_log_lists_every_app(team: dict) -> None:
+    first = (await install(team["owner"]))["plugin"]
+    second = (await install(team["owner"], slug="other-bot", name="Other Bot"))["plugin"]
+    await send_message(team["owner"], team["general"], "hello")
+
+    response = await team["owner"].get("/api/admin/deliveries")
+    assert response.status == 200
+    names = {row["pluginName"] for row in response.body["deliveries"]}
+    assert first["name"] in names
+    assert second["name"] in names
+    assert (await team["member"].get("/api/admin/deliveries")).status == 403
+
+
+async def test_a_failed_delivery_can_be_replayed(team: dict) -> None:
+    plugin_id = (await install(team["owner"]))["plugin"]["id"]
+    await send_message(team["owner"], team["general"], "hello")
+    listed = await team["owner"].get(f"/api/admin/plugins/{plugin_id}/deliveries")
+    delivery_id = listed.body["deliveries"][0]["id"]
+
+    async with SessionFactory() as session:
+        await session.execute(
+            text("UPDATE plugin_deliveries SET status = 'failed', attempts = 6 WHERE id = :id"),
+            {"id": delivery_id},
+        )
+        await session.commit()
+
+    replayed = await team["owner"].post(
+        f"/api/admin/plugins/{plugin_id}/deliveries/{delivery_id}/replay"
+    )
+    assert replayed.status == 200, replayed.body
+    assert replayed.body["status"] == "pending"
+    assert replayed.body["attempts"] == 0
+
+
+async def test_a_pending_delivery_cannot_be_replayed(team: dict) -> None:
+    plugin_id = (await install(team["owner"]))["plugin"]["id"]
+    await send_message(team["owner"], team["general"], "hello")
+    listed = await team["owner"].get(f"/api/admin/plugins/{plugin_id}/deliveries")
+    delivery_id = listed.body["deliveries"][0]["id"]
+
+    response = await team["owner"].post(
+        f"/api/admin/plugins/{plugin_id}/deliveries/{delivery_id}/replay"
+    )
+    assert response.status == 400
+    assert response.body["error"]["code"] == "not_replayable"
+
+
+async def test_a_member_cannot_replay_a_delivery(team: dict) -> None:
+    plugin_id = (await install(team["owner"]))["plugin"]["id"]
+    await send_message(team["owner"], team["general"], "hello")
+    listed = await team["owner"].get(f"/api/admin/plugins/{plugin_id}/deliveries")
+    delivery_id = listed.body["deliveries"][0]["id"]
+
+    response = await team["member"].post(
+        f"/api/admin/plugins/{plugin_id}/deliveries/{delivery_id}/replay"
+    )
+    assert response.status == 403
+
+
 # ─── updating ─────────────────────────────────────────────────────────────────
 async def test_an_update_that_widens_scopes_waits_for_approval(team: dict) -> None:
     body = await install(team["owner"])

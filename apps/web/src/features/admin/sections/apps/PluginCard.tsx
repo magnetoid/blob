@@ -26,6 +26,7 @@ export function PluginCard({
   onSecret,
   onToggleActivity,
   onToggleDelivery,
+  onReplay,
   onUninstall,
 }: {
   plugin: AdminPlugin;
@@ -45,6 +46,7 @@ export function PluginCard({
   }) => void;
   onToggleActivity: () => void;
   onToggleDelivery: (deliveryId: string) => void;
+  onReplay: (deliveryId: string) => void;
   onUninstall: () => void;
 }) {
   const enabled = plugin.status === "enabled";
@@ -381,6 +383,17 @@ export function PluginCard({
                             {detail.nextAttemptAt &&
                               ` · next attempt ${formatRelative(detail.nextAttemptAt)}`}
                           </div>
+                          {(delivery.status === "failed" ||
+                            delivery.status === "dead") && (
+                            <button
+                              className="btn"
+                              type="button"
+                              style={{ margin: "8px 0" }}
+                              onClick={() => onReplay(delivery.id)}
+                            >
+                              Replay
+                            </button>
+                          )}
                           <pre className="log-detail">
                             {JSON.stringify(
                               detail.payload,

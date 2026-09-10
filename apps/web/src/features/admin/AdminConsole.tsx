@@ -25,6 +25,7 @@ import { HealthSection } from './sections/HealthSection.tsx';
 import { LogsSection } from './sections/LogsSection.tsx';
 import { AppsSection } from './sections/AppsSection.tsx';
 import { ChannelsSection } from './sections/ChannelsSection.tsx';
+import { DeliveriesSection } from './sections/DeliveriesSection.tsx';
 import { EmojiSection } from './sections/EmojiSection.tsx';
 import { GeneralSection } from './sections/GeneralSection.tsx';
 import { GroupsSection } from './sections/GroupsSection.tsx';
@@ -60,6 +61,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<AdminSectionProps>>
   emoji: EmojiSection,
   apps: AppsSection,
   webhooks: WebhooksSection,
+  deliveries: DeliveriesSection,
   users: AccountsSection,
   'app-policy': AppPolicySection,
   feedback: FeedbackSection,

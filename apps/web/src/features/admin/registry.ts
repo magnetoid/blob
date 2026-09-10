@@ -180,7 +180,12 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
         description: 'Incoming URLs that let another system post into a channel here.',
         keywords: ['incoming', 'hooks', 'ci', 'integration'],
       },
-      { id: 'deliveries', label: 'Deliveries', planned: true },
+      {
+        id: 'deliveries',
+        label: 'Deliveries',
+        description: 'What was sent to each app, and a way to send a failed one again.',
+        keywords: ['webhooks', 'outbox', 'retry', 'replay', 'circuit'],
+      },
       { id: 'approvals', label: 'Approvals', planned: true },
     ],
   },

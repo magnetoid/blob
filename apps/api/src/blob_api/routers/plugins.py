@@ -870,6 +870,65 @@ async def read_delivery(
     return DeliveryDetailOut(**_to_delivery(row).model_dump(), payload=row.payload)
 
 
+@router.post("/{plugin_id}/deliveries/{delivery_id}/replay", response_model=DeliveryOut)
+async def replay_delivery(
+    plugin_id: IdParam,
+    delivery_id: IdParam,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> DeliveryOut:
+    """Queue a failed or dead delivery to be sent again.
+
+    Pending rows are already in the drain; delivered ones already arrived. Replaying
+    those would either no-op or double-send. Failed and dead are the ones an operator
+    can usefully push — after a fix on the app side, or after the circuit is closed.
+    """
+    async with transaction() as (session, _after):
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        row = (
+            await session.execute(
+                text(
+                    """
+                    UPDATE plugin_deliveries
+                       SET status = 'pending', attempts = 0, next_attempt_at = now(),
+                           last_error = NULL, last_status_code = NULL, delivered_at = NULL
+                     WHERE id = :id AND plugin_id = :plugin_id
+                       AND status IN ('failed', 'dead')
+                    RETURNING id, event, status, attempts, last_status_code, last_error,
+                              created_at, delivered_at, next_attempt_at
+                    """
+                ),
+                {"id": delivery_id, "plugin_id": plugin_id},
+            )
+        ).fetchone()
+        if row is None:
+            existing = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT id FROM plugin_deliveries
+                         WHERE id = :id AND plugin_id = :plugin_id
+                        """
+                    ),
+                    {"id": delivery_id, "plugin_id": plugin_id},
+                )
+            ).fetchone()
+            if existing is None:
+                raise not_found("That delivery is not in this app's log.")
+            raise bad_request(
+                "Only a failed or dead delivery can be replayed.", code="not_replayable"
+            )
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.delivery_replayed",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"deliveryId": delivery_id},
+        )
+    return _to_delivery(row)
+
+
 @router.get("/{plugin_id}/channels", response_model=AppChannelsOut)
 async def app_channels(
     plugin_id: IdParam, admin: SessionUser = Depends(require_admin)

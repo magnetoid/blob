@@ -376,12 +376,18 @@ export interface AdminPluginDelivery {
   lastError: string | null;
   createdAt: string;
   deliveredAt: string | null;
+  nextAttemptAt?: string | null;
 }
 
 export interface AdminPluginDeliveryDetail extends AdminPluginDelivery {
   nextAttemptAt: string | null;
   /** The body the app was (or will be) sent. */
   payload: Record<string, unknown>;
+}
+
+export interface AdminWorkspaceDelivery extends AdminPluginDelivery {
+  pluginId: string;
+  pluginName: string;
 }
 
 export class ApiError extends Error {
@@ -968,6 +974,11 @@ export const api = {
       settings?: Record<string, unknown>;
     }) => patch<WorkspaceSettings>("/api/admin/settings", input),
 
+    workspaceDeliveries: (limit = 50) =>
+      get<{ deliveries: AdminWorkspaceDelivery[] }>(
+        `/api/admin/deliveries?limit=${limit}`,
+      ),
+
     health: () => get<AdminHealth>("/api/admin/health"),
 
     webhooks: () => get<{ webhooks: AdminWebhook[] }>("/api/admin/webhooks"),
@@ -1028,6 +1039,10 @@ export const api = {
     pluginDelivery: (pluginId: string, deliveryId: string) =>
       get<AdminPluginDeliveryDetail>(
         `/api/admin/plugins/${pluginId}/deliveries/${deliveryId}`,
+      ),
+    replayPluginDelivery: (pluginId: string, deliveryId: string) =>
+      post<AdminPluginDelivery>(
+        `/api/admin/plugins/${pluginId}/deliveries/${deliveryId}/replay`,
       ),
     uninstallPlugin: (pluginId: string) =>
       del<{ ok: true }>(`/api/admin/plugins/${pluginId}`),

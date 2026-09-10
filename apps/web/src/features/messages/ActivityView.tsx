@@ -44,9 +44,9 @@ function writeSeen(at: string): void {
   }
 }
 
-export function ActivityView() {
+export function ActivityView({ initialKind = 'all' }: { initialKind?: ActivityKind } = {}) {
   const users = useStore((s) => s.users);
-  const [kind, setKind] = useState<ActivityKind>('all');
+  const [kind, setKind] = useState<ActivityKind>(initialKind);
   /** Read once, on arrival: the marks must not move while the list is being read. */
   const [seenAt] = useState(readSeen);
 

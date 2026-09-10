@@ -507,7 +507,14 @@ async def set_status(
 ) -> None:
     await by_id(session, plugin_id, workspace_id)
     await session.execute(
-        text("UPDATE plugins SET status = :status, updated_at = now() WHERE id = :id"),
+        text(
+            """
+            UPDATE plugins
+               SET status = :status, updated_at = now(),
+                   last_error = CASE WHEN :status = 'enabled' THEN NULL ELSE last_error END
+             WHERE id = :id
+            """
+        ),
         {"id": plugin_id, "status": status},
     )
 

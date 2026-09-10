@@ -117,6 +117,7 @@ describe('pathForRoute', () => {
       { view: 'search' },
       { view: 'threads' },
       { view: 'activity' },
+      { view: 'activity', kind: 'mention' },
       { view: 'saved' },
       { view: 'help' },
       { view: 'permalink', messageId: 'abc123' },

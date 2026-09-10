@@ -869,6 +869,63 @@ class WorkArtifact(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class ActivityEvent(Base):
+    """Something that happened to you, stored so later kinds have a home.
+
+    Mentions and reactions are still *read* by joining messages — mute, leave and
+    delete have to stay true at query time. This table is the write-side copy of
+    those plus the generic row for reminders and recap. Workspace + user from
+    day one so multi-tenancy does not have to retrofit a feed.
+    """
+
+    __tablename__ = "activity_events"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('mention', 'reaction', 'reminder', 'recap')",
+            name="activity_events_kind_check",
+        ),
+        Index(
+            "activity_events_feed",
+            "workspace_id",
+            "user_id",
+            text("created_at DESC"),
+            text("id DESC"),
+        ),
+        Index(
+            "activity_events_once",
+            "user_id",
+            "kind",
+            "message_id",
+            "actor_id",
+            text("COALESCE(emoji, '')"),
+            unique=True,
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    actor_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    channel_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE")
+    )
+    message_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE")
+    )
+    emoji: Mapped[str | None] = mapped_column(Text)
+    payload: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class SavedItem(Base):
     """A message somebody put aside for themselves. Slack's Later.
 

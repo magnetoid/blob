@@ -254,6 +254,7 @@ def create_app() -> FastAPI:
         return {"ok": True}
 
     from .realtime.ws import router as ws_router
+    from .routers.activity import router as activity_router
     from .routers.admin import router as admin_router
     from .routers.admin_emoji import router as admin_emoji_router
     from .routers.admin_instance import router as admin_instance_router
@@ -289,6 +290,7 @@ def create_app() -> FastAPI:
     app.include_router(command_router)
     app.include_router(agentic_router)
     app.include_router(search_router)
+    app.include_router(activity_router)
     app.include_router(mcp_router)
     app.include_router(mcp_tokens_router)
     app.include_router(file_router)
