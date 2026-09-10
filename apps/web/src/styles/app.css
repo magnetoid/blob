@@ -349,6 +349,66 @@ button {
   gap: 10px;
 }
 
+.topbar-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 100%;
+}
+
+.topbar-tab {
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.topbar-tab:hover {
+  color: var(--text);
+}
+
+.topbar-tab[aria-pressed='true'] {
+  color: var(--text);
+  border-bottom-color: var(--text);
+}
+
+.topbar-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.topbar-huddle,
+.topbar-invite {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.topbar-invite:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.topbar-huddle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .topbar-brand {
   font-size: var(--text-row);
   font-weight: 600;
@@ -5279,7 +5339,9 @@ a.build-commit-sha:hover {
 
   /* The compact bar keeps only what matters: team name and search. */
   .topbar-nav-label,
-  .topbar-search-label {
+  .topbar-search-label,
+  .topbar-huddle-label,
+  .topbar-invite-label {
     display: none;
   }
 

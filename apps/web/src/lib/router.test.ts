@@ -153,6 +153,10 @@ describe('channel routes', () => {
     });
   });
 
+  it('reads a channel with a message permalink', () => {
+    expect(parseRoute('/c/abc/msg-9')).toEqual({ view: 'permalink', messageId: 'msg-9' });
+  });
+
   it('round-trips through pathForRoute', () => {
     for (const route of [
       { view: 'channel', channelId: 'c1' } as const,
@@ -169,7 +173,6 @@ describe('channel routes', () => {
 
   it('a malformed channel path falls back to the conversation', () => {
     expect(parseRoute('/c/')).toEqual({ view: 'messages' });
-    expect(parseRoute('/c/a/b')).toEqual({ view: 'messages' });
     expect(parseRoute('/c/a/t/')).toEqual({ view: 'messages' });
   });
 });

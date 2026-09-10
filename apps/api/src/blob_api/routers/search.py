@@ -238,13 +238,14 @@ async def sync(cursors: str | None = None, user: SessionUser = Depends(current_u
             cursor = parsed_cursors.get(channel.id)
             if not cursor:
                 continue
-            if channel.last_message_id and channel.last_message_id <= cursor:
-                continue
             behind.append((channel.id, cursor))
 
         if behind:
             # One statement for every gap. This runs on every reconnect for every
             # user — a deploy used to fan out one query per channel per client.
+            # New ids are the cheap half. Edits, deletes and reactions on older
+            # rows do not change id, so they are replayed against the cursor
+            # message's created_at — otherwise an offline edit vanished on reconnect.
             rows = (
                 await session.execute(
                     text(
@@ -252,9 +253,20 @@ async def sync(cursors: str | None = None, user: SessionUser = Depends(current_u
                         SELECT sub.* FROM unnest(
                                  cast(:channel_ids AS uuid[]), cast(:cursors AS uuid[])
                                ) AS gap(channel_id, cursor)
+                          JOIN messages cursor_msg ON cursor_msg.id = gap.cursor
                           JOIN LATERAL (
                             SELECT {MESSAGE_SELECT} FROM messages m
-                             WHERE m.channel_id = gap.channel_id AND m.id > gap.cursor
+                             WHERE m.channel_id = gap.channel_id
+                               AND (
+                                 m.id > gap.cursor
+                                 OR m.edited_at > cursor_msg.created_at
+                                 OR m.deleted_at > cursor_msg.created_at
+                                 OR EXISTS (
+                                   SELECT 1 FROM reactions r
+                                    WHERE r.message_id = m.id
+                                      AND r.created_at > cursor_msg.created_at
+                                 )
+                               )
                              ORDER BY m.id ASC LIMIT :limit
                           ) sub ON true
                          ORDER BY sub.channel_id, sub.id

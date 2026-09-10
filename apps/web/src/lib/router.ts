@@ -107,11 +107,21 @@ export function parseRoute(path: string): Route {
   const clean = path.replace(/\/+$/, '') || '/';
 
   if (clean === '/' || clean === '/home') return { view: 'home' };
-  const channel = clean.match(/^\/c\/([^/]+)(?:\/t\/([^/]+))?$/);
+  const channelThread = clean.match(/^\/c\/([^/]+)\/t\/([^/]+)$/);
+  if (channelThread) {
+    return {
+      view: 'channel',
+      channelId: channelThread[1] as string,
+      threadRootId: channelThread[2],
+    };
+  }
+  const channelMessage = clean.match(/^\/c\/([^/]+)\/([^/]+)$/);
+  if (channelMessage && channelMessage[2] !== 't') {
+    return { view: 'permalink', messageId: channelMessage[2] as string };
+  }
+  const channel = clean.match(/^\/c\/([^/]+)$/);
   if (channel) {
-    return channel[2] !== undefined
-      ? { view: 'channel', channelId: channel[1] as string, threadRootId: channel[2] }
-      : { view: 'channel', channelId: channel[1] as string };
+    return { view: 'channel', channelId: channel[1] as string };
   }
   if (clean === '/threads') return { view: 'threads' };
   if (clean === '/activity') return { view: 'activity' };
