@@ -22,9 +22,11 @@ interface Props {
   footer?: ReactNode;
   /** Trailing control that must stay outside the clickable area — e.g. an unsave button. */
   action?: ReactNode;
+  /** Leftover search words to mark in the body. */
+  highlight?: string;
 }
 
-export function MessageResultRow({ message, onOpen, timestamp, footer, action }: Props) {
+export function MessageResultRow({ message, onOpen, timestamp, footer, action, highlight }: Props) {
   const users = useStore((s) => s.users);
   const channels = useStore((s) => s.channels);
   const channelTitle = useStore((s) => s.channelTitle);
@@ -53,6 +55,7 @@ export function MessageResultRow({ message, onOpen, timestamp, footer, action }:
           knownNames,
           currentUserId,
           customEmoji,
+          highlight,
         })}
       </div>
       {footer}

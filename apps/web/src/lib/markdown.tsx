@@ -23,6 +23,8 @@ export interface RenderOptions {
   currentUserId: string | null;
   /** The workspace's own emoji, for resolving `:name:`. */
   customEmoji: readonly CustomEmoji[];
+  /** Leftover search words to wrap in <mark>. Omit when not in a search result. */
+  highlight?: string;
 }
 
 /** Block-level parse: fenced code, quotes, lists, paragraphs. */
@@ -139,6 +141,28 @@ export function renderMarkdown(
   }
 
   return <>{blocks}</>;
+}
+
+/** Wrap leftover search words. Never parses HTML — only splits the author's text. */
+function highlightText(text: string, needle: string | undefined): ReactNode {
+  const raw = needle?.trim();
+  if (!raw || !text) return text;
+  const tokens = [...new Set(raw.split(/\s+/).filter(Boolean))];
+  if (!tokens.length) return text;
+  const escaped = tokens.map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`(${escaped.join("|")})`, "gi");
+  const parts = text.split(re);
+  if (parts.length === 1) return text;
+  const lower = new Set(tokens.map((token) => token.toLowerCase()));
+  return parts.map((part, index) =>
+    lower.has(part.toLowerCase()) ? (
+      <mark key={index} className="search-hit">
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  );
 }
 
 type InlineRule = {
@@ -281,7 +305,7 @@ export function renderInline(text: string, options: RenderOptions): ReactNode {
     }
   }
 
-  if (!earliest) return text;
+  if (!earliest) return highlightText(text, options.highlight);
 
   const { rule, match } = earliest;
   const before = text.slice(0, match.index);
@@ -289,7 +313,7 @@ export function renderInline(text: string, options: RenderOptions): ReactNode {
 
   return (
     <>
-      {before}
+      {highlightText(before, options.highlight)}
       {rule.render(match, options, 0)}
       {renderInline(after, options)}
     </>

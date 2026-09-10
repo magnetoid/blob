@@ -244,3 +244,30 @@ describe("XSS goldens", () => {
     expect(hrefIn("data:text/html,hi")).toBeNull();
   });
 });
+
+describe("search hit highlighting", () => {
+  function drawHit(body: string, highlight: string) {
+    return render(
+      <div>
+        {renderMarkdown(body, { ...options(), highlight })}
+      </div>,
+    ).container;
+  }
+
+  it("wraps the matching words in a mark", () => {
+    const el = drawHit("please deploy now", "deploy");
+    expect(el.querySelector("mark.search-hit")?.textContent).toBe("deploy");
+    expect(el.textContent).toBe("please deploy now");
+  });
+
+  it("is case-insensitive and keeps the author's casing", () => {
+    const el = drawHit("Please Deploy Now", "deploy");
+    expect(el.querySelector("mark.search-hit")?.textContent).toBe("Deploy");
+  });
+
+  it("does not highlight inside a code span", () => {
+    const el = drawHit("run `deploy` please", "deploy");
+    expect(el.querySelector("code")?.textContent).toBe("deploy");
+    expect(el.querySelector("code mark")).toBeNull();
+  });
+});
