@@ -11,6 +11,9 @@ Failure handling, in order of how much it matters:
   refusing 200 deliveries.
 * **Retries back off** 1s → 5s → 30s → 5m → 30m, then the delivery is dead. Jitter keeps
   a fleet of deliveries that failed together from retrying together.
+* **Five consecutive terminal failures open the circuit.** The plugin is parked as
+  `failed` so later events wait rather than burning the backoff ladder. An admin
+  re-enables it.
 * **A failing app is not a failing workspace.** Every error is contained here; nothing in
   this module can raise into a send.
 """
@@ -48,6 +51,11 @@ LEASE_SEC = 90
 #: How many due deliveries one drain handles. Bounded so a backlog is worked through in
 #: several passes rather than one very long transaction.
 BATCH = 50
+
+#: Consecutive terminal failures (failed or dead) that park the plugin. A delivered
+#: event in the last five resets the streak.
+CIRCUIT_FAILURES = 5
+CIRCUIT_ERROR = "Circuit open: too many delivery failures."
 
 
 def backoff_for(attempts: int, *, jitter: float | None = None) -> float | None:
@@ -161,7 +169,12 @@ async def close_client() -> None:
 
 
 async def _record(
-    session: AsyncSession, delivery_id: str, status_code: int, error: str, attempts: int
+    session: AsyncSession,
+    delivery_id: str,
+    status_code: int,
+    error: str,
+    attempts: int,
+    plugin_id: str,
 ) -> None:
     if 200 <= status_code < 300:
         await session.execute(
@@ -190,6 +203,7 @@ async def _record(
             ),
             {"id": delivery_id, "attempts": attempts, "code": status_code},
         )
+        await trip_if_open(session, plugin_id)
         return
 
     delay = backoff_for(attempts)
@@ -205,6 +219,7 @@ async def _record(
             ),
             {"id": delivery_id, "attempts": attempts, "code": status_code or None, "error": error},
         )
+        await trip_if_open(session, plugin_id)
         return
 
     await session.execute(
@@ -226,9 +241,45 @@ async def _record(
     )
 
 
-async def record_result(delivery_id: str, status_code: int, error: str, attempts: int) -> None:
+async def trip_if_open(session: AsyncSession, plugin_id: str) -> None:
+    """Park the plugin when the last few deliveries all failed.
+
+    Disabling it is what pauses the queue — `lease_due` already skips anything that is
+    not enabled — so later events wait instead of spending the backoff ladder on an
+    app that has been down for a while. An admin turning it back on is the reset.
+    """
+    recent = (
+        await session.execute(
+            text(
+                """
+                SELECT status FROM plugin_deliveries
+                 WHERE plugin_id = :pid AND status IN ('delivered', 'failed', 'dead')
+                 ORDER BY id DESC
+                 LIMIT :n
+                """
+            ),
+            {"pid": plugin_id, "n": CIRCUIT_FAILURES},
+        )
+    ).fetchall()
+    if len(recent) < CIRCUIT_FAILURES or any(row.status == "delivered" for row in recent):
+        return
+    await session.execute(
+        text(
+            """
+            UPDATE plugins
+               SET status = 'failed', last_error = :err, updated_at = now()
+             WHERE id = :id AND status = 'enabled'
+            """
+        ),
+        {"id": plugin_id, "err": CIRCUIT_ERROR},
+    )
+
+
+async def record_result(
+    delivery_id: str, status_code: int, error: str, attempts: int, plugin_id: str
+) -> None:
     async with transaction() as (session, _after):
-        await _record(session, delivery_id, status_code, error, attempts)
+        await _record(session, delivery_id, status_code, error, attempts, plugin_id)
 
 
 async def drain_once(limit: int = BATCH) -> int:
@@ -248,7 +299,7 @@ async def drain_once(limit: int = BATCH) -> int:
     async def deliver_group(rows: list[Any]) -> None:
         for row in rows:
             code, error = await post(row.request_url, row.signing_secret, row.payload, row.id)
-            await record_result(row.id, code, error, row.attempts)
+            await record_result(row.id, code, error, row.attempts, row.plugin_id)
 
     results = await asyncio.gather(
         *(deliver_group(rows) for rows in by_plugin.values()), return_exceptions=True

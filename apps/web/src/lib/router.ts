@@ -28,6 +28,7 @@ export const ADMIN_SECTIONS = [
   'emoji',
   'apps',
   'webhooks',
+  'deliveries',
   'users',
   'app-policy',
   'feedback',

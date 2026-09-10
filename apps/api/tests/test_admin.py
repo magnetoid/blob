@@ -200,6 +200,16 @@ async def test_settings_merge_rather_than_replace(team: dict) -> None:
     assert response.body["settings"] == {"signupPolicy": "invite", "retentionDays": 365}
 
 
+async def test_the_agents_kill_switch_is_a_workspace_setting(team: dict) -> None:
+    response = await team["admin"].patch(
+        "/api/admin/settings", {"settings": {"agentsEnabled": False}}
+    )
+    assert response.status == 200
+    assert response.body["settings"]["agentsEnabled"] is False
+    listed = await team["admin"].get("/api/admin/settings")
+    assert listed.body["settings"]["agentsEnabled"] is False
+
+
 async def test_renaming_the_workspace(team: dict) -> None:
     response = await team["admin"].patch("/api/admin/settings", {"name": "Northwind"})
     assert response.body["name"] == "Northwind"

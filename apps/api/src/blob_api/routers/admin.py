@@ -116,6 +116,24 @@ class SettingsInput(CamelModel):
     settings: dict[str, Any] | None = None
 
 
+class AdminDeliveryOut(CamelModel):
+    id: str
+    plugin_id: str
+    plugin_name: str
+    event: str
+    status: str
+    attempts: int
+    last_status_code: int | None = None
+    last_error: str | None = None
+    created_at: str
+    delivered_at: str | None = None
+    next_attempt_at: str | None = None
+
+
+class AdminDeliveriesOut(CamelModel):
+    deliveries: list[AdminDeliveryOut]
+
+
 class HealthOut(CamelModel):
     database: bool
     redis: bool
@@ -806,6 +824,54 @@ async def update_settings(
     if row is None:
         raise not_found("That workspace no longer exists.")
     return WorkspaceSettingsOut(name=row.name, slug=row.slug, settings=row.settings or {})
+
+
+@router.get("/deliveries", response_model=AdminDeliveriesOut)
+async def list_workspace_deliveries(
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    admin: SessionUser = Depends(require_admin),
+) -> AdminDeliveriesOut:
+    """Every app's recent deliveries, for the console log."""
+    async with session_scope() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT d.id, d.plugin_id, p.name AS plugin_name, d.event, d.status,
+                           d.attempts, d.last_status_code, d.last_error,
+                           d.created_at, d.delivered_at, d.next_attempt_at
+                      FROM plugin_deliveries d
+                      JOIN plugins p ON p.id = d.plugin_id
+                     WHERE p.workspace_id = :ws
+                     ORDER BY d.id DESC
+                     LIMIT :limit
+                    """
+                ),
+                {"ws": admin.workspace_id, "limit": limit},
+            )
+        ).fetchall()
+    return AdminDeliveriesOut(
+        deliveries=[
+            AdminDeliveryOut(
+                id=row.id,
+                plugin_id=row.plugin_id,
+                plugin_name=row.plugin_name,
+                event=row.event,
+                status=row.status,
+                attempts=row.attempts,
+                last_status_code=row.last_status_code,
+                last_error=row.last_error,
+                created_at=require_iso(row.created_at),
+                delivered_at=iso(row.delivered_at) if row.delivered_at else None,
+                next_attempt_at=(
+                    iso(row.next_attempt_at)
+                    if row.status == "pending" and row.next_attempt_at
+                    else None
+                ),
+            )
+            for row in rows
+        ]
+    )
 
 
 @router.get("/health", response_model=HealthOut)
