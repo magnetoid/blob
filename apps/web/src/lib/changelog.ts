@@ -35,11 +35,19 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     date: '2026-09-10',
-    title: 'Search without leftover words',
+    title: 'Search, colon emoji, and the rest of the toolbar',
     entries: [
       {
         kind: 'changed',
         text: 'from:@name, in:#channel and has:link work on their own now. They used to need extra words after them, so looking up everything Ana said, or every file in #eng, came back empty. The filters you typed show above the results, and a name the server could not place is named rather than looking like a miss.',
+      },
+      {
+        kind: 'added',
+        text: 'Typing :tada in a message offers emoji the same way @ana offers people. Custom workspace emoji show up there too.',
+      },
+      {
+        kind: 'added',
+        text: 'The formatting bar now has Link and List next to bold, italic, code and strikethrough.',
       },
     ],
   },

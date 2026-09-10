@@ -57,6 +57,11 @@ import {
 import { Avatar } from "../../components/Avatar.tsx";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import {
+  reactionValue,
+  searchEmoji,
+  type ResolvedEmoji,
+} from "../../lib/emoji.ts";
+import {
   AttachIcon,
   CloseIcon,
   EmojiIcon,
@@ -165,6 +170,9 @@ export function Composer({
   }, [emojiOpen]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [emojiQuery, setEmojiQuery] = useState<string | null>(null);
+  const [emojiIndex, setEmojiIndex] = useState(0);
+  const customEmoji = useStore((s) => s.customEmoji);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [dragging, setDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -217,6 +225,11 @@ export function Composer({
 
     return [...specials, ...groups, ...people];
   }, [mentionQuery, users, groupsById, currentUser]);
+
+  const emojiCandidates = useMemo(
+    () => (emojiQuery ? searchEmoji(emojiQuery, customEmoji, 8) : []),
+    [emojiQuery, customEmoji],
+  );
 
   /**
    * Commands to offer while the name is half-typed.
@@ -278,12 +291,17 @@ export function Composer({
     setError(null);
 
     // Track a trailing `@word` to drive the autocomplete.
-    const match = value
-      .slice(0, textareaRef.current?.selectionStart ?? value.length)
-      .match(/@([\p{L}\p{N}._'-]*)$/u);
+    const caret = textareaRef.current?.selectionStart ?? value.length;
+    const before = value.slice(0, caret);
+    const match = before.match(/@([\p{L}\p{N}._'-]*)$/u);
     setMentionQuery(match ? (match[1] ?? "") : null);
     setMentionIndex(0);
     setCommandIndex(0);
+    const colon = match
+      ? null
+      : before.match(/(?:^|[\s]):([a-z0-9_+-]{1,32})$/i);
+    setEmojiQuery(colon ? (colon[1] ?? "") : null);
+    setEmojiIndex(0);
 
     const now = Date.now();
     if (value.trim() && now - lastTypingRef.current > 3000) {
@@ -340,6 +358,20 @@ export function Composer({
     requestAnimationFrame(() => {
       node?.focus();
       node?.setSelectionRange(before.length, before.length);
+    });
+  }
+
+  function applyEmoji(emoji: ResolvedEmoji) {
+    const node = textareaRef.current;
+    const caret = node?.selectionStart ?? draft.length;
+    const inserted = `${reactionValue(emoji)} `;
+    const replaced = draft.slice(0, caret).replace(/:[a-z0-9_+-]*$/i, inserted);
+    const next = replaced + draft.slice(caret);
+    setDraft(next);
+    setEmojiQuery(null);
+    requestAnimationFrame(() => {
+      node?.focus();
+      node?.setSelectionRange(replaced.length, replaced.length);
     });
   }
 
@@ -585,6 +617,22 @@ export function Composer({
     else toggleWrap("`");
   }
 
+  function keepSelection(event: { preventDefault: () => void }) {
+    // Only to keep the textarea's selection: without this the mousedown
+    // moves focus to the button and the selection collapses before the
+    // action can read it. The action itself is on click, so Enter and
+    // Space reach it too.
+    event.preventDefault();
+  }
+
+  function toggleLink() {
+    toggleWrap("[", "](url)");
+  }
+
+  function toggleList() {
+    toggleWrap("- ", "");
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     // Bound through the same declarations `⌘/` renders. Anything matched that is not
     // a formatting chord falls through to the window listener in Workspace.
@@ -650,6 +698,31 @@ export function Composer({
       }
       if (event.key === "Escape") {
         setMentionQuery(null);
+        return;
+      }
+    }
+
+    if (emojiQuery !== null && emojiCandidates.length > 0) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setEmojiIndex((i) => (i + 1) % emojiCandidates.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setEmojiIndex(
+          (i) => (i - 1 + emojiCandidates.length) % emojiCandidates.length,
+        );
+        return;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        const chosen = emojiCandidates[emojiIndex];
+        if (chosen) applyEmoji(chosen);
+        return;
+      }
+      if (event.key === "Escape") {
+        setEmojiQuery(null);
         return;
       }
     }
@@ -740,6 +813,33 @@ export function Composer({
                     {candidate.hint}
                   </span>
                 )}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {emojiQuery !== null && emojiCandidates.length > 0 && (
+          <div className="autocomplete" role="listbox" id="emoji-options">
+            {emojiCandidates.map((emoji, index) => (
+              <button
+                key={`${emoji.kind}-${emoji.name}`}
+                id={`emoji-option-${index}`}
+                role="option"
+                aria-selected={index === emojiIndex}
+                aria-label={`:${emoji.name}:`}
+                className="autocomplete-item"
+                data-active={index === emojiIndex}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  applyEmoji(emoji);
+                }}
+              >
+                {emoji.kind === "custom" ? (
+                  <img className="custom-emoji" src={emoji.url} alt="" />
+                ) : (
+                  <span aria-hidden="true">{emoji.char}</span>
+                )}
+                :{emoji.name}:
               </button>
             ))}
           </div>
@@ -869,6 +969,26 @@ export function Composer({
               onClick={() => toggleWrap("~~")}
             >
               <s>S</s>
+            </button>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Link"
+              title="Link"
+              onMouseDown={keepSelection}
+              onClick={() => toggleLink()}
+            >
+              <span aria-hidden="true">🔗</span>
+            </button>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="List"
+              title="List"
+              onMouseDown={keepSelection}
+              onClick={() => toggleList()}
+            >
+              <span aria-hidden="true">≡</span>
             </button>
           </div>
 
