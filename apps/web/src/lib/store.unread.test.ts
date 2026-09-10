@@ -103,4 +103,26 @@ describe('coming back', () => {
     // unread is when it should be read — otherwise it could never be cleared.
     expect(markRead).toHaveBeenCalledWith('c1', 'm5');
   });
+
+  it('loads around the last-read id so the New divider is on screen', async () => {
+    useStore.setState({
+      channels: {
+        c1: {
+          id: 'c1',
+          kind: 'public',
+          name: 'general',
+          lastReadMessageId: 'm4',
+          lastMessageId: 'm50',
+          mentionCount: 0,
+        },
+      } as never,
+      messages: {
+        c1: { items: [], hasMore: false, loading: false, loaded: false },
+      },
+    });
+
+    await useStore.getState().openChannel('c1');
+
+    expect(history).toHaveBeenCalledWith('c1', { around: 'm4', limit: 50 });
+  });
 });

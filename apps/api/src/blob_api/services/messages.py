@@ -186,6 +186,17 @@ async def send(
             raise bad_request("Could not store that message.")
         return SendResult(message=to_message(existing), created=False, thread_update=None)
 
+    from . import activity as activity_service
+
+    await activity_service.record_direct_mentions(
+        session,
+        workspace_id=workspace_id,
+        channel_id=channel_id,
+        message_id=message_id,
+        actor_id=author_id,
+        user_ids=list(mentions.user_ids),
+    )
+
     if attachment_ids:
         # Only the uploader's own unbound attachments can be attached.
         bound = (
@@ -752,7 +763,14 @@ async def add_reaction(session: AsyncSession, message_id: str, user_id: str, emo
             {"message_id": message_id, "user_id": user_id, "emoji": emoji},
         )
     ).fetchall()
-    return len(rows) > 0
+    if not rows:
+        return False
+    from . import activity as activity_service
+
+    await activity_service.record_reaction(
+        session, message_id=message_id, actor_id=user_id, emoji=emoji
+    )
+    return True
 
 
 async def remove_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str) -> bool:

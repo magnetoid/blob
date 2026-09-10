@@ -559,6 +559,13 @@ export const useStore = create<State>((set, get) => ({
     }
 
     if (!state.messages[channelId]?.loaded) {
+      const lastRead = state.channels[channelId]?.lastReadMessageId ?? null;
+      const lastMsg = state.channels[channelId]?.lastMessageId ?? null;
+      // Unread lives at lastRead, which is often older than the tail page. `around`
+      // puts the divider on screen the way a permalink does; the tail would hide it.
+      const jumpToUnread =
+        lastRead !== null && lastMsg !== null && lastMsg > lastRead;
+
       set((s) => ({
         messages: {
           ...s.messages,
@@ -568,9 +575,17 @@ export const useStore = create<State>((set, get) => ({
       let messages: Message[];
       let hasMore: boolean;
       try {
-        ({ messages, hasMore } = await api.messages.history(channelId, {
-          limit: 50,
-        }));
+        if (jumpToUnread) {
+          ({ messages } = await api.messages.history(channelId, {
+            around: lastRead,
+            limit: 50,
+          }));
+          hasMore = true;
+        } else {
+          ({ messages, hasMore } = await api.messages.history(channelId, {
+            limit: 50,
+          }));
+        }
       } catch (err) {
         // Without this, `loading` stuck at true forever and the empty state claimed
         // "This is the start of #channel" about a channel full of history.

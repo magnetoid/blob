@@ -7809,7 +7809,7 @@
   "paths": {
     "/api/activity": {
       "get": {
-        "description": "Mentions of you and reactions to what you wrote, newest first.",
+        "description": "Mentions of you, reactions to what you wrote, and stored extra kinds.",
         "operationId": "activity_api_activity_get",
         "parameters": [
           {
@@ -7818,7 +7818,7 @@
             "required": false,
             "schema": {
               "default": "all",
-              "pattern": "^(all|mention|reaction)$",
+              "pattern": "^(all|mention|reaction|reminder|recap)$",
               "title": "Kind",
               "type": "string"
             }
@@ -7877,7 +7877,7 @@
         },
         "summary": "Activity",
         "tags": [
-          "search"
+          "activity"
         ]
       }
     },

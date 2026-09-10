@@ -111,9 +111,9 @@ export function Sidebar({
           <SidebarNavButton
             collapsed={collapsed}
             icon={<MentionIcon size="sm" />}
-            label="Activity"
+            label="Mentions"
             active={activeView === 'activity'}
-            onClick={() => navigate('/activity')}
+            onClick={() => navigate('/mentions')}
           />
           <SidebarNavButton
             collapsed={collapsed}

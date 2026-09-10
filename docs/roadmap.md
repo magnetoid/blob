@@ -70,10 +70,10 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 ## R4 — Rebuild II: Activity Backend + Agent Governance (~2 wk, two tracks)
 **Goal:** first new backend (Activity) plus the governance half that makes agent hosting feel safe.
 
-- [ ] `activity_events` table (UUIDv7, workspace+user scoped **in the MT-phase-1 shape from day one**), populated at existing notify/mention persist points; keyset-paginated `routers/activity.py`; row shape generic for reminders + future AI recap — **M**
-- [ ] Activity tab UI + sidebar Mentions (same endpoint, filtered) — **M**
+- [x] `activity_events` table (UUIDv7, workspace+user scoped **in the MT-phase-1 shape from day one**), populated at existing notify/mention persist points; keyset-paginated `routers/activity.py`; row shape generic for reminders + future AI recap — **M**
+- [x] Activity tab UI + sidebar Mentions (same endpoint, filtered) — **M**
 - [ ] M2 trust half: agents directory, deliveries console + replay, circuit breaker, kill-switch UI reading R2's typed settings — admin console — **M**
-- [ ] Unread "New" divider scroll-to on open (uses `?around=` anchored at first-unread; R5 generalizes it) — **M**
+- [x] Unread "New" divider scroll-to on open (uses `?around=` anchored at first-unread; R5 generalizes it) — **M**
 
 **Done when:** mention/reaction/reply events land in Activity in real time; an agent can be killed, replayed, and circuit-broken from the console.
 
