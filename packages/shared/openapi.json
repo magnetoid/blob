@@ -3059,6 +3059,114 @@
         "title": "FeedbackTicket",
         "type": "object"
       },
+      "FileEntry": {
+        "properties": {
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "messageId": {
+            "title": "Messageid",
+            "type": "string"
+          },
+          "mime": {
+            "title": "Mime",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "title": "Sizebytes",
+            "type": "integer"
+          },
+          "thumbUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumburl"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "mime",
+          "sizeBytes",
+          "url",
+          "channelId",
+          "messageId",
+          "createdAt"
+        ],
+        "title": "FileEntry",
+        "type": "object"
+      },
+      "FileListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "FileListOut",
+        "type": "object"
+      },
       "FollowThreadInput": {
         "properties": {
           "following": {
@@ -11500,6 +11608,94 @@
           }
         },
         "summary": "Agent Terminal Target"
+      }
+    },
+    "/api/attachments": {
+      "get": {
+        "description": "Files posted in channels this person can see, newest first.\n\nThumbnails stay on `thumbUrl`. The original is only fetched when somebody opens one.\nUnattached uploads (still in flight) stay off this list.",
+        "operationId": "list_attachments_api_attachments_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "channelId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Channelid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 40,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Attachments",
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/auth/forgot-password": {

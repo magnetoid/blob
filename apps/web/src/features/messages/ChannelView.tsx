@@ -106,10 +106,9 @@ export function ChannelView() {
   const membershipVersion = useStore((s) =>
     s.activeChannelId ? (s.membershipVersion[s.activeChannelId] ?? 0) : 0,
   );
-  const memberCountKey =
-    activeChannelId && membershipVersion > 0
-      ? `${activeChannelId}:${membershipVersion}`
-      : null;
+  const memberCountKey = activeChannelId
+    ? `${activeChannelId}:${membershipVersion}`
+    : null;
 
   useEffect(() => {
     if (!activeChannelId || !memberCountKey || memberCounts[memberCountKey] !== undefined)

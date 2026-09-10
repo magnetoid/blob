@@ -41,7 +41,7 @@ describe('the minimal top bar', () => {
     expect(screen.getByRole('button', { name: 'Activity' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Channels' })).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Files' }) as HTMLButtonElement).disabled).toBe(
-      true,
+      false,
     );
     expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Huddle' }) as HTMLButtonElement).disabled).toBe(

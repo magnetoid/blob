@@ -20,6 +20,7 @@ import { ActivityView } from '../features/messages/ActivityView.tsx';
 import { ImageLightbox } from '../features/messages/ImageLightbox.tsx';
 import { TasksView } from '../features/agentic/TasksView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
+import { FilesView } from '../features/messages/FilesView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
 import { BrowseChannels } from '../features/channels/BrowseChannels.tsx';
@@ -441,6 +442,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {view === 'tasks' && <TasksView />}
       {view === 'saved' && <SavedView />}
       {view === 'browse' && <BrowseChannels />}
+      {view === 'files' && <FilesView />}
       {view === 'scheduled' && <ScheduledView />}
       {view === 'changelog' && <WhatsNewView />}
       {view === 'help' && (

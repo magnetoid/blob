@@ -34,6 +34,24 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-11',
+    title: 'People, Later, and Files',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Hover a message and pin it for Later without opening the menu.',
+      },
+      {
+        kind: 'added',
+        text: 'A person’s card now loads their full name and timezone when you open it.',
+      },
+      {
+        kind: 'added',
+        text: 'The Files tab lists pictures from channels you are in as thumbnails. Opening one still loads the original.',
+      },
+    ],
+  },
+  {
     date: '2026-09-10',
     title: 'Search, colon emoji, and the rest of the toolbar',
     entries: [

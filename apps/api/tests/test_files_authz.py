@@ -97,6 +97,40 @@ class TestAttachedFiles:
         # 404, not 403: the private channel's existence is itself private.
         assert (await team["outsider"].get(f"/api/files/{key}")).status == 404
 
+
+class TestFilesLibrary:
+    async def test_members_see_files_posted_in_their_channels(self, team: dict) -> None:
+        sent = await send_message(team["owner"], team["private"]["id"], "with file")
+        attachment_id, _ = await _plant_attachment(
+            team["workspace"], team["owner"].user_id, message_id=sent.body["message"]["id"]
+        )
+        response = await team["member"].get("/api/attachments")
+        assert response.status == 200, response.body
+        ids = [item["id"] for item in response.body["items"]]
+        assert attachment_id in ids
+        item = next(i for i in response.body["items"] if i["id"] == attachment_id)
+        assert item["channelId"] == team["private"]["id"]
+        assert item["thumbUrl"] is None or "/api/files/" in item["url"]
+
+    async def test_outsiders_do_not_see_a_private_channel(self, team: dict) -> None:
+        sent = await send_message(team["owner"], team["private"]["id"], "secret")
+        attachment_id, _ = await _plant_attachment(
+            team["workspace"], team["owner"].user_id, message_id=sent.body["message"]["id"]
+        )
+        response = await team["outsider"].get("/api/attachments")
+        assert response.status == 200, response.body
+        ids = [item["id"] for item in response.body["items"]]
+        assert attachment_id not in ids
+
+    async def test_unattached_uploads_stay_off_the_library(self, team: dict) -> None:
+        attachment_id, _ = await _plant_attachment(team["workspace"], team["owner"].user_id)
+        response = await team["owner"].get("/api/attachments")
+        assert response.status == 200, response.body
+        ids = [item["id"] for item in response.body["items"]]
+        assert attachment_id not in ids
+
+
+class TestAttachedFilesLeave:
     async def test_even_the_uploader_loses_access_with_the_channel(self, team: dict) -> None:
         # Attached files answer to channel membership, not provenance: someone who
         # posted a file and then left the room should not keep a live URL into it.
