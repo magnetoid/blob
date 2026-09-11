@@ -43,6 +43,7 @@ export function AppsSection({
 function AppsList({ onError }: { onError: (message: string | null) => void }) {
   const [catalog, setCatalog] = useState<AdminPluginCatalog | null>(null);
   const [plugins, setPlugins] = useState<AdminPlugin[]>([]);
+  const [agentsEnabled, setAgentsEnabled] = useState(true);
   const [deliveries, setDeliveries] = useState<
     Record<string, AdminPluginDelivery[]>
   >({});
@@ -67,10 +68,15 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
 
   const load = useCallback(() => {
     setLoading(true);
-    void Promise.all([api.admin.pluginCatalog(), api.admin.plugins()])
-      .then(([nextCatalog, nextPlugins]) => {
+    void Promise.all([
+      api.admin.pluginCatalog(),
+      api.admin.plugins(),
+      api.admin.settings(),
+    ])
+      .then(([nextCatalog, nextPlugins, settings]) => {
         setCatalog(nextCatalog);
         setPlugins(nextPlugins.plugins);
+        setAgentsEnabled(settings.settings.agentsEnabled !== false);
       })
       .catch(() => onError("Could not load apps."))
       .finally(() => setLoading(false));
@@ -154,6 +160,31 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
             </p>
           </div>
           <div className="role-pill">zero-trust</div>
+        </div>
+
+        <div className="pref-row">
+          <div style={{ flex: 1 }}>
+            <div className="pref-label">Agents may run</div>
+            <div className="pref-hint">
+              When off, mentions of agents are refused and nothing is
+              dispatched. Apps still receive webhook deliveries.
+            </div>
+          </div>
+          <button
+            className="toggle"
+            aria-pressed={agentsEnabled}
+            aria-label="Agents may run"
+            onClick={() =>
+              void act(async () => {
+                const updated = await api.admin.updateSettings({
+                  settings: { agentsEnabled: !agentsEnabled },
+                });
+                setAgentsEnabled(updated.settings.agentsEnabled !== false);
+              })
+            }
+          >
+            <span />
+          </button>
         </div>
 
         {secretNotice && (
@@ -256,6 +287,15 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
                 onToggleActivity={() => toggleActivity(plugin.id)}
                 onToggleDelivery={(deliveryId) =>
                   toggleDelivery(plugin.id, deliveryId)
+                }
+                onReplay={(deliveryId) =>
+                  void act(async () => {
+                    await api.admin.replayPluginDelivery(
+                      plugin.id,
+                      deliveryId,
+                    );
+                    await loadDeliveries(plugin.id);
+                  })
                 }
                 onUninstall={() => setUninstalling(plugin)}
               />

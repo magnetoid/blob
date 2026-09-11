@@ -37,6 +37,7 @@ const sampleEntry: LocalOutboxEntry = {
   threadRootId: null,
   body: 'Queued hello',
   attachmentIds: [],
+  alsoInChannel: false,
   createdAt: '2026-08-20T12:00:00.000Z',
   status: 'queued',
   attempts: 1,
@@ -160,6 +161,23 @@ describe('outbox message materialization', () => {
     const realIdAtTheEndOfTime = 'ffffffff-ffff-7fff-bfff-ffffffffffff';
 
     expect(pending > realIdAtTheEndOfTime).toBe(true);
+  });
+
+  it('carries alsoInChannel onto the pending message', () => {
+    const entry = {
+      ...sampleEntry,
+      threadRootId: 'root-1',
+      alsoInChannel: true,
+    };
+    expect(materializeOutboxMessage(entry, 'user-1').alsoInChannel).toBe(true);
+  });
+
+  it('adopts entries written before alsoInChannel existed', () => {
+    const legacy = { ...sampleEntry } as Partial<LocalOutboxEntry>;
+    delete legacy.alsoInChannel;
+    storage.setItem(STORAGE_KEY, JSON.stringify({ [sampleEntry.clientMsgId]: legacy }));
+
+    expect(loadOutbox()[sampleEntry.clientMsgId]?.alsoInChannel).toBe(false);
   });
 });
 

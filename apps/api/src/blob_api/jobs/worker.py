@@ -26,6 +26,7 @@ from .agui import handle_agui_run
 from .deployments import sync_hosted_agents
 from .notify import handle_notify
 from .reminders import fire_reminders
+from .retention import sweep_retention
 from .scheduled import send_scheduled
 from .unanswered import nudge_unanswered
 from .unfurl import handle_unfurl
@@ -76,6 +77,12 @@ async def sweep_agent_runs(_ctx: dict[str, Any]) -> None:
         removed = await agent_run_service.sweep(session)
     if removed:
         log.info("swept %d agent run(s)", removed)
+
+
+async def sweep_expired(_ctx: dict[str, Any]) -> None:
+    counts = await sweep_retention()
+    if sum(counts.values()):
+        log.info("retention sweep %s", counts)
 
 
 async def sweep_orphans(_ctx: dict[str, Any]) -> None:
@@ -149,12 +156,39 @@ async def shutdown(_ctx: dict[str, Any]) -> None:
     await close_engine()
 
 
+async def after_job_end(ctx: dict[str, Any]) -> None:
+    """A line in *our* log after arq has written the result.
+
+    arq already logs the traceback at the moment of failure. That line is easy to miss
+    in a retry storm: try 1 fails, try 2 fails, try 3 gives up, and the only record is
+    three identical exceptions. This fires once the result is stored, so a job that
+    died for good is greppable as `job … failed` without reconstructing the earlier
+    frames. Success is silent — arq already logs those.
+    """
+    job_id = ctx.get("job_id")
+    redis = ctx.get("redis")
+    if not job_id or redis is None:
+        return
+    from arq.jobs import Job
+
+    info = await Job(str(job_id), redis).result_info()
+    if info is None or info.success:
+        return
+    log.error(
+        "job %s failed (try %s): %r",
+        info.function,
+        ctx.get("job_try"),
+        info.result,
+    )
+
+
 class WorkerSettings:
     functions = [
         notify,
         unfurl,
         agui_run,
         sweep_orphans,
+        sweep_expired,
         sweep_agent_runs,
         expire_agent_decisions,
         deliver_plugin_events,
@@ -162,6 +196,7 @@ class WorkerSettings:
     # arq's stub types cron() more narrowly than it accepts at runtime.
     cron_jobs = [
         cron(sweep_orphans, hour=4, minute=0),  # type: ignore[arg-type]
+        cron(sweep_expired, hour=4, minute=20),  # type: ignore[arg-type]
         cron(sweep_agent_runs, hour=4, minute=10),  # type: ignore[arg-type]
         # A decision waits a day; a quarter of an hour's slack on that is fine, a day's
         # (from riding the nightly sweep) is not.
@@ -189,3 +224,13 @@ class WorkerSettings:
     on_shutdown = shutdown
     redis_settings = redis_settings()
     max_jobs = 8
+    # Explicit, not "whatever arq ships". A hung unfurl or a stuck SSH session in an
+    # agent run used to sit on a worker slot until the process was killed: webpush now
+    # times out at 10s, but the job itself still needs a ceiling. Five minutes is long
+    # enough for an AG-UI turn and short enough that a wedged job is visible.
+    job_timeout = 300
+    # Three, not arq's five. A notify that failed because Redis blinked should retry;
+    # a notify that failed because the payload is poison should not occupy the queue
+    # for the rest of the morning.
+    max_tries = 3
+    after_job_end = after_job_end

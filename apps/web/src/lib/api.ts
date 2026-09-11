@@ -16,6 +16,7 @@ import type {
   ChannelWithState,
   CurrentUser,
   FeedbackTicket,
+  FileEntry,
   Message,
   MessageTranslation,
   NotifyLevel,
@@ -45,6 +46,20 @@ export interface ActivityItem {
 
 /** How search orders what it found. Slack's two: most relevant, or most recent. */
 export type SearchSort = "relevance" | "newest";
+
+/**
+ * How the server read the query. Echoed so the box can show `from:@ana` even
+ * when the leftover text is empty — modifiers-alone are a complete question.
+ */
+export type ParsedSearchQuery = {
+  text: string;
+  from: string | null;
+  in: string | null;
+  has: string | null;
+  before: string | null;
+  after: string | null;
+  unresolved?: string[];
+};
 
 /** One account anywhere on the server, with the workspace it belongs to. */
 export interface InstanceUser {
@@ -378,12 +393,18 @@ export interface AdminPluginDelivery {
   lastError: string | null;
   createdAt: string;
   deliveredAt: string | null;
+  nextAttemptAt?: string | null;
 }
 
 export interface AdminPluginDeliveryDetail extends AdminPluginDelivery {
   nextAttemptAt: string | null;
   /** The body the app was (or will be) sent. */
   payload: Record<string, unknown>;
+}
+
+export interface AdminWorkspaceDelivery extends AdminPluginDelivery {
+  pluginId: string;
+  pluginName: string;
 }
 
 export class ApiError extends Error {
@@ -516,6 +537,18 @@ export const api = {
 
   users: {
     list: () => get<{ users: User[] }>("/api/users"),
+    get: (id: string) => get<{ user: User }>(`/api/users/${id}`),
+  },
+
+  files: {
+    list: (query: { channelId?: string; kind?: "all" | "image" | "file"; cursor?: string } = {}) => {
+      const params = new URLSearchParams();
+      if (query.channelId) params.set("channelId", query.channelId);
+      if (query.kind && query.kind !== "all") params.set("kind", query.kind);
+      if (query.cursor) params.set("cursor", query.cursor);
+      const suffix = params.size ? `?${params}` : "";
+      return get<{ items: FileEntry[]; nextCursor: string | null }>(`/api/attachments${suffix}`);
+    },
   },
 
   later: {
@@ -547,6 +580,7 @@ export const api = {
   agentRuns: {
     forChannel: (channelId: string) =>
       get<{ runs: AgentRunView[] }>(`/api/channels/${channelId}/agent-runs`),
+    mine: () => get<{ runs: AgentRunView[] }>("/api/agent-runs"),
     cancel: (runId: string) =>
       post<{ ok: true }>(`/api/agent-runs/${runId}/cancel`),
     /** Answer the decision an interrupted run is waiting on. Only its asker may. */
@@ -977,6 +1011,11 @@ export const api = {
       settings?: Record<string, unknown>;
     }) => patch<WorkspaceSettings>("/api/admin/settings", input),
 
+    workspaceDeliveries: (limit = 50) =>
+      get<{ deliveries: AdminWorkspaceDelivery[] }>(
+        `/api/admin/deliveries?limit=${limit}`,
+      ),
+
     health: () => get<AdminHealth>("/api/admin/health"),
 
     webhooks: () => get<{ webhooks: AdminWebhook[] }>("/api/admin/webhooks"),
@@ -1037,6 +1076,10 @@ export const api = {
     pluginDelivery: (pluginId: string, deliveryId: string) =>
       get<AdminPluginDeliveryDetail>(
         `/api/admin/plugins/${pluginId}/deliveries/${deliveryId}`,
+      ),
+    replayPluginDelivery: (pluginId: string, deliveryId: string) =>
+      post<AdminPluginDelivery>(
+        `/api/admin/plugins/${pluginId}/deliveries/${deliveryId}/replay`,
       ),
     uninstallPlugin: (pluginId: string) =>
       del<{ ok: true }>(`/api/admin/plugins/${pluginId}`),
@@ -1105,6 +1148,7 @@ export const api = {
       total: number;
       sort: SearchSort;
       nextCursor: string | null;
+      parsed: ParsedSearchQuery;
     }>(
       `/api/search?q=${encodeURIComponent(q)}` +
         (sort === "newest" ? "&sort=newest" : "") +

@@ -9,38 +9,29 @@ import { parseRoute } from '../../lib/router.ts';
 
 describe('the account menu', () => {
   it('only links to routes that resolve', () => {
-    // An unknown path falls back to the conversation, so any row other than "/" that
-    // parses to `messages` is pointing at nothing.
     const dead = ITEMS.filter(
       (item) => item.path && item.path !== '/' && parseRoute(item.path).view === 'messages',
     );
     expect(dead.map((item) => `${item.label} → ${item.path}`)).toEqual([]);
   });
 
-  it('separates the three things that were all called settings', () => {
+  it('keeps your settings and the server console as two pages', () => {
     const path = (label: string) => ITEMS.find((item) => item.label === label)?.path;
 
-    // How this account behaves, how the workspace behaves, how the server behaves.
-    // Preferences merged into the workspace page; the row points at its section now.
-    expect(path('Preferences')).toBe('/workspace/preferences');
-    expect(path('Manage workspace')).toBe('/workspace');
-    expect(path('Manage server')).toBe('/admin');
-    expect(parseRoute('/workspace')).toEqual({ view: 'workspace', section: 'general' });
+    expect(path('Preferences')).toBe('/settings');
+    expect(path('Server settings')).toBe('/admin');
+    expect(parseRoute('/settings')).toEqual({ view: 'settings', section: 'preferences' });
+    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'general' });
   });
 
-  it('keeps the workspace and the server pages off a member menu', () => {
-    for (const label of ['Manage workspace', 'Manage server']) {
-      expect(ITEMS.find((item) => item.label === label)?.adminOnly).toBe(true);
-    }
-    // Preferences are everyone's, and hiding them from members would be the same bug
-    // in the other direction.
+  it('keeps server settings off a member menu', () => {
+    expect(ITEMS.find((item) => item.label === 'Server settings')?.adminOnly).toBe(true);
     expect(ITEMS.find((item) => item.label === 'Preferences')?.adminOnly).toBeUndefined();
   });
 
-  // The instance console reads past this workspace, so its endpoints are owner-gated.
-  // An admin shown the link would find every page inside it answering 403.
-  it('keeps the server console off an admin menu too', () => {
-    expect(ITEMS.find((item) => item.label === 'Manage server')?.ownerOnly).toBe(true);
-    expect(ITEMS.find((item) => item.label === 'Manage workspace')?.ownerOnly).toBeUndefined();
+  it('lets an admin open the merged server page', () => {
+    // Members, invitations and channels live here now, so an admin who is not the
+    // owner still needs the link. Owner-only rows hide inside the console.
+    expect(ITEMS.find((item) => item.label === 'Server settings')?.ownerOnly).toBeUndefined();
   });
 });

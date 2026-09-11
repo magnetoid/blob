@@ -389,3 +389,83 @@ async def test_a_local_plugin_is_still_never_delivered_to(workspace: str) -> Non
     plugin_id = await make_plugin(workspace, 9, runtime="local")
     await queue(plugin_id)
     assert await delivery.drain_once() == 0
+
+
+async def plugin_status(plugin_id: str) -> str:
+    async with SessionFactory() as session:
+        return (
+            await session.execute(
+                text("SELECT status FROM plugins WHERE id = :id"), {"id": plugin_id}
+            )
+        ).scalar_one()
+
+
+async def mark_failed(delivery_id: str) -> None:
+    async with SessionFactory() as session:
+        await session.execute(
+            text("UPDATE plugin_deliveries SET status = 'failed', attempts = 6 WHERE id = :id"),
+            {"id": delivery_id},
+        )
+        await session.commit()
+
+
+async def test_five_failed_deliveries_open_the_circuit(
+    workspace: str, app_server: RecordingApp
+) -> None:
+    """A plugin that keeps failing is parked, so later events wait instead of burning retries."""
+    app_server.status = 500
+    plugin_id = await make_plugin(workspace, app_server.port)
+    for _ in range(4):
+        await mark_failed(await queue(plugin_id))
+
+    last = await queue(plugin_id)
+    async with SessionFactory() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE plugin_deliveries
+                   SET attempts = 5, next_attempt_at = now() - interval '1 second'
+                 WHERE id = :id
+                """
+            ),
+            {"id": last},
+        )
+        await session.commit()
+
+    assert await delivery.drain_once() == 1
+    stored = await row(last)
+    assert stored.status == "failed"
+    assert await plugin_status(plugin_id) == "failed"
+
+    # The queue pauses. A new event is not leased while the circuit is open.
+    queued = await queue(plugin_id)
+    assert await delivery.drain_once() == 0
+    assert (await row(queued)).status == "pending"
+    assert (await row(queued)).attempts == 0
+
+
+async def test_four_failures_do_not_open_the_circuit(
+    workspace: str, app_server: RecordingApp
+) -> None:
+    app_server.status = 500
+    plugin_id = await make_plugin(workspace, app_server.port)
+    for _ in range(3):
+        await mark_failed(await queue(plugin_id))
+
+    last = await queue(plugin_id)
+    async with SessionFactory() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE plugin_deliveries
+                   SET attempts = 5, next_attempt_at = now() - interval '1 second'
+                 WHERE id = :id
+                """
+            ),
+            {"id": last},
+        )
+        await session.commit()
+
+    await delivery.drain_once()
+    assert (await row(last)).status == "failed"
+    assert await plugin_status(plugin_id) == "enabled"

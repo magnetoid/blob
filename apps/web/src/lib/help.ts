@@ -108,7 +108,7 @@ export const SECTIONS: Section[] = [
           'Forgot your password sends a link by email. It works once and expires in an hour, which is short on purpose — a password reset link sitting in an inbox for a week is a spare key under the mat. It is also the only way to change your password: there is no field for it while you are signed in, and no way to change your email address from the app.',
           'Being signed in is per browser. Preferences lists every session your account holds, so a machine you no longer have can be signed out from one you do.',
         ],
-        path: '/workspace/preferences',
+        path: '/settings/preferences',
         keywords: ['sign in', 'login', 'password', 'forgot', 'reset', 'account'],
       },
       {
@@ -120,7 +120,7 @@ export const SECTIONS: Section[] = [
           'An invitation chooses the role the person arrives with. A link with nobody’s email on it is shareable, which is convenient and worth being deliberate about; either kind can be revoked before it is used.',
         ],
         audience: 'admins',
-        path: '/workspace/invitations',
+        path: '/admin/invitations',
         keywords: ['invite', 'invitation', 'join', 'new member', 'link'],
       },
       {
@@ -152,7 +152,7 @@ export const SECTIONS: Section[] = [
           'A message runs to 12,000 characters and there is no counter, so the only way to meet the limit is to exceed it — the message comes back needing attention rather than being trimmed. Sending is capped at thirty messages a minute.',
           'A message you send while your connection is down is queued rather than lost. A banner at the top of the conversation says how many are waiting — “Offline — 2 messages are queued to send when you reconnect” — and they go out when the connection returns. A send that was interrupted after the server had already accepted it cannot arrive twice: every message carries an id your browser made, and the second attempt resolves to the first message rather than to a copy of it.',
         ],
-        path: '/workspace/preferences',
+        path: '/settings/preferences',
         keywords: ['send', 'enter', 'newline', 'compose', 'post', 'limit', 'length'],
       },
       {
@@ -286,7 +286,7 @@ export const SECTIONS: Section[] = [
           'Two things have to be true before the buttons appear at all. You need a preferred language set under Language and input — without one there is nothing to translate *into*, and the server says so. And whoever runs this server has to have configured a translation service; where nobody has, the click answers “Translation is not configured for this workspace yet”.',
           'With both in place: Translate adds the translation under the message rather than replacing it, Hide puts it away again, and Refresh asks a second time if the first answer was poor. The original is never taken off the screen. Turning on “Auto-translate incoming messages” does it as messages land.',
         ],
-        path: '/workspace/preferences',
+        path: '/settings/preferences',
         keywords: ['translate', 'language', 'auto-translate'],
       },
     ],
@@ -470,7 +470,7 @@ export const SECTIONS: Section[] = [
           'Modifiers combine: “from:@ana in:#eng has:link deploy” finds Ana’s links in #eng about a deploy. Anything that is not one of these is treated as words to search for, so a colon in the middle of a sentence is harmless.',
           'after: excludes the day you name and before: excludes it too, which is Slack’s behaviour — “after:2026-01-01” means from the 2nd onward.',
           'A modifier that is wrong is refused rather than ignored: has:files and before:yesterday both answer with what to write instead. A search that silently dropped half of what you asked for would look like it had filtered when it had not.',
-          'Those five are the whole vocabulary — there is no is:saved, no has:image, no to: and no way to scope to a direct message. And modifiers alone find nothing: “in:#eng has:file” with no words after it returns an empty list, because search matches text and there is none to match.',
+          'Those five are the whole vocabulary — there is no is:saved, no has:image, no to: and no way to scope to a direct message. Modifiers alone are enough: “from:@ana” lists Ana’s messages, “in:#eng has:file” lists files in #eng. Words after them, if any, are extra narrowing, not a requirement.',
         ],
         keywords: ['modifier', 'from', 'in', 'has', 'before', 'after', 'filter', 'operator'],
       },
@@ -608,7 +608,7 @@ export const SECTIONS: Section[] = [
           'A day after you ask, if nobody has replied in the thread, nobody else has reacted, nobody else has said anything in the channel since and nobody has mentioned you, the question lands in your Later as a reminder — inside your quiet hours it waits for the morning. It happens once per question.',
           'Only you are told. Nothing about who saw the question is ever looked at; Blob has no read receipts to look at. Turn it off for yourself here under Notifications, or mute the channel, which counts as turning it off.',
         ],
-        path: '/workspace/notifications',
+        path: '/settings/notifications',
         keywords: ['nudge', 'unanswered', 'question', 'no answer', 'reminder', 'later', 'follow up'],
       },
       {
@@ -622,7 +622,7 @@ export const SECTIONS: Section[] = [
           'The number beside a conversation counts mentions, not messages, so a busy channel does not look urgent for being busy.',
           'Everything happens in the app or through a device notification. Blob never emails you about a message or a mention — the only mail it ever sends is an invitation or a password reset — and it plays no sounds.',
         ],
-        path: '/workspace/notifications',
+        path: '/settings/notifications',
         keywords: ['notify', 'notification', 'unread', 'badge', 'mention', 'count'],
       },
       {
@@ -634,7 +634,7 @@ export const SECTIONS: Section[] = [
           'On an iPhone or iPad the browser only allows this once the app has been added to the Home Screen — the Notifications page says so where it matters.',
           'It also needs the person running this server to have set push keys up. Where nobody has, there is no switch to turn on and the page says why instead of failing quietly.',
         ],
-        path: '/workspace/notifications',
+        path: '/settings/notifications',
         keywords: ['push', 'desktop', 'mobile', 'iphone', 'ios', 'device', 'alert'],
       },
       {
@@ -646,7 +646,7 @@ export const SECTIONS: Section[] = [
           'Keyword alerts notify you when a message contains a word you have listed, in any channel you are in — the way people watch for a product name or their own surname. Up to thirty words, matched whole (so “ops” does not fire on “developops”) and never inside code.',
           'Silencing a group means @-mentions of it stop counting as mentions of you. It is yours alone; nobody is told, and the group is unchanged for everyone else.',
         ],
-        path: '/workspace/notifications',
+        path: '/settings/notifications',
         keywords: ['keyword', 'alert', 'group', 'mute group', 'highlight'],
       },
       {
@@ -658,7 +658,7 @@ export const SECTIONS: Section[] = [
           'Pause is the short version: 30 minutes, 1 hour, 2 hours, or until tomorrow (a flat sixteen hours), with Resume to end it early. A reminder due while you are paused is held rather than lost.',
           'The hours are read in your account’s time zone, which is set under Time zone in Preferences. Check it first: an account that has never been told keeps UTC, and “22:00 to 07:00” would then mean UTC.',
         ],
-        path: '/workspace/notifications',
+        path: '/settings/notifications',
         keywords: ['quiet', 'do not disturb', 'dnd', 'pause', 'snooze', 'hours'],
       },
       {
@@ -713,7 +713,7 @@ export const SECTIONS: Section[] = [
           'Under it are two galleries — one for light, one for dark — with a dozen palettes between them: Paper, Linen, Harbour, Sage, Blossom, High contrast; Midnight, Slate, Plum, Forest, Carbon, Ember. Each tile is drawn in its own colours, so you are choosing a look rather than a name. Both are yours: picking one changes nothing on anyone else’s screen, and an admin can add more.',
           'Animation follows your operating system’s “reduce motion” setting and has no switch of its own here. Text size has no setting either — browser zoom is the lever.',
         ],
-        path: '/workspace/preferences',
+        path: '/settings/preferences',
         keywords: ['theme', 'dark mode', 'light', 'density', 'compact', 'appearance', 'palette'],
       },
       {
@@ -721,7 +721,7 @@ export const SECTIONS: Section[] = [
         title: 'Language and input',
         blurb:
           'A preferred language, automatic translation of what arrives, and whether Enter sends.',
-        path: '/workspace/preferences',
+        path: '/settings/preferences',
         keywords: ['language', 'translate', 'enter', 'input'],
       },
       {
@@ -731,7 +731,7 @@ export const SECTIONS: Section[] = [
         body: [
           'Sign one out from here if you do not recognise it, or if you left yourself signed in somewhere you no longer have. Sign out under Account ends the one you are using now.',
         ],
-        path: '/workspace/preferences',
+        path: '/settings/preferences',
         keywords: ['sessions', 'devices', 'sign out', 'logout', 'security'],
       },
     ],
@@ -776,7 +776,7 @@ export const SECTIONS: Section[] = [
           'It is yours from the start. Mentioning it does nothing for anybody else until you lend it to them with /allow in a channel, and it can only be added to channels you are in. An admin can still see it, budget it or remove it, the same as any app.',
           'Any agent that speaks AG-UI works — the bridge just forwards runs to it. Janus does; so do agents built on LangGraph, Pydantic AI, the Claude Agent SDK and most others.',
         ],
-        path: '/workspace/my-agents',
+        path: '/settings/my-agents',
         commands: ['allow'],
         keywords: ['my agent', 'personal agent', 'connect', 'laptop', 'desktop', 'bridge', 'token'],
       },
@@ -848,7 +848,7 @@ export const SECTIONS: Section[] = [
           'It connects as you, not as a bot with its own membership. Whatever you can see it can see, a private channel you are not in stays invisible to it, and the moment you leave a channel it loses that channel too. Posting is a separate tick when you make the connection, and is off unless you turn it on — a message it sends looks exactly like one you typed, because as far as everybody else is concerned, it is.',
           'Settings → Assistants mints the token and shows the one command to paste. The token is shown once; revoke it there whenever you like, and the connection stops at once.',
         ],
-        path: '/workspace/assistants',
+        path: '/settings/assistants',
         keywords: ['mcp', 'claude', 'claude code', 'assistant', 'model context protocol', 'token', 'connect', 'editor', 'cursor', 'chatgpt'],
       },
       {
@@ -920,8 +920,8 @@ export const SECTIONS: Section[] = [
 
   {
     id: 'workspace-admin',
-    title: 'Running the workspace',
-    intro: 'What this workspace is like, who is in it and what is installed — one page, at /workspace.',
+    title: 'Running this server',
+    intro: 'What this server is like, who is in it and what is installed — one page, at /admin.',
     audience: 'admins',
     topics: [
       {
@@ -932,7 +932,7 @@ export const SECTIONS: Section[] = [
           'A workspace theme is a palette everybody gets; each person still chooses light, dark or system, and which palette each mode uses.',
         ],
         audience: 'admins',
-        path: '/workspace/general',
+        path: '/admin/general',
         keywords: ['workspace', 'name', 'theme', 'palette', 'emoji', 'branding'],
       },
       {
@@ -944,7 +944,7 @@ export const SECTIONS: Section[] = [
           'A user group is mentionable — @platform-team reaches everyone in it, and anybody in it can silence that for themselves without changing it for the rest.',
         ],
         audience: 'admins',
-        path: '/workspace/members',
+        path: '/admin/members',
         keywords: ['members', 'people', 'roles', 'groups', 'invite', 'invitation'],
       },
       {
@@ -956,7 +956,7 @@ export const SECTIONS: Section[] = [
           'Seeing that a private channel exists is part of running a workspace; reading it is not, and this page does not offer that.',
         ],
         audience: 'admins',
-        path: '/workspace/channels',
+        path: '/admin/channels',
         keywords: ['channels', 'apps', 'agents', 'webhooks', 'install'],
       },
     ],

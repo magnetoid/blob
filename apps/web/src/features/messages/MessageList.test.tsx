@@ -28,9 +28,9 @@ const ROW_PX = 40;
  * tests need.
  */
 beforeAll(() => {
-  // offsetHeight specifically: that is what the virtualizer measures with, for both the
-  // scroll element and each row. Stubbing getBoundingClientRect instead looks equivalent
-  // and changes nothing.
+  // offsetHeight is what the virtualizer used to measure with. The list now measures
+  // with getBoundingClientRect so subpixels and padding count; stub both, or happy-dom
+  // reports every element as zero and the window is empty.
   Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
     configurable: true,
     get(this: HTMLElement) {
@@ -41,6 +41,22 @@ beforeAll(() => {
     configurable: true,
     get: () => 600,
   });
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    const height = this.classList.contains("message-list") ? VIEWPORT_PX : ROW_PX;
+    return {
+      x: 0,
+      y: 0,
+      width: 600,
+      height,
+      top: 0,
+      left: 0,
+      bottom: height,
+      right: 600,
+      toJSON() {
+        return {};
+      },
+    };
+  };
 });
 
 // The row pulls in the store, the API client and the markdown renderer; none of that is

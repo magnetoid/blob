@@ -15,10 +15,15 @@ reaction only in a channel you are still in. Muting changes what is *noise*, not
 addressed to you, so a direct mention in a channel you muted still appears here while
 `@channel` in that same channel does not — muting is precisely the instruction not to be
 told about the broadcast ones.
+
+Mentions and reactions stay derived at read time for those rules. `activity_events` is
+the write-side copy plus the generic row for reminders and recap, which have no message
+column to derive from.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -28,11 +33,14 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request
+from ..lib.ids import new_id
 from ..schemas.models import Message
 from .serialize import MESSAGE_SELECT, to_message
 
-#: What the list can be narrowed to. `all` is both.
-KINDS = ("all", "mention", "reaction")
+#: What the list can be narrowed to. `all` is everything the caller is allowed to see.
+KINDS = ("all", "mention", "reaction", "reminder", "recap")
+#: Stored extra kinds — not derived from messages/reactions.
+STORED_KINDS = ("reminder", "recap")
 
 
 @dataclass(slots=True)
@@ -70,7 +78,7 @@ class ActivityCursor:
 
 @dataclass(slots=True)
 class ActivityItem:
-    #: "mention" or "reaction".
+    #: "mention", "reaction", "reminder", or "recap".
     kind: str
     at: datetime
     message: Message
@@ -78,6 +86,113 @@ class ActivityItem:
     actor_id: str | None
     #: The reaction's emoji; None for a mention.
     emoji: str | None
+
+
+async def record(
+    session: AsyncSession,
+    *,
+    workspace_id: str,
+    user_id: str,
+    kind: str,
+    actor_id: str | None,
+    channel_id: str | None,
+    message_id: str | None,
+    emoji: str | None = None,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    """Write one event. Idempotent on (user, kind, message, actor, emoji)."""
+
+    # Mentions and reactions to yourself are not activity. A reminder is.
+    if kind in ("mention", "reaction") and user_id == actor_id:
+        return
+    await session.execute(
+        text(
+            """
+            INSERT INTO activity_events (
+                id, workspace_id, user_id, kind, actor_id, channel_id,
+                message_id, emoji, payload)
+            SELECT :id, :workspace_id, :user_id, :kind, :actor_id, :channel_id,
+                   :message_id, :emoji, cast(:payload AS jsonb)
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM activity_events
+                  WHERE user_id = cast(:user_id AS uuid)
+                    AND kind = :kind
+                    AND message_id IS NOT DISTINCT FROM cast(:message_id AS uuid)
+                    AND actor_id IS NOT DISTINCT FROM cast(:actor_id AS uuid)
+                    AND COALESCE(emoji, '') = COALESCE(:emoji, '')
+             )
+            """
+        ),
+        {
+            "id": new_id(),
+            "workspace_id": workspace_id,
+            "user_id": user_id,
+            "kind": kind,
+            "actor_id": actor_id,
+            "channel_id": channel_id,
+            "message_id": message_id,
+            "emoji": emoji,
+            "payload": json.dumps(payload or {}),
+        },
+    )
+
+
+async def record_direct_mentions(
+    session: AsyncSession,
+    *,
+    workspace_id: str,
+    channel_id: str,
+    message_id: str,
+    actor_id: str,
+    user_ids: list[str],
+) -> None:
+    """Persist a mention row for each named person except the author."""
+
+    for user_id in user_ids:
+        await record(
+            session,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            kind="mention",
+            actor_id=actor_id,
+            channel_id=channel_id,
+            message_id=message_id,
+        )
+
+
+async def record_reaction(
+    session: AsyncSession,
+    *,
+    message_id: str,
+    actor_id: str,
+    emoji: str,
+) -> None:
+    """Persist a reaction event for the author, when somebody else reacted."""
+
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT workspace_id, channel_id, author_id
+                  FROM messages
+                 WHERE id = :id AND deleted_at IS NULL
+                """
+            ),
+            {"id": message_id},
+        )
+    ).fetchone()
+    if row is None or row.author_id is None:
+        return
+    await record(
+        session,
+        workspace_id=str(row.workspace_id),
+        user_id=str(row.author_id),
+        kind="reaction",
+        actor_id=actor_id,
+        channel_id=str(row.channel_id),
+        message_id=message_id,
+        emoji=emoji,
+    )
 
 
 _FEED = f"""
@@ -120,6 +235,24 @@ events AS (
      AND m.author_id = cast(:user_id AS uuid)
      AND r.user_id <> cast(:user_id AS uuid)
      AND (:kind = 'all' OR :kind = 'reaction')
+  UNION ALL
+  -- Stored extra kinds (reminder, recap). Mentions/reactions stay derived above so
+  -- mute/leave/delete keep their read-time meaning; dual-written copies of those
+  -- kinds are not selected here.
+  SELECT e.created_at AS at,
+         e.kind AS kind,
+         e.message_id AS message_id,
+         e.actor_id AS actor_id,
+         e.emoji AS emoji
+    FROM activity_events e
+    JOIN messages m ON m.id = e.message_id
+    JOIN channel_members cm
+      ON cm.channel_id = m.channel_id AND cm.user_id = cast(:user_id AS uuid)
+   WHERE e.workspace_id = cast(:workspace_id AS uuid)
+     AND e.user_id = cast(:user_id AS uuid)
+     AND e.kind IN ('reminder', 'recap')
+     AND m.deleted_at IS NULL
+     AND (:kind = 'all' OR :kind = e.kind)
 ),
 page AS (
   SELECT at, kind, message_id, actor_id, emoji
@@ -194,4 +327,13 @@ async def feed(
     return items, next_cursor
 
 
-__all__ = ["KINDS", "ActivityCursor", "ActivityItem", "feed"]
+__all__ = [
+    "KINDS",
+    "STORED_KINDS",
+    "ActivityCursor",
+    "ActivityItem",
+    "feed",
+    "record",
+    "record_direct_mentions",
+    "record_reaction",
+]

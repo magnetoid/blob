@@ -48,6 +48,7 @@ from ..services import messages as message_service
 from ..services import policies as policy_service
 from ..services import work as work_service
 from ..services.serialize import message_event
+from ..services.workspace_settings import parse as parse_settings
 
 log = logging.getLogger("blob.jobs.agui")
 
@@ -377,6 +378,7 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
     if not await _claim(message_id):
         return
 
+    agents_enabled = True
     async with session_scope() as session:
         trigger = (
             await session.execute(
@@ -503,6 +505,61 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
                 text("SELECT name FROM channels WHERE id = :id"), {"id": trigger.channel_id}
             )
         ).scalar_one_or_none()
+
+        settings_row = (
+            await session.execute(
+                text("SELECT settings FROM workspace_settings WHERE workspace_id = :ws"),
+                {"ws": trigger.workspace_id},
+            )
+        ).fetchone()
+        agents_enabled = parse_settings(
+            settings_row.settings if settings_row else None
+        ).agents_enabled
+
+    if not agents_enabled:
+        # The kill switch is workspace-wide: every mentioned agent is refused, none is
+        # called, and the run log is how "I mentioned it and nothing happened" is answered.
+        async with transaction() as (session, after):
+            for known in listeners:
+                refused_id = await agent_run_service.record_refusal(
+                    session,
+                    workspace_id=trigger.workspace_id,
+                    plugin_id=known.plugin_id,
+                    channel_id=trigger.channel_id,
+                    thread_root_id=trigger.thread_root_id,
+                    trigger_message_id=trigger.id,
+                    trigger_user_id=trigger.author_id,
+                    transport=known.transport,
+                    reason="Agents are turned off for this server.",
+                )
+                refused_view: dict[str, Any] = {
+                    "id": refused_id,
+                    "pluginId": known.plugin_id,
+                    "agentName": known.name,
+                    "channelId": trigger.channel_id,
+                    "threadRootId": trigger.thread_root_id,
+                    "triggerMessageId": trigger.id,
+                    "status": "refused",
+                    "error": "Agents are turned off for this server.",
+                    "postCount": 0,
+                    "startedAt": _now_iso(),
+                    "finishedAt": _now_iso(),
+                    "card": None,
+                    "chainId": trigger.id,
+                    "parentRunId": None,
+                    "depth": 0,
+                    "askedBy": None,
+                    "answeredAt": None,
+                    "expiresAt": None,
+                }
+                after.add(
+                    partial(
+                        hub.to_channel,
+                        trigger.channel_id,
+                        {"t": "agent_run.started", "run": refused_view},
+                    )
+                )
+        return
 
     # Concurrent, not sequential: with a 120-second ceiling per run, a message that
     # mentions three agents used to answer in worst-case six minutes, and one hung

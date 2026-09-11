@@ -1,7 +1,7 @@
 """add meetups table
 
-Revision ID: 615c078ef6c7
-Revises: 0031
+Revision ID: 0035
+Revises: 0034
 Create Date: 2026-09-08 23:44:17.907388
 """
 
@@ -12,8 +12,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "615c078ef6c7"
-down_revision: str | None = "0031"
+revision: str = "0035"
+down_revision: str | None = "0034"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

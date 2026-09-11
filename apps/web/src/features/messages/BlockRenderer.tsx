@@ -78,7 +78,13 @@ export function BlockRenderer({ messageId, blocks, options }: Props) {
 
           case 'image':
             return (
-              <img key={key} className="block-image" src={block.url} alt={block.alt ?? ''} />
+              <img
+                key={key}
+                className="block-image"
+                src={block.url}
+                alt={block.alt ?? ''}
+                loading="lazy"
+              />
             );
 
           case 'actions':

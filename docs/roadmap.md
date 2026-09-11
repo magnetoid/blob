@@ -15,13 +15,13 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 ## R1 — Trust Patch + Janus Ship (days)
 **Goal:** close the exploitable holes and the two silent-death bugs, prove the deploy artifact, ship Janus one-click.
 
-- [ ] Janus one-click install remainder (branch near done) — `plugins/runner.py`, `plugins/source.py` — **S**
-- [ ] Inert SSRF guards: `check_outbound_url` return value discarded at `runner.py:96` + `source.py:71`; add a raising `assert_outbound_url` wrapper in `lib/net.py` + tests — **S** (same PR as Janus: it guards Janus's fetch path)
-- [ ] Unfurl redirect SSRF: `follow_redirects=False`, manual ≤3-hop walk re-checking `is_private_host` per hop — `jobs/unfurl.py:60-70` — **S**
-- [ ] Translate endpoint: add `consume()` rate limit; move DeepL call outside the transaction — `routers/messages.py:168-213` — **S**
-- [ ] `remove_reaction` access oracle: add `assert_channel_access` (private-404 charter) — `routers/messages.py:358-367` — **S**
-- [ ] Zombie socket on outbox overflow: `closed_event` on Connection, writer exits on close, ws endpoint tears down on FIRST_COMPLETED; first hub backpressure test — `realtime/hub.py:54-64`, `realtime/ws.py:78-83` — **S**
-- [ ] Redis pub/sub bridge supervision (backoff + resubscribe + loud logging) — `hub.py:219-233` — **S**
+- [x] Janus one-click install remainder (branch near done) — `plugins/runner.py`, `plugins/source.py` — **S**
+- [x] Inert SSRF guards: `check_outbound_url` return value discarded at `runner.py:96` + `source.py:71`; add a raising `assert_outbound_url` wrapper in `lib/net.py` + tests — **S** (same PR as Janus: it guards Janus's fetch path)
+- [x] Unfurl redirect SSRF: `follow_redirects=False`, manual ≤3-hop walk re-checking `is_private_host` per hop — `jobs/unfurl.py:60-70` — **S**
+- [x] Translate endpoint: add `consume()` rate limit; move DeepL call outside the transaction — `routers/messages.py:168-213` — **S**
+- [x] `remove_reaction` access oracle: add `assert_channel_access` (private-404 charter) — `routers/messages.py:358-367` — **S**
+- [x] Zombie socket on outbox overflow: `closed_event` on Connection, writer exits on close, ws endpoint tears down on FIRST_COMPLETED; first hub backpressure test — `realtime/hub.py:54-64`, `realtime/ws.py:78-83` — **S**
+- [x] Redis pub/sub bridge supervision (backoff + resubscribe + loud logging) — `hub.py` — **S**
 - [x] ~~CI job that builds and boots the Docker image~~ — **already existed.** CI's `image` job builds, boots `docker-compose.prod.yml --wait`, checks `/healthz` + `/readyz`, and asserts the schema reached head. The audit called this the largest unverified deploy risk on the strength of a stale note in `.torsor/active/context.md`, now corrected.
 
 **Done when:** fixes merged with regression tests, Docker image green in CI, Janus installs one-click on Coolify.
@@ -30,73 +30,78 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 **Goal:** finish the trust arc, fix daily-pain items that survive the rebuild untouched, make search work in Serbian.
 
 **Backend hardening**
-- [ ] notify job: `webpush(timeout=10)`, split transaction so fanout runs outside it (worker `max_jobs=8`); first `handle_notify` test — `jobs/notify.py:43/125/141` — **M**
-- [ ] arq worker: `job_timeout`, `max_tries=3`, failure logging hook — `jobs/worker.py:90-102` — **S**
-- [ ] Security headers middleware (CSP, nosniff, frame-ancestors) + magic-number upload validation + attachment disposition for non-allowlisted types; first files-router tests — `main.py`, `routers/files.py` — **S+M**
-- [ ] Kill the tsvector-over-the-wire: explicit column list on message reads — `services/serialize.py:243` — **S**
-- [ ] Serbian search (one migration to the middle rung): `'simple'` config + IMMUTABLE `blob_unaccent` wrapper + regenerated column/GIN + `pg_trgm` fallback + trailing-token prefix; query side `services/search.py:92,105` — **M**
-- [ ] Structured logging + request-id middleware (born-instrumented before the new backends) — `main.py`, new `lib/logging.py` — **S**
-- [ ] Retention sweeps: sessions, password_resets, deliveries, audit crons — `jobs/` — **M**
-- [ ] `.env.example` reconciliation (incl. VAPID) + backup/restore doc — **S**
-- [ ] M1 settings-become-real (schema slice): typed settings table + readers (feature toggles, agents kill switch, signup mode, retention days, upload limits, banner) — **S–M**
+- [x] notify job: `webpush(timeout=10)`, split transaction so fanout runs outside it (worker `max_jobs=8`); first `handle_notify` test — `jobs/notify.py`, `lib/webpush.py` — **M**
+- [x] arq worker: `job_timeout`, `max_tries=3`, failure logging hook — `jobs/worker.py` — **S**
+- [x] Security headers middleware (CSP, nosniff, frame-ancestors) + magic-number upload validation + attachment disposition for non-allowlisted types; first files-router tests — `main.py`, `routers/files.py`, `lib/magic.py` — **S+M**
+- [x] Kill the tsvector-over-the-wire: explicit column list on message reads — `services/serialize.py` — **S**
+- [x] Serbian search: unaccent + english stemming + `pg_trgm` fallback + trailing-token prefix (kept `english`, not `simple`, so `deploys` still finds `deployed`) — `services/search.py`, migration 0032 — **M**
+- [x] Structured logging + request-id middleware (born-instrumented before the new backends) — `main.py`, `lib/logging.py` — **S**
+- [x] Retention sweeps: sessions, password_resets, deliveries, audit crons — `jobs/retention.py` — **M**
+- [x] `.env.example` reconciliation (incl. VAPID) + backup/restore doc — **S**
+- [x] M1 settings-become-real (schema slice): typed readers over workspace_settings JSONB (signup policy, agents kill switch, retention days, upload limits, banner) — `services/workspace_settings.py` — **S–M**
 
 **Member quick wins** (row/composer-level; none touch the shell, so nothing is rebuilt twice)
-- [ ] Composer draft: `key={channelId}` at `ChannelView.tsx:176` + drafts slice mirrored to localStorage; same for thread composer — **S**
-- [ ] MessageRow memo fix: hoist inline `onOpenThread` at `ChannelView.tsx:141` — **S**
-- [ ] Thread-typing bleed: key typing by `(channelId, threadRootId)` — `store.ts`, `socket.ts`, protocol — **S**
-- [ ] Also-send-to-channel checkbox (`outbox.ts:64` hardcodes false; server ready) — **S**
-- [ ] Per-channel mute/notify/star via existing PATCH membership; sidebar kebab + starred sort — `Sidebar.tsx`, `api.ts:267` — **S**
-- [ ] Title + favicon badge counts (create a favicon at all; respects mutes; prereq for R7 PWA) — new `lib/badge.ts` — **S**
-- [ ] Image lazy-load + width/height at upload (kills layout shift; feeds R6 Files) — attachments, BlockRenderer — **S–M**
-- [ ] Cache-Control on file 302s + stable presign window (ends per-visit re-download) — `routers/files.py`, `lib/storage.py` — **S**
-- [ ] Pinned bar (shallow: click scrolls if loaded; R5 upgrades to jump) — `ChannelView.tsx` — **S**
+- [x] Composer draft: `key={channelId}` at `ChannelView.tsx` + drafts slice mirrored to localStorage; same for thread composer — **S**
+- [x] MessageRow memo fix: hoist inline `onOpenThread` at `ChannelView.tsx` — **S**
+- [x] Thread-typing bleed: key typing by `(channelId, threadRootId)` — `store.ts`, `lib/typing.ts` — **S**
+- [x] Also-send-to-channel checkbox (`outbox.ts:64` hardcodes false; server ready) — **S**
+- [x] Display stored statuses on rows/hovers — **S**
+- [x] Per-channel mute/notify/star via existing PATCH membership; sidebar kebab + starred sort — `Sidebar.tsx`, `ChannelMenu.tsx` — **S**
+- [x] Title + favicon badge counts (create a favicon at all; respects mutes; prereq for R7 PWA) — `lib/badge.ts` — **S**
+- [x] Image lazy-load + width/height at upload (kills layout shift; feeds R6 Files) — attachments, BlockRenderer — **S–M**
+- [x] Cache-Control on file 302s + stable presign window (ends per-visit re-download) — `routers/files.py`, `lib/storage.py` — **S**
+- [x] Pinned bar (shallow: click scrolls if loaded; R5 upgrades to jump) — `ChannelView.tsx` — **S**
 
 **Done when:** search finds "čćšžđ" and Serbian homographs; drafts survive reload and channel switches; images cache across visits; sweep/rate-limit/notify/files tests in the suite.
 
 ## R3 — Rebuild I: Shell Swap + Threads + Browse (~1.5 wk)
 **Goal:** the one-time shell restructure; every zero-caller nav endpoint gets its UI.
 
-- [ ] Top-bar tabs Messages/Activity/Files/Channels replacing the icon rail; centred search; huddle button ships **disabled**; member invite affordance — `TopBar.tsx`, delete `Rail.tsx`, `Workspace.tsx` — **M**
-- [ ] Sidebar gains Threads/Mentions/Saved (Threads real now; Mentions R4; Saved R6) — `Sidebar.tsx` — **S**
-- [ ] Threads view on existing `GET /api/threads`; first fix the 2N correlated subqueries + add `last_reply_at` index — **S+S**
-- [ ] Browse Channels screen (list/join endpoints exist) — **S**
-- [ ] `/c/{id}` and `/c/{id}/{messageId}` routes (kills the dead push deep-link; feeds R5 permalinks, R7 push) — `lib/router.ts` — **S**
-- [ ] Sync completeness: replay edits/deletes/reactions offline; fix resync discarding readStates + replacing channels map; convergence + >200-backlog tests — `routers/sync`, `store.ts` — **M**
-- [ ] First `store.ts` test batch: insert/ordering, unread string-compare, resync merge — **M**
+- [x] Top-bar tabs Messages/Activity/Files/Channels replacing the icon rail; centred search; huddle button ships **disabled**; member invite affordance — `TopBar.tsx`, delete `Rail.tsx`, `Workspace.tsx` — **M**
+- [x] Sidebar gains Threads/Mentions/Saved (Threads real now; Mentions R4; Saved R6) — `Sidebar.tsx` — **S**
+- [x] Threads view on existing `GET /api/threads`; first fix the 2N correlated subqueries + add `last_reply_at` index — **S+S**
+- [x] Browse Channels screen (list/join endpoints exist) — **S**
+- [x] `/c/{id}` and `/c/{id}/{messageId}` routes (kills the dead push deep-link; feeds R5 permalinks, R7 push) — `lib/router.ts` — **S**
+- [x] Sync completeness: replay edits/deletes/reactions offline; fix resync discarding readStates + replacing channels map; convergence + >200-backlog tests — `routers/sync`, `store.ts` — **M**
+- [x] First `store.ts` test batch: insert/ordering, unread string-compare, resync merge — **M**
 
 **Done when:** new shell on main, Threads and Browse live, disconnect-edit-reconnect converges, store tests in CI.
 
 ## R4 — Rebuild II: Activity Backend + Agent Governance (~2 wk, two tracks)
 **Goal:** first new backend (Activity) plus the governance half that makes agent hosting feel safe.
 
-- [ ] `activity_events` table (UUIDv7, workspace+user scoped **in the MT-phase-1 shape from day one**), populated at existing notify/mention persist points; keyset-paginated `routers/activity.py`; row shape generic for reminders + future AI recap — **M**
-- [ ] Activity tab UI + sidebar Mentions (same endpoint, filtered) — **M**
-- [ ] M2 trust half: agents directory, deliveries console + replay, circuit breaker, kill-switch UI reading R2's typed settings — admin console — **M**
-- [ ] Unread "New" divider scroll-to on open (uses `?around=` anchored at first-unread; R5 generalizes it) — **M**
+- [x] `activity_events` table (UUIDv7, workspace+user scoped **in the MT-phase-1 shape from day one**), populated at existing notify/mention persist points; keyset-paginated `routers/activity.py`; row shape generic for reminders + future AI recap — **M**
+- [x] Activity tab UI + sidebar Mentions (same endpoint, filtered) — **M**
+- [x] M2 trust half: agents directory, deliveries console + replay, circuit breaker, kill-switch UI reading R2's typed settings — admin console — **M**
+- [x] Unread "New" divider scroll-to on open (uses `?around=` anchored at first-unread; R5 generalizes it) — **M**
 
 **Done when:** mention/reaction/reply events land in Activity in real time; an agent can be killed, replayed, and circuit-broken from the console.
 
 ## R5 — Rebuild III: Message-Surface Parity (~2 wk)
 **Goal:** everything on the message row and composer, batched once.
 
-- [ ] Real emoji picker (unicode, search, skin tones) + `:autocomplete:` + custom emoji from bootstrap + M5 emoji CRUD admin slice — **M**
-- [ ] Reaction hover bar (blocked by picker); reserve the Saved bookmark slot for R6 — **S**
-- [ ] Formatting toolbar B/i/S/link/list/code (renderer already supports it) — `Composer.tsx` — **S**
-- [ ] Generalize the `?around=` anchored loader → permalinks/copy-link, search-result jump, pin-click jump (one mechanism, four features) — `MessageList`, `api.ts:281-284` — **M**
-- [ ] Search UX honest pass: `from:`/`in:` alone, parsed-query echo, honest totals, keyset pagination, hit highlighting — `routers/search.py`, `SearchView` — **M**
-- [ ] Display stored statuses on rows/hovers — **S**
-- [ ] `markdown.tsx` XSS golden tests + `socket.ts` reconnect tests — **S–M**
+- [x] Emoji picker (unicode, search) + custom emoji from bootstrap + M5 emoji CRUD admin — **done on main**
+- [x] `:autocomplete:` in the composer
+- [x] Skin tones in the picker
+- [x] Reaction hover bar (quick 👍🎉👀 + picker); reserve the Saved bookmark slot for R6
+- [x] Formatting toolbar B/i/S/link/list/code — `Composer.tsx`
+- [x] Permalinks `/m/:id`, copy-link, search-result jump, pin-click jump via `?around=`
+- [x] Search UX: `from:`/`in:`/`has:` alone, parsed-query echo, honest totals, keyset pagination
+- [x] Search UX: hit highlighting
+- [x] Display stored statuses on rows/hovers
+- [x] `socket.ts` reconnect tests
+- [x] `markdown.tsx` XSS goldens (javascript: / unknown-scheme hrefs; tags stay text)
 
 **Done when:** any message is linkable and jumpable; reactions/formatting match the design; XSS goldens green.
 
 ## R6 — Rebuild IV: People + Files (~2 wk, second new backend)
 **Goal:** channel header becomes real; Files tab on a thumbnail pipeline, never full-res.
 
-- [ ] Channel header: members list/add/leave/topic-edit (all four endpoints exist, zero callers); Members button gets an onClick; invite completion — **M**
-- [ ] Profile cards on existing `GET /api/users/{id}`; group DM creation on existing multi-user `POST /api/dms` — **S+S**
-- [ ] Thumbnailer: Pillow arq job populating the existing `thumb_key` + history backfill; **strictly blocks the Files tab** — **M**
-- [ ] Files tab: keyset-paginated per-workspace/channel listing, filters, grid + lightbox — **M**
-- [ ] `saved_items` table + Saved view + bookmark action on the hover bar — **S–M**
+- [x] Channel header: members list/add/leave/topic-edit; Members button onClick; invite completion (admin invitations) — **M**
+- [x] Profile cards on existing `GET /api/users/{id}`; group DM creation on existing multi-user `POST /api/dms` — **S+S**
+- [x] Thumbnailer: Pillow on `complete_upload` writing `thumb_key` (sync, not arq); history backfill still open — **M**
+- [x] Files tab: keyset-paginated listing (`GET /api/attachments`), filters, grid + lightbox — **M**
+- [x] `saved_items` / Later view + bookmark action on the hover bar — **S–M**
 - [ ] Image-group grid rendering (stack → grid) — **S**
 
 **Done when:** design rebuild scope closed (minus huddles); a 50-photo channel loads thumbnails, not 200MB.

@@ -508,6 +508,49 @@ async def views_for_channel(
     return [_view(row) for row in rows]
 
 
+async def views_for_member(
+    session: AsyncSession, *, workspace_id: str, user_id: str, limit: int = 40
+) -> list[dict[str, Any]]:
+    """Live and recent runs across every conversation this person can see.
+
+    Visibility is inside the statement, the same predicate the task list uses:
+    public channels, or ones the caller belongs to. A private channel they are
+    not in is omitted, never 404 — a home dashboard that died on one foreign
+    run would be the characteristic bug of listing endpoints here.
+    """
+    rows = (
+        await session.execute(
+            text(
+                _VIEW_SELECT
+                + """
+                  JOIN channels c ON c.id = r.channel_id
+                 WHERE r.workspace_id = :ws
+                   AND (
+                     c.kind = 'public'
+                     OR EXISTS (
+                       SELECT 1 FROM channel_members cm
+                        WHERE cm.channel_id = c.id AND cm.user_id = :user_id
+                     )
+                   )
+                   AND (r.status = 'running'
+                        OR (r.status = 'interrupted' AND r.answered_at IS NULL)
+                        OR r.started_at > now() - interval '1 day')
+                 ORDER BY
+                   CASE r.status
+                     WHEN 'running' THEN 0
+                     WHEN 'interrupted' THEN 1
+                     ELSE 2
+                   END,
+                   r.started_at DESC
+                 LIMIT :limit
+                """
+            ),
+            {"ws": workspace_id, "user_id": user_id, "limit": limit},
+        )
+    ).fetchall()
+    return [_view(row) for row in rows]
+
+
 async def view_of(session: AsyncSession, run_id: str) -> dict[str, Any] | None:
     """One run in the wire shape, for re-announcing it after its state changed."""
     row = (

@@ -21,7 +21,7 @@ export function AdminNav({
   isOwner,
   isAdmin = true,
   onNavigate,
-  /** `/admin` or `/workspace`. Both consoles use this nav; only the prefix differs. */
+  /** `/admin` or `/settings`. Both consoles use this nav; only the prefix differs. */
   basePath = '/admin',
   title = 'Administration',
   subtitle,

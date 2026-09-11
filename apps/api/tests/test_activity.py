@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 import pytest_asyncio
+from sqlalchemy import text as sql
+
+from blob_api.db.engine import SessionFactory
+from blob_api.services import activity as activity_service
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up
 
@@ -23,6 +27,37 @@ async def feed(who: Client, query: str = "") -> list[dict[str, Any]]:
     answer = await who.get(f"/api/activity{query}")
     assert answer.status == 200, answer.body
     return list(answer.body["items"])
+
+
+async def _stored(user_id: str) -> list[Any]:
+    async with SessionFactory() as session:
+        return list(
+            (
+                await session.execute(
+                    sql(
+                        """
+                        SELECT kind, message_id, actor_id, emoji
+                          FROM activity_events
+                         WHERE user_id = :id
+                         ORDER BY created_at, id
+                        """
+                    ),
+                    {"id": user_id},
+                )
+            ).fetchall()
+        )
+
+
+async def _workspace_of(user_id: str) -> str:
+    async with SessionFactory() as session:
+        row = (
+            await session.execute(
+                sql("SELECT workspace_id FROM users WHERE id = :id"),
+                {"id": user_id},
+            )
+        ).fetchone()
+    assert row is not None
+    return str(row.workspace_id)
 
 
 class TestWhatLandsThere:
@@ -184,3 +219,46 @@ class TestTheList:
         answer = await team["owner"].get("/api/activity")
         assert answer.status == 200
         assert answer.body == {"items": [], "nextCursor": None}
+
+
+class TestStoredEvents:
+    async def test_a_direct_mention_is_written_to_the_table(self, team: dict[str, Any]) -> None:
+        said = await send_message(team["member"], team["general"], "@Owner can you look?")
+        rows = await _stored(team["owner"].user_id)
+        assert [(r.kind, str(r.message_id), str(r.actor_id)) for r in rows] == [
+            ("mention", said.body["message"]["id"], team["member"].user_id)
+        ]
+
+    async def test_a_reaction_is_written_to_the_table(self, team: dict[str, Any]) -> None:
+        mine = await send_message(team["owner"], team["general"], "shipped it")
+        message_id = mine.body["message"]["id"]
+        await team["member"].put(f"/api/messages/{message_id}/reactions", {"emoji": "🎉"})
+        rows = await _stored(team["owner"].user_id)
+        assert [(r.kind, r.emoji, str(r.actor_id)) for r in rows] == [
+            ("reaction", "🎉", team["member"].user_id)
+        ]
+
+    async def test_a_reminder_lands_in_the_feed(self, team: dict[str, Any]) -> None:
+        said = await send_message(team["member"], team["general"], "standup notes")
+        workspace_id = await _workspace_of(team["owner"].user_id)
+        async with SessionFactory() as session, session.begin():
+            await activity_service.record(
+                session,
+                workspace_id=workspace_id,
+                user_id=team["owner"].user_id,
+                kind="reminder",
+                actor_id=team["owner"].user_id,
+                channel_id=team["general"],
+                message_id=said.body["message"]["id"],
+            )
+
+        (item,) = await feed(team["owner"], "?kind=reminder")
+        assert item["kind"] == "reminder"
+        assert item["message"]["id"] == said.body["message"]["id"]
+        # And it does not leak into someone else's list.
+        assert await feed(team["member"], "?kind=reminder") == []
+
+    async def test_your_own_mention_is_not_written(self, team: dict[str, Any]) -> None:
+        await send_message(team["owner"], team["general"], "@Owner talking to myself")
+        assert await _stored(team["owner"].user_id) == []
+

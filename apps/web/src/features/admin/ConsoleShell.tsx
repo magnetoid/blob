@@ -19,11 +19,10 @@ import type { NavGroup } from './registry.ts';
 /** What the nav shows: the consoles differ in catalogue and framing, not in the mount. */
 export interface ConsoleNav {
   groups: NavGroup[];
-  /** `/admin` or `/workspace` — the prefix the nav's rows navigate under. */
+  /** `/admin` or `/settings` — the prefix the nav's rows navigate under. */
   basePath: string;
   title: string;
   subtitle: string;
-  /** Only the workspace console passes this: it carries personal sections for plain members. */
   isAdmin?: boolean;
 }
 
@@ -41,7 +40,7 @@ export function ConsoleShell({
   children,
 }: {
   /** Which console this is, for the top bar's pressed state. */
-  view: 'admin' | 'workspace';
+  view: 'admin' | 'settings';
   /** Ties the drawer toggle to the nav it opens, for anything reading the page structure. */
   navId: string;
   nav: ConsoleNav;

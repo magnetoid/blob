@@ -218,6 +218,109 @@
         "title": "AdminChannelsOut",
         "type": "object"
       },
+      "AdminDeliveriesOut": {
+        "properties": {
+          "deliveries": {
+            "items": {
+              "$ref": "#/components/schemas/AdminDeliveryOut"
+            },
+            "title": "Deliveries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "deliveries"
+        ],
+        "title": "AdminDeliveriesOut",
+        "type": "object"
+      },
+      "AdminDeliveryOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "deliveredAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deliveredat"
+          },
+          "event": {
+            "title": "Event",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "lastStatusCode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Laststatuscode"
+          },
+          "nextAttemptAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextattemptat"
+          },
+          "pluginId": {
+            "title": "Pluginid",
+            "type": "string"
+          },
+          "pluginName": {
+            "title": "Pluginname",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "pluginId",
+          "pluginName",
+          "event",
+          "status",
+          "attempts",
+          "createdAt"
+        ],
+        "title": "AdminDeliveryOut",
+        "type": "object"
+      },
       "AdminInvite": {
         "properties": {
           "acceptedAt": {
@@ -2956,6 +3059,114 @@
         "title": "FeedbackTicket",
         "type": "object"
       },
+      "FileEntry": {
+        "properties": {
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "messageId": {
+            "title": "Messageid",
+            "type": "string"
+          },
+          "mime": {
+            "title": "Mime",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "title": "Sizebytes",
+            "type": "integer"
+          },
+          "thumbUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumburl"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "mime",
+          "sizeBytes",
+          "url",
+          "channelId",
+          "messageId",
+          "createdAt"
+        ],
+        "title": "FileEntry",
+        "type": "object"
+      },
+      "FileListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "FileListOut",
+        "type": "object"
+      },
       "FollowThreadInput": {
         "properties": {
           "following": {
@@ -3730,6 +3941,112 @@
           "messageId"
         ],
         "title": "MarkUnreadInput",
+        "type": "object"
+      },
+      "MeetupCreate": {
+        "properties": {
+          "channelId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channelid"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "MeetupCreate",
+        "type": "object"
+      },
+      "MeetupOut": {
+        "properties": {
+          "channelId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channelid"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "title": "Createdby",
+            "type": "string"
+          },
+          "endedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endedat"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "workspaceId": {
+            "title": "Workspaceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspaceId",
+          "channelId",
+          "createdBy",
+          "name",
+          "status",
+          "createdAt",
+          "endedAt"
+        ],
+        "title": "MeetupOut",
+        "type": "object"
+      },
+      "MeetupTokenOut": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "url"
+        ],
+        "title": "MeetupTokenOut",
         "type": "object"
       },
       "MembersOut": {
@@ -7809,7 +8126,7 @@
   "paths": {
     "/api/activity": {
       "get": {
-        "description": "Mentions of you and reactions to what you wrote, newest first.",
+        "description": "Mentions of you, reactions to what you wrote, and stored extra kinds.",
         "operationId": "activity_api_activity_get",
         "parameters": [
           {
@@ -7818,7 +8135,7 @@
             "required": false,
             "schema": {
               "default": "all",
-              "pattern": "^(all|mention|reaction)$",
+              "pattern": "^(all|mention|reaction|reminder|recap)$",
               "title": "Kind",
               "type": "string"
             }
@@ -7877,7 +8194,7 @@
         },
         "summary": "Activity",
         "tags": [
-          "search"
+          "activity"
         ]
       }
     },
@@ -8078,6 +8395,52 @@
           }
         },
         "summary": "Unarchive Any Channel",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/deliveries": {
+      "get": {
+        "description": "Every app's recent deliveries, for the console log.",
+        "operationId": "list_workspace_deliveries_api_admin_deliveries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workspace Deliveries",
         "tags": [
           "admin"
         ]
@@ -9702,6 +10065,60 @@
         ]
       }
     },
+    "/api/admin/plugins/{plugin_id}/deliveries/{delivery_id}/replay": {
+      "post": {
+        "description": "Queue a failed or dead delivery to be sent again.\n\nPending rows are already in the drain; delivered ones already arrived. Replaying\nthose would either no-op or double-send. Failed and dead are the ones an operator\ncan usefully push \u2014 after a fix on the app side, or after the circuit is closed.",
+        "operationId": "replay_delivery_api_admin_plugins__plugin_id__deliveries__delivery_id__replay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "delivery_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Delivery Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay Delivery",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/plugins/{plugin_id}/deployment": {
       "get": {
         "operationId": "deployment_status_api_admin_plugins__plugin_id__deployment_get",
@@ -10837,6 +11254,28 @@
         ]
       }
     },
+    "/api/agent-runs": {
+      "get": {
+        "description": "The home dashboard's live strip: running, waiting, and today's tail.\n\nChannel listings stay the conversation's; this is the same wire shape folded\nacross every room the caller can see, so a Stop on the home card is the\nsame Stop as the one under the mention.",
+        "operationId": "workspace_agent_runs_api_agent_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/blob_api__routers__agentic__AgentRunsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Workspace Agent Runs",
+        "tags": [
+          "agentic"
+        ]
+      }
+    },
     "/api/agent-runs/{run_id}/answer": {
       "post": {
         "description": "Answer the question an agent stopped to ask, and let it carry on.\n\nOnly the person the run is on behalf of may \u2014 the card is public, the decision is\ntheirs. The answer is posted as their own message so the channel sees it as a\ndecision, and the agent resumes with it. See `services/agent_chains.answer`.",
@@ -11275,6 +11714,94 @@
           }
         },
         "summary": "Agent Terminal Target"
+      }
+    },
+    "/api/attachments": {
+      "get": {
+        "description": "Files posted in channels this person can see, newest first.\n\nThumbnails stay on `thumbUrl`. The original is only fetched when somebody opens one.\nUnattached uploads (still in flight) stay off this list.",
+        "operationId": "list_attachments_api_attachments_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "channelId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Channelid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 40,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Attachments",
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/auth/forgot-password": {
@@ -15644,6 +16171,173 @@
           }
         },
         "summary": "Healthz"
+      }
+    },
+    "/meetups": {
+      "post": {
+        "operationId": "create_meetup_meetups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetupCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Meetup",
+        "tags": [
+          "meetups"
+        ]
+      }
+    },
+    "/meetups/{meetup_id}": {
+      "get": {
+        "operationId": "get_meetup_meetups__meetup_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meetup_id",
+            "required": true,
+            "schema": {
+              "title": "Meetup Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Meetup",
+        "tags": [
+          "meetups"
+        ]
+      }
+    },
+    "/meetups/{meetup_id}/end": {
+      "post": {
+        "operationId": "end_meetup_meetups__meetup_id__end_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meetup_id",
+            "required": true,
+            "schema": {
+              "title": "Meetup Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Meetup",
+        "tags": [
+          "meetups"
+        ]
+      }
+    },
+    "/meetups/{meetup_id}/token": {
+      "post": {
+        "operationId": "get_meetup_token_meetups__meetup_id__token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meetup_id",
+            "required": true,
+            "schema": {
+              "title": "Meetup Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetupTokenOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Meetup Token",
+        "tags": [
+          "meetups"
+        ]
       }
     },
     "/readyz": {

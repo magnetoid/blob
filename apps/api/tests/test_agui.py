@@ -631,6 +631,9 @@ class TestRunCards:
         assert run["card"]["steps"] == [{"name": "think", "status": "done"}]
         assert run["card"]["tools"][0]["name"] == "search"
 
+        home = (await team["owner"].get("/api/agent-runs")).body["runs"]
+        assert any(row["id"] == run["id"] for row in home)
+
     async def test_the_listing_is_channel_scoped(self, team: dict) -> None:
         # Access is by channel visibility — the same 404-shaped rule as everything else.
         private = (
@@ -791,4 +794,48 @@ class TestBudget:
 
         sent = await send_message(team["owner"], team["general"], "@Helper hello")
         await agui_job.handle_agui_run(sent.body["message"]["id"])
+        assert len(seen) == 1
+
+
+class TestKillSwitch:
+    """Workspace-wide agentsEnabled: mentions are refused, the agent is never called."""
+
+    async def test_a_mention_is_refused_when_agents_are_turned_off(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, seen = agent_speaks(*ANSWER)
+        route_agent_to(monkeypatch, transport)
+
+        switched = await team["owner"].patch(
+            "/api/admin/settings", {"settings": {"agentsEnabled": False}}
+        )
+        assert switched.status == 200, switched.body
+        assert switched.body["settings"]["agentsEnabled"] is False
+
+        sent = await send_message(team["owner"], team["general"], "@Helper hi")
+        await agui_job.handle_agui_run(sent.body["message"]["id"])
+        assert seen == []
+
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body["runs"]
+        assert [r["status"] for r in runs] == ["refused"]
+        assert "turned off" in (runs[0]["error"] or "").lower()
+
+    async def test_turning_agents_back_on_lets_the_next_mention_run(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, seen = agent_speaks(*ANSWER)
+        route_agent_to(monkeypatch, transport)
+
+        await team["owner"].patch("/api/admin/settings", {"settings": {"agentsEnabled": False}})
+        blocked = await send_message(team["owner"], team["general"], "@Helper blocked")
+        await agui_job.handle_agui_run(blocked.body["message"]["id"])
+        assert seen == []
+
+        await team["owner"].patch("/api/admin/settings", {"settings": {"agentsEnabled": True}})
+        allowed = await send_message(team["owner"], team["general"], "@Helper allowed")
+        await agui_job.handle_agui_run(allowed.body["message"]["id"])
         assert len(seen) == 1

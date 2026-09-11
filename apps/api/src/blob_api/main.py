@@ -22,6 +22,8 @@ from .lib import storage
 from .lib.auth import SESSION_COOKIE, resolve_session
 from .lib.errors import AppError
 from .lib.logbuf import close_log_buffer, install_log_capture
+from .lib.logging import RequestIdMiddleware
+from .lib.logging import configure as configure_logging
 from .lib.queue import close_queue
 from .lib.redis import close_redis, redis
 from .lib.security_headers import SecurityHeadersMiddleware
@@ -177,10 +179,12 @@ def create_app() -> FastAPI:
     # Added after, so it wraps SessionMiddleware: the 401 and 403 that middleware writes
     # itself carry the headers too. Starlette applies the last-added middleware outermost.
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestIdMiddleware)
 
     # Warnings and errors are copied into a capped Redis list so the instance console can
     # show them. Installed here rather than in `lifespan`, so a failure during startup —
     # the kind hardest to see from outside — is already being captured.
+    configure_logging()
     install_log_capture()
 
     @app.exception_handler(AppError)
@@ -221,7 +225,11 @@ def create_app() -> FastAPI:
             "unhandled error on %s %s",
             request.method,
             request.url.path,
-            extra={"request_path": request.url.path, "request_method": request.method},
+            extra={
+                "request_path": request.url.path,
+                "request_method": request.method,
+                "request_id": request.headers.get("x-request-id"),
+            },
         )
         return _error(500, "internal", "Something went wrong on our side.")
 
@@ -246,6 +254,7 @@ def create_app() -> FastAPI:
         return {"ok": True}
 
     from .realtime.ws import router as ws_router
+    from .routers.activity import router as activity_router
     from .routers.admin import router as admin_router
     from .routers.admin_emoji import router as admin_emoji_router
     from .routers.admin_instance import router as admin_instance_router
@@ -282,6 +291,7 @@ def create_app() -> FastAPI:
     app.include_router(command_router)
     app.include_router(agentic_router)
     app.include_router(search_router)
+    app.include_router(activity_router)
     app.include_router(mcp_router)
     app.include_router(mcp_tokens_router)
     app.include_router(file_router)

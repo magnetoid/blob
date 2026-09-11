@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ADMIN_DETAIL_SECTIONS,
   ADMIN_SECTIONS,
-  WORKSPACE_DETAIL_SECTIONS,
-  WORKSPACE_SECTIONS,
+  SETTINGS_SECTIONS,
   parseRoute,
   pathForRoute,
   pathForView,
@@ -13,21 +12,19 @@ import {
 
 describe('parseRoute', () => {
   it('reads the top-level views', () => {
-    expect(parseRoute('/')).toEqual({ view: 'messages' });
+    expect(parseRoute('/')).toEqual({ view: 'home' });
+    expect(parseRoute('/home')).toEqual({ view: 'home' });
     expect(parseRoute('/search')).toEqual({ view: 'search' });
     expect(parseRoute('/threads')).toEqual({ view: 'threads' });
-    // The path is /later and the view is 'saved': the nav word is Slack's, the
-    // code word matches the table and the endpoint.
     expect(parseRoute('/later')).toEqual({ view: 'saved' });
+    expect(parseRoute('/files')).toEqual({ view: 'files' });
     expect(parseRoute('/m/abc123')).toEqual({ view: 'permalink', messageId: 'abc123' });
-    // The guide. A real path, because a topic on it is worth linking to in a message.
     expect(parseRoute('/help')).toEqual({ view: 'help' });
-    // Preferences are a section of the workspace page now, not a view of their own.
-    expect(parseRoute('/settings')).toEqual({ view: 'workspace', section: 'preferences' });
+    expect(parseRoute('/settings')).toEqual({ view: 'settings', section: 'preferences' });
   });
 
-  it('defaults bare /admin to the first section', () => {
-    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'users' });
+  it('defaults bare /admin to general', () => {
+    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'general' });
   });
 
   it('reads every admin section', () => {
@@ -36,17 +33,21 @@ describe('parseRoute', () => {
     }
   });
 
+  it('reads every settings section', () => {
+    for (const section of SETTINGS_SECTIONS) {
+      expect(parseRoute(`/settings/${section}`)).toEqual({ view: 'settings', section });
+    }
+  });
+
   it('ignores a trailing slash', () => {
     expect(parseRoute('/admin/audit/')).toEqual({ view: 'admin', section: 'audit' });
     expect(parseRoute('/search//')).toEqual({ view: 'search' });
   });
 
-  // A bad link should land somewhere usable, not on a blank pane.
   it('falls back to messages for anything unknown', () => {
     expect(parseRoute('/admin/nonsense')).toEqual({ view: 'messages' });
     expect(parseRoute('/join/some-token')).toEqual({ view: 'messages' });
     expect(parseRoute('/nope')).toEqual({ view: 'messages' });
-    // A permalink is exactly two segments; anything else is a mangled paste.
     expect(parseRoute('/m')).toEqual({ view: 'messages' });
     expect(parseRoute('/m/abc/extra')).toEqual({ view: 'messages' });
   });
@@ -57,92 +58,75 @@ describe('parseRoute', () => {
       section: 'users',
       detailId: 'u123',
     });
-    expect(parseRoute('/workspace/members/u123')).toEqual({
-      view: 'workspace',
+    expect(parseRoute('/admin/members/u123')).toEqual({
+      view: 'admin',
       section: 'members',
       detailId: 'u123',
     });
   });
 
-  // The second segment is only meaningful where a detail page exists. Elsewhere it is a
-  // malformed link, and rendering the list while ignoring half the URL hides that.
   it('refuses a detail id on a section without detail pages', () => {
     expect(parseRoute('/admin/audit/u123')).toEqual({ view: 'messages' });
-    expect(parseRoute('/workspace/general/anything')).toEqual({ view: 'messages' });
+    expect(parseRoute('/admin/general/anything')).toEqual({ view: 'messages' });
   });
 
   it('never reads more than two segments', () => {
     expect(parseRoute('/admin/users/u123/extra')).toEqual({ view: 'messages' });
   });
 
-  // Personal and workspace settings are now one page; the server console is still its
-  // own. What must not collide is the two *pages*, and the old personal URL.
-  it('keeps your settings and the server console apart, and folds the old URL in', () => {
-    expect(parseRoute('/settings')).toEqual({ view: 'workspace', section: 'preferences' });
-    expect(parseRoute('/workspace')).toEqual({ view: 'workspace', section: 'general' });
+  it('keeps your settings and the server console apart', () => {
+    expect(parseRoute('/settings')).toEqual({ view: 'settings', section: 'preferences' });
+    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'general' });
+  });
+
+  it('sends old /workspace URLs to the page that owns them now', () => {
+    expect(parseRoute('/workspace')).toEqual({ view: 'admin', section: 'general' });
     expect(parseRoute('/workspace/preferences')).toEqual({
-      view: 'workspace',
+      view: 'settings',
       section: 'preferences',
     });
-    expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'users' });
-  });
-
-  // Every one of these was a real, linkable URL before the workspace/instance split, so
-  // they redirect instead of dead-ending on the conversation.
-  it('sends the old admin URLs to where those pages went', () => {
-    expect(parseRoute('/admin/settings')).toEqual({ view: 'workspace', section: 'general' });
-    expect(parseRoute('/admin/themes')).toEqual({ view: 'workspace', section: 'appearance' });
-    expect(parseRoute('/admin/people')).toEqual({ view: 'workspace', section: 'members' });
-    expect(parseRoute('/admin/invitations')).toEqual({
-      view: 'workspace',
-      section: 'invitations',
-    });
-    expect(parseRoute('/admin/channels')).toEqual({ view: 'workspace', section: 'channels' });
-    expect(parseRoute('/admin/apps')).toEqual({ view: 'workspace', section: 'apps' });
-    expect(parseRoute('/admin/webhooks')).toEqual({ view: 'workspace', section: 'webhooks' });
-  });
-
-  it('carries a detail id across the move', () => {
-    // A link to one person or one app keeps working, pointing at the same thing.
-    expect(parseRoute('/admin/people/u123')).toEqual({
-      view: 'workspace',
+    expect(parseRoute('/workspace/general')).toEqual({ view: 'admin', section: 'general' });
+    expect(parseRoute('/workspace/members/u123')).toEqual({
+      view: 'admin',
       section: 'members',
       detailId: 'u123',
     });
-    expect(parseRoute('/admin/apps/p9')).toEqual({
-      view: 'workspace',
-      section: 'apps',
-      detailId: 'p9',
-    });
+    expect(parseRoute('/workspace/invented')).toEqual({ view: 'messages' });
   });
 
-  it('reads every workspace section, and refuses one that does not exist', () => {
-    for (const section of WORKSPACE_SECTIONS) {
-      expect(parseRoute(`/workspace/${section}`)).toEqual({ view: 'workspace', section });
-    }
-    expect(parseRoute('/workspace/invented')).toEqual({ view: 'messages' });
+  it('sends the older admin aliases to the merged console', () => {
+    expect(parseRoute('/admin/settings')).toEqual({ view: 'admin', section: 'general' });
+    expect(parseRoute('/admin/themes')).toEqual({ view: 'admin', section: 'appearance' });
+    expect(parseRoute('/admin/people')).toEqual({ view: 'admin', section: 'members' });
+    expect(parseRoute('/admin/people/u123')).toEqual({
+      view: 'admin',
+      section: 'members',
+      detailId: 'u123',
+    });
+    expect(parseRoute('/admin/workspaces')).toEqual({ view: 'admin', section: 'general' });
+    expect(parseRoute('/admin/invitations')).toEqual({ view: 'admin', section: 'invitations' });
+    expect(parseRoute('/admin/channels')).toEqual({ view: 'admin', section: 'channels' });
+    expect(parseRoute('/admin/apps')).toEqual({ view: 'admin', section: 'apps' });
+    expect(parseRoute('/admin/webhooks')).toEqual({ view: 'admin', section: 'webhooks' });
   });
 });
 
 describe('pathForRoute', () => {
   it('round-trips every route', () => {
     const routes: Route[] = [
-      { view: 'messages' },
+      { view: 'home' },
       { view: 'search' },
       { view: 'threads' },
+      { view: 'activity' },
+      { view: 'activity', kind: 'mention' },
       { view: 'saved' },
+      { view: 'files' },
       { view: 'help' },
       { view: 'permalink', messageId: 'abc123' },
-      ...WORKSPACE_SECTIONS.map((section) => ({ view: 'workspace' as const, section })),
+      ...SETTINGS_SECTIONS.map((section) => ({ view: 'settings' as const, section })),
       ...ADMIN_SECTIONS.map((section) => ({ view: 'admin' as const, section })),
       ...ADMIN_DETAIL_SECTIONS.map((section) => ({
         view: 'admin' as const,
-        section,
-        detailId: 'abc123',
-      })),
-      ...WORKSPACE_SECTIONS.map((section) => ({ view: 'workspace' as const, section })),
-      ...WORKSPACE_DETAIL_SECTIONS.map((section) => ({
-        view: 'workspace' as const,
         section,
         detailId: 'abc123',
       })),
@@ -152,10 +136,10 @@ describe('pathForRoute', () => {
     }
   });
 
-  it('sends the admin rail button to the first section', () => {
-    expect(pathForView('admin')).toBe('/admin/users');
-    expect(pathForView('workspace')).toBe('/workspace/general');
-    expect(pathForView('messages')).toBe('/');
+  it('sends the rail buttons to the first section of each page', () => {
+    expect(pathForView('admin')).toBe('/admin/general');
+    expect(pathForView('settings')).toBe('/settings/preferences');
+    expect(pathForView('home')).toBe('/');
   });
 });
 
@@ -170,6 +154,10 @@ describe('channel routes', () => {
       channelId: 'abc',
       threadRootId: 'root-9',
     });
+  });
+
+  it('reads a channel with a message permalink', () => {
+    expect(parseRoute('/c/abc/msg-9')).toEqual({ view: 'permalink', messageId: 'msg-9' });
   });
 
   it('round-trips through pathForRoute', () => {
@@ -188,7 +176,6 @@ describe('channel routes', () => {
 
   it('a malformed channel path falls back to the conversation', () => {
     expect(parseRoute('/c/')).toEqual({ view: 'messages' });
-    expect(parseRoute('/c/a/b')).toEqual({ view: 'messages' });
     expect(parseRoute('/c/a/t/')).toEqual({ view: 'messages' });
   });
 });

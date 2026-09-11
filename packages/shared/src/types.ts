@@ -166,6 +166,13 @@ export interface Attachment {
   thumbUrl: string | null;
 }
 
+/** A posted file as the Files tab lists it. */
+export interface FileEntry extends Attachment {
+  channelId: string;
+  messageId: string;
+  createdAt: string;
+}
+
 /** Structured message content. Seven types, closed deliberately — see plugins/blocks.py. */
 export interface BlockText {
   text: string;

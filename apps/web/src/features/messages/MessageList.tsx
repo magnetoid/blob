@@ -144,9 +144,20 @@ export function MessageList({
     // Close to what rows actually measure — 47px on average in a channel, less in a
     // thread. It was 120/148, which made the virtualizer think a 32-message channel
     // was 4,700px tall when it was 1,500, and everything keyed on scrollHeight before
-    // measurement was wrong by the difference.
-    estimateSize: () => (inThread ? 44 : 52),
-    overscan: 10,
+    // measurement was wrong by the difference. Day / unread dividers add a strip of
+    // extra height; guessing those as the same 52px as a grouped row is how a window
+    // of measured rows left 20–40px holes above the next one.
+    estimateSize: (index) => {
+      const row = decoratedMessages[index];
+      let size = inThread ? 44 : 52;
+      if (row?.showDay) size += 36;
+      if (row?.isFirstUnread) size += 28;
+      return size;
+    },
+    // getBoundingClientRect, not offsetHeight: the latter rounds and used to miss the
+    // 6px group-start padding, which is exactly the stripe of empty space between rows.
+    measureElement: (element) => element.getBoundingClientRect().height,
+    overscan: 12,
   });
 
   useLayoutEffect(() => {
@@ -354,7 +365,7 @@ export function MessageList({
               ref={virtualizer.measureElement}
               data-index={item.index}
               className="message-list-row"
-              style={{ transform: `translateY(${item.start}px)` }}
+              style={{ transform: `translate3d(0, ${item.start}px, 0)` }}
             >
               {showDay && (
                 <div className="day-divider">

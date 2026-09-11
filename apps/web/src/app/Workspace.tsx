@@ -1,19 +1,18 @@
 /** The signed-in shell: top bar, sidebar, main view, optional thread panel. */
 
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useStore } from '../lib/store.ts';
 import { showError } from '../lib/toasts.ts';
 import { socket } from '../lib/socket.ts';
 import { stepConversation, stepUnread } from '../lib/conversations.ts';
 import {
-  DEFAULT_MEMBER_SECTION,
-  isPersonalSection,
   navigate,
   parseRoute,
   pathForChannel,
   pathForRoute,
   usePath,
 } from '../lib/router.ts';
+import { HomeView } from '../features/home/HomeView.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadsView } from '../features/messages/ThreadsView.tsx';
@@ -21,6 +20,7 @@ import { ActivityView } from '../features/messages/ActivityView.tsx';
 import { ImageLightbox } from '../features/messages/ImageLightbox.tsx';
 import { TasksView } from '../features/agentic/TasksView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
+import { FilesView } from '../features/messages/FilesView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
 import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
 import { BrowseChannels } from '../features/channels/BrowseChannels.tsx';
@@ -33,9 +33,9 @@ import { SearchView } from '../features/search/SearchView.tsx';
 const AdminConsole = lazy(() =>
   import('../features/admin/AdminConsole.tsx').then((m) => ({ default: m.AdminConsole })),
 );
-const WorkspaceConsole = lazy(() =>
-  import('../features/workspace/WorkspaceConsole.tsx').then((m) => ({
-    default: m.WorkspaceConsole,
+const SettingsConsole = lazy(() =>
+  import('../features/settings/SettingsConsole.tsx').then((m) => ({
+    default: m.SettingsConsole,
   })),
 );
 // Lazy for the same reason as the consoles: the guide is a few thousand words of prose
@@ -73,32 +73,56 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   /** Which list ⌘K opened. ⌘⇧K opens the same picker showing only people. */
   const [paletteOnly, setPaletteOnly] = useState<'people' | undefined>(undefined);
-  // The channel drawer on narrow viewports. Closed on every conversation change so
-  // picking a channel dismisses it, the way every mobile drawer behaves.
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // The channel drawer on narrow viewports. Scoped to the conversation it was opened
+  // from, so changing channels dismisses it without an effect-driven reset.
+  const [sidebarDrawer, setSidebarDrawer] = useState<{ open: boolean; scope: string }>({
+    open: false,
+    scope: '',
+  });
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem('blob.sidebar.collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   // Held with the id it belongs to, so following a second link shows no error without
   // an effect having to clear one — a synchronous reset in the effect below would be a
   // cascading render for a value that can simply be derived.
   const [permalinkError, setPermalinkError] = useState<{ id: string; message: string } | null>(
     null,
   );
+  const sidebarScope = `${view}:${activeChannelId ?? ''}`;
+  const sidebarOpen = sidebarDrawer.open && sidebarDrawer.scope === sidebarScope;
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('blob.sidebar.collapsed', String(sidebarCollapsed));
+    } catch {
+      // Private browsing and hardened environments can refuse storage.
+    }
+  }, [sidebarCollapsed]);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarDrawer((current) =>
+      current.open && current.scope === sidebarScope
+        ? { open: false, scope: sidebarScope }
+        : { open: true, scope: sidebarScope },
+    );
+  }, [sidebarScope]);
+
+  const closeSidebar = useCallback(() => {
+    setSidebarDrawer({ open: false, scope: sidebarScope });
+  }, [sidebarScope]);
 
   // Two jobs, one effect: send a member who typed /admin back to the conversation, and
   // rewrite a stale or misspelt URL to the route it actually resolved to, so the address
   // bar never disagrees with the screen.
   useEffect(() => {
     const resolved = parseRoute(path);
-    // /workspace is no longer admin-only: it holds everyone's preferences as well as the
-    // workspace's settings. A member is sent to their own section rather than off the
-    // page — bouncing them to the conversation would mean the gear icon did nothing.
-    if (resolved.view === 'workspace' && !isAdmin && !isPersonalSection(resolved.section)) {
-      navigate(pathForRoute({ view: 'workspace', section: DEFAULT_MEMBER_SECTION }), {
-        replace: true,
-      });
-      return;
-    }
     if (resolved.view === 'admin' && !isAdmin) {
       navigate('/', { replace: true });
       return;
@@ -183,16 +207,13 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     }
   }, [channels, activeChannelId, openChannel, route.view]);
 
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [activeChannelId, view]);
-
   // The tab title carries the unread state a backgrounded tab cannot show any
   // other way; the OS badge rides along where the app is installed.
   useEffect(() => {
     const rows = Object.values(channels);
-    const mentions = rows.reduce((sum, c) => sum + (c.mentionCount ?? 0), 0);
-    const hasUnread = rows.some((c) => c.hasUnread);
+    const live = rows.filter((c) => c.membership?.notifyLevel !== "none");
+    const mentions = live.reduce((sum, c) => sum + (c.mentionCount ?? 0), 0);
+    const hasUnread = live.some((c) => c.hasUnread);
     updateBadge(mentions, hasUnread);
   }, [channels]);
 
@@ -288,7 +309,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           else if (paletteOpen) setPaletteOpen(false);
           // The drawer is an overlay over the conversation, so it closes before the
           // thread underneath it and long before Esc means "mark this channel read".
-          else if (sidebarOpen) setSidebarOpen(false);
+          else if (sidebarOpen) closeSidebar();
           else if (activeThreadRootId) closeThread();
           else if (activeChannelId) {
             // Nothing left to close: Slack's Esc — the channel is read. Deliberately
@@ -312,6 +333,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     helpOpen,
     feedbackOpen,
     sidebarOpen,
+    closeSidebar,
     activeThreadRootId,
     openThread,
     channels,
@@ -330,13 +352,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // account menu, ⌘K, and the feedback dialog — which matters most here, because the
   // report attaches a snapshot of the screen you are on, and leaving the console to file
   // one would attach a channel instead of the page that went wrong.
-  if (route.view === 'workspace') {
+  if (route.view === 'settings') {
     return (
       <>
         <Suspense fallback={<div className="auth"><p className="muted">Loading…</p></div>}>
-          <WorkspaceConsole
+          <SettingsConsole
             section={route.section}
-            detailId={route.detailId}
             onFeedback={() => setFeedbackOpen(true)}
             onSignedOut={onSignedOut}
           />
@@ -374,19 +395,24 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       className="shell"
       data-panel={panelOpen ? 'open' : 'closed'}
       data-sidebar={sidebarOpen ? 'open' : 'closed'}
+      data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
     >
       <TopBar
         onFeedback={() => setFeedbackOpen(true)}
-        onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        onToggleSidebar={toggleSidebar}
         view={view}
+        minimal
       />
-      <Sidebar />
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
+      />
       {sidebarOpen && (
         <button
           type="button"
           className="drawer-scrim"
           aria-label="Close channel list"
-          onClick={() => setSidebarOpen(false)}
+          onClick={closeSidebar}
         />
       )}
 
@@ -399,18 +425,25 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             {permalinkFailure && <div className="empty-state-body">{permalinkFailure}</div>}
             {permalinkFailure && (
               <button className="btn" onClick={() => navigate('/')} style={{ marginTop: 12 }}>
-                Back to the conversation
+                Back home
               </button>
             )}
           </div>
         </main>
       )}
+      {view === 'home' && <HomeView />}
       {(view === 'messages' || view === 'channel') && <ChannelView />}
       {view === 'threads' && <ThreadsView />}
-      {view === 'activity' && <ActivityView />}
+      {view === 'activity' && (
+        <ActivityView
+          key={route.kind ?? 'all'}
+          initialKind={route.kind ?? 'all'}
+        />
+      )}
       {view === 'tasks' && <TasksView />}
       {view === 'saved' && <SavedView />}
       {view === 'browse' && <BrowseChannels />}
+      {view === 'files' && <FilesView />}
       {view === 'scheduled' && <ScheduledView />}
       {view === 'changelog' && <WhatsNewView />}
       {view === 'help' && (
@@ -452,4 +485,3 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     </div>
   );
 }
-

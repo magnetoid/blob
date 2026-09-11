@@ -5,6 +5,7 @@ import type { AgentRunView } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
 import { showError } from "../../lib/toasts.ts";
 import { draftKey } from "../../lib/drafts.ts";
+import { typingKey } from "../../lib/typing.ts";
 import { scrollToMessage } from "../../lib/navigation.ts";
 import { api } from "../../lib/api.ts";
 import { showThread } from "../../lib/navigation.ts";
@@ -34,7 +35,7 @@ export function ChannelView() {
   );
   const outbox = useStore((s) => s.outbox);
   const typing = useStore((s) =>
-    s.activeChannelId ? s.typing[s.activeChannelId] : undefined,
+    s.activeChannelId ? s.typing[typingKey(s.activeChannelId)] : undefined,
   );
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
@@ -115,10 +116,9 @@ export function ChannelView() {
   const membershipVersion = useStore((s) =>
     s.activeChannelId ? (s.membershipVersion[s.activeChannelId] ?? 0) : 0,
   );
-  const memberCountKey =
-    activeChannelId && membershipVersion > 0
-      ? `${activeChannelId}:${membershipVersion}`
-      : null;
+  const memberCountKey = activeChannelId
+    ? `${activeChannelId}:${membershipVersion}`
+    : null;
 
   useEffect(() => {
     if (!activeChannelId || !memberCountKey || memberCounts[memberCountKey] !== undefined)
@@ -395,6 +395,10 @@ export function ChannelView() {
       ) : (
         <>
           <MessageList
+            // Keyed to the conversation so the virtualizer does not keep the previous
+            // channel's measured heights. That cache is how switching chats left holes
+            // between rows until you scrolled far enough to remeasure.
+            key={activeChannelId}
             messages={messages?.items ?? []}
             hasMore={messages?.hasMore ?? false}
             loading={messages?.loading ?? false}

@@ -368,6 +368,21 @@ async def channel_agent_runs(
     return AgentRunsOut(runs=runs)
 
 
+@router.get("/api/agent-runs", response_model=AgentRunsOut)
+async def workspace_agent_runs(user: SessionUser = Depends(current_user)) -> AgentRunsOut:
+    """The home dashboard's live strip: running, waiting, and today's tail.
+
+    Channel listings stay the conversation's; this is the same wire shape folded
+    across every room the caller can see, so a Stop on the home card is the
+    same Stop as the one under the mention.
+    """
+    async with session_scope() as session:
+        runs = await agent_run_service.views_for_member(
+            session, workspace_id=user.workspace_id, user_id=user.id
+        )
+    return AgentRunsOut(runs=runs)
+
+
 @router.post("/api/agent-runs/{run_id}/cancel", response_model=OkOut)
 async def cancel_agent_run(
     run_id: IdParam, request: Request, user: SessionUser = Depends(current_user)

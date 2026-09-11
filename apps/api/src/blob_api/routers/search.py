@@ -12,9 +12,8 @@ from ..db.engine import session_scope
 from ..lib.auth import SessionUser, current_user
 from ..lib.rate_limit import consume
 from ..realtime.protocol import MAX_REPLAY_PER_CHANNEL
-from ..schemas.base import CamelModel, require_iso
+from ..schemas.base import CamelModel
 from ..schemas.models import ChannelWithState, Message, ReadStateOut
-from ..services import activity as activity_service
 from ..services import channels as channel_service
 from ..services import read_state as read_state_service
 from ..services.search import SORTS, SearchCursor, parse_query, search
@@ -39,22 +38,6 @@ class SearchOut(CamelModel):
     #: Which ordering answered — echoed so the client can show what it got.
     sort: str = "relevance"
     #: Pass back as `cursor` for the next page. Null when this page is the last one.
-    next_cursor: str | None = None
-
-
-class ActivityItemOut(CamelModel):
-    #: "mention" or "reaction".
-    kind: str
-    at: str
-    #: Who did it: who named you, or who reacted.
-    actor_id: str | None = None
-    #: The emoji, on a reaction.
-    emoji: str | None = None
-    message: Message
-
-
-class ActivityOut(CamelModel):
-    items: list[ActivityItemOut]
     next_cursor: str | None = None
 
 
@@ -87,7 +70,7 @@ async def search_messages(
         "after": parsed.after.date().isoformat() if parsed.after else None,
     }
 
-    if not parsed.text:
+    if not parsed.text and not parsed.scoped():
         return SearchOut(messages=[], total=0, parsed=parsed_payload, sort=sort)
 
     async with session_scope() as session:
@@ -177,38 +160,6 @@ async def search_messages(
     )
 
 
-@router.get("/api/activity", response_model=ActivityOut)
-async def activity(
-    kind: Annotated[str, Query(pattern="^(all|mention|reaction)$")] = "all",
-    limit: Annotated[int, Query(ge=1, le=50)] = 30,
-    cursor: Annotated[str | None, Query(max_length=120)] = None,
-    user: SessionUser = Depends(current_user),
-) -> ActivityOut:
-    """Mentions of you and reactions to what you wrote, newest first."""
-    async with session_scope() as session:
-        items, next_cursor = await activity_service.feed(
-            session,
-            workspace_id=user.workspace_id,
-            user_id=user.id,
-            kind=kind,
-            limit=limit,
-            cursor=activity_service.ActivityCursor.decode(cursor) if cursor else None,
-        )
-    return ActivityOut(
-        items=[
-            ActivityItemOut(
-                kind=item.kind,
-                at=require_iso(item.at),
-                actor_id=item.actor_id,
-                emoji=item.emoji,
-                message=item.message,
-            )
-            for item in items
-        ],
-        next_cursor=next_cursor.encode() if next_cursor else None,
-    )
-
-
 @router.get("/api/sync", response_model=SyncOut)
 async def sync(cursors: str | None = None, user: SessionUser = Depends(current_user)) -> SyncOut:
     """Reconnect delta.
@@ -238,13 +189,14 @@ async def sync(cursors: str | None = None, user: SessionUser = Depends(current_u
             cursor = parsed_cursors.get(channel.id)
             if not cursor:
                 continue
-            if channel.last_message_id and channel.last_message_id <= cursor:
-                continue
             behind.append((channel.id, cursor))
 
         if behind:
             # One statement for every gap. This runs on every reconnect for every
             # user — a deploy used to fan out one query per channel per client.
+            # New ids are the cheap half. Edits, deletes and reactions on older
+            # rows do not change id, so they are replayed against the cursor
+            # message's created_at — otherwise an offline edit vanished on reconnect.
             rows = (
                 await session.execute(
                     text(
@@ -252,9 +204,20 @@ async def sync(cursors: str | None = None, user: SessionUser = Depends(current_u
                         SELECT sub.* FROM unnest(
                                  cast(:channel_ids AS uuid[]), cast(:cursors AS uuid[])
                                ) AS gap(channel_id, cursor)
+                          JOIN messages cursor_msg ON cursor_msg.id = gap.cursor
                           JOIN LATERAL (
                             SELECT {MESSAGE_SELECT} FROM messages m
-                             WHERE m.channel_id = gap.channel_id AND m.id > gap.cursor
+                             WHERE m.channel_id = gap.channel_id
+                               AND (
+                                 m.id > gap.cursor
+                                 OR m.edited_at > cursor_msg.created_at
+                                 OR m.deleted_at > cursor_msg.created_at
+                                 OR EXISTS (
+                                   SELECT 1 FROM reactions r
+                                    WHERE r.message_id = m.id
+                                      AND r.created_at > cursor_msg.created_at
+                                 )
+                               )
                              ORDER BY m.id ASC LIMIT :limit
                           ) sub ON true
                          ORDER BY sub.channel_id, sub.id

@@ -208,3 +208,66 @@ describe("parentheses in a link", () => {
     );
   });
 });
+
+describe("XSS goldens", () => {
+  /**
+   * Nothing in this file becomes raw HTML. These pin the schemes and tags that would
+   * become a problem the moment a renderer started trusting the body as markup.
+   */
+  const hrefIn = (body: string) =>
+    draw(body).querySelector("a")?.getAttribute("href") ?? null;
+
+  it("does not turn a javascript: markdown link into an href", () => {
+    const el = draw("[x](javascript:alert(1))");
+    expect(hrefIn("[x](javascript:alert(1))")).toBeNull();
+    expect(el.querySelector("a")).toBeNull();
+    expect(el.textContent).toContain("javascript:alert(1)");
+  });
+
+  it("does not turn a data: markdown link into an href", () => {
+    expect(hrefIn("[x](data:text/html,<script>alert(1)</script>)")).toBeNull();
+  });
+
+  it("does not turn a vbscript: markdown link into an href", () => {
+    expect(hrefIn("[x](vbscript:msgbox(1))")).toBeNull();
+  });
+
+  it("leaves HTML tags as text, never as elements", () => {
+    const el = draw('<img src=x onerror=alert(1)><script>alert(1)</script>');
+    expect(el.querySelector("img")).toBeNull();
+    expect(el.querySelector("script")).toBeNull();
+    expect(el.textContent).toContain("<script>alert(1)</script>");
+  });
+
+  it("does not honour an unknown-scheme bare URL", () => {
+    expect(hrefIn("javascript:alert(1)")).toBeNull();
+    expect(hrefIn("data:text/html,hi")).toBeNull();
+  });
+});
+
+describe("search hit highlighting", () => {
+  function drawHit(body: string, highlight: string) {
+    return render(
+      <div>
+        {renderMarkdown(body, { ...options(), highlight })}
+      </div>,
+    ).container;
+  }
+
+  it("wraps the matching words in a mark", () => {
+    const el = drawHit("please deploy now", "deploy");
+    expect(el.querySelector("mark.search-hit")?.textContent).toBe("deploy");
+    expect(el.textContent).toBe("please deploy now");
+  });
+
+  it("is case-insensitive and keeps the author's casing", () => {
+    const el = drawHit("Please Deploy Now", "deploy");
+    expect(el.querySelector("mark.search-hit")?.textContent).toBe("Deploy");
+  });
+
+  it("does not highlight inside a code span", () => {
+    const el = drawHit("run `deploy` please", "deploy");
+    expect(el.querySelector("code")?.textContent).toBe("deploy");
+    expect(el.querySelector("code mark")).toBeNull();
+  });
+});

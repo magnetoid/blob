@@ -9,6 +9,7 @@ under test is made entirely in Postgres.
 
 from __future__ import annotations
 
+import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
@@ -96,6 +97,40 @@ class TestAttachedFiles:
         # 404, not 403: the private channel's existence is itself private.
         assert (await team["outsider"].get(f"/api/files/{key}")).status == 404
 
+
+class TestFilesLibrary:
+    async def test_members_see_files_posted_in_their_channels(self, team: dict) -> None:
+        sent = await send_message(team["owner"], team["private"]["id"], "with file")
+        attachment_id, _ = await _plant_attachment(
+            team["workspace"], team["owner"].user_id, message_id=sent.body["message"]["id"]
+        )
+        response = await team["member"].get("/api/attachments")
+        assert response.status == 200, response.body
+        ids = [item["id"] for item in response.body["items"]]
+        assert attachment_id in ids
+        item = next(i for i in response.body["items"] if i["id"] == attachment_id)
+        assert item["channelId"] == team["private"]["id"]
+        assert item["thumbUrl"] is None or "/api/files/" in item["url"]
+
+    async def test_outsiders_do_not_see_a_private_channel(self, team: dict) -> None:
+        sent = await send_message(team["owner"], team["private"]["id"], "secret")
+        attachment_id, _ = await _plant_attachment(
+            team["workspace"], team["owner"].user_id, message_id=sent.body["message"]["id"]
+        )
+        response = await team["outsider"].get("/api/attachments")
+        assert response.status == 200, response.body
+        ids = [item["id"] for item in response.body["items"]]
+        assert attachment_id not in ids
+
+    async def test_unattached_uploads_stay_off_the_library(self, team: dict) -> None:
+        attachment_id, _ = await _plant_attachment(team["workspace"], team["owner"].user_id)
+        response = await team["owner"].get("/api/attachments")
+        assert response.status == 200, response.body
+        ids = [item["id"] for item in response.body["items"]]
+        assert attachment_id not in ids
+
+
+class TestAttachedFilesLeave:
     async def test_even_the_uploader_loses_access_with_the_channel(self, team: dict) -> None:
         # Attached files answer to channel membership, not provenance: someone who
         # posted a file and then left the room should not keep a live URL into it.
@@ -132,6 +167,26 @@ class TestUploadRefusals:
             {"filename": "payload.exe", "mime": "application/x-msdownload", "sizeBytes": 10},
         )
         assert response.status == 400, response.body
+
+    async def test_html_named_as_a_png_is_refused_on_complete(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ticket = await team["owner"].post(
+            "/api/uploads",
+            {"filename": "shot.png", "mime": "image/png", "sizeBytes": 20},
+        )
+        assert ticket.status == 200, ticket.body
+
+        async def html_head(_key: str, _n: int = 64) -> bytes:
+            return b"<!DOCTYPE html><html>"
+
+        async def noop_delete(_key: str) -> None:
+            return None
+
+        monkeypatch.setattr("blob_api.routers.files.get_object_head", html_head)
+        monkeypatch.setattr("blob_api.routers.files.delete_object", noop_delete)
+        complete = await team["owner"].post(f"/api/uploads/{ticket.body['attachmentId']}/complete")
+        assert complete.status == 400, complete.body
 
 
 class TestAvatars:

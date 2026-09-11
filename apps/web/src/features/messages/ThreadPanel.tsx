@@ -753,6 +753,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
       </div>
 
       <MessageList
+        key={rootId}
         messages={thread ?? []}
         runsByMessageId={runsByMessageId}
         hasMore={false}

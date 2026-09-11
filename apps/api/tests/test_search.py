@@ -102,6 +102,72 @@ async def test_the_in_modifier_narrows_by_channel(team: dict) -> None:
     assert all(m["channelId"] == team["general"]["id"] for m in response.body["messages"])
 
 
+class TestModifiersAlone:
+    """A filter with no words still answers.
+
+    `from:@ana` used to return an empty list because search required text to match,
+    even though the author filter was already resolved. Slack's `from:@name` with
+    nothing after it lists that person's messages; so do we. The same for `in:`
+    and `has:`.
+    """
+
+    async def test_from_alone_lists_that_authors_messages(self, team: dict) -> None:
+        unique = "modifieralone-from-zephyr"
+        await send_message(team["member"], team["general"]["id"], unique)
+        await send_message(team["owner"], team["general"]["id"], "owner said something else")
+
+        answer = await team["owner"].get(
+            f"/api/search?q=from:@{team['member'].display_name}"
+        )
+
+        assert answer.status == 200, answer.body
+        assert answer.body["total"] >= 1
+        assert all(m["authorId"] == team["member"].user_id for m in answer.body["messages"])
+        assert any(unique in m["body"] for m in answer.body["messages"])
+        assert answer.body["parsed"]["from"] == team["member"].display_name
+        assert answer.body["parsed"]["text"] == ""
+
+    async def test_in_alone_lists_that_channel(self, team: dict) -> None:
+        unique = "modifieralone-in-quax"
+        await send_message(team["owner"], team["general"]["id"], unique)
+
+        answer = await team["owner"].get("/api/search?q=in:%23general")
+
+        assert answer.status == 200, answer.body
+        assert answer.body["messages"]
+        assert all(m["channelId"] == team["general"]["id"] for m in answer.body["messages"])
+        assert any(unique in m["body"] for m in answer.body["messages"])
+        assert answer.body["parsed"]["in"] == "general"
+        assert answer.body["parsed"]["text"] == ""
+
+    async def test_has_link_alone_finds_urls(self, team: dict) -> None:
+        await send_message(
+            team["owner"],
+            team["general"]["id"],
+            "see https://example.com/modifieralone-link",
+        )
+        await send_message(
+            team["owner"], team["general"]["id"], "no url here modifieralone-plain"
+        )
+
+        answer = await team["owner"].get("/api/search?q=has:link")
+
+        assert answer.status == 200, answer.body
+        bodies = [m["body"] for m in answer.body["messages"]]
+        assert any("https://example.com/modifieralone-link" in b for b in bodies)
+        assert all("http://" in b or "https://" in b for b in bodies)
+        assert answer.body["parsed"]["has"] == "link"
+
+    async def test_unknown_from_alone_still_names_who_was_missing(self, team: dict) -> None:
+        # The early empty-text return used to skip resolution, so `from:@nobody`
+        # came back empty without `unresolved` — the same silence as a real miss.
+        answer = await team["owner"].get("/api/search?q=from:@nobodyatall")
+
+        assert answer.body["messages"] == []
+        assert answer.body["total"] == 0
+        assert "from:nobodyatall" in answer.body["parsed"]["unresolved"]
+
+
 async def test_a_deleted_message_leaves_the_index(team: dict) -> None:
     sent = await send_message(team["owner"], team["general"]["id"], "ephemeralwidget")
     assert (await team["owner"].get("/api/search?q=ephemeralwidget")).body["total"] == 1
@@ -151,6 +217,34 @@ async def test_sync_without_cursors_replays_nothing(team: dict) -> None:
     assert response.body["messages"] == []
     # It still returns the channel list, which is how the client refreshes its sidebar.
     assert len(response.body["channels"]) > 0
+
+
+async def test_sync_replays_an_edit_of_the_cursor_message(team: dict) -> None:
+    first = await send_message(team["owner"], team["general"]["id"], "before the gap")
+    cursor = first.body["message"]["id"]
+    await team["owner"].patch(f"/api/messages/{cursor}", {"body": "typo fixed"})
+
+    import json
+
+    response = await team["member"].get(
+        f"/api/sync?cursors={json.dumps({team['general']['id']: cursor})}"
+    )
+    bodies = [m["body"] for m in response.body["messages"]]
+    assert "typo fixed" in bodies
+
+
+async def test_sync_replays_a_reaction_on_the_cursor_message(team: dict) -> None:
+    first = await send_message(team["owner"], team["general"]["id"], "react to me")
+    cursor = first.body["message"]["id"]
+    await team["member"].put(f"/api/messages/{cursor}/reactions", {"emoji": ":tada:"})
+
+    import json
+
+    response = await team["owner"].get(
+        f"/api/sync?cursors={json.dumps({team['general']['id']: cursor})}"
+    )
+    hit = next(m for m in response.body["messages"] if m["id"] == cursor)
+    assert any(r["emoji"] == ":tada:" for r in hit["reactions"])
 
 
 class TestDateModifiers:
@@ -428,4 +522,11 @@ class TestAccents:
         await send_message(team["owner"], team["general"]["id"], "we deployed it on Friday")
 
         found = await team["owner"].get("/api/search?q=deploys")
+        assert [m["body"] for m in found.body["messages"]] == ["we deployed it on Friday"]
+
+    async def test_a_partial_token_still_finds_the_word(self, team: dict) -> None:
+        await send_message(team["owner"], team["general"]["id"], "we deployed it on Friday")
+
+        found = await team["owner"].get("/api/search?q=deplo")
+        assert found.status == 200, found.body
         assert [m["body"] for m in found.body["messages"]] == ["we deployed it on Friday"]

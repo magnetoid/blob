@@ -55,6 +55,13 @@ function Svg({ size = 'md', boost = 0, children, ...rest }: Corrected) {
   );
 }
 
+export const HomeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 11.5L12 4l8 7.5" />
+    <path d="M6.5 10.5V20h11V10.5" />
+  </Svg>
+);
+
 export const MessagesIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 8.7 3.9 8.38 8.38 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5z" />

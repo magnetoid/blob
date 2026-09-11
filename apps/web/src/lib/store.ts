@@ -36,6 +36,7 @@ import {
   withDraft,
   type Drafts,
 } from "./drafts.ts";
+import { typingKey } from "./typing.ts";
 import {
   isRecoverableSendError,
   loadOutbox,
@@ -431,6 +432,7 @@ export const useStore = create<State>((set, get) => ({
           clientMsgId: latest.clientMsgId,
           threadRootId: latest.threadRootId,
           attachmentIds: latest.attachmentIds,
+          alsoInChannel: latest.alsoInChannel && latest.threadRootId !== null,
         });
         setOutbox(set, get, (outbox) => {
           const next = { ...outbox };
@@ -561,6 +563,13 @@ export const useStore = create<State>((set, get) => ({
     }
 
     if (!state.messages[channelId]?.loaded) {
+      const lastRead = state.channels[channelId]?.lastReadMessageId ?? null;
+      const lastMsg = state.channels[channelId]?.lastMessageId ?? null;
+      // Unread lives at lastRead, which is often older than the tail page. `around`
+      // puts the divider on screen the way a permalink does; the tail would hide it.
+      const jumpToUnread =
+        lastRead !== null && lastMsg !== null && lastMsg > lastRead;
+
       set((s) => ({
         messages: {
           ...s.messages,
@@ -570,9 +579,17 @@ export const useStore = create<State>((set, get) => ({
       let messages: Message[];
       let hasMore: boolean;
       try {
-        ({ messages, hasMore } = await api.messages.history(channelId, {
-          limit: 50,
-        }));
+        if (jumpToUnread) {
+          ({ messages } = await api.messages.history(channelId, {
+            around: lastRead,
+            limit: 50,
+          }));
+          hasMore = true;
+        } else {
+          ({ messages, hasMore } = await api.messages.history(channelId, {
+            limit: 50,
+          }));
+        }
       } catch (err) {
         // Without this, `loading` stuck at true forever and the empty state claimed
         // "This is the start of #channel" about a channel full of history.
@@ -749,6 +766,7 @@ export const useStore = create<State>((set, get) => ({
       threadRootId,
       body,
       attachmentIds,
+      alsoInChannel: alsoInChannel && threadRootId !== null,
       createdAt: new Date().toISOString(),
       status: get().status === "online" ? "sending" : "queued",
       attempts: 0,
@@ -1228,15 +1246,18 @@ export const useStore = create<State>((set, get) => ({
         break;
 
       case "typing":
-        set((s) => ({
-          typing: {
-            ...s.typing,
-            [event.channelId]: {
-              ...(s.typing[event.channelId] ?? {}),
-              [event.userId]: Date.now(),
+        set((s) => {
+          const key = typingKey(event.channelId, event.threadRootId);
+          return {
+            typing: {
+              ...s.typing,
+              [key]: {
+                ...(s.typing[key] ?? {}),
+                [event.userId]: Date.now(),
+              },
             },
-          },
-        }));
+          };
+        });
         break;
 
       case "user.updated":
@@ -1424,18 +1445,77 @@ export const useStore = create<State>((set, get) => ({
       return;
     }
 
-    set((s) => ({
-      channels: Object.fromEntries(result.channels.map((c) => [c.id, c])),
-      // Channels whose gap was too large get dropped and refetched on next open.
-      messages: Object.fromEntries(
-        Object.entries(s.messages).filter(
-          ([id]) => !result.resyncChannelIds.includes(id),
+    set((s) => {
+      // Merge, do not replace: a channel the payload omitted is still the one you
+      // were in. Replacing the map used to drop local lastRead on a brief empty
+      // `channels` list, and it never applied `readStates` at all.
+      const channels = { ...s.channels };
+      for (const channel of result.channels) {
+        channels[channel.id] = { ...channels[channel.id], ...channel };
+      }
+      for (const state of result.readStates) {
+        const channel = channels[state.channelId];
+        if (!channel) continue;
+        channels[state.channelId] = {
+          ...channel,
+          lastReadMessageId: state.lastReadMessageId,
+          mentionCount: state.mentionCount,
+        };
+      }
+      return {
+        channels,
+        messages: Object.fromEntries(
+          Object.entries(s.messages).filter(
+            ([id]) => !result.resyncChannelIds.includes(id),
+          ),
         ),
-      ),
-    }));
+      };
+    });
 
     for (const message of result.messages) {
-      get().applyEvent({ t: "message.new", message });
+      if (message.deletedAt) {
+        get().applyEvent({
+          t: "message.deleted",
+          id: message.id,
+          channelId: message.channelId,
+          threadRootId: message.threadRootId,
+        });
+        continue;
+      }
+      // Gap fill, not a live arrival: fold even when the open list is a permalink
+      // window that is not at the tail. `applyEvent` would drop those on purpose.
+      set((s) => {
+        const next: Partial<State> = {};
+        if (message.threadRootId && s.threads[message.threadRootId]) {
+          next.threads = {
+            ...s.threads,
+            [message.threadRootId]: overlayThreadOutbox(
+              s.currentUser,
+              s.outbox,
+              message.threadRootId,
+              upsert(stripPending(s.threads[message.threadRootId] ?? []), message),
+            ),
+          };
+        }
+        if (inChannelHistory(message)) {
+          const existing = s.messages[message.channelId];
+          if (existing) {
+            next.messages = {
+              ...s.messages,
+              [message.channelId]: {
+                ...existing,
+                items: overlayChannelOutbox(
+                  s.currentUser,
+                  s.outbox,
+                  message.channelId,
+                  upsert(stripPending(existing.items), message),
+                ),
+              },
+            };
+          }
+        }
+        return next;
+      });
     }
 
     const active = get().activeChannelId;

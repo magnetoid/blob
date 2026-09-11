@@ -27,7 +27,7 @@ import { formatRelative, formatTime } from "./messageFormatting.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
-import { FileIcon, ReplyIcon } from "../../components/Icon.tsx";
+import { FileIcon, PinIcon, ReplyIcon } from "../../components/Icon.tsx";
 import { resolveReaction } from "../../lib/emoji.ts";
 
 /** Offered directly in the hover toolbar; the rest come from the picker. */
@@ -107,6 +107,8 @@ export const MessageRow = memo(function MessageRow({
   const currentUser = useStore((s) => s.currentUser);
   const customEmoji = useStore((s) => s.customEmoji);
   const toggleReaction = useStore((s) => s.toggleReaction);
+  const toggleSaved = useStore((s) => s.toggleSaved);
+  const saved = useStore((s) => s.savedMessageIds.has(message.id));
   const myGroupIds = useStore((s) => s.myGroupIds);
   const knownNames = useMentionIndex();
   const [copied, setCopied] = useState(false);
@@ -286,6 +288,14 @@ export const MessageRow = memo(function MessageRow({
                 >
                   {author.displayName}
                 </button>
+                {(author.statusEmoji || author.statusText) && (
+                  <span
+                    className="message-status"
+                    title={author.statusText ?? undefined}
+                  >
+                    {author.statusEmoji ?? author.statusText}
+                  </span>
+                )}
                 <PersonCard
                   person={author}
                   open={cardOpen}
@@ -569,6 +579,18 @@ export const MessageRow = memo(function MessageRow({
               <ReplyIcon size="md" />
             </button>
           )}
+          <button
+            className="message-action"
+            type="button"
+            tabIndex={tab}
+            aria-pressed={saved}
+            aria-label={saved ? "Remove from later" : "Save for later"}
+            data-tooltip={saved ? "Remove from later" : "Save for later"}
+            data-tooltip-place="top"
+            onClick={() => void toggleSaved(message.id).catch(showError)}
+          >
+            <PinIcon size="md" />
+          </button>
           {copied && (
             <span className="copied-note" role="status">
               Link copied
