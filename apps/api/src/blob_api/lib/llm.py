@@ -8,9 +8,17 @@ for a key. "Agent-native" was true of the plumbing and not yet of the product.
 This is deliberately the smallest possible provider layer, with three callers:
 `plugins/builtin.py` (the agent), `services/catchup.py` (the unread recap) and
 `services/agentic.py` (thread summaries). Blob is not becoming an LLM framework: it needs
-two calls — stream a reply to a conversation, and complete one document whole — and
-everything else that makes agents interesting (history, identity, permissions, what gets
-posted where) is already Blob's and stays Blob's.
+three calls — stream a reply to a conversation, stream one that may use tools, and
+complete one document whole — and everything else that makes agents interesting (history,
+identity, permissions, what gets posted where) is already Blob's and stays Blob's.
+
+**A tool result is data.** The loop in `stream_reply_with_tools` hands what a tool saw
+back to the model in the provider's tool-result shape and nowhere else — never spliced
+into the system prompt, never appended to a person's turn. That is the whole boundary
+between "the agent read a channel" and "a message in that channel instructed the agent",
+and it is the same rule ADR 0007 states for themes and blocks: user content is data,
+never code. The only way a tool runs is through the `call` the caller passes in; nothing
+the model writes in prose is ever executed.
 
 **Streaming for conversation, `complete` for documents.** The AG-UI fold downstream is
 built around deltas, and a channel where the answer appears as it is written is the
@@ -32,7 +40,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -65,6 +73,38 @@ class Turn:
 
     role: str
     content: str
+
+
+@dataclass(slots=True)
+class ToolCall:
+    """The model asked for a tool.
+
+    Yielded the moment the call is complete and before it runs, so a run card can show
+    what is about to be read before the result comes back.
+    """
+
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass(slots=True)
+class ToolResult:
+    """What the tool said, yielded as soon as it said it.
+
+    A separate value from the `ToolCall` rather than a field filled in on it, because the
+    two are separated by however long the tool takes. A run card that learned both at once
+    would show nothing at all while a slow read ran, and then the whole exchange after the
+    model had already finished thinking about it.
+    """
+
+    id: str
+    name: str
+    content: str
+
+
+#: Runs a tool the model asked for and returns what it saw, as text the model reads.
+ToolRunner = Callable[[str, dict[str, Any]], Awaitable[str]]
 
 
 def open_client() -> httpx.AsyncClient:
@@ -228,6 +268,265 @@ def _provider_error(event: Mapping[str, object]) -> str:
     if isinstance(error, dict) and isinstance(error.get("message"), str):
         return f"the model refused: {error['message']}"
     return f"the model refused: {json.dumps(event)[:200]}"
+
+
+# --- a reply that may use tools -------------------------------------------------------
+
+
+async def stream_reply_with_tools(
+    *,
+    system: str,
+    turns: Sequence[Turn],
+    tools: Sequence[Mapping[str, Any]],
+    call: ToolRunner,
+    max_tokens: int | None = None,
+    max_rounds: int = 6,
+) -> AsyncIterator[str | ToolCall | ToolResult]:
+    """Yield the reply as it is written, running the tools the model asks for.
+
+    Each tool is `{name, description, input_schema}` — JSON Schema, the shape both
+    providers accept once it is wrapped their way. The model may ask for several tools in
+    one turn; they run in order, every result goes back in the same re-entry, and the
+    model answers again. `max_rounds` bounds how many times that can happen: a model that
+    keeps asking is stopped with an error the run log can show, not a silence.
+
+    With no tools this is `stream_reply`, and the request carries no `tools` key — a
+    provider given an empty list can refuse it.
+    """
+    if not tools:
+        async for delta in stream_reply(system=system, turns=turns, max_tokens=max_tokens):
+            yield delta
+        return
+    if not configured():
+        raise LlmError("no model is configured for this server")
+
+    limit = max_tokens or settings.LLM_MAX_TOKENS
+    anthropic = settings.LLM_PROVIDER == "anthropic"
+    messages: list[dict[str, Any]] = list(_collapse(turns))
+    if not messages:
+        return
+
+    dispatched = 0
+    while True:
+        text: list[str] = []
+        calls: list[ToolCall] = []
+        turn = (
+            _anthropic_tool_turn(system=system, messages=messages, tools=tools, max_tokens=limit)
+            if anthropic
+            else _openai_tool_turn(system=system, messages=messages, tools=tools, max_tokens=limit)
+        )
+        async for item in turn:
+            if isinstance(item, str):
+                text.append(item)
+            else:
+                calls.append(item)
+            yield item
+        if not calls:
+            return
+        if dispatched >= max_rounds:
+            raise LlmError(
+                f"the model asked for tools in {dispatched + 1} rounds in a row; "
+                f"stopping at {max_rounds}"
+            )
+        results: list[str] = []
+        for one in calls:
+            result = await call(one.name, one.arguments)
+            results.append(result)
+            yield ToolResult(id=one.id, name=one.name, content=result)
+        dispatched += 1
+        prose = "".join(text)
+        if anthropic:
+            blocks: list[dict[str, Any]] = [{"type": "text", "text": prose}] if prose else []
+            blocks.extend(
+                {"type": "tool_use", "id": one.id, "name": one.name, "input": one.arguments}
+                for one in calls
+            )
+            messages.append({"role": "assistant", "content": blocks})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "tool_result", "tool_use_id": one.id, "content": result}
+                        for one, result in zip(calls, results, strict=True)
+                    ],
+                }
+            )
+        else:
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": prose or None,
+                    "tool_calls": [
+                        {
+                            "id": one.id,
+                            "type": "function",
+                            "function": {
+                                "name": one.name,
+                                "arguments": json.dumps(one.arguments),
+                            },
+                        }
+                        for one in calls
+                    ],
+                }
+            )
+            messages.extend(
+                {"role": "tool", "tool_call_id": one.id, "content": result}
+                for one, result in zip(calls, results, strict=True)
+            )
+
+
+def _tool_arguments(raw: str) -> dict[str, Any]:
+    """The accumulated argument fragments, as the object the tool is called with.
+
+    Providers stream arguments as pieces of one JSON document, and a tool with no
+    arguments can arrive as no pieces at all — that is `{}`, not an error. A model that
+    produces something else has not made a call Blob can run, and saying so beats
+    guessing.
+    """
+    if not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except ValueError as error:
+        raise LlmError("the model asked for a tool with arguments that were not JSON") from error
+    if not isinstance(parsed, dict):
+        raise LlmError("the model asked for a tool with arguments that were not an object")
+    return parsed
+
+
+async def _anthropic_tool_turn(
+    *,
+    system: str,
+    messages: Sequence[Mapping[str, Any]],
+    tools: Sequence[Mapping[str, Any]],
+    max_tokens: int,
+) -> AsyncIterator[str | ToolCall]:
+    """One model turn. Text deltas as they arrive; a `ToolCall` when its block closes.
+
+    Anthropic opens a `tool_use` block with the id and name, streams the arguments as
+    `input_json_delta` fragments, and closes it with `content_block_stop` — which is the
+    first moment the call is whole, so that is when it is yielded.
+    """
+    base = (settings.LLM_BASE_URL or "https://api.anthropic.com").rstrip("/")
+    body: dict[str, object] = {
+        "model": model_name(),
+        "max_tokens": max_tokens,
+        "system": system,
+        "messages": list(messages),
+        "tools": [dict(tool) for tool in tools],
+        "stream": True,
+    }
+    headers = {
+        "x-api-key": settings.LLM_API_KEY or "",
+        "anthropic-version": ANTHROPIC_VERSION,
+        "content-type": "application/json",
+    }
+    pending: dict[Any, dict[str, Any]] = {}
+    async for event in _stream_sse(f"{base}/v1/messages", headers, body):
+        kind = event.get("type")
+        if kind == "content_block_start":
+            block = event.get("content_block")
+            if isinstance(block, dict) and block.get("type") == "tool_use":
+                pending[event.get("index")] = {
+                    "id": str(block.get("id") or ""),
+                    "name": str(block.get("name") or ""),
+                    "json": [],
+                }
+        elif kind == "content_block_delta":
+            delta = event.get("delta")
+            if not isinstance(delta, dict):
+                continue
+            if isinstance(delta.get("text"), str):
+                yield delta["text"]
+            elif isinstance(delta.get("partial_json"), str):
+                slot = pending.get(event.get("index"))
+                if slot is not None:
+                    slot["json"].append(delta["partial_json"])
+        elif kind == "content_block_stop":
+            slot = pending.pop(event.get("index"), None)
+            if slot is not None:
+                yield ToolCall(
+                    id=slot["id"],
+                    name=slot["name"],
+                    arguments=_tool_arguments("".join(slot["json"])),
+                )
+        elif kind == "error":
+            raise LlmError(_provider_error(event))
+
+
+async def _openai_tool_turn(
+    *,
+    system: str,
+    messages: Sequence[Mapping[str, Any]],
+    tools: Sequence[Mapping[str, Any]],
+    max_tokens: int,
+) -> AsyncIterator[str | ToolCall]:
+    """One model turn. Text deltas as they arrive; every `ToolCall` once the stream ends.
+
+    OpenAI streams a call's arguments as fragments keyed by `index`, and only the end of
+    the stream says a call is whole, so calls are accumulated and yielded at the end in
+    index order.
+    """
+    base = (settings.LLM_BASE_URL or "https://api.openai.com").rstrip("/")
+    body: dict[str, object] = {
+        "model": model_name(),
+        "max_tokens": max_tokens,
+        "messages": [{"role": "system", "content": system}, *messages],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": tool["name"],
+                    "description": tool.get("description", ""),
+                    "parameters": tool.get("input_schema", {"type": "object"}),
+                },
+            }
+            for tool in tools
+        ],
+        "stream": True,
+    }
+    headers = {
+        "authorization": f"Bearer {settings.LLM_API_KEY or ''}",
+        "content-type": "application/json",
+    }
+    pending: dict[int, dict[str, Any]] = {}
+    async for event in _stream_sse(f"{base}/v1/chat/completions", headers, body):
+        if event.get("error"):
+            raise LlmError(_provider_error(event))
+        choices = event.get("choices")
+        if not isinstance(choices, list) or not choices:
+            continue
+        first = choices[0]
+        if not isinstance(first, dict):
+            continue
+        delta = first.get("delta")
+        if not isinstance(delta, dict):
+            continue
+        if isinstance(delta.get("content"), str):
+            yield delta["content"]
+        entries = delta.get("tool_calls")
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            index = entry.get("index")
+            slot = pending.setdefault(
+                index if isinstance(index, int) else 0, {"id": "", "name": "", "args": []}
+            )
+            if isinstance(entry.get("id"), str):
+                slot["id"] = entry["id"]
+            function = entry.get("function")
+            if isinstance(function, dict):
+                if isinstance(function.get("name"), str):
+                    slot["name"] = function["name"]
+                if isinstance(function.get("arguments"), str):
+                    slot["args"].append(function["arguments"])
+    for index in sorted(pending):
+        slot = pending[index]
+        yield ToolCall(
+            id=slot["id"], name=slot["name"], arguments=_tool_arguments("".join(slot["args"]))
+        )
 
 
 # --- one whole reply -----------------------------------------------------------------
@@ -467,10 +766,14 @@ async def _openai_complete(
 __all__ = [
     "LlmError",
     "ProviderRefusedError",
+    "ToolCall",
+    "ToolResult",
+    "ToolRunner",
     "Turn",
     "complete",
     "configured",
     "extract_json",
     "model_name",
     "stream_reply",
+    "stream_reply_with_tools",
 ]
