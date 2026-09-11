@@ -5587,22 +5587,55 @@ a.build-commit-sha:hover {
   }
 }
 
+/* ─── an agent, wherever it appears ──────────────────────────────────────── */
+
+/* A bot is a real users row (ADR 0005), which is what makes mentions, search and DMs
+   work with no frontend change — and is exactly why it needs marking here. It posts
+   through the same path a person does and would otherwise land in the list looking
+   like one. Both marks are reserved iris and neither is themeable. */
+.avatar[data-kind='bot'] {
+  background: conic-gradient(from 200deg, var(--iris-strong), var(--iris-soft), var(--iris));
+  color: #fff;
+}
+
+.agent-badge {
+  flex: none;
+  align-self: center;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--iris-tint);
+  color: var(--iris-strong);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
 /* ─── agent run cards ────────────────────────────────────────────────────── */
 
 .agent-run-card {
+  /* The rail down the left is the whole signal: scanning a channel, the eye finds
+     "an agent did this" before it reads a word. Iris rather than the accent, because
+     the accent already means "this workspace" everywhere else and would read as
+     emphasis rather than authorship. */
   margin: 4px 20px 8px 66px;
-  padding: 10px 12px;
-  border: 1px solid var(--hairline);
-  border-left: 3px solid var(--accent-border);
+  padding: 12px 14px;
+  border: 1px solid var(--iris-border);
+  border-left: 3px solid var(--iris);
   border-radius: var(--radius-md);
-  background: var(--surface-muted);
+  background: var(--iris-surface);
   max-width: 560px;
   font-size: var(--text-sm);
 }
 
 .agent-run-card[data-status='failed'],
 .agent-run-card[data-status='refused'] {
+  /* A failure stops being an agent's colour and becomes a failure's. The rail is the
+     one thing read at a glance, so it carries the more urgent of the two. */
   border-left-color: var(--danger);
+  border-color: var(--hairline);
+  background: var(--surface-muted);
 }
 
 .agent-run-head {
@@ -5643,6 +5676,46 @@ a.build-commit-sha:hover {
 
 .agent-run-name {
   font-weight: 600;
+  color: var(--iris-deep);
+}
+
+.agent-run-card[data-status='failed'] .agent-run-name,
+.agent-run-card[data-status='refused'] .agent-run-name {
+  color: var(--text);
+}
+
+/* A running plan, as a bar rather than a number. There is no percentage to show — the
+   model decides how many steps there are while it takes them — so the honest shape is
+   one that says "still going" and nothing more. Reduced motion gets a still bar at the
+   sweep's midpoint rather than a frozen gradient edge. */
+.agent-run-progress {
+  height: 4px;
+  margin-top: 9px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    90deg,
+    var(--iris-shimmer) 25%,
+    var(--iris-soft) 50%,
+    var(--iris-shimmer) 75%
+  );
+  background-size: 200% 100%;
+  animation: agent-run-sweep 1.6s linear infinite;
+}
+
+@keyframes agent-run-sweep {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-run-progress {
+    animation: none;
+    background: var(--iris-soft);
+  }
 }
 
 .agent-run-state {
@@ -5691,7 +5764,7 @@ a.build-commit-sha:hover {
 }
 
 .agent-run-step-mark {
-  color: var(--accent);
+  color: var(--iris-strong);
   flex: none;
   width: 12px;
   text-align: center;
@@ -5712,8 +5785,15 @@ a.build-commit-sha:hover {
 }
 
 .agent-run-tool summary code {
+  /* A tool call names something real — a channel, a query, a file — so it is set as
+     code on its own chip, the way the rest of the app sets an identifier. */
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  color: var(--iris-text);
+  background: var(--iris-surface-2);
+  border: 1px solid var(--iris-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
 }
 
 .agent-run-tool-state {
@@ -5726,7 +5806,7 @@ a.build-commit-sha:hover {
   padding: 8px;
   border-radius: var(--radius-sm);
   background: var(--surface);
-  border: 1px solid var(--hairline-soft);
+  border: 1px solid var(--iris-border-soft);
   font-size: var(--text-xs);
   white-space: pre-wrap;
   word-break: break-word;

@@ -61,6 +61,11 @@ export function AgentRunCard({ run }: { run: AgentRunView }) {
         )}
       </div>
 
+      {/* A bar, not a percentage: the model decides how many steps there are while it
+          is taking them, so there is no fraction to show. Presentational and hidden
+          from the reader — the head above already says "running" in words. */}
+      {running && <div className="agent-run-progress" aria-hidden />}
+
       {card && card.steps.length > 0 && (
         <ol className="agent-run-steps">
           {card.steps.map((step) => (

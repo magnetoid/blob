@@ -84,6 +84,34 @@
      track, not a surface, and none of the elevation levels describe it. */
   --shadow-knob: 0 1px 3px rgb(26 29 27 / 20%);
 
+  /* ─── iris — agents ────────────────────────────────────────────────────── */
+  /* The Meadow direction's one addition to this palette: a colour that means "an
+     agent did this", so a person can tell at a glance which work in a channel was
+     theirs and which was not. Iris rather than another green, because the accent
+     already means "this workspace" and a second green would read as emphasis instead
+     of authorship.
+     *
+     * Deliberately **below** the themeable block and absent from
+     * `services/themes.py`. Reserved is the point: a theme that could recolour agent
+     * output could make an agent indistinguishable from a person, and the whole of
+     * ADR 0005 — a bot is a real users row, with mentions, search and DMs that work —
+     * rests on people being able to see which is which. Everything here is structure,
+     * like radius and motion, and changes with the design rather than with a theme. */
+  --iris: #8b5cf6; /* the rail down an agent card, the spinner, Stop */
+  --iris-strong: #6b21c8; /* the AGENT badge's text, a step's tick */
+  --iris-deep: #4c1d95; /* an agent's name */
+  --iris-soft: #c4b5fd; /* focus ring, and the bright middle of the shimmer */
+  --iris-tint: #f3eefb; /* the AGENT badge, a selected agent row */
+  --iris-surface: #fdfcff; /* the card an agent's answer sits in */
+  --iris-surface-2: #f5f2fb; /* source and tool chips */
+  --iris-border: #e2d8f5;
+  --iris-border-soft: #e9e2f7;
+  --iris-text: #5b4a80; /* a source chip's text */
+  --iris-text-faint: #7a6e92; /* "from 3 sources" — darkened from the design's
+                                 #8b7fa3, which is 3.1:1 on the card and fails AA
+                                 exactly as the grey ladder above did. */
+  --iris-shimmer: #ede9fe; /* the ends of the running-plan sweep */
+
   /* ─── type ─────────────────────────────────────────────────────────────── */
   --font-ui: 'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
@@ -228,6 +256,24 @@
   --dark-scrollbar: #2f342f;
   --dark-knob: #e8ebe7;
   --dark-backdrop: rgb(0 0 0 / 55%);
+
+  /* Iris on a dark ground. The names keep their jobs and the values swap ends: in
+     light `--iris-deep` is the darkest thing here because it writes an agent's name on
+     paper, and in dark it has to be the lightest for the same reason. Reading the pairs
+     as "deep is dark" rather than "deep is the name" is how a palette inverts into an
+     unreadable one. */
+  --dark-iris: #a78bfa;
+  --dark-iris-strong: #c4b5fd;
+  --dark-iris-deep: #ddd6fe;
+  --dark-iris-soft: #8b5cf6;
+  --dark-iris-tint: #251f36;
+  --dark-iris-surface: #1a1724;
+  --dark-iris-surface-2: #201c2d;
+  --dark-iris-border: #342a4c;
+  --dark-iris-border-soft: #2b2441;
+  --dark-iris-text: #bcb1d8;
+  --dark-iris-text-faint: #9d93b7;
+  --dark-iris-shimmer: #2b2342;
 }
 
 :root[data-density='compact'] {
@@ -285,6 +331,18 @@
     --scrollbar: var(--dark-scrollbar);
     --knob: var(--dark-knob);
     --backdrop: var(--dark-backdrop);
+    --iris: var(--dark-iris);
+    --iris-strong: var(--dark-iris-strong);
+    --iris-deep: var(--dark-iris-deep);
+    --iris-soft: var(--dark-iris-soft);
+    --iris-tint: var(--dark-iris-tint);
+    --iris-surface: var(--dark-iris-surface);
+    --iris-surface-2: var(--dark-iris-surface-2);
+    --iris-border: var(--dark-iris-border);
+    --iris-border-soft: var(--dark-iris-border-soft);
+    --iris-text: var(--dark-iris-text);
+    --iris-text-faint: var(--dark-iris-text-faint);
+    --iris-shimmer: var(--dark-iris-shimmer);
 
     /* Shadows still exist in dark, but the surface ladder carries most of the
        elevation; the ring turns to white at low alpha because a hairline that dark
@@ -352,6 +410,18 @@
     --scrollbar: var(--dark-scrollbar);
     --knob: var(--dark-knob);
     --backdrop: var(--dark-backdrop);
+    --iris: var(--dark-iris);
+    --iris-strong: var(--dark-iris-strong);
+    --iris-deep: var(--dark-iris-deep);
+    --iris-soft: var(--dark-iris-soft);
+    --iris-tint: var(--dark-iris-tint);
+    --iris-surface: var(--dark-iris-surface);
+    --iris-surface-2: var(--dark-iris-surface-2);
+    --iris-border: var(--dark-iris-border);
+    --iris-border-soft: var(--dark-iris-border-soft);
+    --iris-text: var(--dark-iris-text);
+    --iris-text-faint: var(--dark-iris-text-faint);
+    --iris-shimmer: var(--dark-iris-shimmer);
 
     /* Shadows still exist in dark, but the surface ladder carries most of the
        elevation; the ring turns to white at low alpha because a hairline that dark

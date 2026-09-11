@@ -288,6 +288,11 @@ export const MessageRow = memo(function MessageRow({
                 >
                   {author.displayName}
                 </button>
+                {author.kind === "bot" && (
+                  /* A word, not an icon: it survives being small, being printed, and
+                     being read by someone who cannot see the iris it sits in. */
+                  <span className="agent-badge">Agent</span>
+                )}
                 {(author.statusEmoji || author.statusText) && (
                   <span
                     className="message-status"

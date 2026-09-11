@@ -89,3 +89,17 @@ describe('waiting on a decision', () => {
     expect(screen.getByText(/nobody answered in time/)).toBeTruthy();
   });
 });
+
+describe('a run in progress', () => {
+  /* The design calls this a "live plan": a run that is still going says so with a bar
+     rather than a number, because there is no number to give — the model decides how
+     many steps there are while it is taking them. */
+  it('shows a running run as still going, and a finished one as finished', () => {
+    const { container } = render(<AgentRunCard run={run({ status: 'running' })} />);
+    expect(container.querySelector('.agent-run-progress')).toBeTruthy();
+
+    cleanup();
+    const done = render(<AgentRunCard run={run({ status: 'succeeded' })} />);
+    expect(done.container.querySelector('.agent-run-progress')).toBeNull();
+  });
+});
