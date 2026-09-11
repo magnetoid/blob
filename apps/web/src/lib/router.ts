@@ -120,6 +120,8 @@ export type Route =
   | { view: 'changelog' }
   /** The guide: what everything on this screen is, and how to use it. */
   | { view: 'help' }
+  /** A video call. /meetup/:meetupId */
+  | { view: 'meetup'; meetupId: string }
   /** A permalink to one message. Resolved, then replaced by the conversation. */
   | { view: 'permalink'; messageId: string }
   | { view: 'search' }
@@ -147,6 +149,8 @@ export function parseRoute(path: string): Route {
   if (clean === '/scheduled') return { view: 'scheduled' };
   if (clean === '/whats-new') return { view: 'changelog' };
   if (clean === '/help') return { view: 'help' };
+  const meetup = clean.match(/^\/meetup\/([^/]+)$/);
+  if (meetup) return { view: 'meetup', meetupId: meetup[1] as string };
   const permalink = clean.match(/^\/m\/([^/]+)$/);
   if (permalink) return { view: 'permalink', messageId: permalink[1] as string };
   if (clean === '/search') return { view: 'search' };
@@ -226,6 +230,8 @@ export function pathForRoute(route: Route): string {
       return '/whats-new';
     case 'help':
       return '/help';
+    case 'meetup':
+      return `/meetup/${route.meetupId}`;
     case 'permalink':
       return `/m/${route.messageId}`;
     case 'search':
@@ -251,7 +257,7 @@ export function pathForRoute(route: Route): string {
  * A permalink carries a message id and is replaced by the conversation as soon as it is
  * followed, so there is no "go to the permalink view" for a button to mean.
  */
-export type StableView = Exclude<View, 'permalink' | 'channel'>;
+export type StableView = Exclude<View, 'permalink' | 'channel' | 'meetup'>;
 
 /** The address of a conversation — what the sidebar, results and push payloads link. */
 export function pathForChannel(channelId: string, threadRootId?: string): string {

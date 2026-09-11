@@ -42,6 +42,8 @@ SERVER_EVENTS: frozenset[str] = frozenset(
         "agent_run.updated",
         "agent_run.finished",
         "work.updated",
+        "meetup.started",
+        "meetup.ended",
         "error",
     }
 )

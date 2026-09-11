@@ -82,6 +82,7 @@ class Connection:
 _by_connection: dict[str, Connection] = {}
 _by_user: dict[str, set[Connection]] = {}
 _by_channel: dict[str, set[Connection]] = {}
+_by_workspace: dict[str, set[Connection]] = {}
 #: Subject user id -> the connections watching that user's presence. The reverse of
 #: Connection.presence_subs, kept so a presence flip costs a dict lookup instead of a
 #: scan of every socket in the process. The client subscribes to everyone it can see, so
@@ -103,11 +104,13 @@ def new_connection(connection_id: str, user_id: str, workspace_id: str) -> Conne
 def register(conn: Connection) -> None:
     _by_connection[conn.id] = conn
     _add(_by_user, conn.user_id, conn)
+    _add(_by_workspace, conn.workspace_id, conn)
 
 
 def unregister(conn: Connection) -> None:
     _by_connection.pop(conn.id, None)
     _remove(_by_user, conn.user_id, conn)
+    _remove(_by_workspace, conn.workspace_id, conn)
     for channel_id in conn.channel_ids:
         _remove(_by_channel, channel_id, conn)
     for subject_id in conn.presence_subs:
@@ -245,9 +248,8 @@ def stats(workspace_id: str) -> dict[str, int]:
 def _deliver_local(event: ServerEvent, to: dict[str, Any]) -> None:
     workspace_id = to.get("workspace")
     if workspace_id:
-        for conn in list(_by_connection.values()):
-            if conn.workspace_id == workspace_id:
-                conn.send(event)
+        for conn in list(_by_workspace.get(workspace_id, set())):
+            conn.send(event)
         return
     if "channelId" in to:
         for conn in list(_by_channel.get(to["channelId"], set())):
@@ -372,6 +374,7 @@ def reset_for_tests() -> None:
     _by_connection.clear()
     _by_user.clear()
     _by_channel.clear()
+    _by_workspace.clear()
     _by_presence_sub.clear()
 
 

@@ -263,6 +263,7 @@ def create_app() -> FastAPI:
     from .routers.interactions import router as interaction_router
     from .routers.mcp import router as mcp_router
     from .routers.mcp import tokens_router as mcp_tokens_router
+    from .routers.meetups import router as meetup_router
     from .routers.messages import router as message_router
     from .routers.my_agents import router as my_agents_router
     from .routers.plugin_hosting import router as plugin_hosting_router
@@ -286,6 +287,7 @@ def create_app() -> FastAPI:
     app.include_router(file_router)
     app.include_router(feedback_router)
     app.include_router(interaction_router)
+    app.include_router(meetup_router)
     app.include_router(admin_router)
     app.include_router(admin_instance_router)
     app.include_router(admin_emoji_router)

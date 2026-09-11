@@ -481,3 +481,19 @@ export interface LaterItem {
   remindedAt: string | null;
   note: string | null;
 }
+
+export interface Meetup {
+  id: string;
+  workspaceId: string;
+  channelId: string | null;
+  createdBy: string;
+  name: string;
+  status: 'active' | 'ended';
+  createdAt: string;
+  endedAt: string | null;
+}
+
+export interface MeetupToken {
+  token: string;
+  url: string;
+}

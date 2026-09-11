@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-07T00:07:27'
-updated: '2026-09-07T00:07:27'
+created: '2026-09-08T17:49:32'
+updated: '2026-09-08T17:49:32'
 ---
 
 # apps/api/src/blob_api/routers/mcp.py

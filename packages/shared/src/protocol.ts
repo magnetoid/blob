@@ -12,6 +12,7 @@ import type {
   AgentRunView,
   Channel,
   ChannelWithState,
+  Meetup,
   Message,
   NotifyLevel,
   PresenceState,
@@ -92,6 +93,8 @@ export type ServerEvent =
       error: string | null;
       postCount: number;
     }
+  | { t: 'meetup.started'; meetup: Meetup }
+  | { t: 'meetup.ended'; meetupId: string }
   | { t: 'error'; code: string; message: string };
 
 /** Frames the client sends. */

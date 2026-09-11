@@ -1107,6 +1107,30 @@ class PushSubscription(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class Meetup(Base):
+    __tablename__ = "meetups"
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'ended')", name="meetups_status_check"),
+        Index("meetups_workspace_recent", "workspace_id", text("created_at DESC")),
+        Index("meetups_channel", "channel_id", postgresql_where=text("channel_id IS NOT NULL")),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="SET NULL")
+    )
+    created_by: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    ended_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
 class Webhook(Base):
     __tablename__ = "webhooks"
 
@@ -1475,6 +1499,7 @@ __all__ = [
     "CustomEmoji",
     "FeedbackTicket",
     "Invite",
+    "Meetup",
     "Message",
     "PasswordReset",
     "Plugin",

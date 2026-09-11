@@ -39,11 +39,9 @@ interface Props {
   onToggleSidebar?: () => void;
   /** The whole app's view, so a screen the bar cannot reach simply presses nothing. */
   view: View;
-  /** The chat shell keeps the bar intentionally sparse. */
-  minimal?: boolean;
 }
 
-export function TopBar({ onFeedback, onToggleSidebar, view, minimal = false }: Props) {
+export function TopBar({ onFeedback, onToggleSidebar, view }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
   const status = useStore((s) => s.status);
@@ -71,35 +69,6 @@ export function TopBar({ onFeedback, onToggleSidebar, view, minimal = false }: P
   const visible = ITEMS.filter(
     (item) => (!item.adminOnly || isAdmin) && (!item.ownerOnly || isOwner),
   );
-
-  if (minimal) {
-    return (
-      <header className="topbar topbar-minimal">
-        {onToggleSidebar && (
-          <button
-            type="button"
-            className="topbar-hamburger"
-            aria-label="Channels"
-            onClick={onToggleSidebar}
-          >
-            <MenuIcon size="lg" />
-          </button>
-        )}
-        <WorkspaceSwitcher name={workspaceName} />
-        <div className="topbar-spacer" />
-        <button
-          className="topbar-search-btn"
-          aria-pressed={view === 'search'}
-          onClick={() => navigate(pathForView('search'))}
-          aria-label="Search"
-          title="Search"
-        >
-          <SearchIcon size="lg" />
-          <span className="topbar-search-label">Search</span>
-        </button>
-      </header>
-    );
-  }
 
   return (
     <header className="topbar">

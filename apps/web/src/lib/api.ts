@@ -27,6 +27,8 @@ import type {
   Work,
   WorkArtifact,
   WorkArtifactKind,
+  Meetup,
+  MeetupToken,
 } from "@blob/shared";
 
 /** What Activity is narrowed to. */
@@ -656,6 +658,14 @@ export const api = {
   dms: {
     open: (userIds: string[]) =>
       post<{ channel: ChannelWithState }>("/api/dms", { userIds }),
+  },
+
+  meetups: {
+    create: (input: { name: string; channelId?: string | null }) =>
+      post<Meetup>("/api/meetups", input),
+    get: (id: string) => get<Meetup>(`/api/meetups/${id}`),
+    getToken: (id: string) => post<MeetupToken>(`/api/meetups/${id}/token`),
+    end: (id: string) => post<Meetup>(`/api/meetups/${id}/end`),
   },
 
   messages: {

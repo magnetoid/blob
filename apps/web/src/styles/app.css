@@ -6377,3 +6377,94 @@ button.person-trigger:hover {
 .diff-meta {
   color: var(--text-4);
 }
+
+.pane-action-huddle[data-active="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.pane-action-huddle[data-active="true"]:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* ─── meetups ────────────────────────────────────────────────────────────── */
+.meetup-pane {
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.meetup-pane .lk-video-conference {
+  height: 100%;
+}
+
+
+/* ─── staggered transition system ───────────────────────────────────────── */
+@keyframes stagger-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-slide-lg));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-item {
+  opacity: 0;
+  animation: stagger-fade-in-up var(--dur-open) var(--ease-out) forwards;
+}
+
+.stagger-1 { animation-delay: var(--stagger-1); }
+.stagger-2 { animation-delay: var(--stagger-2); }
+.stagger-3 { animation-delay: var(--stagger-3); }
+.stagger-4 { animation-delay: var(--stagger-4); }
+.stagger-5 { animation-delay: var(--stagger-5); }
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger-item {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+
+/* ─── preview gate ux ──────────────────────────────────────────────────── */
+.work-preview-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--surface-muted);
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--radius-lg);
+  gap: 16px;
+  margin: 24px;
+}
+.work-preview-gate-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-2);
+  box-shadow: var(--elev-1);
+}
+.work-preview-gate-title {
+  font-weight: 500;
+  font-size: var(--text-base);
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.work-preview-gate-content {
+  max-width: 400px;
+}
+

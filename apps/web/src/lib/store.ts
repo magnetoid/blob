@@ -20,6 +20,7 @@ import type {
   PresenceState,
   ServerEvent,
   Theme,
+  Meetup,
   User,
   UserGroup,
   UserPrefs,
@@ -134,6 +135,8 @@ interface State {
   /** Live and recent agent runs, keyed by run id. Fed by socket events and the
    * per-channel fetch on open; the card under a trigger message renders from this. */
   agentRuns: Record<string, AgentRunView>;
+  /** Active meetups in the current workspace, keyed by meetup id. */
+  activeMeetups: Record<string, Meetup>;
   /**
    * A channel where you deliberately left something unread.
    *
@@ -283,6 +286,7 @@ export const useStore = create<State>((set, get) => ({
   membershipVersion: {},
   lightbox: null,
   agentRuns: {},
+  activeMeetups: {},
   catchupScope: null,
   terminalTarget: null,
   suppressReadFor: null,
@@ -1376,6 +1380,20 @@ export const useStore = create<State>((set, get) => ({
         });
         break;
       }
+      case "meetup.started":
+        set((s) => ({
+          activeMeetups: { ...s.activeMeetups, [event.meetup.id]: event.meetup },
+        }));
+        break;
+
+      case "meetup.ended":
+        set((s) => {
+          const activeMeetups = { ...s.activeMeetups };
+          delete activeMeetups[event.meetupId];
+          return { activeMeetups };
+        });
+        break;
+
       case "hello":
       case "pong":
       case "error":

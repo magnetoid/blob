@@ -44,12 +44,21 @@ export function WorkPreview({ artifact }: { artifact: WorkArtifact }) {
 
   if (!running) {
     return (
-      <div className="work-preview-gate">
-        <p className="pref-hint">
-          A page {artifact.authorUserId ? "an agent" : "somebody"} published. It
-          runs in a sandbox — no network, no cookies, no access to this
-          workspace — and only when you ask.
-        </p>
+      <div className="work-preview-gate stagger-item stagger-3">
+        <div className="work-preview-gate-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
+        </div>
+        <div className="work-preview-gate-content">
+          <div className="work-preview-gate-title">Agentic Sandbox</div>
+          <p className="pref-hint">
+            A page {artifact.authorUserId ? "an agent" : "somebody"} published. It
+            runs in a secure container — no network, no cookies, no access to this
+            workspace — and executes only when you ask.
+          </p>
+        </div>
         <button className="btn btn-primary" onClick={() => setRunning(true)}>
           Run preview
         </button>

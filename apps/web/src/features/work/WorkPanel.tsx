@@ -104,7 +104,7 @@ function PlanTab({
   return (
     <div className="work-panel">
       {work && (
-        <div className="work-head">
+        <div className="work-head stagger-item stagger-1">
           <div>
             <div className="work-title">{work.title}</div>
             <div className="pref-hint">
@@ -133,14 +133,16 @@ function PlanTab({
         </div>
       )}
       {here.length === 0 ? (
-        <p className="pref-hint">
+        <p className="pref-hint stagger-item stagger-2">
           No agent has worked here yet. Mention one and its plan appears here as
           it runs.
         </p>
       ) : (
         <div className="work-runs">
-          {here.map((run) => (
-            <AgentRunCard key={run.id} run={run} />
+          {here.map((run, i) => (
+            <div key={run.id} className={`stagger-item stagger-${Math.min(i + 2, 5)}`}>
+              <AgentRunCard run={run} />
+            </div>
           ))}
         </div>
       )}
@@ -210,7 +212,7 @@ function PreviewTab({ artifacts }: { artifacts: WorkArtifact[] }) {
   const selected = artifacts.find((a) => a.id === open) ?? artifacts[0]!;
   return (
     <div className="work-panel work-split">
-      <ul className="work-list">
+      <ul className="work-list stagger-item stagger-1">
         {artifacts.map((artifact) => (
           <li key={artifact.id}>
             <button
@@ -229,7 +231,7 @@ function PreviewTab({ artifacts }: { artifacts: WorkArtifact[] }) {
           </li>
         ))}
       </ul>
-      <div className="work-detail">
+      <div className="work-detail stagger-item stagger-2">
         {/* Keyed so switching artifacts resets the run gate: a page you asked to run is
             not permission for the next one. */}
         <WorkPreview key={selected.id} artifact={selected} />

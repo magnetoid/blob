@@ -86,7 +86,7 @@ export function StartWorkDialog({ message, onClose }: Props) {
     >
       <div
         ref={dialogRef}
-        className="dialog"
+        className="dialog stagger-item stagger-1"
         role="dialog"
         aria-modal="true"
         aria-label="Start work from this message"

@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentRunView } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
+import { showError } from "../../lib/toasts.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { scrollToMessage } from "../../lib/navigation.ts";
 import { api } from "../../lib/api.ts";
 import { showThread } from "../../lib/navigation.ts";
+import { navigate } from "../../lib/router.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
 import {
@@ -102,6 +104,14 @@ export function ChannelView() {
     return () => clearInterval(timer);
   }, [typing]);
 
+  const typingNames = useMemo(() => {
+    if (!typing) return [];
+    return Object.entries(typing)
+      .filter(([id, startedAt]) => id !== currentUser?.id && now - startedAt < TYPING_TTL_MS)
+      .map(([id]) => users[id]?.displayName ?? "Someone")
+      .filter((name, i, all) => all.indexOf(name) === i);
+  }, [typing, currentUser, users, now]);
+
   const membershipVersion = useStore((s) =>
     s.activeChannelId ? (s.membershipVersion[s.activeChannelId] ?? 0) : 0,
   );
@@ -154,15 +164,34 @@ export function ChannelView() {
     [memberCountKey],
   );
 
-  const typingNames = useMemo(() => {
-    if (!typing) return [];
-    return Object.entries(typing)
-      .filter(
-        ([userId, at]) =>
-          now - at < TYPING_TTL_MS && userId !== currentUser?.id,
-      )
-      .map(([userId]) => users[userId]?.displayName ?? "Someone");
-  }, [typing, now, users, currentUser]);
+  const activeMeetup = useStore((s) => 
+    activeChannelId ? Object.values(s.activeMeetups).find(m => m.channelId === activeChannelId) : undefined
+  );
+
+  const handleStartMeetup = useCallback(async () => {
+    const state = useStore.getState();
+    const activeChannelId = state.activeChannelId;
+    const channel = activeChannelId ? state.channels[activeChannelId] : undefined;
+    if (!activeChannelId || !channel) return;
+
+    const activeMeetup = Object.values(state.activeMeetups).find(
+      (m) => m.channelId === activeChannelId,
+    );
+    if (activeMeetup) {
+      navigate(`/meetup/${activeMeetup.id}`);
+      return;
+    }
+    try {
+      const title = channel.name ?? useStore.getState().channelTitle(channel);
+      const meetup = await api.meetups.create({
+        name: `Meetup in ${title}`,
+        channelId: activeChannelId,
+      });
+      navigate(`/meetup/${meetup.id}`);
+    } catch (err: unknown) {
+      showError(err);
+    }
+  }, []);
 
   if (!activeChannelId || !channel) {
     return (
@@ -178,6 +207,7 @@ export function ChannelView() {
     );
   }
 
+  const archived = channel.archivedAt !== null;
   const isDm = channel.kind === "dm" || channel.kind === "group_dm";
   const title = channel.name ?? channelTitle(channel);
   // A one-to-one DM whose other member is a bot is the agent's room, and it needs a
@@ -190,7 +220,7 @@ export function ChannelView() {
           .map((id) => users[id])
           .find((u) => u?.kind === "bot")
       : undefined;
-  const archived = channel.archivedAt !== null;
+
   const workTab: WorkTab = channel.workId
     ? (workTabs[activeChannelId] ?? "conversation")
     : "conversation";
@@ -274,11 +304,14 @@ export function ChannelView() {
 
         <button
           className="btn pane-action-huddle"
-          disabled
-          title="Huddles arrive in a later release"
+          title={activeMeetup ? "Join active meetup" : "Start a meetup"}
+          data-active={activeMeetup ? "true" : "false"}
+          onClick={handleStartMeetup}
         >
           <HuddleIcon size="md" />
-          <span className="pane-action-label">Huddle</span>
+          <span className="pane-action-label">
+            {activeMeetup ? "Join Meetup" : "Meetup"}
+          </span>
         </button>
         <button
           className="btn btn-ghost"
