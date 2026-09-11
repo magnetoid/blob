@@ -306,7 +306,11 @@ services:
       - '${LIVEKIT_TCP_PORT:-7881}:7881'
 
   minio:
-    image: minio/minio:latest
+      # quay.io, not Docker Hub. MinIO stopped publishing to `minio/minio` there and the
+      # repository now 404s, which broke both CI jobs and every `docker compose up` at
+      # once — an image reference is a dependency on someone else's registry policy, and
+      # this is what it looks like when that policy changes. quay.io is MinIO's own.
+    image: quay.io/minio/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
