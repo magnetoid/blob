@@ -13,7 +13,7 @@
  * those is the one that matters, and it is the console's.
  */
 
-import { AgentTerminal } from '../admin/AgentTerminal.tsx';
+import { AgentTerminal } from './AgentTerminal.tsx';
 import { CloseIcon } from '../../components/Icon.tsx';
 import { closeAgentTerminal } from '../../lib/agentTerminal.ts';
 

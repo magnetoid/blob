@@ -13,7 +13,7 @@
 
 import { useCallback, useState } from "react";
 import { api, type ServerLogEntry } from "../../../lib/api.ts";
-import { useAdminAction, useAdminData } from "../hooks.ts";
+import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 
 const LEVELS = [

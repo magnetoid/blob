@@ -17,13 +17,13 @@ import { navigate, pathForRoute } from "../../../lib/router.ts";
 import { useStore } from "../../../lib/store.ts";
 import { Avatar } from "../../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
-import type { AdminSectionProps } from "../AdminConsole.tsx";
-import { useAdminAction, useAdminData } from "../hooks.ts";
+import type { ConsoleSectionProps } from "../../console/ConsoleShell.tsx";
+import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 /** Mirrors the server's rule, which mirrors what a message body can reference. */
 const HANDLE_RE = /^[a-z0-9][a-z0-9-]{1,31}$/;
 
-export function GroupsSection({ onError, detailId }: AdminSectionProps) {
+export function GroupsSection({ onError, detailId }: ConsoleSectionProps) {
   if (detailId) return <GroupMembers groupId={detailId} onError={onError} />;
   return <GroupList onError={onError} />;
 }

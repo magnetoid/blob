@@ -15,13 +15,13 @@ import type { ComponentType } from 'react';
 import { MenuIcon } from '../../components/Icon.tsx';
 import { useStore } from '../../lib/store.ts';
 import type { AdminSection } from '../../lib/router.ts';
-import { ConsoleShell } from './ConsoleShell.tsx';
-import { ADMIN_NAV, sectionEntry } from './registry.ts';
+import { ConsoleShell, type ConsoleSectionProps } from '../console/ConsoleShell.tsx';
+import { ADMIN_NAV, sectionEntry } from '../console/registry.ts';
 import { AppPolicySection } from './sections/AppPolicySection.tsx';
 import { AccountsSection } from './sections/AccountsSection.tsx';
 import { AuditSection } from './sections/AuditSection.tsx';
 import { FeedbackSection } from './sections/FeedbackSection.tsx';
-import { HealthSection } from './sections/HealthSection.tsx';
+import { HealthSection } from './sections/health/HealthSection.tsx';
 import { LogsSection } from './sections/LogsSection.tsx';
 import { AppsSection } from './sections/AppsSection.tsx';
 import { ChannelsSection } from './sections/ChannelsSection.tsx';
@@ -36,22 +36,12 @@ import { WebhooksSection } from './sections/WebhooksSection.tsx';
 
 const NAV_ID = 'admin-console-nav';
 
-export interface AdminSectionProps {
-  onError: (message: string | null) => void;
-  isOwner: boolean;
-  detailId?: string;
-  /**
-   * Only the Preferences section uses this — it owns the Sign out button, which is the
-   * one control on these pages that ends the session rather than changing a setting.
-   */
-  onSignedOut?: () => void;
-}
 
 /**
  * Every route needs a screen. Typed as a total record, so adding a section to
  * ADMIN_SECTIONS without building it is a typecheck failure rather than a blank page.
  */
-const SECTION_COMPONENTS: Record<AdminSection, ComponentType<AdminSectionProps>> = {
+const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps>> = {
   general: GeneralSection,
   appearance: ThemesSection,
   members: PeopleSection,

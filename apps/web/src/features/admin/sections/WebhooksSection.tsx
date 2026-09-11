@@ -5,7 +5,7 @@ import { api, type AdminWebhook } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { useStore } from "../../../lib/store.ts";
 import { formatRelative } from "../../messages/messageFormatting.ts";
-import { useAdminAction, useAdminData } from "../hooks.ts";
+import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 export function WebhooksSection({
   onError,

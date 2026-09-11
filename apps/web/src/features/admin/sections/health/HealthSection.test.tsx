@@ -31,8 +31,8 @@ const storage = new MemoryStorage();
 Object.defineProperty(window, "localStorage", { value: storage, configurable: true });
 Object.defineProperty(globalThis, "localStorage", { value: storage, configurable: true });
 
-vi.mock("../../../lib/api.ts", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../lib/api.ts")>();
+vi.mock("../../../../lib/api.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../../lib/api.ts")>();
   return {
     ...actual,
     api: {
@@ -47,7 +47,7 @@ vi.mock("../../../lib/api.ts", async (importOriginal) => {
   };
 });
 
-vi.mock("../../../lib/socket.ts", () => ({
+vi.mock("../../../../lib/socket.ts", () => ({
   socket: {
     subscribe: (listener: (event: { t: string }) => void) => {
       socketListener = listener;
@@ -64,8 +64,8 @@ vi.mock("../../../lib/socket.ts", () => ({
   },
 }));
 
-vi.mock("../../../lib/router.ts", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../lib/router.ts")>();
+vi.mock("../../../../lib/router.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../../lib/router.ts")>();
   return {
     ...actual,
     navigate,

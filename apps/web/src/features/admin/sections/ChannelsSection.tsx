@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type AdminChannel } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
-import { useAdminAction } from "../hooks.ts";
+import { useAdminAction } from '../../console/hooks.ts';
 
 export function ChannelsSection({
   onError,

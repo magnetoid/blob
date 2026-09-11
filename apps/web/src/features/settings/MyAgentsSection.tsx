@@ -14,9 +14,9 @@
 
 import { useState } from "react";
 import { api, type AppChannel, type MyAgent } from "../../lib/api.ts";
-import { DesktopAgentSetup } from "../admin/DesktopAgentSetup.tsx";
-import type { AdminSectionProps } from "../admin/AdminConsole.tsx";
-import { useAdminAction, useAdminData } from "../admin/hooks.ts";
+import { DesktopAgentSetup } from '../agentic/DesktopAgentSetup.tsx';
+import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
+import { useAdminAction, useAdminData } from "../console/hooks.ts";
 
 interface Minted {
   name: string;
@@ -24,7 +24,7 @@ interface Minted {
   signingSecret: string;
 }
 
-export function MyAgentsSection({ onError }: AdminSectionProps) {
+export function MyAgentsSection({ onError }: ConsoleSectionProps) {
   const { data, loading, reload } = useAdminData(
     () => api.agents.mine(),
     [],

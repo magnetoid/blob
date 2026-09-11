@@ -22,7 +22,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError, type AgentEnvVar } from '../../lib/api.ts';
+import { api, ApiError, type AgentEnvVar } from '../../../../lib/api.ts';
 
 interface Props {
   pluginId: string;

@@ -8,9 +8,9 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError, type AgentDeployment as Deployment } from '../../lib/api.ts';
+import { api, ApiError, type AgentDeployment as Deployment } from '../../../../lib/api.ts';
 import { AgentConfig } from './AgentConfig.tsx';
-import { AgentTerminal } from './AgentTerminal.tsx';
+import { AgentTerminal } from '../../../agentic/AgentTerminal.tsx';
 
 interface Props {
   pluginId: string;

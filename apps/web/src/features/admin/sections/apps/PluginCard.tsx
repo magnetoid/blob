@@ -11,7 +11,7 @@ import {
 } from "../../../../lib/api.ts";
 import { useStore } from "../../../../lib/store.ts";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
-import { AgentDeployment } from "../../AgentDeployment.tsx";
+import { AgentDeployment } from './AgentDeployment.tsx';
 
 export function PluginCard({
   plugin,

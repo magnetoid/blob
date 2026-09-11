@@ -9,7 +9,7 @@ import { api, type AuthSession } from '../../lib/api.ts';
 import { deviceZone, knownZones, timeIn } from './timezones.ts';
 import { showError } from '../../lib/toasts.ts';
 import { useStore } from '../../lib/store.ts';
-import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
+import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import type { Theme } from '@blob/shared';
 
 const THEMES = [
@@ -38,7 +38,7 @@ const LANGUAGES = [
   { label: 'Korean', value: 'ko' },
 ] as const;
 
-export function PreferencesSection({ onSignedOut }: AdminSectionProps) {
+export function PreferencesSection({ onSignedOut }: ConsoleSectionProps) {
   const currentUser = useStore((s) => s.currentUser);
   const setPrefs = useStore((s) => s.setPrefs);
   const themes = useStore((s) => s.themes);

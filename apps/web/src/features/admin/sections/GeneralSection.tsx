@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { api } from '../../../lib/api.ts';
 import { useStore } from '../../../lib/store.ts';
-import { useAdminAction, useAdminData } from '../hooks.ts';
+import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 export function GeneralSection({ onError }: { onError: (message: string | null) => void }) {
   const [name, setName] = useState('');

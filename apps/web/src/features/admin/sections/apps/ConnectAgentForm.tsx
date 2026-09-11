@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { api, ApiError } from '../../lib/api.ts';
+import { api, ApiError } from '../../../../lib/api.ts';
 
 interface Props {
   scopeCatalog: Record<string, string>;

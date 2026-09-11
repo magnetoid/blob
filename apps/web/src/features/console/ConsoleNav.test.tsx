@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { AdminNav } from './AdminNav.tsx';
+import { ConsoleNav } from './ConsoleNav.tsx';
 import type { NavGroup, SectionEntry } from './registry.ts';
 
 // vitest globals are off, so RTL's automatic cleanup never runs. Without this, one
@@ -20,15 +20,16 @@ const GROUPS: NavGroup[] = [
   {
     id: 'system',
     label: 'System',
+    note: 'Only you can see these.',
     sections: [
-      { id: 'audit', label: 'Audit log' },
+      { id: 'audit', label: 'Audit log', ownerOnly: true } as SectionEntry,
       { id: 'retention', label: 'Retention', planned: true },
     ],
   },
 ];
 
 function renderNav(section: 'people' | 'audit' = 'people') {
-  return render(<AdminNav groups={GROUPS} section={section} isOwner />);
+  return render(<ConsoleNav groups={GROUPS} section={section} isOwner />);
 }
 
 describe('the console nav', () => {
@@ -83,6 +84,21 @@ describe('the console nav', () => {
     expect(screen.getByText('New')).toBeTruthy();
   });
 
+  // An owner-only row can now sit in a group an admin also uses, so the restriction has
+  // to be on the row. Without it, an owner has no way to tell which pages their admins
+  // cannot reach, and finds out by being asked.
+  it('marks a row only the owner can reach', () => {
+    renderNav();
+    const restricted = screen.getByText('Audit log').closest('button');
+    expect(restricted?.textContent).toContain('Owner');
+    expect(screen.getByText('Members').closest('button')?.textContent).not.toContain('Owner');
+  });
+
+  it('explains a group that is the owner\u2019s alone', () => {
+    renderNav();
+    expect(screen.getByText('Only you can see these.')).toBeTruthy();
+  });
+
   it('offers a way back to the workspace', () => {
     renderNav();
     expect(screen.getByText('Back to workspace')).toBeTruthy();
@@ -90,7 +106,7 @@ describe('the console nav', () => {
 
   it('closes the drawer when a section is chosen', () => {
     const onNavigate = vi.fn();
-    render(<AdminNav groups={GROUPS} section="people" isOwner onNavigate={onNavigate} />);
+    render(<ConsoleNav groups={GROUPS} section="people" isOwner onNavigate={onNavigate} />);
     fireEvent.click(screen.getByText('Audit log'));
     expect(onNavigate).toHaveBeenCalled();
   });

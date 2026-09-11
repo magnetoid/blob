@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type AdminInvite } from "../../../lib/api.ts";
 import { formatRelative } from "../../messages/messageFormatting.ts";
-import { useAdminAction } from "../hooks.ts";
+import { useAdminAction } from '../../console/hooks.ts';
 
 export function InvitationsSection({
   onError,

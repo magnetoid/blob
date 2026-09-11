@@ -14,7 +14,7 @@ import { ChevronLeftIcon, SearchIcon } from '../../components/Icon.tsx';
 import { navigate } from '../../lib/router.ts';
 import { ADMIN_NAV, filterGroups, isPlanned, type NavGroup } from './registry.ts';
 
-export function AdminNav({
+export function ConsoleNav({
   id,
   groups = ADMIN_NAV,
   section,
@@ -73,6 +73,7 @@ export function AdminNav({
         {visible.map((group) => (
           <section className="sidebar-section" key={group.id}>
             <h2 className="section-label">{group.label}</h2>
+            {group.note && <p className="section-note">{group.note}</p>}
             {group.sections.map((entry) =>
               isPlanned(entry) ? (
                 <button
@@ -97,6 +98,10 @@ export function AdminNav({
                   }}
                 >
                   <span className="channel-name">{entry.label}</span>
+                  {/* On the row, not only on the group: an owner-only page can sit in a
+                      group its admins otherwise use, and the owner has no other way to
+                      see which pages they cannot reach. */}
+                  {entry.ownerOnly && <span className="role-pill">Owner</span>}
                   {entry.badge === 'new' && <span className="role-pill">New</span>}
                 </button>
               ),

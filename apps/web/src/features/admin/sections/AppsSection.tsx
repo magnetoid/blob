@@ -11,10 +11,10 @@ import {
 } from "../../../lib/api.ts";
 import { showError } from "../../../lib/toasts.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
-import { ConnectAgentForm } from "../ConnectAgentForm.tsx";
-import { DesktopAgentSetup } from "../DesktopAgentSetup.tsx";
-import { DeployAgentForm } from "../DeployAgentForm.tsx";
-import { useAdminAction } from "../hooks.ts";
+import { ConnectAgentForm } from './apps/ConnectAgentForm.tsx';
+import { DesktopAgentSetup } from '../../agentic/DesktopAgentSetup.tsx';
+import { DeployAgentForm } from './apps/DeployAgentForm.tsx';
+import { useAdminAction } from '../../console/hooks.ts';
 import { AppSettings } from "./AppSettings.tsx";
 import { InstallAppForm } from "./apps/InstallAppForm.tsx";
 import { PluginCard } from "./apps/PluginCard.tsx";

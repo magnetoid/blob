@@ -224,6 +224,16 @@ insert is a sorted-position insert and "unread?" is a string comparison — the 
 the server uses), a typed `api.ts`, a localStorage outbox for offline replay, and a
 hand-rolled `router.ts` because there are no nested layouts or loaders to justify more.
 
+**The two consoles.** `/admin` is this server and `/settings` is you, and they are the
+same page with different catalogues: `features/console/` holds what they share — the
+shell, the nav, `registry.ts` (which is the nav *as data*, so a new section is a row plus
+a component rather than four files that have to agree) and the data/action hooks every
+section uses. `features/admin/` and `features/settings/` are then only their own section
+lists. Two things the registry decides that are easy to undo by accident: a `planned` row
+carries no section id, because the id lists are the set of URLs that actually exist; and
+`ownerOnly` lives on the **row**, not on a group, so a page the owner alone may open can
+still sit with the subject it belongs to instead of in a bucket named after a permission.
+
 **The design layer.** `styles/tokens.css` is the whole vocabulary and `styles/app.css`
 spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
 (`--radius-xs..full`), motion (`--dur-*`, `--ease-*`, `--motion-*`) and a stacking ladder

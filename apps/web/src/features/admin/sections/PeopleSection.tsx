@@ -7,7 +7,7 @@ import { Avatar } from "../../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { SearchIcon } from "../../../components/Icon.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
-import { useAdminAction } from "../hooks.ts";
+import { useAdminAction } from '../../console/hooks.ts';
 
 export function PeopleSection({
   isOwner,

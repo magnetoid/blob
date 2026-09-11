@@ -17,7 +17,7 @@ import {
   type WorkspacePolicy,
   type InstanceWorkspace,
 } from "../../../lib/api.ts";
-import { useAdminAction, useAdminData } from "../hooks.ts";
+import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 interface Capability {
   key: "mayHostAgents" | "mayUsePrivateEndpoints" | "mayConnectSocketAgents";

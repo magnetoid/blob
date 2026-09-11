@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { api, ApiError, type AgentRepoPreview } from '../../lib/api.ts';
+import { api, ApiError, type AgentRepoPreview } from '../../../../lib/api.ts';
 
 interface Props {
   scopeCatalog: Record<string, string>;

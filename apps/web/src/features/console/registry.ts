@@ -39,6 +39,8 @@ export type NavEntry<Id extends string = string> = SectionEntry<Id> | PlannedSec
 export interface NavGroup<Id extends string = string> {
   id: string;
   label: string;
+  /** One line under the heading, for a group whose audience is not obvious. */
+  note?: string;
   sections: NavEntry<Id>[];
   /** Hidden from a plain member. Unused on the admin page (members never reach it). */
   adminOnly?: boolean;
@@ -131,6 +133,13 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
         description: 'Who has been invited, and who has not arrived yet.',
         keywords: ['invite', 'join', 'link'],
       },
+      {
+        id: 'users',
+        label: 'Accounts',
+        description: 'Every account on this server.',
+        keywords: ['users', 'people', 'accounts', 'members', 'everyone', 'directory'],
+        ownerOnly: true,
+      },
     ],
   },
   {
@@ -186,20 +195,6 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
         description: 'What was sent to each app, and a way to send a failed one again.',
         keywords: ['webhooks', 'outbox', 'retry', 'replay', 'circuit'],
       },
-      { id: 'approvals', label: 'Approvals', planned: true },
-    ],
-  },
-  {
-    id: 'system',
-    label: 'System',
-    sections: [
-      {
-        id: 'users',
-        label: 'Accounts',
-        description: 'Every account on this server.',
-        keywords: ['users', 'people', 'accounts', 'members', 'everyone', 'directory'],
-        ownerOnly: true,
-      },
       {
         id: 'app-policy',
         label: 'App policy',
@@ -207,6 +202,14 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
         keywords: ['apps', 'agents', 'catalogue', 'catalog', 'permissions', 'limits', 'allow'],
         ownerOnly: true,
       },
+      { id: 'approvals', label: 'Approvals', planned: true },
+    ],
+  },
+  {
+    id: 'machine',
+    label: 'This machine',
+    note: 'Only you can see these.',
+    sections: [
       {
         id: 'health',
         label: 'Health',

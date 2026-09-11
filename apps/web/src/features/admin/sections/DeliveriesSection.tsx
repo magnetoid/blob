@@ -6,7 +6,7 @@ import {
   type AdminWorkspaceDelivery,
 } from '../../../lib/api.ts';
 import { formatRelative } from '../../messages/messageFormatting.ts';
-import { useAdminAction, useAdminData } from '../hooks.ts';
+import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 export function DeliveriesSection({
   onError,

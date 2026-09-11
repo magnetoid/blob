@@ -12,7 +12,7 @@ import { useCallback, useState } from "react";
 import { api, type AdminPlugin, type AppChannel } from "../../../lib/api.ts";
 import { navigate } from "../../../lib/router.ts";
 import { useStore } from "../../../lib/store.ts";
-import { useAdminAction, useAdminData } from "../hooks.ts";
+import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 interface Props {
   pluginId: string;

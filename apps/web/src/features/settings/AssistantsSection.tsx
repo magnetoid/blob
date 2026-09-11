@@ -18,8 +18,8 @@
 
 import { useState } from 'react';
 import { api, type AssistantToken } from '../../lib/api.ts';
-import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
-import { useAdminAction, useAdminData } from '../admin/hooks.ts';
+import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
+import { useAdminAction, useAdminData } from '../console/hooks.ts';
 
 interface Minted {
   name: string;
@@ -28,7 +28,7 @@ interface Minted {
   canWrite: boolean;
 }
 
-export function AssistantsSection({ onError }: AdminSectionProps) {
+export function AssistantsSection({ onError }: ConsoleSectionProps) {
   const { data, loading, reload } = useAdminData(
     () => api.assistants.list(),
     [],

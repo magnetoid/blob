@@ -246,6 +246,15 @@ button {
   padding-left: 10px;
 }
 
+/* A group whose audience is not obvious says so, once, under its heading. Sentence case
+   against the label's uppercase, because this is a remark rather than a second label. */
+.section-note {
+  margin: 0 0 4px;
+  padding: 0 10px;
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+
 /* ─── auth ───────────────────────────────────────────────────────────────── */
 .auth {
   display: grid;

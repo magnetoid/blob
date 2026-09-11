@@ -9,9 +9,9 @@ import type { ComponentType } from 'react';
 import { MenuIcon } from '../../components/Icon.tsx';
 import { useStore } from '../../lib/store.ts';
 import type { SettingsSection } from '../../lib/router.ts';
-import { ConsoleShell } from '../admin/ConsoleShell.tsx';
-import { SETTINGS_NAV, settingsEntry } from '../admin/registry.ts';
-import type { AdminSectionProps } from '../admin/AdminConsole.tsx';
+import { ConsoleShell } from '../console/ConsoleShell.tsx';
+import { SETTINGS_NAV, settingsEntry } from '../console/registry.ts';
+import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import { PreferencesSection } from './PreferencesSection.tsx';
 import { NotificationsSection } from './NotificationsSection.tsx';
 import { MyAgentsSection } from './MyAgentsSection.tsx';
@@ -19,7 +19,7 @@ import { AssistantsSection } from './AssistantsSection.tsx';
 
 const NAV_ID = 'settings-console-nav';
 
-const SECTION_COMPONENTS: Record<SettingsSection, ComponentType<AdminSectionProps>> = {
+const SECTION_COMPONENTS: Record<SettingsSection, ComponentType<ConsoleSectionProps>> = {
   preferences: PreferencesSection,
   notifications: NotificationsSection,
   'my-agents': MyAgentsSection,

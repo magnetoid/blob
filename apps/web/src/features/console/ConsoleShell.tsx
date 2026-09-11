@@ -13,8 +13,19 @@
 
 import { useState, type ReactNode } from 'react';
 import { TopBar } from '../shell/TopBar.tsx';
-import { AdminNav } from './AdminNav.tsx';
+import { ConsoleNav } from './ConsoleNav.tsx';
 import type { NavGroup } from './registry.ts';
+
+export interface ConsoleSectionProps {
+  onError: (message: string | null) => void;
+  isOwner: boolean;
+  detailId?: string;
+  /**
+   * Only the Preferences section uses this — it owns the Sign out button, which is the
+   * one control on these pages that ends the session rather than changing a setting.
+   */
+  onSignedOut?: () => void;
+}
 
 /** What the nav shows: the consoles differ in catalogue and framing, not in the mount. */
 export interface ConsoleNav {
@@ -73,7 +84,7 @@ export function ConsoleShell({
   return (
     <div className="admin-shell" data-nav={navOpen ? 'open' : 'closed'}>
       <TopBar onFeedback={onFeedback} view={view} />
-      <AdminNav
+      <ConsoleNav
         id={navId}
         groups={nav.groups}
         section={section}

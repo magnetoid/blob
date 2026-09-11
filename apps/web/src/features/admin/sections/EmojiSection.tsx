@@ -12,7 +12,7 @@
 import { useCallback, useRef, useState } from "react";
 import { api, ApiError, type WorkspaceEmoji } from "../../../lib/api.ts";
 import { uploadFile } from "../../../lib/attachments.ts";
-import { useAdminAction, useAdminData } from "../hooks.ts";
+import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 
 /** Mirrors the server's rule, which mirrors what `:name:` in a body can match. */

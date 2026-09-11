@@ -12,6 +12,9 @@ import {
 const entries = ADMIN_NAV.flatMap((group) => group.sections);
 const live = entries.filter((entry) => !isPlanned(entry));
 
+const groupOf = (id: string) =>
+  ADMIN_NAV.find((group) => group.sections.some((entry) => entry.id === id))?.id;
+
 const settingsEntries = SETTINGS_NAV.flatMap((group) => group.sections);
 const settingsLive = settingsEntries.filter((entry) => !isPlanned(entry));
 
@@ -39,6 +42,29 @@ describe('the admin registry', () => {
   it('finds the entry for a section', () => {
     expect(sectionEntry('members').label).toBe('Members');
     expect(sectionEntry('users').label).toBe('Accounts');
+  });
+
+  it('keeps the two people pages together', () => {
+    // Members is this workspace's roster, Accounts is every account on the machine.
+    // They were a group apart, which is how you end up with two answers to "where are
+    // the users" and no way to see that one is a subset of the other.
+    expect(groupOf('users')).toBe(groupOf('members'));
+  });
+
+  it('puts what may be installed beside the apps it governs', () => {
+    expect(groupOf('app-policy')).toBe(groupOf('apps'));
+  });
+
+  it('says out loud that the machine group is the owner\u2019s alone', () => {
+    const machine = ADMIN_NAV.find((group) => group.id === 'machine');
+    expect(machine?.note).toBeTruthy();
+    expect(machine?.sections.every((entry) => isPlanned(entry) || entry.ownerOnly)).toBe(true);
+  });
+
+  it('leaves an admin no heading with nothing under it', () => {
+    for (const group of filterGroups(ADMIN_NAV, '', false)) {
+      expect(group.sections.length).toBeGreaterThan(0);
+    }
   });
 
   it('does not put Workspaces in the nav', () => {

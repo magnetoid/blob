@@ -12,7 +12,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { api, type InstanceUser } from "../../../lib/api.ts";
-import { useAdminData } from "../hooks.ts";
+import { useAdminData } from '../../console/hooks.ts';
 
 export function AccountsSection({
   onError,
