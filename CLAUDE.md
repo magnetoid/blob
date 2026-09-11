@@ -21,7 +21,12 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-eleven ADRs; the principles below are their summary, not a substitute.
+sixteen ADRs; the principles below are their summary, not a substitute. 0013–0016 are the
+agentic surface — chains, work channels, summaries and nudges, the MCP caller — and are
+the ones this digest compresses hardest, so read them before changing that code.
+
+`docs/` carries the three integrator guides (`apps.md`, `agent-socket.md`,
+`agent-terminal.md`) alongside planning history; the guides are current, the rest is not.
 
 ## Commands
 
@@ -30,7 +35,9 @@ is a shim whose scripts shell out to `uv run`. Root scripts are the normal entry
 
 | Task | Command |
 |---|---|
-| The gate — tsc + eslint + ruff + mypy --strict + pytest | `pnpm check` |
+| First time — install both toolchains | `pnpm install && (cd apps/api && uv sync)` |
+| The gate — tsc + eslint + ruff + mypy --strict + vitest + pytest | `pnpm check` |
+| Build the client and the shared package | `pnpm build` |
 | Dev servers — API on :3000, web on :5173 | `pnpm dev` |
 | Job worker (notifications, unfurls, plugin delivery) | `pnpm worker` |
 | Migrate — advisory-locked, same path the container entrypoint takes | `pnpm migrate` |
@@ -38,10 +45,15 @@ is a shim whose scripts shell out to `uv run`. Root scripts are the normal entry
 | Regenerate `packages/shared/openapi.json` | `pnpm openapi` |
 | Refresh the history "What's new" shows | `pnpm stamp` (before a release commit) |
 
+`pnpm check` is `typecheck && lint && test` fanned out over the workspace, so the Python
+half rides in through `apps/api/package.json`'s shim. Two things it does **not** run:
+`alembic check` and `torsor guard`. CI runs both as separate steps, so a green `pnpm check`
+is not a green CI.
+
 Backend, from `apps/api/`:
 
 ```bash
-uv run pytest -q                                   # 996 tests; needs Postgres + Redis
+uv run pytest -q                                   # 1374 tests; needs Postgres + Redis
 uv run pytest tests/test_messages.py -q            # one file
 uv run pytest tests/test_messages.py::test_sending_is_idempotent_for_a_repeated_client_msg_id -q
 uv run pytest -q -k "unread or mention"            # by name
@@ -54,6 +66,7 @@ uv run alembic upgrade head
 Frontend, from `apps/web/`:
 
 ```bash
+pnpm exec vitest run                               # 75 files, happy-dom, no browser needed
 pnpm exec vitest run src/lib/outbox.test.ts        # one file
 pnpm exec vitest run -t "stores and reloads queued entries"   # by name
 pnpm typecheck                                     # tsc --noEmit
@@ -66,6 +79,15 @@ feedback-snapshot tests **skip** without MinIO, which is green while proving not
 bring storage up before trusting a clean run of those. `conftest.py` migrates once per
 session and `TRUNCATE`s before each module; the event loop is session-scoped because the
 engine and Redis clients are bound to the loop that created them.
+
+**A merge to `main` ships to production.** `.github/workflows/ci.yml` runs three jobs —
+`check` (the gate plus `alembic check`), `image` (build the Dockerfile, boot
+`docker-compose.prod.yml`, hit `/healthz` and `/readyz`), and `intent`
+(`torsor guard --strict --severity error` over `git ls-files '*.py'`). On a green push to
+`main` a fourth job POSTs the Coolify deploy hook. It is `needs:`-gated rather than a
+repository webhook on purpose: a webhook would deploy a red build as eagerly as a green
+one. Treat a merge to `main` as a deploy, and remember the 2026-09-05 rule — one Coolify
+build at a time.
 
 ## Architecture
 
@@ -94,9 +116,15 @@ otherwise silent (rename an event and the client just ignores a frame forever).
 
 **Auth.** `SessionMiddleware` in `main.py` is pure ASGI — `BaseHTTPMiddleware` interferes
 with streaming and background tasks — and resolves the cookie once per request against an
-allowlist (`PUBLIC_ROUTES`, `PUBLIC_PREFIXES`). `/api/v1/` is the app callback API: it
-bypasses the cookie check because it authenticates with a bot token, and enforces that
-itself on every route via `current_bot`.
+allowlist (`PUBLIC_ROUTES`, `PUBLIC_PREFIXES`). There are three kinds of caller, not two.
+A person carries a session cookie. `/api/v1/` is the app callback API: it bypasses the
+cookie check because it authenticates with a bot token, and enforces that itself on every
+route via `current_bot`. `/api/mcp` is the third (ADR 0016) — somebody's assistant reaching
+in, holding an `mcp_tokens` row that resolves to a *user*, not a bot, because an assistant
+acting for a person should have exactly that person's reach and show up in the audit log as
+them. It is listed in `PUBLIC_ROUTES` as three exact `(method, path)` pairs and **not** as
+a prefix: `PUBLIC_PREFIXES` is a `startswith` test, and `/api/mcp` as a prefix would also
+open the routes next door that mint credentials.
 
 **Errors are a contract.** The codes in `lib/errors.py` are what `apps/web/src/lib/api.ts`
 branches on. Don't rename them, and keep FastAPI's 422 remapped to 400 `invalid_input`.
@@ -106,6 +134,12 @@ branches on. Don't rename them, and keep FastAPI's 422 remapped to 400 `invalid_
 SQL verbatim, so an existing database is adopted rather than rebuilt. `alembic check`
 runs in CI — if the models drift, the next autogenerate proposes dropping the generated
 column and the partial indexes.
+
+The chain on `main` is sequential, `0001` … `0034`, so the highest number is the head. That
+is a convention rather than a guarantee — the `feat/meetups` branch carries a hash-named
+migration that becomes the head the moment it merges. Ask `uv run alembic heads` before
+writing a `down_revision` rather than reading the numbering, or you fork the chain and
+`alembic upgrade head` refuses to pick a side.
 
 **Apps and agents.** `plugins/` is the integration layer: a manifest and scope catalogue,
 SSRF-guarded registration, a bot that is a real `users` row (so `author_id` stays a valid
@@ -121,6 +155,40 @@ not start, and the same `Fold` reads the same events. The part that bites is tha
 process holding the socket is not the process running the job — mentions are the worker's,
 sockets are an API process's — so every run crosses through Redis, which is why the holder
 claims a run id with `SET NX` and why `stream_events` subscribes before it publishes.
+
+**What sits on top of the plugin layer.** `plugins/` is the transport; these five are the
+product built on it. The first three relax a rule an earlier ADR set, so the ADR is the
+place to look before changing them.
+
+* **Chains** (`services/agent_chains.py`, ADR 0013). "Only a person's message starts a
+  run" was the loop guard, and it was structural rather than a counter. A chain replaces
+  it: a person roots one, an agent's reply may extend it by one hop, a person's answer
+  resumes a run that stopped to ask. The authority that flows down the chain is the
+  rooting person's, which is why an agent only its owner may command cannot be reached
+  through somebody else's hop.
+* **Work channels** (`services/work.py`, `features/work/`, ADR 0014). An ordinary private
+  channel with a `work_items` row attached — no fifth channel kind — so threads, mentions,
+  Stop, `/allow`, archiving and search all work unchanged, and the row is only what makes
+  the client draw the tabs. Artifacts are **data**: a diff is coloured text, a document is
+  markdown through the message renderer, a page runs in a sandboxed frame and only after a
+  person asks for it. Blob executes nothing an agent publishes (ADR 0007).
+* **The agent Blob runs itself** (`plugins/builtin.py`, `services/workspace_agent.py`,
+  `lib/llm.py`). Seeded into every workspace through the ordinary install path with
+  `trusted=True`, so it is a `plugins` row with a bot in `users` and an admin revokes it
+  with the same two clicks as anything else. `lib/llm.py` is deliberately the smallest
+  possible provider layer with three callers — the built-in agent, the unread recap, and
+  thread summaries. Do not grow it into a framework.
+* **Summaries and nudges** (`services/agentic.py`, `services/unanswered.py`, ADR 0015).
+  `thread_summaries.provider` records *which* engine wrote a row: `heuristic-v1` for the
+  keyword scan that runs when no model is configured, `llm:<model>` otherwise. Both
+  production instances run with no model, so every path has to be honest in that state.
+  Nudges go to the asker alone — see the privacy principle below.
+* **The agent terminal** (`routers/agent_shell.py`, `lib/agentTerminal.ts`). A third
+  WebSocket endpoint beside `realtime/ws.py` and `plugins/gateway.py`, pumping bytes
+  between a PTY and xterm.js. It authenticates with the ordinary session cookie —
+  `SessionMiddleware` resolves those for websocket scopes too — because minting a
+  credential for it would mean a long-lived secret that opens a root shell.
+  `services/agent_shell.py` decides who may open one; the router decides nothing.
 
 **Client.** `features/` by domain, `lib/` for the plumbing: a zustand store keeping
 messages per channel in ascending id order (UUIDv7 sorts chronologically, so a live
@@ -166,8 +234,13 @@ fades keep their duration. Anything sized for a pointer gets a 44px minimum unde
   Python rewrite without a single frontend change.
 - **Persist, then broadcast.** No event is ever emitted from inside a transaction. A
   client must never be told about a row that has not committed.
-- **Hand-tuned SQL stays SQL.** The chat queries are tuned and tested; they live in
-  `text()` verbatim rather than being re-expressed as query-builder chains.
+- **Hand-tuned SQL stays SQL.** Not just the chat queries — all of it. `db/models.py`
+  exists to define the schema and drive Alembic; it is not a query layer. Every read and
+  write in the backend is `text()` with bound parameters, and chat history is
+  keyset-paginated, never `OFFSET`. On `main` there is no `session.add` and no ORM
+  `select()` anywhere, so a grep that finds one has found new drift — the `feat/meetups`
+  branch is the current example, and it is debt to pay down before merging rather than a
+  precedent to copy.
 - **Ids are UUIDv7.** Chronological sort order is load-bearing: unread state is a string
   comparison, not a count or a timestamp join. This is the one schema decision that
   cannot be retrofitted cheaply.
