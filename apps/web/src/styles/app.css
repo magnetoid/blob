@@ -1975,6 +1975,15 @@ button {
   background: var(--surface);
 }
 
+/* Written by a model rather than by the keyword scan that stands in when none is
+   configured. Same rail as a run card, for the same reason: the reader should not have
+   to compare two kickers to work out whether a teammate or a fallback wrote this. */
+.agentic-card[data-written-by='model'] {
+  border-color: var(--iris-border);
+  border-left: 3px solid var(--iris);
+  background: var(--iris-surface);
+}
+
 .agentic-head {
   display: flex;
   align-items: flex-start;

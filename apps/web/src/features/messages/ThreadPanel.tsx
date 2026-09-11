@@ -454,6 +454,11 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
           <>
             <section
               className="agentic-card"
+              /* Iris means "an agent wrote this", so only the model-written summary
+                 gets it. `heuristic-v1` is Blob's own keyword scan running because no
+                 model is configured — marking that as agent output would claim a
+                 teammate where there is only a stopgap. */
+              data-written-by={summary && isModelWritten(summary) ? "model" : undefined}
               aria-labelledby="thread-summary-title"
             >
               <div className="agentic-head">
