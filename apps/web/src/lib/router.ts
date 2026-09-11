@@ -72,6 +72,7 @@ export type Route =
   | { view: 'tasks' }
   | { view: 'saved' }
   | { view: 'browse' }
+  | { view: 'files' }
   | { view: 'scheduled' }
   | { view: 'changelog' }
   /** The guide: what everything on this screen is, and how to use it. */
@@ -130,6 +131,7 @@ export function parseRoute(path: string): Route {
   if (clean === '/tasks') return { view: 'tasks' };
   if (clean === '/later') return { view: 'saved' };
   if (clean === '/channels') return { view: 'browse' };
+  if (clean === '/files') return { view: 'files' };
   if (clean === '/scheduled') return { view: 'scheduled' };
   if (clean === '/whats-new') return { view: 'changelog' };
   if (clean === '/help') return { view: 'help' };
@@ -207,6 +209,8 @@ export function pathForRoute(route: Route): string {
       return '/later';
     case 'browse':
       return '/channels';
+    case 'files':
+      return '/files';
     case 'scheduled':
       return '/scheduled';
     case 'changelog':

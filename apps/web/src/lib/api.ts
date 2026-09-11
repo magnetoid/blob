@@ -16,6 +16,7 @@ import type {
   ChannelWithState,
   CurrentUser,
   FeedbackTicket,
+  FileEntry,
   Message,
   MessageTranslation,
   NotifyLevel,
@@ -534,6 +535,18 @@ export const api = {
 
   users: {
     list: () => get<{ users: User[] }>("/api/users"),
+    get: (id: string) => get<{ user: User }>(`/api/users/${id}`),
+  },
+
+  files: {
+    list: (query: { channelId?: string; kind?: "all" | "image" | "file"; cursor?: string } = {}) => {
+      const params = new URLSearchParams();
+      if (query.channelId) params.set("channelId", query.channelId);
+      if (query.kind && query.kind !== "all") params.set("kind", query.kind);
+      if (query.cursor) params.set("cursor", query.cursor);
+      const suffix = params.size ? `?${params}` : "";
+      return get<{ items: FileEntry[]; nextCursor: string | null }>(`/api/attachments${suffix}`);
+    },
   },
 
   later: {

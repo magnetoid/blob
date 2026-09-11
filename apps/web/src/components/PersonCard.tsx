@@ -9,7 +9,7 @@
  * separate copies of this got subtly wrong before.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { User } from '@blob/shared';
 import { Menu } from './Menu.tsx';
 import { Avatar } from './Avatar.tsx';
@@ -28,8 +28,24 @@ export function PersonCard({
   onClose: () => void;
 }) {
   const currentUser = useStore((s) => s.currentUser);
+  const live = useStore((s) => s.users[person.id]) ?? person;
   const [busy, setBusy] = useState(false);
   const isMe = person.id === currentUser?.id;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    void api.users
+      .get(person.id)
+      .then(({ user }) => {
+        if (cancelled) return;
+        useStore.setState((s) => ({ users: { ...s.users, [user.id]: { ...s.users[user.id], ...user } } }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, person.id]);
 
   async function message() {
     if (busy) return;
@@ -49,14 +65,20 @@ export function PersonCard({
   return (
     <Menu open={open} onClose={onClose} className="menu person-card">
       <div className="person-card-head">
-        <Avatar user={person} size="lg" />
+        <Avatar user={live} size="lg" />
         <div style={{ minWidth: 0 }}>
-          <div className="person-card-name">{person.displayName}</div>
-          {person.title && <div className="person-card-title">{person.title}</div>}
-          {(person.statusEmoji || person.statusText) && (
+          <div className="person-card-name">{live.displayName}</div>
+          {live.fullName && live.fullName !== live.displayName && (
+            <div className="person-card-title">{live.fullName}</div>
+          )}
+          {live.title && <div className="person-card-title">{live.title}</div>}
+          {live.timezone && live.timezone !== 'UTC' && (
+            <div className="person-card-title">{live.timezone}</div>
+          )}
+          {(live.statusEmoji || live.statusText) && (
             <div className="person-card-status">
-              {person.statusEmoji && <span>{person.statusEmoji}</span>}
-              {person.statusText && <span>{person.statusText}</span>}
+              {live.statusEmoji && <span>{live.statusEmoji}</span>}
+              {live.statusText && <span>{live.statusText}</span>}
             </div>
           )}
         </div>
@@ -71,7 +93,7 @@ export function PersonCard({
         disabled={busy}
         onClick={() => void message()}
       >
-        {isMe ? 'Open your own messages' : `Message ${person.displayName}`}
+        {isMe ? 'Open your own messages' : `Message ${live.displayName}`}
       </button>
     </Menu>
   );

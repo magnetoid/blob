@@ -97,11 +97,11 @@ Effort key: **S** ≤1 day · **M** 1–4 days · **L** >1 week.
 ## R6 — Rebuild IV: People + Files (~2 wk, second new backend)
 **Goal:** channel header becomes real; Files tab on a thumbnail pipeline, never full-res.
 
-- [ ] Channel header: members list/add/leave/topic-edit (all four endpoints exist, zero callers); Members button gets an onClick; invite completion — **M**
-- [ ] Profile cards on existing `GET /api/users/{id}`; group DM creation on existing multi-user `POST /api/dms` — **S+S**
-- [ ] Thumbnailer: Pillow arq job populating the existing `thumb_key` + history backfill; **strictly blocks the Files tab** — **M**
-- [ ] Files tab: keyset-paginated per-workspace/channel listing, filters, grid + lightbox — **M**
-- [ ] `saved_items` table + Saved view + bookmark action on the hover bar — **S–M**
+- [x] Channel header: members list/add/leave/topic-edit; Members button onClick; invite completion (admin invitations) — **M**
+- [x] Profile cards on existing `GET /api/users/{id}`; group DM creation on existing multi-user `POST /api/dms` — **S+S**
+- [x] Thumbnailer: Pillow on `complete_upload` writing `thumb_key` (sync, not arq); history backfill still open — **M**
+- [x] Files tab: keyset-paginated listing (`GET /api/attachments`), filters, grid + lightbox — **M**
+- [x] `saved_items` / Later view + bookmark action on the hover bar — **S–M**
 - [ ] Image-group grid rendering (stack → grid) — **S**
 
 **Done when:** design rebuild scope closed (minus huddles); a 50-photo channel loads thumbnails, not 200MB.

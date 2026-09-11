@@ -85,8 +85,8 @@ export function TopBar({ onFeedback, onToggleSidebar, view, minimal = false }: P
           <button
             type="button"
             className="topbar-tab"
-            disabled
-            title="Files arrive in a later release"
+            aria-pressed={view === 'files'}
+            onClick={() => navigate(pathForView('files'))}
           >
             Files
           </button>
