@@ -14,14 +14,14 @@ from __future__ import annotations
 import json
 import logging
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 from ..config import settings
-from ..lib import sse
+from ..lib import llm, sse
 from . import agui, builtin, gateway
 from .signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
 
@@ -67,6 +67,8 @@ async def stream_run(
     *,
     transport: httpx.AsyncBaseTransport | None = None,
     on_event: Callable[[Mapping[str, Any]], None] | None = None,
+    tools: Sequence[Mapping[str, Any]] = (),
+    call: llm.ToolRunner | None = None,
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
     """Call the agent and fold its stream. Returns (fold, messages to post, error).
 
@@ -79,7 +81,7 @@ async def stream_run(
     code it has.
     """
     if listener.runs_here:
-        return await _stream_builtin(listener, run_input, on_event=on_event)
+        return await _stream_builtin(listener, run_input, on_event=on_event, tools=tools, call=call)
     if listener.dials_in:
         return await _stream_over_socket(listener, run_input, on_event=on_event)
 
@@ -237,6 +239,8 @@ async def _stream_builtin(
     run_input: dict[str, Any],
     *,
     on_event: Callable[[Mapping[str, Any]], None] | None = None,
+    tools: Sequence[Mapping[str, Any]] = (),
+    call: llm.ToolRunner | None = None,
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
     """The same run, against a model, without leaving the process.
 
@@ -259,7 +263,7 @@ async def _stream_builtin(
 
     seen_events = 0
     try:
-        async for event in builtin.stream(run_input, persona):
+        async for event in builtin.stream(run_input, persona, tools=tools, call=call):
             seen_events += 1
             if seen_events > settings.AGUI_MAX_EVENTS:
                 posts.extend(fold.finish())

@@ -135,10 +135,14 @@ _CHANNEL_SCHEMA = {
     "description": "A channel id, or a name like #general.",
 }
 
-#: name -> (title, description, inputSchema, scope, read_only_hint)
+#: The tools, once. `scope` is what an MCP *token* must hold; `grant` is the
+#: `plugin_grants` scope an *agent* must have been given for the same tool, because an
+#: agent's permissions are the plugin system's and a token's are its own. `None` means a
+#: tool that asks the server nothing about the workspace and so needs no grant.
 _CATALOGUE: list[dict[str, Any]] = [
     {
         "name": "whoami",
+        "grant": None,
         "title": "Who this connection is",
         "description": (
             "Who this connection acts as, which workspace it is in, and whether it may "
@@ -150,6 +154,7 @@ _CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "list_channels",
+        "grant": "channels:read",
         "title": "List channels",
         "description": (
             "Channels this person is in, plus the public ones they could join. Private "
@@ -170,6 +175,7 @@ _CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "read_channel",
+        "grant": "messages:read",
         "title": "Read a channel",
         "description": (
             "The most recent messages in a channel, oldest first. Pass `before` with the "
@@ -192,6 +198,7 @@ _CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "read_thread",
+        "grant": "messages:read",
         "title": "Read a thread",
         "description": "A thread in full: the message it started from and every reply.",
         "inputSchema": {
@@ -209,6 +216,7 @@ _CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "search_messages",
+        "grant": "messages:read",
         "title": "Search messages",
         "description": (
             "Full-text search across everything this person can see. Supports the same "
@@ -228,6 +236,7 @@ _CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "list_people",
+        "grant": "users:read",
         "title": "List people",
         "description": (
             "The people and agents in this workspace. A message names one by writing @ "
@@ -245,6 +254,7 @@ _CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "post_message",
+        "grant": "messages:write",
         "title": "Post a message",
         "description": (
             "Post to a channel or a thread, as the person this connection belongs to. "
@@ -297,6 +307,30 @@ def catalogue(caller: McpCaller) -> list[dict[str, Any]]:
 # --------------------------------------------------------------------------------------
 # Rendering — plain text, always carrying ids
 # --------------------------------------------------------------------------------------
+
+
+def tools_for_agent(scopes: frozenset[str]) -> list[dict[str, Any]]:
+    """The same tools, offered to an agent, in the shape the model layer takes.
+
+    One catalogue for both callers. An assistant reaching in over MCP and the workspace's
+    own agent are the same kind of principal — something acting for a person, holding
+    exactly that person's reach — so giving them separate tool tables would mean two
+    definitions of what "read a channel" is, and the second one drifting.
+
+    Filtered, not refused (the reason `catalogue` gives): a model offered a tool it may
+    not use will call it, and the person reads a permission error in the middle of an
+    answer. Read tools only, whatever the grants say — an agent that can post is the next
+    slice, and it wants the run's lineage on the message, not just a schema.
+    """
+    return [
+        {
+            "name": tool["name"],
+            "description": tool["description"],
+            "input_schema": tool["inputSchema"],
+        }
+        for tool in _CATALOGUE
+        if tool["readOnly"] and (tool["grant"] is None or tool["grant"] in scopes)
+    ]
 
 
 def _when(value: str | None) -> str:
@@ -741,4 +775,5 @@ __all__ = [
     "catalogue",
     "known",
     "resolve_token",
+    "tools_for_agent",
 ]

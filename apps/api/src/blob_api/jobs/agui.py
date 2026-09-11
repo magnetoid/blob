@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
+from ..lib import llm
 from ..lib.errors import AppError
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.redis import redis, redis_sub
@@ -44,6 +45,7 @@ from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
+from ..services import mcp as mcp_service
 from ..services import messages as message_service
 from ..services import policies as policy_service
 from ..services import work as work_service
@@ -185,6 +187,79 @@ async def personal_agent_for(
         workspace_name=row.workspace_name,
         owner_name=row.owner_name,
     )
+
+
+async def reading_tools(
+    listener: Listener, *, workspace_id: str, user_id: str
+) -> tuple[list[dict[str, Any]], llm.ToolRunner | None]:
+    """The tools this agent may use, and a runner that runs them as the person who asked.
+
+    Two decisions live here rather than in the agent, because both are about authority and
+    the agent is the last place that should hold an opinion about its own.
+
+    **Whose eyes.** The caller is built from `initiated_by_user_id` — the person who
+    rooted the chain, never the agent and never the last speaker in it (ADR 0013). An
+    agent reached through somebody else's hop therefore reads what *that* person can read
+    and no more, so a private channel answers the agent exactly as it answers them, and
+    the blast radius of a prompt injection stops at the asker's own membership.
+
+    **Which tools.** `plugin_grants`, the same rows the console shows and an admin
+    revokes. No grant, no tool — and the tool is absent from the schema list rather than
+    refused at call time, because a model offered something it may not use will use it and
+    the person reads a permission error in the middle of an answer.
+
+    A refusal comes back as the tool's result, not as an exception: "I could not see that"
+    is an answer the model can write a sentence about, while a raised error would end the
+    run and tell the person nothing about what was asked for.
+    """
+    if not listener.runs_here or not user_id:
+        return [], None
+    async with session_scope() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT u.display_name, w.name AS workspace_name,
+                           coalesce(
+                             (SELECT array_agg(g.scope)
+                                FROM plugin_grants g
+                               WHERE g.plugin_id = :plugin_id),
+                             '{}'
+                           ) AS scopes
+                      FROM users u
+                      JOIN workspaces w ON w.id = :ws
+                     WHERE u.id = :user_id
+                       AND u.workspace_id = :ws
+                       AND u.deactivated_at IS NULL
+                    """
+                ),
+                {"plugin_id": listener.plugin_id, "ws": workspace_id, "user_id": user_id},
+            )
+        ).fetchone()
+    if row is None:
+        return [], None
+    tools = mcp_service.tools_for_agent(frozenset(row.scopes or ()))
+    if not tools:
+        return [], None
+    caller = mcp_service.McpCaller(
+        token_id="",
+        token_name=listener.name,
+        user_id=user_id,
+        workspace_id=workspace_id,
+        display_name=row.display_name,
+        workspace_name=row.workspace_name,
+        # Read only, whatever the person could do themselves. An agent that posts is a
+        # separate grant and a separate slice; this one cannot write by construction.
+        scopes=frozenset({"read"}),
+    )
+
+    async def run(name: str, arguments: dict[str, Any]) -> str:
+        try:
+            return await mcp_service.call(caller, name, arguments)
+        except AppError as error:
+            return f"That did not work: {error.message}"
+
+    return tools, run
 
 
 @asynccontextmanager
@@ -844,8 +919,19 @@ async def _run_one(
             cancelled = True
         else:
             async with _looks_busy(listener, channel_id, thread_root_id):
+                tools, tool_runner = await reading_tools(
+                    listener,
+                    workspace_id=workspace_id,
+                    user_id=chain.initiated_by_user_id,
+                )
                 stream_task = asyncio.create_task(
-                    stream_run(listener, run_input, on_event=broadcaster.on_event)
+                    stream_run(
+                        listener,
+                        run_input,
+                        on_event=broadcaster.on_event,
+                        tools=tools,
+                        call=tool_runner,
+                    )
                 )
                 waiters: set[asyncio.Task[Any]] = {stream_task}
                 cancel_task: asyncio.Task[None] | None = None

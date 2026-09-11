@@ -525,7 +525,9 @@ class TestTheOtherTransports:
         general = (await owner.get("/api/channels")).body["channels"][0]["id"]
         inputs: list[dict] = []
 
-        async def fake_stream(run_input: Any, persona: Any) -> Any:
+        # `tools=`/`call=` are what the job now hands the agent; a double that does
+        # not take them fails with a TypeError that looks nothing like the cause.
+        async def fake_stream(run_input: Any, persona: Any, **_tools: Any) -> Any:
             inputs.append(dict(run_input))
             yield {"type": "RUN_STARTED", "threadId": "t", "runId": "r"}
             if len(inputs) == 1:
