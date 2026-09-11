@@ -51,6 +51,19 @@ services:
       mc mb --ignore-existing local/blob-files &&
       echo 'bucket ready'"
 
+  # WebRTC for meetups. `--dev` serves the placeholder pair devkey/secret, which is the
+  # same trade the MinIO credentials above make: a fixed value that is obviously not a
+  # secret beats one that has to be generated before anything works.
+  #
+  # 7880 is the signalling WebSocket the browser opens, 7881 the TCP fallback for networks
+  # that block UDP, and 7882/udp carries the media. One UDP port rather than LiveKit's
+  # default 50000-60000 range, because a range that size is a firewall argument nobody
+  # wants to have twice — and the production stack is bound by the same choice.
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --dev --bind 0.0.0.0 --udp-port 7882
+    ports: ['7880:7880', '7881:7881', '7882:7882/udp']
+
   # Catches all outgoing mail in dev. UI at http://localhost:8025
   mailhog:
     image: mailhog/mailhog:latest
