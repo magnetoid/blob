@@ -207,6 +207,34 @@ class TestWhatItIsOffered:
         assert "list_channels" in offered  # channels:read is still held
 
 
+class TestInADirectMessage:
+    async def test_a_personal_agent_is_handed_the_same_tools(
+        self, model: dict[str, Any], client: Client
+    ) -> None:
+        """The DM is the room where "what did I miss" is actually typed.
+
+        Its prompt now tells it it can go and look on the owner's behalf, so the run has
+        to hand it the tools that make that true. A prompt promising a capability the run
+        withholds is the exact failure the "You have no tools" line existed to prevent,
+        moved one room over.
+        """
+        model["tool"] = None
+        owner = await sign_up(client, "Founder")
+        bot = next(
+            person["id"]
+            for person in (await owner.get("/api/users")).body["users"]
+            if person["displayName"] == workspace_agent.AGENT_NAME
+        )
+        dm = (await owner.post("/api/dms", {"userIds": [bot]})).body["channel"]["id"]
+
+        sent = await send_message(owner, dm, "what did I miss?")
+        await agui_job.handle_agui_run(sent.body["message"]["id"])
+
+        offered = _tool_names(model["seen"][0])
+        assert "read_channel" in offered
+        assert "list_people" in offered
+
+
 class TestWhatItIsTold:
     def test_the_prompt_says_what_it_can_read_when_it_has_tools(self) -> None:
         persona = builtin.Persona(name="Blob", workspace_name="Acme")
