@@ -244,7 +244,12 @@ Sixteen built-ins, and whatever the apps installed here have added:
 Named because they are coming, and because a README that implies otherwise wastes your
 afternoon:
 
-- **Huddles** — the button exists in the channel header and is disabled.
+- **Meetups** — audio and video rooms, built but not yet proven. The button in the channel
+  header is live and the server issues LiveKit tokens, and `docker compose up -d` runs a
+  LiveKit beside everything else. It is the one feature that needs a service Blob does not
+  ship in its own image, so without `LIVEKIT_*` set every meetup answers
+  `livekit_not_configured` and the rest of the workspace is untouched. Treat it as the
+  newest thing here: it carries no tests yet.
 - **Canvases and workflows** — not started.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
 - **SSO, SAML, OIDC and 2FA** — email and password is the only way in.
@@ -387,6 +392,23 @@ rather than assumed.
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | `npx web-push generate-vapid-keys`. Without them the Notifications page says so and draws no switch; notifications stay in-app. |
 | `VAPID_SUBJECT` | `mailto:` address, default `mailto:admin@example.com`. |
 
+### Meetups
+
+Blob issues the token, LiveKit carries the media. `docker compose up -d` runs one locally
+with LiveKit's placeholder pair, and the production stack runs one too. Leave these empty
+and meetups answer `livekit_not_configured` while everything else carries on.
+
+| Variable | Notes |
+|---|---|
+| `LIVEKIT_URL` | What the **browser** dials, so the public `wss://` address, never the container name. `ws://localhost:7880` in dev. |
+| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | `docker run --rm livekit/livekit-server generate-keys`. Dev mode mints `devkey` / `secret`, which are not secrets. |
+
+Signalling is an ordinary WebSocket and a reverse proxy carries it. Media is not: WebRTC is
+UDP and a proxy only speaks TCP, so the stack publishes **7882/udp** straight onto the host
+and that port has to be open in the firewall. Miss it and a call connects, shows everyone
+present, and carries no sound. One UDP port rather than LiveKit's 50000-60000 default,
+because a range that size is a firewall argument nobody wants to have twice.
+
 ### The built-in agent
 
 | Variable | Default | Notes |
@@ -511,7 +533,7 @@ development there is a third — Vite on :5173, proxying `/api` and `/ws` to :30
 |---|---|
 | Web | React 18 + Vite, zustand, a hand-rolled router |
 | API | FastAPI on Python 3.12, REST for every write |
-| Data | SQLAlchemy 2.0 async + asyncpg, Alembic (24 migrations) |
+| Data | SQLAlchemy 2.0 async + asyncpg, Alembic (35 migrations) |
 | Realtime | FastAPI WebSockets, one event hub, Redis pub/sub between processes |
 | Database | Postgres 16 — messages, full-text search, everything |
 | Ephemera | Redis 7 — presence, typing, rate limits, the job queue |
@@ -567,7 +589,7 @@ Chat history is keyset-paginated, never `OFFSET`.
 
 ### Decisions
 
-The twelve ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
+The sixteen ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
 | | |
 |---|---|
@@ -584,6 +606,9 @@ The twelve ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture/deci
 | 0011 | AG-UI is an inbound transport |
 | 0012 | Agents may dial in |
 | 0013 | Agent chains carry human authority |
+| 0014 | Work channels, and artifacts are data |
+| 0015 | Summaries cite their sources; nudges stay private |
+| 0016 | An assistant reaching in is a person, not a bot |
 
 ---
 
@@ -598,7 +623,7 @@ apps/api          FastAPI app, WebSocket tier, arq worker
     plugins/      apps and agents: manifest, scopes, signing, delivery
     jobs/         what the worker runs
     db/           models, migrations, engine
-  tests/          ~1,000 integration tests against real Postgres and Redis (996 today)
+  tests/          ~1,400 integration tests against real Postgres and Redis (1,374 today)
 apps/web          React client
   src/features/   by domain
   src/lib/        store, api client, router, socket, outbox, help

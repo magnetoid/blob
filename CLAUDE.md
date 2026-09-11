@@ -135,11 +135,15 @@ SQL verbatim, so an existing database is adopted rather than rebuilt. `alembic c
 runs in CI — if the models drift, the next autogenerate proposes dropping the generated
 column and the partial indexes.
 
-The chain on `main` is sequential, `0001` … `0034`, so the highest number is the head. That
-is a convention rather than a guarantee — the `feat/meetups` branch carries a hash-named
-migration that becomes the head the moment it merges. Ask `uv run alembic heads` before
-writing a `down_revision` rather than reading the numbering, or you fork the chain and
-`alembic upgrade head` refuses to pick a side.
+The chain is sequential, `0001` … `0035`, so the highest number is the head. That is a
+convention the files keep, not one Alembic enforces: `alembic revision` names a migration
+by hash, and one arrived that way, chained from `0031` while main had reached `0034`. Two
+heads, and `alembic upgrade head` refuses to pick a side — which does not fail one test, it
+fails **every** test at setup, because `conftest.py` migrates before it does anything else.
+A wall of errors with no assertion in it is this until proven otherwise. Ask
+`uv run alembic heads` before writing a `down_revision`, and rename a generated migration
+into the sequence while it is still unapplied, because the revision id is what a deployed
+database has recorded and renaming it later strands that database.
 
 **Apps and agents.** `plugins/` is the integration layer: a manifest and scope catalogue,
 SSRF-guarded registration, a bot that is a real `users` row (so `author_id` stays a valid
@@ -190,6 +194,18 @@ place to look before changing them.
   credential for it would mean a long-lived secret that opens a root shell.
   `services/agent_shell.py` decides who may open one; the router decides nothing.
 
+**Meetups** (`services/meetups.py`, `features/meetups/`) sit apart from all of that and are
+the newest and least settled thing here. Blob mints a LiveKit token; LiveKit carries the
+media. Three things to know before touching it: it is the one service written against the
+ORM rather than `text()`, it has **no tests at all**, and it is the only feature with an
+external dependency that can be absent — with no `LIVEKIT_*` settings every endpoint
+answers `livekit_not_configured` and nothing else in the workspace notices, which is the
+"fail toward the workspace staying up" rule holding. `docker compose up -d` runs a LiveKit
+in dev on 7880 with LiveKit's own placeholder credentials. In production the signalling
+WebSocket goes through Traefik like anything else, but the media is UDP and a reverse proxy
+only carries TCP, so 7882/udp is published straight onto the host and has to be open in the
+firewall — miss it and a call connects, shows both participants and carries no sound.
+
 **Client.** `features/` by domain, `lib/` for the plumbing: a zustand store keeping
 messages per channel in ascending id order (UUIDv7 sorts chronologically, so a live
 insert is a sorted-position insert and "unread?" is a string comparison — the same trick
@@ -237,10 +253,11 @@ fades keep their duration. Anything sized for a pointer gets a 44px minimum unde
 - **Hand-tuned SQL stays SQL.** Not just the chat queries — all of it. `db/models.py`
   exists to define the schema and drive Alembic; it is not a query layer. Every read and
   write in the backend is `text()` with bound parameters, and chat history is
-  keyset-paginated, never `OFFSET`. On `main` there is no `session.add` and no ORM
-  `select()` anywhere, so a grep that finds one has found new drift — the `feat/meetups`
-  branch is the current example, and it is debt to pay down before merging rather than a
-  precedent to copy.
+  keyset-paginated, never `OFFSET`. One file breaks this and is the only one:
+  `services/meetups.py` uses `session.add`, `select()` and `update()` and contains no
+  `text()` at all. It is debt, not a precedent — a grep for `session.add(` or `select(`
+  under `services/` and `routers/` should return that file and nothing else, and a second
+  hit is new drift.
 - **Ids are UUIDv7.** Chronological sort order is load-bearing: unread state is a string
   comparison, not a count or a timestamp join. This is the one schema decision that
   cannot be retrofitted cheaply.

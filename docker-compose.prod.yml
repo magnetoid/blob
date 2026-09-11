@@ -253,8 +253,16 @@ services:
   # WebRTC for meetups. Two halves that reach the browser by different routes, which is
   # the whole difficulty of putting this behind a reverse proxy.
   #
-  # Signalling is an ordinary WebSocket: Coolify generates the domain, Traefik terminates
-  # TLS and forwards to 7880, and nothing special is needed. Media is not. WebRTC is UDP
+  # **No domain is generated for this on purpose.** It boots with LiveKit's placeholder
+  # credentials so an unconfigured stack still comes up, and a public address plus known
+  # credentials is an open relay for anyone who finds it. Enabling meetups is therefore
+  # deliberate in three steps: give this service a domain in Coolify, set LIVEKIT_API_KEY
+  # and LIVEKIT_API_SECRET to a generated pair, and set LIVEKIT_URL on the app to the
+  # wss:// form of that domain. Until then the app issues no tokens and meetups answer
+  # `livekit_not_configured`.
+  #
+  # Signalling is an ordinary WebSocket, so once it has a domain Traefik terminates TLS
+  # and forwards to 7880 with nothing special needed. Media is not. WebRTC is UDP
   # and a reverse proxy only speaks TCP, so 7882/udp is published straight onto the host
   # and **must be open in the firewall**. Miss that and a call connects, shows both
   # participants, and carries no sound — the failure looks like a bug in the app.
@@ -267,13 +275,17 @@ services:
     restart: unless-stopped
     command: --bind 0.0.0.0 --udp-port 7882
     environment:
-      # Signalling, over wss:// once Traefik has terminated TLS. LIVEKIT_URL on the app
-      # must be the wss:// form of this same name — it is what the browser dials, so a
-      # container name there fails for every client.
-      - SERVICE_FQDN_LIVEKIT_7880
-      # `key: secret`, LiveKit's own format. Generate with
-      # `docker run --rm livekit/livekit-server generate-keys`.
-      - LIVEKIT_KEYS=${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
+      # `key: secret`, LiveKit's own format, and it **must be quoted**. Unquoted, the
+      # `: ` in the middle is YAML's key-value separator, so Compose reads the whole
+      # entry as a mapping and refuses the file with "unexpected type
+      # map[string]interface {}" — which fails the boot before any container starts.
+      #
+      # The defaults are LiveKit's own placeholders and are not secrets. They exist so
+      # the stack boots unconfigured; they are safe only because nothing routes to this
+      # service until you give it a domain. Set the real pair from
+      # `docker run --rm livekit/livekit-server generate-keys` when you enable meetups —
+      # the same two values configure this server and the app that mints tokens for it.
+      - "LIVEKIT_KEYS=${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}"
     ports:
       # Media, and the TCP fallback for clients whose network blocks UDP outright.
       - '7882:7882/udp'
