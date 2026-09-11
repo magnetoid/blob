@@ -170,6 +170,23 @@ class TestWhatItIsOffered:
         (tool,) = [t for t in mcp.tools_for_agent(frozenset()) if t["name"] == "whoami"]
         assert set(tool) == {"name", "description", "input_schema"}
 
+    async def test_the_seeded_agent_may_see_who_is_here(
+        self, model: dict[str, Any], client: Client
+    ) -> None:
+        """Naming a person is not a bonus feature, it is most of what gets asked.
+
+        "Who should I ask about billing", "is Ana around", "who owns this channel" — and
+        the hand-off rule the prompt teaches, write @Name to pass work to another agent,
+        needs the names to be real. The agent shipped able to read every channel the
+        asker can and unable to say who was in them, because `users:read` was not among
+        the scopes it is seeded with.
+        """
+        model["tool"] = None
+        owner = await sign_up(client, "Founder")
+        await _ask(owner, await _general(owner), "who is in this workspace")
+
+        assert "list_people" in _tool_names(model["seen"][0])
+
     async def test_a_revoked_grant_removes_the_tool(
         self, model: dict[str, Any], client: Client
     ) -> None:

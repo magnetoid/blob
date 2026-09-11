@@ -42,11 +42,17 @@ AGENT_NAME = "Blob"
 
 AGENT_DESCRIPTION = "Blob's own assistant. Mention it in any channel to ask something."
 
-#: What it is granted. Reading and writing messages is the whole job today — it answers
-#: where it was asked and nowhere else. Notably absent: `messages:moderate`, anything
-#: about files, and anything about members. An agent that ships turned on should hold the
-#: smallest set that makes it work, and widen only when a feature actually needs it.
-AGENT_SCOPES = ["messages:read", "messages:write", "channels:read"]
+#: What it is granted. The four are what its tools need and nothing more: it reads
+#: channels and threads, searches, answers where it was asked, and can say who is here.
+#: `users:read` is the newest and is read-only — it lists display names, which is what a
+#: mention is written from, so without it the agent can read every channel the asker can
+#: and still not name a single person in them. Notably still absent: `messages:moderate`,
+#: anything about files, and anything that writes to a member. An agent that ships turned
+#: on should hold the smallest set that makes it work, and widen only when a feature
+#: actually needs it — which is why widening it is a migration (`0036`) rather than a
+#: silent re-grant at startup: `ensure` deliberately does not reconcile grants, because a
+#: grant an admin revoked must stay revoked across a restart.
+AGENT_SCOPES = ["messages:read", "messages:write", "channels:read", "users:read"]
 
 
 def manifest() -> Manifest:
