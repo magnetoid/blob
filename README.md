@@ -244,12 +244,12 @@ Eighteen built-ins, and whatever the apps installed here have added:
 Named because they are coming, and because a README that implies otherwise wastes your
 afternoon:
 
-- **Meetups** — audio and video rooms, built but not yet proven. The button in the channel
-  header is live and the server issues LiveKit tokens, and `docker compose up -d` runs a
-  LiveKit beside everything else. It is the one feature that needs a service Blob does not
-  ship in its own image, so without `LIVEKIT_*` set every meetup answers
-  `livekit_not_configured` and the rest of the workspace is untouched. Treat it as the
-  newest thing here: it carries no tests yet.
+- **Meetups** — audio and video rooms, the newest thing here. The button in the channel
+  header is live, the server issues LiveKit tokens, a meetup inherits its channel's access,
+  and `docker compose up -d` runs a LiveKit beside everything else in dev. It is the one
+  feature that needs a service Blob does not ship in its own image, so without `LIVEKIT_*`
+  set every meetup answers `livekit_not_configured` and the rest of the workspace is
+  untouched.
 - **Canvases and workflows** — not started.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
 - **SSO, SAML, OIDC and 2FA** — email and password is the only way in.
@@ -395,8 +395,9 @@ rather than assumed.
 ### Meetups
 
 Blob issues the token, LiveKit carries the media. `docker compose up -d` runs one locally
-with LiveKit's placeholder pair, and the production stack runs one too. Leave these empty
-and meetups answer `livekit_not_configured` while everything else carries on.
+with LiveKit's placeholder pair. In production it is off unless you ask for it: set
+`COMPOSE_PROFILES=meetups` alongside the values below. Leave these empty and meetups answer
+`livekit_not_configured` while everything else carries on.
 
 | Variable | Notes |
 |---|---|
@@ -408,6 +409,12 @@ UDP and a proxy only speaks TCP, so the stack publishes **7882/udp** straight on
 and that port has to be open in the firewall. Miss it and a call connects, shows everyone
 present, and carries no sound. One UDP port rather than LiveKit's 50000-60000 default,
 because a range that size is a firewall argument nobody wants to have twice.
+
+A host port belongs to one container. Running two Blob stacks on one machine means the
+second needs its own `LIVEKIT_UDP_PORT` and `LIVEKIT_TCP_PORT`, both opened in the
+firewall. LiveKit advertises the UDP port it binds, so Blob passes that one value to the
+flag and to both halves of the mapping; the TCP variable moves only the host side, and a
+host port that differs from 7881 also needs `rtc.tcp_port` in a LiveKit config.
 
 ### The built-in agent
 

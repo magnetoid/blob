@@ -273,7 +273,19 @@ services:
   livekit:
     image: livekit/livekit-server:latest
     restart: unless-stopped
-    command: --bind 0.0.0.0 --udp-port 7882
+    # Off unless asked for. Meetups are the one feature with an external dependency
+    # that may simply be absent, and with no `LIVEKIT_*` settings every meetup endpoint
+    # already answers `livekit_not_configured` while the rest of the workspace carries
+    # on. A media server that nobody has configured should not also be able to stop
+    # chat from starting, which is exactly what it did on 2026-09-11: two Blob stacks
+    # share this host, the second one's bind of 7882/udp failed, `docker compose up`
+    # gave up, and the app and worker were left created-but-never-started. Turn it on
+    # with `COMPOSE_PROFILES=meetups` alongside the three `LIVEKIT_*` values.
+    profiles: ["meetups"]
+    # The UDP port is named three times on purpose — LiveKit advertises the port it was
+    # told to bind, so the flag and both halves of the mapping have to agree. A second
+    # instance on the same host needs its own `LIVEKIT_UDP_PORT`.
+    command: --bind 0.0.0.0 --udp-port ${LIVEKIT_UDP_PORT:-7882}
     environment:
       # `key: secret`, LiveKit's own format, and it **must be quoted**. Unquoted, the
       # `: ` in the middle is YAML's key-value separator, so Compose reads the whole
@@ -288,8 +300,10 @@ services:
       - "LIVEKIT_KEYS=${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}"
     ports:
       # Media, and the TCP fallback for clients whose network blocks UDP outright.
-      - '7882:7882/udp'
-      - '7881:7881'
+      # `LIVEKIT_TCP_PORT` moves only the host side: LiveKit still advertises 7881, so
+      # a host port that differs from it also needs `rtc.tcp_port` in a LiveKit config.
+      - '${LIVEKIT_UDP_PORT:-7882}:${LIVEKIT_UDP_PORT:-7882}/udp'
+      - '${LIVEKIT_TCP_PORT:-7881}:7881'
 
   minio:
     image: minio/minio:latest

@@ -205,10 +205,18 @@ router did not serve); and it is the only feature with an external dependency th
 be absent — with no `LIVEKIT_*` settings every endpoint answers `livekit_not_configured`
 in every environment, and nothing else in the workspace notices, which is the "fail
 toward the workspace staying up" rule holding. `docker compose up -d` runs a LiveKit
-in dev on 7880 with LiveKit's own placeholder credentials. In production the signalling
-WebSocket goes through Traefik like anything else, but the media is UDP and a reverse proxy
-only carries TCP, so 7882/udp is published straight onto the host and has to be open in the
-firewall — miss it and a call connects, shows both participants and carries no sound.
+in dev on 7880 with LiveKit's own placeholder credentials. In production it is **opt-in**:
+the service carries `profiles: ["meetups"]`, so a deployment that has not set
+`COMPOSE_PROFILES=meetups` never starts it. That is the same rule again, learned the hard
+way on 2026-09-11 — two Blob stacks share one host, the second one's bind of 7882/udp
+failed because the first already held it, and a port clash in the media server stopped
+`docker compose up` before the app and worker ever started. An unconfigured dependency
+must not be able to keep chat down. Signalling goes through Traefik like anything else,
+but media is UDP and a reverse proxy only carries TCP, so `LIVEKIT_UDP_PORT` (7882) is
+published straight onto the host and has to be open in the firewall — miss it and a call
+connects, shows both participants and carries no sound. LiveKit advertises the port it was
+told to bind, which is why that one value appears three times in the compose file and why
+a second instance on the same host needs its own.
 
 **Client.** `features/` by domain, `lib/` for the plumbing: a zustand store keeping
 messages per channel in ascending id order (UUIDv7 sorts chronologically, so a live
