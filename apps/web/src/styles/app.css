@@ -2029,13 +2029,16 @@ button {
 /* The arrow beside a summary line: the message it rests on, one press away. Text-coloured
    and quiet until hovered, so a list of five cited lines does not read as five buttons. */
 .summary-cite {
+  /* A citation points at what the agent read, so it is iris like everything else that
+     does. It also stops being 0.6 of the body colour: the one control on this card that
+     invites a press was the faintest thing on it, and an opacity on inherited text is
+     the same contrast defect the grey ladder in tokens.css was compressed to fix. */
   margin-left: 6px;
   padding: 0 4px;
   border: 0;
   border-radius: var(--radius-xs);
   background: transparent;
-  color: inherit;
-  opacity: 0.6;
+  color: var(--iris-strong);
   font: inherit;
   font-size: var(--text-sm);
   line-height: 1;
@@ -2044,8 +2047,7 @@ button {
 }
 .summary-cite:hover,
 .summary-cite:focus-visible {
-  opacity: 1;
-  background: var(--accent-wash);
+  background: var(--iris-tint);
 }
 @media (pointer: coarse) {
   .summary-cite {
