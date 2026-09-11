@@ -11,6 +11,153 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "bf8fabd028e8a091dc3c61b13c3fe8e2fd08e050",
+    "shortSha": "bf8fabd",
+    "subject": "Give the consoles one shape, and the admin pages one home each",
+    "date": "2026-09-11T17:43:04+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "709ae622f7e4fa591d682aa129ad2a8462fb4bb8",
+    "shortSha": "709ae62",
+    "subject": "Let @Blob read the workspace, as the person who asked",
+    "date": "2026-09-11T17:42:16+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "b87288fc74029a47bc25af7ebd353629a732eb1c",
+    "shortSha": "b87288f",
+    "subject": "Let the model layer run tools, so an agent can act",
+    "date": "2026-09-11T17:41:51+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "b2ebb5363cfe86be6d54c28e8cfd057207267394",
+    "shortSha": "b2ebb53",
+    "subject": "Stop an unconfigured media server from keeping chat down",
+    "date": "2026-09-11T14:24:44+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "5e1485608e4032f4995250d5aa8b6d09b7dd53f4",
+    "shortSha": "5e14856",
+    "subject": "Make meetups reachable and give them their channel's access",
+    "date": "2026-09-11T13:58:56+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "c30b3ecc2ea1ae3c616bb2bf2504cd750fd5318a",
+    "shortSha": "c30b3ec",
+    "subject": "Quote LiveKit's key pair, and stop generating a domain for it",
+    "date": "2026-09-11T05:24:25+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "1e11f55aba93d78af846c9d13d2b01fa93bebdc8",
+    "shortSha": "1e11f55",
+    "subject": "Run LiveKit beside Blob, so meetups have somewhere to connect",
+    "date": "2026-09-11T05:02:47+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "dea137ba0c2ab691a33c636ffbddd6fd6aea5177",
+    "shortSha": "dea137b",
+    "subject": "Bring CLAUDE.md up to date with the agentic surface",
+    "date": "2026-09-11T03:51:49+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "7fc07624baaef360313c5e57633faf80a040e4b1",
+    "shortSha": "7fc0762",
+    "subject": "Meetups: live audio and video rooms, on LiveKit",
+    "date": "2026-09-11T03:26:41+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "623ac4d3004a9993c5c318c7424878ed582eb63e",
+    "shortSha": "623ac4d",
+    "subject": "feat: later bookmark, person cards, and the files tab (#13)",
+    "date": "2026-09-11T03:20:42+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "155e66fee81a86c31f7689309b4c5e81c1114649",
+    "shortSha": "155e66f",
+    "subject": "feat: skin tones in the picker, and search hit highlighting (#12)",
+    "date": "2026-09-11T00:40:52+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "72eef658c21198002bbe18fefb677221b797f609",
+    "shortSha": "72eef65",
+    "subject": "feat: colon emoji autocomplete, toolbar link/list, XSS goldens (#11)",
+    "date": "2026-09-10T21:36:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "6566ceb3f594772d2cf064c5a3a7e29d4e8b0a3d",
+    "shortSha": "6566ceb",
+    "subject": "feat: search from:/in:/has: without leftover words (#10)",
+    "date": "2026-09-10T06:56:59+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "7170a7a17deea9ce6ca42ef092699bcded268b46",
+    "shortSha": "7170a7a",
+    "subject": "feat: R4 activity_events, Mentions, unread around (#9)",
+    "date": "2026-09-10T04:50:04+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "19d4c3cb30fb93f7a40430a11e5a77ae5d838d7c",
+    "shortSha": "19d4c3c",
+    "subject": "feat: R3 shell tabs, permalink path, last_reply_at index (#8)",
+    "date": "2026-09-10T02:27:20+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "86a3d394f61910f26280ad63198c1c3ec40b1bb7",
+    "shortSha": "86a3d39",
+    "subject": "Finish R2 hardening and member quick wins (#7)",
+    "date": "2026-09-09T19:54:16+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "912600181e2708ef9abc4ead2dc10a8c474c9181",
+    "shortSha": "9126001",
+    "subject": "fix: persist also-send-to-channel through the outbox, and show status (#4)",
+    "date": "2026-09-09T15:49:56+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d2ecadf968e2286c2a954fceac95653664f5764d",
+    "shortSha": "d2ecadf",
+    "subject": "Put the account menu back in the corner, and stop the chat list leaving holes. (#5)",
+    "date": "2026-09-09T15:30:01+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "7b8c1c8f0c36775fdbe757411f4483f037694139",
+    "shortSha": "7b8c1c8",
+    "subject": "Refine the chat shell and harden live dashboard updates.",
+    "date": "2026-09-08T17:49:30+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "83756c10fd1e887377291db0f764ef19b1e6633b",
+    "shortSha": "83756c1",
+    "subject": "Home is the dashboard, and settings stop pretending this is a grid of workspaces.",
+    "date": "2026-09-08T17:45:57+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "fe69eebacab1050978f0212709935acd3c95763f",
+    "shortSha": "fe69eeb",
+    "subject": "Stop trusting a header the caller writes, and four more places a member reached too far",
+    "date": "2026-09-07T00:07:53+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "55bafe08114487550b1900d28decb83ea70d6b31",
     "shortSha": "55bafe0",
     "subject": "Let your own assistant read this workspace, and say when a file cannot be uploaded",
@@ -281,153 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "01b3a9b",
     "subject": "Stop CLAUDE.md vouching for a failure that no longer happens",
     "date": "2026-09-01T22:54:02+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "bbf0f0d4012af9420dfbb78ef73f650c67254a81",
-    "shortSha": "bbf0f0d",
-    "subject": "Refuse has:files instead of quietly searching everything",
-    "date": "2026-09-01T22:51:50+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "3c4154d1d35a0c5afc34c0857607b5f491f42c8d",
-    "shortSha": "3c4154d",
-    "subject": "Constrain the ids that arrive in a body, not just the ones in a path",
-    "date": "2026-09-01T22:39:20+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e0723164db1df3378af5919d09e186295457c772",
-    "shortSha": "e072316",
-    "subject": "Answer a malformed id with 400, not a 500 and a stack trace",
-    "date": "2026-09-01T22:27:39+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d83187b590fa7b9809720060d186eec5b8228ddd",
-    "shortSha": "d83187b",
-    "subject": "Write down three ways this app is easy to measure wrongly",
-    "date": "2026-09-01T22:06:02+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "1663b66699a341d8669b27a0a1892e70d9126428",
-    "shortSha": "1663b66",
-    "subject": "Tell somebody the first search is running",
-    "date": "2026-09-01T22:01:36+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "b75f42c607383a235a2f5ca0575d66c7718a0d40",
-    "shortSha": "b75f42c",
-    "subject": "Write down two gaps that are decisions rather than defects",
-    "date": "2026-09-01T21:27:51+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "09fa28fc5ea59622c665ef1936cdc5eaad7b7e16",
-    "shortSha": "09fa28f",
-    "subject": "Name the two switches that decide something consequential",
-    "date": "2026-09-01T21:25:18+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "4f162f0c3ccc8e0788d478e3fb0f848badb486a0",
-    "shortSha": "4f162f0",
-    "subject": "Stop search blaming the server for a rate limit",
-    "date": "2026-09-01T21:00:01+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "0f6bd26874006e323b36b333779039d8f3c6b65f",
-    "shortSha": "0f6bd26",
-    "subject": "Stop a deletion taking its replies down with it",
-    "date": "2026-09-01T20:34:48+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a8f831f1708b7fbf2357f62a0f60a44f800e9c29",
-    "shortSha": "a8f831f",
-    "subject": "Keep the live regions mounted, so they have somewhere to speak from",
-    "date": "2026-09-01T19:36:00+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "5d261388e4f43a31c2ef8cb2d68f6c6c0b32e8d9",
-    "shortSha": "5d26138",
-    "subject": "Name the last two console buttons that did not say who they act on",
-    "date": "2026-09-01T19:17:29+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a6be9bfd49d8812f6bba1854f2363fcd35b7be61",
-    "shortSha": "a6be9bf",
-    "subject": "Say which row a console button acts on",
-    "date": "2026-09-01T18:58:24+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "4313f2a743161f08aba1f6c621fe5c6d06c01adf",
-    "shortSha": "4313f2a",
-    "subject": "Name the keyword box, and stop a chip reading its own decoration aloud",
-    "date": "2026-09-01T18:46:15+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "2be5f72f1ec7dcd5814ab23b1264273e640d4e18",
-    "shortSha": "2be5f72",
-    "subject": "Let the console's tables be tables",
-    "date": "2026-09-01T18:21:52+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "ee92e5a820ae7ddad430ebaf4d56daa2e326003a",
-    "shortSha": "ee92e5a",
-    "subject": "Stop a link losing its closing bracket",
-    "date": "2026-09-01T18:08:48+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "4313a4bdfa76e299f99e5522110334995bf81468",
-    "shortSha": "4313a4b",
-    "subject": "Let the thread summary follow the row, like everything else in it",
-    "date": "2026-09-01T17:59:14+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a1a0292650a8a7f0fd2fc38728225f28316ba871",
-    "shortSha": "a1a0292",
-    "subject": "Give the message list one tab stop instead of seven per message",
-    "date": "2026-09-01T17:50:35+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "de3faaf309459518a9972d92a43f09aeb8a017bf",
-    "shortSha": "de3faaf",
-    "subject": "Take the emoji picker's section labels out of the page outline",
-    "date": "2026-09-01T17:35:49+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "88626a2a4ca6ffd5c8792b7226a4bdb52ac1620a",
-    "shortSha": "88626a2",
-    "subject": "Give muted text the contrast back that elevation spends",
-    "date": "2026-09-01T17:23:02+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "466ea7b35afc0c155edcc3d3b76b689ae439f1e3",
-    "shortSha": "466ea7b",
-    "subject": "Record what this pass learned about ids, jumps, and audits",
-    "date": "2026-09-01T17:08:59+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "4aaad94c1f13666a8df0f8662f395d34f5b01c4b",
-    "shortSha": "4aaad94",
-    "subject": "Put messages typed offline back in the order they were typed",
-    "date": "2026-09-01T17:05:30+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
