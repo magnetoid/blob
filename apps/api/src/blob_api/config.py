@@ -184,10 +184,6 @@ class Settings(BaseSettings):
     #: `S3_PUBLIC_ENDPOINT`.
     CSP_EXTRA_SOURCES: str = ""
 
-    # Supabase Hybrid Integration
-    SUPABASE_URL: str | None = None
-    SUPABASE_SERVICE_ROLE_KEY: str | None = None
-
     LIVEKIT_URL: str | None = None
     LIVEKIT_API_KEY: str | None = None
     LIVEKIT_API_SECRET: str | None = None
