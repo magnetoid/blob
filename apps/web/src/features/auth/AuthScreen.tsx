@@ -20,6 +20,48 @@ interface Props {
   onSignedIn: () => Promise<void>;
 }
 
+/** The half of the sign-in that is not a form.
+ *
+ * Meadow puts the product's claim beside the form rather than nowhere, and the two
+ * lines worth the space are the ones only a self-hosted, agent-native product can make.
+ * Both are true of *this* server rather than borrowed from marketing: the address comes
+ * from the browser, not from a string, so a deployment cannot end up telling people it
+ * lives somewhere it does not.
+ *
+ * `aria-hidden` because it is decoration. Everything here is restated by the form's own
+ * heading, and a screen reader should reach the email field without first being read a
+ * tagline.
+ */
+function BrandPanel() {
+  const host = typeof window === "undefined" ? "" : window.location.host;
+  return (
+    <aside className="auth-brand" aria-hidden="true">
+      <div className="auth-brand-head">
+        <div className="auth-mark">B</div>
+        <span className="auth-brand-word">blob</span>
+      </div>
+      <div>
+        <p className="auth-brand-line">
+          Where your team and its agents work in one place.
+        </p>
+        <div className="auth-brand-room">
+          <span className="auth-brand-face" data-face="one">
+            M
+          </span>
+          <span className="auth-brand-face" data-face="two">
+            A
+          </span>
+          <span className="auth-brand-face" data-kind="bot" />
+          <span className="auth-brand-caption">humans and agents, same room</span>
+        </div>
+      </div>
+      <p className="auth-brand-foot">
+        Self-hosted at <strong>{host}</strong> · your data stays on your server
+      </p>
+    </aside>
+  );
+}
+
 export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   const inviteToken = inviteTokenFromUrl();
   const resetToken = resetTokenFromUrl();
@@ -136,6 +178,7 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   if (mode === "forgot" && sent) {
     return (
       <div className="auth">
+        <BrandPanel />
         <div className="auth-card">
           <div>
             <div className="auth-mark" aria-hidden="true">
@@ -171,6 +214,7 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
 
   return (
     <div className="auth">
+      <BrandPanel />
       <form className="auth-card" onSubmit={submit}>
         <div>
           <div className="auth-mark" aria-hidden="true">

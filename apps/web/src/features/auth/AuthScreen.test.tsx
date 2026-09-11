@@ -147,3 +147,21 @@ describe('following the link', () => {
     expect(field.minLength).toBe(10);
   });
 });
+
+describe('the panel beside the form', () => {
+  /* Meadow puts the product's claim next to the sign-in rather than nowhere. The two
+     lines that matter are the ones only a self-hosted product can make, and both have
+     to be true of *this* server rather than marketing: the address is the one the
+     browser is at, and "humans and agents" is what the app actually is. */
+  it('says whose server this is, from the address rather than from copy', () => {
+    const { container } = render(<AuthScreen needsSetup={false} onSignedIn={async () => {}} />);
+    const panel = container.querySelector('.auth-brand');
+    expect(panel).toBeTruthy();
+    expect(panel?.textContent).toContain(window.location.host);
+  });
+
+  it('is decoration, so a screen reader goes straight to the form', () => {
+    const { container } = render(<AuthScreen needsSetup={false} onSignedIn={async () => {}} />);
+    expect(container.querySelector('.auth-brand')?.getAttribute('aria-hidden')).toBe('true');
+  });
+});

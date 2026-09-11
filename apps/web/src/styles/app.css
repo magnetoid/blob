@@ -257,11 +257,119 @@ button {
 
 /* ─── auth ───────────────────────────────────────────────────────────────── */
 .auth {
+  /* Two panels on a wide screen, the form alone on a narrow one. The brand half is
+     `display: none` below the breakpoint rather than stacked: on a phone it would push
+     the password field under the fold, and a tagline is not worth a scroll on the one
+     screen where someone is trying to get in. */
   display: grid;
   place-items: center;
   min-height: 100%;
   padding: 24px;
   background: var(--bg-sidebar);
+}
+
+@media (min-width: 900px) {
+  .auth {
+    grid-template-columns: minmax(360px, 46%) 1fr;
+    place-items: stretch;
+    padding: 0;
+  }
+
+  .auth .auth-card {
+    place-self: center;
+  }
+}
+
+.auth-brand {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .auth-brand {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 32px;
+    padding: 44px 48px;
+    /* The one dark surface in a light app, and it is deliberate: it makes the form the
+       brighter half, which is where the eye should land. Fixed rather than tokenised
+       because it must not follow the theme — the mark and the faces are drawn on it. */
+    background: #1a1d1b;
+    color: #e8e6dd;
+  }
+}
+
+.auth-brand-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-brand-word {
+  font-weight: 700;
+  font-size: var(--text-title);
+  letter-spacing: -0.01em;
+}
+
+.auth-brand-line {
+  margin: 0;
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  max-width: 380px;
+}
+
+.auth-brand-room {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.auth-brand-face {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  flex: none;
+}
+
+.auth-brand-face[data-face='one'] {
+  background: #dce6de;
+  color: var(--accent);
+}
+
+.auth-brand-face[data-face='two'] {
+  background: #e6ddd0;
+  color: #7c4a24;
+}
+
+/* The third face is an agent, in the reserved colour it wears everywhere else. Three
+   squares say "humans and agents, same room" faster than the caption under them. */
+.auth-brand-face[data-kind='bot'] {
+  background: conic-gradient(from 200deg, var(--iris-strong), var(--iris-soft), var(--iris));
+}
+
+.auth-brand-caption {
+  margin-left: 4px;
+  font-size: var(--text-ui);
+  opacity: 0.72;
+}
+
+.auth-brand-foot {
+  margin: 0;
+  font-size: var(--text-ui);
+  opacity: 0.72;
+  line-height: 1.6;
+}
+
+.auth-brand-foot strong {
+  color: #fcfcfa;
+  font-weight: 600;
 }
 
 .auth-card {
