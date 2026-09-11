@@ -13,7 +13,7 @@
 
 ## Phase 2: Architectural Scaling (Q4 2026)
 *Strengthening infrastructure for enterprise demands.*
-1. **Supabase Hybrid Integration:** Leverage Supabase for Storage and Edge Functions to handle high-latency agent tasks, maintaining hand-tuned SQL in FastAPI for chat performance.
+1. ~~**Supabase Hybrid Integration**~~ — withdrawn. A second storage and compute origin cuts against ADR 0008 (one image, one origin) and the three-runtime-dependency rule, and the placeholder module that carried it was imported by nothing. Long-running agent work already has a home in container-hosted agents (ADR 0010). Reopen only with an ADR that overrides 0008.
 2. **Presence CRDTs:** Evolve presence tracking to use CRDT-based state synchronization for resilient collaborative editing.
 3. **UUIDv7 Keyset Optimization:** Optimize message loading logic to handle multi-workspace event streams without client-side lag.
 

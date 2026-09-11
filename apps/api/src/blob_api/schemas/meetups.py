@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from pydantic import Field
 
+from ..lib.ids import IdParam
 from .base import CamelModel
 
 
 class MeetupCreate(CamelModel):
     name: str = Field(..., min_length=1, max_length=100)
-    channel_id: str | None = None
+    channel_id: IdParam | None = None
 
 
 class MeetupOut(CamelModel):

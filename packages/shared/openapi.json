@@ -3948,6 +3948,7 @@
           "channelId": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -13964,6 +13965,176 @@
         ]
       }
     },
+    "/api/meetups": {
+      "post": {
+        "operationId": "create_meetup_api_meetups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetupCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Meetup",
+        "tags": [
+          "meetups"
+        ]
+      }
+    },
+    "/api/meetups/{meetup_id}": {
+      "get": {
+        "operationId": "get_meetup_api_meetups__meetup_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meetup_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Meetup Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Meetup",
+        "tags": [
+          "meetups"
+        ]
+      }
+    },
+    "/api/meetups/{meetup_id}/end": {
+      "post": {
+        "operationId": "end_meetup_api_meetups__meetup_id__end_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meetup_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Meetup Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Meetup",
+        "tags": [
+          "meetups"
+        ]
+      }
+    },
+    "/api/meetups/{meetup_id}/token": {
+      "post": {
+        "operationId": "get_meetup_token_api_meetups__meetup_id__token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meetup_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Meetup Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetupTokenOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Meetup Token",
+        "tags": [
+          "meetups"
+        ]
+      }
+    },
     "/api/messages/{message_id}": {
       "delete": {
         "operationId": "delete_message_api_messages__message_id__delete",
@@ -16171,173 +16342,6 @@
           }
         },
         "summary": "Healthz"
-      }
-    },
-    "/meetups": {
-      "post": {
-        "operationId": "create_meetup_meetups_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MeetupCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetupOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Meetup",
-        "tags": [
-          "meetups"
-        ]
-      }
-    },
-    "/meetups/{meetup_id}": {
-      "get": {
-        "operationId": "get_meetup_meetups__meetup_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "meetup_id",
-            "required": true,
-            "schema": {
-              "title": "Meetup Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetupOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Meetup",
-        "tags": [
-          "meetups"
-        ]
-      }
-    },
-    "/meetups/{meetup_id}/end": {
-      "post": {
-        "operationId": "end_meetup_meetups__meetup_id__end_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "meetup_id",
-            "required": true,
-            "schema": {
-              "title": "Meetup Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetupOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "End Meetup",
-        "tags": [
-          "meetups"
-        ]
-      }
-    },
-    "/meetups/{meetup_id}/token": {
-      "post": {
-        "operationId": "get_meetup_token_meetups__meetup_id__token_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "meetup_id",
-            "required": true,
-            "schema": {
-              "title": "Meetup Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetupTokenOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Meetup Token",
-        "tags": [
-          "meetups"
-        ]
       }
     },
     "/readyz": {

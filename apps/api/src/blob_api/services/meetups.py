@@ -77,15 +77,14 @@ async def generate_token(
     user_display_name: str,
     meetup: MeetupOut,
 ) -> MeetupTokenOut:
+    # No LiveKit is a supported state, and it says so in every environment. A fake token
+    # for dev was the alternative, and a token that fails at connect time looks exactly
+    # like a bug in the app; a typed error is something the client can explain.
     if not settings.LIVEKIT_API_KEY or not settings.LIVEKIT_API_SECRET or not settings.LIVEKIT_URL:
-        # Fallback for dev if not configured, though in production this should be set
-        if not settings.is_prod:
-            # Just return a dummy for now to allow UI dev
-            return MeetupTokenOut(token="dummy-token", url="ws://localhost:7880")
-        raise bad_request("livekit_not_configured")
+        raise bad_request("LiveKit is not configured.", code="livekit_not_configured")
 
     if meetup.status != "active":
-        raise bad_request("meetup_ended")
+        raise bad_request("This meetup has ended.", code="meetup_ended")
 
     # Use meetup ID as room name
     room_name = meetup.id

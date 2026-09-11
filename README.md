@@ -83,7 +83,7 @@ grant scopes explicitly, and both end up as a real member of the workspace.
 - **Channels** — public and private, topics, starring, archiving, per-channel
   notification levels, and a searchable directory of every open channel with member
   counts and join-in-place.
-- **Direct messages** — one-to-one, group DMs of up to eight people counting you, and a
+- **Direct messages** — one-to-one, group DMs of up to nine people counting you, and a
   conversation with yourself for notes.
 - **Messages** — a small deliberate Markdown subset (bold, italics, strike, inline and
   fenced code, quotes, lists, links), edit and delete, pin to channel, forward with a
@@ -214,7 +214,7 @@ grant scopes explicitly, and both end up as a real member of the workspace.
 
 ### Slash commands
 
-Sixteen built-ins, and whatever the apps installed here have added:
+Eighteen built-ins, and whatever the apps installed here have added:
 
 `/help` `/shrug` `/me` `/topic` `/leave` `/away` `/invite` `/remove` `/join` `/rename`
 `/mute` `/archive` `/who` `/dm` `/status` `/remind`
@@ -253,7 +253,7 @@ afternoon:
 - **Canvases and workflows** — not started.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
 - **SSO, SAML, OIDC and 2FA** — email and password is the only way in.
-- Console rows marked **Soon** — Moderation, Deliveries, Approvals, Storage, Import/export.
+- Console rows marked **Soon** — Moderation, Approvals, Storage, Import/export.
 
 ---
 

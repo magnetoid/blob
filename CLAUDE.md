@@ -197,10 +197,14 @@ place to look before changing them.
 **Meetups** (`services/meetups.py`, `features/meetups/`) sit apart from all of that and are
 the newest and least settled thing here. Blob mints a LiveKit token; LiveKit carries the
 media. Three things to know before touching it: it is the one service written against the
-ORM rather than `text()`, it has **no tests at all**, and it is the only feature with an
-external dependency that can be absent — with no `LIVEKIT_*` settings every endpoint
-answers `livekit_not_configured` and nothing else in the workspace notices, which is the
-"fail toward the workspace staying up" rule holding. `docker compose up -d` runs a LiveKit
+ORM rather than `text()`; a meetup **inherits its channel's access** — create, token and
+end all pass `assert_channel_access(require_member=True)`, so a private channel's call
+answers 404 to an outsider exactly as the channel does, and `tests/test_meetups.py` pins
+that (the first version checked only the workspace, and the client dialled a URL the
+router did not serve); and it is the only feature with an external dependency that can
+be absent — with no `LIVEKIT_*` settings every endpoint answers `livekit_not_configured`
+in every environment, and nothing else in the workspace notices, which is the "fail
+toward the workspace staying up" rule holding. `docker compose up -d` runs a LiveKit
 in dev on 7880 with LiveKit's own placeholder credentials. In production the signalling
 WebSocket goes through Traefik like anything else, but the media is UDP and a reverse proxy
 only carries TCP, so 7882/udp is published straight onto the host and has to be open in the
