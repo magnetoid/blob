@@ -1,25 +1,32 @@
+"""Meetups: Blob mints the token, LiveKit carries the media.
+
+Written on `text()` like every other service. This was the one file on the ORM, and the
+only reason the drift grep in CLAUDE.md had a hit to explain.
+"""
+
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from typing import Any
 
 from livekit import api
-from sqlalchemy import select, update
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
-from ..db.models import Meetup
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import new_id
 from ..schemas.base import iso, require_iso
 from ..schemas.meetups import MeetupCreate, MeetupOut, MeetupTokenOut
 
+MEETUP_COLUMNS = "id, workspace_id, channel_id, created_by, name, status, created_at, ended_at"
 
-def to_meetup(row: Meetup) -> MeetupOut:
+
+def to_meetup(row: Any) -> MeetupOut:
     return MeetupOut(
-        id=row.id,
-        workspace_id=row.workspace_id,
-        channel_id=row.channel_id,
-        created_by=row.created_by,
+        id=str(row.id),
+        workspace_id=str(row.workspace_id),
+        channel_id=str(row.channel_id) if row.channel_id else None,
+        created_by=str(row.created_by),
         name=row.name,
         status=row.status,
         created_at=require_iso(row.created_at),
@@ -33,26 +40,36 @@ async def create(
     user_id: str,
     input_: MeetupCreate,
 ) -> MeetupOut:
-    meetup = Meetup(
-        id=new_id(),
-        workspace_id=workspace_id,
-        channel_id=input_.channel_id,
-        created_by=user_id,
-        name=input_.name,
-        status="active",
-    )
-    session.add(meetup)
-    await session.flush()
-    return to_meetup(meetup)
+    row = (
+        await session.execute(
+            text(
+                f"""
+                INSERT INTO meetups (id, workspace_id, channel_id, created_by, name, status)
+                VALUES (:id, :ws, cast(:channel_id AS uuid), :created_by, :name, 'active')
+                RETURNING {MEETUP_COLUMNS}
+                """
+            ),
+            {
+                "id": new_id(),
+                "ws": workspace_id,
+                "channel_id": input_.channel_id,
+                "created_by": user_id,
+                "name": input_.name,
+            },
+        )
+    ).fetchone()
+    assert row is not None
+    return to_meetup(row)
 
 
 async def get(session: AsyncSession, workspace_id: str, meetup_id: str) -> MeetupOut:
     row = (
         await session.execute(
-            select(Meetup).where(Meetup.workspace_id == workspace_id, Meetup.id == meetup_id)
+            text(f"SELECT {MEETUP_COLUMNS} FROM meetups WHERE workspace_id = :ws AND id = :id"),
+            {"ws": workspace_id, "id": meetup_id},
         )
-    ).scalar_one_or_none()
-    if not row:
+    ).fetchone()
+    if row is None:
         raise not_found("meetup_not_found")
     return to_meetup(row)
 
@@ -60,13 +77,17 @@ async def get(session: AsyncSession, workspace_id: str, meetup_id: str) -> Meetu
 async def end(session: AsyncSession, workspace_id: str, meetup_id: str) -> MeetupOut:
     row = (
         await session.execute(
-            update(Meetup)
-            .where(Meetup.workspace_id == workspace_id, Meetup.id == meetup_id)
-            .values(status="ended", ended_at=datetime.now(UTC))
-            .returning(Meetup)
+            text(
+                f"""
+                UPDATE meetups SET status = 'ended', ended_at = now()
+                 WHERE workspace_id = :ws AND id = :id
+                RETURNING {MEETUP_COLUMNS}
+                """
+            ),
+            {"ws": workspace_id, "id": meetup_id},
         )
-    ).scalar_one_or_none()
-    if not row:
+    ).fetchone()
+    if row is None:
         raise not_found("meetup_not_found")
     return to_meetup(row)
 

@@ -197,8 +197,7 @@ place to look before changing them.
 
 **Meetups** (`services/meetups.py`, `features/meetups/`) sit apart from all of that and are
 the newest and least settled thing here. Blob mints a LiveKit token; LiveKit carries the
-media. Three things to know before touching it: it is the one service written against the
-ORM rather than `text()`; a meetup **inherits its channel's access** — create, token and
+media. Two things to know before touching it: a meetup **inherits its channel's access** — create, token and
 end all pass `assert_channel_access(require_member=True)`, so a private channel's call
 answers 404 to an outsider exactly as the channel does, and `tests/test_meetups.py` pins
 that (the first version checked only the workspace, and the client dialled a URL the
@@ -276,11 +275,10 @@ fades keep their duration. Anything sized for a pointer gets a 44px minimum unde
 - **Hand-tuned SQL stays SQL.** Not just the chat queries — all of it. `db/models.py`
   exists to define the schema and drive Alembic; it is not a query layer. Every read and
   write in the backend is `text()` with bound parameters, and chat history is
-  keyset-paginated, never `OFFSET`. One file breaks this and is the only one:
-  `services/meetups.py` uses `session.add`, `select()` and `update()` and contains no
-  `text()` at all. It is debt, not a precedent — a grep for `session.add(` or `select(`
-  under `services/` and `routers/` should return that file and nothing else, and a second
-  hit is new drift.
+  keyset-paginated, never `OFFSET`. A grep for `session.add(` or `select(` under
+  `services/` and `routers/` returns nothing, and a hit is new drift —
+  `services/meetups.py` was the one exception until 2026-09-12, when it went onto
+  `text()` like the rest.
 - **Ids are UUIDv7.** Chronological sort order is load-bearing: unread state is a string
   comparison, not a count or a timestamp join. This is the one schema decision that
   cannot be retrofitted cheaply.
