@@ -53,9 +53,7 @@ async def create_meetup(
 
 
 @router.get("/{meetup_id}", response_model=MeetupOut)
-async def get_meetup(
-    meetup_id: IdParam, user: SessionUser = Depends(current_user)
-) -> MeetupOut:
+async def get_meetup(meetup_id: IdParam, user: SessionUser = Depends(current_user)) -> MeetupOut:
     async with session_scope() as session:
         return await _visible(session, user, meetup_id)
 
@@ -70,9 +68,7 @@ async def get_meetup_token(
 
 
 @router.post("/{meetup_id}/end", response_model=MeetupOut)
-async def end_meetup(
-    meetup_id: IdParam, user: SessionUser = Depends(current_user)
-) -> MeetupOut:
+async def end_meetup(meetup_id: IdParam, user: SessionUser = Depends(current_user)) -> MeetupOut:
     async with transaction() as (session, after):
         meetup = await _visible(session, user, meetup_id)
         if meetup.created_by != user.id and not user.is_admin:

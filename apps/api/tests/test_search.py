@@ -116,9 +116,7 @@ class TestModifiersAlone:
         await send_message(team["member"], team["general"]["id"], unique)
         await send_message(team["owner"], team["general"]["id"], "owner said something else")
 
-        answer = await team["owner"].get(
-            f"/api/search?q=from:@{team['member'].display_name}"
-        )
+        answer = await team["owner"].get(f"/api/search?q=from:@{team['member'].display_name}")
 
         assert answer.status == 200, answer.body
         assert answer.body["total"] >= 1
@@ -146,9 +144,7 @@ class TestModifiersAlone:
             team["general"]["id"],
             "see https://example.com/modifieralone-link",
         )
-        await send_message(
-            team["owner"], team["general"]["id"], "no url here modifieralone-plain"
-        )
+        await send_message(team["owner"], team["general"]["id"], "no url here modifieralone-plain")
 
         answer = await team["owner"].get("/api/search?q=has:link")
 

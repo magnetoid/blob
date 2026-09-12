@@ -34,9 +34,9 @@ async def team(client: Client) -> dict:
     owner = await sign_up(client, "Owner")
     member = await invite_and_sign_up(owner, "Member")
     outsider = await invite_and_sign_up(owner, "Outsider")
-    private = (
-        await member.post("/api/channels", {"name": "war-room", "kind": "private"})
-    ).body["channel"]
+    private = (await member.post("/api/channels", {"name": "war-room", "kind": "private"})).body[
+        "channel"
+    ]
     return {"owner": owner, "member": member, "outsider": outsider, "private": private}
 
 

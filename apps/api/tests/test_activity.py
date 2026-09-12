@@ -261,4 +261,3 @@ class TestStoredEvents:
     async def test_your_own_mention_is_not_written(self, team: dict[str, Any]) -> None:
         await send_message(team["owner"], team["general"], "@Owner talking to myself")
         assert await _stored(team["owner"].user_id) == []
-
