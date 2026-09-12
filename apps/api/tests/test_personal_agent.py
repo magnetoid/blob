@@ -15,6 +15,8 @@ can read this" into a room somebody else is reading.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy import text
 
@@ -242,3 +244,84 @@ class TestSeeding:
                 )
             ).scalar_one()
         assert count == 1
+
+
+def record_jobs(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, ...]]:
+    """Every `enqueue(...)` call, recorded at call time rather than when it runs."""
+    seen: list[tuple[Any, ...]] = []
+
+    async def nothing() -> None:
+        return None
+
+    def record(job: str, *args: Any) -> Any:
+        seen.append((job, *args))
+        return nothing()
+
+    from blob_api.lib import queue as queue_module
+    from blob_api.services import messages as messages_service
+
+    monkeypatch.setattr(queue_module, "enqueue", record)
+    monkeypatch.setattr(agui_job, "enqueue", record)
+    # `services/messages.announce` imports `enqueue` inside the function, so patching the
+    # module it imports *from* is what reaches it.
+    monkeypatch.setattr(messages_service, "enqueue", record, raising=False)
+    return seen
+
+
+class TestTheWayIn:
+    """Sending is what has to start the run, not a test calling the job by hand.
+
+    Every other test in this file drives `handle_agui_run` directly, which is why this
+    gap survived: the job has known how to answer a DM with no mention since the personal
+    agent shipped (`personal_agent_for`), and `services/messages.announce` only ever
+    enqueued it when the message mentioned somebody. So the room was the address
+    everywhere except the one place a person types. The client's empty state says "no
+    need to mention it by name here", and nothing happened — no reply, no error, no run
+    row, which is indistinguishable from the agent being switched off.
+
+    The traps list calls this the characteristic defect here: a feature complete apart
+    from the way in, and invisible from the server side.
+    """
+
+    async def test_a_plain_message_in_the_agents_dm_asks_for_a_run(
+        self, mine: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        jobs = record_jobs(monkeypatch)
+        sent = await send_message(mine["owner"], mine["dm"], "what did I miss?")
+
+        assert ("agui_run", str(sent.body["message"]["id"])) in jobs
+
+    async def test_mentioning_it_by_name_still_does(
+        self, mine: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        jobs = record_jobs(monkeypatch)
+        sent = await send_message(mine["owner"], mine["dm"], "@Blob what did I miss?")
+
+        assert ("agui_run", str(sent.body["message"]["id"])) in jobs
+
+    async def test_a_dm_between_two_people_asks_for_nothing(
+        self, mine: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The predicate has to be the agent, not the fact that it is a DM.
+
+        Enqueueing for every direct message would hand the worker a job per line typed
+        between colleagues, each of which loads the message and finds no agent.
+        """
+        bo = await invite_and_sign_up(mine["owner"], "Bo")
+        room = await open_dm(mine["owner"], bo.user_id)
+
+        jobs = record_jobs(monkeypatch)
+        await send_message(mine["owner"], room, "lunch?")
+
+        assert not [job for job in jobs if job[0] == "agui_run"]
+
+    async def test_the_agents_own_reply_asks_for_nothing(self, mine: dict) -> None:
+        """ADR 0013: only a person's message roots a chain.
+
+        Checked at the enqueue rather than only in the job, because a room whose two
+        members are a person and an agent is exactly where a self-sustaining loop would
+        live — every reply is itself "a message in the agent's DM".
+        """
+        await say(mine["owner"], mine["dm"], "hello")
+        replies = await replies_in(mine["owner"], mine["dm"])
+        assert replies, "the agent should have answered at all"

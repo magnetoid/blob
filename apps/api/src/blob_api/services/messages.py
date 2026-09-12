@@ -907,6 +907,44 @@ async def mark_thread_read(session: AsyncSession, user_id: str, root_id: str) ->
 URL_RE = re.compile(r"https?://")
 
 
+async def addressed_by_the_room(session: AsyncSession, *, channel_id: str) -> bool:
+    """Whether a message here needs no `@name` to reach an agent.
+
+    True for a one-to-one DM that has an enabled built-in agent in it. `jobs/agui.py`
+    has answered such a room without a mention since the personal agent shipped — see
+    `personal_agent_for`, which is the authority on the exact rule and re-checks every
+    condition when the job runs. Nothing ever *enqueued* the job, though: the send path
+    asked for a run only when the message mentioned somebody, so the room was the address
+    everywhere except where a person types. Typing into the agent's own DM did nothing at
+    all, and the client's empty state promised the opposite.
+
+    Deliberately looser than `personal_agent_for`, and in the safe direction. This decides
+    whether to *ask*; the job decides whether to *run*, and a job that finds no agent
+    returns having done nothing. A predicate too tight here loses the answer with no trace,
+    which is the failure being fixed; one too loose costs a no-op job.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT 1
+                  FROM channels c
+                  JOIN channel_members m ON m.channel_id = c.id
+                  JOIN users u ON u.id = m.user_id AND u.kind = 'bot'
+                                AND u.deactivated_at IS NULL
+                  JOIN plugins p ON p.id = u.bot_plugin_id
+                                AND p.status = 'enabled'
+                                AND p.runtime = 'builtin'
+                 WHERE c.id = :channel_id AND c.kind = 'dm'
+                 LIMIT 1
+                """
+            ),
+            {"channel_id": channel_id},
+        )
+    ).first()
+    return row is not None
+
+
 async def announce(
     session: AsyncSession,
     after: Any,
@@ -956,6 +994,15 @@ async def announce(
         payload=result.message.model_dump(by_alias=True),
     )
 
+    # Asked before COMMIT, because `broadcast` runs past it and the session is gone by
+    # then. Only for a person's own message: an agent's reply in a two-member room is
+    # itself "a message in the agent's DM", so rooting a chain from it is how a DM
+    # holding two agents talks to itself for ever. ADR 0013 puts a person at the root of
+    # every chain, and this is that rule at the one place a new trigger could appear.
+    by_the_room = result.message.kind == "user" and await addressed_by_the_room(
+        session, channel_id=channel_id
+    )
+
     def broadcast() -> None:
         hub.to_channel(channel_id, message_event("message.new", result.message))
         if result.thread_update:
@@ -970,7 +1017,7 @@ async def announce(
         # False for exactly one caller: the message that answers a decision an agent
         # was waiting on. That message *resumes* the run that asked, and rooting a
         # second chain from it would race the resume for the same agent.
-        if start_agent_runs and result.message.mention_user_ids:
+        if start_agent_runs and (result.message.mention_user_ids or by_the_room):
             fire_and_forget(enqueue("agui_run", result.message.id))
         # The outbox drains on a timer too, so this is latency rather than delivery.
         fire_and_forget(enqueue("deliver_plugin_events"))
