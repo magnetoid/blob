@@ -5529,8 +5529,23 @@ a.build-commit-sha:hover {
 }
 
 @media (max-width: 768px) {
+  /* One column, in every one of the four states the shell can be in.
+   *
+   * This listed two of them. The other two carry `data-sidebar-collapsed='true'`, whose
+   * rules are more specific and therefore kept winning here — so the grid still reserved
+   * the collapsed sidebar's 84px while the sidebar itself had become a fixed drawer and
+   * left the flow entirely. The conversation then landed in *that* column: an 84px pane
+   * rendering one character per line, with the composer 40px wide.
+   *
+   * Reachable without touching a phone, which is why it survived: the collapse is
+   * remembered in localStorage, so anyone who collapsed the sidebar at a desk and later
+   * opened Blob narrow — same browser, or just a resized window — got the broken layout
+   * and nothing on a wide screen ever showed it.
+   */
   .shell,
-  .shell[data-panel='open'] {
+  .shell[data-panel='open'],
+  .shell[data-sidebar-collapsed='true'],
+  .shell[data-sidebar-collapsed='true'][data-panel='open'] {
     grid-template-columns: minmax(0, 1fr);
   }
 
