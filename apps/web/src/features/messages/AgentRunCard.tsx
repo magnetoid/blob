@@ -44,7 +44,7 @@ export function AgentRunCard({ run }: { run: AgentRunView }) {
         {running && (
           <button
             type="button"
-            className="btn btn-ghost agent-run-stop"
+            className="btn btn-agent agent-run-stop"
             disabled={stopping}
             onClick={async () => {
               setStopping(true);
@@ -100,7 +100,7 @@ export function AgentRunCard({ run }: { run: AgentRunView }) {
         <div className="agent-run-reasoning">
           <button
             type="button"
-            className="btn btn-ghost agent-run-reasoning-toggle"
+            className="btn btn-agent agent-run-reasoning-toggle"
             aria-expanded={reasoningOpen}
             onClick={() => setReasoningOpen((v) => !v)}
           >

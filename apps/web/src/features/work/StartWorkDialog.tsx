@@ -65,7 +65,7 @@ export function StartWorkDialog({ message, onClose }: Props) {
 
   return (
     <Dialog label="Start work from this message" onClose={onClose}>
-      <div className="dialog stagger-item stagger-1">
+      <div className="dialog">
         <h2 className="dialog-title">Start work from here</h2>
         <p className="pref-hint" style={{ marginTop: 0 }}>
           A private channel for this one job. It quotes this message, links back

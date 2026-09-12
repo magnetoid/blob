@@ -44,7 +44,7 @@ export function WorkPreview({ artifact }: { artifact: WorkArtifact }) {
 
   if (!running) {
     return (
-      <div className="work-preview-gate stagger-item stagger-3">
+      <div className="work-preview-gate">
         <div className="work-preview-gate-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="16 18 22 12 16 6"></polyline>

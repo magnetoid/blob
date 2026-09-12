@@ -112,7 +112,7 @@ button {
   white-space: nowrap;
   padding: 0 14px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   background: var(--surface);
   font-size: var(--text-ui);
   font-weight: 500;
@@ -157,6 +157,37 @@ button {
   color: var(--accent-contrast);
 }
 
+/* Forest on its own tint: the second action in a view, when the first is the primary.
+   One forest primary per view is the rule; this is what the rest wear. */
+.btn-tinted {
+  background: var(--accent-wash);
+  border-color: var(--accent-border-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.btn-tinted:hover:not(:disabled) {
+  background: var(--accent-wash-rail);
+  border-color: var(--accent-border);
+}
+
+/* A button that touches an agent run — Stop, show reasoning — is iris outlined and
+   never iris filled: the colour marks whose work it is, it does not shout. */
+.btn-agent {
+  height: 28px;
+  padding: 0 10px;
+  border-color: var(--iris);
+  background: transparent;
+  color: var(--iris-deep);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.btn-agent:hover:not(:disabled) {
+  background: var(--iris-tint);
+  border-color: var(--iris-strong);
+}
+
 .btn-ghost {
   height: 32px;
   padding: 0 10px;
@@ -193,7 +224,7 @@ button {
   width: 100%;
   padding: 11px 14px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   background: var(--surface);
   font-size: var(--text-base);
   color: var(--text);
@@ -231,9 +262,9 @@ button {
      one context and argued with everywhere else. The inset belongs to the contexts
      whose rows are inset, so it lives with them. */
   padding: 8px 0 4px;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.07em;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-label);
 }
@@ -977,7 +1008,9 @@ button {
   flex: none;
   width: 30px;
   height: 30px;
-  border-radius: var(--radius-full);
+  /* A rounded square, never a circle: circles are reserved for status dots, so a
+     round thing next to a name can only ever mean presence. */
+  border-radius: 10px;
   background: var(--avatar-bg);
   color: var(--accent);
   font-size: var(--text-2xs);
@@ -995,13 +1028,14 @@ button {
 .avatar[data-size="sm"] {
   width: 20px;
   height: 20px;
+  border-radius: 7px;
   font-size: 9px;
 }
 
 .avatar[data-size="lg"] {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   font-size: var(--text-label-size);
 }
 
@@ -1482,14 +1516,6 @@ button {
   /* Keyed by emoji, so a new one mounts and plays this while the others sit still.
      Reacting is the smallest thing you can do to a message and the only feedback was
      the chip being there a frame later. */
-  animation: reaction-pop var(--dur-open) var(--ease-out);
-}
-
-@keyframes reaction-pop {
-  from {
-    opacity: 0;
-    scale: 0.8;
-  }
 }
 
 .reaction span:first-child {
@@ -1770,7 +1796,7 @@ dialog.lightbox-host::backdrop {
 
 .composer-box {
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-input);
   background: var(--surface);
   transition:
     border-color var(--dur-fast) var(--ease-color),
@@ -2561,7 +2587,7 @@ dialog.dialog-host::backdrop {
   height: 30px;
   padding: 0 12px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   background: var(--surface);
   font-size: var(--text-meta);
   color: var(--text-3);
@@ -3252,7 +3278,7 @@ dialog.dialog-host::backdrop {
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--elev-1);
+  box-shadow: 0 0 0 1px var(--hairline); /* borders over shadows: only the frame, the composer and overlays float */
   transition:
     transform var(--dur-micro) var(--ease-standard),
     box-shadow var(--dur-micro) var(--ease-standard),
@@ -3278,8 +3304,7 @@ dialog.dialog-host::backdrop {
     color-mix(in srgb, var(--surface-raised) 85%, transparent),
     transparent
   );
-  transform: translateX(-100%);
-  animation: dashboard-sheen 1.2s linear infinite;
+  animation: skeleton-breathe 1.4s ease-in-out infinite;
 }
 
 .dashboard-widget-head {
@@ -3567,15 +3592,6 @@ dialog.dialog-host::backdrop {
 
 .dashboard-loading-block-short {
   width: 60%;
-}
-
-@keyframes dashboard-sheen {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(100%);
-  }
 }
 
 @media (max-width: 900px) {
@@ -4877,9 +4893,11 @@ button.member-row:hover {
 
 /* The count of things you put aside is a reminder, not an alert — it must not read
    like an unread mention. */
+/* Clay, not green: a count of things waiting that did not name you. Green is for
+   mentions of you and nothing else. */
 .badge-quiet {
-  background: var(--surface-hover);
-  color: var(--text-4);
+  background: var(--clay);
+  color: var(--clay-text);
 }
 
 /* ─── feedback, in the corner ─────────────────────────────────────────────── */
@@ -5024,7 +5042,7 @@ button.member-row:hover {
   margin-bottom: 26px;
   background: var(--surface);
   border-radius: var(--radius-md);
-  box-shadow: var(--elev-1);
+  box-shadow: 0 0 0 1px var(--hairline); /* borders over shadows: only the frame, the composer and overlays float */
 }
 
 .build-card-main {
@@ -5788,6 +5806,14 @@ a.build-commit-sha:hover {
   background: var(--surface-muted);
 }
 
+/* A finished run flattens to a result. The rail, the shimmer and Stop all said "an
+   agent is acting here", and a card that is done should stop claiming it. */
+.agent-run-card[data-status='succeeded'],
+.agent-run-card[data-status='cancelled'] {
+  border-left-width: 1px;
+  border-left-color: var(--iris-border);
+}
+
 .agent-run-head {
   display: flex;
   align-items: center;
@@ -5804,18 +5830,10 @@ a.build-commit-sha:hover {
 }
 
 .agent-run-dot-live {
+  /* The same 1.6s pulse the sidebar's live dot uses: one pulse, wherever something
+     is live, so a person learns the rhythm once. */
   background: var(--presence-online);
-  animation: run-dot-breathe 1.4s ease-in-out infinite;
-}
-
-@keyframes run-dot-breathe {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
+  animation: agent-live-pulse 1.6s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5849,7 +5867,7 @@ a.build-commit-sha:hover {
     var(--iris-shimmer) 75%
   );
   background-size: 200% 100%;
-  animation: agent-run-sweep 1.6s linear infinite;
+  animation: agent-run-sweep 1.4s linear infinite;
 }
 
 @keyframes agent-run-sweep {
@@ -5878,7 +5896,7 @@ a.build-commit-sha:hover {
 }
 
 .agent-run-lineage {
-  color: var(--text-muted);
+  color: var(--text-4);
   font-size: var(--text-xs);
   white-space: nowrap;
 }
@@ -6868,7 +6886,7 @@ button.person-trigger:hover {
   align-items: flex-start;
   padding: 14px;
   border-radius: var(--radius-md);
-  box-shadow: var(--elev-1);
+  box-shadow: 0 0 0 1px var(--hairline); /* borders over shadows: only the frame, the composer and overlays float */
 }
 
 .work-preview-frame {
@@ -6876,14 +6894,14 @@ button.person-trigger:hover {
   min-height: 480px;
   border: 0;
   border-radius: var(--radius-md);
-  box-shadow: var(--elev-1);
+  box-shadow: 0 0 0 1px var(--hairline); /* borders over shadows: only the frame, the composer and overlays float */
   background: #fff;
 }
 
 /* A unified diff, drawn. Colour is the only thing added to the text. */
 .diff-view {
   border-radius: var(--radius-md);
-  box-shadow: var(--elev-1);
+  box-shadow: 0 0 0 1px var(--hairline); /* borders over shadows: only the frame, the composer and overlays float */
   overflow: hidden;
 }
 
@@ -6961,34 +6979,6 @@ button.person-trigger:hover {
 
 .meetup-pane .lk-video-conference {
   height: 100%;
-}
-
-
-/* ─── staggered transition system ───────────────────────────────────────── */
-@keyframes stagger-fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(var(--motion-slide-lg));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.stagger-item {
-  opacity: 0;
-  animation: stagger-fade-in-up var(--dur-open) var(--ease-out) forwards;
-}
-
-.stagger-1 { animation-delay: var(--stagger-1); }
-.stagger-2 { animation-delay: var(--stagger-2); }
-.stagger-3 { animation-delay: var(--stagger-3); }
-@media (prefers-reduced-motion: reduce) {
-  .stagger-item {
-    animation: none;
-    opacity: 1;
-  }
 }
 
 
