@@ -73,7 +73,12 @@ class Settings(BaseSettings):
     # "disabled" is the default and a supported way to run: a workspace with no model
     # keeps every agent it installed and simply has no built-in one. Nothing about that
     # is an error state, so nothing degraded is offered in the UI and nothing 500s.
-    LLM_PROVIDER: Literal["disabled", "anthropic", "openai"] = "disabled"
+    #: `deepseek` speaks OpenAI's wire shape at its own host, so it reuses that request
+    #: builder and differs only in `DEFAULT_BASES` and `DEFAULT_MODELS` — it is a third
+    #: provider, not a third code path. Naming it here rather than telling operators to
+    #: set `openai` plus a base URL is the point: the two are not interchangeable, and
+    #: `lib/llm.py` asks the provider which structured-output hint an endpoint accepts.
+    LLM_PROVIDER: Literal["disabled", "anthropic", "openai", "deepseek"] = "disabled"
     LLM_API_KEY: str | None = None
     #: Override for a proxy or an OpenAI-compatible server run locally. The provider
     #: still decides the request shape; this only moves the host.

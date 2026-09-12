@@ -56,7 +56,39 @@ ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-5",
     "openai": "gpt-4.1",
+    "deepseek": "deepseek-chat",
 }
+
+#: Where each provider lives when the operator has not said otherwise.
+#:
+#: This table exists because "no `LLM_BASE_URL` means OpenAI" stopped being true. With
+#: two providers the host could be a literal at each call site and the only question a
+#: base URL answered was "is this a compatible server standing in for OpenAI". DeepSeek
+#: is the case that breaks it: OpenAI-shaped, its own host, and no override set. The
+#: provider is the thing that knows where to send, so it is the thing that is asked.
+DEFAULT_BASES = {
+    "anthropic": "https://api.anthropic.com",
+    "openai": "https://api.openai.com",
+    "deepseek": "https://api.deepseek.com",
+}
+
+
+def _base() -> str:
+    """The host for this request: the operator's override, else the provider's own."""
+    return (settings.LLM_BASE_URL or DEFAULT_BASES.get(settings.LLM_PROVIDER, "")).rstrip("/")
+
+
+def _takes_strict_json_schema() -> bool:
+    """Whether this endpoint understands `response_format: {"type": "json_schema"}`.
+
+    OpenAI proper does. DeepSeek does not — it answers plain `json_object` and 400s on
+    the strict form. Neither does an arbitrary compatible server behind `LLM_BASE_URL`,
+    which is why an override still means "assume the simpler hint". `complete` retries
+    once without the hint when a server refuses it, so the cost of guessing wrong is a
+    wasted round trip on *every* call, not a failure — which is exactly the kind of thing
+    that never gets noticed.
+    """
+    return settings.LLM_PROVIDER == "openai" and settings.LLM_BASE_URL is None
 
 
 class LlmError(Exception):
@@ -208,7 +240,7 @@ async def _anthropic(*, system: str, turns: Sequence[Turn], max_tokens: int) -> 
     messages = _collapse(turns)
     if not messages:
         return
-    base = (settings.LLM_BASE_URL or "https://api.anthropic.com").rstrip("/")
+    base = _base()
     body: dict[str, object] = {
         "model": model_name(),
         "max_tokens": max_tokens,
@@ -238,7 +270,7 @@ async def _openai(*, system: str, turns: Sequence[Turn], max_tokens: int) -> Asy
     messages = [{"role": "system", "content": system}, *_collapse(turns)]
     if len(messages) == 1:
         return
-    base = (settings.LLM_BASE_URL or "https://api.openai.com").rstrip("/")
+    base = _base()
     body: dict[str, object] = {
         "model": model_name(),
         "max_tokens": max_tokens,
@@ -407,7 +439,7 @@ async def _anthropic_tool_turn(
     `input_json_delta` fragments, and closes it with `content_block_stop` — which is the
     first moment the call is whole, so that is when it is yielded.
     """
-    base = (settings.LLM_BASE_URL or "https://api.anthropic.com").rstrip("/")
+    base = _base()
     body: dict[str, object] = {
         "model": model_name(),
         "max_tokens": max_tokens,
@@ -467,7 +499,7 @@ async def _openai_tool_turn(
     the stream says a call is whole, so calls are accumulated and yielded at the end in
     index order.
     """
-    base = (settings.LLM_BASE_URL or "https://api.openai.com").rstrip("/")
+    base = _base()
     body: dict[str, object] = {
         "model": model_name(),
         "max_tokens": max_tokens,
@@ -655,7 +687,7 @@ async def _anthropic_complete(
     messages = _collapse(turns)
     if not messages:
         return ""
-    base = (settings.LLM_BASE_URL or "https://api.anthropic.com").rstrip("/")
+    base = _base()
     body: dict[str, object] = {
         "model": model_name(),
         "max_tokens": max_tokens,
@@ -707,16 +739,16 @@ async def _openai_complete(
     messages = [{"role": "system", "content": system}, *_collapse(turns)]
     if len(messages) == 1:
         return ""
-    base = (settings.LLM_BASE_URL or "https://api.openai.com").rstrip("/")
+    base = _base()
     body: dict[str, object] = {
         "model": model_name(),
         "max_tokens": max_tokens,
         "messages": messages,
     }
     if json_schema is not None:
-        # Real OpenAI takes the strict schema; a compatible server behind LLM_BASE_URL
-        # more often knows plain JSON mode, and unevenly at that — see the retry below.
-        if settings.LLM_BASE_URL is None:
+        # Real OpenAI takes the strict schema; DeepSeek and a compatible server behind
+        # LLM_BASE_URL know plain JSON mode, and unevenly at that — see the retry below.
+        if _takes_strict_json_schema():
             body["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": "reply", "strict": True, "schema": dict(json_schema)},
