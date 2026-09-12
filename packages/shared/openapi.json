@@ -8360,7 +8360,7 @@
     },
     "/api/admin/channels/{channel_id}/unarchive": {
       "post": {
-        "description": "Reopen an archived channel.\n\nArchiving had no undo anywhere: no route, no command, no console button, and nothing\nin the repository that set `archived_at` back to null. The history was intact the\nwhole time and simply unreachable for writing, which made a reversible decision\npermanent by omission.",
+        "description": "Reopen an archived channel.",
         "operationId": "unarchive_any_channel_api_admin_channels__channel_id__unarchive_post",
         "parameters": [
           {
@@ -9042,6 +9042,7 @@
     },
     "/api/admin/health": {
       "get": {
+        "description": "Each dependency probed on its own, so one being down does not hide the others.",
         "operationId": "health_api_admin_health_get",
         "responses": {
           "200": {
@@ -11012,7 +11013,7 @@
     },
     "/api/admin/users/{user_id}/reset-link": {
       "post": {
-        "description": "Mint a password-reset link for somebody, for an admin to hand over.\n\nThe README has always said that without mail \"a forgotten password needs an admin\",\nand no such path existed: `password_resets` was written in exactly one place, the\nself-service route that emails the link. On a server whose SMTP is not configured \u2014\nwhich is every server until somebody configures one \u2014 that made a forgotten password\npermanent.\n\nIt is the same token the email would have carried, with the same hour of life, so a\nlink handed over in person expires like any other. Audited loudly, because an admin\nminting one can take an account over, and the record is what makes that visible.",
+        "description": "Mint a password-reset link for somebody, for an admin to hand over.",
         "operationId": "create_reset_link_api_admin_users__user_id__reset_link_post",
         "parameters": [
           {
@@ -11100,7 +11101,6 @@
     },
     "/api/admin/users/{user_id}/role": {
       "put": {
-        "description": "Only an owner changes roles, and ownership transfers rather than duplicates.",
         "operationId": "set_role_api_admin_users__user_id__role_put",
         "parameters": [
           {
