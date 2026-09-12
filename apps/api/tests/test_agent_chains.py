@@ -128,7 +128,6 @@ async def room(client: Client, monkeypatch: pytest.MonkeyPatch) -> dict:
 
     from blob_api.lib import queue as queue_module
 
-    monkeypatch.setattr(agui_job, "enqueue", record)
     monkeypatch.setattr(queue_module, "enqueue", record)
 
     return {

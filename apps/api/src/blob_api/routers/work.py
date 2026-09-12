@@ -20,7 +20,6 @@ from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import not_found
 from ..lib.ids import IdParam
-from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
 from ..realtime import hub
 from ..schemas.base import CamelModel
@@ -100,19 +99,17 @@ async def start_work(
                 "agents": payload.agent_plugin_ids,
             },
         )
-        members = started.member_ids
-        channel_id = started.channel_id
-        channel_payload = channel.model_dump(by_alias=True) if channel else None
-
-        def broadcast() -> None:
+        if channel is not None:
             # Private: announced only to the people (and bots) in it, like any private
             # channel — and each member's own view of it is theirs to fetch.
-            if channel_payload is not None:
-                hub.to_users(members, {"t": "channel.created", "channel": channel_payload})
-            hub.subscribe_users(members, [channel_id])
-            fire_and_forget(enqueue("deliver_plugin_events"))
-
-        after.add(broadcast)
+            channel_service.announce_created(
+                after,
+                channel,
+                channel_id=started.channel_id,
+                members=started.member_ids,
+                views={},
+                workspace_id=None,
+            )
     return WorkOut(work=started.work, channel=channel)
 
 

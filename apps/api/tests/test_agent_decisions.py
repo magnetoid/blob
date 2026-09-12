@@ -131,7 +131,6 @@ async def agent(client: Client, monkeypatch: pytest.MonkeyPatch) -> dict:
     from blob_api.lib import queue as queue_module
     from blob_api.services import agent_chains
 
-    monkeypatch.setattr(agui_job, "enqueue", record)
     monkeypatch.setattr(agent_chains, "enqueue", record)
     monkeypatch.setattr(queue_module, "enqueue", record)
 

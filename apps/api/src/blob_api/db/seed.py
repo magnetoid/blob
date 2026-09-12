@@ -15,6 +15,7 @@ from ..lib.auth import hash_password
 from ..lib.ids import new_id
 from ..services import handles as handle_service
 from ..services import messages as message_service
+from ..services import reactions as reaction_service
 from .engine import close_engine, transaction
 
 PASSWORD = "correct-horse-battery"
@@ -209,7 +210,7 @@ async def seed() -> None:
         if first is not None:
             for emoji in ("👍", "🎉"):
                 for user_id in user_ids[1:3]:
-                    await message_service.add_reaction(session, first.id, user_id, emoji)
+                    await reaction_service.add(session, first.id, user_id, emoji)
 
     print(f"\nSeeded the Northwind workspace ({date.today():%Y-%m-%d}).")
     print(f"  Sign in as any of: {', '.join(email for _, email, _, _ in PEOPLE)}")

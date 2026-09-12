@@ -38,6 +38,7 @@ from ..services import agentic as agentic_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services import reactions as reaction_service
 from ..services import users as user_service
 from ..services import work as work_service
 from ..services.serialize import message_event
@@ -367,11 +368,10 @@ async def add_reaction(
         existing = await message_service.load_for(
             session, bot.user_id, payload.message_id, require_member=True
         )
-        added = await message_service.add_reaction(
-            session, payload.message_id, bot.user_id, payload.emoji
-        )
+        added = await reaction_service.add(session, payload.message_id, bot.user_id, payload.emoji)
         if added:
             channel_id = existing.channel_id
+            thread_root_id = existing.thread_root_id
             message_id = payload.message_id
             emoji = payload.emoji
             user_id = bot.user_id
@@ -389,6 +389,8 @@ async def add_reaction(
                     {
                         "t": "reaction.added",
                         "messageId": message_id,
+                        "channelId": channel_id,
+                        "threadRootId": thread_root_id,
                         "emoji": emoji,
                         "userId": user_id,
                     },

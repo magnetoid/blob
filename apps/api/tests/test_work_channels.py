@@ -83,7 +83,6 @@ async def team(client: Client, monkeypatch: pytest.MonkeyPatch) -> dict:
 
     from blob_api.lib import queue as queue_module
 
-    monkeypatch.setattr(agui_job, "enqueue", record)
     monkeypatch.setattr(queue_module, "enqueue", record)
 
     root = await send_message(owner, general, "We need rate limiting on the API, who takes it?")

@@ -255,6 +255,18 @@ went; and `torsor guard` has to run before a push, not after.
 
 ### W6 (Oct 19–25) · Split along the named seams — L
 
+*Done 2026-09-13.* `jobs/agui.py` (1,128 lines) is a 291-line dispatcher over
+`agui_admission.py`, `agui_outcome.py` (one agent's run in six named phases; the refusal
+card built once instead of twice) and `agui_stream.py`; `services/mcp.py` lost its
+catalogue to `services/mcp_catalogue.py`; `services/messages.py` (1,109 → 757) lost pins,
+saved and Later to `services/saved.py`, reactions to `services/reactions.py`, and thread
+following to `services/thread_subscriptions.py`, and `send` calls four named helpers;
+`routers/commands.py:run_command` is 38 lines over `services/commands.announce`;
+`channels.announce_created` replaces the twin broadcasts. No function is 200 lines; the
+longest left are `jobs/agui._run` (183) and `commands.announce` (190). Two tests that had
+patched `agui_job.enqueue` — a borrowed name — now patch `lib.queue` alone, which is
+what the moved code reads.
+
 - `jobs/agui.py` (1,127) → `agui.py` (`handle_agui_run`, `_claim`, the `_run`
   dispatcher), `agui_admission.py` (`listeners_for`, `personal_agent_for`,
   `agent_tools`, `_looks_busy`), `agui_outcome.py` (`_run_one`'s five-outcome
@@ -279,6 +291,16 @@ went; and `torsor guard` has to run before a push, not after.
   `test_messages`. Metric: no function ≥ 200 lines.
 
 ### W7 (Oct 26–Nov 1) · Client structure and the store — L
+
+*Store half done 2026-09-13.* `mergeById` is one linear pass over two id-sorted lists,
+`upsert` binary-searches its slot, `withProjectedOutbox` re-overlays only the channels
+and threads whose outbox entries changed, `mapChannel`/`mapThread` hand back the same
+array when nothing in it changed, and reaction events carry `threadRootId` so one
+thread list is touched rather than every open one. `store.identity.test.ts` pins the
+reference identity of untouched lists. Writing it found a latent bug: an out-of-order
+live message (a reconnect replay) moved a channel's `lastMessageId` backwards, and every
+later message was then dropped from the open view until a reload; the pointer now keeps
+the newest id. Composer, ThreadPanel and `<Field>` are still to do.
 
 - `Composer.tsx` (1,238) → `useMentionAutocomplete.ts`, `useEmojiAutocomplete.ts`,
   `useSlashCommands.ts`, `AttachmentTray.tsx`, `FormatToolbar.tsx`, `SchedulePicker.tsx`.

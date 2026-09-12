@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +17,7 @@ from ..lib.errors import channel_gone, conflict, forbidden, not_found, unique_vi
 from ..lib.ids import new_id
 from ..schemas.base import require_iso
 from ..schemas.models import BrowsableChannel, Channel, ChannelWithState
-from .serialize import to_channel, to_channel_with_state
+from .serialize import channel_event, membership_event, to_channel, to_channel_with_state
 
 #: Channels every new member joins automatically.
 DEFAULT_CHANNELS = ("general", "random")
@@ -527,3 +527,38 @@ async def find_or_create_dm(
 
     await add_members(session, channel_id, members)
     return channel_id, True
+
+
+def announce_created(
+    after: Any,
+    channel: Channel,
+    *,
+    channel_id: str,
+    members: list[str],
+    views: dict[str, ChannelWithState | None],
+    workspace_id: str | None,
+) -> None:
+    """Tell the people concerned that a channel now exists, past COMMIT.
+
+    Two frames, on purpose. The room gets the channel: to the whole workspace when it
+    is public (`workspace_id`), else to its members. Then each member alone gets their
+    own standing in it — a public channel's arrival reaches the whole workspace and
+    almost nobody there is in it, so the membership half cannot ride the same frame.
+    `tests/test_channel_events.py` pins the split. Existing sockets are subscribed
+    wherever they are held, because the create may have landed on a sibling process.
+    """
+    from ..lib.queue import enqueue, fire_and_forget
+    from ..realtime import hub
+
+    def broadcast() -> None:
+        if workspace_id is not None:
+            hub.to_workspace(workspace_id, channel_event("channel.created", channel))
+        else:
+            hub.to_users(members, channel_event("channel.created", channel))
+        for member_id, view in views.items():
+            if view is not None:
+                hub.to_users([member_id], membership_event(view))
+        hub.subscribe_users(members, [channel_id])
+        fire_and_forget(enqueue("deliver_plugin_events"))
+
+    after.add(broadcast)

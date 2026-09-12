@@ -30,8 +30,7 @@ from ..lib.errors import bad_request
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
 from ..plugins import commands as app_transport
-from ..plugins import events as plugin_events
-from ..realtime import hub, presence
+from ..realtime import hub
 from ..schemas.base import CamelModel
 from ..schemas.models import ChannelWithState, Message
 from ..schemas.requests import RunCommandInput
@@ -39,7 +38,7 @@ from ..services import agent_access
 from ..services import channels as channel_service
 from ..services import commands as command_service
 from ..services import messages as message_service
-from ..services.serialize import channel_event, membership_event, message_event
+from ..services.serialize import message_event
 
 router = APIRouter()
 
@@ -92,177 +91,9 @@ async def run_command(
         )
         result = await command_service.run(ctx, name)
 
-        if result.message is not None:
-            # Inside the transaction, like every other message write: the outbox row and
-            # the message it describes commit together or not at all.
-            await plugin_events.emit(
-                session,
-                workspace_id=user.workspace_id,
-                event="message.created",
-                channel_id=payload.channel_id,
-                payload=result.message.model_dump(by_alias=True),
-            )
-
-        if result.left_channel:
-            await plugin_events.emit(
-                session,
-                workspace_id=user.workspace_id,
-                event="member.left",
-                channel_id=payload.channel_id,
-                payload={"channelId": payload.channel_id, "userId": user.id},
-            )
-
-        # A membership change through a command is the same event a membership change
-        # through the console is. Emitted here, inside the transaction, like every other
-        # outbox write — and scoped to the channel it happened in.
-        joined_channel_id = (
-            result.open_channel.id if result.open_channel is not None else payload.channel_id
+        await command_service.announce(
+            session, after_commit, result, user=user, channel_id=payload.channel_id
         )
-        for member_id in result.added_user_ids:
-            await plugin_events.emit(
-                session,
-                workspace_id=user.workspace_id,
-                event="member.joined",
-                channel_id=joined_channel_id,
-                payload={"channelId": joined_channel_id, "userId": member_id},
-            )
-        for member_id in result.removed_user_ids:
-            await plugin_events.emit(
-                session,
-                workspace_id=user.workspace_id,
-                event="member.left",
-                channel_id=payload.channel_id,
-                payload={"channelId": payload.channel_id, "userId": member_id},
-            )
-
-        if result.dm_message is not None and result.dm_channel_id is not None:
-            await plugin_events.emit(
-                session,
-                workspace_id=user.workspace_id,
-                event="message.created",
-                channel_id=result.dm_channel_id,
-                payload=result.dm_message.model_dump(by_alias=True),
-            )
-
-        # Each new member's own view of the channel, read while the session is open so
-        # the sidebar has the row before anything asks it to render one.
-        joined_views = {
-            member_id: await channel_service.get_for_user(session, joined_channel_id, member_id)
-            for member_id in result.added_user_ids
-            if member_id != user.id
-        }
-        # And the same for the other side of a conversation this command created. Their
-        # socket subscribed at connect time to channels that existed then, so a DM made a
-        # moment ago reaches them only if it is subscribed now.
-        opened = result.open_channel
-        opened_views = (
-            {
-                member_id: await channel_service.get_for_user(session, opened.id, member_id)
-                for member_id in result.open_channel_members
-                if member_id != user.id
-            }
-            if opened is not None
-            else {}
-        )
-
-        def broadcast() -> None:
-            channel_id = payload.channel_id
-
-            if result.message is not None:
-                hub.to_channel(channel_id, message_event("message.new", result.message))
-                if result.thread_update:
-                    hub.to_channel(channel_id, result.thread_update.as_event())
-                fire_and_forget(enqueue("notify", result.message.id))
-                if result.message.mention_user_ids:
-                    fire_and_forget(enqueue("agui_run", result.message.id))
-
-            if result.channel is not None:
-                hub.to_channel(channel_id, channel_event("channel.updated", result.channel))
-
-            if result.left_channel:
-                # Unsubscribe first: the member.left that follows is for the people still
-                # in the channel, and this connection is no longer one of them.
-                hub.unsubscribe_users([user.id], [channel_id])
-                hub.to_channel(
-                    channel_id,
-                    {"t": "member.left", "channelId": channel_id, "userId": user.id},
-                )
-
-            for member_id, view in joined_views.items():
-                hub.to_channel(
-                    joined_channel_id,
-                    {"t": "member.joined", "channelId": joined_channel_id, "userId": member_id},
-                )
-                # Existing sockets have to start receiving the channel's events, wherever
-                # they are held — the command may have landed on a sibling process.
-                hub.subscribe_users([member_id], [joined_channel_id])
-                if view is not None:
-                    hub.to_users([member_id], channel_event("channel.created", view))
-                    hub.to_users([member_id], membership_event(view))
-
-            for member_id in result.removed_user_ids:
-                # Unsubscribe first: the member.left that follows is for the people still
-                # in the channel, and they are no longer one of them.
-                hub.unsubscribe_users([member_id], [channel_id])
-                hub.to_channel(
-                    channel_id,
-                    {"t": "member.left", "channelId": channel_id, "userId": member_id},
-                )
-
-            for member_id, view in opened_views.items():
-                assert opened is not None  # opened_views is empty otherwise
-                hub.subscribe_users([member_id], [opened.id])
-                if view is not None:
-                    hub.to_users([member_id], channel_event("channel.created", view))
-                    hub.to_users([member_id], membership_event(view))
-
-            if opened is not None:
-                hub.subscribe_users([user.id], [opened.id])
-                hub.to_users([user.id], channel_event("channel.created", opened))
-                hub.to_users([user.id], membership_event(opened))
-                if user.id in result.added_user_ids:
-                    hub.to_channel(
-                        opened.id,
-                        {"t": "member.joined", "channelId": opened.id, "userId": user.id},
-                    )
-
-            if result.dm_message is not None and result.dm_channel_id is not None:
-                # Into the DM, not into the channel the command was typed in. Everything
-                # a send does, because it *is* a send: the frame, the notification, and
-                # the agent run if the message named one.
-                hub.to_channel(
-                    result.dm_channel_id, message_event("message.new", result.dm_message)
-                )
-                if result.dm_thread_update:
-                    hub.to_channel(result.dm_channel_id, result.dm_thread_update.as_event())
-                fire_and_forget(enqueue("notify", result.dm_message.id))
-                if result.dm_message.mention_user_ids:
-                    fire_and_forget(enqueue("agui_run", result.dm_message.id))
-
-            if result.own_channel is not None:
-                # Only to them: how loud a channel is for one person is nobody else's
-                # business, unlike `channel`, which goes to everyone in it.
-                hub.to_users([user.id], membership_event(result.own_channel))
-
-            if result.user is not None:
-                changed = result.user
-                hub.to_workspace(
-                    user.workspace_id,
-                    {"t": "user.updated", "user": changed.model_dump(by_alias=True)},
-                )
-
-            if result.archived:
-                hub.to_channel(channel_id, {"t": "channel.archived", "channelId": channel_id})
-
-            if result.added_user_ids or result.removed_user_ids:
-                fire_and_forget(enqueue("deliver_plugin_events"))
-
-            if result.presence == "away":
-                fire_and_forget(presence.mark_away(user.id))
-            elif result.presence == "active":
-                fire_and_forget(presence.mark_active(user.id))
-
-        after_commit.add(broadcast)
 
     return CommandOut(
         ephemeral=result.ephemeral,

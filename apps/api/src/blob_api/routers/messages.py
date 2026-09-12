@@ -46,8 +46,11 @@ from ..schemas.requests import (
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services import reactions as reaction_service
 from ..services import read_state as read_state_service
+from ..services import saved as saved_service
 from ..services import scheduled as scheduled_service
+from ..services import thread_subscriptions as thread_service
 from ..services import translation as translation_service
 from ..services import users as user_service
 from ..services import webhooks as webhook_service
@@ -236,7 +239,7 @@ class ThreadFollowOut(CamelModel):
 async def list_threads(user: SessionUser = Depends(current_user)) -> ThreadsOut:
     """Threads you follow — the sidebar's Threads view."""
     async with session_scope() as session:
-        messages, unread = await message_service.threads_for_user(session, user.id)
+        messages, unread = await thread_service.threads_for_user(session, user.id)
     return ThreadsOut(messages=messages, unread_root_ids=unread)
 
 
@@ -246,7 +249,7 @@ async def thread_following(
 ) -> ThreadFollowOut:
     async with session_scope() as session:
         await message_service.load_for(session, user.id, message_id, allow_deleted=True)
-        following = await message_service.thread_following(session, user.id, message_id)
+        following = await thread_service.following(session, user.id, message_id)
     return ThreadFollowOut(following=following)
 
 
@@ -263,7 +266,7 @@ async def set_thread_following(
     """
     async with transaction() as (session, _after):
         await message_service.load_for(session, user.id, message_id, allow_deleted=True)
-        await message_service.set_thread_following(session, user.id, message_id, payload.following)
+        await thread_service.set_following(session, user.id, message_id, payload.following)
     return ThreadFollowOut(following=payload.following)
 
 
@@ -272,7 +275,7 @@ async def mark_thread_read(message_id: IdParam, user: SessionUser = Depends(curr
     """Move the thread's read cursor to its newest reply."""
     async with transaction() as (session, _after):
         await message_service.load_for(session, user.id, message_id, allow_deleted=True)
-        await message_service.mark_thread_read(session, user.id, message_id)
+        await thread_service.mark_read(session, user.id, message_id)
     return OkOut()
 
 
@@ -357,7 +360,7 @@ async def pin_message(
         await message_service.load_for(
             session, user.id, message_id, require_member=True, require_writable=True
         )
-        message = await message_service.set_pinned(session, message_id, user.id, payload.pinned)
+        message = await saved_service.set_pinned(session, message_id, user.id, payload.pinned)
         after.add(
             lambda: hub.to_channel(message.channel_id, message_event("message.updated", message))
         )
@@ -380,7 +383,7 @@ async def save_message(
     """
     async with transaction() as (session, _):
         await message_service.load_for(session, user.id, message_id, require_member=True)
-        await message_service.set_saved(session, message_id, user.id, payload.saved)
+        await saved_service.set_saved(session, message_id, user.id, payload.saved)
     return OkOut()
 
 
@@ -388,7 +391,7 @@ async def save_message(
 async def list_saved(user: SessionUser = Depends(current_user)) -> MessagesOut:
     """Everything put aside, newest first — the flat form the older client read."""
     async with session_scope() as session:
-        messages = await message_service.list_saved(session, user.id)
+        messages = await saved_service.list_saved(session, user.id)
     return MessagesOut(messages=messages)
 
 
@@ -418,7 +421,7 @@ async def list_later(
 ) -> LaterOut:
     """The Later view proper: saved messages with their state and reminder."""
     async with session_scope() as session:
-        items = await message_service.list_later(session, user.id, state=state)
+        items = await saved_service.list_later(session, user.id, state=state)
     return LaterOut(items=[LaterItemOut(**item) for item in items])
 
 
@@ -432,7 +435,7 @@ async def update_later(
     gesture. Setting a reminder re-arms one that already fired.
     """
     given = payload.model_fields_set
-    remind_at: Any = message_service._UNSET
+    remind_at: Any = saved_service._UNSET
     if "remind_at" in given:
         if payload.remind_at is None:
             remind_at = None
@@ -443,13 +446,13 @@ async def update_later(
 
     async with transaction() as (session, _):
         await message_service.load_for(session, user.id, message_id, require_member=True)
-        await message_service.set_later(
+        await saved_service.set_later(
             session,
             message_id,
             user.id,
             state=payload.state,
             remind_at=remind_at,
-            note=payload.note if "note" in given else message_service._UNSET,
+            note=payload.note if "note" in given else saved_service._UNSET,
         )
     return OkOut()
 
@@ -463,10 +466,11 @@ async def add_reaction(
         existing = await message_service.load_for(
             session, user.id, message_id, require_member=True, require_writable=True
         )
-        if await message_service.add_reaction(session, message_id, user.id, payload.emoji):
+        if await reaction_service.add(session, message_id, user.id, payload.emoji):
             reaction = {
                 "messageId": message_id,
                 "channelId": existing.channel_id,
+                "threadRootId": existing.thread_root_id,
                 "emoji": payload.emoji,
                 "userId": user.id,
             }
@@ -499,10 +503,11 @@ async def remove_reaction(
         # private message ids are real, the distinction the 404 hides. Deleted counts
         # as gone: after deletion the reaction rows are gone with it.
         existing = await message_service.load_for(session, user.id, message_id)
-        if await message_service.remove_reaction(session, message_id, user.id, emoji):
+        if await reaction_service.remove(session, message_id, user.id, emoji):
             reaction = {
                 "messageId": message_id,
                 "channelId": existing.channel_id,
+                "threadRootId": existing.thread_root_id,
                 "emoji": emoji,
                 "userId": user.id,
             }

@@ -35,7 +35,7 @@ from ..schemas.requests import UpdateProfileInput
 from . import channels as channel_service
 from . import commands as command_service
 from . import handles as handle_service
-from . import messages as message_service
+from . import saved as saved_service
 from . import themes as theme_service
 from . import user_groups as group_service
 from .serialize import USER_COLUMNS, read_prefs, to_current_user, to_user, to_workspace
@@ -86,7 +86,7 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
     channels = await channel_service.list_for_user(session, user.id, user.workspace_id)
     themes = await theme_service.list_themes(session, user.workspace_id)
     app_commands = await command_service.app_specs(session, user.workspace_id, user.id)
-    saved_ids = await message_service.saved_message_ids(session, user.id)
+    saved_ids = await saved_service.saved_message_ids(session, user.id)
     groups = await group_service.list_for_workspace(session, user.workspace_id)
     my_group_ids = await group_service.group_ids_for_user(session, user.id)
     muted_group_ids = await group_service.muted_group_ids_for_user(session, user.id)

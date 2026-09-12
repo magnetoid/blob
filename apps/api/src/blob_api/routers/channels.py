@@ -21,7 +21,7 @@ from ..schemas.requests import (
     UpdateChannelInput,
 )
 from ..services import channels as channel_service
-from ..services import messages as message_service
+from ..services import saved as saved_service
 from ..services import users as user_service
 from ..services.serialize import channel_event, membership_event
 
@@ -98,22 +98,14 @@ async def create_channel(
             payload={"channelId": channel_id, "name": payload.name, "kind": payload.kind},
         )
 
-        def broadcast() -> None:
-            # Public channels appear in everyone's browser; private ones only for members.
-            if payload.kind == "public":
-                hub.to_workspace(user.workspace_id, channel_event("channel.created", channel))
-            else:
-                hub.to_users(members, channel_event("channel.created", channel))
-            # Then, to each member alone, their own standing in it. A public channel's
-            # arrival reaches the whole workspace and almost nobody there is in it, so
-            # the membership half cannot ride the same frame.
-            for member_id, view in views.items():
-                if view is not None:
-                    hub.to_users([member_id], membership_event(view))
-            hub.subscribe_users(members, [channel_id])
-            fire_and_forget(enqueue("deliver_plugin_events"))
-
-        after.add(broadcast)
+        channel_service.announce_created(
+            after,
+            channel,
+            channel_id=channel_id,
+            members=members,
+            views=views,
+            workspace_id=user.workspace_id if payload.kind == "public" else None,
+        )
 
     return ChannelOut(channel=channel)
 
@@ -353,7 +345,7 @@ async def update_membership(
 async def list_pins(channel_id: IdParam, user: SessionUser = Depends(current_user)) -> MessagesOut:
     async with session_scope() as session:
         await channel_service.assert_channel_access(session, user.id, channel_id)
-        messages = await message_service.list_pinned(session, channel_id)
+        messages = await saved_service.list_pinned(session, channel_id)
     return MessagesOut(messages=messages)
 
 

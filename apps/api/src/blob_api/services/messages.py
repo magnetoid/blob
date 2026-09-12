@@ -19,7 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..lib.errors import bad_request, forbidden, message_gone, thread_gone
 from ..lib.ids import new_id
 from ..lib.mentions import MentionTarget, mention_lookup_phrases, parse_mentions
-from ..schemas.base import require_iso
 from ..schemas.models import Message
 from . import channels as channel_service
 from .serialize import MESSAGE_SELECT, to_message
@@ -29,7 +28,6 @@ FACEPILE_LIMIT = 5
 
 
 #: "Leave it alone" for optional writes, distinct from "clear it" (None).
-_UNSET: Any = object()
 
 
 @dataclass(slots=True)
@@ -120,14 +118,7 @@ async def send(
     mentions = parse_mentions(body, await mention_targets(session, workspace_id, body))
 
     if thread_root_id:
-        root = (
-            await session.execute(
-                text("SELECT id, channel_id FROM messages WHERE id = :id"),
-                {"id": thread_root_id},
-            )
-        ).fetchone()
-        if root is None or root.channel_id != channel_id:
-            raise thread_gone()
+        await _assert_thread_root(session, thread_root_id, channel_id)
 
     # Idempotency: a retry of the same client_msg_id stores nothing new.
     inserted = (
@@ -200,27 +191,7 @@ async def send(
     )
 
     if attachment_ids:
-        # Only the uploader's own unbound attachments can be attached.
-        bound = (
-            await session.execute(
-                text(
-                    """
-                    UPDATE attachments SET message_id = :message_id
-                     WHERE id = ANY(cast(:ids AS uuid[]))
-                       AND uploader_id = :uploader_id
-                       AND message_id IS NULL
-                    RETURNING id
-                    """
-                ),
-                {
-                    "message_id": message_id,
-                    "ids": attachment_ids,
-                    "uploader_id": author_id,
-                },
-            )
-        ).fetchall()
-        if len(bound) != len(attachment_ids):
-            raise bad_request("One of those attachments is no longer available.")
+        await _bind_attachments(session, message_id, attachment_ids, uploader_id=author_id)
 
     # Only what the channel's own history will return. The pointer means "the newest
     # message in this channel", and the client compares the last row it has loaded against
@@ -240,57 +211,113 @@ async def send(
 
     thread_update: ThreadUpdate | None = None
     if thread_root_id:
-        root_row = (
-            await session.execute(
-                text(
-                    """
-                    UPDATE messages
-                       SET reply_count = reply_count + 1,
-                           last_reply_at = now(),
-                           reply_user_ids = CASE
-                             WHEN cast(:author_id AS uuid) = ANY(reply_user_ids)
-                               THEN reply_user_ids
-                             WHEN array_length(reply_user_ids, 1) >= :facepile
-                               THEN reply_user_ids
-                             ELSE array_append(reply_user_ids, cast(:author_id AS uuid))
-                           END
-                     WHERE id = :root_id
-                    RETURNING reply_count, reply_user_ids, last_reply_at
-                    """
-                ),
-                {
-                    "root_id": thread_root_id,
-                    "author_id": author_id,
-                    "facepile": FACEPILE_LIMIT,
-                },
-            )
-        ).fetchone()
+        thread_update = await _count_reply(
+            session, thread_root_id, message_id, author_id=author_id, channel_id=channel_id
+        )
 
-        # Replying subscribes you to the thread, the way every chat app behaves.
+    await _mark_author_read(session, author_id, channel_id, message_id)
+
+    row = (
+        await session.execute(
+            text(f"SELECT {MESSAGE_SELECT} FROM messages m WHERE m.id = :id"),
+            {"id": message_id},
+        )
+    ).fetchone()
+    if row is None:
+        raise bad_request("Could not store that message.")
+
+    return SendResult(message=to_message(row), created=True, thread_update=thread_update)
+
+
+async def _assert_thread_root(session: AsyncSession, root_id: str, channel_id: str) -> None:
+    """A reply's root has to exist and be in the same channel."""
+    root = (
+        await session.execute(
+            text("SELECT id, channel_id FROM messages WHERE id = :id"), {"id": root_id}
+        )
+    ).fetchone()
+    if root is None or root.channel_id != channel_id:
+        raise thread_gone()
+
+
+async def _bind_attachments(
+    session: AsyncSession, message_id: str, attachment_ids: list[str], *, uploader_id: str
+) -> None:
+    """Only the uploader's own unbound attachments can be attached."""
+    bound = (
         await session.execute(
             text(
                 """
-                INSERT INTO thread_subscriptions (user_id, thread_root_id, last_read_reply_id)
-                VALUES (:user_id, :root_id, :message_id)
-                ON CONFLICT (user_id, thread_root_id)
-                  DO UPDATE SET last_read_reply_id = EXCLUDED.last_read_reply_id
+                UPDATE attachments SET message_id = :message_id
+                 WHERE id = ANY(cast(:ids AS uuid[]))
+                   AND uploader_id = :uploader_id
+                   AND message_id IS NULL
+                RETURNING id
                 """
             ),
-            {"user_id": author_id, "root_id": thread_root_id, "message_id": message_id},
+            {"message_id": message_id, "ids": attachment_ids, "uploader_id": uploader_id},
         )
+    ).fetchall()
+    if len(bound) != len(attachment_ids):
+        raise bad_request("One of those attachments is no longer available.")
 
-        if root_row is not None:
-            from ..schemas.base import iso
 
-            thread_update = ThreadUpdate(
-                root_id=thread_root_id,
-                channel_id=channel_id,
-                reply_count=root_row.reply_count,
-                reply_user_ids=list(root_row.reply_user_ids or []),
-                last_reply_at=iso(root_row.last_reply_at),
-            )
+async def _count_reply(
+    session: AsyncSession, root_id: str, message_id: str, *, author_id: str, channel_id: str
+) -> ThreadUpdate | None:
+    """A reply lands: the root's counters move, and the author follows the thread.
 
-    # The author has, by definition, read their own message.
+    Replying subscribes you to the thread, the way every chat app behaves.
+    """
+    root_row = (
+        await session.execute(
+            text(
+                """
+                UPDATE messages
+                   SET reply_count = reply_count + 1,
+                       last_reply_at = now(),
+                       reply_user_ids = CASE
+                         WHEN cast(:author_id AS uuid) = ANY(reply_user_ids)
+                           THEN reply_user_ids
+                         WHEN array_length(reply_user_ids, 1) >= :facepile
+                           THEN reply_user_ids
+                         ELSE array_append(reply_user_ids, cast(:author_id AS uuid))
+                       END
+                 WHERE id = :root_id
+                RETURNING reply_count, reply_user_ids, last_reply_at
+                """
+            ),
+            {"root_id": root_id, "author_id": author_id, "facepile": FACEPILE_LIMIT},
+        )
+    ).fetchone()
+    await session.execute(
+        text(
+            """
+            INSERT INTO thread_subscriptions (user_id, thread_root_id, last_read_reply_id)
+            VALUES (:user_id, :root_id, :message_id)
+            ON CONFLICT (user_id, thread_root_id)
+              DO UPDATE SET last_read_reply_id = EXCLUDED.last_read_reply_id
+            """
+        ),
+        {"user_id": author_id, "root_id": root_id, "message_id": message_id},
+    )
+    if root_row is None:
+        return None
+    from ..schemas.base import iso
+
+    return ThreadUpdate(
+        root_id=root_id,
+        channel_id=channel_id,
+        reply_count=root_row.reply_count,
+        reply_user_ids=list(root_row.reply_user_ids or []),
+        last_reply_at=iso(root_row.last_reply_at),
+    )
+
+
+async def _mark_author_read(
+    session: AsyncSession, author_id: str, channel_id: str, message_id: str
+) -> None:
+    """The author has, by definition, read their own message."""
     await session.execute(
         text(
             """
@@ -304,17 +331,6 @@ async def send(
         ),
         {"user_id": author_id, "channel_id": channel_id, "message_id": message_id},
     )
-
-    row = (
-        await session.execute(
-            text(f"SELECT {MESSAGE_SELECT} FROM messages m WHERE m.id = :id"),
-            {"id": message_id},
-        )
-    ).fetchone()
-    if row is None:
-        raise bad_request("Could not store that message.")
-
-    return SendResult(message=to_message(row), created=True, thread_update=thread_update)
 
 
 #: What belongs in a channel's own history.
@@ -617,374 +633,6 @@ async def remove(
         )
 
     return existing.channel_id, existing.thread_root_id
-
-
-async def set_pinned(session: AsyncSession, message_id: str, user_id: str, pinned: bool) -> Message:
-    await session.execute(
-        text(
-            """
-            UPDATE messages
-               SET pinned_at = CASE WHEN :pinned THEN now() ELSE NULL END,
-                   pinned_by = CASE WHEN :pinned THEN cast(:user_id AS uuid) ELSE NULL END
-             WHERE id = :id AND deleted_at IS NULL
-            """
-        ),
-        {"id": message_id, "pinned": pinned, "user_id": user_id},
-    )
-    message = await by_id(session, message_id)
-    if message is None:
-        raise message_gone()
-    return message
-
-
-async def list_pinned(session: AsyncSession, channel_id: str) -> list[Message]:
-    rows = (
-        await session.execute(
-            text(
-                f"""
-                SELECT {MESSAGE_SELECT} FROM messages m
-                 WHERE m.channel_id = :channel_id
-                   AND m.pinned_at IS NOT NULL
-                   AND m.deleted_at IS NULL
-                 ORDER BY m.pinned_at DESC
-                 LIMIT 200
-                """
-            ),
-            {"channel_id": channel_id},
-        )
-    ).fetchall()
-    return [to_message(row) for row in rows]
-
-
-async def set_saved(session: AsyncSession, message_id: str, user_id: str, saved: bool) -> None:
-    """Put a message aside, or take it back off the list.
-
-    Idempotent in both directions by construction: the primary key is the pair, so a
-    second save conflicts into nothing and a second unsave deletes nothing. Neither
-    needs a read first, which is what keeps two taps on a phone from racing.
-    """
-    if saved:
-        await session.execute(
-            text(
-                """
-                INSERT INTO saved_items (user_id, message_id)
-                VALUES (cast(:user_id AS uuid), cast(:message_id AS uuid))
-                ON CONFLICT DO NOTHING
-                """
-            ),
-            {"user_id": user_id, "message_id": message_id},
-        )
-    else:
-        await session.execute(
-            text(
-                """
-                DELETE FROM saved_items
-                 WHERE user_id = cast(:user_id AS uuid)
-                   AND message_id = cast(:message_id AS uuid)
-                """
-            ),
-            {"user_id": user_id, "message_id": message_id},
-        )
-
-
-async def set_later(
-    session: AsyncSession,
-    message_id: str,
-    user_id: str,
-    *,
-    state: str | None = None,
-    remind_at: Any | None = _UNSET,
-    note: Any = _UNSET,
-) -> None:
-    """Update a saved item's Later fields, saving it first if it wasn't.
-
-    Upsert on purpose: "remind me about this" from a message's menu is one gesture,
-    and requiring a separate save first would make the common path two. Setting a new
-    reminder re-arms `reminded_at`, so "again in an hour" works on a fired one.
-    """
-    await session.execute(
-        text(
-            """
-            INSERT INTO saved_items (user_id, message_id)
-            VALUES (cast(:user_id AS uuid), cast(:message_id AS uuid))
-            ON CONFLICT DO NOTHING
-            """
-        ),
-        {"user_id": user_id, "message_id": message_id},
-    )
-    await session.execute(
-        text(
-            """
-            UPDATE saved_items
-               SET state = COALESCE(:state, state),
-                   remind_at = CASE WHEN :has_remind THEN cast(:remind_at AS timestamptz)
-                                    ELSE remind_at END,
-                   reminded_at = CASE WHEN :has_remind THEN NULL ELSE reminded_at END,
-                   note = CASE WHEN :has_note THEN :note ELSE note END
-             WHERE user_id = cast(:user_id AS uuid)
-               AND message_id = cast(:message_id AS uuid)
-            """
-        ),
-        {
-            "user_id": user_id,
-            "message_id": message_id,
-            "state": state,
-            "has_remind": remind_at is not _UNSET,
-            "remind_at": None if remind_at is _UNSET else remind_at,
-            "has_note": note is not _UNSET,
-            "note": None if note is _UNSET else note,
-        },
-    )
-
-
-async def list_later(
-    session: AsyncSession, user_id: str, *, state: str = "in_progress", limit: int = 100
-) -> list[dict[str, Any]]:
-    """The Later view: saved messages in one state, with their reminder metadata.
-
-    Same security join as `list_saved` — leaving a channel takes its messages out of
-    your list, and a saved row is not permission.
-    """
-    rows = (
-        await session.execute(
-            text(
-                f"""
-                SELECT {MESSAGE_SELECT},
-                       s.state AS later_state, s.remind_at, s.note, s.reminded_at
-                  FROM messages m
-                  JOIN saved_items s
-                    ON s.message_id = m.id AND s.user_id = :user_id
-                  JOIN channel_members cm
-                    ON cm.channel_id = m.channel_id
-                   AND cm.user_id = :user_id          -- the security boundary
-                 WHERE m.deleted_at IS NULL AND s.state = :state
-                 ORDER BY s.created_at DESC
-                 LIMIT :limit
-                """
-            ),
-            {"user_id": user_id, "state": state, "limit": limit},
-        )
-    ).fetchall()
-    return [
-        {
-            "message": to_message(row),
-            "state": row.later_state,
-            "remindAt": require_iso(row.remind_at) if row.remind_at else None,
-            "remindedAt": require_iso(row.reminded_at) if row.reminded_at else None,
-            "note": row.note,
-        }
-        for row in rows
-    ]
-
-
-async def list_saved(session: AsyncSession, user_id: str, limit: int = 100) -> list[Message]:
-    """Somebody's saved messages, newest save first.
-
-    The join against `channel_members` is the security boundary and is exactly the one
-    `search` uses, for the same reason and with the same consequence: leaving a channel
-    takes its messages out of your list. Saving cannot be a way to keep reading a
-    conversation you were removed from, and a row in this table is not permission.
-    """
-    rows = (
-        await session.execute(
-            text(
-                f"""
-                SELECT {MESSAGE_SELECT} FROM messages m
-                  JOIN saved_items s
-                    ON s.message_id = m.id AND s.user_id = :user_id
-                  JOIN channel_members cm
-                    ON cm.channel_id = m.channel_id
-                   AND cm.user_id = :user_id          -- the security boundary
-                 WHERE m.deleted_at IS NULL
-                 ORDER BY s.created_at DESC
-                 LIMIT :limit
-                """
-            ),
-            {"user_id": user_id, "limit": limit},
-        )
-    ).fetchall()
-    return [to_message(row) for row in rows]
-
-
-async def saved_message_ids(session: AsyncSession, user_id: str, limit: int = 500) -> list[str]:
-    """Just the ids, for the boot payload.
-
-    The client needs these to label one menu item — "Save for later" against "Remove
-    from later" — and putting a per-user flag on `Message` itself would mean threading a
-    user id through `MESSAGE_SELECT`, which is also what every broadcast is built from
-    and has no single reader. Per-user state belongs with the other per-user state.
-
-    Deliberately not access-filtered: an id is not content, this runs on every boot, and
-    the list that renders them is. A stale id costs one wrong menu label until the next
-    boot, which is the correct amount of machinery for the problem.
-    """
-    rows = (
-        await session.execute(
-            text(
-                """
-                SELECT message_id FROM saved_items
-                 WHERE user_id = :user_id
-                 ORDER BY created_at DESC
-                 LIMIT :limit
-                """
-            ),
-            {"user_id": user_id, "limit": limit},
-        )
-    ).fetchall()
-    return [str(row.message_id) for row in rows]
-
-
-async def add_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str) -> bool:
-    rows = (
-        await session.execute(
-            text(
-                """
-                INSERT INTO reactions (message_id, user_id, emoji)
-                VALUES (:message_id, :user_id, :emoji)
-                ON CONFLICT DO NOTHING RETURNING message_id
-                """
-            ),
-            {"message_id": message_id, "user_id": user_id, "emoji": emoji},
-        )
-    ).fetchall()
-    if not rows:
-        return False
-    from . import activity as activity_service
-
-    await activity_service.record_reaction(
-        session, message_id=message_id, actor_id=user_id, emoji=emoji
-    )
-    return True
-
-
-async def remove_reaction(session: AsyncSession, message_id: str, user_id: str, emoji: str) -> bool:
-    rows = (
-        await session.execute(
-            text(
-                """
-                DELETE FROM reactions
-                 WHERE message_id = :message_id AND user_id = :user_id AND emoji = :emoji
-                RETURNING message_id
-                """
-            ),
-            {"message_id": message_id, "user_id": user_id, "emoji": emoji},
-        )
-    ).fetchall()
-    return len(rows) > 0
-
-
-async def threads_for_user(
-    session: AsyncSession, user_id: str, limit: int = 30
-) -> tuple[list[Message], list[str]]:
-    """Threads you follow, most recently active first, and which of them have new replies.
-
-    "Unread" is a string comparison, the same trick the channel list uses: ids are UUIDv7,
-    so the newest reply's id sorts above every reply you have already seen. No counting,
-    no timestamp join.
-
-    `last_read_reply_id` has been written since threads shipped — set to your own reply
-    each time you posted one — and read by nothing, so a thread you had replied in looked
-    identical to one you had read to the end.
-    """
-    rows = (
-        await session.execute(
-            text(
-                f"""
-                SELECT {MESSAGE_SELECT},
-                       (SELECT r.id FROM messages r
-                         WHERE r.thread_root_id = m.id AND r.deleted_at IS NULL
-                         ORDER BY r.id DESC LIMIT 1) AS newest_reply_id,
-                       ts.last_read_reply_id AS seen_reply_id
-                  FROM messages m
-                  JOIN thread_subscriptions ts
-                    ON ts.thread_root_id = m.id AND ts.user_id = :user_id
-                 WHERE m.deleted_at IS NULL AND ts.muted = false
-                 ORDER BY m.last_reply_at DESC NULLS LAST
-                 LIMIT :limit
-                """
-            ),
-            {"user_id": user_id, "limit": limit},
-        )
-    ).fetchall()
-
-    unread = [
-        row.id
-        for row in rows
-        if row.newest_reply_id is not None
-        and (row.seen_reply_id is None or str(row.newest_reply_id) > str(row.seen_reply_id))
-    ]
-    return [to_message(row) for row in rows], unread
-
-
-async def thread_following(session: AsyncSession, user_id: str, root_id: str) -> bool:
-    """Whether this person is following that thread."""
-    row = (
-        await session.execute(
-            text(
-                """
-                SELECT muted FROM thread_subscriptions
-                 WHERE user_id = :user_id AND thread_root_id = :root_id
-                """
-            ),
-            {"user_id": user_id, "root_id": root_id},
-        )
-    ).fetchone()
-    return row is not None and not row.muted
-
-
-async def set_thread_following(
-    session: AsyncSession, user_id: str, root_id: str, following: bool
-) -> None:
-    """Follow a thread, or stop.
-
-    The row is kept either way rather than deleted, because it carries how far you had
-    read — unfollowing and following again should not present a thread you have read as
-    new. `muted` has existed on this table since the beginning and nothing ever wrote it,
-    so once you had replied you were subscribed for good with no control anywhere.
-
-    Following one you have never replied in starts you at the end, not the beginning: you
-    asked to hear what happens next, not to be handed everything already said.
-    """
-    await session.execute(
-        text(
-            """
-            INSERT INTO thread_subscriptions (user_id, thread_root_id, last_read_reply_id, muted)
-            VALUES (
-                :user_id, :root_id,
-                (SELECT r.id FROM messages r
-                  WHERE r.thread_root_id = :root_id AND r.deleted_at IS NULL
-                  ORDER BY r.id DESC LIMIT 1),
-                :muted
-            )
-            ON CONFLICT (user_id, thread_root_id) DO UPDATE SET muted = EXCLUDED.muted
-            """
-        ),
-        {"user_id": user_id, "root_id": root_id, "muted": not following},
-    )
-
-
-async def mark_thread_read(session: AsyncSession, user_id: str, root_id: str) -> None:
-    """Move the thread's read cursor to its newest reply.
-
-    Only for somebody already following it — opening a thread to look is not a request to
-    be told about it forever, which is why reading does not subscribe you. Forward-only,
-    like the channel cursor: `GREATEST` so a slow tab cannot drag it backwards.
-    """
-    await session.execute(
-        text(
-            """
-            UPDATE thread_subscriptions ts
-               SET last_read_reply_id = GREATEST(
-                     ts.last_read_reply_id,
-                     (SELECT r.id FROM messages r
-                       WHERE r.thread_root_id = :root_id AND r.deleted_at IS NULL
-                       ORDER BY r.id DESC LIMIT 1)
-                   )
-             WHERE ts.user_id = :user_id AND ts.thread_root_id = :root_id
-            """
-        ),
-        {"user_id": user_id, "root_id": root_id},
-    )
 
 
 #: Cheap enough to run on every send, and only decides whether to *ask* for an unfurl.

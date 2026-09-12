@@ -261,7 +261,6 @@ def record_jobs(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, ...]]:
     from blob_api.services import messages as messages_service
 
     monkeypatch.setattr(queue_module, "enqueue", record)
-    monkeypatch.setattr(agui_job, "enqueue", record)
     # `services/messages.announce` imports `enqueue` inside the function, so patching the
     # module it imports *from* is what reaches it.
     monkeypatch.setattr(messages_service, "enqueue", record, raising=False)
