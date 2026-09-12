@@ -73,18 +73,22 @@ async def agent_socket(websocket: WebSocket) -> None:
     async def send(payload: dict[str, Any]) -> None:
         await websocket.send_text(json.dumps(payload))
 
-    await send(
-        {
-            "t": "ready",
-            "pluginId": bot.plugin_id,
-            "botUserId": bot.user_id,
-            "name": bot.name,
-            "scopes": sorted(bot.scopes),
-        }
-    )
-
     try:
         async with gateway.AgentConnection(bot.plugin_id, send):
+            # `ready` goes out only once the connection is held, because entering it is
+            # what writes the presence key. Sent first, an agent that had just been told
+            # it was ready was, for a moment, not online to anyone asking — the console,
+            # the mention router, and a test that asked straight after the frame — and on
+            # a loaded machine that moment was long enough to see.
+            await send(
+                {
+                    "t": "ready",
+                    "pluginId": bot.plugin_id,
+                    "botUserId": bot.user_id,
+                    "name": bot.name,
+                    "scopes": sorted(bot.scopes),
+                }
+            )
             log.info("agent %s connected", bot.slug)
             await _read_loop(websocket, bot, send)
     except WebSocketDisconnect:
