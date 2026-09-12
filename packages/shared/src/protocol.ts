@@ -3,7 +3,7 @@
  *
  * The socket only *delivers* events — every write goes through REST, so a socket
  * outage degrades to "no live updates" rather than to data loss, and the client
- * can always resync over HTTP. See §5.4 of TEAM-CHAT-BUILD-PLAN.md.
+ * can always resync over HTTP. See "The read path for live updates" in CLAUDE.md.
  */
 
 import type {

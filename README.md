@@ -249,7 +249,8 @@ afternoon:
   and `docker compose up -d` runs a LiveKit beside everything else in dev. It is the one
   feature that needs a service Blob does not ship in its own image, so without `LIVEKIT_*`
   set every meetup answers `livekit_not_configured` and the rest of the workspace is
-  untouched.
+  untouched. Inside a call, LiveKit's own conference UI carries the camera, microphone,
+  screen share and participant list; Blob adds nothing of its own there yet.
 - **Canvases and workflows** — not started.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
 - **SSO, SAML, OIDC and 2FA** — email and password is the only way in.

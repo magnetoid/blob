@@ -6,7 +6,29 @@ tags: [active]
 
 # Progress
 
-Roadmap and milestone numbering come from `TEAM-CHAT-BUILD-PLAN.md`.
+Milestone numbers below (1–20) come from the original build plan, deleted on 2026-09-12
+once everything it scheduled had shipped or been superseded. `docs/roadmap.md` is the
+plan now: six months from mid-September 2026, simplify first, then features.
+
+## Measured baseline, 2026-09-12 (the numbers `docs/roadmap.md` Q1 is stated against)
+
+Backend suite, this laptop, Docker down so MinIO unreachable (the five thumbnail tests
+fail on that and the upload-path tests each wait out a ~20 s storage timeout):
+
+| Run | Wall | CPU (user) | Result |
+|---|---|---|---|
+| serial, argon2 at full strength | **14:54** | 486 s | 1420 passed, 5 failed (MinIO), 2 skipped |
+| `-n 4`, `ARGON2_PROFILE=fast` | **6:03** | 141 s | 1430 passed, 5 failed (MinIO), 2 skipped |
+
+The CPU column is the argon2 saving on its own: `helpers.sign_up` ran ~350 fixture
+sign-ups per pass at ~76 ms a hash plus a verify each. The remaining wall time is
+dominated by the storage timeouts, which a running MinIO removes.
+
+Client bundle, `pnpm build` at 047baf4: main chunk **1,075 KB raw**, of which (rendered,
+pre-minify) livekit-client 1,103 KB (55 %), src 554 KB (27 %), @livekit/components-react
+174 KB (9 %), zod 130 KB (6 %), @tanstack/virtual-core 46 KB. Only AdminConsole,
+SettingsConsole, HelpView and the xterm terminal are lazy. W2 makes meetups lazy and
+retires zod.
 
 ## Done
 
@@ -354,7 +376,7 @@ none is an entrance problem — they are genuinely unbuilt.
   `statusText` have been on `User` and settable the whole time; until the member list
   landed, no screen displayed either. The message row and the sidebar still do not.
 
-## Next (from the build plan)
+## Next (older items, still open)
 
 - **Multi-workspace, the rest** — what shipped is creating, listing, switching and
   keeping workspaces apart. Still missing: naming and deleting a workspace from the
