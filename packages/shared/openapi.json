@@ -10884,17 +10884,6 @@
               "title": "Limit",
               "type": "integer"
             }
-          },
-          {
-            "in": "query",
-            "name": "offset",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "minimum": 0,
-              "title": "Offset",
-              "type": "integer"
-            }
           }
         ],
         "responses": {
@@ -12057,7 +12046,7 @@
     },
     "/api/bootstrap": {
       "get": {
-        "description": "One request that returns everything the client needs to render.\n\nKeeping the boot payload to a single round trip is why Slack eventually built\nFlannel; starting here costs nothing and postpones that problem indefinitely.",
+        "description": "One request that returns everything the client needs to render.",
         "operationId": "bootstrap_api_bootstrap_get",
         "responses": {
           "200": {

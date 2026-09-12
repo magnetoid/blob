@@ -60,9 +60,11 @@ async def list_users(
     q: str | None = None,
     include_deactivated: bool = True,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
-    offset: Annotated[int, Query(ge=0)] = 0,
     admin: SessionUser = Depends(require_admin),
 ) -> AdminUsersOut:
+    # No offset: nothing pages this list that way, and services never page by offset
+    # (ADR 0003, and the guard that enforces it). The console reads one bounded page
+    # and the total.
     async with session_scope() as session:
         return await admin_service.list_users(
             session,
@@ -70,7 +72,6 @@ async def list_users(
             q=q,
             include_deactivated=include_deactivated,
             limit=limit,
-            offset=offset,
         )
 
 

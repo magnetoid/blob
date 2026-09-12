@@ -78,7 +78,6 @@ async def list_users(
     q: str | None,
     include_deactivated: bool,
     limit: int,
-    offset: int,
 ) -> AdminUsersOut:
     rows = (
         await session.execute(
@@ -104,7 +103,7 @@ async def list_users(
                         OR u.display_name ILIKE '%' || :q || '%'
                         OR u.email ILIKE '%' || :q || '%')
                  ORDER BY u.deactivated_at NULLS FIRST, lower(u.display_name)
-                 LIMIT :limit OFFSET :offset
+                 LIMIT :limit
                 """
             ),
             {
@@ -112,7 +111,6 @@ async def list_users(
                 "include_deactivated": include_deactivated,
                 "q": q,
                 "limit": limit,
-                "offset": offset,
             },
         )
     ).fetchall()
