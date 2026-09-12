@@ -9,11 +9,10 @@
  * a channel full of screenshots cheap to scroll.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { Attachment } from '@blob/shared';
-import { trapFocus } from '../../lib/focusTrap.ts';
-import { useEscape } from '../../lib/useEscape.ts';
 import { CloseIcon } from '../../components/Icon.tsx';
+import { Dialog } from '../../components/Dialog.tsx';
 
 interface Props {
   attachment: Attachment;
@@ -21,28 +20,11 @@ interface Props {
 }
 
 export function ImageLightbox({ attachment, onClose }: Props) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
 
-  useEscape(onClose);
-  useEffect(() => trapFocus(dialogRef.current), []);
-
   return (
-    <div
-      className="dialog-backdrop lightbox-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        // The backdrop closes; the picture and its controls do not.
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="lightbox"
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={attachment.filename}
-      >
+    <Dialog label={attachment.filename} onClose={onClose} className="lightbox-host">
+      <div className="lightbox">
         <div className="lightbox-bar">
           <span className="lightbox-name">{attachment.filename}</span>
           <a
@@ -68,6 +50,6 @@ export function ImageLightbox({ attachment, onClose }: Props) {
           onLoad={() => setLoaded(true)}
         />
       </div>
-    </div>
+    </Dialog>
   );
 }

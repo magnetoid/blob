@@ -7,13 +7,13 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { trapFocus } from "../../lib/focusTrap.ts";
 import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { showChannel } from "../../lib/navigation.ts";
 import { navigate } from "../../lib/router.ts";
 import { Avatar } from "../../components/Avatar.tsx";
+import { Dialog } from "../../components/Dialog.tsx";
 
 interface Item {
   id: string;
@@ -46,9 +46,6 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => trapFocus(dialogRef.current), []);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -183,20 +180,8 @@ export function CommandPalette({
   // stop announced as a button in front of the dialog and answered Space by closing it.
   // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
-    <div
-      className="palette-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="palette"
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={only === "people" ? "Message someone" : "Jump to"}
-      >
+    <Dialog label={only === "people" ? "Message someone" : "Jump to"} onClose={onClose} className="palette-host">
+      <div className="palette">
         {/*
          * The combobox pattern, because focus never leaves this input.
          *
@@ -271,7 +256,7 @@ export function CommandPalette({
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 

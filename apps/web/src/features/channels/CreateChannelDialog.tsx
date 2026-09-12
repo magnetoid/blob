@@ -1,19 +1,14 @@
 /** Create a channel. */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { trapFocus } from "../../lib/focusTrap.ts";
-import { useEscape } from "../../lib/useEscape.ts";
 import { channelName } from "@blob/shared";
 import { api, ApiError } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import { showChannel } from "../../lib/navigation.ts";
+import { Dialog } from "../../components/Dialog.tsx";
 
 export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
   const nameRef = useRef<HTMLInputElement>(null);
-  const dialogRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => trapFocus(dialogRef.current), []);
-  useEscape(onClose);
 
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
@@ -60,21 +55,8 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
   // stop announced as a button in front of the dialog and answered Space by closing it.
   // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
-    <div
-      className="dialog-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <form
-        className="dialog"
-        onSubmit={submit}
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Create a channel"
-      >
+    <Dialog label="Create a channel" onClose={onClose}>
+      <form className="dialog" onSubmit={submit}>
         <h2 className="dialog-title">Create a channel</h2>
 
         <label className="field">
@@ -141,6 +123,6 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </form>
-    </div>
+    </Dialog>
   );
 }

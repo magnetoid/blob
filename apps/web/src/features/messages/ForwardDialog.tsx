@@ -12,13 +12,12 @@
  * "it is a quote of what was said" is a better answer than a dangling reference.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Message } from '@blob/shared';
 import { useStore } from '../../lib/store.ts';
 import { permalinkFor, showChannel } from '../../lib/navigation.ts';
 import { showError } from '../../lib/toasts.ts';
-import { trapFocus } from '../../lib/focusTrap.ts';
-import { useEscape } from '../../lib/useEscape.ts';
+import { Dialog } from '../../components/Dialog.tsx';
 
 interface Props {
   message: Message;
@@ -29,10 +28,6 @@ interface Props {
 const EXCERPT_LIMIT = 400;
 
 export function ForwardDialog({ message, onClose }: Props) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEscape(onClose);
-  useEffect(() => trapFocus(dialogRef.current), []);
 
   const channels = useStore((s) => s.channels);
   const displayNameOf = useStore((s) => s.displayNameOf);
@@ -81,21 +76,8 @@ export function ForwardDialog({ message, onClose }: Props) {
 
   // The backdrop is presentational; Escape above is the keyboard path out.
   return (
-    <div
-      className="dialog-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={dialogRef}
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Forward message"
-        tabIndex={-1}
-      >
+    <Dialog label="Forward message" onClose={onClose}>
+      <div className="dialog">
         <h2 className="dialog-title">Forward message</h2>
       <label className="field">
         <span className="field-label">Add a note</span>
@@ -153,6 +135,6 @@ export function ForwardDialog({ message, onClose }: Props) {
         </button>
       </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

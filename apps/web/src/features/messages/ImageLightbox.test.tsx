@@ -41,18 +41,26 @@ describe('the lightbox', () => {
     expect(image.getAttribute('height')).toBe('900');
   });
 
-  it('closes on Escape, on the backdrop, and on the button', () => {
+  it('closes on Escape', () => {
     const onClose = vi.fn();
-    const { container } = render(<ImageLightbox attachment={attachment()} onClose={onClose} />);
-
+    render(<ImageLightbox attachment={attachment()} onClose={onClose} />);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
 
-    fireEvent.click(container.querySelector('.lightbox-backdrop')!);
-    expect(onClose).toHaveBeenCalledTimes(2);
+  it('closes on the backdrop', () => {
+    const onClose = vi.fn();
+    render(<ImageLightbox attachment={attachment()} onClose={onClose} />);
+    // The host <dialog> is where a click on its backdrop lands.
+    fireEvent.click(screen.getByRole('dialog'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 
+  it('closes on the button', () => {
+    const onClose = vi.fn();
+    render(<ImageLightbox attachment={attachment()} onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(onClose).toHaveBeenCalledTimes(3);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('does not close when the picture itself is clicked', () => {
@@ -74,8 +82,10 @@ describe('the lightbox', () => {
 
   it('is a dialog, named for the file it is showing', () => {
     render(<ImageLightbox attachment={attachment()} onClose={vi.fn()} />);
-    const dialog = screen.getByRole('dialog', { name: 'screenshot.png' });
-    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    const dialog = screen.getByRole('dialog', { name: 'screenshot.png' }) as HTMLDialogElement;
+    // A native modal: open through showModal(), so everything behind it is inert.
+    expect(dialog.tagName).toBe('DIALOG');
+    expect(dialog.open).toBe(true);
   });
 
   it('copes with a picture whose size nobody recorded', () => {

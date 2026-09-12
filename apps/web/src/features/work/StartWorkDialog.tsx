@@ -7,13 +7,11 @@
  * that is the right place for the rule to live.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Message } from "@blob/shared";
 import { api, type WorkspaceAgent } from "../../lib/api.ts";
 import { showChannel } from "../../lib/navigation.ts";
 import { showError } from "../../lib/toasts.ts";
-import { trapFocus } from "../../lib/focusTrap.ts";
-import { useEscape } from "../../lib/useEscape.ts";
 
 interface Props {
   message: Message;
@@ -23,11 +21,9 @@ interface Props {
 const TITLE_MAX = 200;
 
 import { suggestedTitle } from "./title.ts";
+import { Dialog } from "../../components/Dialog.tsx";
 
 export function StartWorkDialog({ message, onClose }: Props) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useEscape(onClose);
-  useEffect(() => trapFocus(dialogRef.current), []);
 
   // The agents a member may bring: the workspace's own, and theirs. The server is the
   // authority on that list, so it is fetched rather than derived from the user map.
@@ -77,21 +73,8 @@ export function StartWorkDialog({ message, onClose }: Props) {
   }
 
   return (
-    <div
-      className="dialog-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={dialogRef}
-        className="dialog stagger-item stagger-1"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Start work from this message"
-        tabIndex={-1}
-      >
+    <Dialog label="Start work from this message" onClose={onClose}>
+      <div className="dialog stagger-item stagger-1">
         <h2 className="dialog-title">Start work from here</h2>
         <p className="pref-hint" style={{ marginTop: 0 }}>
           A private channel for this one job. It quotes this message, links back
@@ -152,6 +135,6 @@ export function StartWorkDialog({ message, onClose }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

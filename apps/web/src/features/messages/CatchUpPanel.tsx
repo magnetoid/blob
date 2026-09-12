@@ -5,12 +5,11 @@
  * from *you*, idempotent on the summarised range, so pressing it twice posts once.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { showError } from '../../lib/toasts.ts';
-import { trapFocus } from '../../lib/focusTrap.ts';
-import { useEscape } from '../../lib/useEscape.ts';
+import { Dialog } from '../../components/Dialog.tsx';
 
 interface Summary {
   channelId: string;
@@ -32,11 +31,6 @@ export function CatchUpPanel({
   const [summaries, setSummaries] = useState<Summary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posted, setPosted] = useState<Set<string>>(new Set());
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => trapFocus(dialogRef.current), []);
-
-  useEscape(onClose);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,20 +86,8 @@ export function CatchUpPanel({
   }
 
   return (
-    <div
-      className="dialog-backdrop"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      role="presentation"
-    >
-      <div
-        ref={dialogRef}
-        className="dialog catchup-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Catch me up"
-      >
+    <Dialog label="Catch me up" onClose={onClose}>
+      <div className="dialog catchup-dialog">
         <h2 className="dialog-title">Catch me up</h2>
         {error && <p className="error-text">{error}</p>}
         {!error && summaries === null && <p className="muted">Reading the unread…</p>}
@@ -139,7 +121,7 @@ export function CatchUpPanel({
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 

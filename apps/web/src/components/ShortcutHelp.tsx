@@ -3,15 +3,14 @@
  * Rendered straight from `SHORTCUTS`, so it cannot document a binding that does not
  * exist or miss one that does. That is the only reason this file is as short as it is.
  *
- * The backdrop follows `ConfirmDialog`: a `role="button"` that answers Escape, Enter and
- * Space, and closes only on a click that landed on itself rather than bubbled up from
- * the panel.
+ * Escape, the backdrop and focus are `Dialog`'s. This file had lost its own Escape
+ * binding under a comment saying it was bound above; a shared scaffold cannot lose it.
  */
 
 import { useEffect, useRef } from 'react';
 import { navigate } from '../lib/router.ts';
-import { trapFocus } from '../lib/focusTrap.ts';
 import { chordsFor, describeKeys, groupedShortcuts, isMac } from '../lib/shortcuts.ts';
+import { Dialog } from './Dialog.tsx';
 
 export function ShortcutHelp({ onClose }: { onClose: () => void }) {
   const mac = isMac();
@@ -21,27 +20,9 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
     dialogRef.current?.focus();
   }, []);
 
-  useEffect(() => trapFocus(dialogRef.current), []);
-
-  // The backdrop is presentational. It was role="button" tabIndex={0}, which put a tab
-  // stop announced as a button in front of the dialog and answered Space by closing it.
-  // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
-    <div
-      className="dialog-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={dialogRef}
-        className="dialog shortcut-help"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Keyboard shortcuts"
-        tabIndex={-1}
-      >
+    <Dialog label="Keyboard shortcuts" onClose={onClose}>
+      <div ref={dialogRef} className="dialog shortcut-help" tabIndex={-1}>
         <h2 className="dialog-title">Keyboard shortcuts</h2>
         {groupedShortcuts().map(([group, shortcuts]) => (
           <section key={group} className="shortcut-group">
@@ -80,6 +61,6 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
           Everything else: how Blob works →
         </button>
       </div>
-    </div>
+    </Dialog>
   );
 }

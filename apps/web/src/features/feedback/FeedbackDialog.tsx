@@ -8,13 +8,13 @@
  */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { trapFocus } from "../../lib/focusTrap.ts";
 import { api } from "../../lib/api.ts";
 import {
   capturePageSnapshot,
   describeEnvironment,
   readLog,
 } from "../../lib/diagnostics.ts";
+import { Dialog } from "../../components/Dialog.tsx";
 
 type Kind = "bug" | "feedback" | "feature";
 
@@ -30,9 +30,7 @@ const KINDS: { id: Kind; label: string; hint: string }[] = [
 
 export function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const titleRef = useRef<HTMLInputElement>(null);
-  const dialogRef = useRef<HTMLFormElement>(null);
 
-  useEffect(() => trapFocus(dialogRef.current), []);
   const [kind, setKind] = useState<Kind>("bug");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -48,14 +46,6 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
     consoleLog: readLog(),
     environment: describeEnvironment(),
   }));
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -90,21 +80,8 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
   // stop announced as a button in front of the dialog and answered Space by closing it.
   // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
-    <div
-      className="dialog-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <form
-        className="dialog"
-        onSubmit={submit}
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Send feedback"
-      >
+    <Dialog label="Send feedback" onClose={onClose}>
+      <form className="dialog" onSubmit={submit}>
         <h2 className="dialog-title">Send feedback</h2>
 
         {sent ? (
@@ -200,6 +177,6 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
           </>
         )}
       </form>
-    </div>
+    </Dialog>
   );
 }

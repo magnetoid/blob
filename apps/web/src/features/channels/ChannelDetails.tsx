@@ -11,13 +11,12 @@
  * arrives on the socket for anyone who needs to react to it.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { trapFocus } from '../../lib/focusTrap.ts';
-import { useEscape } from '../../lib/useEscape.ts';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { Avatar } from '../../components/Avatar.tsx';
+import { Dialog } from '../../components/Dialog.tsx';
 
 interface Props {
   channel: ChannelWithState;
@@ -29,10 +28,7 @@ interface Props {
 }
 
 export function ChannelDetails({ channel, onClose, onMembers }: Props) {
-  const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => trapFocus(dialogRef.current), []);
-  useEscape(onClose);
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
 
@@ -133,20 +129,8 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
 
   // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
-    <div
-      className="dialog-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="dialog"
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`About #${channel.name}`}
-      >
+    <Dialog label={`About #${channel.name}`} onClose={onClose}>
+      <div className="dialog">
         <h2 className="dialog-title">#{channel.name}</h2>
 
         <label className="field">
@@ -257,6 +241,6 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

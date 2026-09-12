@@ -16,9 +16,8 @@ import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { showError } from '../../lib/toasts.ts';
 import { showChannel } from '../../lib/navigation.ts';
-import { useEscape } from '../../lib/useEscape.ts';
-import { trapFocus } from '../../lib/focusTrap.ts';
 import { Avatar } from '../../components/Avatar.tsx';
+import { Dialog } from '../../components/Dialog.tsx';
 
 /** Including you, which is why the picker stops at seven others. */
 export const MAX_DM_MEMBERS = 8;
@@ -29,11 +28,8 @@ export function NewMessageDialog({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEscape(onClose);
-  useEffect(() => trapFocus(dialogRef.current), []);
   // Focused on mount, the way every dialog here does it — `autoFocus` is what the lint
   // rule objects to, and a modal that opens without focus inside it is worse.
   useEffect(() => inputRef.current?.focus(), []);
@@ -84,20 +80,8 @@ export function NewMessageDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div
-      className="dialog-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={dialogRef}
-        className="dialog new-message"
-        role="dialog"
-        aria-modal="true"
-        aria-label="New message"
-      >
+    <Dialog label="New message" onClose={onClose}>
+      <div className="dialog new-message">
         <h2 className="dialog-title">New message</h2>
 
         <div className="new-message-to">
@@ -179,6 +163,6 @@ export function NewMessageDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

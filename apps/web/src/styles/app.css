@@ -1593,9 +1593,13 @@ button {
 /* The image at full size, over everything. Its own backdrop is darker than a dialog's
    because the point is the picture, and the surface under it is black rather than
    --surface so a screenshot with a white background does not bleed into the frame. */
-.lightbox-backdrop {
+dialog.lightbox-host {
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 48px);
+}
+
+dialog.lightbox-host::backdrop {
   background: rgb(0 0 0 / 0.82);
-  padding: 24px;
 }
 
 .lightbox {
@@ -2360,14 +2364,9 @@ mark.search-hit {
 }
 
 /* ─── command palette ────────────────────────────────────────────────────── */
-.palette-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  display: flex;
-  justify-content: center;
-  padding-top: 12vh;
-  background: var(--backdrop);
+/* Near the top rather than centred: a palette is typed into, and the eye starts high. */
+dialog.palette-host {
+  margin-block: 12vh auto;
 }
 
 .palette {
@@ -2436,13 +2435,22 @@ mark.search-hit {
 }
 
 /* ─── dialogs & settings ─────────────────────────────────────────────────── */
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  display: grid;
-  place-items: center;
-  padding: 16px;
+/* The host is the native <dialog>; `.dialog` inside it is the visible panel. The host
+   carries nothing visual of its own so that a click whose target is the host is, by
+   construction, a click on the backdrop — `components/Dialog.tsx` closes on exactly that.
+   Centring, the top layer and inertness behind it are the platform's; the backdrop
+   pseudo-element takes the colour the old fixed wrapper had. */
+dialog.dialog-host {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: visible;
+}
+
+dialog.dialog-host::backdrop {
   background: var(--backdrop);
 }
 
@@ -4656,8 +4664,7 @@ select.chip {
   transform-origin: top right;
 }
 
-.dialog-backdrop,
-.palette-backdrop {
+dialog.dialog-host::backdrop {
   animation: backdrop-in var(--dur-open) var(--ease-out);
 }
 

@@ -37,19 +37,26 @@ describe('the confirm dialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('closes on cancel, on the backdrop, and on Escape', () => {
+  it('closes on cancel', () => {
     const { onClose, onConfirm } = renderDialog();
     fireEvent.click(screen.getByText('Cancel'));
-    fireEvent.click(document.querySelector('.dialog-backdrop') as Element);
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledTimes(3);
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it('does not close when the dialog itself is clicked', () => {
+  it('closes on Escape', () => {
     const { onClose } = renderDialog();
-    fireEvent.click(screen.getByRole('dialog'));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on the backdrop and not on the panel', () => {
+    const { onClose } = renderDialog();
+    // The panel is the `.dialog` element; the host `<dialog>` around it is the backdrop.
+    fireEvent.click(document.querySelector('.dialog') as Element);
     expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('dialog'));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('colours a destructive answer differently', () => {
