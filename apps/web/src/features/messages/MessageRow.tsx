@@ -143,6 +143,13 @@ export const MessageRow = memo(function MessageRow({
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const author = message.authorId ? users[message.authorId] : undefined;
+  /* An agent's answer is set apart from the conversation around it, the way the design
+   * draws it: a card on the message surface with an iris hairline, rather than loose
+   * prose in the flow. It is the same claim the AGENT badge makes, made at the size you
+   * read at — you can tell an agent wrote something from across the room, before the
+   * name registers. ADR 0005 makes a bot an ordinary `users` row precisely so it posts
+   * down the same path a person does, which is exactly why the output needs marking. */
+  const byAgent = author?.kind === "bot";
   const grouped = isGrouped(message, previous);
   const pending = deliveryState !== null || message.id.startsWith("pending-");
   const mine = message.authorId === currentUser?.id;
@@ -328,7 +335,7 @@ export const MessageRow = memo(function MessageRow({
             onClose={() => setEditing(false)}
           />
         ) : (
-          <div className="message-body">
+          <div className="message-body" data-agent={byAgent ? "true" : undefined}>
             {rendered}
             {message.editedAt && (
               <span className="message-edited"> (edited)</span>

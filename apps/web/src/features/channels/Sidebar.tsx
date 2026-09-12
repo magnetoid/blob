@@ -8,7 +8,8 @@ import { navigate, parseRoute, usePath } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
 import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
-import { directMessages, joinedChannels } from '../../lib/conversations.ts';
+import { agentConversations, directMessages, joinedChannels } from '../../lib/conversations.ts';
+import { WorkspaceSwitcher } from '../shell/WorkspaceSwitcher.tsx';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import {
   ChevronLeftIcon,
@@ -40,30 +41,46 @@ export function Sidebar({
   const currentUser = useStore((s) => s.currentUser);
   const activeView = parseRoute(usePath()).view;
   const savedCount = useStore((s) => s.savedMessageIds.size);
+  const workspaceName = useStore((s) => s.workspaceName);
+  const agentRuns = useStore((s) => s.agentRuns);
 
   const [creating, setCreating] = useState(false);
   const [composing, setComposing] = useState(false);
 
-  const { joined, dms, browsable } = useMemo(
+  const { joined, agentDms, dms, browsable } = useMemo(
     () => ({
       joined: joinedChannels(channels),
-      dms: directMessages(channels),
+      agentDms: agentConversations(channels, users),
+      dms: directMessages(channels, users),
       browsable: Object.values(channels)
         .filter((c) => c.membership === null && !c.archivedAt)
         .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
     }),
-    [channels],
+    [channels, users],
   );
 
-  const people = useMemo(
-    () =>
-      Object.values(users)
-        .filter((u) => u.id !== currentUser?.id && !u.deactivated)
-        .sort((a, b) => a.displayName.localeCompare(b.displayName)),
-    [users, currentUser],
-  );
+  // Split the same way the conversation list is, so the two sections below can never
+  // show the same name twice or lose one between them.
+  const { people, agents } = useMemo(() => {
+    const active = Object.values(users)
+      .filter((u) => u.id !== currentUser?.id && !u.deactivated)
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return {
+      people: active.filter((u) => u.kind !== 'bot'),
+      agents: active.filter((u) => u.kind === 'bot'),
+    };
+  }, [users, currentUser]);
 
-  const memberCount = Object.values(users).filter((u) => !u.deactivated).length;
+  // Which agents are working right now, by display name — that is what a run carries.
+  // Only used to draw a pulse, so a name collision costs a dot on the wrong row and
+  // nothing else.
+  const busyAgents = useMemo(() => {
+    const names = new Set<string>();
+    for (const run of Object.values(agentRuns)) {
+      if (run.status === 'running') names.add(run.agentName);
+    }
+    return names;
+  }, [agentRuns]);
 
   async function openDm(userId: string) {
     try {
@@ -78,13 +95,16 @@ export function Sidebar({
   return (
     <aside className="sidebar" data-collapsed={collapsed ? 'true' : 'false'}>
       <div className="sidebar-header">
-        <div className="sidebar-header-copy">
-          {!collapsed && (
-            <>
-              <div className="sidebar-kicker">Navigate</div>
-              <div className="workspace-meta">{memberCount} members</div>
-            </>
-          )}
+        {/* The workspace mark and name, which the top bar used to carry. Moved here
+            because this is where the design puts identity and where the eye starts:
+            top-left, above the list of the places inside it. The mark is the initial on
+            the accent, so a workspace is recognisable before its name is read — and at
+            collapsed width the mark is all that is left, which is the point of it. */}
+        <div className="sidebar-identity">
+          <span className="workspace-mark" aria-hidden="true">
+            {workspaceName.trim().charAt(0).toUpperCase() || 'B'}
+          </span>
+          {!collapsed && <WorkspaceSwitcher name={workspaceName} />}
         </div>
         {onToggleCollapse && (
           <button
@@ -172,6 +192,53 @@ export function Sidebar({
             {!collapsed && <span>New channel</span>}
           </button>
         </section>
+
+        {/* Agents, between the channels and the people. Their own heading rather than
+            mixed into the direct messages, because "who is in this workspace" reads
+            differently when some of them are programs — and because an agent that is
+            working right now is worth seeing without opening anything. Hidden entirely
+            when a workspace has none, so a server with no model shows no empty shelf. */}
+        {agents.length + agentDms.length > 0 && (
+          <section className="sidebar-section">
+            {!collapsed && <h2 className="section-label">Agents</h2>}
+            {agentDms.map((channel) => (
+              <ChannelRow
+                key={channel.id}
+                channel={channel}
+                collapsed={collapsed}
+                live={(channel.memberIds ?? []).some((id) =>
+                  busyAgents.has(users[id]?.displayName ?? ''),
+                )}
+              />
+            ))}
+            {agents
+              .filter(
+                (agent) =>
+                  !agentDms.some((dm) => (dm.memberIds ?? []).includes(agent.id)),
+              )
+              .map((agent) => (
+                <button
+                  key={agent.id}
+                  className="channel-row"
+                  onClick={() => void openDm(agent.id)}
+                  title={agent.displayName}
+                  aria-label={agent.displayName}
+                  data-collapsed={collapsed ? 'true' : 'false'}
+                >
+                  <AvatarWithPresence user={agent} state={presence[agent.id] ?? 'offline'} />
+                  {!collapsed && <span className="channel-name">{agent.displayName}</span>}
+                  {busyAgents.has(agent.displayName) && (
+                    <span
+                      className="agent-live-dot"
+                      title={`${agent.displayName} is working`}
+                      aria-label={`${agent.displayName} is working`}
+                      role="status"
+                    />
+                  )}
+                </button>
+              ))}
+          </section>
+        )}
 
         <section className="sidebar-section">
           {!collapsed ? (
@@ -271,7 +338,16 @@ function SidebarNavButton({
   );
 }
 
-function ChannelRow({ channel, collapsed }: { channel: ChannelWithState; collapsed: boolean }) {
+function ChannelRow({
+  channel,
+  collapsed,
+  live = false,
+}: {
+  channel: ChannelWithState;
+  collapsed: boolean;
+  /** This row's agent is mid-run. Draws the pulse; means nothing on a person's row. */
+  live?: boolean;
+}) {
   const activeChannelId = useStore((s) => s.activeChannelId);
   const currentUserId = useStore((s) => s.currentUser?.id ?? null);
   const users = useStore((s) => s.users);
@@ -315,6 +391,14 @@ function ChannelRow({ channel, collapsed }: { channel: ChannelWithState; collaps
           </span>
         )}
         {channel.mentionCount > 0 && <span className="badge">{channel.mentionCount}</span>}
+        {live && (
+          <span
+            className="agent-live-dot"
+            title={`${name} is working`}
+            aria-label={`${name} is working`}
+            role="status"
+          />
+        )}
       </button>
       {!collapsed && (
         <button

@@ -38,9 +38,23 @@ interface Props {
   view: View;
   /** The chat shell keeps the bar intentionally sparse. */
   minimal?: boolean;
+  /** Draw the workspace mark and switcher here.
+   *
+   * False in the main shell, where the sidebar carries identity — the design puts the
+   * workspace at the top of the channel list, and two copies of one name a few
+   * centimetres apart is the kind of thing nobody reports and everybody notices. The
+   * console has no sidebar, so there it stays true.
+   */
+  brand?: boolean;
 }
 
-export function TopBar({ onFeedback, onToggleSidebar, view, minimal = false }: Props) {
+export function TopBar({
+  onFeedback,
+  onToggleSidebar,
+  view,
+  minimal = false,
+  brand = true,
+}: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
 
@@ -60,7 +74,7 @@ export function TopBar({ onFeedback, onToggleSidebar, view, minimal = false }: P
           <MenuIcon size="lg" />
         </button>
       )}
-      <WorkspaceSwitcher name={workspaceName} />
+      {brand && <WorkspaceSwitcher name={workspaceName} />}
 
       {minimal && (
         <nav className="topbar-tabs" aria-label="Workspace">

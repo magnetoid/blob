@@ -9,7 +9,13 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ChannelWithState } from '@blob/shared';
-import { conversationOrder, stepConversation, stepUnread } from './conversations.ts';
+import {
+  agentConversations,
+  conversationOrder,
+  directMessages,
+  stepConversation,
+  stepUnread,
+} from './conversations.ts';
 
 function channel(
   id: string,
@@ -199,5 +205,91 @@ describe('stepping when nothing in the list is open', () => {
 
     expect(stepConversation(archived, 'gone', 1)).toBe('alpha');
     expect(stepConversation(archived, 'gone', -1)).toBe('beta');
+  });
+});
+
+describe('agents are their own section', () => {
+  // The Meadow design gives agents a heading of their own between the channels and the
+  // direct messages, because "who is in this workspace" reads differently when half of
+  // them are programs. The list the keyboard walks has to be the list the sidebar draws
+  // — that is the whole reason this module exists — so the split lives here rather than
+  // in the sidebar, and `conversationOrder` moves with it.
+  const users = {
+    me: { id: 'me', kind: 'human', displayName: 'Me' },
+    ana: { id: 'ana', kind: 'human', displayName: 'Ana' },
+    scout: { id: 'scout', kind: 'bot', displayName: 'Scout' },
+  } as unknown as Parameters<typeof conversationOrder>[1];
+
+  const channels = workspace(
+    channel('zebra'),
+    channel('alpha'),
+    channel('dm-ana', { kind: 'dm', name: null, memberIds: ['me', 'ana'] }),
+    channel('dm-scout', { kind: 'dm', name: null, memberIds: ['me', 'scout'] }),
+  );
+
+  it('puts an agent DM above the people DMs', () => {
+    expect(conversationOrder(channels, users).map((c) => c.id)).toEqual([
+      'alpha',
+      'zebra',
+      'dm-scout',
+      'dm-ana',
+    ]);
+  });
+
+  it('sorts a group DM with a bot in it as a person DM, because it has people in it', () => {
+    // A DM is an agent's only when the agent is the whole other side of it. A group with
+    // Ana, me and Scout is a conversation between people that an agent is also in, and
+    // filing it under Agents would hide it from the place its humans look.
+    const withGroup = workspace(
+      channel('group', {
+        kind: 'group_dm',
+        name: null,
+        memberIds: ['me', 'ana', 'scout'],
+      }),
+      channel('dm-scout', { kind: 'dm', name: null, memberIds: ['me', 'scout'] }),
+    );
+
+    expect(agentConversations(withGroup, users).map((c) => c.id)).toEqual(['dm-scout']);
+    expect(directMessages(withGroup, users).map((c) => c.id)).toEqual(['group']);
+  });
+
+  it('keeps every conversation in exactly one of the two lists', () => {
+    const agents = agentConversations(channels, users).map((c) => c.id);
+    const people = directMessages(channels, users).map((c) => c.id);
+    expect(agents).toEqual(['dm-scout']);
+    expect(people).toEqual(['dm-ana']);
+    expect(agents.filter((id) => people.includes(id))).toEqual([]);
+  });
+
+  it('falls back to the old single list when it is not told who is a bot', () => {
+    // Every caller that has not been given the user map keeps the behaviour it had.
+    // Without it a bot is not distinguishable from a person, and guessing from a name
+    // would be worse than not splitting at all.
+    expect(conversationOrder(channels).map((c) => c.id)).toEqual([
+      'alpha',
+      'zebra',
+      'dm-ana',
+      'dm-scout',
+    ]);
+  });
+
+  it('walks the agents with the keyboard in the order they are drawn', () => {
+    expect(stepConversation(channels, 'zebra', 1, users)).toBe('dm-scout');
+    expect(stepConversation(channels, 'dm-scout', 1, users)).toBe('dm-ana');
+  });
+
+  it('finds an unread agent DM before a later people DM', () => {
+    const unread = workspace(
+      channel('alpha'),
+      channel('dm-ana', { kind: 'dm', name: null, memberIds: ['me', 'ana'], hasUnread: true }),
+      channel('dm-scout', {
+        kind: 'dm',
+        name: null,
+        memberIds: ['me', 'scout'],
+        hasUnread: true,
+      }),
+    );
+
+    expect(stepUnread(unread, 'alpha', 1, users)).toBe('dm-scout');
   });
 });

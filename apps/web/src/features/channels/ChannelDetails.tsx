@@ -24,10 +24,11 @@ interface Props {
   onClose: () => void;
   /** Hand the true count back: the header caches one, and adding somebody here is the
    *  one moment it is guaranteed to be wrong. */
-  onMemberCount: (count: number) => void;
+  /** The ids, not their count: the header names people and agents separately. */
+  onMembers: (userIds: string[]) => void;
 }
 
-export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
+export function ChannelDetails({ channel, onClose, onMembers }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => trapFocus(dialogRef.current), []);
@@ -54,7 +55,7 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
       .then((r) => {
         if (cancelled) return;
         setMemberIds(r.userIds);
-        onMemberCount(r.userIds.length);
+        onMembers(r.userIds);
       })
       .catch(() => {
         if (!cancelled) setError('Could not load who is in here.');
@@ -62,7 +63,7 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [channel.id, onMemberCount, membershipVersion]);
+  }, [channel.id, onMembers, membershipVersion]);
 
   const members = useMemo(
     () =>
@@ -107,7 +108,7 @@ export function ChannelDetails({ channel, onClose, onMemberCount }: Props) {
       await api.channels.addMembers(channel.id, [userId]);
       const next = [...(memberIds ?? []), userId];
       setMemberIds(next);
-      onMemberCount(next.length);
+      onMembers(next);
       setQuery('');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not add them.');

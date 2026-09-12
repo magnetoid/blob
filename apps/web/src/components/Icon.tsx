@@ -195,6 +195,19 @@ export const MenuIcon = (p: IconProps) => (
 
 /** A lifebuoy: report a problem, ask for something. Not a "?" — that reads as
  *  documentation, and this opens a form somebody on the other end answers. */
+/** A four-pointed spark: the mark on everything the workspace summarised for you.
+ *
+ * Drawn rather than the "\u2726" character, because that glyph's weight and baseline differ
+ * across platforms and it is set here inside a 22px tile where either shows. Not an
+ * agent mark — this is the *workspace* offering a recap, so it wears the accent, and
+ * anything an agent itself produced wears iris instead.
+ */
+export const SparkIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3.5c0 4.5 4 8.5 8.5 8.5-4.5 0-8.5 4-8.5 8.5 0-4.5-4-8.5-8.5-8.5 4.5 0 8.5-4 8.5-8.5z" />
+  </Svg>
+);
+
 export const FeedbackIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="9" />

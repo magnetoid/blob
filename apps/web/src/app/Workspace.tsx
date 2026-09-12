@@ -267,25 +267,25 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           return;
         case 'next-unread': {
           event.preventDefault();
-          const next = stepUnread(channels, activeChannelId, 1);
+          const next = stepUnread(channels, activeChannelId, 1, users);
           if (next) void showChannel(next);
           return;
         }
         case 'prev-unread': {
           event.preventDefault();
-          const previous = stepUnread(channels, activeChannelId, -1);
+          const previous = stepUnread(channels, activeChannelId, -1, users);
           if (previous) void showChannel(previous);
           return;
         }
         case 'next-conversation': {
           event.preventDefault();
-          const next = stepConversation(channels, activeChannelId, 1);
+          const next = stepConversation(channels, activeChannelId, 1, users);
           if (next) void showChannel(next);
           return;
         }
         case 'prev-conversation': {
           event.preventDefault();
-          const previous = stepConversation(channels, activeChannelId, -1);
+          const previous = stepConversation(channels, activeChannelId, -1, users);
           if (previous) void showChannel(previous);
           return;
         }
@@ -339,6 +339,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     channels,
     activeChannelId,
     openChannel,
+    // The stepping shortcuts need it to tell an agent DM from a person's, which is what
+    // puts them in the same order the sidebar draws.
+    users,
   ]);
 
   // The right-hand column belongs to the conversation view only, and holds one thing at
@@ -402,6 +405,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         onToggleSidebar={toggleSidebar}
         view={view}
         minimal
+        brand={false}
       />
       <Sidebar
         collapsed={sidebarCollapsed}

@@ -19,11 +19,13 @@ import {
   PinIcon,
 } from "../../components/Icon.tsx";
 import { PinnedPanel } from "./PinnedPanel.tsx";
+import { CatchUpStrip } from "./CatchUpStrip.tsx";
 import { ChannelMenu } from "../channels/ChannelMenu.tsx";
 import { ChannelDetails } from "../channels/ChannelDetails.tsx";
 import { WorkPanel, WorkTabs, type WorkTab } from "../work/WorkPanel.tsx";
 import { useWork } from "../work/useWork.ts";
 import { TYPING_TTL_MS } from "@blob/shared";
+import { memberSummary } from "./memberSummary.ts";
 
 export function ChannelView() {
   const activeChannelId = useStore((s) => s.activeChannelId);
@@ -95,7 +97,12 @@ export function ChannelView() {
     requestScrollToMessage(messageId);
   }
 
-  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
+  // The ids rather than their count: the header names people and agents separately, and
+  // which of the two a member is can only be answered by looking each one up.
+  const [memberIds, setMemberIds] = useState<Record<string, string[]>>({});
+  const [dismissedCatchUp, setDismissedCatchUp] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [now, setNow] = useState(() => Date.now());
 
   // Typing indicators expire on a timer rather than an event, so re-render slowly.
@@ -121,19 +128,17 @@ export function ChannelView() {
     : null;
 
   useEffect(() => {
-    if (!activeChannelId || !memberCountKey || memberCounts[memberCountKey] !== undefined)
+    if (!activeChannelId || !memberCountKey || memberIds[memberCountKey] !== undefined)
       return;
     void api.channels
       .members(activeChannelId)
       .then((r) =>
-        setMemberCounts((current) =>
-          current[memberCountKey] === r.userIds.length
-            ? current
-            : { ...current, [memberCountKey]: r.userIds.length },
+        setMemberIds((current) =>
+          current[memberCountKey] ? current : { ...current, [memberCountKey]: r.userIds },
         ),
       )
       .catch(() => {});
-  }, [activeChannelId, memberCountKey, memberCounts]);
+  }, [activeChannelId, memberCountKey, memberIds]);
 
   // Defined here, above the early return, because hooks have to be — and memoised
   // because `MessageRow` is wrapped in `memo` and these reach it as props. An arrow
@@ -154,12 +159,10 @@ export function ChannelView() {
   // Memoised because the details dialog fetches its list in an effect keyed on this.
   // An inline arrow would be a new function every render, re-running that effect and
   // fetching the member list on a loop.
-  const reportMemberCount = useCallback(
-    (count: number) => {
+  const reportMembers = useCallback(
+    (userIds: string[]) => {
       if (!memberCountKey) return;
-      setMemberCounts((current) =>
-        current[memberCountKey] === count ? current : { ...current, [memberCountKey]: count },
-      );
+      setMemberIds((current) => ({ ...current, [memberCountKey]: userIds }));
     },
     [memberCountKey],
   );
@@ -224,7 +227,9 @@ export function ChannelView() {
   const workTab: WorkTab = channel.workId
     ? (workTabs[activeChannelId] ?? "conversation")
     : "conversation";
-  const memberCount = memberCountKey ? (memberCounts[memberCountKey] ?? null) : null;
+  const members = memberCountKey ? (memberIds[memberCountKey] ?? null) : null;
+  const memberCount = members?.length ?? null;
+  const agentCount = members?.filter((id) => users[id]?.kind === "bot").length ?? 0;
   const queuedCount = Object.values(outbox).filter(
     (entry) => entry.status === "queued",
   ).length;
@@ -280,6 +285,7 @@ export function ChannelView() {
                 </span>
               )}
               <h1 className="pane-title">{title}</h1>
+              {agent && <span className="agent-badge">Agent</span>}
               {channel.membership?.isStarred && (
                 <span className="pane-star" title="Starred">
                   ★
@@ -288,8 +294,18 @@ export function ChannelView() {
               <ChevronDownIcon size="sm" />
             </button>
           </div>
+          {/* An agent's room says what the agent is rather than that this is a DM, which
+              the avatar and the badge have already said. The sentence is the one thing
+              about an agent that is true of every one of them and that nobody guesses
+              right: a run you start carries *your* authority, so it reads what you could
+              have read and nothing further (ADR 0013, and ADR 0016 for the same rule
+              reached over MCP). Stated here because this is the room where people ask an
+              agent to go and look at things. */}
           <div className="pane-sub">
-            {channel.topic || (isDm ? "Direct message" : "No topic set")}
+            {agent
+              ? (channel.topic ??
+                "Acts with your permissions — it can reach exactly what you can reach.")
+              : channel.topic || (isDm ? "Direct message" : "No topic set")}
           </div>
           {menuOpen && (
             <ChannelMenu
@@ -343,14 +359,22 @@ export function ChannelView() {
             />
           )}
         </div>
+        {/* "14 members · 3 agents". Two numbers rather than one, because a workspace
+            where some members are programs is the thing this product is, and a single
+            total hides it. The agents half is omitted when there are none — a channel
+            with no agent in it should not be made to mention them.
+            Deliberately *not* iris: that colour is reserved for things an agent wrote
+            (see tokens.css), and a count of who is in a room is not authorship. */}
         <button
-          className="btn btn-ghost"
+          className="btn btn-ghost pane-members"
           title={isDm ? "Who is in this conversation" : "Members"}
           disabled={isDm}
           onClick={() => setDetailsOpen(true)}
         >
           <MembersIcon size="md" />
-          {memberCount ?? "–"}
+          <span className="pane-members-count">
+            {memberSummary(memberCount, agentCount)}
+          </span>
         </button>
       </header>
 
@@ -358,12 +382,25 @@ export function ChannelView() {
         <ChannelDetails
           channel={channel}
           onClose={() => setDetailsOpen(false)}
-          onMemberCount={reportMemberCount}
+          onMembers={reportMembers}
         />
       )}
 
       {showDeliveryBanner && connectionText && (
         <div className="connection-banner">{connectionText}</div>
+      )}
+
+      {/* Dismissal is per channel and lives only as long as this session. A backlog you
+          waved away is not a preference worth storing, and the strip disappears on its
+          own as soon as the channel is read. */}
+      {!dismissedCatchUp.has(activeChannelId) && (
+        <CatchUpStrip
+          hasUnread={Boolean(channel.hasUnread)}
+          mentionCount={channel.mentionCount ?? 0}
+          onDismiss={() =>
+            setDismissedCatchUp((current) => new Set(current).add(activeChannelId))
+          }
+        />
       )}
 
       {archived && (
@@ -451,7 +488,19 @@ export function ChannelView() {
               // the store, which is exactly what hid the mismatch.
               key={draftKey(activeChannelId, null)}
               channelId={activeChannelId}
-              placeholder={isDm ? `Message ${title}` : `Message #${title}`}
+              /* The design writes this as "Message #launch-metrics — @ mentions a
+                 person or an agent", and the second half is the part worth having: an
+                 agent is reached by @name exactly like a colleague, and nothing else on
+                 this screen says so. Only where it is true — a DM with an agent is
+                 already the agent's room and says "no need to mention it by name here",
+                 and a channel with no agent in it should not advertise one. */
+              placeholder={
+                isDm
+                  ? `Message ${title}`
+                  : agentCount > 0
+                    ? `Message #${title} — @ mentions a person or an agent`
+                    : `Message #${title}`
+              }
             />
           )}
         </>
