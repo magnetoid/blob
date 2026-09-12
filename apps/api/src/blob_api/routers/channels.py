@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
@@ -23,6 +22,7 @@ from ..schemas.requests import (
 )
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services import users as user_service
 from ..services.serialize import channel_event, membership_event
 
 router = APIRouter(tags=["channels"])
@@ -143,27 +143,14 @@ async def update_channel(
         if access.kind in ("dm", "group_dm"):
             raise forbidden("Direct messages have no channel settings.")
 
-        await session.execute(
-            text(
-                """
-                UPDATE channels
-                   SET name = COALESCE(:name, name),
-                       topic = CASE WHEN :has_topic THEN :topic ELSE topic END,
-                       description = CASE WHEN :has_description THEN :description
-                                          ELSE description END,
-                       nudge_unanswered = COALESCE(:nudge_unanswered, nudge_unanswered)
-                 WHERE id = :id
-                """
-            ),
-            {
-                "id": channel_id,
-                "name": payload.name,
-                "has_topic": "topic" in given,
-                "topic": payload.topic,
-                "has_description": "description" in given,
-                "description": payload.description,
-                "nudge_unanswered": payload.nudge_unanswered,
-            },
+        await channel_service.update_settings(
+            session,
+            channel_id,
+            name=payload.name,
+            topic=payload.topic,
+            description=payload.description,
+            nudge_unanswered=payload.nudge_unanswered,
+            given=given,
         )
         channel = await channel_service.get_for_user(session, channel_id, user.id)
         if channel is not None:
@@ -184,9 +171,7 @@ async def archive_channel(channel_id: IdParam, user: SessionUser = Depends(curre
         if not user.is_admin:
             raise forbidden("Only an admin can archive a channel.")
 
-        await session.execute(
-            text("UPDATE channels SET archived_at = now() WHERE id = :id"), {"id": channel_id}
-        )
+        await channel_service.set_archived(session, channel_id, archived=True)
         after.add(
             lambda: hub.to_channel(channel_id, {"t": "channel.archived", "channelId": channel_id})
         )
@@ -211,9 +196,7 @@ async def unarchive_channel(
         if not user.is_admin:
             raise forbidden("Only an admin can reopen a channel.")
 
-        await session.execute(
-            text("UPDATE channels SET archived_at = NULL WHERE id = :id"), {"id": channel_id}
-        )
+        await channel_service.set_archived(session, channel_id, archived=False)
         channel = await channel_service.get_for_user(session, channel_id, user.id)
         if channel is not None:
             after.add(lambda: hub.to_channel(channel_id, channel_event("channel.updated", channel)))
@@ -351,21 +334,12 @@ async def update_membership(
         await channel_service.assert_channel_access(
             session, user.id, channel_id, require_member=True
         )
-        await session.execute(
-            text(
-                """
-                UPDATE channel_members
-                   SET notify_level = COALESCE(:notify_level, notify_level),
-                       is_starred   = COALESCE(:is_starred, is_starred)
-                 WHERE channel_id = :channel_id AND user_id = :user_id
-                """
-            ),
-            {
-                "channel_id": channel_id,
-                "user_id": user.id,
-                "notify_level": payload.notify_level,
-                "is_starred": payload.is_starred,
-            },
+        await channel_service.update_membership(
+            session,
+            channel_id,
+            user.id,
+            notify_level=payload.notify_level,
+            is_starred=payload.is_starred,
         )
         channel = await channel_service.get_for_user(session, channel_id, user.id)
         if channel is not None:
@@ -389,20 +363,7 @@ async def open_dm(payload: CreateDmInput, user: SessionUser = Depends(current_us
     members = list(dict.fromkeys([user.id, *payload.user_ids]))
 
     async with transaction() as (session, after):
-        valid = (
-            await session.execute(
-                text(
-                    """
-                    SELECT count(*)::int AS count FROM users
-                     WHERE id = ANY(cast(:ids AS uuid[]))
-                       AND workspace_id = :ws
-                       AND deactivated_at IS NULL
-                    """
-                ),
-                {"ids": members, "ws": user.workspace_id},
-            )
-        ).fetchone()
-        if (valid.count if valid else 0) != len(members):
+        if not await user_service.all_active(session, user.workspace_id, members):
             raise not_found("One of those people is unavailable.")
 
         channel_id, created = await channel_service.find_or_create_dm(

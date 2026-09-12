@@ -16,8 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..lib.errors import channel_gone, conflict, forbidden, not_found, unique_violation
 from ..lib.ids import new_id
 from ..schemas.base import require_iso
-from ..schemas.models import BrowsableChannel, ChannelWithState
-from .serialize import to_channel_with_state
+from ..schemas.models import BrowsableChannel, Channel, ChannelWithState
+from .serialize import to_channel, to_channel_with_state
 
 #: Channels every new member joins automatically.
 DEFAULT_CHANNELS = ("general", "random")
@@ -134,6 +134,128 @@ async def browse(
         )
         for row in rows
     ]
+
+
+async def visible_to(
+    session: AsyncSession, user_id: str, workspace_id: str, *, limit: int
+) -> list[Channel]:
+    """Channels this member can see: public ones, plus private ones they were let into."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT c.*
+                  FROM channels c
+                  LEFT JOIN channel_members cm
+                         ON cm.channel_id = c.id AND cm.user_id = :user_id
+                 WHERE c.workspace_id = :ws
+                   AND (c.kind = 'public' OR cm.user_id IS NOT NULL)
+                   AND c.kind IN ('public', 'private')
+                 ORDER BY c.name
+                 LIMIT :limit
+                """
+            ),
+            {"ws": workspace_id, "user_id": user_id, "limit": limit},
+        )
+    ).fetchall()
+    return [to_channel(row) for row in rows]
+
+
+async def id_by_name(session: AsyncSession, workspace_id: str, name: str, *, user_id: str) -> str:
+    """The channel a #name means to this member.
+
+    A private channel they are not in must not even resolve by name: answering "no such
+    channel" for one they cannot see and a permission error for one they can is how a
+    name gets confirmed — and any member can mint a bot token for themselves, so the
+    rule has to hold on the app API and for an assistant as much as in the client.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT c.id FROM channels c
+                  LEFT JOIN channel_members cm
+                         ON cm.channel_id = c.id AND cm.user_id = :user_id
+                 WHERE c.workspace_id = :ws AND lower(c.name) = :name
+                   AND (c.kind = 'public' OR cm.user_id IS NOT NULL)
+                """
+            ),
+            {"ws": workspace_id, "name": name.lower(), "user_id": user_id},
+        )
+    ).fetchone()
+    if row is None:
+        raise not_found("There is no channel by that name.")
+    return str(row.id)
+
+
+async def update_settings(
+    session: AsyncSession,
+    channel_id: str,
+    *,
+    name: str | None,
+    topic: str | None,
+    description: str | None,
+    nudge_unanswered: bool | None,
+    given: set[str],
+) -> None:
+    """The channel's own settings. Topic and description may be cleared, so for those
+    "was it sent" (`given`) is what decides, not "is it None"."""
+    await session.execute(
+        text(
+            """
+            UPDATE channels
+               SET name = COALESCE(:name, name),
+                   topic = CASE WHEN :has_topic THEN :topic ELSE topic END,
+                   description = CASE WHEN :has_description THEN :description
+                                      ELSE description END,
+                   nudge_unanswered = COALESCE(:nudge_unanswered, nudge_unanswered)
+             WHERE id = :id
+            """
+        ),
+        {
+            "id": channel_id,
+            "name": name,
+            "has_topic": "topic" in given,
+            "topic": topic,
+            "has_description": "description" in given,
+            "description": description,
+            "nudge_unanswered": nudge_unanswered,
+        },
+    )
+
+
+async def set_archived(session: AsyncSession, channel_id: str, *, archived: bool) -> None:
+    await session.execute(
+        text(f"UPDATE channels SET archived_at = {'now()' if archived else 'NULL'} WHERE id = :id"),
+        {"id": channel_id},
+    )
+
+
+async def update_membership(
+    session: AsyncSession,
+    channel_id: str,
+    user_id: str,
+    *,
+    notify_level: str | None,
+    is_starred: bool | None,
+) -> None:
+    """One person's settings for a channel: how loud it is, and whether it is starred."""
+    await session.execute(
+        text(
+            """
+            UPDATE channel_members
+               SET notify_level = COALESCE(:notify_level, notify_level),
+                   is_starred   = COALESCE(:is_starred, is_starred)
+             WHERE channel_id = :channel_id AND user_id = :user_id
+            """
+        ),
+        {
+            "channel_id": channel_id,
+            "user_id": user_id,
+            "notify_level": notify_level,
+            "is_starred": is_starred,
+        },
+    )
 
 
 async def get_for_user(

@@ -20,11 +20,10 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import Field
-from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib import llm
-from ..lib.errors import bad_request, message_gone, not_found, thread_gone
+from ..lib.errors import bad_request, thread_gone
 from ..lib.ids import IdParam, new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
@@ -39,8 +38,9 @@ from ..services import agentic as agentic_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services import users as user_service
 from ..services import work as work_service
-from ..services.serialize import message_event, to_agent_task, to_channel, to_user
+from ..services.serialize import message_event
 
 router = APIRouter(prefix="/api/v1", tags=["apps"])
 
@@ -129,30 +129,9 @@ async def _resolve_channel(
     match = _CHANNEL_NAME_RE.match(reference.lower())
     if not match:
         raise bad_request("That is not a channel id or name.", code="bad_channel")
-    row = (
-        await session.execute(
-            text(
-                """
-                SELECT c.id FROM channels c
-                  LEFT JOIN channel_members cm
-                         ON cm.channel_id = c.id AND cm.user_id = :bot_user_id
-                 WHERE c.workspace_id = :ws AND lower(c.name) = :name
-                   -- A private channel the bot is not in must not resolve by name.
-                   -- Without this clause the *name* was the leak: "there is no channel
-                   -- by that name" for one that does not exist and a permission error
-                   -- for one that does is a working oracle, and any member can mint a
-                   -- bot token for themselves through `POST /api/agents/mine`. Private
-                   -- channels answer 404 because their existence is private — that
-                   -- principle has to hold on the app API too, not only in the client's.
-                   AND (c.kind = 'public' OR cm.user_id IS NOT NULL)
-                """
-            ),
-            {"ws": workspace_id, "name": match.group(1), "bot_user_id": bot_user_id},
-        )
-    ).fetchone()
-    if row is None:
-        raise not_found("There is no channel by that name.")
-    return str(row.id)
+    return await channel_service.id_by_name(
+        session, workspace_id, match.group(1), user_id=bot_user_id
+    )
 
 
 def _bot_actor(bot: BotCaller) -> audit_service.Actor:
@@ -234,15 +213,12 @@ async def update_message(
     payload: EditMessageInput, bot: BotCaller = requires("messages:write")
 ) -> MessageOut:
     async with transaction() as (session, after):
-        existing = await message_service.by_id(session, payload.message_id)
-        if existing is None:
-            raise message_gone()
+        existing = await message_service.load_for(
+            session, bot.user_id, payload.message_id, require_member=True
+        )
         # Editing someone else's message is a different, larger permission.
         if existing.author_id != bot.user_id and not bot.has("messages:moderate"):
             raise bad_request("This app can only edit its own messages.", code="not_own_message")
-        await channel_service.assert_channel_access(
-            session, bot.user_id, existing.channel_id, require_member=True
-        )
         message = await message_service.edit(
             session,
             payload.message_id,
@@ -281,15 +257,12 @@ async def delete_message(
     payload: DeleteMessageInput, bot: BotCaller = requires("messages:write")
 ) -> OkOut:
     async with transaction() as (session, after):
-        existing = await message_service.by_id(session, payload.message_id)
-        if existing is None:
-            raise message_gone()
+        existing = await message_service.load_for(
+            session, bot.user_id, payload.message_id, allow_deleted=True, require_member=True
+        )
         moderating = existing.author_id != bot.user_id
         if moderating and not bot.has("messages:moderate"):
             raise bad_request("This app can only delete its own messages.", code="not_own_message")
-        await channel_service.assert_channel_access(
-            session, bot.user_id, existing.channel_id, require_member=True
-        )
         channel_id, thread_root_id = await message_service.remove(
             session, payload.message_id, existing.author_id or bot.user_id, moderating
         )
@@ -391,11 +364,8 @@ async def add_reaction(
     payload: ReactionInput, bot: BotCaller = requires("reactions:write")
 ) -> OkOut:
     async with transaction() as (session, after):
-        existing = await message_service.by_id(session, payload.message_id)
-        if existing is None:
-            raise message_gone()
-        await channel_service.assert_channel_access(
-            session, bot.user_id, existing.channel_id, require_member=True
+        existing = await message_service.load_for(
+            session, bot.user_id, payload.message_id, require_member=True
         )
         added = await message_service.add_reaction(
             session, payload.message_id, bot.user_id, payload.emoji
@@ -434,25 +404,10 @@ async def list_conversations(
 ) -> ChannelsOut:
     """Channels this app can see: public ones, plus private ones it was invited to."""
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT c.*
-                      FROM channels c
-                      LEFT JOIN channel_members cm
-                             ON cm.channel_id = c.id AND cm.user_id = :user_id
-                     WHERE c.workspace_id = :ws
-                       AND (c.kind = 'public' OR cm.user_id IS NOT NULL)
-                       AND c.kind IN ('public', 'private')
-                     ORDER BY c.name
-                     LIMIT :limit
-                    """
-                ),
-                {"ws": bot.workspace_id, "user_id": bot.user_id, "limit": limit},
-            )
-        ).fetchall()
-    return ChannelsOut(channels=[to_channel(row) for row in rows])
+        channels = await channel_service.visible_to(
+            session, bot.user_id, bot.workspace_id, limit=limit
+        )
+    return ChannelsOut(channels=channels)
 
 
 @router.post("/conversations.join", response_model=OkOut)
@@ -490,11 +445,10 @@ async def summarize_thread(
     payload: DeleteMessageInput, bot: BotCaller = requires("summaries:write")
 ) -> ThreadSummaryOut:
     async with session_scope() as session:
-        root = await message_service.by_id(session, payload.message_id)
-        if root is None:
-            raise thread_gone()
+        root = await message_service.load_for(
+            session, bot.user_id, payload.message_id, allow_deleted=True, gone=thread_gone
+        )
         thread_root_id = root.thread_root_id or root.id
-        await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
         messages, names = await agentic_service.read_thread(session, thread_root_id)
     # The same split as the session route: the model call holds no transaction, and an
     # app pressing the button is metered like a person would be.
@@ -537,11 +491,10 @@ async def create_task(
     bot: BotCaller = requires("tasks:write"),
 ) -> AgentTaskOut:
     async with transaction() as (session, _after):
-        root = await message_service.by_id(session, thread_root_id)
-        if root is None:
-            raise thread_gone()
+        root = await message_service.load_for(
+            session, bot.user_id, thread_root_id, allow_deleted=True, gone=thread_gone
+        )
         actual_root_id = root.thread_root_id or root.id
-        await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
         task = await agentic_service.create_task(
             session,
             workspace_id=bot.workspace_id,
@@ -625,49 +578,25 @@ async def list_tasks(
 ) -> AgentTasksOut:
     async with session_scope() as session:
         if thread_root_id:
-            root = await message_service.by_id(session, thread_root_id)
-            if root is None:
-                raise thread_gone()
+            root = await message_service.load_for(
+                session, bot.user_id, thread_root_id, allow_deleted=True, gone=thread_gone
+            )
             actual_root_id = root.thread_root_id or root.id
-            await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
             tasks = await agentic_service.list_tasks_for_thread(session, actual_root_id)
             return AgentTasksOut(tasks=tasks)
 
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT t.*, u.kind AS assignee_kind
-                      FROM agent_tasks t
-                      LEFT JOIN users u ON u.id = t.assignee_user_id
-                     WHERE t.workspace_id = :ws
-                       AND t.assignee_user_id = :user_id
-                     ORDER BY t.updated_at DESC, t.id DESC
-                    """
-                ),
-                {"ws": bot.workspace_id, "user_id": bot.user_id},
-            )
-        ).fetchall()
-    return AgentTasksOut(tasks=[to_agent_task(row) for row in rows])
+        tasks = await agentic_service.list_tasks_for_assignee(
+            session, bot.workspace_id, bot.user_id
+        )
+    return AgentTasksOut(tasks=tasks)
 
 
 @router.get("/users.list", response_model=UsersOut)
 async def list_users(bot: BotCaller = requires("users:read")) -> UsersOut:
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT * FROM users
-                     WHERE workspace_id = :ws AND deactivated_at IS NULL
-                     ORDER BY display_name
-                    """
-                ),
-                {"ws": bot.workspace_id},
-            )
-        ).fetchall()
+        users = await user_service.list_users(session, bot.workspace_id, active_only=True)
     # to_user omits email by design; users:read.email is a separate endpoint's problem.
-    return UsersOut(users=[to_user(row) for row in rows])
+    return UsersOut(users=users)
 
 
 __all__ = ["router"]

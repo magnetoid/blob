@@ -432,26 +432,9 @@ async def _resolve_channel(session: AsyncSession, caller: McpCaller, reference: 
     match = _CHANNEL_NAME_RE.match(reference.lower())
     if not match:
         raise bad_request("That is not a channel id or name.")
-    row = (
-        await session.execute(
-            text(
-                """
-                SELECT c.id FROM channels c
-                  LEFT JOIN channel_members cm
-                         ON cm.channel_id = c.id AND cm.user_id = :user_id
-                 WHERE c.workspace_id = :ws AND lower(c.name) = :name
-                   -- A private channel this person is not in must not even resolve by
-                   -- name: answering "no such channel" for one they cannot see and
-                   -- "forbidden" for one they can is how a name gets confirmed.
-                   AND (c.kind = 'public' OR cm.user_id IS NOT NULL)
-                """
-            ),
-            {"ws": caller.workspace_id, "name": match.group(1), "user_id": caller.user_id},
-        )
-    ).fetchone()
-    if row is None:
-        raise not_found("There is no channel by that name.")
-    return str(row.id)
+    return await channel_service.id_by_name(
+        session, caller.workspace_id, match.group(1), user_id=caller.user_id
+    )
 
 
 def _channel_label(name: str | None, kind: str) -> str:

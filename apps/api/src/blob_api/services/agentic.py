@@ -516,6 +516,75 @@ async def list_tasks_for_thread(session: AsyncSession, thread_root_id: str) -> l
     return [to_agent_task(row) for row in rows]
 
 
+async def list_tasks_for_assignee(
+    session: AsyncSession, workspace_id: str, user_id: str
+) -> list[AgentTask]:
+    """Everything assigned to one member, wherever it is — an app reading its own work."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT t.*, u.kind AS assignee_kind
+                  FROM agent_tasks t
+                  LEFT JOIN users u ON u.id = t.assignee_user_id
+                 WHERE t.workspace_id = :ws
+                   AND t.assignee_user_id = :user_id
+                 ORDER BY t.updated_at DESC, t.id DESC
+                """
+            ),
+            {"ws": workspace_id, "user_id": user_id},
+        )
+    ).fetchall()
+    return [to_agent_task(row) for row in rows]
+
+
+async def list_tasks_visible_to(
+    session: AsyncSession,
+    user_id: str,
+    workspace_id: str,
+    *,
+    assignee: str | None,
+    status: str | None,
+) -> list[AgentTask]:
+    """Tasks in channels this person can see, newest first.
+
+    Visibility lives inside the statement, the same predicate the search query uses:
+    public channels, or ones the caller belongs to. An older shape called
+    `assert_channel_access` per row — one query per task — and *raised* on the first
+    task in a private channel the caller could not see, so a single foreign task 404'd
+    the whole listing instead of being omitted.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT t.*, u.kind AS assignee_kind
+                  FROM agent_tasks t
+                  LEFT JOIN users u ON u.id = t.assignee_user_id
+                  JOIN channels c ON c.id = t.channel_id
+                 WHERE t.workspace_id = :ws
+                   AND (
+                     c.kind = 'public'
+                     OR EXISTS (
+                       SELECT 1 FROM channel_members cm
+                        WHERE cm.channel_id = c.id AND cm.user_id = :user_id
+                     )
+                   )
+                   AND (
+                     cast(:assignee AS uuid) IS NULL
+                     OR t.assignee_user_id = cast(:assignee AS uuid)
+                   )
+                   AND (cast(:status AS text) IS NULL OR t.status = :status)
+                 ORDER BY t.updated_at DESC, t.id DESC
+                 LIMIT 200
+                """
+            ),
+            {"ws": workspace_id, "user_id": user_id, "assignee": assignee, "status": status},
+        )
+    ).fetchall()
+    return [to_agent_task(row) for row in rows]
+
+
 def parse_due_at(raw: str | None) -> datetime | None:
     """A task's due date, as something asyncpg will bind.
 

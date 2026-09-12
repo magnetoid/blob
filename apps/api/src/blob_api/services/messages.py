@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,6 +21,7 @@ from ..lib.ids import new_id
 from ..lib.mentions import MentionTarget, mention_lookup_phrases, parse_mentions
 from ..schemas.base import require_iso
 from ..schemas.models import Message
+from . import channels as channel_service
 from .serialize import MESSAGE_SELECT, to_message
 
 #: Avatars shown on a thread's summary line.
@@ -410,6 +412,39 @@ async def thread(session: AsyncSession, root_id: str) -> list[Message]:
         )
     ).fetchall()
     return [to_message(row) for row in rows]
+
+
+async def load_for(
+    session: AsyncSession,
+    user_id: str,
+    message_id: str,
+    *,
+    allow_deleted: bool = False,
+    require_member: bool = False,
+    require_writable: bool = False,
+    gone: Callable[[], Exception] = message_gone,
+) -> Message:
+    """The prologue every per-message route performs: fetch, refuse the missing and
+    (usually) the deleted, and make the channel answer for who may act.
+
+    One place, so "does this route check deleted_at" is a decision rather than a
+    per-route accident — it was in seven slightly different places once, and which
+    three of them checked was not something anybody had chosen. `allow_deleted` exists
+    for deletion itself (deleting twice stays idempotent) and for thread roots, whose
+    replies outlive them. `gone` is the sentence for a missing row: a thread route says
+    the thread is gone, not the message.
+    """
+    message = await by_id(session, message_id)
+    if message is None or (message.deleted_at is not None and not allow_deleted):
+        raise gone()
+    await channel_service.assert_channel_access(
+        session,
+        user_id,
+        message.channel_id,
+        require_member=require_member,
+        require_writable=require_writable,
+    )
+    return message
 
 
 async def by_id(session: AsyncSession, message_id: str) -> Message | None:

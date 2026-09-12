@@ -17,7 +17,7 @@ SRC = Path(__file__).resolve().parent.parent / "src" / "blob_api"
 #: 57 once files.py had one, 45 once plugins.py used the registry.
 #: Routers shape and authorize;
 #: the SQL belongs in services. Lower this number as it moves, never raise it.
-ROUTER_SQL_CEILING = 45
+ROUTER_SQL_CEILING = 18
 
 
 def test_sql_keeps_leaving_the_routers() -> None:

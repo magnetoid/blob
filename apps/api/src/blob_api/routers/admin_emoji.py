@@ -11,13 +11,13 @@ import re
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, require_admin
-from ..lib.errors import bad_request, conflict, not_found
+from ..lib.errors import bad_request, not_found
 from ..schemas.base import CamelModel, OkOut, iso
 from ..services import audit as audit_service
+from ..services import emoji as emoji_service
 from ..services.audit import actor_for
 
 router = APIRouter(tags=["admin"], prefix="/api/admin")
@@ -48,20 +48,7 @@ class AddEmojiInput(CamelModel):
 @router.get("/emoji", response_model=CustomEmojiListOut)
 async def list_custom_emoji(admin: SessionUser = Depends(require_admin)) -> CustomEmojiListOut:
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT e.name, e.object_key, e.created_at, u.display_name AS author
-                      FROM custom_emoji e
-                      LEFT JOIN users u ON u.id = e.created_by
-                     WHERE e.workspace_id = :ws
-                     ORDER BY e.name
-                    """
-                ),
-                {"ws": admin.workspace_id},
-            )
-        ).fetchall()
+        rows = await emoji_service.list_for_workspace(session, admin.workspace_id)
 
     return CustomEmojiListOut(
         emoji=[
@@ -95,44 +82,8 @@ async def add_custom_emoji(
         )
 
     async with transaction() as (session, _):
-        attachment = (
-            await session.execute(
-                text(
-                    """
-                    SELECT object_key, mime FROM attachments
-                     WHERE id = :id AND workspace_id = :ws AND uploader_id = :uploader
-                    """
-                ),
-                {"id": payload.attachment_id, "ws": admin.workspace_id, "uploader": admin.id},
-            )
-        ).fetchone()
-        if attachment is None:
-            raise not_found("That upload is not available.")
-        if not str(attachment.mime).startswith("image/"):
-            raise bad_request("An emoji has to be an image.", code="invalid_input")
-
-        clash = (
-            await session.execute(
-                text("SELECT 1 FROM custom_emoji WHERE workspace_id = :ws AND name = :name"),
-                {"ws": admin.workspace_id, "name": name},
-            )
-        ).fetchone()
-        if clash is not None:
-            raise conflict(f":{name}: is already taken here.", code="name_taken")
-
-        await session.execute(
-            text(
-                """
-                INSERT INTO custom_emoji (workspace_id, name, object_key, created_by)
-                VALUES (:ws, :name, :key, :by)
-                """
-            ),
-            {
-                "ws": admin.workspace_id,
-                "name": name,
-                "key": attachment.object_key,
-                "by": admin.id,
-            },
+        object_key = await emoji_service.add(
+            session, admin, name=name, attachment_id=payload.attachment_id
         )
         await audit_service.record(
             session,
@@ -144,7 +95,7 @@ async def add_custom_emoji(
 
     return CustomEmojiOut(
         name=name,
-        url=f"/api/files/{attachment.object_key}",
+        url=f"/api/files/{object_key}",
         created_by_name=admin.display_name,
         created_at=iso(datetime.now(UTC)),
     )
@@ -161,19 +112,7 @@ async def remove_custom_emoji(
     shortcode has always done, so removing one degrades rather than breaks.
     """
     async with transaction() as (session, _):
-        removed = (
-            await session.execute(
-                text(
-                    """
-                    DELETE FROM custom_emoji
-                     WHERE workspace_id = :ws AND name = :name
-                     RETURNING name
-                    """
-                ),
-                {"ws": admin.workspace_id, "name": name.strip(":").lower()},
-            )
-        ).fetchone()
-        if removed is None:
+        if not await emoji_service.remove(session, admin.workspace_id, name.strip(":").lower()):
             raise not_found("No such emoji.")
         await audit_service.record(
             session,

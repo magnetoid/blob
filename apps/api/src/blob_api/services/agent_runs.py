@@ -559,6 +559,24 @@ async def view_of(session: AsyncSession, run_id: str) -> dict[str, Any] | None:
     return None if row is None else _view(row)
 
 
+async def running_channel(session: AsyncSession, *, workspace_id: str, run_id: str) -> str | None:
+    """Where a running run is, or None: finished, cancelled already, or another
+    workspace's — all the same answer, because which of those it is would tell the id
+    holder something they have no business asking."""
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT channel_id FROM agent_runs
+                 WHERE id = :id AND workspace_id = :ws AND status = 'running'
+                """
+            ),
+            {"id": run_id, "ws": workspace_id},
+        )
+    ).fetchone()
+    return None if row is None else str(row.channel_id)
+
+
 async def request_cancel(
     session: AsyncSession, *, workspace_id: str, run_id: str
 ) -> dict[str, Any] | None:

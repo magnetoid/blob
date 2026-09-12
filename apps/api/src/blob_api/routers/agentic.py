@@ -7,7 +7,6 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import Field
-from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib import llm
@@ -27,8 +26,8 @@ from ..services import audit as audit_service
 from ..services import catchup as catchup_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services import users as user_service
 from ..services.audit import actor_for
-from ..services.serialize import to_agent_task
 
 router = APIRouter(tags=["agentic"])
 
@@ -47,12 +46,10 @@ class AgentTaskOut(CamelModel):
 
 async def _root_message(message_id: str, user: SessionUser) -> tuple[str, str]:
     async with session_scope() as session:
-        root = await message_service.by_id(session, message_id)
-        if root is None:
-            raise thread_gone()
-        thread_root_id = root.thread_root_id or root.id
-        await channel_service.assert_channel_access(session, user.id, root.channel_id)
-        return thread_root_id, root.channel_id
+        root = await message_service.load_for(
+            session, user.id, message_id, allow_deleted=True, gone=thread_gone
+        )
+        return root.thread_root_id or root.id, root.channel_id
 
 
 @router.get("/api/threads/{message_id}/summary", response_model=ThreadSummaryOut)
@@ -127,13 +124,10 @@ async def create_thread_task(
     thread_root_id, channel_id = await _root_message(message_id, user)
     if payload.assignee_user_id and payload.assignee_user_id != user.id and user.role == "member":
         async with session_scope() as session:
-            assignee = (
-                await session.execute(
-                    text("SELECT kind FROM users WHERE id = :id AND workspace_id = :ws"),
-                    {"id": payload.assignee_user_id, "ws": user.workspace_id},
-                )
-            ).fetchone()
-        if assignee is not None and assignee.kind == "bot":
+            to_agent = await user_service.is_agent(
+                session, user.workspace_id, payload.assignee_user_id
+            )
+        if to_agent:
             raise forbidden("Only admins can assign work directly to an agent.")
 
     async with transaction() as (session, _after):
@@ -195,13 +189,7 @@ async def update_task(
             and payload.assignee_user_id != user.id
             and user.role == "member"
         ):
-            assignee_row = (
-                await session.execute(
-                    text("SELECT kind FROM users WHERE id = :id AND workspace_id = :ws"),
-                    {"id": payload.assignee_user_id, "ws": user.workspace_id},
-                )
-            ).fetchone()
-            if assignee_row is not None and assignee_row.kind == "bot":
+            if await user_service.is_agent(session, user.workspace_id, payload.assignee_user_id):
                 raise forbidden("Only admins can reassign work to an agent.")
         task = await agentic_service.update_task(
             session,
@@ -244,45 +232,9 @@ async def list_tasks(
 ) -> AgentTasksOut:
     wanted_assignee = user.id if assignee == "me" else assignee
     async with session_scope() as session:
-        # Visibility lives inside the statement, the same predicate the search query
-        # uses: public channels, or ones the caller belongs to. The old shape called
-        # `assert_channel_access` per row, which was one query per task — and, worse,
-        # *raised* on the first task in a private channel the caller cannot see, so a
-        # single foreign task 404'd the whole listing instead of being omitted.
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT t.*, u.kind AS assignee_kind
-                      FROM agent_tasks t
-                      LEFT JOIN users u ON u.id = t.assignee_user_id
-                      JOIN channels c ON c.id = t.channel_id
-                     WHERE t.workspace_id = :ws
-                       AND (
-                         c.kind = 'public'
-                         OR EXISTS (
-                           SELECT 1 FROM channel_members cm
-                            WHERE cm.channel_id = c.id AND cm.user_id = :user_id
-                         )
-                       )
-                       AND (
-                         cast(:assignee AS uuid) IS NULL
-                         OR t.assignee_user_id = cast(:assignee AS uuid)
-                       )
-                       AND (cast(:status AS text) IS NULL OR t.status = :status)
-                     ORDER BY t.updated_at DESC, t.id DESC
-                     LIMIT 200
-                    """
-                ),
-                {
-                    "ws": user.workspace_id,
-                    "user_id": user.id,
-                    "assignee": wanted_assignee,
-                    "status": status,
-                },
-            )
-        ).fetchall()
-        tasks = [to_agent_task(row) for row in rows]
+        tasks = await agentic_service.list_tasks_visible_to(
+            session, user.id, user.workspace_id, assignee=wanted_assignee, status=status
+        )
     return AgentTasksOut(tasks=tasks)
 
 
@@ -391,25 +343,13 @@ async def cancel_agent_run(
     before it checks and a Stop pressed in the gap must land on one side or the other.
     """
     async with transaction() as (session, _):
-        running = (
-            await session.execute(
-                text(
-                    """
-                    SELECT channel_id FROM agent_runs
-                     WHERE id = :id AND workspace_id = :ws AND status = 'running'
-                    """
-                ),
-                {"id": run_id, "ws": user.workspace_id},
-            )
-        ).fetchone()
-        if running is None:
-            # Finished, cancelled already, or another workspace's — all the same 404,
-            # because which of those it is would answer questions the id holder has
-            # no business asking.
+        channel_id = await agent_run_service.running_channel(
+            session, workspace_id=user.workspace_id, run_id=run_id
+        )
+        if channel_id is None:
             raise not_found("That run is not running.")
         # Access before the mark: a member who cannot see the channel must not be
         # able to stop what is happening in it — same 404, same reason.
-        channel_id = str(running.channel_id)
         await channel_service.assert_channel_access(session, user.id, channel_id)
         marked = await agent_run_service.request_cancel(
             session, workspace_id=user.workspace_id, run_id=run_id

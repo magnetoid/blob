@@ -12,11 +12,9 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import Field
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import session_scope, transaction
-from ..lib.auth import SessionUser, current_user, hash_token
+from ..lib.auth import SessionUser, current_user
 from ..lib.errors import forbidden, message_gone
 from ..lib.ids import IdParam, new_id
 from ..lib.queue import enqueue, fire_and_forget
@@ -51,6 +49,8 @@ from ..services import messages as message_service
 from ..services import read_state as read_state_service
 from ..services import scheduled as scheduled_service
 from ..services import translation as translation_service
+from ..services import users as user_service
+from ..services import webhooks as webhook_service
 from ..services.audit import actor_for
 from ..services.serialize import message_event
 
@@ -84,37 +84,6 @@ def _plugin_drain() -> None:
     the delivery mechanism — if the enqueue is lost, the events still go out.
     """
     fire_and_forget(enqueue("deliver_plugin_events"))
-
-
-async def load_message_for(
-    session: AsyncSession,
-    user: SessionUser,
-    message_id: str,
-    *,
-    allow_deleted: bool = False,
-    require_member: bool = False,
-    require_writable: bool = False,
-) -> Message:
-    """The prologue every per-message route performed by hand, seven slightly
-    different times: fetch, refuse the missing and (usually) the deleted, and make the
-    channel answer for who may act. One place now, so "does this route check
-    deleted_at" stops being a per-route accident — three of the seven did, and which
-    three was not a decision anybody had made.
-
-    `allow_deleted` exists for deletion itself: deleting twice stays idempotent
-    rather than answering the second click with a 404.
-    """
-    message = await message_service.by_id(session, message_id)
-    if message is None or (message.deleted_at is not None and not allow_deleted):
-        raise message_gone()
-    await channel_service.assert_channel_access(
-        session,
-        user.id,
-        message.channel_id,
-        require_member=require_member,
-        require_writable=require_writable,
-    )
-    return message
 
 
 @router.get("/api/channels/{channel_id}/messages", response_model=HistoryOut)
@@ -190,7 +159,7 @@ async def get_message(message_id: IdParam, user: SessionUser = Depends(current_u
     a message exists is not something a link should be able to probe.
     """
     async with session_scope() as session:
-        message = await load_message_for(session, user, message_id)
+        message = await message_service.load_for(session, user.id, message_id)
     return MessageOut(message=message)
 
 
@@ -198,7 +167,7 @@ async def get_message(message_id: IdParam, user: SessionUser = Depends(current_u
 async def get_thread(message_id: IdParam, user: SessionUser = Depends(current_user)) -> MessagesOut:
     async with session_scope() as session:
         # A deleted root still anchors its replies, so the thread stays readable.
-        await load_message_for(session, user, message_id, allow_deleted=True)
+        await message_service.load_for(session, user.id, message_id, allow_deleted=True)
         messages = await message_service.thread(session, message_id)
     return MessagesOut(messages=messages)
 
@@ -218,16 +187,11 @@ async def translate_message(
     # for a remote call that long blocks vacuum and ties up a pooled connection for
     # something that is not database work.
     async with session_scope() as session:
-        message = await load_message_for(session, user, message_id)
-        prefs_row = (
-            await session.execute(text("SELECT prefs FROM users WHERE id = :id"), {"id": user.id})
-        ).fetchone()
-        target_language = payload.target_language or (
-            prefs_row.prefs.get("language")
-            if prefs_row is not None and isinstance(prefs_row.prefs, dict)
-            else None
+        message = await message_service.load_for(session, user.id, message_id)
+        target_language = payload.target_language or await user_service.preferred_language(
+            session, user.id
         )
-        if not isinstance(target_language, str) or not target_language.strip():
+        if not target_language or not target_language.strip():
             raise forbidden("Set your preferred language before using translation.")
         normalized_target = translation_service.normalize_language_code(target_language)
         if not payload.force_refresh:
@@ -281,7 +245,7 @@ async def thread_following(
     message_id: IdParam, user: SessionUser = Depends(current_user)
 ) -> ThreadFollowOut:
     async with session_scope() as session:
-        await load_message_for(session, user, message_id, allow_deleted=True)
+        await message_service.load_for(session, user.id, message_id, allow_deleted=True)
         following = await message_service.thread_following(session, user.id, message_id)
     return ThreadFollowOut(following=following)
 
@@ -298,7 +262,7 @@ async def set_thread_following(
     column existed from the first migration and no code ever wrote it. This is the write.
     """
     async with transaction() as (session, _after):
-        await load_message_for(session, user, message_id, allow_deleted=True)
+        await message_service.load_for(session, user.id, message_id, allow_deleted=True)
         await message_service.set_thread_following(session, user.id, message_id, payload.following)
     return ThreadFollowOut(following=payload.following)
 
@@ -307,7 +271,7 @@ async def set_thread_following(
 async def mark_thread_read(message_id: IdParam, user: SessionUser = Depends(current_user)) -> OkOut:
     """Move the thread's read cursor to its newest reply."""
     async with transaction() as (session, _after):
-        await load_message_for(session, user, message_id, allow_deleted=True)
+        await message_service.load_for(session, user.id, message_id, allow_deleted=True)
         await message_service.mark_thread_read(session, user.id, message_id)
     return OkOut()
 
@@ -317,7 +281,7 @@ async def edit_message(
     message_id: IdParam, payload: EditMessageInput, user: SessionUser = Depends(current_user)
 ) -> MessageOut:
     async with transaction() as (session, after):
-        await load_message_for(session, user, message_id, require_member=True)
+        await message_service.load_for(session, user.id, message_id, require_member=True)
         message = await message_service.edit(
             session, message_id, user.id, user.workspace_id, payload.body
         )
@@ -342,8 +306,8 @@ async def delete_message(
     message_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     async with transaction() as (session, after):
-        existing = await load_message_for(
-            session, user, message_id, allow_deleted=True, require_member=True
+        existing = await message_service.load_for(
+            session, user.id, message_id, allow_deleted=True, require_member=True
         )
         moderated = existing.author_id != user.id
         channel_id, thread_root_id = await message_service.remove(
@@ -390,8 +354,8 @@ async def pin_message(
     message_id: IdParam, payload: PinInput, user: SessionUser = Depends(current_user)
 ) -> MessageOut:
     async with transaction() as (session, after):
-        await load_message_for(
-            session, user, message_id, require_member=True, require_writable=True
+        await message_service.load_for(
+            session, user.id, message_id, require_member=True, require_writable=True
         )
         message = await message_service.set_pinned(session, message_id, user.id, payload.pinned)
         after.add(
@@ -415,7 +379,7 @@ async def save_message(
     response. `/api/commands` settled the same question the same way.
     """
     async with transaction() as (session, _):
-        await load_message_for(session, user, message_id, require_member=True)
+        await message_service.load_for(session, user.id, message_id, require_member=True)
         await message_service.set_saved(session, message_id, user.id, payload.saved)
     return OkOut()
 
@@ -478,7 +442,7 @@ async def update_later(
             remind_at = parse_future_time(payload.remind_at)
 
     async with transaction() as (session, _):
-        await load_message_for(session, user, message_id, require_member=True)
+        await message_service.load_for(session, user.id, message_id, require_member=True)
         await message_service.set_later(
             session,
             message_id,
@@ -496,8 +460,8 @@ async def add_reaction(
     message_id: IdParam, payload: ReactionInput, user: SessionUser = Depends(current_user)
 ) -> OkOut:
     async with transaction() as (session, after):
-        existing = await load_message_for(
-            session, user, message_id, require_member=True, require_writable=True
+        existing = await message_service.load_for(
+            session, user.id, message_id, require_member=True, require_writable=True
         )
         if await message_service.add_reaction(session, message_id, user.id, payload.emoji):
             reaction = {
@@ -534,7 +498,7 @@ async def remove_reaction(
         # a channel you cannot see and 404 for one that does not exist would say which
         # private message ids are real, the distinction the 404 hides. Deleted counts
         # as gone: after deletion the reaction rows are gone with it.
-        existing = await load_message_for(session, user, message_id)
+        existing = await message_service.load_for(session, user.id, message_id)
         if await message_service.remove_reaction(session, message_id, user.id, emoji):
             reaction = {
                 "messageId": message_id,
@@ -695,17 +659,7 @@ async def incoming_webhook(token: str, payload: WebhookPostInput) -> OkOut:
     await consume("webhook", token[:16])
 
     async with transaction() as (session, after):
-        hook = (
-            await session.execute(
-                text(
-                    """
-                    SELECT id, workspace_id, channel_id, created_by, name
-                      FROM webhooks WHERE token_hash = :token_hash
-                    """
-                ),
-                {"token_hash": hash_token(token)},
-            )
-        ).fetchone()
+        hook = await webhook_service.by_token(session, token)
         if hook is None:
             raise forbidden("That webhook is not valid.")
 
@@ -721,9 +675,7 @@ async def incoming_webhook(token: str, payload: WebhookPostInput) -> OkOut:
             # one that doesn't gets a fresh id, and each such call is its own message.
             client_msg_id=f"hook-{payload.client_msg_id or new_id()}",
         )
-        await session.execute(
-            text("UPDATE webhooks SET last_used_at = now() WHERE id = :id"), {"id": hook.id}
-        )
+        await webhook_service.mark_used(session, hook.id)
 
         if result.created:
             channel_id = hook.channel_id

@@ -287,19 +287,64 @@ async def update_prefs(session: AsyncSession, user_id: str, patch: dict[str, Any
     return read_prefs(row.prefs)
 
 
-async def list_users(session: AsyncSession, workspace_id: str) -> list[User]:
+async def list_users(
+    session: AsyncSession, workspace_id: str, *, active_only: bool = False
+) -> list[User]:
+    """Everybody in the workspace. The client wants the deactivated too — they still
+    wrote messages — where an app asking `users.list` wants who is here now."""
     rows = (
         await session.execute(
             text(
                 f"""
                 SELECT {USER_COLUMNS} FROM users
-                 WHERE workspace_id = :ws ORDER BY lower(display_name) LIMIT 1000
+                 WHERE workspace_id = :ws AND (NOT :active_only OR deactivated_at IS NULL)
+                 ORDER BY lower(display_name) LIMIT 1000
                 """
             ),
-            {"ws": workspace_id},
+            {"ws": workspace_id, "active_only": active_only},
         )
     ).fetchall()
     return [to_user(row) for row in rows]
+
+
+async def is_agent(session: AsyncSession, workspace_id: str, user_id: str) -> bool:
+    """Whether this member is an app's bot rather than a person."""
+    row = (
+        await session.execute(
+            text("SELECT kind FROM users WHERE id = :id AND workspace_id = :ws"),
+            {"id": user_id, "ws": workspace_id},
+        )
+    ).fetchone()
+    return row is not None and row.kind == "bot"
+
+
+async def all_active(session: AsyncSession, workspace_id: str, user_ids: list[str]) -> bool:
+    """Is every one of these a live member of this workspace?"""
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT count(*)::int AS count FROM users
+                 WHERE id = ANY(cast(:ids AS uuid[]))
+                   AND workspace_id = :ws
+                   AND deactivated_at IS NULL
+                """
+            ),
+            {"ids": user_ids, "ws": workspace_id},
+        )
+    ).fetchone()
+    return (row.count if row else 0) == len(user_ids)
+
+
+async def preferred_language(session: AsyncSession, user_id: str) -> str | None:
+    """The language this person reads in, if they have said."""
+    row = (
+        await session.execute(text("SELECT prefs FROM users WHERE id = :id"), {"id": user_id})
+    ).fetchone()
+    if row is None or not isinstance(row.prefs, dict):
+        return None
+    language = row.prefs.get("language")
+    return language if isinstance(language, str) and language.strip() else None
 
 
 async def get_user(session: AsyncSession, workspace_id: str, user_id: str) -> User:

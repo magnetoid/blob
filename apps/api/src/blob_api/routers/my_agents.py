@@ -27,12 +27,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import Field
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import bad_request, not_found
+from ..lib.errors import bad_request
 from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
 from ..plugins import gateway, registry
@@ -41,6 +39,7 @@ from ..schemas.base import CamelModel, OkOut, require_iso
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import commands as command_service
+from ..services import my_agents as agent_service
 from ..services import policies as policy_service
 from ..services.audit import actor_for
 
@@ -127,22 +126,7 @@ async def list_available(user: SessionUser = Depends(current_user)) -> Workspace
     refuses half its entries is worse than a shorter list.
     """
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    f"""
-                    SELECT p.id, p.name, p.runtime, p.owner_user_id, u.id AS bot_user_id
-                      FROM plugins p JOIN users u ON u.bot_plugin_id = p.id
-                     WHERE p.workspace_id = :ws AND p.status = 'enabled'
-                       AND u.deactivated_at IS NULL
-                       AND {registry.MENTIONABLE_AGENT}
-                       AND (p.owner_user_id IS NULL OR p.owner_user_id = :me)
-                     ORDER BY p.owner_user_id IS NOT NULL, lower(p.name)
-                    """
-                ),
-                {"ws": user.workspace_id, "me": user.id},
-            )
-        ).fetchall()
+        rows = await agent_service.available(session, user)
     agents = []
     for row in rows:
         agents.append(
@@ -160,21 +144,7 @@ async def list_available(user: SessionUser = Depends(current_user)) -> Workspace
 @router.get("/mine", response_model=MyAgentsOut)
 async def list_mine(user: SessionUser = Depends(current_user)) -> MyAgentsOut:
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT p.id, p.slug, p.name, p.description, p.status, p.created_at,
-                           u.id AS bot_user_id
-                      FROM plugins p
-                      LEFT JOIN users u ON u.bot_plugin_id = p.id
-                     WHERE p.workspace_id = :ws AND p.owner_user_id = :me
-                     ORDER BY p.created_at
-                    """
-                ),
-                {"ws": user.workspace_id, "me": user.id},
-            )
-        ).fetchall()
+        rows = await agent_service.mine(session, user)
     return MyAgentsOut(agents=[await _out(row) for row in rows])
 
 
@@ -206,7 +176,7 @@ async def attach(
             if await policy_service.app_count(session, user.workspace_id) >= policy.max_apps:
                 raise policy_service.refuse_app_limit(policy.max_apps)
 
-        slug = await _free_slug(session, user.workspace_id, base)
+        slug = await agent_service.free_slug(session, user.workspace_id, base)
         manifest = Manifest(
             slug=slug,
             name=name,
@@ -224,10 +194,7 @@ async def attach(
         )
         # Owned from birth, in the same transaction: there is no moment at which this
         # agent is the workspace's and would answer anyone who happened to mention it.
-        await session.execute(
-            text("UPDATE plugins SET owner_user_id = :me WHERE id = :id"),
-            {"me": user.id, "id": installed.plugin_id},
-        )
+        await registry.set_owner(session, installed.plugin_id, user.workspace_id, user.id)
         await audit_service.record(
             session,
             actor_for(request, user),
@@ -236,7 +203,7 @@ async def attach(
             target_id=installed.plugin_id,
             metadata={"slug": slug, "name": name},
         )
-        row = await _mine(session, user, installed.plugin_id)
+        row = await agent_service.owned(session, user, installed.plugin_id)
 
     return AttachedOut(
         agent=await _out(row),
@@ -251,7 +218,7 @@ async def detach(
 ) -> OkOut:
     """Remove your agent. Everything it said stays; its bot is retired the way any app's is."""
     async with transaction() as (session, _after):
-        row = await _mine(session, user, agent_id)
+        row = await agent_service.owned(session, user, agent_id)
         await registry.uninstall(session, agent_id, user.workspace_id)
         await audit_service.record(
             session,
@@ -274,27 +241,9 @@ async def agent_channels(
     you cannot read, which is the rule the admin route applies to the admin.
     """
     async with session_scope() as session:
-        row = await _mine(session, user, agent_id)
+        row = await agent_service.owned(session, user, agent_id)
         bot_id = await registry.bot_user_id(session, str(row.id))
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT c.id, c.name, c.kind,
-                           EXISTS (SELECT 1 FROM channel_members b
-                                    WHERE b.channel_id = c.id
-                                      AND b.user_id = cast(:bot AS uuid)) AS joined
-                      FROM channels c
-                      JOIN channel_members m ON m.channel_id = c.id AND m.user_id = :me
-                     WHERE c.workspace_id = :ws
-                       AND c.archived_at IS NULL
-                       AND c.kind IN ('public', 'private')
-                     ORDER BY c.name
-                    """
-                ),
-                {"ws": user.workspace_id, "me": user.id, "bot": bot_id},
-            )
-        ).fetchall()
+        rows = await agent_service.channels_for(session, user, bot_id)
     return AgentChannelsOut(
         channels=[
             AgentChannel(id=str(r.id), name=r.name, kind=r.kind, joined=bool(r.joined))
@@ -311,7 +260,7 @@ async def agent_join_channel(
     user: SessionUser = Depends(current_user),
 ) -> OkOut:
     async with transaction() as (session, _after):
-        row = await _mine(session, user, agent_id)
+        row = await agent_service.owned(session, user, agent_id)
         bot_id = await registry.bot_user_id(session, str(row.id))
         if not bot_id:
             raise bad_request("That agent has no bot to add.", code="no_bot")
@@ -340,7 +289,7 @@ async def agent_leave_channel(
     user: SessionUser = Depends(current_user),
 ) -> OkOut:
     async with transaction() as (session, _after):
-        row = await _mine(session, user, agent_id)
+        row = await agent_service.owned(session, user, agent_id)
         bot_id = await registry.bot_user_id(session, str(row.id))
         if not bot_id:
             raise bad_request("That agent has no bot to remove.", code="no_bot")
@@ -357,47 +306,6 @@ async def agent_leave_channel(
             metadata={"pluginId": agent_id, "slug": row.slug},
         )
     return OkOut()
-
-
-async def _mine(session: AsyncSession, user: SessionUser, agent_id: str) -> Any:
-    """The agent, if it is this person's. 404 otherwise — whose it is stays private."""
-    row = (
-        await session.execute(
-            text(
-                """
-                SELECT p.id, p.slug, p.name, p.description, p.status, p.created_at,
-                       u.id AS bot_user_id
-                  FROM plugins p
-                  LEFT JOIN users u ON u.bot_plugin_id = p.id
-                 WHERE p.id = :id AND p.workspace_id = :ws AND p.owner_user_id = :me
-                """
-            ),
-            {"id": agent_id, "ws": user.workspace_id, "me": user.id},
-        )
-    ).fetchone()
-    if row is None:
-        raise not_found("You have no agent by that id.")
-    return row
-
-
-async def _free_slug(session: AsyncSession, workspace_id: str, base: str) -> str:
-    """`base`, or the first `base-N` nobody holds. Slugs are per workspace and permanent."""
-    taken = {
-        str(r.slug)
-        for r in (
-            await session.execute(
-                text("SELECT slug FROM plugins WHERE workspace_id = :ws AND slug LIKE :like"),
-                {"ws": workspace_id, "like": f"{base}%"},
-            )
-        ).fetchall()
-    }
-    if base not in taken:
-        return base
-    for n in range(2, 100):
-        candidate = f"{base}-{n}"
-        if candidate not in taken:
-            return candidate
-    raise bad_request("Too many agents share that name already; pick another.")
 
 
 async def _out(row: Any) -> MyAgentOut:
