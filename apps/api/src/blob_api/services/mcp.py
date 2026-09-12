@@ -72,6 +72,16 @@ class McpCaller:
     display_name: str
     workspace_name: str
     scopes: frozenset[str]
+    #: Whether a message this caller posts may root an agent chain.
+    #:
+    #: True for a person's assistant, because somebody typing `@Planner do this` into
+    #: their own assistant is still somebody typing. False when an *agent* holds the
+    #: tool: a model repeating a name it read in a channel did not mean to start
+    #: anything, and ADR 0013 bounds chains by making a person's message the only thing
+    #: that roots one. Without this, `post_message` would be a way around that guard
+    #: rather than a use of it — an agent could mint person-shaped messages that start
+    #: runs that post more messages.
+    may_start_runs: bool = True
 
     def may_write(self) -> bool:
         return "write" in self.scopes
@@ -254,7 +264,7 @@ _CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "post_message",
-        "grant": "messages:write",
+        "grant": "messages:write.anywhere",
         "title": "Post a message",
         "description": (
             "Post to a channel or a thread, as the person this connection belongs to. "
@@ -319,8 +329,12 @@ def tools_for_agent(scopes: frozenset[str]) -> list[dict[str, Any]]:
 
     Filtered, not refused (the reason `catalogue` gives): a model offered a tool it may
     not use will call it, and the person reads a permission error in the middle of an
-    answer. Read tools only, whatever the grants say — an agent that can post is the next
-    slice, and it wants the run's lineage on the message, not just a schema.
+    answer.
+
+    The read tools ride in on grants an agent already needs for other reasons.
+    `post_message` does not: it hangs off `messages:write.anywhere`, which nothing is
+    seeded with, because answering where it was asked and choosing where to speak are
+    different powers and only the second one is what an injected instruction reaches for.
     """
     return [
         {
@@ -329,7 +343,7 @@ def tools_for_agent(scopes: frozenset[str]) -> list[dict[str, Any]]:
             "input_schema": tool["inputSchema"],
         }
         for tool in _CATALOGUE
-        if tool["readOnly"] and (tool["grant"] is None or tool["grant"] in scopes)
+        if tool["grant"] is None or tool["grant"] in scopes
     ]
 
 
@@ -731,6 +745,7 @@ async def _post_message(caller: McpCaller, arguments: dict[str, Any]) -> str:
             result,
             workspace_id=caller.workspace_id,
             channel_id=channel_id,
+            start_agent_runs=caller.may_start_runs,
         )
     return f"Posted as {caller.display_name}. Message id {result.message.id}."
 

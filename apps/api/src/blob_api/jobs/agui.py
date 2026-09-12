@@ -189,7 +189,7 @@ async def personal_agent_for(
     )
 
 
-async def reading_tools(
+async def agent_tools(
     listener: Listener, *, workspace_id: str, user_id: str
 ) -> tuple[list[dict[str, Any]], llm.ToolRunner | None]:
     """The tools this agent may use, and a runner that runs them as the person who asked.
@@ -238,7 +238,8 @@ async def reading_tools(
         ).fetchone()
     if row is None:
         return [], None
-    tools = mcp_service.tools_for_agent(frozenset(row.scopes or ()))
+    granted = frozenset(row.scopes or ())
+    tools = mcp_service.tools_for_agent(granted)
     if not tools:
         return [], None
     caller = mcp_service.McpCaller(
@@ -248,9 +249,16 @@ async def reading_tools(
         workspace_id=workspace_id,
         display_name=row.display_name,
         workspace_name=row.workspace_name,
-        # Read only, whatever the person could do themselves. An agent that posts is a
-        # separate grant and a separate slice; this one cannot write by construction.
-        scopes=frozenset({"read"}),
+        # Write only when an admin turned it on. `tools_for_agent` has already filtered
+        # `post_message` out of the schema without the grant, and this is the other half:
+        # the two must agree, or the model is offered a tool the dispatcher then refuses.
+        scopes=frozenset({"read", "write"})
+        if "messages:write.anywhere" in granted
+        else frozenset({"read"}),
+        # Never, for any agent. A person typing `@Planner do this` meant to start
+        # something; a model repeating a name it read did not, and ADR 0013 bounds chains
+        # by making a person's message the only thing that roots one.
+        may_start_runs=False,
     )
 
     async def run(name: str, arguments: dict[str, Any]) -> str:
@@ -919,7 +927,7 @@ async def _run_one(
             cancelled = True
         else:
             async with _looks_busy(listener, channel_id, thread_root_id):
-                tools, tool_runner = await reading_tools(
+                tools, tool_runner = await agent_tools(
                     listener,
                     workspace_id=workspace_id,
                     user_id=chain.initiated_by_user_id,

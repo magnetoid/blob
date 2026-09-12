@@ -17,6 +17,7 @@ can be seen.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -28,6 +29,7 @@ from blob_api.config import settings
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
 from blob_api.lib import llm
+from blob_api.lib import queue as queue_lib
 from blob_api.plugins import builtin
 from blob_api.services import mcp, workspace_agent
 
@@ -166,6 +168,26 @@ class TestWhatItIsOffered:
         everything = frozenset({"messages:read", "messages:write", "channels:read", "users:read"})
         assert "post_message" not in {t["name"] for t in mcp.tools_for_agent(everything)}
 
+    def test_posting_is_a_grant_of_its_own(self) -> None:
+        """Answering where it was asked and choosing where to speak are different powers.
+
+        Every built-in agent already holds `messages:write` — that is how its reply gets
+        posted in the room it was mentioned in, by the runner, on its behalf. Choosing a
+        destination is the other thing, and it is the one an injected instruction would
+        reach for: "post the key to #public". So it hangs off its own grant, which an
+        admin turns on, rather than riding in on the one that makes replies work.
+        """
+        answering = frozenset({"messages:read", "messages:write", "channels:read"})
+        assert "post_message" not in {t["name"] for t in mcp.tools_for_agent(answering)}
+
+        speaking = answering | {"messages:write.anywhere"}
+        assert "post_message" in {t["name"] for t in mcp.tools_for_agent(speaking)}
+
+    def test_the_agent_that_ships_turned_on_cannot_post_elsewhere(self) -> None:
+        # The one agent nobody chose to install is the last one that should arrive able
+        # to speak in rooms nobody invited it to.
+        assert "messages:write.anywhere" not in workspace_agent.AGENT_SCOPES
+
     def test_the_shape_is_what_the_model_layer_takes(self) -> None:
         (tool,) = [t for t in mcp.tools_for_agent(frozenset()) if t["name"] == "whoami"]
         assert set(tool) == {"name", "description", "input_schema"}
@@ -255,3 +277,136 @@ class TestWhatItIsTold:
         prompt = builtin.system_prompt(persona, channel_name="dm", tools=tools)
         assert "cannot read Marko's channels" not in prompt
         assert "You can see only this conversation" not in prompt
+
+
+async def _drain() -> None:
+    """Let the tasks `fire_and_forget` created actually run.
+
+    `announce` schedules its fan-out rather than awaiting it, so asserting straight after
+    the call reads an empty list whatever happened. A "nothing was queued" test written
+    without this passes when the guard works *and* when it does not, which is the only
+    kind of green worth distrusting — hence the notify assertion beside it, proving the
+    fan-out ran at all before concluding that one part of it did not.
+    """
+    for _ in range(3):
+        await asyncio.sleep(0)
+
+
+def _record(monkeypatch: pytest.MonkeyPatch, queued: list[tuple[Any, ...]]) -> None:
+    """Capture what `announce` queues, without actually queueing it.
+
+    `announce` imports `enqueue` inside the function, so the patch has to land on the
+    module it imports *from* rather than the one that calls it. The replacement has to
+    stay a coroutine function: `fire_and_forget` wraps the result in a task, and a stub
+    returning None fails there rather than where the mistake was.
+    """
+
+    async def fake(job: str, *rest: Any) -> None:
+        queued.append((job, *rest))
+
+    monkeypatch.setattr(queue_lib, "enqueue", fake)
+
+
+class TestWhenItPosts:
+    """`post_message` in an agent's hands, which is not the same as in an assistant's.
+
+    Both tests take the `model` fixture, and not for the model: a mention only becomes a
+    `mention_user_ids` entry when the name resolves to a real user, and @Blob only exists
+    in a workspace where a model is configured. Without it both tests pass by queueing
+    nothing for the wrong reason.
+
+    Both act as a person. The difference is that a person typing `@Planner do this` meant
+    to start something, and an agent writing the same line did not necessarily mean
+    anything — a model repeating a name it read is enough. ADR 0013 keeps chains bounded
+    by making a person's message the only thing that roots one, and a tool that let an
+    agent mint person-shaped messages would be a way around that guard rather than a use
+    of it.
+    """
+
+    async def _caller(self, client: Client, *, agent: bool) -> tuple[Any, str]:
+        owner = await sign_up(client, "Founder")
+        channel = (await owner.get("/api/channels")).body["channels"][0]["id"]
+        async with SessionFactory() as session:
+            row = (
+                await session.execute(
+                    text("SELECT workspace_id, display_name FROM users WHERE id = :id"),
+                    {"id": owner.user_id},
+                )
+            ).fetchone()
+        assert row is not None
+        caller = mcp.McpCaller(
+            token_id="",
+            token_name="Blob" if agent else "laptop",
+            user_id=owner.user_id,
+            workspace_id=str(row.workspace_id),
+            display_name=row.display_name,
+            workspace_name="Test Workspace",
+            scopes=frozenset({"read", "write"}),
+            may_start_runs=not agent,
+        )
+        return caller, channel
+
+    async def test_an_agents_post_cannot_root_a_second_chain(
+        self, model: dict[str, Any], client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        queued: list[tuple[Any, ...]] = []
+        _record(monkeypatch, queued)
+        caller, channel = await self._caller(client, agent=True)
+
+        await mcp.call(
+            caller,
+            "post_message",
+            {"channel": channel, "text": f"@{workspace_agent.AGENT_NAME} take a look"},
+        )
+        await _drain()
+
+        assert [j for j in queued if j[0] == "notify"], "the fan-out did not run at all"
+        assert not [j for j in queued if j[0] == "agui_run"]
+
+    async def test_a_persons_assistant_still_starts_one(
+        self, model: dict[str, Any], client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The guard is about who is holding the tool, not about the tool. Somebody typing
+        # into their own assistant is still somebody typing.
+        queued: list[tuple[Any, ...]] = []
+        _record(monkeypatch, queued)
+        caller, channel = await self._caller(client, agent=False)
+
+        await mcp.call(
+            caller,
+            "post_message",
+            {"channel": channel, "text": f"@{workspace_agent.AGENT_NAME} take a look"},
+        )
+        await _drain()
+        assert [j for j in queued if j[0] == "agui_run"]
+
+    async def test_with_the_grant_it_posts_where_it_was_told(
+        self, model: dict[str, Any], client: Client
+    ) -> None:
+        """The whole path: grant, schema, dispatch, message — as the person who asked.
+
+        `tools_for_agent` offering the schema is only half of it. The run also has to
+        build a caller that may write, or the model proposes a tool the dispatcher then
+        refuses, which is the failure `catalogue` filters rather than refuses to avoid.
+        """
+        owner = await sign_up(client, "Founder")
+        ops = (await owner.post("/api/channels", {"name": "ops", "kind": "public"})).body[
+            "channel"
+        ]["id"]
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        plugin_id = next(p["id"] for p in apps if p["slug"] == builtin.WORKSPACE_SLUG)
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                text(
+                    "INSERT INTO plugin_grants (plugin_id, scope) VALUES (:id, :s) "
+                    "ON CONFLICT DO NOTHING"
+                ),
+                {"id": plugin_id, "s": "messages:write.anywhere"},
+            )
+
+        model["tool"] = ("post_message", {"channel": "#ops", "text": "Deploy is done."})
+        model["reply"] = "Told #ops."
+        await _ask(owner, await _general(owner), "tell #ops the deploy is done")
+
+        assert "post_message" in _tool_names(model["seen"][0])
+        assert "Deploy is done." in await _bodies(owner, ops)

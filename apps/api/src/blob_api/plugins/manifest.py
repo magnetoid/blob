@@ -41,6 +41,13 @@ Status = Literal["enabled", "disabled", "needs_review", "failed"]
 SCOPES: dict[str, str] = {
     "messages:read": "Read messages in channels it belongs to",
     "messages:write": "Post messages",
+    # Enforced in `services/mcp.tools_for_agent`: it is what puts `post_message` in the
+    # list of tools an agent is offered. Separate from `messages:write` because every
+    # agent already holds that one — it is how the runner posts a reply in the room the
+    # agent was mentioned in — while *choosing* a room is the power an injected
+    # instruction reaches for. No scope goes in this table without a site that reads it;
+    # see RETIRED_SCOPES below for what happened the last time one did.
+    "messages:write.anywhere": "Post in channels it chooses, not only where it was asked",
     "messages:moderate": "Edit and delete anyone's messages",
     "reactions:write": "Add and remove reactions",
     "channels:read": "See channels it belongs to",
