@@ -11,6 +11,7 @@ import { showError } from '../../lib/toasts.ts';
 import { useStore } from '../../lib/store.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import type { Theme } from '@blob/shared';
+import { useFetch } from '../../lib/useFetch.ts';
 
 const THEMES = [
   { label: 'System', value: 'system' },
@@ -349,26 +350,13 @@ function TimeZoneRow() {
  * has answered `/api/auth/sessions` since the port; this is its first caller.
  */
 function DevicesPanel() {
-  const [sessions, setSessions] = useState<AuthSession[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [revoking, setRevoking] = useState(false);
+  const { data: sessions, error } = useFetch(
+    async (): Promise<AuthSession[]> => (await api.auth.sessions()).sessions,
+    [revoking],
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-    void api.auth
-      .sessions()
-      .then((r) => {
-        if (!cancelled) setSessions(r.sessions);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Could not load your sessions.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [revoking]);
-
-  if (error) return <p className="error-text">{error}</p>;
+  if (error) return <p className="error-text">Could not load your sessions.</p>;
   if (sessions === null) return <p className="pref-hint">Loading…</p>;
 
   const others = sessions.filter((s) => !s.current);

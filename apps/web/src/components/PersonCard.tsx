@@ -9,7 +9,7 @@
  * separate copies of this got subtly wrong before.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { User } from '@blob/shared';
 import { Menu } from './Menu.tsx';
 import { Avatar } from './Avatar.tsx';
@@ -17,6 +17,7 @@ import { api } from '../lib/api.ts';
 import { useStore } from '../lib/store.ts';
 import { showError } from '../lib/toasts.ts';
 import { showChannel } from '../lib/navigation.ts';
+import { useFetch } from '../lib/useFetch.ts';
 
 export function PersonCard({
   person,
@@ -32,20 +33,17 @@ export function PersonCard({
   const [busy, setBusy] = useState(false);
   const isMe = person.id === currentUser?.id;
 
-  useEffect(() => {
-    if (!open) return undefined;
-    let cancelled = false;
-    void api.users
-      .get(person.id)
-      .then(({ user }) => {
-        if (cancelled) return;
-        useStore.setState((s) => ({ users: { ...s.users, [user.id]: { ...s.users[user.id], ...user } } }));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [open, person.id]);
+  // The full profile, read when the card opens and folded into the store, which is
+  // where `live` above reads it back from. A failure leaves the summary row's copy.
+  useFetch(
+    async () => {
+      if (!open) return null;
+      const { user } = await api.users.get(person.id);
+      useStore.setState((s) => ({ users: { ...s.users, [user.id]: { ...s.users[user.id], ...user } } }));
+      return user;
+    },
+    [open, person.id],
+  );
 
   async function message() {
     if (busy) return;

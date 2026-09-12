@@ -3,35 +3,24 @@
 The timeline already has thumbs. This tab is the place to look through them without
 scrolling a year of chat, and it must never load the original until somebody opens one.
 */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { FileEntry } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { showError } from '../../lib/toasts.ts';
 import { ImageLightbox } from './ImageLightbox.tsx';
+import { useFetch } from '../../lib/useFetch.ts';
 
 export function FilesView() {
-  const [items, setItems] = useState<FileEntry[] | null>(null);
   const [kind, setKind] = useState<'all' | 'image' | 'file'>('all');
   const [open, setOpen] = useState<FileEntry | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setItems(null);
-    void api.files
-      .list({ kind })
-      .then((r) => {
-        if (!cancelled) setItems(r.items);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setItems([]);
-          showError(err);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [kind]);
+  const { data, loading } = useFetch(
+    async (): Promise<FileEntry[]> => (await api.files.list({ kind })).items,
+    [kind],
+    { onError: showError },
+  );
+  // Null while a filter's request is out, so the grid does not show the last filter's
+  // pictures under the new filter's name; an empty grid after a failure, as before.
+  const items = loading ? null : (data ?? []);
 
   return (
     <main className="pane">

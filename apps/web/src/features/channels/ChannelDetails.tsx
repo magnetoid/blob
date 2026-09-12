@@ -17,6 +17,7 @@ import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { Dialog } from '../../components/Dialog.tsx';
+import { useFetch } from '../../lib/useFetch.ts';
 
 interface Props {
   channel: ChannelWithState;
@@ -33,7 +34,6 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
   const currentUser = useStore((s) => s.currentUser);
 
   const membershipVersion = useStore((s) => s.membershipVersion[channel.id] ?? 0);
-  const [memberIds, setMemberIds] = useState<string[] | null>(null);
   const [topic, setTopic] = useState(channel.topic ?? '');
   const [savingNudge, setSavingNudge] = useState(false);
   const [savingTopic, setSavingTopic] = useState(false);
@@ -44,22 +44,16 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
   const archived = channel.archivedAt !== null;
   const topicChanged = topic.trim() !== (channel.topic ?? '');
 
+  const { data: memberIds, reload: reloadMembers } = useFetch(
+    async (): Promise<string[]> => (await api.channels.members(channel.id)).userIds,
+    [channel.id, membershipVersion],
+    { onError: () => setError('Could not load who is in here.') },
+  );
+  // The header behind this dialog caches a member list, and the moment it is guaranteed
+  // to be wrong is when this dialog has just read the true one.
   useEffect(() => {
-    let cancelled = false;
-    void api.channels
-      .members(channel.id)
-      .then((r) => {
-        if (cancelled) return;
-        setMemberIds(r.userIds);
-        onMembers(r.userIds);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Could not load who is in here.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [channel.id, onMembers, membershipVersion]);
+    if (memberIds) onMembers(memberIds);
+  }, [memberIds, onMembers]);
 
   const members = useMemo(
     () =>
@@ -102,9 +96,9 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
     setError(null);
     try {
       await api.channels.addMembers(channel.id, [userId]);
-      const next = [...(memberIds ?? []), userId];
-      setMemberIds(next);
-      onMembers(next);
+      // Re-read rather than guess: the list the server holds is the one the header
+      // should show, and `member.joined` bumps the version too when it arrives.
+      reloadMembers();
       setQuery('');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not add them.');

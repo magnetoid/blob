@@ -5,11 +5,12 @@
  * from *you*, idempotent on the summarised range, so pressing it twice posts once.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { showError } from '../../lib/toasts.ts';
 import { Dialog } from '../../components/Dialog.tsx';
+import { useFetch } from '../../lib/useFetch.ts';
 
 interface Summary {
   channelId: string;
@@ -28,31 +29,16 @@ export function CatchUpPanel({
   onClose: () => void;
 }) {
   const currentUser = useStore((s) => s.currentUser);
-  const [summaries, setSummaries] = useState<Summary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [posted, setPosted] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    let cancelled = false;
-    void api.agentic
-      .catchup(channelId)
-      .then((r) => {
-        if (!cancelled) setSummaries(r.summaries);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(
-          err instanceof ApiError && err.code === 'llm_not_configured'
-            ? 'No model is configured on this server, so there is nothing to summarise with.'
-            : err instanceof Error
-              ? err.message
-              : 'That didn’t work.',
-        );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [channelId]);
+  const { data: summaries, error: failure } = useFetch(
+    async (): Promise<Summary[]> => (await api.agentic.catchup(channelId)).summaries,
+    [channelId],
+  );
+  const error = failure
+    ? failure instanceof ApiError && failure.code === 'llm_not_configured'
+      ? 'No model is configured on this server, so there is nothing to summarise with.'
+      : failure.message
+    : null;
 
   async function post(summary: Summary) {
     if (!currentUser) return;

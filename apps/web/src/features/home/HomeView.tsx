@@ -5,7 +5,7 @@
  * start by hunting #general.
  */
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import type { AgentTask } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
@@ -14,6 +14,7 @@ import { showError } from '../../lib/toasts.ts';
 import { SendIcon } from '../../components/Icon.tsx';
 import { AgentRunCard } from '../messages/AgentRunCard.tsx';
 import { formatRelative } from '../messages/messageFormatting.ts';
+import { useFetch } from '../../lib/useFetch.ts';
 
 export function HomeView() {
   const channels = useStore((s) => s.channels);
@@ -31,34 +32,26 @@ export function HomeView() {
 
   const [ask, setAsk] = useState('');
   const [sending, setSending] = useState(false);
-  const [tasks, setTasks] = useState<AgentTask[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void api.agentRuns
-      .mine()
-      .then(({ runs }) => {
-        if (cancelled) return;
-        useStore.setState((s) => ({
-          agentRuns: {
-            ...s.agentRuns,
-            ...Object.fromEntries(runs.map((run) => [run.id, run])),
-          },
-        }));
-      })
-      .catch(() => undefined);
-    void api.agentic
-      .listTasks(currentUser ? { assignee: currentUser.id } : {})
-      .then((r) => {
-        if (!cancelled) setTasks(r.tasks);
-      })
-      .catch(() => {
-        if (!cancelled) setTasks([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser]);
+  const { data: tasks } = useFetch(
+    async (): Promise<AgentTask[]> =>
+      (await api.agentic.listTasks(currentUser ? { assignee: currentUser.id } : {})).tasks,
+    [currentUser?.id],
+  );
+  // Your runs, folded into the store the cards below read from. Nothing renders the
+  // value itself; the fetch is for the side effect, and a failure changes nothing.
+  useFetch(
+    async () => {
+      const { runs } = await api.agentRuns.mine();
+      useStore.setState((s) => ({
+        agentRuns: {
+          ...s.agentRuns,
+          ...Object.fromEntries(runs.map((run) => [run.id, run])),
+        },
+      }));
+      return runs;
+    },
+    [currentUser?.id],
+  );
 
   const unread = useMemo(
     () =>

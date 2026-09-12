@@ -8,7 +8,6 @@
  */
 
 import { useState } from "react";
-import { useEffect } from "react";
 import { api } from "../../lib/api.ts";
 import {
   currentPushState,
@@ -19,6 +18,7 @@ import {
 } from "../../lib/push.ts";
 import { useStore } from "../../lib/store.ts";
 import { showError } from "../../lib/toasts.ts";
+import { useFetch } from "../../lib/useFetch.ts";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -333,25 +333,18 @@ export function NotificationsSection() {
  * switch is what finally subscribes a browser to receive them.
  */
 function PushPanel() {
-  const [state, setState] = useState<PushState | "loading">("loading");
+  const { data: detected } = useFetch(currentPushState, []);
+  /** Where the switch was last put, which outranks what was detected on arrival. */
+  const [changed, setChanged] = useState<PushState | null>(null);
+  const state: PushState | "loading" = changed ?? detected ?? "loading";
   const [busy, setBusy] = useState(false);
   /** What the last test actually did, in the words the person needs. */
   const [tested, setTested] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void currentPushState().then((s) => {
-      if (!cancelled) setState(s);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   async function toggle() {
     setBusy(true);
     try {
-      setState(state === "on" ? await disablePush() : await enablePush());
+      setChanged(state === "on" ? await disablePush() : await enablePush());
     } catch (err) {
       showError(err);
     } finally {

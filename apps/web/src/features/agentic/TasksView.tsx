@@ -8,13 +8,14 @@
  * is looking at.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { AgentTask } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { showChannel, showThread } from '../../lib/navigation.ts';
 import { FileIcon } from '../../components/Icon.tsx';
 import { formatRelative } from '../messages/messageFormatting.ts';
+import { useFetch } from '../../lib/useFetch.ts';
 
 export function TasksView() {
   const channels = useStore((s) => s.channels);
@@ -64,26 +65,14 @@ function TaskResults({
   channels: ReturnType<typeof useStore.getState>['channels'];
   channelTitle: ReturnType<typeof useStore.getState>['channelTitle'];
 }) {
-  const [tasks, setTasks] = useState<AgentTask[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void api.agentic
-      .listTasks(scope === 'mine' && currentUserId ? { assignee: currentUserId } : {})
-      .then((r) => {
-        if (cancelled) return;
-        // Yours first even in the unfiltered view; sort is stable, so the server's
-        // order survives within each half.
-        const mine = (task: AgentTask) => task.assigneeUserId === currentUserId;
-        setTasks([...r.tasks].sort((left, right) => Number(mine(right)) - Number(mine(left))));
-      })
-      .catch(() => {
-        if (!cancelled) setError('Those could not be loaded.');
-      });
-    return () => {
-      cancelled = true;
-    };
+  const { data: tasks, error } = useFetch(async (): Promise<AgentTask[]> => {
+    const r = await api.agentic.listTasks(
+      scope === 'mine' && currentUserId ? { assignee: currentUserId } : {},
+    );
+    // Yours first even in the unfiltered view; sort is stable, so the server's
+    // order survives within each half.
+    const mine = (task: AgentTask) => task.assigneeUserId === currentUserId;
+    return [...r.tasks].sort((left, right) => Number(mine(right)) - Number(mine(left)));
   }, [scope, currentUserId]);
 
   async function go(task: AgentTask) {
@@ -95,7 +84,7 @@ function TaskResults({
 
   return (
     <div className="search-results">
-      {error && <p className="error-text">{error}</p>}
+      {error && <p className="error-text">Those could not be loaded.</p>}
       {!error && tasks === null && <p className="muted">Loading…</p>}
 
       {tasks?.length === 0 && (

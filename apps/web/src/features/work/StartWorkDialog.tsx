@@ -7,7 +7,7 @@
  * that is the right place for the rule to live.
  */
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Message } from "@blob/shared";
 import { api, type WorkspaceAgent } from "../../lib/api.ts";
 import { showChannel } from "../../lib/navigation.ts";
@@ -22,38 +22,29 @@ const TITLE_MAX = 200;
 
 import { suggestedTitle } from "./title.ts";
 import { Dialog } from "../../components/Dialog.tsx";
+import { useFetch } from "../../lib/useFetch.ts";
 
 export function StartWorkDialog({ message, onClose }: Props) {
 
   // The agents a member may bring: the workspace's own, and theirs. The server is the
   // authority on that list, so it is fetched rather than derived from the user map.
-  const [bots, setBots] = useState<WorkspaceAgent[]>([]);
-  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const { data: bots } = useFetch(
+    async (): Promise<WorkspaceAgent[]> => (await api.agents.list()).agents,
+    [],
+    { onError: showError },
+  );
+  // Agents already mentioned in the message are the obvious ones to bring — until the
+  // person ticks something, which is what `picked` holds. Derived rather than copied
+  // into state when the list arrives, so there is no render that has the list and not
+  // yet the selection.
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const chosen = useMemo(() => {
+    if (picked) return picked;
+    const mentioned = new Set(message.mentionUserIds ?? []);
+    return new Set((bots ?? []).filter((a) => mentioned.has(a.botUserId)).map((a) => a.id));
+  }, [picked, bots, message.mentionUserIds]);
   const [title, setTitle] = useState(() => suggestedTitle(message.body));
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    void api.agents
-      .list()
-      .then((listed) => {
-        if (cancelled) return;
-        setBots(listed.agents);
-        // Agents already mentioned in the message are the obvious ones to bring.
-        const mentioned = new Set(message.mentionUserIds ?? []);
-        setChosen(
-          new Set(
-            listed.agents
-              .filter((a) => mentioned.has(a.botUserId))
-              .map((a) => a.id),
-          ),
-        );
-      })
-      .catch(showError);
-    return () => {
-      cancelled = true;
-    };
-  }, [message.id, message.mentionUserIds]);
 
   async function start() {
     if (!title.trim() || busy) return;
@@ -97,22 +88,20 @@ export function StartWorkDialog({ message, onClose }: Props) {
 
         <fieldset className="admin-scope-list">
           <legend className="field-label">Bring</legend>
-          {bots.length === 0 && (
+          {bots?.length === 0 && (
             <span className="pref-hint">No agents are installed here yet.</span>
           )}
-          {bots.map((bot) => (
+          {(bots ?? []).map((bot) => (
             <label key={bot.id} className="admin-scope-row">
               <input
                 type="checkbox"
                 checked={chosen.has(bot.id)}
-                onChange={() =>
-                  setChosen((current) => {
-                    const next = new Set(current);
-                    if (next.has(bot.id)) next.delete(bot.id);
-                    else next.add(bot.id);
-                    return next;
-                  })
-                }
+                onChange={() => {
+                  const next = new Set(chosen);
+                  if (next.has(bot.id)) next.delete(bot.id);
+                  else next.add(bot.id);
+                  setPicked(next);
+                }}
               />
               <span>
                 {bot.name}
