@@ -583,3 +583,11 @@ async def bot_user_id(session: AsyncSession, plugin_id: str) -> str | None:
         )
     ).fetchone()
     return row.id if row else None
+
+
+#: Whether an agent can be reached by a mention at all: an address, a connection it
+#: opened itself, or no network at all — a socket agent has no `agui_url` and the
+#: built-in agent has neither end, so the URL test alone would filter out both. Two
+#: queries ask this and had each written it out; a mention that reaches one and not
+#: the other is exactly the bug the traps list records.
+MENTIONABLE_AGENT = "(p.agui_url IS NOT NULL OR p.runtime IN ('socket', 'builtin'))"

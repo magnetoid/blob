@@ -52,3 +52,31 @@ def conflict(message: str, code: str = "conflict") -> AppError:
 
 def too_many_requests(message: str = "Too many attempts. Try again shortly.") -> AppError:
     return AppError(429, "rate_limited", message)
+
+
+# The sentences the routes say most. One place, so the words cannot drift between the
+# twelve routes that refuse a missing message.
+
+
+def message_gone() -> AppError:
+    return not_found("That message is gone.")
+
+
+def channel_gone() -> AppError:
+    return not_found("That channel no longer exists.")
+
+
+def thread_gone() -> AppError:
+    return not_found("That thread no longer exists.")
+
+
+def no_such_person() -> AppError:
+    return not_found("There is no such person here.")
+
+
+def no_such_group() -> AppError:
+    return not_found("There is no such group here.")
+
+
+def no_such_file() -> AppError:
+    return not_found("No such file.")

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, require_admin
 from ..lib.ids import IdParam
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, OkOut
 from ..services import audit as audit_service
 from ..services import themes as theme_service
 from ..services.audit import actor_for
@@ -34,10 +34,6 @@ class SaveThemeInput(CamelModel):
     mode: str
     tokens: dict[str, str]
     is_enabled: bool = True
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 def slugify(name: str) -> str:

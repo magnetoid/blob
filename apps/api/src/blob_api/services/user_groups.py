@@ -17,7 +17,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import bad_request, not_found
+from ..lib.errors import bad_request, no_such_group
 from ..lib.ids import new_id
 from . import handles as handle_service
 
@@ -97,7 +97,7 @@ async def rename(
 ) -> None:
     current = await by_id(session, workspace_id, group_id)
     if current is None:
-        raise not_found("There is no such group here.")
+        raise no_such_group()
 
     await session.execute(
         text(
@@ -139,7 +139,7 @@ async def delete(session: AsyncSession, workspace_id: str, group_id: str) -> Non
         )
     ).fetchone()
     if removed is None:
-        raise not_found("There is no such group here.")
+        raise no_such_group()
 
 
 async def add_member(session: AsyncSession, workspace_id: str, group_id: str, user_id: str) -> None:
@@ -174,7 +174,7 @@ async def add_member(session: AsyncSession, workspace_id: str, group_id: str, us
         # Either already a member (fine, idempotent) or not addable at all. Tell the two
         # apart with one read rather than guessing.
         if not await exists(session, workspace_id, group_id):
-            raise not_found("There is no such group here.")
+            raise no_such_group()
 
 
 async def remove_member(

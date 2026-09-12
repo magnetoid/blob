@@ -37,6 +37,7 @@ from ..lib.queue import enqueue, fire_and_forget
 from ..lib.redis import redis, redis_sub
 from ..plugins import agui, builtin, decisions, run_card
 from ..plugins import events as plugin_events
+from ..plugins.registry import MENTIONABLE_AGENT
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub, presence
 from ..realtime.protocol import TYPING_TTL_MS
@@ -77,7 +78,7 @@ async def listeners_for(
     rows = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
                        p.runtime, s.signing_secret, w.name AS workspace_name
                   FROM plugins p
@@ -89,7 +90,7 @@ async def listeners_for(
                    -- An address, a connection it opened itself, or no network at all.
                    -- A socket agent has no agui_url and the built-in agent has neither
                    -- end, so the URL test alone would filter out every one of both.
-                   AND (p.agui_url IS NOT NULL OR p.runtime IN ('socket', 'builtin'))
+                   AND {MENTIONABLE_AGENT}
                    AND u.id = ANY(cast(:ids AS uuid[]))
                    AND u.deactivated_at IS NULL
                    AND EXISTS (

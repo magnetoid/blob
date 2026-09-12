@@ -12,12 +12,12 @@ from sqlalchemy import text
 from ..db.engine import session_scope, transaction
 from ..lib import llm
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import forbidden, not_found
+from ..lib.errors import forbidden, not_found, thread_gone
 from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
 from ..lib.redis import redis
 from ..plugins import events as plugin_events
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import AgentTask, ThreadSummary
 from ..schemas.requests import CreateAgentTaskInput, UpdateAgentTaskInput
 from ..services import agent_chains
@@ -49,7 +49,7 @@ async def _root_message(message_id: str, user: SessionUser) -> tuple[str, str]:
     async with session_scope() as session:
         root = await message_service.by_id(session, message_id)
         if root is None:
-            raise not_found("That thread no longer exists.")
+            raise thread_gone()
         thread_root_id = root.thread_root_id or root.id
         await channel_service.assert_channel_access(session, user.id, root.channel_id)
         return thread_root_id, root.channel_id
@@ -345,10 +345,6 @@ async def catch_me_up(
 
 class AgentRunsOut(CamelModel):
     runs: list[dict[str, Any]]
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 @router.get("/api/channels/{channel_id}/agent-runs", response_model=AgentRunsOut)

@@ -13,7 +13,7 @@ from typing import Literal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import conflict, forbidden, not_found, unique_violation
+from ..lib.errors import channel_gone, conflict, forbidden, not_found, unique_violation
 from ..lib.ids import new_id
 from ..schemas.base import require_iso
 from ..schemas.models import BrowsableChannel, ChannelWithState
@@ -193,13 +193,13 @@ async def assert_channel_access(
     ).fetchone()
 
     if row is None:
-        raise not_found("That channel no longer exists.")
+        raise channel_gone()
 
     is_member = row.member is not None
     is_public = row.kind == "public"
 
     if not is_member and not is_public:
-        raise not_found("That channel no longer exists.")
+        raise channel_gone()
     if not is_member and require_member:
         raise forbidden("Join the channel first.")
     if require_writable and row.archived_at is not None:

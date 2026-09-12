@@ -15,11 +15,11 @@ from fastapi import APIRouter, Depends, Request
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, require_admin
-from ..lib.errors import conflict, not_found, unique_violation
+from ..lib.errors import conflict, no_such_group, not_found, unique_violation
 from ..lib.ids import IdParam
 from ..realtime import hub
-from ..schemas.base import CamelModel
-from ..schemas.models import UserGroup
+from ..schemas.base import CamelModel, OkOut
+from ..schemas.models import MembersOut, UserGroup
 from ..schemas.requests import CreateGroupInput, MuteGroupInput, UpdateGroupInput
 from ..services import audit as audit_service
 from ..services import user_groups as group_service
@@ -35,14 +35,6 @@ class GroupsOut(CamelModel):
 
 class GroupOut(CamelModel):
     group: UserGroup
-
-
-class MembersOut(CamelModel):
-    user_ids: list[IdParam]
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 def _out(group: group_service.Group) -> UserGroup:
@@ -113,7 +105,7 @@ async def create_group(
             out = _out(group)
             after.add(lambda: _upserted(admin.workspace_id, out))
     if group is None:
-        raise not_found("There is no such group here.")
+        raise no_such_group()
     return GroupOut(group=_out(group))
 
 
@@ -153,7 +145,7 @@ async def update_group(
             out = _out(group)
             after.add(lambda: _upserted(admin.workspace_id, out))
     if group is None:
-        raise not_found("There is no such group here.")
+        raise no_such_group()
     return GroupOut(group=_out(group))
 
 
@@ -184,7 +176,7 @@ async def list_members(
 ) -> MembersOut:
     async with session_scope() as session:
         if not await group_service.exists(session, admin.workspace_id, group_id):
-            raise not_found("There is no such group here.")
+            raise no_such_group()
         ids = await group_service.member_ids(session, group_id)
     return MembersOut(user_ids=ids)
 

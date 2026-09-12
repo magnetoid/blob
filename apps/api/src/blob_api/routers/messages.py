@@ -17,15 +17,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user, hash_token
-from ..lib.errors import forbidden, not_found
+from ..lib.errors import forbidden, message_gone
 from ..lib.ids import IdParam, new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
 from ..lib.times import parse_client_time, parse_future_time
 from ..plugins import events as plugin_events
 from ..realtime import hub
-from ..schemas.base import CamelModel
-from ..schemas.models import Message, MessageTranslation, ReadStateOut, ScheduledMessage
+from ..schemas.base import CamelModel, OkOut
+from ..schemas.models import (
+    Message,
+    MessageOut,
+    MessagesOut,
+    MessageTranslation,
+    ReadStateOut,
+    ScheduledMessage,
+)
 from ..schemas.requests import (
     EditMessageInput,
     FollowThreadInput,
@@ -57,14 +64,6 @@ class HistoryOut(CamelModel):
     has_more: bool
 
 
-class MessagesOut(CamelModel):
-    messages: list[Message]
-
-
-class MessageOut(CamelModel):
-    message: Message
-
-
 class MessageTranslationOut(CamelModel):
     translation: MessageTranslation
 
@@ -76,10 +75,6 @@ class ReadStateResponse(CamelModel):
 class ReadStatesOut(CamelModel):
     read_states: list[ReadStateOut]
     total_mentions: int
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 def _plugin_drain() -> None:
@@ -111,7 +106,7 @@ async def load_message_for(
     """
     message = await message_service.by_id(session, message_id)
     if message is None or (message.deleted_at is not None and not allow_deleted):
-        raise not_found("That message is gone.")
+        raise message_gone()
     await channel_service.assert_channel_access(
         session,
         user.id,
@@ -596,7 +591,7 @@ async def mark_unread(
         )
         message = await message_service.by_id(session, payload.message_id)
         if message is None or message.channel_id != channel_id:
-            raise not_found("That message is gone.")
+            raise message_gone()
         state = await read_state_service.mark_unread(
             session, user.id, channel_id, payload.message_id
         )

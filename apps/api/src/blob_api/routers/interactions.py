@@ -19,7 +19,7 @@ from sqlalchemy import text
 
 from ..db.engine import transaction
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import bad_request, not_found
+from ..lib.errors import bad_request, message_gone
 from ..lib.ids import IdParam
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
@@ -27,7 +27,7 @@ from ..lib.redis import redis
 from ..plugins import decisions
 from ..plugins import events as plugin_events
 from ..plugins.blocks import action_ids_of
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, OkOut
 from ..services import agent_chains
 from ..services import channels as channel_service
 
@@ -43,10 +43,6 @@ class InteractionInput(CamelModel):
     #: not two — the same contract every other write in the API honours. Optional
     #: because a bare curl is still a legitimate caller.
     client_action_id: str | None = Field(default=None, max_length=64)
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 @router.post("/api/interactions", response_model=OkOut)
@@ -70,7 +66,7 @@ async def interact(payload: InteractionInput, user: SessionUser = Depends(curren
         ).fetchone()
 
         if row is None or row.deleted_at is not None:
-            raise not_found("That message is gone.")
+            raise message_gone()
 
         # Being able to press the button requires being able to see the message.
         await channel_service.assert_channel_access(session, user.id, str(row.channel_id))

@@ -7,13 +7,13 @@ from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import forbidden, not_found
+from ..lib.errors import channel_gone, forbidden, not_found
 from ..lib.ids import IdParam
 from ..lib.queue import enqueue, fire_and_forget
 from ..plugins import events as plugin_events
 from ..realtime import hub
-from ..schemas.base import CamelModel
-from ..schemas.models import BrowsableChannel, ChannelWithState, Message
+from ..schemas.base import CamelModel, OkOut
+from ..schemas.models import BrowsableChannel, ChannelWithState, MembersOut, MessagesOut
 from ..schemas.requests import (
     AddMembersInput,
     CreateChannelInput,
@@ -34,18 +34,6 @@ class ChannelsOut(CamelModel):
 
 class ChannelOut(CamelModel):
     channel: ChannelWithState | None = None
-
-
-class MembersOut(CamelModel):
-    user_ids: list[IdParam]
-
-
-class MessagesOut(CamelModel):
-    messages: list[Message]
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 @router.get("/api/channels", response_model=ChannelsOut)
@@ -136,7 +124,7 @@ async def get_channel(channel_id: IdParam, user: SessionUser = Depends(current_u
         await channel_service.assert_channel_access(session, user.id, channel_id)
         channel = await channel_service.get_for_user(session, channel_id, user.id)
     if channel is None:
-        raise not_found("That channel no longer exists.")
+        raise channel_gone()
     return ChannelOut(channel=channel)
 
 

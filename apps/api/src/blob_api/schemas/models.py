@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import Field, field_validator
 
+from ..lib.ids import IdParam
 from .base import CamelModel
 
 UserRole = Literal["member", "admin", "owner"]
@@ -387,3 +388,18 @@ class FeedbackTicket(CamelModel):
     created_at: str
     resolved_at: str | None = None
     resolved_by: str | None = None
+
+
+# ─── envelopes two routers each used to declare ──────────────────────────────
+
+
+class MessageOut(CamelModel):
+    message: Message
+
+
+class MessagesOut(CamelModel):
+    messages: list[Message]
+
+
+class MembersOut(CamelModel):
+    user_ids: list[IdParam]

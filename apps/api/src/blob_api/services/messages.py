@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import bad_request, forbidden, not_found
+from ..lib.errors import bad_request, forbidden, message_gone, thread_gone
 from ..lib.ids import new_id
 from ..lib.mentions import MentionTarget, mention_lookup_phrases, parse_mentions
 from ..schemas.base import require_iso
@@ -125,7 +125,7 @@ async def send(
             )
         ).fetchone()
         if root is None or root.channel_id != channel_id:
-            raise not_found("That thread no longer exists.")
+            raise thread_gone()
 
     # Idempotency: a retry of the same client_msg_id stores nothing new.
     inserted = (
@@ -432,7 +432,7 @@ async def edit(
         )
     ).fetchone()
     if existing is None or existing.deleted_at is not None:
-        raise not_found("That message is gone.")
+        raise message_gone()
     if existing.author_id != user_id:
         raise forbidden("You can only edit your own messages.")
 
@@ -459,7 +459,7 @@ async def edit(
 
     message = await by_id(session, message_id)
     if message is None:
-        raise not_found("That message is gone.")
+        raise message_gone()
     return message
 
 
@@ -509,7 +509,7 @@ async def remove(
         )
     ).fetchone()
     if existing is None or existing.deleted_at is not None:
-        raise not_found("That message is gone.")
+        raise message_gone()
     if existing.author_id != user_id and not is_admin:
         raise forbidden("You can only delete your own messages.")
 
@@ -549,7 +549,7 @@ async def set_pinned(session: AsyncSession, message_id: str, user_id: str, pinne
     )
     message = await by_id(session, message_id)
     if message is None:
-        raise not_found("That message is gone.")
+        raise message_gone()
     return message
 
 

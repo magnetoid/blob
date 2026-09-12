@@ -37,7 +37,7 @@ from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
 from ..plugins import gateway, registry
 from ..plugins.manifest import Manifest
-from ..schemas.base import CamelModel, require_iso
+from ..schemas.base import CamelModel, OkOut, require_iso
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import commands as command_service
@@ -93,10 +93,6 @@ class AgentChannelsOut(CamelModel):
     channels: list[AgentChannel]
 
 
-class OkOut(CamelModel):
-    ok: bool = True
-
-
 @router.get("/bridge", response_class=PlainTextResponse)
 async def bridge_source(_user: SessionUser = Depends(current_user)) -> str:
     """The bridge script, for anybody with an agent to connect.
@@ -134,12 +130,12 @@ async def list_available(user: SessionUser = Depends(current_user)) -> Workspace
         rows = (
             await session.execute(
                 text(
-                    """
+                    f"""
                     SELECT p.id, p.name, p.runtime, p.owner_user_id, u.id AS bot_user_id
                       FROM plugins p JOIN users u ON u.bot_plugin_id = p.id
                      WHERE p.workspace_id = :ws AND p.status = 'enabled'
                        AND u.deactivated_at IS NULL
-                       AND (p.agui_url IS NOT NULL OR p.runtime IN ('socket', 'builtin'))
+                       AND {registry.MENTIONABLE_AGENT}
                        AND (p.owner_user_id IS NULL OR p.owner_user_id = :me)
                      ORDER BY p.owner_user_id IS NOT NULL, lower(p.name)
                     """

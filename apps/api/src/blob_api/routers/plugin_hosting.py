@@ -23,11 +23,11 @@ from ..lib.ids import IdParam
 from ..plugins import registry, runner
 from ..plugins.env import RESERVED_NAMES as RESERVED_ENV_NAMES
 from ..plugins.env import is_reserved, validate_env
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, OkOut
 from ..services import agents as agent_service
 from ..services import policies as policy_service
 from ..services.audit import actor_for
-from .plugins import InstalledOut, OkOut, _assert_within_policy, _to_plugin
+from .plugins import InstalledOut, _assert_within_policy, _to_plugin
 
 router = APIRouter(tags=["admin"], prefix="/api/admin/plugins")
 

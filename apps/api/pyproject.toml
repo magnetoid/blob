@@ -20,8 +20,6 @@ dependencies = [
     "aiosmtplib>=3.0",
     "pywebpush>=2.0",
     "httpx>=0.28",
-    "orjson>=3.10",
-    "python-multipart>=0.0.20",
     # Thumbnails. The only image work this server does: decode, rotate upright, resize,
     # re-encode — which also drops the EXIF a phone photo arrives with.
     "pillow>=11.0",

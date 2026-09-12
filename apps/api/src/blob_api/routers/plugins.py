@@ -32,7 +32,7 @@ from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam
 from ..plugins import gateway, registry
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
-from ..schemas.base import CamelModel, iso, require_iso
+from ..schemas.base import CamelModel, OkOut, iso, require_iso
 from ..services import agent_runs as agent_run_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
@@ -157,10 +157,6 @@ class TokenOut(CamelModel):
 
 class SecretOut(CamelModel):
     signing_secret: str
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 def _to_delivery(row: Any) -> DeliveryOut:

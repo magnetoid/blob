@@ -108,9 +108,9 @@ the console existed (approvals, storage, import-export; moderation is deleted, s
 | `text(` in routers | 131 | ≤ 50 | admin, auth, users, plugins, files move to services |
 | Functions ≥ 200 lines | 4 | 0 | W6 splits along seams already named |
 | Local pytest wall time | 14:54 | ≤ 8 min | test-profile argon2 + `pytest-xdist -n 4` (W1) — **6:03 on the first run** |
-| Client source lines | 29,381 | ≤ 28,200 | dialog ×11 (~200), fetch ×17 (~150), empty-state ×21 (~120), formatters (~40), `schemas.ts` (~160), dead exports and methods (~30), duplicated state (~100), then W10's generated types (~400) |
+| Client source lines | 29,381 (29,093 after W3) | ≤ 28,200 | dialog ×11 (~200), fetch ×17 (~150), empty-state ×21 (~120), formatters (~40), `schemas.ts` (~160), dead exports and methods (~30), duplicated state (~100), then W10's generated types (~400) |
 | Main chunk (raw) | 1,071 KB | ≤ 600 KB and **0** `livekit` references | LiveKit lazy (W2) — **325 KB after W2**, the meetup view its own 692 KB chunk |
-| `style={{` / `let cancelled` / `trapFocus` | 241 / 17 / 11 | ≤ 60 / 0 / 1 | W3, W7 |
+| `style={{` / `let cancelled` / `trapFocus` | 241 / 17 / 11 | ≤ 60 / 0 / 1 | W3, W7 — **after W3: 239 / 3 / 0**; the three left are the bootstrap, the permalink jump, and the thread panel W7 takes apart |
 | `app.css` | 7,210 | ≤ 6,700 | 130 dead + backdrop, empty-state and field consolidation; tokens.css untouched |
 | `docs/` + root plans | 17 + 2 | 5 + none | W1 |
 
@@ -176,6 +176,20 @@ the console existed (approvals, storage, import-export; moderation is deleted, s
   and delete their rules. Metric: `trapFocus` sites = 1 (Dialog), `let cancelled` = 0.
 
 ### W4 (Oct 5–11) · Backend mechanical dedupe — M
+
+*Done 2026-09-12, with four corrections the code forced.* The plugin-row `Depends` would
+have moved a read outside the request's transaction, so the 18 one-line prologues stay
+where the transaction is. Folding `actor_for` into `record` saves no lines (every call is
+already one argument per line) and was dropped. The four "uncalled" routes all have
+tests holding them — `GET /api/channels/{id}` is how the privacy test proves a private
+channel answers 404 to an outsider — so they stay; tests are callers of record. The
+`bot_api` prologues move in W5 with `load_message_for` itself, since a router importing
+another router's helper would break a property the codebase currently keeps. Shipped:
+`OkOut` ×17 → `schemas/base.py`, the three shared envelopes, six error-phrase
+factories, one membership arm in the activity feed, one mention-ability predicate,
+`forget` and the two unused dependencies gone. It also caught a real ordering defect:
+the agent socket sent `ready` before writing presence.
+
 
 - `OkOut` → `schemas/base.py` (17 → 1); the pairwise twins (`MessageOut`,
   `MessagesOut`, `MembersOut`, `ChannelsOut`, `UsersOut`, `ReactionInput`,

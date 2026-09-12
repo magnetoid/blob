@@ -59,10 +59,6 @@ class ArtifactOut(CamelModel):
     artifact: work_service.Artifact
 
 
-class OkOut(CamelModel):
-    ok: bool = True
-
-
 def work_event(work: work_service.Work) -> dict[str, Any]:
     """`work.updated`: the record changed — an artifact landed, or it finished."""
     return {

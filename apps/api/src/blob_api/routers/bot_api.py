@@ -24,7 +24,7 @@ from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib import llm
-from ..lib.errors import bad_request, not_found
+from ..lib.errors import bad_request, message_gone, not_found, thread_gone
 from ..lib.ids import IdParam, new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
@@ -32,7 +32,7 @@ from ..plugins import events as plugin_events
 from ..plugins.auth import BotCaller, current_bot, requires
 from ..plugins.blocks import validate_blocks
 from ..realtime import hub
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import AgentTask, Channel, Message, ThreadSummary, User
 from ..schemas.requests import CreateAgentTaskInput, UpdateAgentTaskInput
 from ..services import agentic as agentic_service
@@ -91,10 +91,6 @@ class ReactionInput(CamelModel):
 
 class JoinInput(CamelModel):
     channel: str
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 class ChannelsOut(CamelModel):
@@ -240,7 +236,7 @@ async def update_message(
     async with transaction() as (session, after):
         existing = await message_service.by_id(session, payload.message_id)
         if existing is None:
-            raise not_found("That message is gone.")
+            raise message_gone()
         # Editing someone else's message is a different, larger permission.
         if existing.author_id != bot.user_id and not bot.has("messages:moderate"):
             raise bad_request("This app can only edit its own messages.", code="not_own_message")
@@ -287,7 +283,7 @@ async def delete_message(
     async with transaction() as (session, after):
         existing = await message_service.by_id(session, payload.message_id)
         if existing is None:
-            raise not_found("That message is gone.")
+            raise message_gone()
         moderating = existing.author_id != bot.user_id
         if moderating and not bot.has("messages:moderate"):
             raise bad_request("This app can only delete its own messages.", code="not_own_message")
@@ -397,7 +393,7 @@ async def add_reaction(
     async with transaction() as (session, after):
         existing = await message_service.by_id(session, payload.message_id)
         if existing is None:
-            raise not_found("That message is gone.")
+            raise message_gone()
         await channel_service.assert_channel_access(
             session, bot.user_id, existing.channel_id, require_member=True
         )
@@ -496,7 +492,7 @@ async def summarize_thread(
     async with session_scope() as session:
         root = await message_service.by_id(session, payload.message_id)
         if root is None:
-            raise not_found("That thread no longer exists.")
+            raise thread_gone()
         thread_root_id = root.thread_root_id or root.id
         await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
         messages, names = await agentic_service.read_thread(session, thread_root_id)
@@ -543,7 +539,7 @@ async def create_task(
     async with transaction() as (session, _after):
         root = await message_service.by_id(session, thread_root_id)
         if root is None:
-            raise not_found("That thread no longer exists.")
+            raise thread_gone()
         actual_root_id = root.thread_root_id or root.id
         await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
         task = await agentic_service.create_task(
@@ -631,7 +627,7 @@ async def list_tasks(
         if thread_root_id:
             root = await message_service.by_id(session, thread_root_id)
             if root is None:
-                raise not_found("That thread no longer exists.")
+                raise thread_gone()
             actual_root_id = root.thread_root_id or root.id
             await channel_service.assert_channel_access(session, bot.user_id, root.channel_id)
             tasks = await agentic_service.list_tasks_for_thread(session, actual_root_id)

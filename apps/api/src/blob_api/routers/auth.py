@@ -29,7 +29,7 @@ from ..lib.ids import new_id, new_token
 from ..lib.mail import send_invite, send_password_reset
 from ..lib.rate_limit import consume
 from ..realtime import hub
-from ..schemas.base import CamelModel, iso
+from ..schemas.base import CamelModel, OkOut, iso
 from ..schemas.models import CurrentUser
 from ..schemas.requests import (
     CreateInviteInput,
@@ -54,10 +54,6 @@ class AuthStateOut(CamelModel):
 
 class SessionOut(CamelModel):
     user: CurrentUser
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 class ForgotOut(CamelModel):

@@ -25,17 +25,13 @@ from ..lib.auth import SessionUser, require_instance_admin
 from ..lib.errors import bad_request
 from ..lib.ids import IdParam
 from ..plugins.manifest import SCOPES
-from ..schemas.base import CamelModel, iso
+from ..schemas.base import CamelModel, OkOut, iso
 from ..services import audit as audit_service
 from ..services import policies as policy_service
 from ..services import workspaces as workspace_service
 from ..services.audit import actor_for
 
 router = APIRouter(tags=["admin"], prefix="/api/admin")
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 class InstanceUser(CamelModel):

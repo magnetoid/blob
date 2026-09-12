@@ -15,7 +15,7 @@ from ..lib.auth import SessionUser, current_user, require_admin
 from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
 from ..lib.storage import get_object
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import FeedbackTicket
 from ..schemas.requests import FeedbackInput, FeedbackStatusInput
 from ..services import feedback as feedback_service
@@ -30,10 +30,6 @@ class TicketOut(CamelModel):
 
 class TicketsOut(CamelModel):
     tickets: list[FeedbackTicket]
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 @router.post("/api/feedback", response_model=TicketOut, status_code=201)

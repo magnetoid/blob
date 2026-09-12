@@ -23,6 +23,17 @@ class CamelModel(BaseModel):
     )
 
 
+class OkOut(CamelModel):
+    """The answer to a request that has nothing to say beyond "done".
+
+    Seventeen routers each declared this two-liner for themselves, which is seventeen
+    identically named classes in one OpenAPI document — the generator had to invent
+    suffixes to tell them apart.
+    """
+
+    ok: bool = True
+
+
 def iso(value: datetime | str | None) -> str | None:
     """Serialize a timestamp the way the client already expects.
 

@@ -195,6 +195,12 @@ async def record_reaction(
     )
 
 
+#: One membership arm for the three UNION branches of the feed. Three hand-written
+#: copies of one join is the shape the traps list names — fix one branch of a
+#: dispatcher and not the others — written into SQL.
+MEMBER_OF_THE_CHANNEL = """JOIN channel_members cm
+      ON cm.channel_id = m.channel_id AND cm.user_id = cast(:user_id AS uuid)"""
+
 _FEED = f"""
 WITH my_groups AS (
   SELECT group_id FROM user_group_members WHERE user_id = cast(:user_id AS uuid)
@@ -208,8 +214,7 @@ events AS (
          m.author_id AS actor_id,
          NULL::text AS emoji
     FROM messages m
-    JOIN channel_members cm
-      ON cm.channel_id = m.channel_id AND cm.user_id = cast(:user_id AS uuid)
+    {MEMBER_OF_THE_CHANNEL}
    WHERE m.workspace_id = cast(:workspace_id AS uuid)
      AND m.deleted_at IS NULL
      AND m.author_id IS DISTINCT FROM cast(:user_id AS uuid)
@@ -228,8 +233,7 @@ events AS (
          r.emoji AS emoji
     FROM reactions r
     JOIN messages m ON m.id = r.message_id
-    JOIN channel_members cm
-      ON cm.channel_id = m.channel_id AND cm.user_id = cast(:user_id AS uuid)
+    {MEMBER_OF_THE_CHANNEL}
    WHERE m.workspace_id = cast(:workspace_id AS uuid)
      AND m.deleted_at IS NULL
      AND m.author_id = cast(:user_id AS uuid)
@@ -246,8 +250,7 @@ events AS (
          e.emoji AS emoji
     FROM activity_events e
     JOIN messages m ON m.id = e.message_id
-    JOIN channel_members cm
-      ON cm.channel_id = m.channel_id AND cm.user_id = cast(:user_id AS uuid)
+    {MEMBER_OF_THE_CHANNEL}
    WHERE e.workspace_id = cast(:workspace_id AS uuid)
      AND e.user_id = cast(:user_id AS uuid)
      AND e.kind IN ('reminder', 'recap')

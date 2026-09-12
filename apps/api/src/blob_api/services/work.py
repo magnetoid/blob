@@ -33,7 +33,7 @@ from typing import Any, Literal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import bad_request, conflict, forbidden, not_found
+from ..lib.errors import bad_request, conflict, forbidden, message_gone, not_found
 from ..lib.ids import new_id
 from ..schemas.base import CamelModel, require_iso
 from . import channels as channel_service
@@ -181,7 +181,7 @@ async def start(
 
     root = await message_service.by_id(session, root_message_id)
     if root is None or root.deleted_at:
-        raise not_found("That message is gone.")
+        raise message_gone()
     # Starting from a message you can see, in a channel you are in.
     await channel_service.assert_channel_access(
         session, user_id, root.channel_id, require_member=True
@@ -193,7 +193,7 @@ async def start(
         )
     ).fetchone()
     if source is None:
-        raise not_found("That message is gone.")
+        raise message_gone()
 
     bots = await _bots_for(session, workspace_id, user_id, agent_plugin_ids)
 

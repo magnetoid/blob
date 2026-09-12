@@ -19,7 +19,7 @@ from sqlalchemy import text
 from ..db.engine import session_scope, transaction
 from ..lib import images, magic
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import bad_request, not_found
+from ..lib.errors import bad_request, no_such_file, not_found
 from ..lib.ids import IdParam, looks_like_id, new_id
 from ..lib.rate_limit import consume
 from ..lib.storage import (
@@ -33,7 +33,7 @@ from ..lib.storage import (
     public_file_url,
     put_object,
 )
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import Attachment
 from ..schemas.requests import UploadCompleteInput, UploadRequestInput
 from ..services.workspace_settings import load as load_settings
@@ -65,10 +65,6 @@ class UploadTicket(CamelModel):
     upload_url: str
     method: str = "PUT"
     headers: dict[str, str]
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 class FileEntry(Attachment):
@@ -117,7 +113,7 @@ async def list_attachments(
     if kind not in {"all", "image", "file"}:
         raise bad_request("kind must be all, image, or file.")
     if channel_id and not looks_like_id(channel_id):
-        raise not_found("No such file.")
+        raise no_such_file()
     if cursor and not looks_like_id(cursor):
         raise bad_request("That files cursor is not one we issued.")
 
@@ -135,7 +131,7 @@ async def list_attachments(
                 )
             ).fetchone()
             if member is None:
-                raise not_found("No such file.")
+                raise no_such_file()
 
         rows = (
             await session.execute(
@@ -355,7 +351,7 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
     """
     key = unquote(object_key)
     if not key:
-        raise not_found("No such file.")
+        raise no_such_file()
 
     async with session_scope() as session:
         file = (
@@ -401,7 +397,7 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
                 )
             ).fetchone()
             if shared is None:
-                raise not_found("No such file.")
+                raise no_such_file()
             return _redirect(presign_download(key, mime="image/png"))
 
     assert file is not None  # allowed implies a row

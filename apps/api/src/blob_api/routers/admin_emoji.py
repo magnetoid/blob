@@ -16,7 +16,7 @@ from sqlalchemy import text
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, require_admin
 from ..lib.errors import bad_request, conflict, not_found
-from ..schemas.base import CamelModel, iso
+from ..schemas.base import CamelModel, OkOut, iso
 from ..services import audit as audit_service
 from ..services.audit import actor_for
 
@@ -25,10 +25,6 @@ router = APIRouter(tags=["admin"], prefix="/api/admin")
 #: A shortcode without its colons. Deliberately the same shape `markdown.tsx` matches, or
 #: an admin could add an emoji that no message is able to reference.
 EMOJI_NAME_RE = re.compile(r"^[a-z0-9_+-]{2,32}$")
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 class CustomEmojiOut(CamelModel):

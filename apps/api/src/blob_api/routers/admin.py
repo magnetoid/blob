@@ -25,11 +25,18 @@ from ..lib.auth import (
     require_admin,
     require_owner,
 )
-from ..lib.errors import bad_request, conflict, not_found, unique_violation
+from ..lib.errors import (
+    bad_request,
+    channel_gone,
+    conflict,
+    no_such_person,
+    not_found,
+    unique_violation,
+)
 from ..lib.ids import IdParam, new_id, new_token
 from ..lib.redis import redis
 from ..realtime import hub
-from ..schemas.base import CamelModel, iso, require_iso
+from ..schemas.base import CamelModel, OkOut, iso, require_iso
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import handles as handle_service
@@ -155,10 +162,6 @@ class HealthOut(CamelModel):
     version: str
 
 
-class OkOut(CamelModel):
-    ok: bool = True
-
-
 class WebhookOut(CamelModel):
     id: str
     name: str
@@ -265,7 +268,7 @@ async def set_role(
             )
         ).fetchone()
         if target is None:
-            raise not_found("There is no such person here.")
+            raise no_such_person()
         if target.role == payload.role:
             return OkOut()
         if target.id == owner.id:
@@ -325,7 +328,7 @@ async def deactivate(
             )
         ).fetchone()
         if target is None:
-            raise not_found("There is no such person here.")
+            raise no_such_person()
         if target.role == "owner":
             raise bad_request("The workspace owner cannot be deactivated.")
 
@@ -380,7 +383,7 @@ async def reactivate(
             )
         ).fetchone()
         if name is None:
-            raise not_found("There is no such person here.")
+            raise no_such_person()
         try:
             await handle_service.claim(
                 session, admin.workspace_id, name.display_name, user_id=user_id
@@ -436,7 +439,7 @@ async def revoke_sessions(
             )
         ).fetchone()
         if target is None:
-            raise not_found("There is no such person here.")
+            raise no_such_person()
         await session.execute(text("DELETE FROM sessions WHERE user_id = :id"), {"id": user_id})
         await audit_service.record(
             session,
@@ -603,7 +606,7 @@ async def archive_any_channel(
             )
         ).fetchall()
         if not rows:
-            raise not_found("That channel no longer exists.")
+            raise channel_gone()
         await audit_service.record(
             session,
             actor_for(request, admin),
@@ -646,7 +649,7 @@ async def unarchive_any_channel(
             )
         ).fetchall()
         if not rows:
-            raise not_found("That channel no longer exists.")
+            raise channel_gone()
         await audit_service.record(
             session,
             actor_for(request, admin),
@@ -970,7 +973,7 @@ async def create_webhook(
             )
         ).fetchone()
         if channel is None:
-            raise not_found("That channel no longer exists.")
+            raise channel_gone()
 
         row = (
             await session.execute(

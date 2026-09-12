@@ -12,13 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import bad_request, conflict, not_found, unique_violation
+from ..lib.errors import bad_request, conflict, no_such_person, not_found, unique_violation
 from ..lib.ids import IdParam, new_id
 from ..lib.storage import is_inline_image, public_file_url
 from ..lib.times import parse_client_time
 from ..lib.webpush import push as push_all
 from ..realtime import hub
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import (
     Bootstrap,
     CommandSpec,
@@ -60,10 +60,6 @@ class CurrentUserOut(CamelModel):
 
 class PrefsOut(CamelModel):
     prefs: UserPrefs
-
-
-class OkOut(CamelModel):
-    ok: bool = True
 
 
 @router.get("/api/bootstrap", response_model=Bootstrap)
@@ -374,7 +370,7 @@ async def get_user(user_id: IdParam, user: SessionUser = Depends(current_user)) 
             )
         ).fetchone()
     if row is None:
-        raise not_found("There is no such person here.")
+        raise no_such_person()
     return UserOut(user=to_user(row))
 
 

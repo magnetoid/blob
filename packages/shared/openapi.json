@@ -4527,6 +4527,7 @@
         "type": "object"
       },
       "OkOut": {
+        "description": "The answer to a request that has nothing to say beyond \"done\".\n\nSeventeen routers each declared this two-liner for themselves, which is seventeen\nidentically named classes in one OpenAPI document \u2014 the generator had to invent\nsuffixes to tell them apart.",
         "properties": {
           "ok": {
             "default": true,
@@ -8043,18 +8044,6 @@
         "title": "ChannelsOut",
         "type": "object"
       },
-      "blob_api__routers__messages__MessageOut": {
-        "properties": {
-          "message": {
-            "$ref": "#/components/schemas/Message"
-          }
-        },
-        "required": [
-          "message"
-        ],
-        "title": "MessageOut",
-        "type": "object"
-      },
       "blob_api__routers__plugins__AgentRunsOut": {
         "properties": {
           "runs": {
@@ -8085,6 +8074,18 @@
           "users"
         ],
         "title": "UsersOut",
+        "type": "object"
+      },
+      "blob_api__schemas__models__MessageOut": {
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "MessageOut",
         "type": "object"
       },
       "blob_api__schemas__requests__EditMessageInput": {
@@ -12783,7 +12784,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/blob_api__routers__messages__MessageOut"
+                  "$ref": "#/components/schemas/blob_api__schemas__models__MessageOut"
                 }
               }
             },
@@ -14197,7 +14198,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/blob_api__routers__messages__MessageOut"
+                  "$ref": "#/components/schemas/blob_api__schemas__models__MessageOut"
                 }
               }
             },
@@ -14248,7 +14249,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/blob_api__routers__messages__MessageOut"
+                  "$ref": "#/components/schemas/blob_api__schemas__models__MessageOut"
                 }
               }
             },
@@ -14301,7 +14302,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/blob_api__routers__messages__MessageOut"
+                  "$ref": "#/components/schemas/blob_api__schemas__models__MessageOut"
                 }
               }
             },

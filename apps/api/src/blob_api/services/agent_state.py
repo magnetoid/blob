@@ -56,22 +56,4 @@ async def save(
     )
 
 
-async def forget(session: AsyncSession, *, plugin_id: str, thread_key: str | None = None) -> int:
-    """Drop what an agent remembers — everywhere, or in one conversation."""
-    rows = (
-        await session.execute(
-            text(
-                """
-                DELETE FROM agent_state
-                 WHERE plugin_id = :p
-                   AND (cast(:t AS uuid) IS NULL OR thread_key = cast(:t AS uuid))
-                RETURNING thread_key
-                """
-            ),
-            {"p": plugin_id, "t": thread_key},
-        )
-    ).fetchall()
-    return len(rows)
-
-
-__all__ = ["forget", "load", "save"]
+__all__ = ["load", "save"]
