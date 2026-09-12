@@ -201,6 +201,16 @@ class Settings(BaseSettings):
         "WEB_DIST",
         "TRANSLATION_BASE_URL",
         "TRANSLATION_API_KEY",
+        # `.env.example` ships these with nothing after the equals, which is how you show
+        # that a setting exists and is optional. Without this they arrive as `""`, which
+        # is falsy — harmless everywhere the code writes `X or default`, and wrong in
+        # `lib/llm._takes_strict_json_schema`, which asks `is None` to mean "no override,
+        # so this really is OpenAI". An operator who copied the example file and set
+        # `LLM_PROVIDER=openai` was silently getting the weaker JSON hint on every
+        # summary, and nothing failed to say so.
+        "LLM_API_KEY",
+        "LLM_BASE_URL",
+        "LLM_MODEL",
         "COOLIFY_API_URL",
         "COOLIFY_TOKEN",
         "COOLIFY_PROJECT_UUID",
