@@ -6768,6 +6768,13 @@ button.person-trigger:hover {
   }
 }
 
+.thread-also-send {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px var(--pane-gutter) 0;
+}
+
 /* ─── threads you follow ──────────────────────────────────────────────────── */
 /* `muted` and `last_read_reply_id` sat on thread_subscriptions from the first migration
    with nothing reading them, so a thread you had read looked like one with ten new

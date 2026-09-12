@@ -300,7 +300,10 @@ thread list is touched rather than every open one. `store.identity.test.ts` pins
 reference identity of untouched lists. Writing it found a latent bug: an out-of-order
 live message (a reconnect replay) moved a channel's `lastMessageId` backwards, and every
 later message was then dropped from the open view until a reload; the pointer now keeps
-the newest id. Composer, ThreadPanel and `<Field>` are still to do.
+the newest id. `ThreadPanel.tsx` (815 lines, 21 `useState`) is 259 over `threadTools.ts` (one `useFetch`
+and one reducer), `ThreadSummary.tsx` and `ThreadTasks.tsx`, with `ThreadPanel.test.tsx`
+written first — root and replies, the `llm:` kicker, the follow toggle. Composer and
+`<Field>` are still to do.
 
 - `Composer.tsx` (1,238) → `useMentionAutocomplete.ts`, `useEmojiAutocomplete.ts`,
   `useSlashCommands.ts`, `AttachmentTray.tsx`, `FormatToolbar.tsx`, `SchedulePicker.tsx`.

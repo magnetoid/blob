@@ -1,107 +1,21 @@
 /** The right panel's thread view: root message plus its replies and agentic helpers. */
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import type {
-  AgentRunView,
-  AgentTask,
-  AgentTaskPriority,
-  AgentTaskStatus,
-  ThreadSummary,
-} from "@blob/shared";
-import { ApiError, api } from "../../lib/api.ts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { AgentRunView } from "@blob/shared";
+import { api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import { showError } from "../../lib/toasts.ts";
 import { draftKey } from "../../lib/drafts.ts";
-import { closeThread, showMessage } from "../../lib/navigation.ts";
-import { renderInline, renderMarkdown } from "../../lib/markdown.tsx";
+import { closeThread } from "../../lib/navigation.ts";
+import { useFetch } from "../../lib/useFetch.ts";
+import { byDisplayName } from "../../lib/format.ts";
 import { useMentionIndex } from "./mentionIndex.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
-import { CloseIcon, PlusIcon } from "../../components/Icon.tsx";
-import { byDisplayName } from "../../lib/format.ts";
-
-interface TaskDraft {
-  status: AgentTaskStatus;
-  priority: AgentTaskPriority;
-  assigneeUserId: string;
-  outcome: string;
-}
-
-const TASK_STATUS_OPTIONS: Array<{ value: AgentTaskStatus; label: string }> = [
-  { value: "todo", label: "To do" },
-  { value: "in_progress", label: "In progress" },
-  { value: "blocked", label: "Blocked" },
-  { value: "done", label: "Done" },
-  { value: "cancelled", label: "Cancelled" },
-];
-
-const TASK_PRIORITY_OPTIONS: Array<{
-  value: AgentTaskPriority;
-  label: string;
-}> = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "critical", label: "Critical" },
-];
-
-/** `llm:<model>` is the model; anything else is the keyword scan the server falls back to. */
-function isModelWritten(summary: ThreadSummary): boolean {
-  return summary.provider.startsWith("llm:");
-}
-
-function providerLabel(provider: string): string {
-  if (provider.startsWith("llm:")) {
-    const model = provider.slice("llm:".length);
-    return model ? `AI summary · ${model}` : "AI summary";
-  }
-  return "Keyword scan";
-}
-
-/** The message a line rests on, one press away — a summary you can check is one you can trust. */
-function Cite({ messageId }: { messageId: string | null }) {
-  if (!messageId) return null;
-  return (
-    <button
-      type="button"
-      className="summary-cite"
-      title="Go to the message"
-      aria-label="Go to the message"
-      onClick={() =>
-        void showMessage(messageId).then((shown) => {
-          if (!shown) showError(new Error("That message is no longer there."));
-        })
-      }
-    >
-      ↗
-    </button>
-  );
-}
-
-function formatWhen(value: string | null): string {
-  if (!value) return "Not yet";
-  return new Date(value).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function draftFor(task: AgentTask): TaskDraft {
-  return {
-    status: task.status,
-    priority: task.priority,
-    assigneeUserId: task.assigneeUserId ?? "",
-    outcome: task.outcome ?? "",
-  };
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return error.message;
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
+import { ThreadSummaryCard } from "./ThreadSummary.tsx";
+import { ThreadTasksCard } from "./ThreadTasks.tsx";
+import { useThreadTools } from "./threadTools.ts";
+import { CloseIcon } from "../../components/Icon.tsx";
 
 /**
  * Follow, or stop following, the thread on screen.
@@ -112,25 +26,12 @@ function errorMessage(error: unknown, fallback: string): string {
  * halves — the control, and the way to follow one you have not replied in.
  */
 function FollowToggle({ rootId }: { rootId: string }) {
-  const [following, setFollowing] = useState<boolean | null>(null);
+  // A panel that cannot answer "are you following this?" says nothing rather than
+  // claim either answer: on a failed load `data` stays null and so does the button.
+  const { data } = useFetch(() => api.messages.threadFollowing(rootId), [rootId]);
+  const [override, setOverride] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    void api.messages
-      .threadFollowing(rootId)
-      .then((r) => {
-        if (!cancelled) setFollowing(r.following);
-      })
-      .catch(() => {
-        // A panel that cannot answer "are you following this?" should say nothing
-        // rather than claim either answer.
-        if (!cancelled) setFollowing(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [rootId]);
+  const following = override ?? data?.following ?? null;
 
   // Opening a thread is how you read it, so the cursor moves here. It does not
   // subscribe you: looking is not asking to be told about it for ever.
@@ -144,11 +45,11 @@ function FollowToggle({ rootId }: { rootId: string }) {
     if (busy) return;
     setBusy(true);
     const next = !following;
-    setFollowing(next);
+    setOverride(next);
     try {
       await api.messages.followThread(rootId, next);
     } catch (err) {
-      setFollowing(!next);
+      setOverride(!next);
       showError(err);
     } finally {
       setBusy(false);
@@ -185,25 +86,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
     () => ({ knownNames, currentUserId: currentUser?.id ?? null, customEmoji }),
     [knownNames, currentUser, customEmoji],
   );
-
-  const [summary, setSummary] = useState<ThreadSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-  const [summaryBusy, setSummaryBusy] = useState(false);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-
-  const [tasks, setTasks] = useState<AgentTask[]>([]);
-  const [tasksLoading, setTasksLoading] = useState(true);
-  const [tasksError, setTasksError] = useState<string | null>(null);
-  const [taskDrafts, setTaskDrafts] = useState<Record<string, TaskDraft>>({});
-  const [savingTaskId, setSavingTaskId] = useState<string | null>(null);
-
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createBusy, setCreateBusy] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [instructions, setInstructions] = useState("");
-  const [assigneeUserId, setAssigneeUserId] = useState("");
-  const [priority, setPriority] = useState<AgentTaskPriority>("medium");
+  const tools = useThreadTools(rootId);
 
   // Slack opens a thread straight into root → replies → composer; the agentic cards are
   // this panel's departure from that, so they collapse behind a toggle by default.
@@ -237,12 +120,17 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
   const channel = root ? channels[root.channelId] : undefined;
   const replyCount = Math.max((thread?.length ?? 1) - 1, 0);
   const canManageAssignments = currentUser?.role !== "member";
+  const channelLabel = channel
+    ? channel.name
+      ? `#${channel.name}`
+      : channelTitle(channel)
+    : "";
 
   const toolsHintParts: string[] = [];
-  if (!summaryLoading && summary) toolsHintParts.push("summary");
-  if (!tasksLoading && tasks.length > 0) {
+  if (!tools.loading && tools.summary) toolsHintParts.push("summary");
+  if (!tools.loading && tools.tasks.length > 0) {
     toolsHintParts.push(
-      `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`,
+      `${tools.tasks.length} ${tools.tasks.length === 1 ? "task" : "tasks"}`,
     );
   }
   const toolsHint = toolsHintParts.join(" · ");
@@ -256,50 +144,6 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
     [canManageAssignments, users],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPanelData() {
-      setSummaryLoading(true);
-      setTasksLoading(true);
-      setSummaryError(null);
-      setTasksError(null);
-
-      try {
-        const [summaryResult, taskResult] = await Promise.all([
-          api.agentic.getThreadSummary(rootId),
-          api.agentic.listThreadTasks(rootId),
-        ]);
-        if (cancelled) return;
-        setSummary(summaryResult.summary);
-        setTasks(taskResult.tasks);
-        setTaskDrafts(
-          Object.fromEntries(
-            taskResult.tasks.map((task) => [task.id, draftFor(task)]),
-          ),
-        );
-      } catch (error) {
-        if (cancelled) return;
-        const message = errorMessage(
-          error,
-          "Could not load the thread controls.",
-        );
-        setSummaryError(message);
-        setTasksError(message);
-      } finally {
-        if (!cancelled) {
-          setSummaryLoading(false);
-          setTasksLoading(false);
-        }
-      }
-    }
-
-    void loadPanelData();
-    return () => {
-      cancelled = true;
-    };
-  }, [rootId]);
-
   function toggleTools() {
     setToolsOpen((open) => {
       const next = !open;
@@ -312,117 +156,13 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
     });
   }
 
-  async function refreshSummary() {
-    setSummaryBusy(true);
-    setSummaryError(null);
-    try {
-      const result = await api.agentic.refreshThreadSummary(rootId);
-      setSummary(result.summary);
-    } catch (error) {
-      setSummaryError(
-        errorMessage(error, "Could not refresh the thread summary."),
-      );
-    } finally {
-      setSummaryBusy(false);
-    }
-  }
-
-  async function createTask(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!title.trim()) return;
-
-    setCreateBusy(true);
-    setCreateError(null);
-    try {
-      const result = await api.agentic.createThreadTask(rootId, {
-        title: title.trim(),
-        instructions: instructions.trim(),
-        assigneeUserId: assigneeUserId || null,
-        priority,
-        summaryId: summary?.id ?? null,
-      });
-      setTasks((current) => [result.task, ...current]);
-      setTaskDrafts((current) => ({
-        ...current,
-        [result.task.id]: draftFor(result.task),
-      }));
-      setTitle("");
-      setInstructions("");
-      setAssigneeUserId("");
-      setPriority("medium");
-      setCreateOpen(false);
-    } catch (error) {
-      setCreateError(errorMessage(error, "Could not create that task."));
-    } finally {
-      setCreateBusy(false);
-    }
-  }
-
-  async function saveTask(task: AgentTask) {
-    const draft = taskDrafts[task.id] ?? draftFor(task);
-    const payload: {
-      assigneeUserId?: string | null;
-      status?: AgentTaskStatus;
-      priority?: AgentTaskPriority;
-      outcome?: string | null;
-    } = {};
-
-    if (draft.status !== task.status) payload.status = draft.status;
-    if (draft.priority !== task.priority) payload.priority = draft.priority;
-    if (canManageAssignments) {
-      const nextAssignee = draft.assigneeUserId || null;
-      if (nextAssignee !== (task.assigneeUserId ?? null))
-        payload.assigneeUserId = nextAssignee;
-    }
-    const trimmedOutcome = draft.outcome.trim();
-    if ((trimmedOutcome || null) !== (task.outcome ?? null)) {
-      payload.outcome = trimmedOutcome || null;
-    }
-    if (Object.keys(payload).length === 0) return;
-
-    setSavingTaskId(task.id);
-    setTasksError(null);
-    try {
-      const result = await api.agentic.updateTask(task.id, payload);
-      setTasks((current) =>
-        current.map((item) => (item.id === task.id ? result.task : item)),
-      );
-      setTaskDrafts((current) => ({
-        ...current,
-        [task.id]: draftFor(result.task),
-      }));
-    } catch (error) {
-      setTasksError(errorMessage(error, "Could not update that task."));
-    } finally {
-      setSavingTaskId(null);
-    }
-  }
-
-  function setTaskDraft(taskId: string, patch: Partial<TaskDraft>) {
-    setTaskDrafts((current) => {
-      const existing = current[taskId];
-      return {
-        ...current,
-        [taskId]: {
-          ...(existing ??
-            draftFor(tasks.find((task) => task.id === taskId) as AgentTask)),
-          ...patch,
-        },
-      };
-    });
-  }
-
   return (
     <aside className="panel" aria-label="Thread">
       <div className="panel-header">
         <div>
           <h2 className="panel-title">Thread</h2>
           <div className="panel-sub">
-            {channel
-              ? channel.name
-                ? `#${channel.name}`
-                : channelTitle(channel)
-              : ""}
+            {channelLabel}
             {replyCount > 0 &&
               ` · ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`}
           </div>
@@ -451,307 +191,26 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
 
         {toolsOpen && (
           <>
-            <section
-              className="agentic-card"
-              /* Iris means "an agent wrote this", so only the model-written summary
-                 gets it. `heuristic-v1` is Blob's own keyword scan running because no
-                 model is configured — marking that as agent output would claim a
-                 teammate where there is only a stopgap. */
-              data-written-by={summary && isModelWritten(summary) ? "model" : undefined}
-              aria-labelledby="thread-summary-title"
-            >
-              <div className="agentic-head">
-                <div>
-                  <div className="agentic-kicker">
-                    {summary && isModelWritten(summary) ? "AI summary" : "Summary"}
-                  </div>
-                  <h3 className="agentic-title" id="thread-summary-title">
-                    Catch up without rereading
-                  </h3>
-                </div>
-                <button
-                  className="btn"
-                  onClick={() => void refreshSummary()}
-                  disabled={summaryBusy}
-                >
-                  {summaryBusy ? "Working…" : summary ? "Refresh" : "Generate"}
-                </button>
-              </div>
-
-              {summaryLoading ? (
-                <div className="agentic-empty">Loading summary…</div>
-              ) : summary ? (
-                <div className="agentic-body">
-                  <div className="summary-overview">
-                    {renderMarkdown(summary.overview, renderOptions)}
-                  </div>
-                  <div className="summary-meta">
-                    {providerLabel(summary.provider)} · {summary.messageCount} messages
-                    · updated {formatWhen(summary.updatedAt)}
-                    {isModelWritten(summary) && " · check the sources"}
-                  </div>
-
-                  {summary.decisions.length > 0 && (
-                    <div>
-                      <div className="agentic-list-title">Decisions</div>
-                      <ul className="agentic-list">
-                        {summary.decisions.map((item, index) => (
-                          <li key={`${item.messageId ?? "decision"}-${index}`}>
-                            {renderInline(item.text, renderOptions)}
-                            <Cite messageId={item.messageId} />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {summary.actionItems.length > 0 && (
-                    <div>
-                      <div className="agentic-list-title">Action items</div>
-                      <ul className="agentic-list">
-                        {summary.actionItems.map((item, index) => (
-                          <li key={`${item.sourceMessageId ?? "action"}-${index}`}>
-                            {renderInline(item.text, renderOptions)}
-                            <Cite messageId={item.sourceMessageId} />
-                            {item.assigneeUserId && (
-                              <span className="agentic-inline-meta">
-                                {" "}
-                                ·{" "}
-                                {users[item.assigneeUserId]?.displayName ??
-                                  "Assigned"}
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {summary.openQuestions.length > 0 && (
-                    <div>
-                      <div className="agentic-list-title">Open questions</div>
-                      <ul className="agentic-list">
-                        {summary.openQuestions.map((item, index) => (
-                          <li key={`${item.messageId ?? "question"}-${index}`}>
-                            {renderInline(item.text, renderOptions)}
-                            <Cite messageId={item.messageId} />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="agentic-empty">
-                  No summary yet. Generate one to pull out the decisions, the action
-                  items and the questions nobody answered.
-                </div>
-              )}
-
-              {summaryError && <div className="error-text">{summaryError}</div>}
-            </section>
-
-            <section className="agentic-card" aria-labelledby="thread-tasks-title">
-              <div className="agentic-head">
-                <div>
-                  <div className="agentic-kicker">Agent Tasks</div>
-                  <h3 className="agentic-title" id="thread-tasks-title">
-                    Coordinate people and agents
-                  </h3>
-                </div>
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => setCreateOpen((open) => !open)}
-                >
-                  <PlusIcon size="md" />
-                  {createOpen ? "Hide" : "New task"}
-                </button>
-              </div>
-
-              {createOpen && (
-                <form className="agentic-form" onSubmit={createTask}>
-                  <input
-                    className="input"
-                    placeholder="What needs to happen?"
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    maxLength={140}
-                  />
-                  <textarea
-                    className="input agentic-textarea"
-                    placeholder="Add context or handoff instructions"
-                    value={instructions}
-                    onChange={(event) => setInstructions(event.target.value)}
-                    maxLength={4000}
-                  />
-                  <div className="agentic-grid">
-                    <select
-                      className="input"
-                      value={assigneeUserId}
-                      onChange={(event) => setAssigneeUserId(event.target.value)}
-                    >
-                      <option value="">Unassigned</option>
-                      {assignees.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.displayName}
-                          {user.kind === "bot" ? " (Agent)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="input"
-                      value={priority}
-                      onChange={(event) =>
-                        setPriority(event.target.value as AgentTaskPriority)
-                      }
-                    >
-                      {TASK_PRIORITY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="agentic-actions">
-                    <button
-                      className="btn btn-primary"
-                      type="submit"
-                      disabled={createBusy || !title.trim()}
-                    >
-                      {createBusy ? "Creating…" : "Create task"}
-                    </button>
-                  </div>
-                  {createError && <div className="error-text">{createError}</div>}
-                </form>
-              )}
-
-              {tasksLoading ? (
-                <div className="agentic-empty">Loading tasks…</div>
-              ) : tasks.length === 0 ? (
-                <div className="agentic-empty">
-                  No tasks yet. Turn the thread into a tracked handoff for a
-                  teammate or agent.
-                </div>
-              ) : (
-                <div className="task-list">
-                  {tasks.map((task) => {
-                    const draft = taskDrafts[task.id] ?? draftFor(task);
-                    return (
-                      <article className="task-card" key={task.id}>
-                        <div className="task-head">
-                          <div>
-                            <div className="task-title">{task.title}</div>
-                            <div className="task-meta">
-                              <span
-                                className="task-badge"
-                                data-tone={draft.priority}
-                              >
-                                {draft.priority.replace("_", " ")}
-                              </span>
-                              <span className="task-badge" data-tone={draft.status}>
-                                {draft.status.replace("_", " ")}
-                              </span>
-                              <span>
-                                {task.assigneeUserId
-                                  ? (users[task.assigneeUserId]?.displayName ??
-                                    "Assigned")
-                                  : "Unassigned"}
-                                {task.assigneeKind === "bot" ? " · Agent" : ""}
-                              </span>
-                            </div>
-                          </div>
-                          <button
-                            className="btn btn-ghost"
-                            onClick={() => void saveTask(task)}
-                            disabled={savingTaskId === task.id}
-                          >
-                            {savingTaskId === task.id ? "Saving…" : "Save"}
-                          </button>
-                        </div>
-
-                        {task.instructions && (
-                          <div className="task-copy">{task.instructions}</div>
-                        )}
-
-                        <div className="agentic-grid">
-                          <select
-                            className="input"
-                            value={draft.status}
-                            onChange={(event) =>
-                              setTaskDraft(task.id, {
-                                status: event.target.value as AgentTaskStatus,
-                              })
-                            }
-                          >
-                            {TASK_STATUS_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-
-                          <select
-                            className="input"
-                            value={draft.priority}
-                            onChange={(event) =>
-                              setTaskDraft(task.id, {
-                                priority: event.target.value as AgentTaskPriority,
-                              })
-                            }
-                          >
-                            {TASK_PRIORITY_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="agentic-grid">
-                          <select
-                            className="input"
-                            value={draft.assigneeUserId}
-                            onChange={(event) =>
-                              setTaskDraft(task.id, {
-                                assigneeUserId: event.target.value,
-                              })
-                            }
-                            disabled={!canManageAssignments}
-                          >
-                            <option value="">Unassigned</option>
-                            {assignees.map((user) => (
-                              <option key={user.id} value={user.id}>
-                                {user.displayName}
-                                {user.kind === "bot" ? " (Agent)" : ""}
-                              </option>
-                            ))}
-                          </select>
-
-                          <div className="task-dates">
-                            <span>Updated {formatWhen(task.updatedAt)}</span>
-                            <span>Completed {formatWhen(task.completedAt)}</span>
-                          </div>
-                        </div>
-
-                        <textarea
-                          className="input agentic-textarea"
-                          placeholder="Optional outcome or completion note"
-                          value={draft.outcome}
-                          onChange={(event) =>
-                            setTaskDraft(task.id, {
-                              outcome: event.target.value,
-                            })
-                          }
-                          maxLength={4000}
-                        />
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-
-              {tasksError && <div className="error-text">{tasksError}</div>}
-            </section>
+            <ThreadSummaryCard
+              rootId={rootId}
+              summary={tools.summary}
+              loading={tools.loading}
+              error={tools.error}
+              renderOptions={renderOptions}
+              users={users}
+              onRefreshed={(summary) => tools.apply({ type: "summary", summary })}
+            />
+            <ThreadTasksCard
+              rootId={rootId}
+              tasks={tools.tasks}
+              loading={tools.loading}
+              error={tools.error}
+              summaryId={tools.summary?.id ?? null}
+              assignees={assignees}
+              canManageAssignments={canManageAssignments}
+              users={users}
+              apply={tools.apply}
+            />
           </>
         )}
       </div>
@@ -770,28 +229,13 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
 
       {root && (
         <>
-          <label
-            className="muted"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px var(--pane-gutter) 0",
-            }}
-          >
+          <label className="muted thread-also-send">
             <input
               type="checkbox"
               checked={alsoSend}
               onChange={(event) => setAlsoSend(event.target.checked)}
             />
-            <span>
-              Also send to{" "}
-              {channel
-                ? channel.name
-                  ? `#${channel.name}`
-                  : channelTitle(channel)
-                : "channel"}
-            </span>
+            <span>Also send to {channelLabel || "channel"}</span>
           </label>
           <Composer
             // Same reason as ChannelView: switching threads left the previous one's
