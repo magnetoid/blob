@@ -11709,7 +11709,7 @@
     },
     "/api/attachments": {
       "get": {
-        "description": "Files posted in channels this person can see, newest first.\n\nThumbnails stay on `thumbUrl`. The original is only fetched when somebody opens one.\nUnattached uploads (still in flight) stay off this list.",
+        "description": "Files posted in channels this person can see, newest first.\n\nThumbnails stay on `thumbUrl`. The original is only fetched when somebody opens one.",
         "operationId": "list_attachments_api_attachments_get",
         "parameters": [
           {

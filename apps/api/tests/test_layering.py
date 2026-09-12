@@ -13,10 +13,11 @@ SRC = Path(__file__).resolve().parent.parent / "src" / "blob_api"
 
 #: `text(` calls inside routers. 131 on 2026-09-12 (admin.py 31, auth.py 21, users.py 14,
 #: plugins.py 13, files.py 8, a tail across the rest); 100 once admin.py had a service,
-#: 86 once users.py had one, 65 once auth.py had two.
+#: 86 once users.py had one, 65 once auth.py had two,
+#: 57 once files.py had one.
 #: Routers shape and authorize;
 #: the SQL belongs in services. Lower this number as it moves, never raise it.
-ROUTER_SQL_CEILING = 65
+ROUTER_SQL_CEILING = 57
 
 
 def test_sql_keeps_leaving_the_routers() -> None:

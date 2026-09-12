@@ -2,7 +2,9 @@
 
 The browser uploads straight to object storage with a presigned PUT — file bytes never
 pass through this process. Downloads redirect to a short-lived presigned GET, so stored
-message payloads hold a stable URL rather than an expiring one.
+message payloads hold a stable URL rather than an expiring one. The rows are
+`services/files.py`'s; what stays here is the choreography with object storage: the
+ticket, the type check on what actually arrived, the thumbnail, the redirect.
 """
 
 from __future__ import annotations
@@ -14,7 +16,6 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import RedirectResponse
-from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib import images, magic
@@ -36,6 +37,7 @@ from ..lib.storage import (
 from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import Attachment
 from ..schemas.requests import UploadCompleteInput, UploadRequestInput
+from ..services import files as file_service
 from ..services.workspace_settings import load as load_settings
 
 log = logging.getLogger("blob.files")
@@ -108,7 +110,6 @@ async def list_attachments(
     """Files posted in channels this person can see, newest first.
 
     Thumbnails stay on `thumbUrl`. The original is only fetched when somebody opens one.
-    Unattached uploads (still in flight) stay off this list.
     """
     if kind not in {"all", "image", "file"}:
         raise bad_request("kind must be all, image, or file.")
@@ -118,66 +119,9 @@ async def list_attachments(
         raise bad_request("That files cursor is not one we issued.")
 
     async with session_scope() as session:
-        if channel_id:
-            member = (
-                await session.execute(
-                    text(
-                        """
-                        SELECT 1 FROM channel_members
-                         WHERE channel_id = :channel_id AND user_id = :user_id
-                        """
-                    ),
-                    {"channel_id": channel_id, "user_id": user.id},
-                )
-            ).fetchone()
-            if member is None:
-                raise no_such_file()
-
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT a.id, a.filename, a.mime, a.size_bytes, a.width, a.height,
-                           a.object_key, a.thumb_key, a.message_id, m.channel_id,
-                           a.created_at
-                      FROM attachments a
-                      JOIN messages m ON m.id = a.message_id
-                      JOIN channel_members cm
-                             ON cm.channel_id = m.channel_id AND cm.user_id = :user_id
-                     WHERE a.workspace_id = :ws
-                       AND (
-                            CAST(:channel_id AS uuid) IS NULL
-                            OR m.channel_id = CAST(:channel_id AS uuid)
-                       )
-                       AND (
-                            :kind = 'all'
-                            OR (:kind = 'image' AND a.mime LIKE 'image/%')
-                            OR (:kind = 'file' AND a.mime NOT LIKE 'image/%')
-                       )
-                       AND (
-                            CAST(:cursor AS uuid) IS NULL
-                            OR (a.created_at, a.id) < (
-                                SELECT created_at, id FROM attachments
-                                 WHERE id = CAST(:cursor AS uuid)
-                            )
-                       )
-                     ORDER BY a.created_at DESC, a.id DESC
-                     LIMIT :limit
-                    """
-                ),
-                {
-                    "ws": user.workspace_id,
-                    "user_id": user.id,
-                    "channel_id": channel_id,
-                    "kind": kind,
-                    "cursor": cursor,
-                    "limit": limit + 1,
-                },
-            )
-        ).fetchall()
-
-    page = list(rows[:limit])
-    next_cursor = page[-1].id if len(rows) > limit else None
+        page, next_cursor = await file_service.listing(
+            session, user, channel_id=channel_id, kind=kind, cursor=cursor, limit=limit
+        )
     return FileListOut(items=[_file_entry(row) for row in page], next_cursor=next_cursor)
 
 
@@ -198,27 +142,16 @@ async def create_upload(
 
     attachment_id = new_id()
     object_key = build_object_key(user.workspace_id, payload.filename)
-
     async with transaction() as (session, _):
-        await session.execute(
-            text(
-                """
-                INSERT INTO attachments
-                  (id, workspace_id, uploader_id, object_key, filename, mime, size_bytes)
-                VALUES (:id, :ws, :uploader_id, :object_key, :filename, :mime, :size_bytes)
-                """
-            ),
-            {
-                "id": attachment_id,
-                "ws": user.workspace_id,
-                "uploader_id": user.id,
-                "object_key": object_key,
-                "filename": payload.filename,
-                "mime": payload.mime,
-                "size_bytes": payload.size_bytes,
-            },
+        await file_service.open_ticket(
+            session,
+            user,
+            attachment_id=attachment_id,
+            object_key=object_key,
+            filename=payload.filename,
+            mime=payload.mime,
+            size_bytes=payload.size_bytes,
         )
-
     return UploadTicket(
         attachment_id=attachment_id,
         upload_url=presign_upload(object_key, payload.mime),
@@ -249,18 +182,7 @@ async def complete_upload(
     await consume("upload", user.id)
 
     async with session_scope() as session:
-        attachment = (
-            await session.execute(
-                text(
-                    """
-                    SELECT object_key, mime, size_bytes, thumb_key, uploaded_at
-                      FROM attachments
-                     WHERE id = :id AND uploader_id = :uploader_id
-                    """
-                ),
-                {"id": attachment_id, "uploader_id": user.id},
-            )
-        ).fetchone()
+        attachment = await file_service.own_upload(session, attachment_id, user.id)
     if attachment is None:
         raise not_found("That upload has expired.")
 
@@ -283,10 +205,7 @@ async def complete_upload(
             except Exception:
                 log.warning("could not delete a refused upload %s", attachment_id, exc_info=True)
             async with transaction() as (session, _):
-                await session.execute(
-                    text("DELETE FROM attachments WHERE id = :id AND uploader_id = :uploader_id"),
-                    {"id": attachment_id, "uploader_id": user.id},
-                )
+                await file_service.refuse_upload(session, attachment_id, user.id)
             raise bad_request(reason)
 
     thumb_key: str | None = None
@@ -315,29 +234,10 @@ async def complete_upload(
                 log.warning("could not store the thumbnail for %s", attachment_id, exc_info=True)
 
     async with transaction() as (session, _):
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    UPDATE attachments
-                       SET uploaded_at = now(),
-                           width = COALESCE(:width, width),
-                           height = COALESCE(:height, height),
-                           thumb_key = COALESCE(:thumb_key, thumb_key)
-                     WHERE id = :id AND uploader_id = :uploader_id
-                    RETURNING id
-                    """
-                ),
-                {
-                    "id": attachment_id,
-                    "uploader_id": user.id,
-                    "width": width,
-                    "height": height,
-                    "thumb_key": thumb_key,
-                },
-            )
-        ).fetchall()
-    if not rows:
+        recorded = await file_service.mark_uploaded(
+            session, attachment_id, user.id, width=width, height=height, thumb_key=thumb_key
+        )
+    if not recorded:
         raise not_found("That upload has expired.")
     return OkOut()
 
@@ -354,26 +254,7 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
         raise no_such_file()
 
     async with session_scope() as session:
-        file = (
-            await session.execute(
-                text(
-                    """
-                    SELECT a.filename, a.mime, a.message_id, a.uploader_id,
-                           a.thumb_key, cm.user_id AS channel_member
-                      FROM attachments a
-                      LEFT JOIN messages m ON m.id = a.message_id
-                      LEFT JOIN channel_members cm
-                             ON cm.channel_id = m.channel_id AND cm.user_id = :user_id
-                     -- A thumbnail is the same attachment and answers to the same rule:
-                     -- one row, either of its two keys.
-                     WHERE (a.object_key = :key OR a.thumb_key = :key)
-                       AND a.workspace_id = :ws
-                    """
-                ),
-                {"key": key, "user_id": user.id, "ws": user.workspace_id},
-            )
-        ).fetchone()
-
+        file = await file_service.for_download(session, user, key)
         allowed = file is not None and (
             file.channel_member is not None if file.message_id else file.uploader_id == user.id
         )
@@ -382,21 +263,7 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
             # branch says no as well as when there is no attachment row at all: an
             # avatar keeps its upload row, and answering for the row alone made a
             # person's own picture a 404 to everyone but them.
-            shared = (
-                await session.execute(
-                    text(
-                        """
-                        SELECT object_key AS key FROM custom_emoji
-                         WHERE workspace_id = :ws AND object_key = :key
-                        UNION ALL
-                        SELECT avatar_key FROM users
-                         WHERE workspace_id = :ws AND avatar_key = :key
-                        """
-                    ),
-                    {"ws": user.workspace_id, "key": key},
-                )
-            ).fetchone()
-            if shared is None:
+            if not await file_service.is_shared_picture(session, user.workspace_id, key):
                 raise no_such_file()
             return _redirect(presign_download(key, mime="image/png"))
 
