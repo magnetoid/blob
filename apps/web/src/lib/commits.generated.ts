@@ -11,6 +11,125 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "d24890966e76aaeaffa0ea77f22756ebecaee6cc",
+    "shortSha": "d248909",
+    "subject": "Refresh the map for the seven commits before it",
+    "date": "2026-09-12T14:24:09+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "17af2e5ef6b601d8835083dbf78b7a7fc79c3038",
+    "shortSha": "17af2e5",
+    "subject": "Say who is in the room, and which of them are agents",
+    "date": "2026-09-12T14:20:28+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d57c5063564af2f2a597fee9113c6512022d409d",
+    "shortSha": "d57c506",
+    "subject": "Give a narrow screen the whole width",
+    "date": "2026-09-12T14:19:06+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "322a45e64ef8c84bcfca47e2c38a4d6f004fb81a",
+    "shortSha": "322a45e",
+    "subject": "Let an agent post where it is sent, behind a grant of its own",
+    "date": "2026-09-12T14:17:05+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "78686115786a9f312963a36bac48b04984de695c",
+    "shortSha": "7868611",
+    "subject": "Answer a DM that names nobody",
+    "date": "2026-09-12T14:15:55+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "daa7153ddd763f9b58f1544d5c04f7dfd8afed2c",
+    "shortSha": "daa7153",
+    "subject": "Read an empty setting as no setting",
+    "date": "2026-09-12T14:14:13+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "2af6ed2dd3da59be5c4d2aab73966b4c25b68f10",
+    "shortSha": "2af6ed2",
+    "subject": "Reach DeepSeek at its own address",
+    "date": "2026-09-12T14:12:35+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "856199d599a751c8c628839ad71dbfbecf446aef",
+    "shortSha": "856199d",
+    "subject": "Run the suite with no model, whatever .env says",
+    "date": "2026-09-12T14:10:45+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "047baf4dccf589e7b605b9f304c60afb915538b4",
+    "shortSha": "047baf4",
+    "subject": "Pull MinIO from a registry that still has it",
+    "date": "2026-09-12T01:43:18+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d317523705a9363dc02a5b7643604ac5ecac76c6",
+    "shortSha": "d317523",
+    "subject": "Put the claim beside the sign-in",
+    "date": "2026-09-12T01:21:21+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "05ca96b77d8b50e8b80d66e4fb81dd7989a06c02",
+    "shortSha": "05ca96b",
+    "subject": "Let a citation look like what it points at",
+    "date": "2026-09-11T23:58:02+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "aa730e2d075561c7733e74e817623b0eb055d2f8",
+    "shortSha": "aa730e2",
+    "subject": "Mark a summary a model wrote as one",
+    "date": "2026-09-11T23:54:05+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "64055f29f4565b5f283910f7a91ecd525c15c14e",
+    "shortSha": "64055f2",
+    "subject": "Give agents a colour of their own",
+    "date": "2026-09-11T23:43:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "3f15c945c63a1e32ebfa991eb31d5b1da2f4326f",
+    "shortSha": "3f15c94",
+    "subject": "Drop the last two settings of a thing we never used",
+    "date": "2026-09-11T19:31:39+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "7d440258817aba76cf3bdfd181754be00434edbb",
+    "shortSha": "7d44025",
+    "subject": "Cover the room the question is actually asked in",
+    "date": "2026-09-11T18:51:07+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "5f5d9cc82b1ec9befff5be9ada6e28a922225f59",
+    "shortSha": "5f5d9cc",
+    "subject": "Let the agent say who is in the room",
+    "date": "2026-09-11T18:50:01+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "e5b23e0ee88a89ae87067f3c392680dd214902e4",
+    "shortSha": "e5b23e0",
+    "subject": "Stamp the history What's new shows",
+    "date": "2026-09-11T17:44:27+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "bf8fabd028e8a091dc3c61b13c3fe8e2fd08e050",
     "shortSha": "bf8fabd",
     "subject": "Give the consoles one shape, and the admin pages one home each",
@@ -309,125 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "29611cc",
     "subject": "Walk the sidebar with ⌥↑ and ⌥↓, and stop a build stamp from blocking a deploy",
     "date": "2026-09-02T05:21:51+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "8578d583910275833b04b3ea44c608091b5dbb97",
-    "shortSha": "8578d58",
-    "subject": "Tell people which build they are reading",
-    "date": "2026-09-02T05:04:39+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "c02941149d989192e4d28b4389910bfdad9c2345",
-    "shortSha": "c029411",
-    "subject": "Add the slash commands a Slack user already types",
-    "date": "2026-09-02T04:50:22+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "43410e10599fbc68032dcf50e858c0498879fa00",
-    "shortSha": "43410e1",
-    "subject": "Close twenty holes a second defect hunt found",
-    "date": "2026-09-02T04:26:03+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "f9683ee019b5788e98ffc3b2c15c451ea44401e5",
-    "shortSha": "f9683ee",
-    "subject": "Let a scheduled message come back",
-    "date": "2026-09-02T03:28:17+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "33289f72000f5a3657a1108ec038e2846e8b8f5d",
-    "shortSha": "33289f7",
-    "subject": "Delete the file before the row that knows where it is",
-    "date": "2026-09-02T02:51:20+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "0529d750f70b11945bb6a0cbeaf4551fb2836c40",
-    "shortSha": "0529d75",
-    "subject": "Keep a message that arrives while the channel is still loading",
-    "date": "2026-09-02T02:39:35+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "1a666b21c6c88924f7b2af9375da4e3c55480aa2",
-    "shortSha": "1a666b2",
-    "subject": "Draw the unread divider on the first row, where it went missing",
-    "date": "2026-09-02T02:24:49+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "60983cc0356d8644fe0055c35b40b304b1c12e3f",
-    "shortSha": "60983cc",
-    "subject": "Stop one live message marking a backlog you never saw as read",
-    "date": "2026-09-02T02:08:44+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "39cba7b9c06bcf90a827603a310bbe9b714dc305",
-    "shortSha": "39cba7b",
-    "subject": "Read a client's time the same way on all four routes that take one",
-    "date": "2026-09-02T01:41:02+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e354277ae468844bc396335622e8f1206f233cfa",
-    "shortSha": "e354277",
-    "subject": "Stop the mention badge counting a message you have already read",
-    "date": "2026-09-02T01:31:34+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "10374bd2e43711ee7db527868555f837eb3748da",
-    "shortSha": "10374bd",
-    "subject": "Stop one failed page from killing scrollback for the session",
-    "date": "2026-09-02T01:12:37+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "b4fa2881353844053af343c38023b93023aedfe1",
-    "shortSha": "b4fa288",
-    "subject": "Stop one person's saved preferences from silencing everyone else's",
-    "date": "2026-09-02T01:01:38+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "57f3516195d13180e9709aa15729ee49a2c1a69b",
-    "shortSha": "57f3516",
-    "subject": "Actually send a scheduled message, rather than only storing it",
-    "date": "2026-09-02T00:49:31+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "1d14d9a8634ad7321edd65cad0daffb19b892f2d",
-    "shortSha": "1d14d9a",
-    "subject": "Say what @here actually does, which is what @channel does",
-    "date": "2026-09-02T00:28:44+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "f1bb9f6abb347022128e8a7137c60c95ac309dd0",
-    "shortSha": "f1bb9f6",
-    "subject": "Make a status able to clear itself, which the server could never do",
-    "date": "2026-09-01T23:39:28+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "24eaa60009245fb7602e192f4bfe26b79e2abf7c",
-    "shortSha": "24eaa60",
-    "subject": "Check in the torsor map entries this branch generated",
-    "date": "2026-09-01T22:55:19+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "01b3a9b521659e3975b0dfc5b5ca8e02faae168f",
-    "shortSha": "01b3a9b",
-    "subject": "Stop CLAUDE.md vouching for a failure that no longer happens",
-    "date": "2026-09-01T22:54:02+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
