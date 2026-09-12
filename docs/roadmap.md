@@ -221,6 +221,18 @@ the agent socket sent `ready` before writing presence.
 
 ### W5 (Oct 12–18) · SQL out of routers — L
 
+*Started 2026-09-12.* Shipped so far: `services/meetups.py` on `text()` (the grep the
+rule names returns nothing now); `tests/test_layering.py`, a ratchet on `text(` calls in
+routers that may only go down; `routers/admin.py` → `services/admin.py` + `schemas/admin.py`;
+`routers/users.py` → `services/users.py`; `routers/auth.py` → `services/signup.py` (founding,
+joining, invitations — the seam OIDC will use) and `services/accounts.py` (sign-in, devices,
+password resets); `routers/files.py` → `services/files.py`; `routers/plugins.py`'s twelve
+queries into `plugins/registry.py`. Routers hold **45** `text(` calls, from 131. Two
+things the move taught: the intent guard refuses `OFFSET` anywhere under `services/`, and
+the admin people list had carried an `offset` parameter nothing ever sent, so it went;
+and `torsor guard` has to run before a push, not after.
+
+
 - `routers/admin.py` (1,037 lines in six commented sections: people, invitations,
   channels, audit log, settings and health, webhooks) → `services/admin.py`, section
   order kept, routers reduced to shape-and-authorize.

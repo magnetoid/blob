@@ -590,4 +590,212 @@ async def bot_user_id(session: AsyncSession, plugin_id: str) -> str | None:
 #: built-in agent has neither end, so the URL test alone would filter out both. Two
 #: queries ask this and had each written it out; a mention that reaches one and not
 #: the other is exactly the bug the traps list records.
+async def list_for_workspace(session: AsyncSession, workspace_id: str) -> list[Any]:
+    return list(
+        (
+            await session.execute(
+                text("SELECT * FROM plugins WHERE workspace_id = :ws ORDER BY name"),
+                {"ws": workspace_id},
+            )
+        ).fetchall()
+    )
+
+
+async def listing_details(
+    session: AsyncSession, plugin_ids: list[str]
+) -> tuple[dict[str, list[str]], dict[str, Any], dict[str, str]]:
+    """Scopes, delivery counts and bot ids for a page of plugins, in three queries.
+
+    Batched because the per-row version made the console's plugin list a 3N+1 — each of
+    these round-tripped per plugin, so ten apps cost thirty-one queries to render.
+    """
+    scope_rows = (
+        await session.execute(
+            text(
+                """
+                SELECT plugin_id, scope FROM plugin_grants
+                 WHERE plugin_id = ANY(cast(:ids AS uuid[])) ORDER BY scope
+                """
+            ),
+            {"ids": plugin_ids},
+        )
+    ).fetchall()
+    scopes_by: dict[str, list[str]] = {}
+    for entry in scope_rows:
+        scopes_by.setdefault(str(entry.plugin_id), []).append(entry.scope)
+
+    count_rows = (
+        await session.execute(
+            text(
+                """
+                SELECT plugin_id,
+                       count(*) FILTER (WHERE status = 'pending') AS pending,
+                       count(*) FILTER (WHERE status IN ('failed', 'dead')) AS failed
+                  FROM plugin_deliveries
+                 WHERE plugin_id = ANY(cast(:ids AS uuid[]))
+                 GROUP BY plugin_id
+                """
+            ),
+            {"ids": plugin_ids},
+        )
+    ).fetchall()
+    counts_by = {str(entry.plugin_id): entry for entry in count_rows}
+
+    bot_rows = (
+        await session.execute(
+            text(
+                "SELECT id, bot_plugin_id FROM users"
+                " WHERE bot_plugin_id = ANY(cast(:ids AS uuid[]))"
+            ),
+            {"ids": plugin_ids},
+        )
+    ).fetchall()
+    bots_by = {str(entry.bot_plugin_id): str(entry.id) for entry in bot_rows}
+    return scopes_by, counts_by, bots_by
+
+
+async def set_owner(
+    session: AsyncSession, plugin_id: str, workspace_id: str, user_id: str | None
+) -> None:
+    """Who an agent answers: one live person in this workspace, or everybody."""
+    if user_id is not None:
+        member = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id FROM users
+                     WHERE id = :id AND workspace_id = :ws
+                       AND deactivated_at IS NULL AND kind = 'human'
+                    """
+                ),
+                {"id": user_id, "ws": workspace_id},
+            )
+        ).fetchone()
+        if member is None:
+            raise bad_request("That person is not in this workspace.")
+    await session.execute(
+        text("UPDATE plugins SET owner_user_id = :owner WHERE id = :id AND workspace_id = :ws"),
+        {"owner": user_id, "id": plugin_id, "ws": workspace_id},
+    )
+
+
+async def revoke_tokens(session: AsyncSession, plugin_id: str) -> None:
+    await session.execute(
+        text(
+            """
+            UPDATE bot_tokens SET revoked_at = now()
+             WHERE plugin_id = :id AND revoked_at IS NULL
+            """
+        ),
+        {"id": plugin_id},
+    )
+
+
+DELIVERY_COLUMNS = (
+    "id, event, status, attempts, last_status_code, last_error,"
+    " created_at, delivered_at, next_attempt_at"
+)
+
+
+async def deliveries(session: AsyncSession, plugin_id: str, *, limit: int) -> list[Any]:
+    """The delivery log — the first place to look when an app says it heard nothing."""
+    return list(
+        (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT {DELIVERY_COLUMNS}
+                      FROM plugin_deliveries
+                     WHERE plugin_id = :id
+                     ORDER BY id DESC
+                     LIMIT :limit
+                    """
+                ),
+                {"id": plugin_id, "limit": limit},
+            )
+        ).fetchall()
+    )
+
+
+async def delivery(session: AsyncSession, plugin_id: str, delivery_id: str) -> Any:
+    """One delivery in full, including the payload the app was sent."""
+    row = (
+        await session.execute(
+            text(
+                f"""
+                SELECT {DELIVERY_COLUMNS}, payload
+                  FROM plugin_deliveries
+                 WHERE id = :id AND plugin_id = :plugin_id
+                """
+            ),
+            {"id": delivery_id, "plugin_id": plugin_id},
+        )
+    ).fetchone()
+    if row is None:
+        raise not_found("That delivery is not in this app's log.")
+    return row
+
+
+async def replay_delivery(session: AsyncSession, plugin_id: str, delivery_id: str) -> Any:
+    """Put a failed or dead delivery back in the queue, as if it had never been tried."""
+    row = (
+        await session.execute(
+            text(
+                f"""
+                UPDATE plugin_deliveries
+                   SET status = 'pending', attempts = 0, next_attempt_at = now(),
+                       last_error = NULL, last_status_code = NULL, delivered_at = NULL
+                 WHERE id = :id AND plugin_id = :plugin_id
+                   AND status IN ('failed', 'dead')
+                RETURNING {DELIVERY_COLUMNS}
+                """
+            ),
+            {"id": delivery_id, "plugin_id": plugin_id},
+        )
+    ).fetchone()
+    if row is not None:
+        return row
+    existing = (
+        await session.execute(
+            text("SELECT id FROM plugin_deliveries WHERE id = :id AND plugin_id = :plugin_id"),
+            {"id": delivery_id, "plugin_id": plugin_id},
+        )
+    ).fetchone()
+    if existing is None:
+        raise not_found("That delivery is not in this app's log.")
+    raise bad_request("Only a failed or dead delivery can be replayed.", code="not_replayable")
+
+
+async def public_channels_for_bot(
+    session: AsyncSession, workspace_id: str, bot_user_id: str | None
+) -> list[Any]:
+    """Every public channel, with whether this bot is already in it.
+
+    Private channels and DMs are not listed. A bot belongs in one only if somebody in it
+    invited it, and enumerating them would hand an admin a directory of private rooms
+    they are not in.
+    """
+    return list(
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT c.id, c.name, c.kind,
+                           EXISTS (
+                             SELECT 1 FROM channel_members cm
+                              WHERE cm.channel_id = c.id AND cm.user_id = :bot
+                           ) AS joined
+                      FROM channels c
+                     WHERE c.workspace_id = :ws
+                       AND c.kind = 'public'
+                       AND c.archived_at IS NULL
+                     ORDER BY c.name ASC
+                    """
+                ),
+                {"ws": workspace_id, "bot": bot_user_id},
+            )
+        ).fetchall()
+    )
+
+
 MENTIONABLE_AGENT = "(p.agui_url IS NOT NULL OR p.runtime IN ('socket', 'builtin'))"

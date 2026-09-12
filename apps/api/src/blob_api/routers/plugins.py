@@ -23,7 +23,6 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib import net
@@ -180,59 +179,11 @@ async def _to_plugin(session: Any, row: Any) -> PluginOut:
 
 
 async def _to_plugins(session: Any, rows: Sequence[Any]) -> list[PluginOut]:
-    """Batch shape: three grouped queries however many plugins there are.
-
-    The per-row version made the console's plugin list a 3N+1 — scopes, delivery
-    counts and the bot row each round-tripped per plugin, so ten apps cost thirty-one
-    queries to render one page.
-    """
+    """Batch shape: three grouped queries however many plugins there are."""
     ids = [str(row.id) for row in rows]
     if not ids:
         return []
-
-    scope_rows = (
-        await session.execute(
-            text(
-                """
-                SELECT plugin_id, scope FROM plugin_grants
-                 WHERE plugin_id = ANY(cast(:ids AS uuid[])) ORDER BY scope
-                """
-            ),
-            {"ids": ids},
-        )
-    ).fetchall()
-    scopes_by: dict[str, list[str]] = {}
-    for entry in scope_rows:
-        scopes_by.setdefault(str(entry.plugin_id), []).append(entry.scope)
-
-    count_rows = (
-        await session.execute(
-            text(
-                """
-                SELECT plugin_id,
-                       count(*) FILTER (WHERE status = 'pending') AS pending,
-                       count(*) FILTER (WHERE status IN ('failed', 'dead')) AS failed
-                  FROM plugin_deliveries
-                 WHERE plugin_id = ANY(cast(:ids AS uuid[]))
-                 GROUP BY plugin_id
-                """
-            ),
-            {"ids": ids},
-        )
-    ).fetchall()
-    counts_by = {str(entry.plugin_id): entry for entry in count_rows}
-
-    bot_rows = (
-        await session.execute(
-            text(
-                "SELECT id, bot_plugin_id FROM users"
-                " WHERE bot_plugin_id = ANY(cast(:ids AS uuid[]))"
-            ),
-            {"ids": ids},
-        )
-    ).fetchall()
-    bots_by = {str(entry.bot_plugin_id): str(entry.id) for entry in bot_rows}
-
+    scopes_by, counts_by, bots_by = await registry.listing_details(session, ids)
     usage_by = await agent_run_service.usage_by_plugin(session, ids)
 
     return [
@@ -320,12 +271,7 @@ async def catalog(_admin: SessionUser = Depends(require_admin)) -> CatalogOut:
 @router.get("", response_model=PluginsOut)
 async def list_plugins(admin: SessionUser = Depends(require_admin)) -> PluginsOut:
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text("SELECT * FROM plugins WHERE workspace_id = :ws ORDER BY name"),
-                {"ws": admin.workspace_id},
-            )
-        ).fetchall()
+        rows = await registry.list_for_workspace(session, admin.workspace_id)
         return PluginsOut(plugins=await _to_plugins(session, rows))
 
 
@@ -474,26 +420,7 @@ async def set_agent_owner(
     """
     async with transaction() as (session, _after):
         await registry.by_id(session, plugin_id, admin.workspace_id)
-        if payload.user_id is not None:
-            member = (
-                await session.execute(
-                    text(
-                        """
-                        SELECT id FROM users
-                         WHERE id = :id AND workspace_id = :ws
-                           AND deactivated_at IS NULL AND kind = 'human'
-                        """
-                    ),
-                    {"id": payload.user_id, "ws": admin.workspace_id},
-                )
-            ).fetchone()
-            if member is None:
-                raise bad_request("That person is not in this workspace.")
-
-        await session.execute(
-            text("UPDATE plugins SET owner_user_id = :owner WHERE id = :id AND workspace_id = :ws"),
-            {"owner": payload.user_id, "id": plugin_id, "ws": admin.workspace_id},
-        )
+        await registry.set_owner(session, plugin_id, admin.workspace_id, payload.user_id)
         await audit_service.record(
             session,
             actor_for(request, admin),
@@ -721,15 +648,7 @@ async def revoke_tokens(
 ) -> OkOut:
     async with transaction() as (session, _after):
         await registry.by_id(session, plugin_id, admin.workspace_id)
-        await session.execute(
-            text(
-                """
-                UPDATE bot_tokens SET revoked_at = now()
-                 WHERE plugin_id = :id AND revoked_at IS NULL
-                """
-            ),
-            {"id": plugin_id},
-        )
+        await registry.revoke_tokens(session, plugin_id)
         await audit_service.record(
             session,
             actor_for(request, admin),
@@ -821,21 +740,7 @@ async def list_deliveries(
     """The delivery log — the first place to look when an app says it heard nothing."""
     async with session_scope() as session:
         await registry.by_id(session, plugin_id, admin.workspace_id)
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT id, event, status, attempts, last_status_code, last_error,
-                           created_at, delivered_at, next_attempt_at
-                      FROM plugin_deliveries
-                     WHERE plugin_id = :id
-                     ORDER BY id DESC
-                     LIMIT :limit
-                    """
-                ),
-                {"id": plugin_id, "limit": limit},
-            )
-        ).fetchall()
+        rows = await registry.deliveries(session, plugin_id, limit=limit)
     return DeliveriesOut(deliveries=[_to_delivery(row) for row in rows])
 
 
@@ -848,21 +753,7 @@ async def read_delivery(
     """One delivery in full, including the payload the app was sent."""
     async with session_scope() as session:
         await registry.by_id(session, plugin_id, admin.workspace_id)
-        row = (
-            await session.execute(
-                text(
-                    """
-                    SELECT id, event, status, attempts, last_status_code, last_error,
-                           created_at, delivered_at, next_attempt_at, payload
-                      FROM plugin_deliveries
-                     WHERE id = :id AND plugin_id = :plugin_id
-                    """
-                ),
-                {"id": delivery_id, "plugin_id": plugin_id},
-            )
-        ).fetchone()
-    if row is None:
-        raise not_found("That delivery is not in this app's log.")
+        row = await registry.delivery(session, plugin_id, delivery_id)
     return DeliveryDetailOut(**_to_delivery(row).model_dump(), payload=row.payload)
 
 
@@ -881,39 +772,7 @@ async def replay_delivery(
     """
     async with transaction() as (session, _after):
         await registry.by_id(session, plugin_id, admin.workspace_id)
-        row = (
-            await session.execute(
-                text(
-                    """
-                    UPDATE plugin_deliveries
-                       SET status = 'pending', attempts = 0, next_attempt_at = now(),
-                           last_error = NULL, last_status_code = NULL, delivered_at = NULL
-                     WHERE id = :id AND plugin_id = :plugin_id
-                       AND status IN ('failed', 'dead')
-                    RETURNING id, event, status, attempts, last_status_code, last_error,
-                              created_at, delivered_at, next_attempt_at
-                    """
-                ),
-                {"id": delivery_id, "plugin_id": plugin_id},
-            )
-        ).fetchone()
-        if row is None:
-            existing = (
-                await session.execute(
-                    text(
-                        """
-                        SELECT id FROM plugin_deliveries
-                         WHERE id = :id AND plugin_id = :plugin_id
-                        """
-                    ),
-                    {"id": delivery_id, "plugin_id": plugin_id},
-                )
-            ).fetchone()
-            if existing is None:
-                raise not_found("That delivery is not in this app's log.")
-            raise bad_request(
-                "Only a failed or dead delivery can be replayed.", code="not_replayable"
-            )
+        row = await registry.replay_delivery(session, plugin_id, delivery_id)
         await audit_service.record(
             session,
             actor_for(request, admin),
@@ -943,25 +802,7 @@ async def app_channels(
     async with session_scope() as session:
         plugin = await registry.by_id(session, plugin_id, admin.workspace_id)
         bot_id = await registry.bot_user_id(session, plugin.id)
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT c.id, c.name, c.kind,
-                           EXISTS (
-                             SELECT 1 FROM channel_members cm
-                              WHERE cm.channel_id = c.id AND cm.user_id = :bot
-                           ) AS joined
-                      FROM channels c
-                     WHERE c.workspace_id = :ws
-                       AND c.kind = 'public'
-                       AND c.archived_at IS NULL
-                     ORDER BY c.name ASC
-                    """
-                ),
-                {"ws": admin.workspace_id, "bot": bot_id},
-            )
-        ).fetchall()
+        rows = await registry.public_channels_for_bot(session, admin.workspace_id, bot_id)
     return AppChannelsOut(
         channels=[
             AppChannel(id=row.id, name=row.name, kind=row.kind, joined=bool(row.joined))
