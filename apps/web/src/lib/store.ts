@@ -217,33 +217,99 @@ function scheduleResyncRetry(run: () => void): void {
 /**
  * One sorted list from two.
  *
- * Where a fetched page meets messages that arrived while it was being fetched. Built on
- * `upsert` so the ordering rule lives in one place — ids are UUIDv7, so "sorted by id"
- * is "sorted by time".
+ * Where a fetched page meets messages that arrived while it was being fetched. Both
+ * sides are sorted by id — ids are UUIDv7, so "sorted by id" is "sorted by time" — so
+ * this is a single pass, not one `upsert` per arrival. An arrived row wins over the
+ * page's copy of the same id, and over an optimistic copy carrying its `clientMsgId`.
  */
 function mergeById(page: Message[], arrived: Message[]): Message[] {
-  let merged = page;
-  for (const message of arrived) merged = upsert(merged, message);
+  if (arrived.length === 0) return page;
+  const incoming = arrived.slice().sort(byId);
+  const arrivedIds = new Set(incoming.map((m) => m.id));
+  const twins = new Set(
+    incoming.flatMap((m) => (m.clientMsgId ? [m.clientMsgId] : [])),
+  );
+  const base = twins.size
+    ? page.filter(
+        (m) =>
+          arrivedIds.has(m.id) || !(m.clientMsgId && twins.has(m.clientMsgId)),
+      )
+    : page;
+  const merged: Message[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < base.length && j < incoming.length) {
+    const a = base[i] as Message;
+    const b = incoming[j] as Message;
+    if (a.id === b.id) {
+      merged.push(b);
+      i += 1;
+      j += 1;
+    } else if (a.id < b.id) {
+      merged.push(a);
+      i += 1;
+    } else {
+      merged.push(b);
+      j += 1;
+    }
+  }
+  while (i < base.length) merged.push(base[i++] as Message);
+  while (j < incoming.length) merged.push(incoming[j++] as Message);
   return merged;
+}
+
+function byId(a: Message, b: Message): number {
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** The index of `id`, or where it would go: binary search over an id-sorted list. */
+function positionOf(items: Message[], id: string): number {
+  let low = 0;
+  let high = items.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if ((items[mid] as Message).id < id) low = mid + 1;
+    else high = mid;
+  }
+  return low;
 }
 
 /** Insert or replace a message, keeping the list sorted by id. */
 function upsert(items: Message[], message: Message): Message[] {
-  const existingIndex = items.findIndex(
-    (m) =>
-      m.id === message.id ||
-      (m.clientMsgId && m.clientMsgId === message.clientMsgId),
-  );
-  if (existingIndex >= 0) {
+  const at = positionOf(items, message.id);
+  if (at < items.length && (items[at] as Message).id === message.id) {
     const next = items.slice();
-    next[existingIndex] = message;
+    next[at] = message;
     return next;
   }
   const next = items.slice();
-  let index = next.length;
-  while (index > 0 && (next[index - 1] as Message).id > message.id) index -= 1;
-  next.splice(index, 0, message);
+  if (message.clientMsgId) {
+    // The optimistic copy of this same send, under its pending id. Newest sends sit
+    // at the tail, so the scan runs backwards and is short in practice.
+    for (let k = next.length - 1; k >= 0; k -= 1) {
+      if ((next[k] as Message).clientMsgId === message.clientMsgId) {
+        next.splice(k, 1);
+        break;
+      }
+    }
+  }
+  next.splice(positionOf(next, message.id), 0, message);
   return next;
+}
+
+/** `items.map(fn)`, but the same array when nothing changed — identity is what stops
+ *  a re-render, and most events touch one message in one place. */
+function mapItems(items: Message[], fn: (message: Message) => Message): Message[] {
+  let next: Message[] | null = null;
+  for (let index = 0; index < items.length; index += 1) {
+    const before = items[index] as Message;
+    const after = fn(before);
+    if (after !== before) {
+      if (next === null) next = items.slice();
+      next[index] = after;
+    }
+  }
+  return next ?? items;
 }
 
 /**
@@ -541,7 +607,7 @@ export const useStore = create<State>((set, get) => ({
           [channelId]: {
             items: overlayChannelOutbox(
               s.currentUser,
-              s.outbox,
+              sortOutbox(s.outbox),
               channelId,
               // Replaced, not merged, unlike the first-page load below. This window is
               // deliberately not anchored to the tail, so folding in a message that
@@ -608,7 +674,7 @@ export const useStore = create<State>((set, get) => ({
           [channelId]: {
             items: overlayChannelOutbox(
               s.currentUser,
-              s.outbox,
+              sortOutbox(s.outbox),
               channelId,
               // Merged, not replaced. A message delivered over the socket while this
               // request was in flight is newer than anything the response can hold, and
@@ -710,7 +776,7 @@ export const useStore = create<State>((set, get) => ({
         messages: {
           ...s.messages,
           [channelId]: {
-            items: overlayChannelOutbox(s.currentUser, s.outbox, channelId, [
+            items: overlayChannelOutbox(s.currentUser, sortOutbox(s.outbox), channelId, [
               ...messages,
               ...stripPending(existing.items),
             ]),
@@ -741,7 +807,7 @@ export const useStore = create<State>((set, get) => ({
         ...s.threads,
         [rootId]: overlayThreadOutbox(
           s.currentUser,
-          s.outbox,
+          sortOutbox(s.outbox),
           rootId,
           messages,
         ),
@@ -967,7 +1033,7 @@ export const useStore = create<State>((set, get) => ({
                 ...s.threads,
                 [message.threadRootId]: overlayThreadOutbox(
                   s.currentUser,
-                  s.outbox,
+                  sortOutbox(s.outbox),
                   message.threadRootId,
                   upsert(stripPending(thread), message),
                 ),
@@ -1009,7 +1075,7 @@ export const useStore = create<State>((set, get) => ({
                   ...existing,
                   items: overlayChannelOutbox(
                     s.currentUser,
-                    s.outbox,
+                    sortOutbox(s.outbox),
                     message.channelId,
                     upsert(stripPending(existing.items), message),
                   ),
@@ -1032,7 +1098,14 @@ export const useStore = create<State>((set, get) => ({
               ...s.channels,
               [message.channelId]: {
                 ...channel,
-                lastMessageId: message.id,
+                // The newest message, not the latest to arrive: a replay after a
+                // reconnect delivers older rows, and a pointer that followed them
+                // backwards made "is the list at the tail?" false for every message
+                // after, which dropped them from the open view until a reload.
+                lastMessageId:
+                  channel.lastMessageId && channel.lastMessageId > message.id
+                    ? channel.lastMessageId
+                    : message.id,
                 // `!isActive` alone cleared the dot on a channel the reader had just
                 // asked to keep unread: `markRead` honours `suppressReadFor` and returns,
                 // so nothing ever put the dot back, and the sidebar disagreed with the
@@ -1071,7 +1144,7 @@ export const useStore = create<State>((set, get) => ({
                 ...existing,
                 items: overlayChannelOutbox(
                   s.currentUser,
-                  s.outbox,
+                  sortOutbox(s.outbox),
                   event.channelId,
                   stripPending(existing.items).filter((m) => m.id !== event.id),
                 ),
@@ -1083,7 +1156,7 @@ export const useStore = create<State>((set, get) => ({
               ...s.threads,
               [event.threadRootId]: overlayThreadOutbox(
                 s.currentUser,
-                s.outbox,
+                sortOutbox(s.outbox),
                 event.threadRootId,
                 stripPending(s.threads[event.threadRootId] ?? []).filter(
                   (m) => m.id !== event.id,
@@ -1132,14 +1205,12 @@ export const useStore = create<State>((set, get) => ({
           return { ...message, reactions };
         };
 
+        // The event says which thread the message is in, so one thread list is
+        // touched rather than every open one; a root's reactions live in its own list.
+        const rootId = event.threadRootId ?? event.messageId;
         set((s) => ({
           messages: mapChannel(s.messages, event.channelId, apply),
-          threads: Object.fromEntries(
-            Object.entries(s.threads).map(([id, items]) => [
-              id,
-              items.map(apply),
-            ]),
-          ),
+          threads: mapThread(s.threads, rootId, apply),
         }));
         break;
       }
@@ -1491,7 +1562,7 @@ export const useStore = create<State>((set, get) => ({
             ...s.threads,
             [message.threadRootId]: overlayThreadOutbox(
               s.currentUser,
-              s.outbox,
+              sortOutbox(s.outbox),
               message.threadRootId,
               upsert(stripPending(s.threads[message.threadRootId] ?? []), message),
             ),
@@ -1506,7 +1577,7 @@ export const useStore = create<State>((set, get) => ({
                 ...existing,
                 items: overlayChannelOutbox(
                   s.currentUser,
-                  s.outbox,
+                  sortOutbox(s.outbox),
                   message.channelId,
                   upsert(stripPending(existing.items), message),
                 ),
@@ -1563,10 +1634,22 @@ function mapChannel(
 ): Record<string, ChannelMessages> {
   const existing = messages[channelId];
   if (!existing) return messages;
-  return {
-    ...messages,
-    [channelId]: { ...existing, items: existing.items.map(fn) },
-  };
+  const items = mapItems(existing.items, fn);
+  if (items === existing.items) return messages;
+  return { ...messages, [channelId]: { ...existing, items } };
+}
+
+/** The same, for one thread: the root's own list, or the one the reply is in. */
+function mapThread(
+  threads: Record<string, Message[]>,
+  rootId: string,
+  fn: (message: Message) => Message,
+): Record<string, Message[]> {
+  const existing = threads[rootId];
+  if (!existing) return threads;
+  const items = mapItems(existing, fn);
+  if (items === existing) return threads;
+  return { ...threads, [rootId]: items };
 }
 
 function setOutbox(
@@ -1588,42 +1671,58 @@ function withProjectedOutbox(
   state: State,
   outbox: Record<string, LocalOutboxEntry>,
 ): Pick<State, "outbox" | "messages" | "threads"> {
-  return {
-    outbox,
-    messages: Object.fromEntries(
-      Object.entries(state.messages).map(([channelId, list]) => [
-        channelId,
-        list.loaded
-          ? {
-              ...list,
-              items: overlayChannelOutbox(
-                state.currentUser,
-                outbox,
-                channelId,
-                list.items,
-              ),
-            }
-          : list,
-      ]),
-    ),
-    threads: Object.fromEntries(
-      Object.entries(state.threads).map(([rootId, items]) => [
-        rootId,
-        overlayThreadOutbox(state.currentUser, outbox, rootId, items),
-      ]),
-    ),
-  };
+  // Only the places whose entries changed are re-overlaid. Every other channel and
+  // thread keeps its `items` reference, which is what keeps them from re-rendering
+  // because somebody queued a message somewhere else.
+  const channels = new Set<string>();
+  const threads = new Set<string>();
+  const before = state.outbox;
+  for (const key of new Set([...Object.keys(before), ...Object.keys(outbox)])) {
+    const was = before[key];
+    const now = outbox[key];
+    if (was === now) continue;
+    for (const entry of [was, now]) {
+      if (!entry) continue;
+      if (entry.threadRootId === null) channels.add(entry.channelId);
+      else threads.add(entry.threadRootId);
+    }
+  }
+  if (channels.size === 0 && threads.size === 0) {
+    return { outbox, messages: state.messages, threads: state.threads };
+  }
+  const queued = sortOutbox(outbox);
+  const messages = { ...state.messages };
+  for (const channelId of channels) {
+    const list = messages[channelId];
+    if (!list?.loaded) continue;
+    messages[channelId] = {
+      ...list,
+      items: overlayChannelOutbox(state.currentUser, queued, channelId, list.items),
+    };
+  }
+  const threadLists = { ...state.threads };
+  for (const rootId of threads) {
+    const items = threadLists[rootId];
+    if (!items) continue;
+    threadLists[rootId] = overlayThreadOutbox(
+      state.currentUser,
+      queued,
+      rootId,
+      items,
+    );
+  }
+  return { outbox, messages, threads: threadLists };
 }
 
 function overlayChannelOutbox(
   currentUser: CurrentUser | null,
-  outbox: Record<string, LocalOutboxEntry>,
+  queued: LocalOutboxEntry[],
   channelId: string,
   items: Message[],
 ): Message[] {
   if (!currentUser) return stripPending(items);
   let next = stripPending(items);
-  for (const entry of sortOutbox(outbox)) {
+  for (const entry of queued) {
     if (entry.channelId === channelId && entry.threadRootId === null) {
       next = upsert(next, materializeOutboxMessage(entry, currentUser.id));
     }
@@ -1633,13 +1732,13 @@ function overlayChannelOutbox(
 
 function overlayThreadOutbox(
   currentUser: CurrentUser | null,
-  outbox: Record<string, LocalOutboxEntry>,
+  queued: LocalOutboxEntry[],
   rootId: string,
   items: Message[],
 ): Message[] {
   if (!currentUser) return stripPending(items);
   let next = stripPending(items);
-  for (const entry of sortOutbox(outbox)) {
+  for (const entry of queued) {
     if (entry.threadRootId === rootId) {
       next = upsert(next, materializeOutboxMessage(entry, currentUser.id));
     }

@@ -31,6 +31,8 @@ export type ServerEvent =
       t: 'reaction.added' | 'reaction.removed';
       messageId: string;
       channelId: string;
+      /** The thread the message is in, so the store touches one thread list, not all. */
+      threadRootId: string | null;
       emoji: string;
       userId: string;
     }
