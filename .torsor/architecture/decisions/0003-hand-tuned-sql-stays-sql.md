@@ -9,6 +9,11 @@ rules:
     scope: "apps/api/src/blob_api/services/*.py"
     message: "Chat queries use keyset pagination, never OFFSET — see ADR 0003."
     severity: error
+  - kind: forbid_pattern
+    target: "\\btext\\("
+    scope: "apps/api/src/blob_api/routers/*.py"
+    message: "Routers shape and authorize; SQL belongs in a service — see ADR 0003."
+    severity: error
 ---
 
 # ADR 0003: SQLAlchemy for schema, verbatim SQL for the hot paths

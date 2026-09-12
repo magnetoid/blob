@@ -291,6 +291,7 @@ fades keep their duration. Anything sized for a pointer gets a 44px minimum unde
 
 ### Architecture rules (machine-enforced — `torsor guard` flags violations)
 - forbid_pattern: `\bOFFSET\s+:` in `apps/api/src/blob_api/services/*.py` — Chat queries use keyset pagination, never OFFSET — see ADR 0003. (per ADR 0003: SQLAlchemy for schema, verbatim SQL for the hot paths)
+- forbid_pattern: `\btext\(` in `apps/api/src/blob_api/routers/*.py` — Routers shape and authorize; SQL belongs in a service — see ADR 0003. (per ADR 0003: SQLAlchemy for schema, verbatim SQL for the hot paths)
 - forbid_layer_import: `blob_api\.routers(\.|$)` in `apps/api/src/blob_api/realtime/*.py` — realtime/ must not import routers/ — the socket tier moves out as a unit. ADR 0004. (per ADR 0004: Persist, then broadcast — structurally)
 - forbid_layer_import: `blob_api\.routers(\.|$)` in `apps/api/src/blob_api/plugins/*.py` — plugins/ must not import routers/ — routers depend on the plugin layer, not the reverse. ADR 0005. (per ADR 0005: A plugin's bot is a real user row)
 

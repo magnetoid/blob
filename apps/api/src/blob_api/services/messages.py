@@ -414,6 +414,55 @@ async def thread(session: AsyncSession, root_id: str) -> list[Message]:
     return [to_message(row) for row in rows]
 
 
+async def changed_since(
+    session: AsyncSession, gaps: list[tuple[str, str]], *, limit: int
+) -> list[Any]:
+    """Everything a reconnecting client missed, for every (channel, last-seen id) at once.
+
+    One statement for every gap: this runs on every reconnect for every user, and a
+    deploy used to fan out one query per channel per client. New ids are the cheap
+    half. Edits, deletes and reactions on older rows do not change id, so they are
+    replayed against the cursor message's created_at — otherwise an offline edit
+    vanished on reconnect. Rows come back grouped by channel; a channel with more than
+    `limit - 1` of them is one the caller should refetch rather than replay.
+    """
+    return list(
+        (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT sub.* FROM unnest(
+                             cast(:channel_ids AS uuid[]), cast(:cursors AS uuid[])
+                           ) AS gap(channel_id, cursor)
+                      JOIN messages cursor_msg ON cursor_msg.id = gap.cursor
+                      JOIN LATERAL (
+                        SELECT {MESSAGE_SELECT} FROM messages m
+                         WHERE m.channel_id = gap.channel_id
+                           AND (
+                             m.id > gap.cursor
+                             OR m.edited_at > cursor_msg.created_at
+                             OR m.deleted_at > cursor_msg.created_at
+                             OR EXISTS (
+                               SELECT 1 FROM reactions r
+                                WHERE r.message_id = m.id
+                                  AND r.created_at > cursor_msg.created_at
+                             )
+                           )
+                         ORDER BY m.id ASC LIMIT :limit
+                      ) sub ON true
+                     ORDER BY sub.channel_id, sub.id
+                    """
+                ),
+                {
+                    "channel_ids": [c for c, _ in gaps],
+                    "cursors": [c for _, c in gaps],
+                    "limit": limit,
+                },
+            )
+        ).fetchall()
+    )
+
+
 async def load_for(
     session: AsyncSession,
     user_id: str,

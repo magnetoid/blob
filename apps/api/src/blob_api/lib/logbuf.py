@@ -33,6 +33,7 @@ which is not something a shared pool can survive.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import traceback
@@ -122,6 +123,13 @@ def _iso(epoch: float) -> str:
     )
 
 
+#: Writes go one at a time, in the order they were scheduled. Each record is its own
+#: task on a pooled connection, so without this three warnings logged in a row could
+#: land in Redis in any order — and "newest first" is the one promise the page makes.
+#: `asyncio.Lock` wakes waiters in the order they arrived, which is what keeps it.
+_in_order = asyncio.Lock()
+
+
 async def _write(payload: str) -> None:
     """Store one record. Never raises, and never logs — see the module docstring."""
     global _in_flight
@@ -129,9 +137,10 @@ async def _write(payload: str) -> None:
         # redis-py types its list commands as the sync/async union it inherits from the
         # shared mixin, so `await` on them is what mypy objects to — not the call. Same
         # escape hatch `hub.py` and `gateway.py` use on `pubsub.aclose()`.
-        client = _redis()
-        await client.lpush(LOG_KEY, payload)  # type: ignore[misc]
-        await client.ltrim(LOG_KEY, 0, MAX_ENTRIES - 1)  # type: ignore[misc]
+        async with _in_order:
+            client = _redis()
+            await client.lpush(LOG_KEY, payload)  # type: ignore[misc]
+            await client.ltrim(LOG_KEY, 0, MAX_ENTRIES - 1)  # type: ignore[misc]
     except Exception:
         # Deliberately silent. Any report of this failure is itself a record, and the
         # thing that would carry it is the thing that just failed.

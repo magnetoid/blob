@@ -6,7 +6,6 @@ import json
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import text
 
 from ..db.engine import session_scope
 from ..lib.auth import SessionUser, current_user
@@ -15,9 +14,11 @@ from ..realtime.protocol import MAX_REPLAY_PER_CHANNEL
 from ..schemas.base import CamelModel
 from ..schemas.models import ChannelWithState, Message, ReadStateOut
 from ..services import channels as channel_service
+from ..services import messages as message_service
 from ..services import read_state as read_state_service
+from ..services import search as search_service
 from ..services.search import SORTS, SearchCursor, parse_query, search
-from ..services.serialize import MESSAGE_SELECT, to_message
+from ..services.serialize import to_message
 
 router = APIRouter(tags=["search"])
 
@@ -82,47 +83,15 @@ async def search_messages(
         # `from:@Marko` answered as if Marko had written all of them.
         unresolved: list[str] = []
         if parsed.author:
-            candidates = (
-                await session.execute(
-                    text(
-                        """
-                        SELECT id FROM users
-                         WHERE workspace_id = :ws
-                           AND deactivated_at IS NULL
-                           AND (lower(display_name) = lower(:name)
-                                -- People type the name they say out loud, and display
-                                -- names are full names. Exact wins; a prefix is only
-                                -- accepted when it names exactly one person, because
-                                -- guessing between two would answer a question nobody
-                                -- asked.
-                                OR lower(display_name) LIKE lower(:name) || ' %')
-                         ORDER BY (lower(display_name) = lower(:name)) DESC
-                         LIMIT 2
-                        """
-                    ),
-                    {"ws": user.workspace_id, "name": parsed.author},
-                )
-            ).fetchall()
-            # LIMIT 2 exists to tell "one person" from "more than one" without
-            # counting the whole table. Anything but exactly one is unresolved: zero
-            # names nobody, and two means the first is only first by sort order.
-            if len(candidates) == 1:
-                author_id = candidates[0].id
-            else:
+            author_id = await search_service.resolve_author(
+                session, user.workspace_id, parsed.author
+            )
+            if author_id is None:
                 unresolved.append(f"from:{parsed.author}")
         if parsed.channel:
-            row = (
-                await session.execute(
-                    text(
-                        """
-                        SELECT id FROM channels
-                         WHERE workspace_id = :ws AND lower(name) = lower(:name)
-                        """
-                    ),
-                    {"ws": user.workspace_id, "name": parsed.channel},
-                )
-            ).fetchone()
-            channel_id = row.id if row else None
+            channel_id = await search_service.resolve_channel(
+                session, user.workspace_id, parsed.channel
+            )
             if channel_id is None:
                 unresolved.append(f"in:{parsed.channel}")
 
@@ -192,44 +161,9 @@ async def sync(cursors: str | None = None, user: SessionUser = Depends(current_u
             behind.append((channel.id, cursor))
 
         if behind:
-            # One statement for every gap. This runs on every reconnect for every
-            # user — a deploy used to fan out one query per channel per client.
-            # New ids are the cheap half. Edits, deletes and reactions on older
-            # rows do not change id, so they are replayed against the cursor
-            # message's created_at — otherwise an offline edit vanished on reconnect.
-            rows = (
-                await session.execute(
-                    text(
-                        f"""
-                        SELECT sub.* FROM unnest(
-                                 cast(:channel_ids AS uuid[]), cast(:cursors AS uuid[])
-                               ) AS gap(channel_id, cursor)
-                          JOIN messages cursor_msg ON cursor_msg.id = gap.cursor
-                          JOIN LATERAL (
-                            SELECT {MESSAGE_SELECT} FROM messages m
-                             WHERE m.channel_id = gap.channel_id
-                               AND (
-                                 m.id > gap.cursor
-                                 OR m.edited_at > cursor_msg.created_at
-                                 OR m.deleted_at > cursor_msg.created_at
-                                 OR EXISTS (
-                                   SELECT 1 FROM reactions r
-                                    WHERE r.message_id = m.id
-                                      AND r.created_at > cursor_msg.created_at
-                                 )
-                               )
-                             ORDER BY m.id ASC LIMIT :limit
-                          ) sub ON true
-                         ORDER BY sub.channel_id, sub.id
-                        """
-                    ),
-                    {
-                        "channel_ids": [c for c, _ in behind],
-                        "cursors": [c for _, c in behind],
-                        "limit": MAX_REPLAY_PER_CHANNEL + 1,
-                    },
-                )
-            ).fetchall()
+            rows = await message_service.changed_since(
+                session, behind, limit=MAX_REPLAY_PER_CHANNEL + 1
+            )
 
             by_channel: dict[str, list[Any]] = {}
             for row in rows:

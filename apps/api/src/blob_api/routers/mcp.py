@@ -32,16 +32,15 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import Field
-from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
-from ..lib.auth import SessionUser, current_user, hash_token
-from ..lib.errors import AppError, not_found
-from ..lib.ids import IdParam, new_id, new_token
+from ..lib.auth import SessionUser, current_user
+from ..lib.errors import AppError
+from ..lib.ids import IdParam
 from ..schemas.base import CamelModel
-from ..services import audit as audit_service
 from ..services import mcp as mcp_service
+from ..services import mcp_tokens as token_service
 
 log = logging.getLogger("blob.mcp")
 
@@ -415,19 +414,7 @@ def _endpoint_url() -> str:
 @tokens_router.get("", response_model=TokensOut)
 async def list_tokens(user: SessionUser = Depends(current_user)) -> TokensOut:
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT id, name, scopes, created_at, last_used_at
-                      FROM mcp_tokens
-                     WHERE user_id = :user_id AND revoked_at IS NULL
-                     ORDER BY created_at DESC
-                    """
-                ),
-                {"user_id": user.id},
-            )
-        ).fetchall()
+        rows = await token_service.list_for(session, user.id)
     return TokensOut(tokens=[_summary(row) for row in rows], url=_endpoint_url())
 
 
@@ -435,38 +422,9 @@ async def list_tokens(user: SessionUser = Depends(current_user)) -> TokensOut:
 async def create_token(
     payload: CreateTokenInput, user: SessionUser = Depends(current_user)
 ) -> CreatedTokenOut:
-    secret = new_token()
-    token_id = new_id()
-    scopes = ["read", "write"] if payload.can_write else ["read"]
     async with transaction() as (session, _after):
-        row = (
-            await session.execute(
-                text(
-                    """
-                    INSERT INTO mcp_tokens (id, workspace_id, user_id, name, token_hash, scopes)
-                    VALUES (:id, :ws, :user_id, :name, :hash, :scopes)
-                    RETURNING id, name, scopes, created_at, last_used_at
-                    """
-                ),
-                {
-                    "id": token_id,
-                    "ws": user.workspace_id,
-                    "user_id": user.id,
-                    "name": payload.name.strip(),
-                    "hash": hash_token(secret),
-                    "scopes": scopes,
-                },
-            )
-        ).fetchone()
-        # Audited because it is a credential that acts as a person: an admin reading the
-        # log should see that one was made, by whom, and whether it could write.
-        await audit_service.record(
-            session,
-            audit_service.Actor(id=user.id, workspace_id=user.workspace_id),
-            "mcp_token.created",
-            target_type="mcp_token",
-            target_id=token_id,
-            metadata={"name": payload.name.strip(), "scopes": scopes},
+        row, secret = await token_service.mint(
+            session, user, name=payload.name.strip(), can_write=payload.can_write
         )
     return CreatedTokenOut(token=_summary(row), secret=secret, url=_endpoint_url())
 
@@ -476,28 +434,7 @@ async def revoke_token(
     token_id: IdParam, user: SessionUser = Depends(current_user)
 ) -> dict[str, bool]:
     async with transaction() as (session, _after):
-        # Scoped to the owner, so a token id learned from somewhere else revokes nothing.
-        revoked = (
-            await session.execute(
-                text(
-                    """
-                    UPDATE mcp_tokens SET revoked_at = now()
-                     WHERE id = :id AND user_id = :user_id AND revoked_at IS NULL
-                     RETURNING id
-                    """
-                ),
-                {"id": token_id, "user_id": user.id},
-            )
-        ).fetchone()
-        if revoked is None:
-            raise not_found("There is no connection with that id.")
-        await audit_service.record(
-            session,
-            audit_service.Actor(id=user.id, workspace_id=user.workspace_id),
-            "mcp_token.revoked",
-            target_type="mcp_token",
-            target_id=token_id,
-        )
+        await token_service.revoke(session, user, token_id)
     return {"ok": True}
 
 

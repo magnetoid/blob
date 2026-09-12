@@ -1,8 +1,7 @@
 """The layer rules that `torsor guard` does not yet hold.
 
-A ratchet rather than a rule: the number may go down and may not go up. When it reaches
-zero the assertion becomes a `forbid_pattern` in the torsor intent file and this test
-goes.
+The first of them, `text(` inside routers, was a ratchet here from 131 down to 0 on
+2026-09-13 and is now a `forbid_pattern` in ADR 0003; what stays is the ORM grep.
 """
 
 from __future__ import annotations
@@ -10,22 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "blob_api"
-
-#: `text(` calls inside routers. 131 on 2026-09-12 (admin.py 31, auth.py 21, users.py 14,
-#: plugins.py 13, files.py 8, a tail across the rest); 100 once admin.py had a service,
-#: 86 once users.py had one, 65 once auth.py had two,
-#: 57 once files.py had one, 45 once plugins.py used the registry.
-#: Routers shape and authorize;
-#: the SQL belongs in services. Lower this number as it moves, never raise it.
-ROUTER_SQL_CEILING = 18
-
-
-def test_sql_keeps_leaving_the_routers() -> None:
-    count = sum(path.read_text().count("text(") for path in (SRC / "routers").glob("*.py"))
-    assert count <= ROUTER_SQL_CEILING, (
-        f"{count} `text(` calls in routers, ceiling is {ROUTER_SQL_CEILING}: "
-        "new SQL belongs in a service"
-    )
 
 
 def test_no_service_or_router_uses_the_orm_as_a_query_layer() -> None:

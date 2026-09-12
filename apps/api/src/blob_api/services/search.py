@@ -188,6 +188,44 @@ def _day_start(value: str) -> datetime:
     return datetime(day.year, day.month, day.day, tzinfo=UTC)
 
 
+async def resolve_author(session: AsyncSession, workspace_id: str, name: str) -> str | None:
+    """Who `from:@name` means, or None when it names nobody — or more than one person.
+
+    People type the name they say out loud, and display names are full names. Exact
+    wins; a prefix is only accepted when it names exactly one person, because guessing
+    between two would answer a question nobody asked. LIMIT 2 tells "one" from "more
+    than one" without counting the table.
+    """
+    candidates = (
+        await session.execute(
+            text(
+                """
+                SELECT id FROM users
+                 WHERE workspace_id = :ws
+                   AND deactivated_at IS NULL
+                   AND (lower(display_name) = lower(:name)
+                        OR lower(display_name) LIKE lower(:name) || ' %')
+                 ORDER BY (lower(display_name) = lower(:name)) DESC
+                 LIMIT 2
+                """
+            ),
+            {"ws": workspace_id, "name": name},
+        )
+    ).fetchall()
+    return str(candidates[0].id) if len(candidates) == 1 else None
+
+
+async def resolve_channel(session: AsyncSession, workspace_id: str, name: str) -> str | None:
+    """Which channel `in:#name` means, or None. Membership is the search's own filter."""
+    row = (
+        await session.execute(
+            text("SELECT id FROM channels WHERE workspace_id = :ws AND lower(name) = lower(:name)"),
+            {"ws": workspace_id, "name": name},
+        )
+    ).fetchone()
+    return str(row.id) if row else None
+
+
 async def search(
     session: AsyncSession,
     *,

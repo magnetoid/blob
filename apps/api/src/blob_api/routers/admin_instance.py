@@ -16,7 +16,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import Field
-from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
@@ -27,6 +26,7 @@ from ..lib.ids import IdParam
 from ..plugins.manifest import SCOPES
 from ..schemas.base import CamelModel, OkOut, iso
 from ..services import audit as audit_service
+from ..services import instance as instance_service
 from ..services import policies as policy_service
 from ..services import workspaces as workspace_service
 from ..services.audit import actor_for
@@ -70,20 +70,7 @@ async def instance_users(
 ) -> InstanceUsersOut:
     """Every account on the server, whichever workspace it belongs to."""
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT u.id, u.email, u.display_name, u.role, u.kind,
-                           u.workspace_id, w.name AS workspace_name,
-                           u.deactivated_at, u.created_at
-                      FROM users u
-                      JOIN workspaces w ON w.id = u.workspace_id
-                     ORDER BY w.name, lower(u.display_name) LIMIT 1000
-                    """
-                )
-            )
-        ).fetchall()
+        rows = await instance_service.all_users(session)
 
     return InstanceUsersOut(
         users=[
@@ -114,25 +101,7 @@ async def instance_workspaces(
     query plan, and each count reads as the sentence it answers.
     """
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT w.id, w.name, w.slug, w.created_at,
-                           (SELECT count(*) FROM users u
-                             WHERE u.workspace_id = w.id
-                               AND u.deactivated_at IS NULL) AS member_count,
-                           (SELECT count(*) FROM channels c
-                             WHERE c.workspace_id = w.id
-                               AND c.kind IN ('public', 'private')) AS channel_count,
-                           (SELECT count(*) FROM plugins p
-                             WHERE p.workspace_id = w.id) AS app_count
-                      FROM workspaces w
-                     ORDER BY w.created_at LIMIT 1000
-                    """
-                )
-            )
-        ).fetchall()
+        rows = await instance_service.all_workspaces(session)
 
     return InstanceWorkspacesOut(
         workspaces=[

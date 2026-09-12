@@ -15,11 +15,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 from pydantic import Field
-from sqlalchemy import text
 
 from ..db.engine import transaction
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import bad_request, message_gone
+from ..lib.errors import bad_request
 from ..lib.ids import IdParam
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
@@ -29,7 +28,7 @@ from ..plugins import events as plugin_events
 from ..plugins.blocks import action_ids_of
 from ..schemas.base import CamelModel, OkOut
 from ..services import agent_chains
-from ..services import channels as channel_service
+from ..services import messages as message_service
 
 router = APIRouter(tags=["interactions"])
 
@@ -52,24 +51,8 @@ async def interact(payload: InteractionInput, user: SessionUser = Depends(curren
         return OkOut()
 
     async with transaction() as (session, after):
-        row = (
-            await session.execute(
-                text(
-                    """
-                    SELECT id, channel_id, blocks, plugin_id, deleted_at
-                      FROM messages
-                     WHERE id = :id AND workspace_id = :ws
-                    """
-                ),
-                {"id": payload.message_id, "ws": user.workspace_id},
-            )
-        ).fetchone()
-
-        if row is None or row.deleted_at is not None:
-            raise message_gone()
-
         # Being able to press the button requires being able to see the message.
-        await channel_service.assert_channel_access(session, user.id, str(row.channel_id))
+        row = await message_service.load_for(session, user.id, payload.message_id)
 
         if payload.action_id not in action_ids_of(row.blocks):
             # Deliberately not "unknown action": whether an id exists on a message the

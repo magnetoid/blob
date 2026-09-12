@@ -221,16 +221,19 @@ the agent socket sent `ready` before writing presence.
 
 ### W5 (Oct 12–18) · SQL out of routers — L
 
-*Started 2026-09-12.* Shipped so far: `services/meetups.py` on `text()` (the grep the
-rule names returns nothing now); `tests/test_layering.py`, a ratchet on `text(` calls in
-routers that may only go down; `routers/admin.py` → `services/admin.py` + `schemas/admin.py`;
+*Done 2026-09-13.* `services/meetups.py` on `text()` (the grep the rule names returns
+nothing now); `routers/admin.py` → `services/admin.py` + `schemas/admin.py`;
 `routers/users.py` → `services/users.py`; `routers/auth.py` → `services/signup.py` (founding,
 joining, invitations — the seam OIDC will use) and `services/accounts.py` (sign-in, devices,
 password resets); `routers/files.py` → `services/files.py`; `routers/plugins.py`'s twelve
-queries into `plugins/registry.py`. Routers hold **45** `text(` calls, from 131. Two
-things the move taught: the intent guard refuses `OFFSET` anywhere under `services/`, and
-the admin people list had carried an `offset` parameter nothing ever sent, so it went;
-and `torsor guard` has to run before a push, not after.
+queries into `plugins/registry.py`; then the tail — `services/my_agents.py`, `emoji.py`,
+`webhooks.py`, `mcp_tokens.py`, `instance.py`, and the rest onto the services that owned
+the table. `load_message_for` became `services/messages.load_for` and the app API's six
+hand-rolled prologues go through it. Routers hold **0** `text(` calls, from 131; the
+ratchet in `tests/test_layering.py` is now a `forbid_pattern` on ADR 0003, proven to fire.
+Two things the move taught: the intent guard refuses `OFFSET` anywhere under `services/`,
+and the admin people list had carried an `offset` parameter nothing ever sent, so it
+went; and `torsor guard` has to run before a push, not after.
 
 
 - `routers/admin.py` (1,037 lines in six commented sections: people, invitations,
