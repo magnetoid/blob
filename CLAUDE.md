@@ -53,7 +53,8 @@ is not a green CI.
 Backend, from `apps/api/`:
 
 ```bash
-uv run pytest -q                                   # 1374 tests; needs Postgres + Redis
+uv run pytest -q -n 4                              # ~1,430 tests; needs Postgres + Redis
+uv run pytest -q                                   # the same, serially — slower, one database
 uv run pytest tests/test_messages.py -q            # one file
 uv run pytest tests/test_messages.py::test_sending_is_idempotent_for_a_repeated_client_msg_id -q
 uv run pytest -q -k "unread or mention"            # by name
@@ -77,7 +78,7 @@ Tests need a real Postgres (`blob_test`) and Redis (db 15) on localhost —
 `docker compose up -d` starts Postgres, Redis, MinIO and MailHog. The attachment and
 feedback-snapshot tests **skip** without MinIO, which is green while proving nothing, so
 bring storage up before trusting a clean run of those. `conftest.py` migrates once per
-session and `TRUNCATE`s before each module; the event loop is session-scoped because the
+session and `TRUNCATE`s before every test; the event loop is session-scoped because the
 engine and Redis clients are bound to the loop that created them.
 
 **A merge to `main` ships to production.** `.github/workflows/ci.yml` runs three jobs —

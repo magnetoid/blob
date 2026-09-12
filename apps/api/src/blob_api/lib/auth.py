@@ -28,7 +28,23 @@ from .ids import new_id, new_token
 
 SESSION_COOKIE = "blob_session"
 
-_hasher = PasswordHasher()
+
+def build_hasher(profile: str, *, testing: bool) -> PasswordHasher:
+    """The hasher for this process.
+
+    argon2-cffi's defaults (t=3, m=64 MiB, p=4) cost ~75 ms a hash on a laptop. That is
+    the point in production and a tax in the suite, where every fixture that signs
+    somebody up pays it once to hash and again to log in, thousands of times a run. The
+    `fast` profile is a tenth of that. It is refused outside the suite whatever the
+    setting says, because a hash carries its own parameters: one minted cheap would
+    verify in production for as long as that account existed.
+    """
+    if profile == "fast" and testing:
+        return PasswordHasher(time_cost=1, memory_cost=8 * 1024, parallelism=1)
+    return PasswordHasher()
+
+
+_hasher = build_hasher(settings.ARGON2_PROFILE, testing=settings.is_test)
 
 Role = Literal["member", "admin", "owner"]
 

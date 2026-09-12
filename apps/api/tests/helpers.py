@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import subprocess
 import sys
 from collections.abc import AsyncIterator
@@ -34,12 +35,36 @@ def _alembic(*args: str) -> None:
         raise AssertionError(f"alembic {' '.join(args)} failed:\n{result.stderr}")
 
 
+_DATABASE_NAME = re.compile(r"^[a-z0-9_]+$")
+
+
+async def _ensure_database() -> None:
+    """Create this process's database if it is not there yet.
+
+    Under xdist every worker has a database of its own (see `workers.py`), and only the
+    first run on a machine, or a fresh CI service, has to create them. The name is held
+    to a strict pattern because CREATE DATABASE cannot take a bound parameter.
+    """
+    dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+    head, _, name = dsn.partition("?")[0].rpartition("/")
+    if not _DATABASE_NAME.match(name):
+        raise AssertionError(f"refusing to create a database named {name!r}")
+    conn = await asyncpg.connect(f"{head}/postgres")
+    try:
+        exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", name)
+        if not exists:
+            await conn.execute(f'CREATE DATABASE "{name}"')
+    finally:
+        await conn.close()
+
+
 def migrate_test_db() -> None:
     """Bring the test database to head, once per session.
 
     A database created by the old TypeScript runner already has the baseline schema, so
     it is stamped rather than migrated — the same cutover path production takes.
     """
+    asyncio.run(_ensure_database())
     has_alembic, has_baseline = asyncio.run(_inspect_schema())
     if has_baseline and not has_alembic:
         _alembic("stamp", "0001")

@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     )
 
     NODE_ENV: Literal["development", "test", "production"] = "development"
+    #: How expensive a password hash is. `default` is argon2-cffi's own choice and the
+    #: only one that ever runs outside the test suite: a stored hash carries its
+    #: parameters, so a cheap hash minted anywhere else would verify for as long as that
+    #: account existed. `fast` is honoured only when `NODE_ENV=test` — see
+    #: `lib/auth.build_hasher` for why the suite wants it.
+    ARGON2_PROFILE: Literal["default", "fast"] = "default"
     PORT: int = 3000
     PUBLIC_URL: str = "http://localhost:5173"
 

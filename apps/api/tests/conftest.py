@@ -1,6 +1,6 @@
 """Test bootstrap.
 
-Points every test at blob_test, runs migrations once, and gives each test module a clean
+Points every test at blob_test, runs migrations once, and gives every test a clean
 slate. Tests run against real Postgres and Redis — the behaviour worth testing here
 (idempotent inserts, unread math, the permission join) lives in SQL, and a mock would
 only prove the mock works.
@@ -10,11 +10,24 @@ from __future__ import annotations
 
 import os
 
+from .workers import worker_environment
+
 os.environ.setdefault("NODE_ENV", "test")
 os.environ.setdefault("DATABASE_URL", "postgres://blob:blob@localhost:5432/blob_test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
 os.environ.setdefault("SESSION_SECRET", "test-secret-that-is-at-least-32-characters-long")
 os.environ.setdefault("PUBLIC_URL", "http://localhost:5173")
+
+# One database and one Redis db per xdist worker, or two workers would truncate each
+# other mid-test. Forced, not defaulted: a developer's own DATABASE_URL still names the
+# base, and the worker's suffix goes on top of whatever that is. `helpers.migrate_test_db`
+# creates the database on first use. Without xdist this changes nothing.
+os.environ.update(worker_environment(os.environ))
+
+# Cheap password hashes. Every fixture that signs somebody up hashes once and verifies
+# once at full argon2 strength otherwise — ~75 ms each, thousands of times a run. The
+# profile is only honoured under NODE_ENV=test; see `lib/auth.build_hasher`.
+os.environ["ARGON2_PROFILE"] = "fast"
 
 # No model, whatever the developer's .env says.
 #
@@ -74,7 +87,12 @@ def _migrate() -> None:
 
 @pytest_asyncio.fixture(autouse=True)
 async def _clean_state() -> None:
-    """Wipe the database and Redis before each test module's fixtures build state."""
+    """Wipe the database and Redis before every test.
+
+    Every test, not every module: this fixture is function-scoped, which is what makes
+    each test independent of the ones before it and is the reason the suite can be
+    split across xdist workers at all.
+    """
     async with SessionFactory() as session:
         async with session.begin():
             await session.execute(text(TRUNCATE))
