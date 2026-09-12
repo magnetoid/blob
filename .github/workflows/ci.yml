@@ -82,7 +82,10 @@ jobs:
       # proposes dropping the generated column and the partial indexes. This check was
       # failing unnoticed for two milestones before it was wired up here.
       - name: Schema matches the models
-        run: uv run alembic check
+        # Migrate first. The suite used to leave blob_test at head as a side effect of
+        # running; on four workers it migrates blob_test_gw0..3 instead, and a check
+        # against an empty database only says "not up to date".
+        run: uv run alembic upgrade head && uv run alembic check
         working-directory: apps/api
 
   # Builds the image and boots the real production stack. Worth its own job: the two
