@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:46'
+updated: '2026-09-12T14:23:46'
 ---
 
 # apps/api/tests/test_agent_decisions.py
@@ -51,4 +51,4 @@ Symbols in `apps/api/tests/test_agent_decisions.py`.
 - L511 `test_the_agents_own_deadline_wins_when_it_is_sooner(self, agent: dict)` (method)
 - L517 `TestTheOtherTransports` (class)
 - L518 `test_the_builtin_gets_the_answer_as_its_next_turn(self, client: Client, model: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L578 `test_a_socket_agent_receives_the_resume_input(self, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)
+- L580 `test_a_socket_agent_receives_the_resume_input(self, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)

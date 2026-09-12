@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:47'
+updated: '2026-09-12T14:23:47'
 ---
 
 # apps/api/tests/test_plugins.py
@@ -58,30 +58,34 @@ Symbols in `apps/api/tests/test_plugins.py`.
 - L470 `test_the_delivery_detail_returns_the_payload_the_app_was_sent(team: dict)` (function)
 - L483 `test_a_delivery_belonging_to_another_app_is_not_readable(team: dict)` (function)
 - L495 `test_a_member_cannot_read_a_delivery(team: dict)` (function)
-- L506 `test_an_update_that_widens_scopes_waits_for_approval(team: dict)` (function)
-- L529 `test_an_update_that_narrows_scopes_takes_effect_at_once(team: dict)` (function)
-- L546 `test_the_consent_screen_lists_exactly_what_the_update_added(team: dict)` (function)
-- L561 `test_asking_twice_does_not_launder_a_pending_scope(team: dict)` (function)
-- L584 `test_declining_keeps_the_app_running_on_its_old_permissions(team: dict)` (function)
-- L602 `test_declining_with_nothing_pending_is_refused(team: dict)` (function)
-- L609 `test_an_update_that_withdraws_its_ask_unparks_the_app(team: dict)` (function)
-- L624 `test_setting_a_budget_shows_on_the_app(team: dict)` (function)
-- L642 `test_a_zero_budget_is_refused_as_input(team: dict)` (function)
-- L651 `test_a_budget_cannot_be_set_across_workspaces(team: dict)` (function)
-- L664 `test_a_member_cannot_set_a_budget(team: dict)` (function)
-- L672 `test_a_slug_cannot_change_after_install(team: dict)` (function)
-- L681 `test_rotating_the_secret_returns_a_different_one(team: dict)` (function)
-- L689 `test_uninstalling_keeps_what_the_bot_said(team: dict)` (function)
-- L719 `test_uninstalling_stops_the_token(team: dict)` (function)
-- L726 `test_uninstalling_is_audited(team: dict)` (function)
-- L734 `TestAnAppHearsOnlyWhatItCouldRead` (class) — The push side has to agree with the pull side.
-- L744 `test_a_public_channel_is_heard_without_joining(self, team: dict)` (method)
-- L750 `test_a_private_channel_is_not_heard(self, team: dict)` (method)
-- L760 `test_a_private_channel_is_heard_once_the_bot_is_in_it(self, team: dict)` (method)
-- L774 `test_a_direct_message_is_not_heard(self, team: dict)` (method)
-- L786 `test_a_channel_event_without_a_channel_is_refused(team: dict)` (function) — The guard that keeps this fixed.
-- L806 `TestAppChannels` (class) — An installed app is inert until its bot joins a channel.
-- L815 `test_public_channels_are_listed_with_membership(self, team: dict)` (method)
-- L823 `test_an_admin_can_put_the_bot_in_a_channel_and_take_it_out(self, team: dict)` (method)
-- L840 `test_private_channels_are_not_listed(self, team: dict)` (method)
-- L853 `test_a_member_cannot_move_an_app_around(self, team: dict)` (method)
+- L505 `test_the_workspace_delivery_log_lists_every_app(team: dict)` (function)
+- L518 `test_a_failed_delivery_can_be_replayed(team: dict)` (function)
+- L539 `test_a_pending_delivery_cannot_be_replayed(team: dict)` (function)
+- L552 `test_a_member_cannot_replay_a_delivery(team: dict)` (function)
+- L565 `test_an_update_that_widens_scopes_waits_for_approval(team: dict)` (function)
+- L588 `test_an_update_that_narrows_scopes_takes_effect_at_once(team: dict)` (function)
+- L605 `test_the_consent_screen_lists_exactly_what_the_update_added(team: dict)` (function)
+- L620 `test_asking_twice_does_not_launder_a_pending_scope(team: dict)` (function)
+- L643 `test_declining_keeps_the_app_running_on_its_old_permissions(team: dict)` (function)
+- L661 `test_declining_with_nothing_pending_is_refused(team: dict)` (function)
+- L668 `test_an_update_that_withdraws_its_ask_unparks_the_app(team: dict)` (function)
+- L683 `test_setting_a_budget_shows_on_the_app(team: dict)` (function)
+- L701 `test_a_zero_budget_is_refused_as_input(team: dict)` (function)
+- L710 `test_a_budget_cannot_be_set_across_workspaces(team: dict)` (function)
+- L723 `test_a_member_cannot_set_a_budget(team: dict)` (function)
+- L731 `test_a_slug_cannot_change_after_install(team: dict)` (function)
+- L740 `test_rotating_the_secret_returns_a_different_one(team: dict)` (function)
+- L748 `test_uninstalling_keeps_what_the_bot_said(team: dict)` (function)
+- L778 `test_uninstalling_stops_the_token(team: dict)` (function)
+- L785 `test_uninstalling_is_audited(team: dict)` (function)
+- L793 `TestAnAppHearsOnlyWhatItCouldRead` (class) — The push side has to agree with the pull side.
+- L803 `test_a_public_channel_is_heard_without_joining(self, team: dict)` (method)
+- L809 `test_a_private_channel_is_not_heard(self, team: dict)` (method)
+- L819 `test_a_private_channel_is_heard_once_the_bot_is_in_it(self, team: dict)` (method)
+- L833 `test_a_direct_message_is_not_heard(self, team: dict)` (method)
+- L845 `test_a_channel_event_without_a_channel_is_refused(team: dict)` (function) — The guard that keeps this fixed.
+- L865 `TestAppChannels` (class) — An installed app is inert until its bot joins a channel.
+- L874 `test_public_channels_are_listed_with_membership(self, team: dict)` (method)
+- L882 `test_an_admin_can_put_the_bot_in_a_channel_and_take_it_out(self, team: dict)` (method)
+- L899 `test_private_channels_are_not_listed(self, team: dict)` (method)
+- L912 `test_a_member_cannot_move_an_app_around(self, team: dict)` (method)

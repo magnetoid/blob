@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:46'
+updated: '2026-09-12T14:23:46'
 ---
 
 # apps/api/tests/test_agui.py
@@ -58,11 +58,14 @@ Symbols in `apps/api/tests/test_agui.py`.
 - L596 `sse_frame(event: dict[str, Any])` (function)
 - L601 `TestRunCards` (class) — The live card: step/tool events become agent_run.* broadcasts and a stored card.
 - L604 `test_a_run_broadcasts_started_and_finished_with_the_card(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L634 `test_the_listing_is_channel_scoped(self, team: dict)` (method)
-- L643 `TestCancel` (class)
-- L644 `test_a_cancel_before_the_run_starts_wins(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L680 `test_the_cancel_route_is_workspace_scoped(self, team: dict)` (method)
-- L685 `TestBudget` (class) — The dam: a mention that arrives over budget is refused, visibly, unrun.
-- L693 `test_a_mention_over_the_run_budget_is_refused_and_the_agent_never_called(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L724 `test_the_seconds_budget_counts_time_not_runs(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L756 `test_old_runs_and_refusals_cost_nothing(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L637 `test_the_listing_is_channel_scoped(self, team: dict)` (method)
+- L646 `TestCancel` (class)
+- L647 `test_a_cancel_before_the_run_starts_wins(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L683 `test_the_cancel_route_is_workspace_scoped(self, team: dict)` (method)
+- L688 `TestBudget` (class) — The dam: a mention that arrives over budget is refused, visibly, unrun.
+- L696 `test_a_mention_over_the_run_budget_is_refused_and_the_agent_never_called(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L727 `test_the_seconds_budget_counts_time_not_runs(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L759 `test_old_runs_and_refusals_cost_nothing(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L800 `TestKillSwitch` (class) — Workspace-wide agentsEnabled: mentions are refused, the agent is never called.
+- L803 `test_a_mention_is_refused_when_agents_are_turned_off(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L825 `test_turning_agents_back_on_lets_the_next_mention_run(self, team: dict, monkeypatch: pytest.MonkeyPatch)` (method)

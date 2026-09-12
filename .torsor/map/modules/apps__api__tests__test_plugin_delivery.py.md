@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:47'
+updated: '2026-09-12T14:23:47'
 ---
 
 # apps/api/tests/test_plugin_delivery.py
@@ -35,3 +35,7 @@ Symbols in `apps/api/tests/test_plugin_delivery.py`.
 - L355 `test_a_container_agent_receives_its_deliveries(workspace: str, app_server: RecordingApp)` (function) — The regression test for events that were queued and never leased.
 - L374 `test_an_agent_without_a_url_yet_keeps_its_queue(workspace: str)` (function)
 - L387 `test_a_local_plugin_is_still_never_delivered_to(workspace: str)` (function)
+- L394 `plugin_status(plugin_id: str)` (function)
+- L403 `mark_failed(delivery_id: str)` (function)
+- L412 `test_five_failed_deliveries_open_the_circuit(workspace: str, app_server: RecordingApp)` (function) — A plugin that keeps failing is parked, so later events wait instead of burning retries.
+- L447 `test_four_failures_do_not_open_the_circuit(workspace: str, app_server: RecordingApp)` (function)

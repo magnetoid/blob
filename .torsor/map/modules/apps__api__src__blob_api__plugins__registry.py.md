@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:46'
+updated: '2026-09-12T14:23:46'
 ---
 
 # apps/api/src/blob_api/plugins/registry.py
@@ -29,6 +29,6 @@ Symbols in `apps/api/src/blob_api/plugins/registry.py`.
 - L444 `decline_scopes(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Refuse an update's widened scopes; the app runs on with what it had.
 - L478 `set_budget(session: AsyncSession, plugin_id: str, workspace_id: str, *, runs_per_day: int | None, seconds_per_day: int | None)` (function) — Cap what this agent may spend in a trailing day. NULL lifts the cap.
 - L505 `set_status(session: AsyncSession, plugin_id: str, workspace_id: str, status: Status)` (function)
-- L515 `rotate_secret(session: AsyncSession, plugin_id: str, workspace_id: str)` (function)
-- L531 `uninstall(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Remove the app and retire its bot, keeping everything the bot ever said.
-- L572 `bot_user_id(session: AsyncSession, plugin_id: str)` (function)
+- L522 `rotate_secret(session: AsyncSession, plugin_id: str, workspace_id: str)` (function)
+- L538 `uninstall(session: AsyncSession, plugin_id: str, workspace_id: str)` (function) — Remove the app and retire its bot, keeping everything the bot ever said.
+- L579 `bot_user_id(session: AsyncSession, plugin_id: str)` (function)

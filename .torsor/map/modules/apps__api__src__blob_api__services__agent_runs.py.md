@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:46'
+updated: '2026-09-12T14:23:46'
 ---
 
 # apps/api/src/blob_api/services/agent_runs.py
@@ -25,5 +25,6 @@ Symbols in `apps/api/src/blob_api/services/agent_runs.py`.
 - L408 `sweep(session: AsyncSession, keep_days: int=30)` (function) — Drop runs older than the window, and give up on ones that never finished.
 - L456 `_view(row: Any)` (function)
 - L479 `views_for_channel(session: AsyncSession, *, workspace_id: str, channel_id: str, limit: int=10)` (function) — The runs a conversation view renders on load — live ones plus the recent tail.
-- L511 `view_of(session: AsyncSession, run_id: str)` (function) — One run in the wire shape, for re-announcing it after its state changed.
-- L519 `request_cancel(session: AsyncSession, *, workspace_id: str, run_id: str)` (function) — Mark the ask durable and return what the publisher needs, or None if no such
+- L511 `views_for_member(session: AsyncSession, *, workspace_id: str, user_id: str, limit: int=40)` (function) — Live and recent runs across every conversation this person can see.
+- L554 `view_of(session: AsyncSession, run_id: str)` (function) — One run in the wire shape, for re-announcing it after its state changed.
+- L562 `request_cancel(session: AsyncSession, *, workspace_id: str, run_id: str)` (function) — Mark the ask durable and return what the publisher needs, or None if no such

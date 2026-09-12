@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:46'
+updated: '2026-09-12T14:23:46'
 ---
 
 # apps/api/src/blob_api/lib/storage.py
@@ -23,5 +23,6 @@ Symbols in `apps/api/src/blob_api/lib/storage.py`.
 - L151 `public_file_url(key: str)` (function) — Stable URL that routes through the API, which redirects to a fresh presigned GET.
 - L160 `delete_object(key: str)` (function)
 - L164 `get_object(key: str)` (function) — Read an object through the app rather than redirecting the browser to it.
-- L175 `put_object(key: str, body: bytes, mime: str)` (function)
-- L185 `probe()` (function) — Whether *a browser* could reach object storage — not whether this process can.
+- L175 `get_object_head(key: str, n: int=64)` (function) — The first `n` bytes, for magic-number checks that must not download a 100MB file.
+- L187 `put_object(key: str, body: bytes, mime: str)` (function)
+- L197 `probe()` (function) — Whether *a browser* could reach object storage — not whether this process can.

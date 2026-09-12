@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:46'
+updated: '2026-09-12T14:23:46'
 ---
 
 # apps/api/tests/test_admin.py
@@ -32,14 +32,15 @@ Symbols in `apps/api/tests/test_admin.py`.
 - L182 `test_the_audit_log_filters_by_action(team: dict)` (function)
 - L190 `test_a_member_cannot_read_the_audit_log(team: dict)` (function)
 - L195 `test_settings_merge_rather_than_replace(team: dict)` (function)
-- L203 `test_renaming_the_workspace(team: dict)` (function)
-- L209 `test_health_reports_the_datastores(team: dict)` (function)
-- L218 `test_a_webhook_can_be_created_used_and_revoked(team: dict)` (function)
-- L239 `test_the_webhook_token_is_shown_once_and_never_again(team: dict)` (function)
-- L247 `test_an_admin_deleting_someone_elses_message_is_audited(team: dict)` (function) — Moderation is exactly what the log is for, and it used to leave no trace.
-- L261 `test_deleting_your_own_message_is_not_audited(team: dict)` (function)
-- L270 `test_creating_an_invitation_is_audited(team: dict)` (function)
-- L289 `test_instance_users_lists_every_account_with_its_workspace(team: dict)` (function)
-- L298 `test_instance_users_is_owner_only(team: dict)` (function)
-- L304 `test_instance_workspaces_counts_what_is_in_each(team: dict)` (function)
-- L315 `test_instance_workspaces_is_owner_only(team: dict)` (function)
+- L203 `test_the_agents_kill_switch_is_a_workspace_setting(team: dict)` (function)
+- L213 `test_renaming_the_workspace(team: dict)` (function)
+- L219 `test_health_reports_the_datastores(team: dict)` (function)
+- L228 `test_a_webhook_can_be_created_used_and_revoked(team: dict)` (function)
+- L249 `test_the_webhook_token_is_shown_once_and_never_again(team: dict)` (function)
+- L257 `test_an_admin_deleting_someone_elses_message_is_audited(team: dict)` (function) — Moderation is exactly what the log is for, and it used to leave no trace.
+- L271 `test_deleting_your_own_message_is_not_audited(team: dict)` (function)
+- L280 `test_creating_an_invitation_is_audited(team: dict)` (function)
+- L299 `test_instance_users_lists_every_account_with_its_workspace(team: dict)` (function)
+- L308 `test_instance_users_is_owner_only(team: dict)` (function)
+- L314 `test_instance_workspaces_counts_what_is_in_each(team: dict)` (function)
+- L325 `test_instance_workspaces_is_owner_only(team: dict)` (function)

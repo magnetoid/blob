@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:47'
+updated: '2026-09-12T14:23:47'
 ---
 
 # apps/api/tests/test_thumbnails.py
@@ -30,4 +30,4 @@ Symbols in `apps/api/tests/test_thumbnails.py`.
 - L151 `test_the_message_carries_the_thumbnail_url(self, team: dict[str, Any])` (method)
 - L161 `test_a_thumbnail_answers_to_the_same_rule_as_its_original(self, team: dict[str, Any])` (method)
 - L182 `test_a_file_that_is_not_an_image_gets_no_thumbnail_and_still_works(self, team: dict[str, Any])` (method)
-- L198 `test_something_that_claims_to_be_an_image_and_is_not(self, team: dict[str, Any])` (method)
+- L198 `test_something_that_claims_to_be_an_image_and_is_not(self, team: dict[str, Any])` (method) — Used to complete anyway and just skip the thumbnail. Now the lie is refused.

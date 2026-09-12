@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-08T17:49:32'
-updated: '2026-09-08T17:49:32'
+created: '2026-09-12T14:23:46'
+updated: '2026-09-12T14:23:46'
 ---
 
 # apps/api/src/blob_api/routers/agentic.py
@@ -29,6 +29,7 @@ Symbols in `apps/api/src/blob_api/routers/agentic.py`.
 - L346 `AgentRunsOut` (class)
 - L350 `OkOut` (class)
 - L355 `channel_agent_runs(channel_id: IdParam, user: SessionUser=Depends(current_user))` (function) — The runs a conversation renders on load: live cards plus the recent tail.
-- L372 `cancel_agent_run(run_id: IdParam, request: Request, user: SessionUser=Depends(current_user))` (function) — Stop an in-flight run.
-- L433 `AnswerInput` (class) — A free-text answer to the decision a run is waiting on.
-- L446 `answer_agent_run(run_id: IdParam, payload: AnswerInput, request: Request, user: SessionUser=Depends(current_user))` (function) — Answer the question an agent stopped to ask, and let it carry on.
+- L372 `workspace_agent_runs(user: SessionUser=Depends(current_user))` (function) — The home dashboard's live strip: running, waiting, and today's tail.
+- L387 `cancel_agent_run(run_id: IdParam, request: Request, user: SessionUser=Depends(current_user))` (function) — Stop an in-flight run.
+- L448 `AnswerInput` (class) — A free-text answer to the decision a run is waiting on.
+- L461 `answer_agent_run(run_id: IdParam, payload: AnswerInput, request: Request, user: SessionUser=Depends(current_user))` (function) — Answer the question an agent stopped to ask, and let it carry on.
