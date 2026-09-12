@@ -1,4 +1,8 @@
-"""Request bodies — the Pydantic mirror of `packages/shared/src/schemas.ts`.
+"""Request bodies. The server's word on what a request may carry.
+
+The client keeps no mirror of these — it used to, as a zod file nothing read — except
+the one rule it checks before the round trip, the channel name, in
+`packages/shared/src/channelName.ts`. `CreateChannelInput.name` below has to agree with it.
 
 Validation messages are user-facing: the client renders `error.message` directly, so
 they read as sentences rather than as validator names.

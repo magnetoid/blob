@@ -9,9 +9,9 @@
 
 import { create } from 'zustand';
 
-export type ToastKind = 'error' | 'info';
+type ToastKind = 'error' | 'info';
 
-export interface Toast {
+interface Toast {
   id: number;
   kind: ToastKind;
   text: string;

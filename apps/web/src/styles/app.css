@@ -771,15 +771,6 @@ button {
   white-space: nowrap;
 }
 
-.workspace-name {
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .sidebar-collapse {
   flex: none;
   color: var(--text-4);
@@ -938,94 +929,6 @@ button {
   color: var(--text);
 }
 
-.sidebar-footer {
-  padding: 12px 10px 14px;
-  border-top: 1px solid var(--hairline-soft);
-  background: color-mix(in srgb, var(--bg-sidebar) 86%, var(--surface));
-}
-
-.sidebar-footer-actions {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.sidebar-utility-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 0 10px;
-  border-radius: var(--radius-md);
-  color: var(--text-3);
-  background: var(--surface);
-  box-shadow: var(--elev-1);
-  transition:
-    background var(--dur-fast) var(--ease-color),
-    color var(--dur-fast) var(--ease-color),
-    transform var(--dur-fast) var(--ease-standard);
-}
-
-.sidebar-utility-btn:hover,
-.sidebar-utility-btn[aria-pressed='true'] {
-  background: var(--surface-hover);
-  color: var(--text);
-  transform: translateY(-1px);
-}
-
-.sidebar-account {
-  position: relative;
-}
-
-.sidebar-account-trigger {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 48px;
-  padding: 8px 10px;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--elev-1);
-  color: inherit;
-  transition:
-    background var(--dur-fast) var(--ease-color),
-    transform var(--dur-fast) var(--ease-standard);
-}
-
-.sidebar-account-trigger:hover {
-  background: var(--surface-hover);
-  transform: translateY(-1px);
-}
-
-.sidebar-account-avatar {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-}
-
-.sidebar-account-copy {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.sidebar-account-name {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-}
-
-.sidebar-account-role {
-  color: var(--text-4);
-  font-size: var(--text-2xs);
-}
-
 .sidebar[data-collapsed='true'] .sidebar-header {
   justify-content: center;
   padding-inline: 8px;
@@ -1041,9 +944,7 @@ button {
 }
 
 .sidebar[data-collapsed='true'] .channel-row,
-.sidebar[data-collapsed='true'] .sidebar-add,
-.sidebar[data-collapsed='true'] .sidebar-utility-btn,
-.sidebar[data-collapsed='true'] .sidebar-account-trigger {
+.sidebar[data-collapsed='true'] .sidebar-add {
   justify-content: center;
   padding-inline: 0;
 }
@@ -1066,16 +967,6 @@ button {
   height: 14px;
   padding: 0 4px;
   line-height: 14px;
-}
-
-.sidebar[data-collapsed='true'] .sidebar-footer-actions {
-  flex-direction: column;
-}
-
-.sidebar[data-collapsed='true'] .sidebar-account-trigger .menu-dot {
-  position: absolute;
-  top: 10px;
-  right: 10px;
 }
 
 /* ─── avatars & presence ─────────────────────────────────────────────────── */
@@ -7081,9 +6972,6 @@ button.person-trigger:hover {
 .stagger-1 { animation-delay: var(--stagger-1); }
 .stagger-2 { animation-delay: var(--stagger-2); }
 .stagger-3 { animation-delay: var(--stagger-3); }
-.stagger-4 { animation-delay: var(--stagger-4); }
-.stagger-5 { animation-delay: var(--stagger-5); }
-
 @media (prefers-reduced-motion: reduce) {
   .stagger-item {
     animation: none;

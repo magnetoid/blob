@@ -9,7 +9,7 @@
 import { api } from './api.ts';
 
 /** Matches the server's cap in UploadRequestInput. */
-export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 /** Matches the server's max_length on attachmentIds. */
 export const MAX_ATTACHMENTS_PER_MESSAGE = 10;

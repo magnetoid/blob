@@ -59,8 +59,3 @@ export function useEscape(onClose: () => void, active = true): void {
     };
   }, [onClose, active]);
 }
-
-/** Whether anything would answer Escape. Exported for tests, not for branching on. */
-export function escapeIsClaimed(): boolean {
-  return open.length > 0;
-}

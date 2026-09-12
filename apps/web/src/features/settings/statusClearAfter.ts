@@ -11,7 +11,7 @@
  * the end of a month, and on the last day of a year without waiting.
  */
 
-export interface ClearAfterOption {
+interface ClearAfterOption {
   id: string;
   label: string;
   /** The moment it stops applying, or null for "leave it until I clear it". */

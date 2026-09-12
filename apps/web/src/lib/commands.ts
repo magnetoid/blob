@@ -13,7 +13,7 @@
 
 import type { CommandSpec } from '@blob/shared';
 
-export interface ParsedCommand {
+interface ParsedCommand {
   name: string;
   /** Everything after the name, trimmed. Empty when there was nothing. */
   args: string;
@@ -75,7 +75,7 @@ export function matchCommands(query: string, commands: readonly CommandSpec[]): 
  * use it, is a command that autocompletes and then refuses, which teaches people the
  * feature is broken rather than that it is not for here.
  */
-export interface LocalCommand extends CommandSpec {
+interface LocalCommand extends CommandSpec {
   /** Whether to offer and accept it in the conversation currently open. */
   available: (context: LocalCommandContext) => boolean;
 }

@@ -48,7 +48,7 @@ import {
 } from "./outbox.ts";
 import { socket, type SocketStatus } from "./socket.ts";
 
-export interface ChannelMessages {
+interface ChannelMessages {
   items: Message[];
   hasMore: boolean;
   loading: boolean;

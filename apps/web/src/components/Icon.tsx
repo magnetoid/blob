@@ -12,7 +12,7 @@
 
 import type { SVGProps } from 'react';
 
-export type IconSize = 'sm' | 'md' | 'lg' | 'xl';
+type IconSize = 'sm' | 'md' | 'lg' | 'xl';
 
 const SIZES: Record<IconSize, { px: number; stroke: number }> = {
   sm: { px: 14, stroke: 1.9 }, // inside a row: sidebar, menus, message meta

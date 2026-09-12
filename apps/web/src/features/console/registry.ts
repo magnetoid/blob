@@ -27,14 +27,14 @@ export interface SectionEntry<Id extends string = string> {
   ownerOnly?: boolean;
 }
 
-export interface PlannedSectionEntry {
+interface PlannedSectionEntry {
   /** Not a section id: there is no route until the page is real. */
   id: string;
   label: string;
   planned: true;
 }
 
-export type NavEntry<Id extends string = string> = SectionEntry<Id> | PlannedSectionEntry;
+type NavEntry<Id extends string = string> = SectionEntry<Id> | PlannedSectionEntry;
 
 export interface NavGroup<Id extends string = string> {
   id: string;
@@ -46,9 +46,6 @@ export interface NavGroup<Id extends string = string> {
   adminOnly?: boolean;
 }
 
-export type AdminSectionEntry = SectionEntry<AdminSection>;
-export type AdminNavEntry = NavEntry<AdminSection>;
-export type AdminNavGroup = NavGroup<AdminSection>;
 
 export function isPlanned(entry: NavEntry): entry is PlannedSectionEntry {
   return 'planned' in entry;

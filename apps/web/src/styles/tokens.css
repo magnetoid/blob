@@ -184,8 +184,6 @@
   --stagger-1: 40ms;
   --stagger-2: 80ms;
   --stagger-3: 120ms;
-  --stagger-4: 160ms;
-  --stagger-5: 200ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);

@@ -17,7 +17,7 @@
 import type { ChannelWithState, User } from '@blob/shared';
 
 /** Who is a person and who is a program, when the caller knows. */
-export type UserDirectory = Record<string, User | undefined>;
+type UserDirectory = Record<string, User | undefined>;
 
 function byName(a: ChannelWithState, b: ChannelWithState): number {
   return (a.name ?? '').localeCompare(b.name ?? '');

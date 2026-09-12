@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { trapFocus } from "../../lib/focusTrap.ts";
 import { useEscape } from "../../lib/useEscape.ts";
-import { channelNameSchema } from "@blob/shared";
+import { channelName } from "@blob/shared";
 import { api, ApiError } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import { showChannel } from "../../lib/navigation.ts";
@@ -27,9 +27,9 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const parsed = channelNameSchema.safeParse(name);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "That name will not work.");
+    const checked = channelName(name);
+    if (!checked.ok) {
+      setError(checked.message);
       return;
     }
 
@@ -37,7 +37,7 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       const { channel } = await api.channels.create({
-        name: parsed.data,
+        name: checked.name,
         kind: isPrivate ? "private" : "public",
         topic: topic.trim() || undefined,
       });

@@ -27,7 +27,6 @@ import type {
   UserPrefs,
   Work,
   WorkArtifact,
-  WorkArtifactKind,
   Meetup,
   MeetupToken,
 } from "@blob/shared";
@@ -107,7 +106,7 @@ export interface WorkspacePolicy {
   serverChainMaxDepth: number;
 }
 
-export type WorkspacePolicyInput = Pick<
+type WorkspacePolicyInput = Pick<
   WorkspacePolicy,
   | "mayHostAgents"
   | "mayUsePrivateEndpoints"
@@ -147,7 +146,7 @@ export interface WorkspaceAgent {
   online: boolean | null;
 }
 
-export interface AttachedAgent {
+interface AttachedAgent {
   agent: MyAgent;
   /** Shown once: what the bridge dials in with, and what it signs runs with. */
   botToken: string;
@@ -219,7 +218,7 @@ export interface AuditEvent {
   createdAt: string;
 }
 
-export interface WorkspaceSettings {
+interface WorkspaceSettings {
   name: string;
   slug: string;
   settings: Record<string, unknown>;
@@ -341,7 +340,7 @@ export interface AgentEnvVar {
   duplicated: boolean;
 }
 
-export interface AgentEnv {
+interface AgentEnv {
   env: AgentEnvVar[];
   /** Names Blob sets itself, shown as fixed rather than appearing to have gone missing. */
   reserved: string[];
@@ -536,7 +535,6 @@ export const api = {
   },
 
   users: {
-    list: () => get<{ users: User[] }>("/api/users"),
     get: (id: string) => get<{ user: User }>(`/api/users/${id}`),
   },
 
@@ -570,10 +568,6 @@ export const api = {
       post<{ work: Work; channel: ChannelWithState | null }>("/api/work", input),
     byChannel: (channelId: string) =>
       get<{ work: Work; artifacts: WorkArtifact[] }>(`/api/channels/${channelId}/work`),
-    get: (workId: string) =>
-      get<{ work: Work; artifacts: WorkArtifact[] }>(`/api/work/${workId}`),
-    publish: (workId: string, input: { kind: WorkArtifactKind; title: string; body: string }) =>
-      post<{ artifact: WorkArtifact }>(`/api/work/${workId}/artifacts`, input),
     done: (workId: string) => post<{ work: Work }>(`/api/work/${workId}/done`),
   },
 
@@ -614,7 +608,6 @@ export const api = {
   },
 
   channels: {
-    list: () => get<{ channels: ChannelWithState[] }>("/api/channels"),
     create: (input: {
       name: string;
       kind: "public" | "private";
@@ -697,9 +690,7 @@ export const api = {
   meetups: {
     create: (input: { name: string; channelId?: string | null }) =>
       post<Meetup>("/api/meetups", input),
-    get: (id: string) => get<Meetup>(`/api/meetups/${id}`),
     getToken: (id: string) => post<MeetupToken>(`/api/meetups/${id}/token`),
-    end: (id: string) => post<Meetup>(`/api/meetups/${id}/end`),
   },
 
   messages: {
@@ -770,7 +761,6 @@ export const api = {
       put<{ message: Message }>(`/api/messages/${id}/pin`, { pinned }),
     save: (id: string, saved: boolean) =>
       put<{ ok: true }>(`/api/messages/${id}/save`, { saved }),
-    saved: () => get<{ messages: Message[] }>("/api/saved"),
     react: (id: string, emoji: string) =>
       put<{ ok: true }>(`/api/messages/${id}/reactions`, { emoji }),
     unreact: (id: string, emoji: string) =>
@@ -917,13 +907,6 @@ export const api = {
       del<{ ok: true }>(`/api/admin/emoji/${encodeURIComponent(name)}`),
     instanceUsers: () =>
       get<{ users: InstanceUser[] }>("/api/admin/instance/users"),
-    createWorkspace: (name: string) =>
-      post<{ id: string; name: string; slug: string }>(
-        "/api/admin/instance/workspaces",
-        {
-          name,
-        },
-      ),
     instanceWorkspaces: () =>
       get<{ workspaces: InstanceWorkspace[] }>(
         "/api/admin/instance/workspaces",

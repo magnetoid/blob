@@ -1,9 +1,9 @@
 /** A unified diff, classified line by line. The first character is the whole grammar;
  * see DiffView.tsx for why a viewer can be this small. */
 
-export type DiffLineKind = "file" | "hunk" | "add" | "del" | "ctx" | "meta";
+type DiffLineKind = "file" | "hunk" | "add" | "del" | "ctx" | "meta";
 
-export interface DiffLine {
+interface DiffLine {
   kind: DiffLineKind;
   text: string;
 }

@@ -49,7 +49,7 @@ export const SETTINGS_SECTIONS = [
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
-export const DEFAULT_SETTINGS_SECTION: SettingsSection = 'preferences';
+const DEFAULT_SETTINGS_SECTION: SettingsSection = 'preferences';
 
 /** Sections that have a detail page under them, at /admin/:section/:id. */
 export const ADMIN_DETAIL_SECTIONS: readonly AdminSection[] = [
@@ -60,7 +60,7 @@ export const ADMIN_DETAIL_SECTIONS: readonly AdminSection[] = [
 ];
 
 /** Where a bare /admin lands. */
-export const DEFAULT_ADMIN_SECTION: AdminSection = 'general';
+const DEFAULT_ADMIN_SECTION: AdminSection = 'general';
 
 export type Route =
   | { view: 'home' }
@@ -246,7 +246,7 @@ export function pathForRoute(route: Route): string {
  * A permalink carries a message id and is replaced by the conversation as soon as it is
  * followed, so there is no "go to the permalink view" for a button to mean.
  */
-export type StableView = Exclude<View, 'permalink' | 'channel' | 'meetup'>;
+type StableView = Exclude<View, 'permalink' | 'channel' | 'meetup'>;
 
 /** The address of a conversation — what the sidebar, results and push payloads link. */
 export function pathForChannel(channelId: string, threadRootId?: string): string {

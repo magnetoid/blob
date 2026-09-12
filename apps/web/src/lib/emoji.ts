@@ -20,7 +20,7 @@
 
 import type { CustomEmoji } from '@blob/shared';
 
-export interface EmojiEntry {
+interface EmojiEntry {
   /** Shortcode without the colons. */
   name: string;
   char: string;
@@ -28,7 +28,7 @@ export interface EmojiEntry {
   keywords: string[];
 }
 
-export interface EmojiCategory {
+interface EmojiCategory {
   id: string;
   label: string;
   entries: EmojiEntry[];
@@ -368,7 +368,7 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
 ];
 
 /** Every Unicode entry, flattened, in category order. */
-export const ALL_EMOJI: EmojiEntry[] = EMOJI_CATEGORIES.flatMap((c) => c.entries);
+const ALL_EMOJI: EmojiEntry[] = EMOJI_CATEGORIES.flatMap((c) => c.entries);
 
 const BY_NAME = new Map(ALL_EMOJI.map((entry) => [entry.name, entry]));
 
@@ -376,7 +376,7 @@ const BY_NAME = new Map(ALL_EMOJI.map((entry) => [entry.name, entry]));
 export const QUICK_REACTIONS = ['👍', '🎉', '👀', '✅', '❤️', '😄'];
 
 /** `:name:` — the shape a shortcode takes in a message body or a reaction value. */
-export const SHORTCODE_RE = /^:([a-z0-9_+-]+):$/;
+const SHORTCODE_RE = /^:([a-z0-9_+-]+):$/;
 
 /** True when a stored reaction value is a custom-emoji shortcode rather than a character. */
 export function isShortcode(value: string): boolean {

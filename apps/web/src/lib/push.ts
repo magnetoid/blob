@@ -16,7 +16,7 @@ export type PushState =
   | 'off'
   | 'on';
 
-export function pushSupported(): boolean {
+function pushSupported(): boolean {
   return (
     typeof navigator !== 'undefined' &&
     'serviceWorker' in navigator &&

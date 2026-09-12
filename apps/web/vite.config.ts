@@ -89,7 +89,6 @@ export default defineConfig({
    * unquoted string would be spliced in as an identifier.
    */
   define: {
-    __BUILD_COMMIT__: JSON.stringify(commit),
     __BUILD_COMMIT_SHORT__: JSON.stringify(
       git(['rev-parse', '--short', 'HEAD']) || commit.slice(0, 7),
     ),

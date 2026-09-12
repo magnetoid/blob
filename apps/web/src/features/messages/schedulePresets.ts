@@ -11,7 +11,7 @@
 
 import type { ScheduleRepeat } from '@blob/shared';
 
-export interface SchedulePreset {
+interface SchedulePreset {
   id: string;
   label: string;
   at: (now: Date) => Date;

@@ -17,9 +17,9 @@
  * message; "channels stop flickering when you switch quickly" belongs here.
  */
 
-export type EntryKind = 'added' | 'fixed' | 'changed';
+type EntryKind = 'added' | 'fixed' | 'changed';
 
-export interface ChangelogEntry {
+interface ChangelogEntry {
   kind: EntryKind;
   text: string;
 }

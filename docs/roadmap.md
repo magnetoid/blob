@@ -109,7 +109,7 @@ the console existed (approvals, storage, import-export; moderation is deleted, s
 | Functions ≥ 200 lines | 4 | 0 | W6 splits along seams already named |
 | Local pytest wall time | 14:54 | ≤ 8 min | test-profile argon2 + `pytest-xdist -n 4` (W1) — **6:03 on the first run** |
 | Client source lines | 29,381 | ≤ 28,200 | dialog ×11 (~200), fetch ×17 (~150), empty-state ×21 (~120), formatters (~40), `schemas.ts` (~160), dead exports and methods (~30), duplicated state (~100), then W10's generated types (~400) |
-| Main chunk (raw) | 1,071 KB | ≤ 600 KB and **0** `livekit` references | LiveKit lazy (W2); exact figure set by W1's visualizer run |
+| Main chunk (raw) | 1,071 KB | ≤ 600 KB and **0** `livekit` references | LiveKit lazy (W2) — **325 KB after W2**, the meetup view its own 692 KB chunk |
 | `style={{` / `let cancelled` / `trapFocus` | 241 / 17 / 11 | ≤ 60 / 0 / 1 | W3, W7 |
 | `app.css` | 7,210 | ≤ 6,700 | 130 dead + backdrop, empty-state and field consolidation; tokens.css untouched |
 | `docs/` + root plans | 17 + 2 | 5 + none | W1 |

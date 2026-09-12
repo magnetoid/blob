@@ -54,7 +54,7 @@ export function rankName(name: string, query: string): number | null {
  * a missing full name should be absent, not an empty string that every query
  * prefix-matches.
  */
-export function rankAliases(
+function rankAliases(
   names: readonly (string | null | undefined)[],
   query: string,
 ): number | null {

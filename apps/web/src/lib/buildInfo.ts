@@ -24,7 +24,6 @@
 // build on a host with no repository in its context.
 import { GENERATED_COMMITS, GENERATED_REPO_URL } from './commits.generated.ts';
 
-declare const __BUILD_COMMIT__: string;
 declare const __BUILD_COMMIT_SHORT__: string;
 declare const __BUILD_TIME__: string;
 declare const __BUILD_BRANCH__: string;
@@ -54,7 +53,6 @@ function constant(name: string, value: () => string): string {
 }
 
 /** The commit this bundle was built from, or "" when the build could not tell. */
-export const BUILD_COMMIT = constant('commit', () => __BUILD_COMMIT__);
 export const BUILD_COMMIT_SHORT = constant('short', () => __BUILD_COMMIT_SHORT__);
 export const BUILD_BRANCH = constant('branch', () => __BUILD_BRANCH__);
 /** ISO instant the bundle was compiled — the closest thing to "when this deployed". */
@@ -72,7 +70,7 @@ export const BUILD_TIME = constant('time', () => __BUILD_TIME__);
 export const BUILD_VERSION = constant('version', () => __BUILD_VERSION__);
 
 /** Where a commit can be read in full. Empty when the remote is not a web host. */
-export const REPO_URL = constant('repo', () => __BUILD_REPO_URL__) || GENERATED_REPO_URL;
+const REPO_URL = constant('repo', () => __BUILD_REPO_URL__) || GENERATED_REPO_URL;
 
 /** What git said at build time, or nothing. */
 const STAMPED: readonly BuildCommit[] = (() => {

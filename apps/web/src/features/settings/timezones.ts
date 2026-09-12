@@ -72,8 +72,3 @@ export function timeIn(zone: string, now: Date): string | null {
     return null;
   }
 }
-
-/** Whether a zone name is one this browser can actually resolve. */
-export function isValidZone(zone: string): boolean {
-  return timeIn(zone, new Date(0)) !== null;
-}

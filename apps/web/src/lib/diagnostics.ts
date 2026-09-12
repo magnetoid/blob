@@ -9,7 +9,7 @@ const LOG_LIMIT = 300;
 const LOG_BYTES = 64 * 1024;
 const SNAPSHOT_BYTES = 2 * 1024 * 1024;
 
-export interface LogLine {
+interface LogLine {
   at: string;
   level: 'log' | 'info' | 'warn' | 'error';
   text: string;

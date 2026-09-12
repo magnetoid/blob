@@ -16,7 +16,7 @@
  */
 
 /** Who a topic is about. Everything not marked is for everybody. */
-export type Audience = 'admins' | 'owner';
+type Audience = 'admins' | 'owner';
 
 export interface Topic {
   /** The anchor. `/help#threads` has to keep working once somebody has sent it. */

@@ -13,7 +13,7 @@
  */
 
 /** One chord. A shortcut has one, and sometimes a second that means the same thing. */
-export interface Chord {
+interface Chord {
   /** `event.key`, lowercased for letters. */
   key: string;
   /** ⌘ on a Mac, Ctrl elsewhere. */

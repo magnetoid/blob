@@ -29,7 +29,7 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
  */
 const MAX_DRAFTS = 200;
 
-export interface DraftEntry {
+interface DraftEntry {
   body: string;
   /** ISO 8601. Drives both the eviction order and the age cutoff. */
   updatedAt: string;

@@ -15,13 +15,13 @@ import type { Theme, UserPrefs } from '@blob/shared';
 /** Mirrors the chosen palette so the pre-hydration script can avoid a flash. */
 const STORAGE_KEY = 'blob.theme';
 
-export interface ThemeChoice {
+interface ThemeChoice {
   mode: 'light' | 'dark';
   tokens: Record<string, string>;
 }
 
 /** Which mode applies right now, resolving 'system' against the OS. */
-export function resolveMode(preference: UserPrefs['theme']): 'light' | 'dark' {
+function resolveMode(preference: UserPrefs['theme']): 'light' | 'dark' {
   if (preference === 'light' || preference === 'dark') return preference;
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
