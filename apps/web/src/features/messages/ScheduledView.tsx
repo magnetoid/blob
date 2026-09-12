@@ -13,6 +13,7 @@ import { useStore } from '../../lib/store.ts';
 import { showError } from '../../lib/toasts.ts';
 import { ClockIcon } from '../../components/Icon.tsx';
 import { describeRepeat } from './schedulePresets.ts';
+import { EmptyState } from '../../components/EmptyState.tsx';
 
 function whenText(iso: string): string {
   const when = new Date(iso);
@@ -54,25 +55,20 @@ export function ScheduledView() {
 
       <div className="browse-body">
         {error && (
-          <div className="empty-state">
-            <div className="empty-state-title">That didn’t load</div>
-            <div className="empty-state-body">{error.message}</div>
-            <button className="btn" onClick={() => void reload()}>
-              Try again
-            </button>
-          </div>
+          <EmptyState
+            title="That didn’t load"
+            action={
+              <button className="btn" onClick={() => void reload()}>
+                Try again
+              </button>
+            }
+          >
+            {error.message}
+          </EmptyState>
         )}
 
         {!error && data && items.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-mark" aria-hidden="true">
-              <ClockIcon size="xl" />
-            </div>
-            <div className="empty-state-title">Nothing scheduled</div>
-            <div className="empty-state-body">
-              The clock beside Send puts a message aside for later.
-            </div>
-          </div>
+          <EmptyState mark={<ClockIcon size="xl" />} title="Nothing scheduled">The clock beside Send puts a message aside for later.</EmptyState>
         )}
 
         <ul className="browse-list">

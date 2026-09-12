@@ -18,6 +18,7 @@ import { showError } from '../../lib/toasts.ts';
 import { showChannel } from '../../lib/navigation.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { Dialog } from '../../components/Dialog.tsx';
+import { byDisplayName } from '../../lib/format.ts';
 
 /** Including you, which is why the picker stops at seven others. */
 export const MAX_DM_MEMBERS = 8;
@@ -38,7 +39,7 @@ export function NewMessageDialog({ onClose }: { onClose: () => void }) {
     () =>
       Object.values(users)
         .filter((u) => u.id !== currentUser?.id && !u.deactivated)
-        .sort((a, b) => a.displayName.localeCompare(b.displayName)),
+        .sort(byDisplayName),
     [users, currentUser],
   );
 

@@ -19,6 +19,7 @@ import { showMessage } from '../../lib/navigation.ts';
 import { showError } from '../../lib/toasts.ts';
 import { MentionIcon } from '../../components/Icon.tsx';
 import { MessageResultRow } from './MessageResultRow.tsx';
+import { EmptyState } from '../../components/EmptyState.tsx';
 
 const SEEN_KEY = 'blob.activity.seen';
 
@@ -151,16 +152,10 @@ function ActivityResults({
       {!failed && items === null && <p className="muted">Loading…</p>}
 
       {items?.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-state-mark">
-            <MentionIcon size="xl" />
-          </div>
-          <div className="empty-state-title">Nothing yet</div>
-          <div className="empty-state-body">
-            When somebody names you or reacts to something you wrote, it shows up here
-            — so you can find your way back to it without hunting through channels.
-          </div>
-        </div>
+        <EmptyState mark={<MentionIcon size="xl" />} title="Nothing yet">
+          When somebody names you or reacts to something you wrote, it shows up here
+          — so you can find your way back to it without hunting through channels.
+        </EmptyState>
       )}
 
       {rows.map(({ item, key, isNew }) => (

@@ -18,6 +18,7 @@ import { useFetch } from '../../lib/useFetch.ts';
 import { showThread } from '../../lib/navigation.ts';
 import { ReplyIcon } from '../../components/Icon.tsx';
 import { MessageResultRow } from './MessageResultRow.tsx';
+import { EmptyState } from '../../components/EmptyState.tsx';
 
 export function ThreadsView() {
   // Fetched on arrival, not held in the store. The list is a query over subscriptions
@@ -49,16 +50,10 @@ export function ThreadsView() {
         {!error && threads === null && <p className="muted">Loading…</p>}
 
         {threads?.messages.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-mark">
-              <ReplyIcon size="xl" />
-            </div>
-            <div className="empty-state-title">No threads yet</div>
-            <div className="empty-state-body">
-              Reply in a thread and it shows up here, so you can find your way back
-              without hunting for the message.
-            </div>
-          </div>
+          <EmptyState mark={<ReplyIcon size="xl" />} title="No threads yet">
+            Reply in a thread and it shows up here, so you can find your way back
+            without hunting for the message.
+          </EmptyState>
         )}
 
         {threads?.messages.map((message) => (

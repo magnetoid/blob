@@ -38,7 +38,6 @@ import {
 } from "../../lib/shortcuts.ts";
 import {
   MAX_ATTACHMENTS_PER_MESSAGE,
-  describeSize,
   newPendingAttachment,
   uploadFile,
   type PendingAttachment,
@@ -70,6 +69,7 @@ import {
   SendIcon,
   ClockIcon,
 } from "../../components/Icon.tsx";
+import { formatBytes } from "../../lib/format.ts";
 
 /**
  * One row of the `@` autocomplete.
@@ -1020,7 +1020,7 @@ export function Composer({
                     </span>
                     <span className="attachment-chip-meta">
                       {item.status === "uploading" && "Uploading…"}
-                      {item.status === "ready" && describeSize(item.sizeBytes)}
+                      {item.status === "ready" && formatBytes(item.sizeBytes)}
                       {item.status === "failed" &&
                         (item.error ?? "Upload failed")}
                     </span>

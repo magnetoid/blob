@@ -9,6 +9,7 @@ import { api } from '../../lib/api.ts';
 import { showError } from '../../lib/toasts.ts';
 import { ImageLightbox } from './ImageLightbox.tsx';
 import { useFetch } from '../../lib/useFetch.ts';
+import { EmptyState } from '../../components/EmptyState.tsx';
 
 export function FilesView() {
   const [kind, setKind] = useState<'all' | 'image' | 'file'>('all');
@@ -58,10 +59,7 @@ export function FilesView() {
           Loading…
         </div>
       ) : items.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-title">Nothing here yet</div>
-          <div className="empty-state-body">Files people post in channels will show up here.</div>
-        </div>
+        <EmptyState title="Nothing here yet">Files people post in channels will show up here.</EmptyState>
       ) : (
         <div className="files-grid">
           {items.map((item) => {

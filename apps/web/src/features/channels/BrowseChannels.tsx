@@ -19,6 +19,7 @@ import { useStore } from '../../lib/store.ts';
 import { showChannel } from '../../lib/navigation.ts';
 import { showError } from '../../lib/toasts.ts';
 import { SearchIcon } from '../../components/Icon.tsx';
+import { EmptyState } from '../../components/EmptyState.tsx';
 
 export function BrowseChannels() {
   const [query, setQuery] = useState('');
@@ -84,26 +85,24 @@ export function BrowseChannels() {
         </div>
 
         {error && (
-          <div className="empty-state">
-            <div className="empty-state-title">That didn’t load</div>
-            <div className="empty-state-body">{error.message}</div>
-            <button className="btn" onClick={() => void reload()}>
-              Try again
-            </button>
-          </div>
+          <EmptyState
+            title="That didn’t load"
+            action={
+              <button className="btn" onClick={() => void reload()}>
+                Try again
+              </button>
+            }
+          >
+            {error.message}
+          </EmptyState>
         )}
 
         {!error && data && channels.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-title">
-              {debounced ? `Nothing matches “${debounced}”` : 'No channels yet'}
-            </div>
-            <div className="empty-state-body">
-              {debounced
-                ? 'Try a shorter word, or part of a description.'
-                : 'Public channels people create will show up here.'}
-            </div>
-          </div>
+          <EmptyState title={debounced ? `Nothing matches “${debounced}”` : 'No channels yet'}>
+            {debounced
+              ? 'Try a shorter word, or part of a description.'
+              : 'Public channels people create will show up here.'}
+          </EmptyState>
         )}
 
         <ul className="browse-list">

@@ -2645,6 +2645,11 @@ dialog.dialog-host::backdrop {
   text-wrap: pretty;
 }
 
+/* Whatever follows the body — a retry, a way back — sits one step below it. */
+.empty-state > .btn {
+  margin-top: 12px;
+}
+
 .connection-banner {
   display: flex;
   align-items: center;

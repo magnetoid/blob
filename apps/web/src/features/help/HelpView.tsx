@@ -27,6 +27,7 @@ import {
   isMac,
   type Shortcut,
 } from '../../lib/shortcuts.ts';
+import { EmptyState } from '../../components/EmptyState.tsx';
 
 /** The keys for one shortcut, or nothing when the id names no binding. */
 function Keys({ id, mac }: { id: string; mac: boolean }) {
@@ -260,14 +261,11 @@ export function HelpView() {
           </div>
 
           {visible.length === 0 && (
-            <div className="empty-state">
-              <div className="empty-state-title">Nothing here says that</div>
-              <div className="empty-state-body">
-                Try a plainer word — “thread”, “unread”, “schedule”. If the answer really
-                is missing, Feedback in the account menu goes straight to the people who
-                can add it.
-              </div>
-            </div>
+            <EmptyState title="Nothing here says that">
+              Try a plainer word — “thread”, “unread”, “schedule”. If the answer really
+              is missing, Feedback in the account menu goes straight to the people who
+              can add it.
+            </EmptyState>
           )}
 
           {visible.map((section) => (

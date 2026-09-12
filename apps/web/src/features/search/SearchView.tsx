@@ -11,6 +11,7 @@ import { api, ApiError, type ParsedSearchQuery, type SearchSort } from "../../li
 import { showMessage } from "../../lib/navigation.ts";
 import { SearchIcon } from "../../components/Icon.tsx";
 import { MessageResultRow } from "../messages/MessageResultRow.tsx";
+import { EmptyState } from "../../components/EmptyState.tsx";
 
 const SORTS: Array<{ value: SearchSort; label: string }> = [
   { value: 'relevance', label: 'Most relevant' },
@@ -191,18 +192,13 @@ export function SearchView() {
 
       <div className="search-results">
         {failed ? (
-          <div className="empty-state">
-            <div className="empty-state-title">
-              {failure === "rate-limited"
-                ? "Too many searches at once"
-                : "Search didn’t answer"}
-            </div>
-            <div className="empty-state-body">
-              {failure === "rate-limited"
-                ? "Give it a few seconds and search again — the query is fine, there have just been too many in a row."
-                : "The server errored or couldn’t be reached — your messages are still there. Adjust the query or try again in a moment."}
-            </div>
-          </div>
+          <EmptyState
+            title={failure === "rate-limited" ? "Too many searches at once" : "Search didn’t answer"}
+          >
+            {failure === "rate-limited"
+              ? "Give it a few seconds and search again — the query is fine, there have just been too many in a row."
+              : "The server errored or couldn’t be reached — your messages are still there. Adjust the query or try again in a moment."}
+          </EmptyState>
         ) : searching && results === null ? (
           // The first search of a session has no results array yet, so it fell into the
           // idle prompt below and sat there — on a slow connection, two and a half
@@ -211,38 +207,21 @@ export function SearchView() {
           // needs an array to reach. Every later search keeps the previous results on
           // screen, which reads as stale rather than as broken; this one read as nothing
           // having happened at all.
-          <div className="empty-state" aria-live="polite">
-            <div className="empty-state-mark">
-              <SearchIcon size="xl" />
-            </div>
-            <div className="empty-state-title">Searching…</div>
-            <div className="empty-state-body">
-              Looking through the whole history.
-            </div>
-          </div>
+          <EmptyState mark={<SearchIcon size="xl" />} title="Searching…" aria-live="polite">
+            Looking through the whole history.
+          </EmptyState>
         ) : results === null ? (
-          <div className="empty-state">
-            <div className="empty-state-mark">
-              <SearchIcon size="xl" />
-            </div>
-            <div className="empty-state-title">Search the whole history</div>
-            <div className="empty-state-body">
-              Nothing is ever archived away. Narrow results with{" "}
-              <code>from:</code>, <code>in:</code>, <code>has:link</code> or{" "}
-              <code>before:</code>.
-            </div>
-          </div>
+          <EmptyState mark={<SearchIcon size="xl" />} title="Search the whole history">
+            Nothing is ever archived away. Narrow results with{" "}
+            <code>from:</code>, <code>in:</code>, <code>has:link</code> or{" "}
+            <code>before:</code>.
+          </EmptyState>
         ) : results.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-title">
-              {searching ? "Searching…" : `Nothing matched “${query}”`}
-            </div>
-            <div className="empty-state-body">
-              {parsed?.unresolved?.length
-                ? `Could not place ${parsed.unresolved.join(", ")}.`
-                : "Try a shorter phrase, or drop the filters."}
-            </div>
-          </div>
+          <EmptyState title={searching ? "Searching…" : `Nothing matched “${query}”`}>
+            {parsed?.unresolved?.length
+              ? `Could not place ${parsed.unresolved.join(", ")}.`
+              : "Try a shorter phrase, or drop the filters."}
+          </EmptyState>
         ) : (
           <>
             <div className="search-count">

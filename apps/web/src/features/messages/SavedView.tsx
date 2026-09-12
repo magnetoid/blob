@@ -15,6 +15,7 @@ import { showMessage } from '../../lib/navigation.ts';
 import { showError } from '../../lib/toasts.ts';
 import { PinIcon } from '../../components/Icon.tsx';
 import { MessageResultRow } from './MessageResultRow.tsx';
+import { EmptyState } from '../../components/EmptyState.tsx';
 
 const TABS: Array<{ state: LaterState; label: string }> = [
   { state: 'in_progress', label: 'In progress' },
@@ -84,19 +85,11 @@ export function SavedView() {
         {!error && data === null && <p className="muted">Loading…</p>}
 
         {data !== null && visible.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-mark">
-              <PinIcon size="xl" />
-            </div>
-            <div className="empty-state-title">
-              {tab === 'in_progress' ? 'Nothing saved' : 'Nothing here'}
-            </div>
-            <div className="empty-state-body">
-              Pick <strong>Save for later</strong> or <strong>Remind me</strong> from a
-              message's ••• menu and it waits here. Pinning tells the channel; this tells
-              nobody.
-            </div>
-          </div>
+          <EmptyState mark={<PinIcon size="xl" />} title={tab === 'in_progress' ? 'Nothing saved' : 'Nothing here'}>
+            Pick <strong>Save for later</strong> or <strong>Remind me</strong> from a
+            message's ••• menu and it waits here. Pinning tells the channel; this tells
+            nobody.
+          </EmptyState>
         )}
 
         {visible.map((item) => (

@@ -14,6 +14,7 @@ import { MessageRow } from "./MessageRow.tsx";
 import { AgentRunCard } from "./AgentRunCard.tsx";
 import { flashMessage } from "../../lib/navigation.ts";
 import { useStore } from "../../lib/store.ts";
+import { EmptyState } from "../../components/EmptyState.tsx";
 
 interface Props {
   messages: Message[];
@@ -252,21 +253,18 @@ export function MessageList({
     if (error) {
       return (
         <div className="message-list" ref={scrollRef}>
-          <div className="empty-state">
-            <div className="empty-state-title">Couldn’t load messages</div>
-            <div className="empty-state-body">
-              The server didn’t answer. Nothing is lost.
-            </div>
-            {onRetry && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={onRetry}
-              >
-                Try again
-              </button>
-            )}
-          </div>
+          <EmptyState
+            title="Couldn’t load messages"
+            action={
+              onRetry && (
+                <button type="button" className="btn btn-primary" onClick={onRetry}>
+                  Try again
+                </button>
+              )
+            }
+          >
+            The server didn’t answer. Nothing is lost.
+          </EmptyState>
         </div>
       );
     }

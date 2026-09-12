@@ -18,6 +18,7 @@ import { useAdminAction } from '../../console/hooks.ts';
 import { AppSettings } from "./AppSettings.tsx";
 import { InstallAppForm } from "./apps/InstallAppForm.tsx";
 import { PluginCard } from "./apps/PluginCard.tsx";
+import { EmptyState } from "../../../components/EmptyState.tsx";
 
 /**
  * /admin/apps is the list; /admin/apps/{id} is one app's settings.
@@ -301,13 +302,10 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
               />
             ))}
             {plugins.length === 0 && (
-              <div className="empty-state" style={{ margin: "32px auto 0" }}>
-                <div className="empty-state-title">No apps installed yet</div>
-                <div className="empty-state-body">
-                  Register an external app to connect project tools, bots, or
-                  internal agent services into this workspace.
-                </div>
-              </div>
+              <EmptyState title="No apps installed yet" style={{ margin: "32px auto 0" }}>
+                Register an external app to connect project tools, bots, or
+                internal agent services into this workspace.
+              </EmptyState>
             )}
           </div>
         )}

@@ -18,6 +18,7 @@ import { useStore } from '../../lib/store.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { Dialog } from '../../components/Dialog.tsx';
 import { useFetch } from '../../lib/useFetch.ts';
+import { byDisplayName } from '../../lib/format.ts';
 
 interface Props {
   channel: ChannelWithState;
@@ -60,7 +61,7 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
       (memberIds ?? [])
         .map((id) => users[id])
         .filter((user) => user !== undefined)
-        .sort((a, b) => a.displayName.localeCompare(b.displayName)),
+        .sort(byDisplayName),
     [memberIds, users],
   );
 
@@ -73,7 +74,7 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
     return Object.values(users)
       .filter((user) => !user.deactivated && !inHere.has(user.id))
       .filter((user) => user.displayName.toLowerCase().includes(needle))
-      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+      .sort(byDisplayName)
       .slice(0, 6);
   }, [users, memberIds, query]);
 

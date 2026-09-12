@@ -6,6 +6,7 @@ import '@livekit/components-styles';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { navigate } from '../../lib/router';
+import { EmptyState } from '../../components/EmptyState.tsx';
 
 export function MeetupView({ meetupId }: { meetupId: string }) {
   const [token, setToken] = useState<string | null>(null);
@@ -26,13 +27,16 @@ export function MeetupView({ meetupId }: { meetupId: string }) {
   if (error) {
     return (
       <main className="pane">
-        <div className="empty-state">
-          <div className="empty-state-title">Could not join meetup</div>
-          <div className="empty-state-body">{error}</div>
-          <button className="btn" onClick={() => navigate('/')} style={{ marginTop: 12 }}>
-            Back to Home
-          </button>
-        </div>
+        <EmptyState
+          title="Could not join meetup"
+          action={
+            <button className="btn" onClick={() => navigate('/')}>
+              Back to Home
+            </button>
+          }
+        >
+          {error}
+        </EmptyState>
       </main>
     );
   }
@@ -40,10 +44,7 @@ export function MeetupView({ meetupId }: { meetupId: string }) {
   if (!token || !url) {
     return (
       <main className="pane">
-        <div className="empty-state">
-          <div className="empty-state-title">Connecting to meetup…</div>
-          <p className="muted">Setting up secure connection</p>
-        </div>
+        <EmptyState title="Connecting to meetup…">Setting up secure connection</EmptyState>
       </main>
     );
   }

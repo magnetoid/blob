@@ -29,6 +29,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import { FileIcon, PinIcon, ReplyIcon } from "../../components/Icon.tsx";
 import { resolveReaction } from "../../lib/emoji.ts";
+import { formatBytes } from "../../lib/format.ts";
 
 /** Offered directly in the hover toolbar; the rest come from the picker. */
 const QUICK_REACTIONS = ["👍", "🎉", "👀"];
@@ -410,7 +411,7 @@ export const MessageRow = memo(function MessageRow({
                       className="attachment-size"
                       style={{ display: "block" }}
                     >
-                      {formatSize(attachment.sizeBytes)}
+                      {formatBytes(attachment.sizeBytes)}
                     </span>
                   </span>
                 </a>
@@ -671,12 +672,6 @@ export const MessageRow = memo(function MessageRow({
     </article>
   );
 });
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 function deliveryStatusLabel(status: LocalMessageDeliveryStatus): string {
   switch (status) {

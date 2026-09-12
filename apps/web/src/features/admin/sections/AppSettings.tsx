@@ -13,6 +13,7 @@ import { api, type AdminPlugin, type AppChannel } from "../../../lib/api.ts";
 import { navigate } from "../../../lib/router.ts";
 import { useStore } from "../../../lib/store.ts";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
+import { byDisplayName } from "../../../lib/format.ts";
 
 interface Props {
   pluginId: string;
@@ -59,7 +60,7 @@ export function AppSettings({ pluginId, onError }: Props) {
         person.kind !== "bot" &&
         (!person.deactivated || person.id === plugin.ownerUserId),
     )
-    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    .sort(byDisplayName);
 
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 26 }}>

@@ -25,6 +25,7 @@ import {
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 import { NewMessageDialog } from './NewMessageDialog.tsx';
 import { ChannelMenu } from './ChannelMenu.tsx';
+import { byDisplayName } from '../../lib/format.ts';
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -64,7 +65,7 @@ export function Sidebar({
   const { people, agents } = useMemo(() => {
     const active = Object.values(users)
       .filter((u) => u.id !== currentUser?.id && !u.deactivated)
-      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+      .sort(byDisplayName);
     return {
       people: active.filter((u) => u.kind !== 'bot'),
       agents: active.filter((u) => u.kind === 'bot'),

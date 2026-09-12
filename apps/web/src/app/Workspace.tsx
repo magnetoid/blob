@@ -58,6 +58,7 @@ import { ShortcutHelp } from '../components/ShortcutHelp.tsx';
 import { isTypingTarget, matchShortcut, ownsArrowKeys } from '../lib/shortcuts.ts';
 import { closeThread, showChannel, showMessage } from '../lib/navigation.ts';
 import { updateBadge } from '../lib/badge.ts';
+import { EmptyState } from '../components/EmptyState.tsx';
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
@@ -428,17 +429,18 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
       {view === 'permalink' && (
         <main className="pane">
-          <div className="empty-state">
-            <div className="empty-state-title">
-              {permalinkFailure ? 'That link did not open' : 'Finding that message…'}
-            </div>
-            {permalinkFailure && <div className="empty-state-body">{permalinkFailure}</div>}
-            {permalinkFailure && (
-              <button className="btn" onClick={() => navigate('/')} style={{ marginTop: 12 }}>
-                Back home
-              </button>
-            )}
-          </div>
+          <EmptyState
+            title={permalinkFailure ? 'That link did not open' : 'Finding that message…'}
+            action={
+              permalinkFailure && (
+                <button className="btn" onClick={() => navigate('/')}>
+                  Back home
+                </button>
+              )
+            }
+          >
+            {permalinkFailure}
+          </EmptyState>
         </main>
       )}
       {view === 'home' && <HomeView />}

@@ -26,6 +26,7 @@ import { WorkPanel, WorkTabs, type WorkTab } from "../work/WorkPanel.tsx";
 import { useWork } from "../work/useWork.ts";
 import { TYPING_TTL_MS } from "@blob/shared";
 import { memberSummary } from "./memberSummary.ts";
+import { EmptyState } from "../../components/EmptyState.tsx";
 
 export function ChannelView() {
   const activeChannelId = useStore((s) => s.activeChannelId);
@@ -199,13 +200,7 @@ export function ChannelView() {
   if (!activeChannelId || !channel) {
     return (
       <main className="pane">
-        <div className="empty-state">
-          <div className="empty-state-mark">#</div>
-          <div className="empty-state-title">Pick a conversation</div>
-          <div className="empty-state-body">
-            Choose a channel or a person on the left to start reading.
-          </div>
-        </div>
+        <EmptyState mark="#" title="Pick a conversation">Choose a channel or a person on the left to start reading.</EmptyState>
       </main>
     );
   }
@@ -446,19 +441,13 @@ export function ChannelView() {
             error={messages?.error ?? false}
             onRetry={() => void openChannel(activeChannelId)}
             emptyState={
-              <div className="empty-state">
-                <div className="empty-state-mark">{isDm ? "@" : "#"}</div>
-                <div className="empty-state-title">
-                  This is the start of {isDm ? title : `#${title}`}
-                </div>
-                <div className="empty-state-body">
-                  {agent
-                    ? `Ask ${agent.displayName} anything — no need to mention it by name here. It can see this conversation and nothing else in the workspace yet.`
-                    : isDm
-                      ? "Say hello. Nobody else can see this conversation."
-                      : "No messages yet. Set a topic so people know what belongs here, or invite the folks who should be in the loop."}
-                </div>
-              </div>
+              <EmptyState mark={isDm ? "@" : "#"} title={<>This is the start of {isDm ? title : `#${title}`}</>}>
+                {agent
+                  ? `Ask ${agent.displayName} anything — no need to mention it by name here. It can see this conversation and nothing else in the workspace yet.`
+                  : isDm
+                    ? "Say hello. Nobody else can see this conversation."
+                    : "No messages yet. Set a topic so people know what belongs here, or invite the folks who should be in the loop."}
+              </EmptyState>
             }
           />
 

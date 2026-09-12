@@ -7,6 +7,7 @@
 
 import { type AdminHealth } from "../../../../lib/api.ts";
 import { pathForRoute } from "../../../../lib/router.ts";
+import { formatBytes } from "../../../../lib/format.ts";
 
 export type RefreshMs = 500 | 1000 | 2000;
 export type ChartZoom = 12 | 24 | 48 | 96;
@@ -112,15 +113,6 @@ export const METRICS: {
     raw: (health) => health.storageBytes,
   },
 ];
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  if (bytes < 1024 * 1024 * 1024) {
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  }
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
-}
 
 export function metricByKey(key: HealthMetricKey) {
   return METRICS.find((metric) => metric.key === key) ?? METRICS[0]!;

@@ -18,6 +18,7 @@ import { useMentionIndex } from "./mentionIndex.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
 import { CloseIcon, PlusIcon } from "../../components/Icon.tsx";
+import { byDisplayName } from "../../lib/format.ts";
 
 interface TaskDraft {
   status: AgentTaskStatus;
@@ -251,9 +252,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
       Object.values(users)
         .filter((user) => !user.deactivated)
         .filter((user) => canManageAssignments || user.kind !== "bot")
-        .sort((left, right) =>
-          left.displayName.localeCompare(right.displayName),
-        ),
+        .sort(byDisplayName),
     [canManageAssignments, users],
   );
 

@@ -7,6 +7,7 @@
  */
 
 import { api } from './api.ts';
+import { formatBytes } from './format.ts';
 
 /** Matches the server's cap in UploadRequestInput. */
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
@@ -25,12 +26,6 @@ export interface PendingAttachment {
   previewUrl: string | null;
   status: 'uploading' | 'ready' | 'failed';
   error: string | null;
-}
-
-export function describeSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 export function newPendingAttachment(file: File): PendingAttachment {
@@ -56,7 +51,7 @@ export function newPendingAttachment(file: File): PendingAttachment {
  */
 export async function uploadFile(file: File, mime: string): Promise<string> {
   if (file.size > MAX_UPLOAD_BYTES) {
-    throw new Error(`Files have to be under ${describeSize(MAX_UPLOAD_BYTES)}.`);
+    throw new Error(`Files have to be under ${formatBytes(MAX_UPLOAD_BYTES)}.`);
   }
 
   const ticket = await api.uploads.create({

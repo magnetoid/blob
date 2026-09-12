@@ -16,6 +16,7 @@ import { showChannel, showThread } from '../../lib/navigation.ts';
 import { FileIcon } from '../../components/Icon.tsx';
 import { formatRelative } from '../messages/messageFormatting.ts';
 import { useFetch } from '../../lib/useFetch.ts';
+import { EmptyState } from '../../components/EmptyState.tsx';
 
 export function TasksView() {
   const channels = useStore((s) => s.channels);
@@ -88,16 +89,10 @@ function TaskResults({
       {!error && tasks === null && <p className="muted">Loading…</p>}
 
       {tasks?.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-state-mark">
-            <FileIcon size="xl" />
-          </div>
-          <div className="empty-state-title">No tasks yet</div>
-          <div className="empty-state-body">
-            When an agent or a teammate files a task {scope === 'mine' ? 'for you ' : ''}
-            from a thread, it shows up here.
-          </div>
-        </div>
+        <EmptyState mark={<FileIcon size="xl" />} title="No tasks yet">
+          When an agent or a teammate files a task {scope === 'mine' ? 'for you ' : ''}
+          from a thread, it shows up here.
+        </EmptyState>
       )}
 
       {tasks?.map((task) => {
