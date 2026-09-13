@@ -382,7 +382,40 @@ its packages as strings, and on React 19 that silently stopped matching `react-d
 which put 130 KB of renderer back into the app chunk to be re-downloaded on every
 deploy. It matches by module path now, and picks up `scheduler` while it is there.
 
-Still to do in W8: the Vite 8 measurement and the popover spike.
+*Native `popover` for `Menu`: spiked 2026-09-13, and the answer is no.* It would delete
+`lib/usePresence.ts` (61 lines), the outside-click listener and the `:has(.menu)`
+stacking rule, and that is the whole of the win. Against it:
+
+* **Escape would leave the shared stack.** `lib/useEscape` owns one capture-phase
+  listener and a stack, and CLAUDE.md's rule is that nothing else binds Escape — because
+  two bubble listeners both run, so a menu closing itself did not stop the shell from
+  also closing the thread behind it. Native light-dismiss handles Escape itself, outside
+  that stack, which re-introduces exactly the bug the stack was built to fix.
+* **`suspendDismiss` has no native equivalent.** A dialog opened *from* a menu is
+  "outside" the panel by any containment test, so the menu suspends dismissal while one
+  is up. With `popover="auto"` the dialog's own opening click would close the menu
+  underneath it; the only way out is swapping to `popover="manual"` and re-implementing
+  dismissal, which is the code this was meant to delete.
+* **happy-dom has no `showPopover`**, so all 628 client tests would run against a shim
+  rather than the thing that ships.
+
+The roving-focus arrow handling — half of `Menu` — stays either way. Revisit if the
+Escape problem is solved at the platform level, not before.
+
+*Vite 8 (Rolldown): measured 2026-09-13, and the answer is not now.* The gate the plan
+set was "build time and main-chunk bytes both ≤ baseline, or revert". The baseline turns
+out to be the argument: a warm `pnpm build` is **4.7 seconds**. The earlier 18s and 30s
+readings in this file were cold builds on a loaded machine, and reading them as the
+normal case is what made a build-speed upgrade look worth having.
+
+Rolldown's win is a few seconds off five, and the price is `vitest` 2 → 5 — three major
+versions across 628 client tests — because Vite 8 is what `vitest` 5 and
+`@vitejs/plugin-react` 6 both want. That is the opposite of a measured payoff, which is
+the rule this plan is run under. Revisit when the build is slow enough to notice, or
+when something else forces the vitest bump.
+
+**W8 is closed.** Generated types and React 19 shipped; the popover and Vite 8 questions
+are answered and written down, which is what a gated decision is for.
 
 | Change | Verdict | What it deletes | Gate and rollback |
 |---|---|---|---|
