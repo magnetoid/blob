@@ -185,8 +185,8 @@ export function Sidebar({
           <button
             className="sidebar-add"
             onClick={() => setCreating(true)}
-            aria-label="Create channel"
-            title="Create channel"
+            aria-label={collapsed ? 'New channel' : undefined}
+            title="New channel"
             data-collapsed={collapsed ? 'true' : 'false'}
           >
             <PlusIcon size="sm" />
@@ -223,7 +223,7 @@ export function Sidebar({
                   className="channel-row"
                   onClick={() => void openDm(agent.id)}
                   title={agent.displayName}
-                  aria-label={agent.displayName}
+                  aria-label={collapsed ? agent.displayName : undefined}
                   data-collapsed={collapsed ? 'true' : 'false'}
                 >
                   <AvatarWithPresence user={agent} state={presence[agent.id] ?? 'offline'} />
@@ -283,7 +283,7 @@ export function Sidebar({
                     ? `${person.displayName} — ${person.statusText}`
                     : person.displayName
                 }
-                aria-label={person.displayName}
+                aria-label={collapsed ? person.displayName : undefined}
                 data-collapsed={collapsed ? 'true' : 'false'}
               >
                 <AvatarWithPresence user={person} state={presence[person.id] ?? 'offline'} />
@@ -327,7 +327,11 @@ function SidebarNavButton({
       aria-current={active}
       onClick={onClick}
       title={label}
-      aria-label={label}
+      // Named by its own text when there is text. An `aria-label` that repeats the
+      // label drops whatever sits beside it — the unread count on Later, the draft
+      // mark on a channel — from the name a screen reader reads out, and makes the
+      // accessible name disagree with what everyone else sees.
+      aria-label={collapsed ? label : undefined}
       data-collapsed={collapsed ? 'true' : 'false'}
     >
       <span className="channel-hash" aria-hidden="true">
@@ -376,7 +380,7 @@ function ChannelRow({
         data-collapsed={collapsed ? 'true' : 'false'}
         onClick={() => void showChannel(channel.id)}
         title={name}
-        aria-label={name}
+        aria-label={collapsed ? name : undefined}
       >
         {otherId ? (
           <AvatarWithPresence user={users[otherId]} state={presence[otherId] ?? 'offline'} />

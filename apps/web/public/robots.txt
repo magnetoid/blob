@@ -1,0 +1,6 @@
+# A workspace is private, and every page behind this one needs a session anyway. The
+# file exists so a crawler is told rather than handed the app shell for every path it
+# tries — `web.py` serves index.html for anything it does not recognise, which without
+# this means /robots.txt answers with HTML.
+User-agent: *
+Disallow: /

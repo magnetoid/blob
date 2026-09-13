@@ -421,6 +421,15 @@ gaps were.
   out of the app instead. The route carries `?q=` now, seeds the box from it, and
   replaces rather than pushes as you type, so Back leaves the search rather than
   rewinding it one letter at a time.
+* **Sidebar rows lied to a screen reader.** Every row carried an `aria-label` repeating
+  its own visible text, which *replaces* the name rather than adding to it — so Later's
+  unread count, a channel's mention badge and its draft mark were all dropped from the
+  name read aloud, and Lighthouse's `label-content-name-mismatch` failed on them. A row
+  is named by its own text now, and the label appears only when the sidebar is collapsed
+  and there is no text to read. Accessibility 100, Best Practices 100, SEO 100.
+* **`/robots.txt` answered with HTML**, because `web.py` serves index.html for anything
+  it does not recognise. A workspace is private and every page behind it needs a session,
+  so the file says `Disallow: /` and a crawler is told rather than handed the app shell.
 * **"Enter to send" on a phone.** The Return key on a touch keyboard inserts a line the
   way every other text field there does; the hint described a convention the device does
   not have, in the row the send button needed.
