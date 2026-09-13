@@ -369,20 +369,25 @@ button {
   flex: none;
 }
 
-.auth-brand-face[data-face='one'] {
+.auth-brand-face[data-face="one"] {
   background: #dce6de;
   color: var(--accent);
 }
 
-.auth-brand-face[data-face='two'] {
+.auth-brand-face[data-face="two"] {
   background: #e6ddd0;
   color: #7c4a24;
 }
 
 /* The third face is an agent, in the reserved colour it wears everywhere else. Three
    squares say "humans and agents, same room" faster than the caption under them. */
-.auth-brand-face[data-kind='bot'] {
-  background: conic-gradient(from 200deg, var(--iris-strong), var(--iris-soft), var(--iris));
+.auth-brand-face[data-kind="bot"] {
+  background: conic-gradient(
+    from 200deg,
+    var(--iris-strong),
+    var(--iris-soft),
+    var(--iris)
+  );
 }
 
 .auth-brand-caption {
@@ -474,11 +479,11 @@ button {
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
 }
 
-.shell[data-sidebar-collapsed='true'] {
+.shell[data-sidebar-collapsed="true"] {
   grid-template-columns: 84px minmax(0, 1fr);
 }
 
-.shell[data-sidebar-collapsed='true'][data-panel='open'] {
+.shell[data-sidebar-collapsed="true"][data-panel="open"] {
   grid-template-columns: 84px minmax(0, 1fr) var(--panel-width);
 }
 
@@ -520,7 +525,7 @@ button {
   color: var(--text);
 }
 
-.topbar-tab[aria-pressed='true'] {
+.topbar-tab[aria-pressed="true"] {
   color: var(--text);
   border-bottom-color: var(--text);
 }
@@ -585,7 +590,7 @@ button {
 }
 
 .topbar-search-btn:hover,
-.topbar-search-btn[aria-pressed='true'] {
+.topbar-search-btn[aria-pressed="true"] {
   background: var(--surface-hover);
   color: var(--text);
   transform: translateY(-1px);
@@ -807,7 +812,7 @@ button {
   color: var(--text-4);
 }
 
-.sidebar[data-collapsed='true'] .sidebar-collapse svg {
+.sidebar[data-collapsed="true"] .sidebar-collapse svg {
   transform: rotate(180deg);
 }
 
@@ -867,7 +872,7 @@ button {
 }
 
 .channel-row-wrap:hover .channel-kebab,
-.channel-kebab[aria-expanded='true'] {
+.channel-kebab[aria-expanded="true"] {
   opacity: 1;
 }
 
@@ -876,7 +881,7 @@ button {
   color: var(--text);
 }
 
-.channel-row[data-muted='true'] .channel-name {
+.channel-row[data-muted="true"] .channel-name {
   opacity: 0.55;
 }
 
@@ -960,37 +965,37 @@ button {
   color: var(--text);
 }
 
-.sidebar[data-collapsed='true'] .sidebar-header {
+.sidebar[data-collapsed="true"] .sidebar-header {
   justify-content: center;
   padding-inline: 8px;
 }
 
-.sidebar[data-collapsed='true'] .section-label,
-.sidebar[data-collapsed='true'] .section-label-row {
+.sidebar[data-collapsed="true"] .section-label,
+.sidebar[data-collapsed="true"] .section-label-row {
   display: none;
 }
 
-.sidebar[data-collapsed='true'] .sidebar-scroll {
+.sidebar[data-collapsed="true"] .sidebar-scroll {
   padding-inline: 8px;
 }
 
-.sidebar[data-collapsed='true'] .channel-row,
-.sidebar[data-collapsed='true'] .sidebar-add {
+.sidebar[data-collapsed="true"] .channel-row,
+.sidebar[data-collapsed="true"] .sidebar-add {
   justify-content: center;
   padding-inline: 0;
 }
 
-.sidebar[data-collapsed='true'] .channel-row {
+.sidebar[data-collapsed="true"] .channel-row {
   min-height: 44px;
 }
 
-.sidebar[data-collapsed='true'] .channel-hash,
-.sidebar[data-collapsed='true'] .avatar,
-.sidebar[data-collapsed='true'] .dm-avatar {
+.sidebar[data-collapsed="true"] .channel-hash,
+.sidebar[data-collapsed="true"] .avatar,
+.sidebar[data-collapsed="true"] .dm-avatar {
   margin: 0;
 }
 
-.sidebar[data-collapsed='true'] .badge {
+.sidebar[data-collapsed="true"] .badge {
   position: absolute;
   top: 4px;
   right: 6px;
@@ -1664,7 +1669,7 @@ dialog.lightbox-host::backdrop {
   transition: opacity var(--dur-open) var(--ease-out);
 }
 
-.lightbox-image[data-loaded='true'] {
+.lightbox-image[data-loaded="true"] {
   opacity: 1;
 }
 
@@ -1875,6 +1880,14 @@ dialog.lightbox-host::backdrop {
   font-weight: 500;
 }
 
+.grow {
+  flex: 1;
+}
+
+.composer-error {
+  margin-top: 8px;
+}
+
 /* ─── autocomplete ───────────────────────────────────────────────────────── */
 .composer-wrap {
   position: relative;
@@ -2050,7 +2063,7 @@ dialog.lightbox-host::backdrop {
 /* Written by a model rather than by the keyword scan that stands in when none is
    configured. Same rail as a run card, for the same reason: the reader should not have
    to compare two kickers to work out whether a teammate or a fallback wrote this. */
-.agentic-card[data-written-by='model'] {
+.agentic-card[data-written-by="model"] {
   border-color: var(--iris-border);
   border-left: 3px solid var(--iris);
   background: var(--iris-surface);
@@ -2593,7 +2606,9 @@ dialog.dialog-host::backdrop {
   color: var(--text-3);
 }
 
-.chip:hover:not(:disabled):not([aria-pressed="true"]):not([data-active="true"]) {
+.chip:hover:not(:disabled):not([aria-pressed="true"]):not(
+    [data-active="true"]
+  ) {
   border-color: var(--hairline-strong);
   color: var(--text);
 }
@@ -3456,7 +3471,11 @@ dialog.dialog-host::backdrop {
   border: 1px solid var(--hairline-soft);
   border-radius: var(--radius-md);
   background:
-    linear-gradient(to top, color-mix(in srgb, var(--surface-muted) 70%, transparent), transparent),
+    linear-gradient(
+      to top,
+      color-mix(in srgb, var(--surface-muted) 70%, transparent),
+      transparent
+    ),
     var(--surface-muted);
   overflow: hidden;
   touch-action: pan-y;
@@ -3480,7 +3499,11 @@ dialog.dialog-host::backdrop {
 }
 
 .dashboard-bar[data-active="true"] {
-  background: color-mix(in srgb, var(--accent-strong, var(--accent)) 92%, white);
+  background: color-mix(
+    in srgb,
+    var(--accent-strong, var(--accent)) 92%,
+    white
+  );
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   outline-offset: 2px;
 }
@@ -4136,11 +4159,11 @@ select.chip {
 }
 
 /* In the composer the panel hangs above the box rather than below a trigger. */
-.emoji-picker-anchor[data-composer='true'] {
+.emoji-picker-anchor[data-composer="true"] {
   position: static;
 }
 
-.emoji-picker-anchor[data-composer='true'] .emoji-picker {
+.emoji-picker-anchor[data-composer="true"] .emoji-picker {
   top: auto;
   bottom: calc(100% + 6px);
   left: 0;
@@ -4209,7 +4232,7 @@ select.chip {
 
 /* The keyboard cursor. Distinct from :hover so that arrowing through the list
    reads as a selection rather than as a stray pointer. */
-.emoji-cell[data-active='true'] {
+.emoji-cell[data-active="true"] {
   background: var(--accent-wash);
   box-shadow: inset 0 0 0 1px var(--accent-border);
 }
@@ -4248,7 +4271,7 @@ select.chip {
   background: var(--surface-hover);
 }
 
-.emoji-tone[aria-pressed='true'] {
+.emoji-tone[aria-pressed="true"] {
   background: var(--accent-wash);
   box-shadow: inset 0 0 0 1px var(--accent-border);
 }
@@ -4482,7 +4505,7 @@ select.chip {
   list-style: none;
 }
 
-.forward-list .menu-item[data-active='true'] {
+.forward-list .menu-item[data-active="true"] {
   background: var(--accent-wash);
   color: var(--accent);
   font-weight: 600;
@@ -4600,7 +4623,7 @@ select.chip {
 
 /* Above the trigger, for controls that sit at the top of what they act on — the
    message toolbar overhangs its row, so a tooltip below it would cover the message. */
-[data-tooltip][data-tooltip-place='top']::after {
+[data-tooltip][data-tooltip-place="top"]::after {
   top: auto;
   bottom: calc(100% + 6px);
 }
@@ -4635,7 +4658,8 @@ select.chip {
 @keyframes overlay-in {
   from {
     opacity: 0;
-    transform: translateY(calc(-1 * var(--motion-slide))) scale(var(--motion-scale-in));
+    transform: translateY(calc(-1 * var(--motion-slide)))
+      scale(var(--motion-scale-in));
   }
 }
 
@@ -4648,7 +4672,8 @@ select.chip {
 @keyframes overlay-out {
   to {
     opacity: 0;
-    transform: translateY(calc(-1 * var(--motion-slide))) scale(var(--motion-scale-in));
+    transform: translateY(calc(-1 * var(--motion-slide)))
+      scale(var(--motion-scale-in));
   }
 }
 
@@ -4671,7 +4696,7 @@ select.chip {
 /* Held mounted by usePresence for exactly this. `forwards` so the last frame stays
    put until React takes the node away, rather than snapping back to opaque for the
    frame in between. */
-[data-state='closed'] {
+[data-state="closed"] {
   animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
   pointer-events: none;
 }
@@ -4696,7 +4721,6 @@ dialog.dialog-host::backdrop {
 .toast {
   animation: panel-slide-in var(--dur-open) var(--ease-out);
 }
-
 
 @keyframes message-flash {
   from {
@@ -4914,11 +4938,11 @@ button.member-row:hover {
      discussing it. The panel becomes an overlay on the right instead, so opening a
      thread stops shrinking the thing you opened it from. It is still a column at
      ≤768px, where it goes full-bleed. */
-  .shell[data-panel='open'] {
+  .shell[data-panel="open"] {
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   }
 
-  .shell[data-panel='open'] .panel {
+  .shell[data-panel="open"] .panel {
     position: fixed;
     top: var(--topbar-height);
     right: 0;
@@ -5180,7 +5204,7 @@ a.build-commit-sha:hover {
   color: var(--text-4);
 }
 
-.release-tag[data-kind='added'] {
+.release-tag[data-kind="added"] {
   color: var(--accent);
 }
 
@@ -5221,12 +5245,12 @@ a.build-commit-sha:hover {
   background: var(--surface);
 }
 
-.log-entry[data-level='error'],
-.log-entry[data-level='critical'] {
+.log-entry[data-level="error"],
+.log-entry[data-level="critical"] {
   border-left-color: var(--danger);
 }
 
-.log-entry[data-level='warning'] {
+.log-entry[data-level="warning"] {
   border-left-color: var(--presence-away);
 }
 
@@ -5312,7 +5336,9 @@ a.build-commit-sha:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: var(--z-toast); /* above dialogs: a failure notice must survive an open modal */
+  z-index: var(
+    --z-toast
+  ); /* above dialogs: a failure notice must survive an open modal */
   pointer-events: none;
 }
 
@@ -5507,9 +5533,9 @@ a.build-commit-sha:hover {
    * and nothing on a wide screen ever showed it.
    */
   .shell,
-  .shell[data-panel='open'],
-  .shell[data-sidebar-collapsed='true'],
-  .shell[data-sidebar-collapsed='true'][data-panel='open'] {
+  .shell[data-panel="open"],
+  .shell[data-sidebar-collapsed="true"],
+  .shell[data-sidebar-collapsed="true"][data-panel="open"] {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -5576,13 +5602,13 @@ a.build-commit-sha:hover {
     box-shadow: none;
   }
 
-  .shell[data-sidebar='open'] .sidebar {
+  .shell[data-sidebar="open"] .sidebar {
     transform: translateX(0);
     visibility: visible;
     box-shadow: var(--elev-3);
   }
 
-  .shell[data-sidebar='open'] .drawer-scrim {
+  .shell[data-sidebar="open"] .drawer-scrim {
     display: block;
     position: fixed;
     inset: var(--topbar-height) 0 0 0;
@@ -5594,7 +5620,7 @@ a.build-commit-sha:hover {
   }
 
   /* The thread panel becomes the pane rather than a sibling of it. */
-  .shell[data-panel='open'] .panel {
+  .shell[data-panel="open"] .panel {
     position: fixed;
     top: var(--topbar-height);
     right: 0;
@@ -5691,8 +5717,13 @@ a.build-commit-sha:hover {
    work with no frontend change — and is exactly why it needs marking here. It posts
    through the same path a person does and would otherwise land in the list looking
    like one. Both marks are reserved iris and neither is themeable. */
-.avatar[data-kind='bot'] {
-  background: conic-gradient(from 200deg, var(--iris-strong), var(--iris-soft), var(--iris));
+.avatar[data-kind="bot"] {
+  background: conic-gradient(
+    from 200deg,
+    var(--iris-strong),
+    var(--iris-soft),
+    var(--iris)
+  );
   color: #fff;
 }
 
@@ -5715,7 +5746,7 @@ a.build-commit-sha:hover {
  * is the work in progress and wants the glanceable stripe; this is the finished answer
  * and wants to look like a document.
  */
-.message-body[data-agent='true'] {
+.message-body[data-agent="true"] {
   max-width: 560px;
   margin-top: 6px;
   padding: 12px 16px;
@@ -5726,13 +5757,13 @@ a.build-commit-sha:hover {
 
 /* A code block or a table inside the card already has its own ground; two nested
    surfaces one shade apart is the muddle the elevation ring exists to prevent. */
-.message-body[data-agent='true'] pre {
+.message-body[data-agent="true"] pre {
   background: var(--surface-muted);
 }
 
 /* Grouped consecutive replies from one agent are one answer in two parts, not two
    cards stacked with a seam between them. */
-.message[data-grouped='true'] .message-body[data-agent='true'] {
+.message[data-grouped="true"] .message-body[data-agent="true"] {
   margin-top: 0;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
@@ -5797,8 +5828,8 @@ a.build-commit-sha:hover {
   font-size: var(--text-sm);
 }
 
-.agent-run-card[data-status='failed'],
-.agent-run-card[data-status='refused'] {
+.agent-run-card[data-status="failed"],
+.agent-run-card[data-status="refused"] {
   /* A failure stops being an agent's colour and becomes a failure's. The rail is the
      one thing read at a glance, so it carries the more urgent of the two. */
   border-left-color: var(--danger);
@@ -5808,8 +5839,8 @@ a.build-commit-sha:hover {
 
 /* A finished run flattens to a result. The rail, the shimmer and Stop all said "an
    agent is acting here", and a card that is done should stop claiming it. */
-.agent-run-card[data-status='succeeded'],
-.agent-run-card[data-status='cancelled'] {
+.agent-run-card[data-status="succeeded"],
+.agent-run-card[data-status="cancelled"] {
   border-left-width: 1px;
   border-left-color: var(--iris-border);
 }
@@ -5847,8 +5878,8 @@ a.build-commit-sha:hover {
   color: var(--iris-deep);
 }
 
-.agent-run-card[data-status='failed'] .agent-run-name,
-.agent-run-card[data-status='refused'] .agent-run-name {
+.agent-run-card[data-status="failed"] .agent-run-name,
+.agent-run-card[data-status="refused"] .agent-run-name {
   color: var(--text);
 }
 
@@ -5927,7 +5958,7 @@ a.build-commit-sha:hover {
   transition: color var(--dur-fast) var(--ease-color);
 }
 
-.agent-run-steps li[data-status='done'] {
+.agent-run-steps li[data-status="done"] {
   color: var(--text-4);
 }
 
@@ -6167,7 +6198,6 @@ a.build-commit-sha:hover {
   justify-content: center;
 }
 
-
 /* ─── help ────────────────────────────────────────────────────────────────── */
 /* Two columns that scroll independently: a long guide with the section list scrolled
    off the top is a long guide you navigate by dragging. Below 900px the list becomes a
@@ -6200,7 +6230,8 @@ a.build-commit-sha:hover {
   color: var(--text-3);
   font-size: var(--text-sm);
   text-decoration: none;
-  transition: background var(--dur-fast) var(--ease-standard),
+  transition:
+    background var(--dur-fast) var(--ease-standard),
     color var(--dur-fast) var(--ease-standard);
 }
 
@@ -6708,7 +6739,7 @@ button.person-trigger:hover {
   background: var(--surface-hover);
 }
 
-.palette-tile[aria-pressed='true'] {
+.palette-tile[aria-pressed="true"] {
   background: var(--accent-wash);
   color: var(--text);
 }
@@ -6723,7 +6754,7 @@ button.person-trigger:hover {
   box-shadow: 0 0 0 1px var(--hairline);
 }
 
-.palette-tile[aria-pressed='true'] .palette-preview {
+.palette-tile[aria-pressed="true"] .palette-preview {
   box-shadow: 0 0 0 2px var(--accent);
 }
 
@@ -6784,7 +6815,7 @@ button.person-trigger:hover {
   font-size: var(--text-sm);
 }
 
-.thread-follow[aria-pressed='true'] {
+.thread-follow[aria-pressed="true"] {
   color: var(--accent);
 }
 
@@ -6988,7 +7019,6 @@ button.person-trigger:hover {
   height: 100%;
 }
 
-
 /* ─── preview gate ux ──────────────────────────────────────────────────── */
 .work-preview-gate {
   display: flex;
@@ -7045,7 +7075,7 @@ button.person-trigger:hover {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
-.stat-value[data-live='true'] {
+.stat-value[data-live="true"] {
   color: var(--ok, var(--success, #1f7a3d));
 }
 .home-grid {

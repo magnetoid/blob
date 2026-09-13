@@ -302,8 +302,13 @@ live message (a reconnect replay) moved a channel's `lastMessageId` backwards, a
 later message was then dropped from the open view until a reload; the pointer now keeps
 the newest id. `ThreadPanel.tsx` (815 lines, 21 `useState`) is 259 over `threadTools.ts` (one `useFetch`
 and one reducer), `ThreadSummary.tsx` and `ThreadTasks.tsx`, with `ThreadPanel.test.tsx`
-written first — root and replies, the `llm:` kicker, the follow toggle. Composer and
-`<Field>` are still to do.
+written first — root and replies, the `llm:` kicker, the follow toggle. `Composer.tsx`
+(1,237 lines, 15 `useState`) is 575 over `useMentionAutocomplete`, `useEmojiAutocomplete`
+and `useSlashCommands` — all three on one `useAutocomplete` that owns the arrow keys —
+plus `useAttachments`, `AttachmentTray`, `FormatToolbar`, `SchedulePicker`,
+`ComposerOptions` and a pure `markdownWrap.ts` with its own test; the existing composer
+tests are untouched and green, so the DOM did not move. `<Field>` for the console's
+~140 field sites is still to do, and `style={{` stands at 236.
 
 - `Composer.tsx` (1,238) → `useMentionAutocomplete.ts`, `useEmojiAutocomplete.ts`,
   `useSlashCommands.ts`, `AttachmentTray.tsx`, `FormatToolbar.tsx`, `SchedulePicker.tsx`.

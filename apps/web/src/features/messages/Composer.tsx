@@ -1,97 +1,52 @@
 /**
  * The composer.
  *
- * Enter sends, Shift+Enter breaks the line (invertible in preferences). `@` opens
- * mention autocomplete against the same name index the server uses to resolve
- * mentions, so what highlights here is exactly what notifies there.
+ * Enter sends, Shift+Enter breaks the line (invertible in preferences). The three lists
+ * that can open under the field — `@` people, `:` emoji, `/` commands — are each a hook
+ * beside this file, and they answer the keyboard in that order before the composer's own
+ * bindings see the event. What stays here is the message: the draft, the send, and the
+ * one command the client answers itself.
  */
 
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
-  type ClipboardEvent,
-  type DragEvent,
   type KeyboardEvent,
 } from "react";
-import type { ScheduleRepeat, User } from "@blob/shared";
-import { matchMentions } from "./mentionMatch.ts";
+import type { ScheduleRepeat } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { socket } from "../../lib/socket.ts";
 import { api } from "../../lib/api.ts";
 import { showError, useToasts } from "../../lib/toasts.ts";
-import {
-  commandQuery,
-  localCommand,
-  matchAllCommands,
-  parseCommand,
-  type LocalCommandContext,
-} from "../../lib/commands.ts";
-import {
-  SHORTCUTS,
-  describeKeys,
-  isMac,
-  matchShortcut,
-} from "../../lib/shortcuts.ts";
-import {
-  MAX_ATTACHMENTS_PER_MESSAGE,
-  newPendingAttachment,
-  uploadFile,
-  type PendingAttachment,
-} from "../../lib/attachments.ts";
+import { localCommand, parseCommand } from "../../lib/commands.ts";
+import { matchShortcut } from "../../lib/shortcuts.ts";
 import { openAgentTerminal } from "../../lib/agentTerminal.ts";
 import { showChannel } from "../../lib/navigation.ts";
 import { useEscape } from "../../lib/useEscape.ts";
-import { Menu } from "../../components/Menu.tsx";
-import {
-  REPEAT_OPTIONS,
-  describeRepeat,
-  earliestCustom,
-  localZone,
-  presetsFor,
-} from "./schedulePresets.ts";
-import { Avatar } from "../../components/Avatar.tsx";
+import { localZone, describeRepeat } from "./schedulePresets.ts";
+import { codeMarkers, wrapSelection } from "./markdownWrap.ts";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import {
-  reactionValue,
-  searchEmoji,
-  type ResolvedEmoji,
-} from "../../lib/emoji.ts";
-import {
   AttachIcon,
-  CloseIcon,
   EmojiIcon,
-  FileIcon,
   MentionIcon,
   SendIcon,
-  ClockIcon,
 } from "../../components/Icon.tsx";
-import { formatBytes } from "../../lib/format.ts";
-
-/**
- * One row of the `@` autocomplete.
- *
- * A discriminated union rather than a loose object with an id that might start with "@".
- * The old shape worked because a person and a special both happened to have a
- * `displayName` and an `avatarUrl`; a group has neither, and would have reached `Avatar`
- * as a silently wrong shape.
- */
-type MentionCandidate =
-  | { kind: "special"; key: string; label: string; hint?: string; user?: never }
-  | { kind: "group"; key: string; label: string; hint?: string; user?: never }
-  | { kind: "user"; key: string; label: string; hint?: string; user: User };
-
-/**
- * A toolbar tooltip's chord, read from the same declarations `⌘/` renders — so the
- * toolbar cannot advertise a binding the keyboard layer doesn't have.
- */
-function chordFor(id: string): string {
-  const shortcut = SHORTCUTS.find((s) => s.id === id);
-  return shortcut ? describeKeys(shortcut).join(isMac() ? "" : "+") : "";
-}
+import { AttachmentTray } from "./AttachmentTray.tsx";
+import { FormatToolbar } from "./FormatToolbar.tsx";
+import { SchedulePicker } from "./SchedulePicker.tsx";
+import {
+  CommandOptions,
+  EmojiOptions,
+  MentionOptions,
+} from "./ComposerOptions.tsx";
+import { useAttachments } from "./useAttachments.ts";
+import { useEmojiAutocomplete } from "./useEmojiAutocomplete.ts";
+import { useMentionAutocomplete } from "./useMentionAutocomplete.ts";
+import { useSlashCommands } from "./useSlashCommands.ts";
 
 interface Props {
   channelId: string;
@@ -111,10 +66,6 @@ export function Composer({
   initialFocus,
   consumeAlsoInChannel,
 }: Props) {
-  const users = useStore((s) => s.users);
-  const channels = useStore((s) => s.channels);
-  const groupsById = useStore((s) => s.groups);
-  const currentUser = useStore((s) => s.currentUser);
   const sendMessage = useStore((s) => s.sendMessage);
   const applyEvent = useStore((s) => s.applyEvent);
   const editLastMessage = useStore((s) => s.editLastMessage);
@@ -132,17 +83,27 @@ export function Composer({
     [writeDraft, channelId, threadRootId],
   );
   const [sending, setSending] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [repeat, setRepeat] = useState<ScheduleRepeat | "">("");
-  const [customWhen, setCustomWhen] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  const emojiRef = useRef<HTMLDivElement>(null);
-  const commands = useStore((s) => s.commands);
-  const [commandIndex, setCommandIndex] = useState(0);
   /** A command's reply to the person who ran it. Never stored, never broadcast. */
   const [ephemeral, setEphemeral] = useState<string | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const emojiRef = useRef<HTMLDivElement>(null);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastTypingRef = useRef(0);
+
+  const mentions = useMentionAutocomplete(draft, setDraft, textareaRef);
+  const emoji = useEmojiAutocomplete(draft, setDraft, textareaRef);
+  const slash = useSlashCommands(
+    channelId,
+    threadRootId,
+    draft,
+    setDraft,
+    textareaRef,
+  );
+  const files = useAttachments(setError);
+  const { attachments } = files;
 
   // Escape through the shared stack, so closing the picker does not also let the shell
   // act on the key. See `lib/useEscape`.
@@ -168,16 +129,6 @@ export function Composer({
     window.addEventListener("click", onClick, true);
     return () => window.removeEventListener("click", onClick, true);
   }, [emojiOpen]);
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionIndex, setMentionIndex] = useState(0);
-  const [emojiQuery, setEmojiQuery] = useState<string | null>(null);
-  const [emojiIndex, setEmojiIndex] = useState(0);
-  const customEmoji = useStore((s) => s.customEmoji);
-  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
-  const [dragging, setDragging] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const lastTypingRef = useRef(0);
 
   // Grow with content rather than scrolling a fixed two-line box.
   useEffect(() => {
@@ -191,79 +142,6 @@ export function Composer({
     if (!initialFocus) return;
     textareaRef.current?.focus();
   }, [initialFocus]);
-
-  const candidates = useMemo<MentionCandidate[]>(() => {
-    if (mentionQuery === null) return [];
-    const q = mentionQuery.toLowerCase();
-
-    const specials: MentionCandidate[] = ["channel", "here"]
-      .filter((s) => s.startsWith(q))
-      .map((name) => ({ kind: "special", key: `@${name}`, label: name }));
-
-    // Not self-filtered, unlike people below. Excluding yourself from a list of people
-    // is right — you do not mention yourself — and exactly wrong for a group you are
-    // on, which is the one you are most likely to be addressing. Matched on its name as
-    // well as its handle, because "@plat" should find `@platform-team` whether you were
-    // reaching for the handle or the words behind it.
-    const groups: MentionCandidate[] = matchMentions(
-      Object.values(groupsById),
-      q,
-      (g) => [g.handle, g.name],
-      (g) => g.handle,
-      4,
-    ).map((g) => ({ kind: "group", key: g.id, label: g.handle, hint: g.name }));
-
-    const people: MentionCandidate[] = matchMentions(
-      Object.values(users).filter(
-        (u) => !u.deactivated && u.id !== currentUser?.id,
-      ),
-      q,
-      (u) => [u.displayName, u.fullName],
-      (u) => u.displayName,
-      6,
-    ).map((u) => ({ kind: "user", key: u.id, label: u.displayName, user: u }));
-
-    return [...specials, ...groups, ...people];
-  }, [mentionQuery, users, groupsById, currentUser]);
-
-  const emojiCandidates = useMemo(
-    () => (emojiQuery ? searchEmoji(emojiQuery, customEmoji, 8) : []),
-    [emojiQuery, customEmoji],
-  );
-
-  /**
-   * Commands to offer while the name is half-typed.
-   *
-   * Only in the channel composer: a command acts on the channel, so running one from a
-   * thread would put its answer somewhere the person could not see it. In a thread a
-   * leading slash is ordinary text, which is also the only way to send one as text.
-   */
-  /**
-   * Who this conversation is with, for the commands the client answers itself.
-   *
-   * Only a one-to-one DM: a group DM has no single agent to open a terminal in, and a
-   * channel an agent is a member of is not a conversation *with* it.
-   */
-  const localContext = useMemo<LocalCommandContext>(() => {
-    const channel = channels[channelId];
-    const otherId =
-      channel?.kind === "dm"
-        ? (channel.memberIds ?? []).find((id) => id !== currentUser?.id)
-        : undefined;
-    const other = otherId ? users[otherId] : undefined;
-    return {
-      botUserId: other?.kind === "bot" ? other.id : null,
-      isAdmin: currentUser?.role === "admin" || currentUser?.role === "owner",
-    };
-  }, [channels, channelId, users, currentUser]);
-
-  const commandMatches = useMemo(() => {
-    if (threadRootId) return [];
-    const query = commandQuery(draft);
-    return query === null
-      ? []
-      : matchAllCommands(query, commands, localContext);
-  }, [draft, commands, threadRootId, localContext]);
 
   /**
    * Put an emoji where the caret is, not at the end.
@@ -290,18 +168,14 @@ export function Composer({
     setDraft(value);
     setError(null);
 
-    // Track a trailing `@word` to drive the autocomplete.
     const caret = textareaRef.current?.selectionStart ?? value.length;
     const before = value.slice(0, caret);
-    const match = before.match(/@([\p{L}\p{N}._'-]*)$/u);
-    setMentionQuery(match ? (match[1] ?? "") : null);
-    setMentionIndex(0);
-    setCommandIndex(0);
-    const colon = match
-      ? null
-      : before.match(/(?:^|[\s]):([a-z0-9_+-]{1,32})$/i);
-    setEmojiQuery(colon ? (colon[1] ?? "") : null);
-    setEmojiIndex(0);
+    // A `@word` and a `:shortcode` cannot both be open: the mention wins where they
+    // would overlap, which is what the single regex pair did when this was one function.
+    const mentioning = mentions.track(before);
+    if (mentioning) emoji.track("");
+    else emoji.track(before);
+    slash.reset();
 
     const now = Date.now();
     if (value.trim() && now - lastTypingRef.current > 3000) {
@@ -310,8 +184,10 @@ export function Composer({
     }
   }
 
-  async function scheduleFor(when: Date) {
-    setScheduleOpen(false);
+  async function scheduleFor(
+    when: Date,
+    repeat: ScheduleRepeat | null,
+  ): Promise<boolean> {
     const body = draft.trim();
     setSending(true);
     try {
@@ -320,7 +196,7 @@ export function Composer({
         sendAt: when.toISOString(),
         clientMsgId: crypto.randomUUID(),
         threadRootId: threadRootId ?? null,
-        repeat: repeat || null,
+        repeat,
         // Sent whether or not it repeats: it costs nothing, and it is what lets a rule
         // added later keep the wall clock the author picked.
         timezone: localZone(),
@@ -328,9 +204,7 @@ export function Composer({
       // Cleared only once the server has it: a draft dropped on a failed request is a
       // message somebody has to write twice.
       setDraft("");
-      setCustomWhen("");
-      const repeats = describeRepeat(repeat || null);
-      setRepeat("");
+      const repeats = describeRepeat(repeat);
       useToasts.getState().push(
         "info",
         `Scheduled for ${when.toLocaleString(undefined, {
@@ -339,121 +213,13 @@ export function Composer({
           minute: "2-digit",
         })}${repeats ? `, ${repeats.toLowerCase()}` : ""}`,
       );
+      return true;
     } catch (err) {
       showError(err);
+      return false;
     } finally {
       setSending(false);
     }
-  }
-
-  function applyMention(name: string) {
-    const node = textareaRef.current;
-    const caret = node?.selectionStart ?? draft.length;
-    const before = draft
-      .slice(0, caret)
-      .replace(/@([\p{L}\p{N}._'-]*)$/u, `@${name} `);
-    const next = before + draft.slice(caret);
-    setDraft(next);
-    setMentionQuery(null);
-    requestAnimationFrame(() => {
-      node?.focus();
-      node?.setSelectionRange(before.length, before.length);
-    });
-  }
-
-  function applyEmoji(emoji: ResolvedEmoji) {
-    const node = textareaRef.current;
-    const caret = node?.selectionStart ?? draft.length;
-    const inserted = `${reactionValue(emoji)} `;
-    const replaced = draft.slice(0, caret).replace(/:[a-z0-9_+-]*$/i, inserted);
-    const next = replaced + draft.slice(caret);
-    setDraft(next);
-    setEmojiQuery(null);
-    requestAnimationFrame(() => {
-      node?.focus();
-      node?.setSelectionRange(replaced.length, replaced.length);
-    });
-  }
-
-  // Object URLs for image previews are revoked when the composer goes away; not doing so
-  // leaks the whole file for the life of the tab.
-  //
-  // Read through a ref rather than the closure. The effect runs once, so its cleanup
-  // captured `attachments` as it was on mount — always empty — and the one path it was
-  // written for was the one path that revoked nothing. The ref is read at unmount, so it
-  // sees whatever is actually in the tray.
-  const attachmentsRef = useRef<PendingAttachment[]>([]);
-  attachmentsRef.current = attachments;
-
-  useEffect(() => {
-    return () => {
-      for (const attachment of attachmentsRef.current) {
-        if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
-      }
-    };
-    // Deliberately on unmount only: revoking on every change would kill live previews.
-  }, []);
-
-  function update(key: string, patch: Partial<PendingAttachment>) {
-    setAttachments((current) =>
-      current.map((item) => (item.key === key ? { ...item, ...patch } : item)),
-    );
-  }
-
-  function discard(key: string) {
-    setAttachments((current) => {
-      const going = current.find((item) => item.key === key);
-      if (going?.previewUrl) URL.revokeObjectURL(going.previewUrl);
-      return current.filter((item) => item.key !== key);
-    });
-  }
-
-  function attach(files: File[]) {
-    if (files.length === 0) return;
-    setError(null);
-
-    const room = MAX_ATTACHMENTS_PER_MESSAGE - attachments.length;
-    if (room <= 0) {
-      setError(
-        `A message can carry ${MAX_ATTACHMENTS_PER_MESSAGE} files at most.`,
-      );
-      return;
-    }
-    if (files.length > room) {
-      setError(`Only the first ${room} of those fit on this message.`);
-    }
-
-    for (const file of files.slice(0, room)) {
-      const pending = newPendingAttachment(file);
-      setAttachments((current) => [...current, pending]);
-
-      void uploadFile(file, pending.mime)
-        .then((attachmentId) =>
-          update(pending.key, { attachmentId, status: "ready" }),
-        )
-        .catch((err: unknown) => {
-          const message =
-            err instanceof Error
-              ? err.message
-              : "That file could not be uploaded.";
-          update(pending.key, { status: "failed", error: message });
-        });
-    }
-  }
-
-  function onPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
-    // A pasted screenshot arrives as a file with no name the user chose. Text pastes
-    // carry no files, so this never interferes with ordinary copy and paste.
-    const files = Array.from(event.clipboardData.files);
-    if (files.length === 0) return;
-    event.preventDefault();
-    attach(files);
-  }
-
-  function onDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    setDragging(false);
-    attach(Array.from(event.dataTransfer.files));
   }
 
   async function submit() {
@@ -469,13 +235,13 @@ export function Composer({
 
     // A command is typed like a message and is not one: it goes to its own endpoint,
     // and what comes back is either a real message the socket will also deliver, or a
-    // note only this person sees. Threads are excluded — see `commandMatches`.
+    // note only this person sees. Threads are excluded — see `useSlashCommands`.
     const parsed = threadRootId ? null : parseCommand(body);
 
     // Answered here, so it never reaches `/api/commands`: what it does is open a panel
     // on this screen, and the server has nothing to add to that.
-    const botUserId = localContext.botUserId;
-    if (parsed && botUserId && localCommand(parsed.name, localContext)) {
+    const botUserId = slash.localContext.botUserId;
+    if (parsed && botUserId && localCommand(parsed.name, slash.localContext)) {
       setDraft("");
       setEphemeral(null);
       setError(null);
@@ -518,10 +284,7 @@ export function Composer({
 
     setSending(true);
     setDraft("");
-    setAttachments([]);
-    for (const item of attachments) {
-      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-    }
+    files.clear();
 
     try {
       await sendMessage(
@@ -542,95 +305,29 @@ export function Composer({
     }
   }
 
-  function applyCommand(name: string) {
-    // A trailing space, so the next keystroke is the argument rather than more name.
-    const next = `/${name} `;
-    setDraft(next);
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(next.length, next.length);
-    });
-  }
-
-  /**
-   * Wrap the selection in a Markdown marker, or strip the marker if it is already
-   * there — whether the markers sit inside the selection (`**bold**` selected) or
-   * just around it (`bold` selected inside `**bold**`). The selection is restored
-   * on the next frame, once React has written the new value — setting it
-   * synchronously targets the old one.
-   */
-  function toggleWrap(before: string, after = before) {
+  /** The selection restored on the next frame, once React has written the new value —
+   *  setting it synchronously targets the old one. */
+  function applyWrap(before: string, after = before) {
     const el = textareaRef.current;
     if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const selected = draft.slice(start, end);
-
-    let next: string;
-    let selStart: number;
-    let selEnd: number;
-
-    if (
-      selected.length >= before.length + after.length &&
-      selected.startsWith(before) &&
-      selected.endsWith(after)
-    ) {
-      const inner = selected.slice(
-        before.length,
-        selected.length - after.length,
-      );
-      next = draft.slice(0, start) + inner + draft.slice(end);
-      selStart = start;
-      selEnd = start + inner.length;
-    } else if (
-      start >= before.length &&
-      draft.slice(start - before.length, start) === before &&
-      draft.slice(end, end + after.length) === after
-    ) {
-      next =
-        draft.slice(0, start - before.length) +
-        selected +
-        draft.slice(end + after.length);
-      selStart = start - before.length;
-      selEnd = selStart + selected.length;
-    } else {
-      next =
-        draft.slice(0, start) + before + selected + after + draft.slice(end);
-      selStart = start + before.length;
-      selEnd = selStart + selected.length;
-    }
-
-    setDraft(next);
+    const wrapped = wrapSelection(
+      draft,
+      el.selectionStart,
+      el.selectionEnd,
+      before,
+      after,
+    );
+    setDraft(wrapped.text);
     requestAnimationFrame(() => {
       el.focus();
-      el.setSelectionRange(selStart, selEnd);
+      el.setSelectionRange(wrapped.selectionStart, wrapped.selectionEnd);
     });
   }
 
-  // Inline code cannot hold a newline — the renderer's rule is `[^`\n]+` — so a
-  // selection spanning lines becomes a fenced block instead.
   function toggleCode() {
     const el = textareaRef.current;
     if (!el) return;
-    const selected = draft.slice(el.selectionStart, el.selectionEnd);
-    if (selected.includes("\n")) toggleWrap("```\n", "\n```");
-    else toggleWrap("`");
-  }
-
-  function keepSelection(event: { preventDefault: () => void }) {
-    // Only to keep the textarea's selection: without this the mousedown
-    // moves focus to the button and the selection collapses before the
-    // action can read it. The action itself is on click, so Enter and
-    // Space reach it too.
-    event.preventDefault();
-  }
-
-  function toggleLink() {
-    toggleWrap("[", "](url)");
-  }
-
-  function toggleList() {
-    toggleWrap("- ", "");
+    applyWrap(...codeMarkers(draft.slice(el.selectionStart, el.selectionEnd)));
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -640,13 +337,13 @@ export function Composer({
     switch (shortcut?.id) {
       case "format-bold":
         event.preventDefault();
-        toggleWrap("**");
+        applyWrap("**");
         return;
       case "format-italic":
         // The renderer parses *x* and _x_ alike; `_` is what survives sitting
         // directly inside a ** wrap.
         event.preventDefault();
-        toggleWrap("_");
+        applyWrap("_");
         return;
       case "format-code":
         event.preventDefault();
@@ -654,78 +351,14 @@ export function Composer({
         return;
       case "format-strike":
         event.preventDefault();
-        toggleWrap("~~");
+        applyWrap("~~");
         return;
     }
 
-    if (commandMatches.length > 0) {
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setCommandIndex((i) => (i + 1) % commandMatches.length);
-        return;
-      }
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setCommandIndex(
-          (i) => (i - 1 + commandMatches.length) % commandMatches.length,
-        );
-        return;
-      }
-      if (event.key === "Enter" || event.key === "Tab") {
-        event.preventDefault();
-        const chosen = commandMatches[commandIndex];
-        if (chosen) applyCommand(chosen.name);
-        return;
-      }
-    }
-
-    if (mentionQuery !== null && candidates.length > 0) {
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setMentionIndex((i) => (i + 1) % candidates.length);
-        return;
-      }
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setMentionIndex((i) => (i - 1 + candidates.length) % candidates.length);
-        return;
-      }
-      if (event.key === "Enter" || event.key === "Tab") {
-        event.preventDefault();
-        const chosen = candidates[mentionIndex];
-        if (chosen) applyMention(chosen.label);
-        return;
-      }
-      if (event.key === "Escape") {
-        setMentionQuery(null);
-        return;
-      }
-    }
-
-    if (emojiQuery !== null && emojiCandidates.length > 0) {
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setEmojiIndex((i) => (i + 1) % emojiCandidates.length);
-        return;
-      }
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setEmojiIndex(
-          (i) => (i - 1 + emojiCandidates.length) % emojiCandidates.length,
-        );
-        return;
-      }
-      if (event.key === "Enter" || event.key === "Tab") {
-        event.preventDefault();
-        const chosen = emojiCandidates[emojiIndex];
-        if (chosen) applyEmoji(chosen);
-        return;
-      }
-      if (event.key === "Escape") {
-        setEmojiQuery(null);
-        return;
-      }
-    }
+    // Commands, then mentions, then emoji — the order they can open in.
+    if (slash.handleKey(event)) return;
+    if (mentions.handleKey(event)) return;
+    if (emoji.handleKey(event)) return;
 
     // ↑ on an empty composer edits your last message, as it does in Slack. Only when
     // empty and only with the caret at the start — otherwise it would hijack moving
@@ -756,93 +389,41 @@ export function Composer({
   const ready =
     draft.trim().length > 0 ||
     attachments.some((item) => item.status === "ready");
-
-  // Scheduling carries the body and nothing else: `scheduled_messages` has no link to an
-  // attachment row, and the orphan sweep collects an attachment no message claims — so a
-  // file scheduled for next week would be deleted before its message was sent. Rather
-  // than offer it and drop the file, the clock steps aside while there is one, and says
-  // why. Sending a file *now* is unaffected.
-  const holdingFiles = attachments.length > 0;
+  const mentionsOpen =
+    mentions.query !== null && mentions.candidates.length > 0;
 
   return (
     <div className="composer">
       <div
         className="composer-wrap"
-        data-dragging={dragging}
+        data-dragging={files.dragging}
         onDragOver={(event) => {
           if (!event.dataTransfer.types.includes("Files")) return;
           event.preventDefault();
-          setDragging(true);
+          files.setDragging(true);
         }}
         onDragLeave={(event) => {
           // Moving between children fires dragleave; only the real exit counts.
           if (event.currentTarget.contains(event.relatedTarget as Node | null))
             return;
-          setDragging(false);
+          files.setDragging(false);
         }}
-        onDrop={onDrop}
+        onDrop={files.onDrop}
       >
-        {/* The listbox had buttons for children, which is a listbox with no options in
-            it — worse than no role at all, because it announced an empty list rather
-            than nothing. The active row was `data-active` and CSS only, so arrowing
-            through names was silent; `aria-activedescendant` on the textarea below is
-            what makes it audible while focus stays in the message field. */}
-        {mentionQuery !== null && candidates.length > 0 && (
-          <div className="autocomplete" role="listbox" id="mention-options">
-            {candidates.map((candidate, index) => (
-              <button
-                key={candidate.key}
-                id={`mention-option-${index}`}
-                role="option"
-                aria-selected={index === mentionIndex}
-                className="autocomplete-item"
-                data-active={index === mentionIndex}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  applyMention(candidate.label);
-                }}
-              >
-                {candidate.kind === "user" ? (
-                  <Avatar user={candidate.user} size="sm" />
-                ) : (
-                  <MentionIcon size="md" />
-                )}
-                {candidate.label}
-                {candidate.hint && (
-                  <span className="muted autocomplete-hint">
-                    {candidate.hint}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+        {mentionsOpen && (
+          <MentionOptions
+            candidates={mentions.candidates}
+            index={mentions.index}
+            onPick={mentions.apply}
+          />
         )}
 
-        {emojiQuery !== null && emojiCandidates.length > 0 && (
-          <div className="autocomplete" role="listbox" id="emoji-options">
-            {emojiCandidates.map((emoji, index) => (
-              <button
-                key={`${emoji.kind}-${emoji.name}`}
-                id={`emoji-option-${index}`}
-                role="option"
-                aria-selected={index === emojiIndex}
-                aria-label={`:${emoji.name}:`}
-                className="autocomplete-item"
-                data-active={index === emojiIndex}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  applyEmoji(emoji);
-                }}
-              >
-                {emoji.kind === "custom" ? (
-                  <img className="custom-emoji" src={emoji.url} alt="" />
-                ) : (
-                  <span aria-hidden="true">{emoji.char}</span>
-                )}
-                :{emoji.name}:
-              </button>
-            ))}
-          </div>
+        {emoji.query !== null && emoji.candidates.length > 0 && (
+          <EmojiOptions
+            candidates={emoji.candidates}
+            index={emoji.index}
+            onPick={emoji.apply}
+          />
         )}
 
         {ephemeral !== null && (
@@ -861,26 +442,12 @@ export function Composer({
           </div>
         )}
 
-        {commandMatches.length > 0 && (
-          <div className="autocomplete" role="listbox">
-            {commandMatches.map((command, index) => (
-              <button
-                key={command.name}
-                className="autocomplete-item"
-                data-active={index === commandIndex}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  applyCommand(command.name);
-                }}
-              >
-                <span className="command-name">
-                  /{command.name}
-                  {command.usage ? ` ${command.usage}` : ""}
-                </span>
-                <span className="command-summary">{command.summary}</span>
-              </button>
-            ))}
-          </div>
+        {slash.matches.length > 0 && (
+          <CommandOptions
+            matches={slash.matches}
+            index={slash.index}
+            onPick={slash.apply}
+          />
         )}
 
         {emojiOpen && (
@@ -901,141 +468,9 @@ export function Composer({
         )}
 
         <div className="composer-box">
-          <div
-            className="composer-toolbar"
-            role="toolbar"
-            aria-label="Formatting"
-          >
-            <button
-              className="icon-btn"
-              type="button"
-              aria-label="Bold"
-              title={`Bold (${chordFor("format-bold")})`}
-              onMouseDown={(e) => {
-                // Only to keep the textarea's selection: without this the mousedown
-                // moves focus to the button and the selection collapses before the
-                // action can read it. The action itself is on click, so Enter and
-                // Space reach it too.
-                e.preventDefault();
-              }}
-              onClick={() => toggleWrap("**")}
-            >
-              <strong>B</strong>
-            </button>
-            <button
-              className="icon-btn"
-              type="button"
-              aria-label="Italic"
-              title={`Italic (${chordFor("format-italic")})`}
-              onMouseDown={(e) => {
-                // Only to keep the textarea's selection: without this the mousedown
-                // moves focus to the button and the selection collapses before the
-                // action can read it. The action itself is on click, so Enter and
-                // Space reach it too.
-                e.preventDefault();
-              }}
-              onClick={() => toggleWrap("_")}
-            >
-              <em>I</em>
-            </button>
-            <button
-              className="icon-btn"
-              type="button"
-              aria-label="Code"
-              title={`Code (${chordFor("format-code")})`}
-              onMouseDown={(e) => {
-                // Only to keep the textarea's selection: without this the mousedown
-                // moves focus to the button and the selection collapses before the
-                // action can read it. The action itself is on click, so Enter and
-                // Space reach it too.
-                e.preventDefault();
-              }}
-              onClick={() => toggleCode()}
-            >
-              <code>{"</>"}</code>
-            </button>
-            <button
-              className="icon-btn"
-              type="button"
-              aria-label="Strikethrough"
-              title={`Strikethrough (${chordFor("format-strike")})`}
-              onMouseDown={(e) => {
-                // Only to keep the textarea's selection: without this the mousedown
-                // moves focus to the button and the selection collapses before the
-                // action can read it. The action itself is on click, so Enter and
-                // Space reach it too.
-                e.preventDefault();
-              }}
-              onClick={() => toggleWrap("~~")}
-            >
-              <s>S</s>
-            </button>
-            <button
-              className="icon-btn"
-              type="button"
-              aria-label="Link"
-              title="Link"
-              onMouseDown={keepSelection}
-              onClick={() => toggleLink()}
-            >
-              <span aria-hidden="true">🔗</span>
-            </button>
-            <button
-              className="icon-btn"
-              type="button"
-              aria-label="List"
-              title="List"
-              onMouseDown={keepSelection}
-              onClick={() => toggleList()}
-            >
-              <span aria-hidden="true">≡</span>
-            </button>
-          </div>
+          <FormatToolbar onWrap={applyWrap} onCode={toggleCode} />
 
-          {attachments.length > 0 && (
-            <ul className="attachment-tray">
-              {attachments.map((item) => (
-                <li
-                  key={item.key}
-                  className="attachment-chip"
-                  data-status={item.status}
-                >
-                  {item.previewUrl ? (
-                    <img
-                      className="attachment-chip-thumb"
-                      src={item.previewUrl}
-                      alt=""
-                    />
-                  ) : (
-                    <span className="attachment-chip-thumb" data-generic="true">
-                      <FileIcon size="md" />
-                    </span>
-                  )}
-                  <span className="attachment-chip-text">
-                    <span
-                      className="attachment-chip-name"
-                      title={item.filename}
-                    >
-                      {item.filename}
-                    </span>
-                    <span className="attachment-chip-meta">
-                      {item.status === "uploading" && "Uploading…"}
-                      {item.status === "ready" && formatBytes(item.sizeBytes)}
-                      {item.status === "failed" &&
-                        (item.error ?? "Upload failed")}
-                    </span>
-                  </span>
-                  <button
-                    className="attachment-chip-remove"
-                    onClick={() => discard(item.key)}
-                    title={`Remove ${item.filename}`}
-                  >
-                    <CloseIcon size="sm" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <AttachmentTray attachments={attachments} onDiscard={files.discard} />
 
           <textarea
             ref={textareaRef}
@@ -1046,21 +481,15 @@ export function Composer({
             rows={2}
             onChange={(e) => updateDraft(e.target.value)}
             onKeyDown={onKeyDown}
-            onPaste={onPaste}
+            onPaste={files.onPaste}
             aria-label={placeholder}
             // Only while the list is open. This stays a message field — it is not
             // relabelled a combobox, because that is what it is for ninety-nine
             // keystrokes in a hundred and a textarea announced as a combobox all the
             // time is a worse trade than a silent list some of the time.
-            aria-controls={
-              mentionQuery !== null && candidates.length > 0
-                ? "mention-options"
-                : undefined
-            }
+            aria-controls={mentionsOpen ? "mention-options" : undefined}
             aria-activedescendant={
-              mentionQuery !== null && candidates.length > 0
-                ? `mention-option-${mentionIndex}`
-                : undefined
+              mentionsOpen ? `mention-option-${mentions.index}` : undefined
             }
           />
 
@@ -1073,7 +502,7 @@ export function Composer({
               multiple
               hidden
               onChange={(event) => {
-                attach(Array.from(event.target.files ?? []));
+                files.attach(Array.from(event.target.files ?? []));
                 // Reset, or choosing the same file twice in a row does nothing.
                 event.target.value = "";
               }}
@@ -1115,7 +544,7 @@ export function Composer({
             >
               <MentionIcon />
             </button>
-            <span style={{ flex: 1 }} />
+            <span className="grow" />
             <span className="composer-hint">
               {enterToSend ? "Enter to send" : "⌘Enter to send"}
             </span>
@@ -1131,106 +560,15 @@ export function Composer({
             >
               <SendIcon size="md" />
             </button>
-            {/* Beside Send rather than in the ⋯ menu: the decision "now or later" is
-                made at the moment of sending, with the message already written. */}
-            <div className="schedule-wrap">
-              <button
-                className="icon-btn schedule-trigger"
-                type="button"
-                aria-label={
-                  holdingFiles
-                    ? "Files can’t be scheduled — send this now"
-                    : "Schedule this message"
-                }
-                aria-haspopup="menu"
-                aria-expanded={scheduleOpen}
-                data-tooltip={holdingFiles ? "Files can’t be scheduled" : "Send later"}
-                data-tooltip-place="top"
-                disabled={!ready || sending || holdingFiles}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setScheduleOpen((open) => !open);
-                }}
-              >
-                <ClockIcon size="md" />
-              </button>
-              <Menu
-                open={scheduleOpen}
-                onClose={() => setScheduleOpen(false)}
-                className="menu schedule-menu"
-              >
-                {presetsFor(new Date()).map((preset) => (
-                  <button
-                    key={preset.id}
-                    className="menu-item"
-                    role="menuitem"
-                    type="button"
-                    onClick={() => void scheduleFor(preset.at(new Date()))}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-                <div className="menu-sep" />
-                {/* The menu says when; this says "and again". It applies to whichever
-                    way the time was picked, so "Tomorrow at 9:00" plus "Every weekday"
-                    is the standup reminder in two clicks — the workflow every workspace
-                    actually has. */}
-                <label className="schedule-repeat">
-                  <span className="field-label">Repeat</span>
-                  <select
-                    className="input"
-                    name="schedule-repeat"
-                    value={repeat}
-                    onChange={(event) =>
-                      setRepeat(event.target.value as ScheduleRepeat | "")
-                    }
-                  >
-                    {REPEAT_OPTIONS.map((option) => (
-                      <option key={option.value || "once"} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {/* Four moments cannot express "next Thursday at two". The native
-                    control is the right one here: it already knows the reader's locale,
-                    their 12- or 24-hour clock, and how a date is spelled where they
-                    are — none of which a hand-rolled picker would get right for free. */}
-                <label className="schedule-custom">
-                  <span className="field-label">Or pick a time</span>
-                  <input
-                    className="input"
-                    type="datetime-local"
-                    name="schedule-custom"
-                    min={earliestCustom(new Date())}
-                    value={customWhen}
-                    onChange={(event) => setCustomWhen(event.target.value)}
-                  />
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    disabled={!customWhen}
-                    onClick={() => {
-                      // A datetime-local string has no zone, so it parses as local —
-                      // which is what the person typing it meant.
-                      const when = new Date(customWhen);
-                      if (Number.isNaN(when.getTime())) return;
-                      void scheduleFor(when);
-                    }}
-                  >
-                    Schedule
-                  </button>
-                </label>
-              </Menu>
-            </div>
+            <SchedulePicker
+              disabled={!ready || sending}
+              holdingFiles={attachments.length > 0}
+              onSchedule={scheduleFor}
+            />
           </div>
         </div>
 
-        {error && (
-          <p className="error-text" style={{ marginTop: 8 }}>
-            {error}
-          </p>
-        )}
+        {error && <p className="error-text composer-error">{error}</p>}
       </div>
     </div>
   );
