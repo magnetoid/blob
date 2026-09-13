@@ -395,6 +395,7 @@ async def _stream(
                     listener,
                     workspace_id=workspace_id,
                     user_id=chain.initiated_by_user_id,
+                    channel_id=channel_id,
                 )
                 stream_task = asyncio.create_task(
                     stream_run(

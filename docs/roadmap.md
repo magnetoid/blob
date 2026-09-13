@@ -497,19 +497,22 @@ gaps were.
   row carries an explicit "Answer →" to the conversation holding the question.
   `api.agentRuns.answer` stays unused on purpose: it is the entrance for a client that
   holds the run rather than the message, and no such client exists yet.
-- **Bound what a shared agent reads — S–M, ADR 0017.** Precisely: Blob does not have
-  Claude Tag's rule. ADR 0013 is *command* authority. `jobs/agui.py:agent_tools` gives
-  @Blob the asker's eyes wherever it is asked, so @Blob mentioned in `#general` can read
-  a private channel the asker is in and the room is not, and its answer lands in the
-  room. New `workspace_policies.agent_reads`: `audience` (default: in a DM with the
-  agent, everything the asker can see, which is the promise the agent DM header makes
-  today; in a channel, only public channels and that channel) or `asker` (today's
-  behaviour everywhere). Enforced in `services/mcp._resolve_channel` and the read
-  handlers by a room-scoped predicate, refusing as "no such channel", never 403. A
-  person's own MCP token is unchanged (ADR 0016: it *is* the person and answers only
-  them). Tests in `test_builtin_tools.py`. Migration 0037 (shared with the two items
-  below). Done when: the policy shows in the console and @Blob asked in `#general`
-  cannot summarise a private channel the room cannot see.
+- **Bound what a shared agent reads — done 2026-09-13, ADR 0017.** `workspace_policies.
+  agent_reads` defaults to `audience`: in a channel the agent reads public channels and
+  the one it was asked in; in its own DM with the asker, their full reach. The asker's
+  membership stays the floor and this is the ceiling, so it can never see more than the
+  person who asked and under `audience` never more than the room. Enforced by one
+  predicate in `services/mcp.py` at every point a channel is reached — by name, by id,
+  through a message id, the channel listing, and an `audience_channel_id` clause inside
+  the search statement rather than a filter over the page. Refusals are "no such
+  channel", never 403. A person's own MCP token carries no room and is untouched (ADR
+  0016). Migration 0037 sets existing workspaces to `audience` rather than to the
+  behaviour they had, because the surprise being avoided here is a private channel
+  quoted into a public one. The instance console has the switch.
+  `tests/test_builtin_tools.py` pins all three cases, the third being the differential:
+  same setup with the policy flipped to `asker`, opposite outcome. `post_message`
+  resolves its target through the same helper, so the bound covers where an agent may
+  speak as well as what it may read — noted in the ADR rather than left as a surprise.
 - **Per-run usage on the budget meter — M.** AG-UI 0.1.22 terminal events carry usage
   per provider/model: `plugins/agui.py:Fold` captures it on `RUN_FINISHED`;
   `agent_runs.usage JSONB`; `services/agent_runs.finish(usage=)` and the console sum

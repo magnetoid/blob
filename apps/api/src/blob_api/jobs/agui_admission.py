@@ -27,6 +27,7 @@ from ..plugins.streams import Listener
 from ..realtime import presence
 from ..realtime.protocol import TYPING_TTL_MS
 from ..services import mcp as mcp_service
+from ..services import policies as policy_service
 
 log = logging.getLogger("blob.jobs.agui")
 
@@ -157,8 +158,39 @@ async def personal_agent_for(
     )
 
 
+async def _is_private_room_with(
+    session: AsyncSession, *, channel_id: str, user_id: str, bot_user_id: str
+) -> bool:
+    """Is this channel a DM holding exactly this person and this agent?
+
+    `kind` alone cannot answer it: a DM's kind is set from the member count when it is
+    created and never re-derived, while `app_join_channel` can add a bot to a channel
+    with no kind test at all — so a `kind='dm'` row can hold three members. The count is
+    checked in the statement for the same reason `personal_agent_for` checks it there.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT 1 FROM channels c
+                 WHERE c.id = :channel_id
+                   AND c.kind = 'dm'
+                   AND EXISTS (SELECT 1 FROM channel_members m
+                                WHERE m.channel_id = c.id AND m.user_id = :user_id)
+                   AND EXISTS (SELECT 1 FROM channel_members m
+                                WHERE m.channel_id = c.id AND m.user_id = :bot_user_id)
+                   AND (SELECT count(*) FROM channel_members m
+                         WHERE m.channel_id = c.id) = 2
+                """
+            ),
+            {"channel_id": channel_id, "user_id": user_id, "bot_user_id": bot_user_id},
+        )
+    ).fetchone()
+    return row is not None
+
+
 async def agent_tools(
-    listener: Listener, *, workspace_id: str, user_id: str
+    listener: Listener, *, workspace_id: str, user_id: str, channel_id: str
 ) -> tuple[list[dict[str, Any]], llm.ToolRunner | None]:
     """The tools this agent may use, and a runner that runs them as the person who asked.
 
@@ -170,6 +202,14 @@ async def agent_tools(
     agent reached through somebody else's hop therefore reads what *that* person can read
     and no more, so a private channel answers the agent exactly as it answers them, and
     the blast radius of a prompt injection stops at the asker's own membership.
+
+    **And whose room.** The asker's reach was the whole bound, and it is the wrong one
+    when the answer is going somewhere other people are reading: `@Blob summarise
+    #salaries` typed in `#general` worked, and the summary landed in `#general`. Under
+    `agent_reads = 'audience'` (the default, migration 0037) the caller also carries the
+    room, and `services/mcp` narrows every read to what that room could have read for
+    itself. The exception is the agent's own DM with the asker: there the room *is* the
+    asker, which is the promise that DM already makes.
 
     **Which tools.** `plugin_grants`, the same rows the console shows and an admin
     revokes. No grant, no tool — and the tool is absent from the schema list rather than
@@ -204,8 +244,19 @@ async def agent_tools(
                 {"plugin_id": listener.plugin_id, "ws": workspace_id, "user_id": user_id},
             )
         ).fetchone()
-    if row is None:
-        return [], None
+        if row is None:
+            return [], None
+        # Read in the same session, before it closes: the answer decides what the model
+        # is handed, so it must not be a second round trip that could see a different
+        # policy from the one the scopes above were read under.
+        policy = await policy_service.effective_for(session, workspace_id)
+        room_bound = policy.agent_reads == "audience" and not await _is_private_room_with(
+            session,
+            channel_id=channel_id,
+            user_id=user_id,
+            bot_user_id=listener.bot_user_id,
+        )
+
     granted = frozenset(row.scopes or ())
     tools = mcp_service.tools_for_agent(granted)
     if not tools:
@@ -227,6 +278,7 @@ async def agent_tools(
         # something; a model repeating a name it read did not, and ADR 0013 bounds chains
         # by making a person's message the only thing that roots one.
         may_start_runs=False,
+        room_channel_id=channel_id if room_bound else None,
     )
 
     async def run(name: str, arguments: dict[str, Any]) -> str:

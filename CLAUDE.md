@@ -21,9 +21,10 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-sixteen ADRs; the principles below are their summary, not a substitute. 0013–0016 are the
-agentic surface — chains, work channels, summaries and nudges, the MCP caller — and are
-the ones this digest compresses hardest, so read them before changing that code.
+seventeen ADRs; the principles below are their summary, not a substitute. 0013–0017 are the
+agentic surface — chains, work channels, summaries and nudges, the MCP caller, and what
+a shared agent may read — and are the ones this digest compresses hardest, so read them
+before changing that code.
 
 `docs/` carries the three integrator guides (`apps.md`, `agent-socket.md`,
 `agent-terminal.md`) alongside planning history; the guides are current, the rest is not.
@@ -183,6 +184,14 @@ place to look before changing them.
   with the same two clicks as anything else. `lib/llm.py` is deliberately the smallest
   possible provider layer with three callers — the built-in agent, the unread recap, and
   thread summaries. Do not grow it into a framework.
+* **What a shared agent may read** (`services/mcp._refuse_outside_the_room`, ADR 0017).
+  ADR 0013 says whose authority a run carries; this says where it may be spent. The
+  workspace policy `agent_reads` defaults to `audience`: in a channel the agent reads
+  public channels and that channel, in its own DM the asker's full reach. The asker's
+  membership is still the floor — every read runs as them — and this is the ceiling, so
+  `@Blob summarise #salaries` asked in `#general` answers "no such channel" rather than
+  quoting a private room into a public one. Refusals are 404, never 403, for the reason
+  private channels always answer 404.
 * **Summaries and nudges** (`services/agentic.py`, `services/unanswered.py`, ADR 0015).
   `thread_summaries.provider` records *which* engine wrote a row: `heuristic-v1` for the
   keyword scan that runs when no model is configured, `llm:<model>` otherwise. Both

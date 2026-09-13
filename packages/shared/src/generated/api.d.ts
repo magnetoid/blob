@@ -5074,6 +5074,8 @@ export interface components {
         PolicyInput: {
             /** Agentchainmaxdepth */
             agentChainMaxDepth?: number | null;
+            /** Agentreads */
+            agentReads?: ("audience" | "asker") | null;
             /** Deniedscopes */
             deniedScopes?: string[] | null;
             /** Maxapps */
@@ -5096,6 +5098,11 @@ export interface components {
         PolicyOut: {
             /** Agentchainmaxdepth */
             agentChainMaxDepth: number;
+            /**
+             * Agentreads
+             * @enum {string}
+             */
+            agentReads: "audience" | "asker";
             /** Deniedscopes */
             deniedScopes: string[];
             /** Maxapps */

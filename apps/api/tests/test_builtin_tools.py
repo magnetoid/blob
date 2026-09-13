@@ -32,6 +32,7 @@ from blob_api.lib import llm
 from blob_api.lib import queue as queue_lib
 from blob_api.plugins import builtin
 from blob_api.services import mcp, workspace_agent
+from blob_api.services import policies as policy_service
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up
 from .test_llm_tools_anthropic import streamed, text_events, tool_use_events
@@ -66,7 +67,15 @@ def model(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 
 async def _general(client: Client) -> str:
-    return str((await client.get("/api/channels")).body["channels"][0]["id"])
+    """#general by name.
+
+    Not `channels[0]`: the sidebar query orders by kind before name, and 'private'
+    sorts before 'public', so creating one private channel moved the first row and a
+    test would quietly ask the agent inside the very channel it was testing the bound
+    on — where the bot is not a member, so nothing ran at all.
+    """
+    channels = (await client.get("/api/channels")).body["channels"]
+    return str(next(c for c in channels if c["name"] == "general")["id"])
 
 
 async def _ask(client: Client, channel_id: str, question: str) -> None:
@@ -410,3 +419,119 @@ class TestWhenItPosts:
 
         assert "post_message" in _tool_names(model["seen"][0])
         assert "Deploy is done." in await _bodies(owner, ops)
+
+
+    async def test_it_cannot_speak_into_a_private_channel_it_was_not_asked_in(
+        self, model: dict[str, Any], client: Client
+    ) -> None:
+        """`post_message` resolves its target the same way a read does, so the room
+        bound covers where the agent may speak as well as what it may read — the more
+        surprising direction of the two. See ADR 0017."""
+        owner = await sign_up(client, "Founder")
+        hushed = (await owner.post("/api/channels", {"name": "hushed", "kind": "private"})).body[
+            "channel"
+        ]["id"]
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        plugin_id = next(p["id"] for p in apps if p["slug"] == builtin.WORKSPACE_SLUG)
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                text(
+                    "INSERT INTO plugin_grants (plugin_id, scope) VALUES (:id, :s) "
+                    "ON CONFLICT DO NOTHING"
+                ),
+                {"id": plugin_id, "s": "messages:write.anywhere"},
+            )
+
+        model["tool"] = ("post_message", {"channel": "#hushed", "text": "Everyone look."})
+        model["reply"] = "I can't post there from here."
+        await _ask(owner, await _general(owner), "tell #hushed to look")
+
+        assert "Everyone look." not in await _bodies(owner, hushed)
+
+
+class TestBoundedToTheRoomItAnswersIn:
+    """The asker's reach is the floor; the room's is the ceiling.
+
+    ADR 0013 settled whose *authority* a run carries — the person who rooted the chain.
+    It said nothing about where that authority may be spent, and the answer used to be
+    "anywhere": asked in `#general` about a private channel the asker belongs to, the
+    agent read it and posted the summary into `#general`, where everyone could read what
+    none of them could open. `agent_reads` (migration 0037) is that bound, and these are
+    the three cases it has to get right.
+    """
+
+    async def _private_with_a_secret(self, owner: Client) -> str:
+        channel = (
+            await owner.post("/api/channels", {"name": "salaries", "kind": "private"})
+        ).body["channel"]["id"]
+        await send_message(owner, channel, "everyone's pay is in this channel")
+        return str(channel)
+
+    async def test_a_private_channel_the_asker_is_in_does_not_reach_the_room(
+        self, model: dict[str, Any], client: Client
+    ) -> None:
+        model["tool"] = ("read_channel", {"channel": "#salaries"})
+        model["reply"] = "I can't read that from here."
+        owner = await sign_up(client, "Founder")
+        await self._private_with_a_secret(owner)
+
+        general = await _general(owner)
+        await _ask(owner, general, "summarise #salaries")
+
+        second = model["seen"][1]
+        # The asker is a member and could read it themselves. The room could not, and
+        # the answer was going into the room.
+        assert "everyone's pay" not in json.dumps(second)
+        assert _tool_results(second)
+
+    async def test_the_agents_own_dm_keeps_the_askers_full_reach(
+        self, model: dict[str, Any], client: Client
+    ) -> None:
+        model["tool"] = ("read_channel", {"channel": "#salaries"})
+        model["reply"] = "Here is what that channel says."
+        owner = await sign_up(client, "Founder")
+        await self._private_with_a_secret(owner)
+
+        async with SessionFactory() as session:
+            bot = (
+                await session.execute(
+                    text(
+                        "SELECT u.id FROM users u JOIN plugins p ON p.id = u.bot_plugin_id"
+                        " WHERE p.runtime = :runtime"
+                    ),
+                    {"runtime": builtin.RUNTIME},
+                )
+            ).fetchone()
+        assert bot is not None
+        dm = (await owner.post("/api/dms", {"userIds": [str(bot.id)]})).body["channel"]["id"]
+
+        await _ask(owner, dm, "summarise #salaries")
+
+        second = model["seen"][1]
+        # In its own DM the room *is* the asker, which is the promise that DM makes.
+        assert "everyone's pay" in _tool_results(second)
+
+    async def test_a_workspace_can_ask_for_the_old_reach_back(
+        self, model: dict[str, Any], client: Client
+    ) -> None:
+        model["tool"] = ("read_channel", {"channel": "#salaries"})
+        model["reply"] = "Here is what that channel says."
+        owner = await sign_up(client, "Founder")
+        await self._private_with_a_secret(owner)
+
+        async with SessionFactory() as session:
+            workspace = (await session.execute(text("SELECT id FROM workspaces"))).fetchone()
+            assert workspace is not None
+            await policy_service.write(
+                session,
+                workspace_id=str(workspace.id),
+                actor_id=None,
+                agent_reads="asker",
+            )
+            await session.commit()
+
+        general = await _general(owner)
+        await _ask(owner, general, "summarise #salaries")
+
+        second = model["seen"][1]
+        assert "everyone's pay" in _tool_results(second)
