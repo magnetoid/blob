@@ -76,7 +76,7 @@ export type Route =
   | { view: 'meetup'; meetupId: string }
   /** A permalink to one message. Resolved, then replaced by the conversation. */
   | { view: 'permalink'; messageId: string }
-  | { view: 'search' }
+  | { view: 'search'; query?: string }
   | { view: 'settings'; section: SettingsSection }
   | { view: 'admin'; section: AdminSection; detailId?: string };
 
@@ -102,7 +102,9 @@ const LEGACY_ADMIN_DETAIL: ReadonlySet<string> = new Set(['members', 'groups', '
 
 /** Unknown paths resolve to the conversation view rather than a dead end. */
 export function parseRoute(path: string): Route {
-  const clean = path.replace(/\/+$/, '') || '/';
+  const [rawPath = '', rawQuery = ''] = path.split('?');
+  const clean = rawPath.replace(/\/+$/, '') || '/';
+  const params = new URLSearchParams(rawQuery);
 
   if (clean === '/' || clean === '/home') return { view: 'home' };
   const channelThread = clean.match(/^\/c\/([^/]+)\/t\/([^/]+)$/);
@@ -135,7 +137,12 @@ export function parseRoute(path: string): Route {
   if (meetup) return { view: 'meetup', meetupId: meetup[1] as string };
   const permalink = clean.match(/^\/m\/([^/]+)$/);
   if (permalink) return { view: 'permalink', messageId: permalink[1] as string };
-  if (clean === '/search') return { view: 'search' };
+  if (clean === '/search') {
+    // Shareable and bookmarkable, the way Slack's is: the search someone sent you
+    // opens as the search they ran.
+    const query = params.get('q') ?? '';
+    return query ? { view: 'search', query } : { view: 'search' };
+  }
   // Your profile, your preferences and your notifications were three pages; they are
   // one now, and both old URLs are real links people hold.
   if (clean === '/profile' || clean === '/settings/notifications') {
@@ -224,7 +231,7 @@ export function pathForRoute(route: Route): string {
     case 'permalink':
       return `/m/${route.messageId}`;
     case 'search':
-      return '/search';
+      return route.query ? `/search?q=${encodeURIComponent(route.query)}` : '/search';
     case 'settings':
       return `/settings/${route.section}`;
     case 'admin':
@@ -256,7 +263,10 @@ export function pathForView(view: StableView): string {
 }
 
 function currentPath(): string {
-  return window.location.pathname;
+  // The query string is part of the path here, because one route carries state in it:
+  // a search. Without it, `usePath` never changes as somebody types and the Back
+  // button walks past the whole search rather than through it.
+  return window.location.pathname + window.location.search;
 }
 
 /**

@@ -402,6 +402,31 @@ targets table re-measured and written into `docs/roadmap.md`.
 
 ---
 
+## Slack-parity pass (2026-09-13, outside the Q1 plan)
+
+Asked for directly: the bar is Slack. Audited in a browser at 400px, which is where the
+gaps were.
+
+* **The account menu was off the screen.** Four text tabs, a search pill and two icon
+  buttons wanted 460px of a 400px bar, and what fell off the right edge was the menu
+  holding preferences, the profile and sign out — with the page clipped rather than
+  scrollable, they were simply unreachable on a phone. Huddle (disabled until that
+  feature ships) and Invite (an admin shortcut the invitations page carries) are gone at
+  that width, the tabs scroll, and the menu is pinned to the end of the bar.
+* **The channel header overflowed the same way.** "Catch up" had no icon to fall back to
+  and the member count never hid, so both ran past the edge. Catch up takes the spark
+  icon it already had a use for, and the count hides with the other labels.
+* **A search was not a link.** `/search` held its term in component state, so a search
+  could not be sent to somebody, bookmarked, or left with the Back button — Back walked
+  out of the app instead. The route carries `?q=` now, seeds the box from it, and
+  replaces rather than pushes as you type, so Back leaves the search rather than
+  rewinding it one letter at a time.
+* **"Enter to send" on a phone.** The Return key on a touch keyboard inserts a line the
+  way every other text field there does; the hint described a convention the device does
+  not have, in the row the send button needed.
+
+---
+
 ## Q2 — Features (mid-Dec → mid-Mar)
 
 ### M1 (Dec 15 → Jan 15) · Agents you can trust

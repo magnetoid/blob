@@ -17,6 +17,7 @@ import {
   HuddleIcon,
   MembersIcon,
   PinIcon,
+  SparkIcon,
 } from "../../components/Icon.tsx";
 import { PinnedPanel } from "./PinnedPanel.tsx";
 import { CatchUpStrip } from "./CatchUpStrip.tsx";
@@ -329,7 +330,8 @@ export function ChannelView() {
           title="Summarise what you haven't read here"
           onClick={() => useStore.setState({ catchupScope: "channel" })}
         >
-          Catch up
+          <SparkIcon size="md" />
+          <span className="pane-action-label">Catch up</span>
         </button>
         <div className="relative">
           <button
@@ -367,7 +369,7 @@ export function ChannelView() {
           onClick={() => setDetailsOpen(true)}
         >
           <MembersIcon size="md" />
-          <span className="pane-members-count">
+          <span className="pane-members-count pane-action-label">
             {memberSummary(memberCount, agentCount)}
           </span>
         </button>

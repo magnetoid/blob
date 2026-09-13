@@ -179,3 +179,27 @@ describe('channel routes', () => {
     expect(parseRoute('/c/a/t/')).toEqual({ view: 'messages' });
   });
 });
+
+describe('a search carries its query', () => {
+  it('reads the term out of the URL, so a search can be sent to somebody', () => {
+    expect(parseRoute('/search?q=deploy%20plan')).toEqual({
+      view: 'search',
+      query: 'deploy plan',
+    });
+  });
+
+  it('is a bare search when there is nothing in the box', () => {
+    expect(parseRoute('/search')).toEqual({ view: 'search' });
+    expect(parseRoute('/search?q=')).toEqual({ view: 'search' });
+  });
+
+  it('round-trips, so the address bar never disagrees with the screen', () => {
+    const route = parseRoute('/search?q=from%3A%40ana%20deploy');
+    expect(pathForRoute(route)).toBe('/search?q=from%3A%40ana%20deploy');
+    expect(pathForRoute({ view: 'search' })).toBe('/search');
+  });
+
+  it('ignores a query string on routes that do not carry one', () => {
+    expect(parseRoute('/channels?q=noise')).toEqual({ view: 'browse' });
+  });
+});

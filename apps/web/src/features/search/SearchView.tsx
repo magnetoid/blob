@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { navigate, pathForRoute } from "../../lib/router.ts";
 import type { Message } from "@blob/shared";
 import { api, ApiError, type ParsedSearchQuery, type SearchSort } from "../../lib/api.ts";
 import { showMessage } from "../../lib/navigation.ts";
@@ -35,8 +36,8 @@ function echoTokens(parsed: ParsedSearchQuery): string[] {
   return tokens;
 }
 
-export function SearchView() {
-  const [query, setQuery] = useState("");
+export function SearchView({ initialQuery = "" }: { initialQuery?: string }) {
+  const [query, setQuery] = useState(initialQuery);
   const [filter, setFilter] = useState<string>("");
   /** Relevance answers "find the thing I remember"; recency answers "what was said
    *  about this lately". Slack offers both and people use both. */
@@ -65,6 +66,16 @@ export function SearchView() {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // The URL follows what is in the box, replacing rather than pushing: a search is one
+  // place you went, not one per keystroke. This is what makes a search shareable, and
+  // what makes Back leave the search rather than rewind it letter by letter.
+  useEffect(() => {
+    const term = query.trim();
+    navigate(pathForRoute({ view: "search", query: term || undefined }), {
+      replace: true,
+    });
+  }, [query]);
 
   // Debounce so typing doesn't fire a request per keystroke.
   useEffect(() => {

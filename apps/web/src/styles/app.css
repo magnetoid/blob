@@ -5620,6 +5620,49 @@ a.build-commit-sha:hover {
     display: none;
   }
 
+  /* Two buttons go entirely rather than shrinking. Huddle is disabled until that
+     feature ships, so on the width where space is scarcest it was spending it on a
+     button nobody can press; Invite is an admin shortcut that the invitations page
+     carries anyway. Hiding the *labels* was not enough — four text tabs, a search
+     pill and two icons still wanted 460px of a 400px bar, and what fell off the end
+     was the account menu, which is where sign out and preferences live. */
+  .topbar-minimal .topbar-huddle,
+  .topbar-minimal .topbar-invite {
+    display: none;
+  }
+
+  /* The tabs are text and cannot become icons, so they scroll instead. All four stay
+     reachable, and the row can no longer push anything off the bar. */
+  .topbar-tabs {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .topbar-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar-tab {
+    flex: none;
+    padding: 0 8px;
+  }
+
+  /* Whatever else has to give, this does not: it is the only way to preferences, the
+     profile and sign out. */
+  .user-menu {
+    flex: none;
+    margin-left: auto;
+  }
+
+  /* "Enter to send" is a keyboard's rule. On a phone the Return key inserts a line
+     the way every other text field there does, and the send button is right beside
+     it, so the hint was describing a convention this device does not have — while
+     taking the room the button needed. */
+  .composer-hint {
+    display: none;
+  }
+
   /* Two more things go once the controls are finger-sized: at 390px the bar wanted
      572px, and the user menu was the part falling off the end. The workspace name is
      the drawer's own heading, and the account name sits inside the menu this avatar
