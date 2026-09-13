@@ -9,6 +9,7 @@ whoever uploaded it, and avatars and custom emoji are workspace-wide.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from sqlalchemy import text
@@ -54,7 +55,8 @@ async def listing(
                 """
                 SELECT a.id, a.filename, a.mime, a.size_bytes, a.width, a.height,
                        a.object_key, a.thumb_key, a.message_id, m.channel_id,
-                       a.created_at
+                       a.created_at, a.kind, a.duration_ms, a.waveform,
+                       a.transcript_status, a.transcript_provider
                   FROM attachments a
                   JOIN messages m ON m.id = a.message_id
                   JOIN channel_members cm
@@ -67,7 +69,10 @@ async def listing(
                    AND (
                         :kind = 'all'
                         OR (:kind = 'image' AND a.mime LIKE 'image/%')
-                        OR (:kind = 'file' AND a.mime NOT LIKE 'image/%')
+                        OR (:kind = 'voice' AND a.kind = 'voice')
+                        -- Voice messages are their own tab, so they leave this one:
+                        -- otherwise every recording lands under Files as `voice-169...`.
+                        OR (:kind = 'file' AND a.mime NOT LIKE 'image/%' AND a.kind = 'file')
                    )
                    AND (
                         CAST(:cursor AS uuid) IS NULL
@@ -103,14 +108,15 @@ async def open_ticket(
     filename: str,
     mime: str,
     size_bytes: int,
+    kind: str = "file",
 ) -> None:
     """The row an upload ticket is written against, before any byte has moved."""
     await session.execute(
         text(
             """
             INSERT INTO attachments
-              (id, workspace_id, uploader_id, object_key, filename, mime, size_bytes)
-            VALUES (:id, :ws, :uploader_id, :object_key, :filename, :mime, :size_bytes)
+              (id, workspace_id, uploader_id, object_key, filename, mime, size_bytes, kind)
+            VALUES (:id, :ws, :uploader_id, :object_key, :filename, :mime, :size_bytes, :kind)
             """
         ),
         {
@@ -121,6 +127,7 @@ async def open_ticket(
             "filename": filename,
             "mime": mime,
             "size_bytes": size_bytes,
+            "kind": kind,
         },
     )
 
@@ -131,7 +138,7 @@ async def own_upload(session: AsyncSession, attachment_id: str, uploader_id: str
         await session.execute(
             text(
                 """
-                SELECT object_key, mime, size_bytes, thumb_key, uploaded_at
+                SELECT object_key, mime, size_bytes, thumb_key, uploaded_at, kind
                   FROM attachments
                  WHERE id = :id AND uploader_id = :uploader_id
                 """
@@ -156,6 +163,8 @@ async def mark_uploaded(
     width: int | None,
     height: int | None,
     thumb_key: str | None,
+    duration_ms: int | None = None,
+    waveform: list[int] | None = None,
 ) -> bool:
     """Record that the bytes arrived. False when the row is not this uploader's."""
     rows = (
@@ -166,7 +175,9 @@ async def mark_uploaded(
                    SET uploaded_at = now(),
                        width = COALESCE(:width, width),
                        height = COALESCE(:height, height),
-                       thumb_key = COALESCE(:thumb_key, thumb_key)
+                       thumb_key = COALESCE(:thumb_key, thumb_key),
+                       duration_ms = COALESCE(:duration_ms, duration_ms),
+                       waveform = COALESCE(cast(:waveform AS jsonb), waveform)
                  WHERE id = :id AND uploader_id = :uploader_id
                 RETURNING id
                 """
@@ -177,6 +188,8 @@ async def mark_uploaded(
                 "width": width,
                 "height": height,
                 "thumb_key": thumb_key,
+                "duration_ms": duration_ms,
+                "waveform": json.dumps(waveform) if waveform is not None else None,
             },
         )
     ).fetchall()
@@ -194,7 +207,7 @@ async def for_download(session: AsyncSession, user: SessionUser, key: str) -> An
             text(
                 """
                 SELECT a.filename, a.mime, a.message_id, a.uploader_id,
-                       a.thumb_key, cm.user_id AS channel_member
+                       a.thumb_key, a.kind, cm.user_id AS channel_member
                   FROM attachments a
                   LEFT JOIN messages m ON m.id = a.message_id
                   LEFT JOIN channel_members cm

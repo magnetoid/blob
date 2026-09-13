@@ -542,7 +542,9 @@ export const api = {
   },
 
   files: {
-    list: (query: { channelId?: string; kind?: "all" | "image" | "file"; cursor?: string } = {}) => {
+    list: (
+      query: { channelId?: string; kind?: "all" | "image" | "file" | "voice"; cursor?: string } = {},
+    ) => {
       const params = new URLSearchParams();
       if (query.channelId) params.set("channelId", query.channelId);
       if (query.kind && query.kind !== "all") params.set("kind", query.kind);
@@ -1168,7 +1170,12 @@ export const api = {
   },
 
   uploads: {
-    create: (input: { filename: string; mime: string; sizeBytes: number }) =>
+    create: (input: {
+      filename: string;
+      mime: string;
+      sizeBytes: number;
+      kind?: "file" | "voice";
+    }) =>
       post<{
         attachmentId: string;
         uploadUrl: string;
@@ -1177,7 +1184,12 @@ export const api = {
       }>("/api/uploads", input),
     complete: (
       id: string,
-      dimensions: { width?: number; height?: number } = {},
-    ) => post<{ ok: true }>(`/api/uploads/${id}/complete`, dimensions),
+      details: {
+        width?: number;
+        height?: number;
+        durationMs?: number;
+        waveform?: number[];
+      } = {},
+    ) => post<{ ok: true }>(`/api/uploads/${id}/complete`, details),
   },
 };

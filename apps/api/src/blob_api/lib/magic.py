@@ -19,6 +19,24 @@ _IMAGE = {
     "image/avif",
 }
 
+#: The containers a browser records a voice message into, under every name they arrive
+#: as. Safari records `audio/mp4`, Chrome `audio/webm`, Firefox `audio/ogg`; the same AAC
+#: bytes reach us as `audio/mp4`, `audio/x-m4a` or `audio/aac` depending on the client.
+#: Verified as a *family* rather than exactly, for that reason — see `reject_reason`.
+_AUDIO = {
+    "audio/webm",
+    "audio/mp4",
+    "audio/x-m4a",
+    "audio/aac",
+    "audio/ogg",
+    "audio/mpeg",
+    "audio/wav",
+}
+
+#: What a voice ticket may claim. The router checks this before presigning, so a claimed
+#: type that is not audio never gets an upload URL at all.
+AUDIO_MIME = frozenset(_AUDIO)
+
 _DANGEROUS = {
     "application/x-executable",
     "text/html",
@@ -34,8 +52,23 @@ def sniff(header: bytes) -> str | None:
         return "image/jpeg"
     if header.startswith(b"GIF87a") or header.startswith(b"GIF89a"):
         return "image/gif"
+    if header.startswith(b"RIFF") and header[8:12] == b"WAVE":
+        return "audio/wav"
     if header.startswith(b"RIFF") and header[8:12] == b"WEBP":
         return "image/webp"
+    if header.startswith(b"OggS"):
+        return "audio/ogg"
+    # Matroska/WebM's EBML header. A `.webm` is one container for both, so the bytes
+    # cannot say whether there is video in it; a voice ticket is what says it is audio.
+    if header.startswith(b"\x1a\x45\xdf\xa3"):
+        return "audio/webm"
+    # ISO base media: the box length comes first, so the brand sits at 4.
+    if header[4:8] == b"ftyp":
+        return "audio/mp4"
+    if header.startswith(b"ID3") or header[:2] in {b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"}:
+        return "audio/mpeg"
+    if header[:2] in {b"\xff\xf1", b"\xff\xf9"}:
+        return "audio/aac"
     if header.startswith(b"%PDF"):
         return "application/pdf"
     if header.startswith(b"\x7fELF") or header.startswith(b"MZ"):
@@ -70,4 +103,11 @@ def reject_reason(header: bytes, mime: str) -> str | None:
             return "That file is not the image it says it is."
         if sniffed != claimed:
             return "That file is not the image it says it is."
+    if claimed in _AUDIO:
+        # By family, not exactly. AAC in an MP4 box arrives as `audio/mp4` from Safari,
+        # `audio/x-m4a` from a file picker and `audio/aac` from somewhere else, and all
+        # three sniff as `audio/mp4`; matching exactly would refuse real recordings.
+        # Audio is not scriptable, so the claim only decides the Content-Type we echo.
+        if sniffed is None or sniffed not in _AUDIO:
+            return "That file is not the audio it says it is."
     return None

@@ -165,6 +165,15 @@ export interface Attachment {
   height: number | null;
   url: string;
   thumbUrl: string | null;
+  /** A recording made in the composer, or an ordinary file. */
+  kind: 'file' | 'voice';
+  durationMs: number | null;
+  /** 64-100 peaks, 0-255, so the bars draw without fetching the audio. */
+  waveform: number[] | null;
+  /** Where the transcript stands. The transcript itself is the message body. */
+  transcriptStatus: 'none' | 'pending' | 'done' | 'failed';
+  /** Which engine wrote it — `groq:whisper-large-v3-turbo`, `local:small`. */
+  transcriptProvider: string | null;
 }
 
 /** A posted file as the Files tab lists it. */

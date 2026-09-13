@@ -495,6 +495,11 @@ class Attachment(Base):
         # Every image in every channel renders as GET /api/files/<object_key>; without
         # this the hottest read in the app is a sequential scan.
         Index("attachments_object_key", "object_key"),
+        CheckConstraint("kind IN ('file', 'voice')", name="attachments_kind_check"),
+        CheckConstraint(
+            "transcript_status IN ('none', 'pending', 'done', 'failed')",
+            name="attachments_transcript_status_check",
+        ),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
@@ -514,6 +519,19 @@ class Attachment(Base):
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
+    #: 'voice' is a recording made in the composer: served inline so it plays, its
+    #: transcript written into the message body. Everything else is 'file'.
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'file'"))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    #: 64-100 peaks, 0-255, sampled while recording, so a reader draws the bars without
+    #: fetching the audio.
+    waveform: Mapped[Any | None] = mapped_column(JSONB)
+    transcript_status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'none'")
+    )
+    #: Which engine wrote the transcript — `groq:whisper-large-v3-turbo`, `local:small`.
+    #: The same honesty `thread_summaries.provider` keeps (ADR 0015).
+    transcript_provider: Mapped[str | None] = mapped_column(Text)
     uploaded_at: Mapped[Any | None] = mapped_column(Timestamp)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 

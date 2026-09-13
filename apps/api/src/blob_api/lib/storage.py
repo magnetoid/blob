@@ -28,6 +28,24 @@ DOWNLOAD_URL_TTL_SEC = 3600
 #: Images render inline; everything else downloads. Never render SVG inline.
 INLINE_MIME = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"}
 
+#: What a *voice message* may be served inline as, so `<audio>` can play it.
+#:
+#: Deliberately a second set rather than more entries in `INLINE_MIME`, because that one
+#: is not only about disposition: `services/users.py` asks `is_inline_image` to decide
+#: whether an upload may become somebody's avatar. Widening it would make a voice note a
+#: valid profile picture, served inline to the whole workspace. So audio goes inline only
+#: where the caller says the row is a voice message, and an ordinary `.mp3` somebody
+#: attached to a message still downloads exactly as it does today.
+INLINE_AUDIO_MIME = {
+    "audio/webm",
+    "audio/mp4",
+    "audio/x-m4a",
+    "audio/aac",
+    "audio/ogg",
+    "audio/mpeg",
+    "audio/wav",
+}
+
 
 def _build(endpoint: str) -> Any:
     return boto3.client(
@@ -116,7 +134,14 @@ def presign_upload(key: str, mime: str) -> str:
     )
 
 
-def presign_download(key: str, filename: str | None = None, mime: str | None = None) -> str:
+def is_inline_media(mime: str, *, voice: bool = False) -> bool:
+    """Whether this type may be served inline. Audio only for a voice message."""
+    return is_inline_image(mime) or (voice and mime.lower() in INLINE_AUDIO_MIME)
+
+
+def presign_download(
+    key: str, filename: str | None = None, mime: str | None = None, *, voice: bool = False
+) -> str:
     """A short-lived GET, with the response's own type and disposition pinned.
 
     `ResponseContentType` is not decoration. Without it the object is served with the
@@ -128,7 +153,7 @@ def presign_download(key: str, filename: str | None = None, mime: str | None = N
     So the type the browser is told is the type this server decided, and anything that is
     not an image it is willing to render inline is served as a download of octet-stream.
     """
-    inline = bool(mime and is_inline_image(mime))
+    inline = bool(mime and is_inline_media(mime, voice=voice))
     if inline:
         disposition = "inline"
     else:
@@ -140,8 +165,9 @@ def presign_download(key: str, filename: str | None = None, mime: str | None = N
             "Bucket": settings.S3_BUCKET,
             "Key": key,
             "ResponseContentDisposition": disposition,
-            # Only an allowlisted image type is ever echoed back; everything else is
-            # bytes to save, whatever the uploader called it.
+            # Only an allowlisted image type — or a voice message's own audio type —
+            # is ever echoed back; everything else is bytes to save, whatever the
+            # uploader called it.
             "ResponseContentType": mime if inline else "application/octet-stream",
         },
         ExpiresIn=DOWNLOAD_URL_TTL_SEC,

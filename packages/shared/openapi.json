@@ -1111,6 +1111,17 @@
       },
       "Attachment": {
         "properties": {
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationms"
+          },
           "filename": {
             "title": "Filename",
             "type": "string"
@@ -1128,6 +1139,15 @@
           },
           "id": {
             "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "file",
+            "enum": [
+              "file",
+              "voice"
+            ],
+            "title": "Kind",
             "type": "string"
           },
           "mime": {
@@ -1149,9 +1169,45 @@
             ],
             "title": "Thumburl"
           },
+          "transcriptProvider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcriptprovider"
+          },
+          "transcriptStatus": {
+            "default": "none",
+            "enum": [
+              "none",
+              "pending",
+              "done",
+              "failed"
+            ],
+            "title": "Transcriptstatus",
+            "type": "string"
+          },
           "url": {
             "title": "Url",
             "type": "string"
+          },
+          "waveform": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waveform"
           },
           "width": {
             "anyOf": [
@@ -3069,6 +3125,17 @@
             "title": "Createdat",
             "type": "string"
           },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationms"
+          },
           "filename": {
             "title": "Filename",
             "type": "string"
@@ -3086,6 +3153,15 @@
           },
           "id": {
             "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "file",
+            "enum": [
+              "file",
+              "voice"
+            ],
+            "title": "Kind",
             "type": "string"
           },
           "messageId": {
@@ -3111,9 +3187,45 @@
             ],
             "title": "Thumburl"
           },
+          "transcriptProvider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcriptprovider"
+          },
+          "transcriptStatus": {
+            "default": "none",
+            "enum": [
+              "none",
+              "pending",
+              "done",
+              "failed"
+            ],
+            "title": "Transcriptstatus",
+            "type": "string"
+          },
           "url": {
             "title": "Url",
             "type": "string"
+          },
+          "waveform": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waveform"
           },
           "width": {
             "anyOf": [
@@ -7078,6 +7190,19 @@
       },
       "UploadCompleteInput": {
         "properties": {
+          "durationMs": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 305000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationms"
+          },
           "height": {
             "anyOf": [
               {
@@ -7090,6 +7215,22 @@
               }
             ],
             "title": "Height"
+          },
+          "waveform": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 100,
+                "minItems": 8,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waveform"
           },
           "width": {
             "anyOf": [
@@ -7114,6 +7255,15 @@
             "maxLength": 255,
             "minLength": 1,
             "title": "Filename",
+            "type": "string"
+          },
+          "kind": {
+            "default": "file",
+            "enum": [
+              "file",
+              "voice"
+            ],
+            "title": "Kind",
             "type": "string"
           },
           "mime": {

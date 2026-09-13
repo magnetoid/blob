@@ -215,11 +215,29 @@ class UploadRequestInput(CamelModel):
     filename: str = Field(min_length=1, max_length=255)
     mime: str = Field(min_length=1, max_length=150)
     size_bytes: int = Field(gt=0, le=100 * 1024 * 1024)
+    #: A voice message is an attachment with a length and a waveform, and the row has to
+    #: say so from the ticket on: the server verifies the bytes are audio the way it
+    #: verifies an image, and serves it inline the way it will not serve a stray `.mp3`.
+    kind: Literal["file", "voice"] = "file"
+
+
+#: Slack's five minutes, plus the slack a timer running in a browser tab needs.
+VOICE_MAX_MS = 5 * 60 * 1000 + 5_000
+WAVEFORM_MAX_BARS = 100
 
 
 class UploadCompleteInput(CamelModel):
     width: int | None = Field(default=None, gt=0, le=20_000)
     height: int | None = Field(default=None, gt=0, le=20_000)
+    duration_ms: int | None = Field(default=None, gt=0, le=VOICE_MAX_MS)
+    waveform: list[int] | None = Field(default=None, min_length=8, max_length=WAVEFORM_MAX_BARS)
+
+    @field_validator("waveform")
+    @classmethod
+    def _bars_are_bytes(cls, value: list[int] | None) -> list[int] | None:
+        if value is not None and any(not 0 <= bar <= 255 for bar in value):
+            raise ValueError("Waveform bars are whole numbers from 0 to 255.")
+        return value
 
 
 class PushSubscriptionKeys(CamelModel):

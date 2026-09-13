@@ -157,6 +157,11 @@ def to_attachment(raw: dict[str, Any]) -> Attachment:
         height=raw.get("height"),
         url=public_file_url(raw["object_key"]),
         thumb_url=public_file_url(raw["thumb_key"]) if raw.get("thumb_key") else None,
+        kind=raw.get("kind") or "file",
+        duration_ms=raw.get("duration_ms"),
+        waveform=raw.get("waveform"),
+        transcript_status=raw.get("transcript_status") or "none",
+        transcript_provider=raw.get("transcript_provider"),
     )
 
 
@@ -355,7 +360,10 @@ MESSAGE_SELECT = f"""
     SELECT json_agg(json_build_object(
              'id', a.id, 'object_key', a.object_key, 'thumb_key', a.thumb_key,
              'filename', a.filename, 'mime', a.mime, 'size_bytes', a.size_bytes,
-             'width', a.width, 'height', a.height) ORDER BY a.created_at)
+             'width', a.width, 'height', a.height,
+             'kind', a.kind, 'duration_ms', a.duration_ms, 'waveform', a.waveform,
+             'transcript_status', a.transcript_status,
+             'transcript_provider', a.transcript_provider) ORDER BY a.created_at)
       FROM attachments a
      WHERE a.message_id = m.id
   ), '[]'::json) AS attachments

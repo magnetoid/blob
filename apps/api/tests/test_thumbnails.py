@@ -6,6 +6,7 @@ is not up — which is the one thing a skip here must not hide, so it says so.
 
 from __future__ import annotations
 
+import asyncio
 import io
 from typing import Any
 
@@ -83,10 +84,23 @@ class TestMakingOne:
 
 
 async def storage_is_up() -> bool:
+    """Ask the bucket directly, not through `ensure_bucket`.
+
+    `ensure_bucket` swallows its failures on purpose — a managed bucket usually denies
+    CreateBucket and the upload is what reports a real problem. So it never raises, this
+    used to always answer True, and the tests below failed with a bare `ConnectError`
+    instead of skipping. Which is exactly what this module's docstring says a skip here
+    must not hide, so it was hiding the opposite: not that storage was fine, but that
+    nobody could tell.
+    """
+    bucket = storage.settings.S3_BUCKET
     try:
-        await storage.ensure_bucket()
+        await asyncio.to_thread(storage._client().head_bucket, Bucket=bucket)
     except Exception:
-        return False
+        try:
+            await asyncio.to_thread(storage._client().create_bucket, Bucket=bucket)
+        except Exception:
+            return False
     return True
 
 

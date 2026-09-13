@@ -93,6 +93,11 @@ def _file_entry(row: Any) -> FileEntry:
         height=row.height,
         url=public_file_url(row.object_key),
         thumb_url=public_file_url(thumb) if thumb else None,
+        kind=getattr(row, "kind", None) or "file",
+        duration_ms=getattr(row, "duration_ms", None),
+        waveform=getattr(row, "waveform", None),
+        transcript_status=getattr(row, "transcript_status", None) or "none",
+        transcript_provider=getattr(row, "transcript_provider", None),
         channel_id=row.channel_id,
         message_id=row.message_id,
         created_at=created_at,
@@ -111,8 +116,8 @@ async def list_attachments(
 
     Thumbnails stay on `thumbUrl`. The original is only fetched when somebody opens one.
     """
-    if kind not in {"all", "image", "file"}:
-        raise bad_request("kind must be all, image, or file.")
+    if kind not in {"all", "image", "file", "voice"}:
+        raise bad_request("kind must be all, image, file, or voice.")
     if channel_id and not looks_like_id(channel_id):
         raise no_such_file()
     if cursor and not looks_like_id(cursor):
@@ -136,6 +141,16 @@ async def create_upload(
     extension = payload.filename.rsplit(".", 1)[-1].lower() if "." in payload.filename else ""
     if extension in BLOCKED_EXTENSIONS:
         raise bad_request(f".{extension} files can't be shared here.")
+    mime = payload.mime
+    if payload.kind == "voice":
+        # The bare type, never `audio/webm;codecs=opus`: the presigned URL pins one
+        # `ContentType` and the browser has to PUT the same string, and the allowlist
+        # this checks against is written in bare types.
+        mime = magic.claimed_mime(payload.mime)
+        if mime not in magic.AUDIO_MIME:
+            raise bad_request(
+                "A voice message has to be webm, mp4/m4a, ogg, mp3, wav or aac audio."
+            )
     limits = await load_settings(user.workspace_id)
     if payload.size_bytes > limits.upload_limit_bytes:
         raise bad_request("That file is too large for this workspace.")
@@ -149,13 +164,14 @@ async def create_upload(
             attachment_id=attachment_id,
             object_key=object_key,
             filename=payload.filename,
-            mime=payload.mime,
+            mime=mime,
             size_bytes=payload.size_bytes,
+            kind=payload.kind,
         )
     return UploadTicket(
         attachment_id=attachment_id,
-        upload_url=presign_upload(object_key, payload.mime),
-        headers={"Content-Type": payload.mime},
+        upload_url=presign_upload(object_key, mime),
+        headers={"Content-Type": mime},
     )
 
 
@@ -208,6 +224,9 @@ async def complete_upload(
                 await file_service.refuse_upload(session, attachment_id, user.id)
             raise bad_request(reason)
 
+    if attachment.kind == "voice" and payload.duration_ms is None:
+        raise bad_request("A voice message needs its length.")
+
     thumb_key: str | None = None
     width, height = payload.width, payload.height
     if images.can_thumbnail(attachment.mime, attachment.size_bytes or 0):
@@ -235,7 +254,14 @@ async def complete_upload(
 
     async with transaction() as (session, _):
         recorded = await file_service.mark_uploaded(
-            session, attachment_id, user.id, width=width, height=height, thumb_key=thumb_key
+            session,
+            attachment_id,
+            user.id,
+            width=width,
+            height=height,
+            thumb_key=thumb_key,
+            duration_ms=payload.duration_ms,
+            waveform=payload.waveform,
         )
     if not recorded:
         raise not_found("That upload has expired.")
@@ -271,7 +297,9 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
     if file.thumb_key == key:
         # Inline, and its own type: the thumbnail is a WebP whatever the original was.
         return _redirect(presign_download(key, mime=images.THUMB_MIME))
-    return _redirect(presign_download(key, filename=file.filename, mime=file.mime))
+    return _redirect(
+        presign_download(key, filename=file.filename, mime=file.mime, voice=file.kind == "voice")
+    )
 
 
 def _redirect(url: str) -> RedirectResponse:

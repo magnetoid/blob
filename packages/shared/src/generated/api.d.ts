@@ -3666,20 +3666,38 @@ export interface components {
         };
         /** Attachment */
         Attachment: {
+            /** Durationms */
+            durationMs?: number | null;
             /** Filename */
             filename: string;
             /** Height */
             height?: number | null;
             /** Id */
             id: string;
+            /**
+             * Kind
+             * @default file
+             * @enum {string}
+             */
+            kind: "file" | "voice";
             /** Mime */
             mime: string;
             /** Sizebytes */
             sizeBytes: number;
             /** Thumburl */
             thumbUrl?: string | null;
+            /** Transcriptprovider */
+            transcriptProvider?: string | null;
+            /**
+             * Transcriptstatus
+             * @default none
+             * @enum {string}
+             */
+            transcriptStatus: "none" | "pending" | "done" | "failed";
             /** Url */
             url: string;
+            /** Waveform */
+            waveform?: number[] | null;
             /** Width */
             width?: number | null;
         };
@@ -4485,12 +4503,20 @@ export interface components {
             channelId: string;
             /** Createdat */
             createdAt: string;
+            /** Durationms */
+            durationMs?: number | null;
             /** Filename */
             filename: string;
             /** Height */
             height?: number | null;
             /** Id */
             id: string;
+            /**
+             * Kind
+             * @default file
+             * @enum {string}
+             */
+            kind: "file" | "voice";
             /** Messageid */
             messageId: string;
             /** Mime */
@@ -4499,8 +4525,18 @@ export interface components {
             sizeBytes: number;
             /** Thumburl */
             thumbUrl?: string | null;
+            /** Transcriptprovider */
+            transcriptProvider?: string | null;
+            /**
+             * Transcriptstatus
+             * @default none
+             * @enum {string}
+             */
+            transcriptStatus: "none" | "pending" | "done" | "failed";
             /** Url */
             url: string;
+            /** Waveform */
+            waveform?: number[] | null;
             /** Width */
             width?: number | null;
         };
@@ -5838,8 +5874,12 @@ export interface components {
         };
         /** UploadCompleteInput */
         UploadCompleteInput: {
+            /** Durationms */
+            durationMs?: number | null;
             /** Height */
             height?: number | null;
+            /** Waveform */
+            waveform?: number[] | null;
             /** Width */
             width?: number | null;
         };
@@ -5847,6 +5887,12 @@ export interface components {
         UploadRequestInput: {
             /** Filename */
             filename: string;
+            /**
+             * Kind
+             * @default file
+             * @enum {string}
+             */
+            kind: "file" | "voice";
             /** Mime */
             mime: string;
             /** Sizebytes */

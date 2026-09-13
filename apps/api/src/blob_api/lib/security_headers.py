@@ -91,6 +91,15 @@ def content_security_policy(
     connect.extend(source for source in extra if source not in connect)
     images = ["'self'", "data:", "blob:", "https:"]
     images.extend(source for source in extra if source not in images)
+    # Voice messages play from the storage origin, through the 302 `/api/files/<key>`
+    # answers, and the policy is checked against where the redirect lands. `blob:` is the
+    # recorder's own review player. `https:` covers a normal deployment; the origin is
+    # named as well so a self-hosted stack whose storage is plain http on the LAN can
+    # still play audio rather than failing with nothing in the console but a CSP line.
+    media = ["'self'", "blob:", "https:"]
+    if storage_origin and storage_origin not in media:
+        media.append(storage_origin)
+    media.extend(source for source in extra if source not in media)
 
     return "; ".join(
         [
@@ -102,7 +111,7 @@ def content_security_policy(
             "script-src 'self'",
             "style-src 'self' 'unsafe-inline'",
             f"img-src {' '.join(images)}",
-            "media-src 'self' blob: https:",
+            f"media-src {' '.join(media)}",
             "font-src 'self' data:",
             f"connect-src {' '.join(connect)}",
             "worker-src 'self'",

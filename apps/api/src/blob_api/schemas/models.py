@@ -185,6 +185,13 @@ class Attachment(CamelModel):
     height: int | None = None
     url: str
     thumb_url: str | None = None
+    #: 'voice' is a recording made in the composer. Its transcript is the message body.
+    kind: Literal["file", "voice"] = "file"
+    duration_ms: int | None = None
+    #: 64-100 peaks, 0-255, for drawing the bars without fetching the audio.
+    waveform: list[int] | None = None
+    transcript_status: Literal["none", "pending", "done", "failed"] = "none"
+    transcript_provider: str | None = None
 
 
 class Reaction(CamelModel):
