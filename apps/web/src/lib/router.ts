@@ -40,12 +40,7 @@ export const ADMIN_SECTIONS = [
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 /** Yours. A private page, because these are not the server's business. */
-export const SETTINGS_SECTIONS = [
-  'preferences',
-  'notifications',
-  'my-agents',
-  'assistants',
-] as const;
+export const SETTINGS_SECTIONS = ['preferences', 'my-agents', 'assistants'] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
@@ -82,7 +77,6 @@ export type Route =
   /** A permalink to one message. Resolved, then replaced by the conversation. */
   | { view: 'permalink'; messageId: string }
   | { view: 'search' }
-  | { view: 'profile' }
   | { view: 'settings'; section: SettingsSection }
   | { view: 'admin'; section: AdminSection; detailId?: string };
 
@@ -142,7 +136,11 @@ export function parseRoute(path: string): Route {
   const permalink = clean.match(/^\/m\/([^/]+)$/);
   if (permalink) return { view: 'permalink', messageId: permalink[1] as string };
   if (clean === '/search') return { view: 'search' };
-  if (clean === '/profile') return { view: 'profile' };
+  // Your profile, your preferences and your notifications were three pages; they are
+  // one now, and both old URLs are real links people hold.
+  if (clean === '/profile' || clean === '/settings/notifications') {
+    return { view: 'settings', section: 'preferences' };
+  }
 
   if (clean === '/settings') return { view: 'settings', section: DEFAULT_SETTINGS_SECTION };
   const settings = clean.match(/^\/settings\/([^/]+)$/);
@@ -227,8 +225,6 @@ export function pathForRoute(route: Route): string {
       return `/m/${route.messageId}`;
     case 'search':
       return '/search';
-    case 'profile':
-      return '/profile';
     case 'settings':
       return `/settings/${route.section}`;
     case 'admin':

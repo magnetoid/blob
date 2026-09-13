@@ -43,7 +43,6 @@ const SettingsConsole = lazy(() =>
 const HelpView = lazy(() =>
   import('../features/help/HelpView.tsx').then((m) => ({ default: m.HelpView })),
 );
-import { ProfileView } from '../features/settings/ProfileView.tsx';
 // Lazy because it is the heaviest thing in the client by far — the LiveKit client and
 // its React components were over half the main chunk on their own — and meetups are an
 // opt-in feature most deployments never turn on. Nobody should download a video stack to
@@ -464,7 +463,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         </Suspense>
       )}
       {view === 'search' && <SearchView />}
-      {view === 'profile' && <ProfileView />}
       {view === 'meetup' && (
         <Suspense fallback={<main className="pane" />}>
           <MeetupView meetupId={route.meetupId} />

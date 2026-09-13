@@ -60,14 +60,14 @@ export const SETTINGS_NAV: NavGroup<SettingsSection>[] = [
       {
         id: 'preferences',
         label: 'Preferences',
-        description: 'How Blob looks and behaves for you, on this device and everywhere.',
-        keywords: ['theme', 'dark', 'light', 'density', 'language', 'sign out', 'settings'],
-      },
-      {
-        id: 'notifications',
-        label: 'Notifications',
-        description: 'When Blob is allowed to interrupt you, and what counts as urgent.',
-        keywords: ['quiet hours', 'do not disturb', 'dnd', 'keywords', 'alerts'],
+        description:
+          'Who the workspace sees, how Blob looks, and when it may interrupt you.',
+        keywords: [
+          'profile', 'name', 'avatar', 'photo', 'status', 'title',
+          'theme', 'dark', 'light', 'density', 'language', 'shortcuts', 'sign out',
+          'notifications', 'quiet hours', 'do not disturb', 'dnd', 'keywords', 'alerts',
+          'push', 'email', 'settings',
+        ],
       },
       {
         id: 'my-agents',

@@ -608,7 +608,7 @@ export const SECTIONS: Section[] = [
           'A day after you ask, if nobody has replied in the thread, nobody else has reacted, nobody else has said anything in the channel since and nobody has mentioned you, the question lands in your Later as a reminder — inside your quiet hours it waits for the morning. It happens once per question.',
           'Only you are told. Nothing about who saw the question is ever looked at; Blob has no read receipts to look at. Turn it off for yourself here under Notifications, or mute the channel, which counts as turning it off.',
         ],
-        path: '/settings/notifications',
+        path: '/settings/preferences',
         keywords: ['nudge', 'unanswered', 'question', 'no answer', 'reminder', 'later', 'follow up'],
       },
       {
@@ -622,7 +622,7 @@ export const SECTIONS: Section[] = [
           'The number beside a conversation counts mentions, not messages, so a busy channel does not look urgent for being busy.',
           'Everything happens in the app or through a device notification. Blob never emails you about a message or a mention — the only mail it ever sends is an invitation or a password reset — and it plays no sounds.',
         ],
-        path: '/settings/notifications',
+        path: '/settings/preferences',
         keywords: ['notify', 'notification', 'unread', 'badge', 'mention', 'count'],
       },
       {
@@ -634,7 +634,7 @@ export const SECTIONS: Section[] = [
           'On an iPhone or iPad the browser only allows this once the app has been added to the Home Screen — the Notifications page says so where it matters.',
           'It also needs the person running this server to have set push keys up. Where nobody has, there is no switch to turn on and the page says why instead of failing quietly.',
         ],
-        path: '/settings/notifications',
+        path: '/settings/preferences',
         keywords: ['push', 'desktop', 'mobile', 'iphone', 'ios', 'device', 'alert'],
       },
       {
@@ -646,7 +646,7 @@ export const SECTIONS: Section[] = [
           'Keyword alerts notify you when a message contains a word you have listed, in any channel you are in — the way people watch for a product name or their own surname. Up to thirty words, matched whole (so “ops” does not fire on “developops”) and never inside code.',
           'Silencing a group means @-mentions of it stop counting as mentions of you. It is yours alone; nobody is told, and the group is unchanged for everyone else.',
         ],
-        path: '/settings/notifications',
+        path: '/settings/preferences',
         keywords: ['keyword', 'alert', 'group', 'mute group', 'highlight'],
       },
       {
@@ -658,7 +658,7 @@ export const SECTIONS: Section[] = [
           'Pause is the short version: 30 minutes, 1 hour, 2 hours, or until tomorrow (a flat sixteen hours), with Resume to end it early. A reminder due while you are paused is held rather than lost.',
           'The hours are read in your account’s time zone, which is set under Time zone in Preferences. Check it first: an account that has never been told keeps UTC, and “22:00 to 07:00” would then mean UTC.',
         ],
-        path: '/settings/notifications',
+        path: '/settings/preferences',
         keywords: ['quiet', 'do not disturb', 'dnd', 'pause', 'snooze', 'hours'],
       },
       {
@@ -688,7 +688,7 @@ export const SECTIONS: Section[] = [
         body: [
           'The display name is the one thing worth setting on the first day: it is what appears on every message you write and what people type when they mention you.',
         ],
-        path: '/profile',
+        path: '/settings/preferences',
         keywords: ['name', 'avatar', 'photo', 'picture', 'title', 'job'],
       },
       {
@@ -701,7 +701,7 @@ export const SECTIONS: Section[] = [
           '/away is separate and simpler: it toggles whether you show as away, without touching what your status says.',
         ],
         commands: ['status', 'away'],
-        path: '/profile',
+        path: '/settings/preferences',
         keywords: ['status', 'emoji', 'away', 'busy', 'vacation'],
       },
       {

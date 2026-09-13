@@ -688,7 +688,7 @@ button {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin: 24px 0 20px;
+  margin: 14px 0 20px;
   padding: 14px 16px;
   border: 1px solid var(--hairline-soft);
   border-radius: var(--radius-lg);
@@ -2867,10 +2867,41 @@ dialog.dialog-host::backdrop {
   gap: 12px;
 }
 
-/* The one page that is not a console section but is shaped like one. */
-.profile-page {
+/* The You page: three parts that were three pages, told apart by a rule and a heading
+   rather than by a navigation row each. */
+.you-page {
   max-width: 620px;
-  padding: 44px var(--pane-gutter) 60px;
+}
+
+.you-part {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+}
+
+.you-part-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 650;
+}
+
+.account-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.profile-actions {
+  justify-content: flex-start;
+  margin-top: 18px;
+}
+
+/* The one page that is not a console section but is shaped like one. */
+/* Page padding and width belong to the page. This was a route of its own once and
+   carried both; it is the first part of the You page now, and the two would be an
+   inset inside an inset. */
+.profile-page {
+  margin-top: 4px;
 }
 
 /* `.field` sets the gap between a label and its input, and nothing set the gap between

@@ -5,13 +5,10 @@
  */
 
 import { useEffect, useState } from 'react';
-import { api, type AuthSession } from '../../lib/api.ts';
+import { api } from '../../lib/api.ts';
 import { deviceZone, knownZones, timeIn } from './timezones.ts';
-import { showError } from '../../lib/toasts.ts';
 import { useStore } from '../../lib/store.ts';
-import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import type { Theme } from '@blob/shared';
-import { useFetch } from '../../lib/useFetch.ts';
 
 const THEMES = [
   { label: 'System', value: 'system' },
@@ -39,22 +36,17 @@ const LANGUAGES = [
   { label: 'Korean', value: 'ko' },
 ] as const;
 
-export function PreferencesSection({ onSignedOut }: ConsoleSectionProps) {
+export function PreferencesCard() {
   const currentUser = useStore((s) => s.currentUser);
   const setPrefs = useStore((s) => s.setPrefs);
   const themes = useStore((s) => s.themes);
-  const reset = useStore((s) => s.reset);
 
   const prefs = currentUser?.prefs;
   if (!prefs || !currentUser) return null;
 
   return (
-    <section style={{ maxWidth: 620 }}>
-      <p className="pref-hint" style={{ marginTop: 0 }}>
-        Signed in as {currentUser.displayName} · {currentUser.email}
-      </p>
-
-      <h2 className="section-label" style={{ marginTop: 24 }}>
+    <>
+      <h2 className="section-label" style={{ marginTop: 0 }}>
         Theme
       </h2>
       <div className="chip-row">
@@ -181,27 +173,7 @@ export function PreferencesSection({ onSignedOut }: ConsoleSectionProps) {
         </button>
       </div>
 
-      <h2 className="section-label" style={{ marginTop: 26 }}>
-        Where you’re signed in
-      </h2>
-      <DevicesPanel />
-
-      <h2 className="section-label" style={{ marginTop: 26 }}>
-        Account
-      </h2>
-      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-        <button
-          className="btn"
-          onClick={async () => {
-            await api.auth.logout();
-            reset();
-            onSignedOut?.();
-          }}
-        >
-          Sign out
-        </button>
-      </div>
-    </section>
+    </>
   );
 }
 
@@ -349,77 +321,3 @@ function TimeZoneRow() {
  * Every session this account holds — the standard "was that me?" control. The server
  * has answered `/api/auth/sessions` since the port; this is its first caller.
  */
-function DevicesPanel() {
-  const [revoking, setRevoking] = useState(false);
-  const { data: sessions, error } = useFetch(
-    async (): Promise<AuthSession[]> => (await api.auth.sessions()).sessions,
-    [revoking],
-  );
-
-  if (error) return <p className="error-text">Could not load your sessions.</p>;
-  if (sessions === null) return <p className="pref-hint">Loading…</p>;
-
-  const others = sessions.filter((s) => !s.current);
-  return (
-    <div style={{ marginTop: 12 }}>
-      {sessions.map((session) => (
-        <div key={session.id} className="pref-row" style={{ padding: '10px 0' }}>
-          <div className="grow min-0">
-            <div className="pref-label">
-              {describeAgent(session.userAgent)}
-              {session.current && ' — this device'}
-            </div>
-            <div className="pref-hint">
-              {session.ip ? `${session.ip} · ` : ''}last seen{' '}
-              {new Date(session.lastSeenAt).toLocaleString()}
-            </div>
-          </div>
-        </div>
-      ))}
-      {others.length > 0 && (
-        <button
-          className="btn"
-          disabled={revoking}
-          onClick={async () => {
-            setRevoking(true);
-            try {
-              await api.auth.logoutOthers();
-            } catch (err) {
-              showError(err);
-            } finally {
-              setRevoking(false);
-            }
-          }}
-        >
-          Sign out everywhere else
-        </button>
-      )}
-    </div>
-  );
-}
-
-/** "Chrome on macOS", best effort, because a raw user-agent string helps nobody. */
-function describeAgent(userAgent: string | null): string {
-  if (!userAgent) return 'Unknown device';
-  const browser = userAgent.includes('Firefox/')
-    ? 'Firefox'
-    : userAgent.includes('Edg/')
-      ? 'Edge'
-      : userAgent.includes('Chrome/')
-        ? 'Chrome'
-        : userAgent.includes('Safari/')
-          ? 'Safari'
-          : 'Browser';
-  const os = userAgent.includes('Mac OS X')
-    ? 'macOS'
-    : userAgent.includes('Windows')
-      ? 'Windows'
-      : userAgent.includes('Android')
-        ? 'Android'
-        : /iPhone|iPad/.test(userAgent)
-          ? 'iOS'
-          : userAgent.includes('Linux')
-            ? 'Linux'
-            : '';
-  return os ? `${browser} on ${os}` : browser;
-}

@@ -26,7 +26,7 @@ export interface Item {
 // name, people, channels, health — on one admin page. Blob is one server.
 export const ITEMS: Item[] = [
   { label: 'Server settings', path: '/admin', adminOnly: true },
-  { label: 'User profile', path: '/profile' },
+  { label: 'User profile', path: '/settings/preferences' },
   { label: 'Preferences', path: '/settings' },
   { label: 'Help', path: '/help' },
   { label: "What's new", path: '/whats-new' },

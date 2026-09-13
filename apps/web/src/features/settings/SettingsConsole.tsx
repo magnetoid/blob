@@ -12,16 +12,14 @@ import type { SettingsSection } from '../../lib/router.ts';
 import { ConsoleShell } from '../console/ConsoleShell.tsx';
 import { SETTINGS_NAV, settingsEntry } from '../console/registry.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
-import { PreferencesSection } from './PreferencesSection.tsx';
-import { NotificationsSection } from './NotificationsSection.tsx';
+import { YouSection } from './YouSection.tsx';
 import { MyAgentsSection } from './MyAgentsSection.tsx';
 import { AssistantsSection } from './AssistantsSection.tsx';
 
 const NAV_ID = 'settings-console-nav';
 
 const SECTION_COMPONENTS: Record<SettingsSection, ComponentType<ConsoleSectionProps>> = {
-  preferences: PreferencesSection,
-  notifications: NotificationsSection,
+  preferences: YouSection,
   'my-agents': MyAgentsSection,
   assistants: AssistantsSection,
 };

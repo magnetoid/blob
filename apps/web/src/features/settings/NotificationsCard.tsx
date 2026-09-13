@@ -34,7 +34,7 @@ function hourOptions(): number[] {
   return Array.from({ length: 24 }, (_, hour) => hour);
 }
 
-export function NotificationsSection() {
+export function NotificationsCard() {
   const currentUser = useStore((s) => s.currentUser);
   const setPrefs = useStore((s) => s.setPrefs);
   const groups = useStore((s) => s.groups);
@@ -81,7 +81,7 @@ export function NotificationsSection() {
       : null;
 
   return (
-    <section style={{ maxWidth: 620 }}>
+    <>
       <PushPanel />
 
       <div className="pref-row">
@@ -323,7 +323,7 @@ export function NotificationsSection() {
           ))}
         </div>
       )}
-    </section>
+    </>
   );
 }
 
