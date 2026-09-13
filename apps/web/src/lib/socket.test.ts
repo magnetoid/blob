@@ -39,6 +39,11 @@ class FakeWebSocket {
     this.readyState = FakeWebSocket.OPEN;
     this.onopen?.();
   }
+
+  /** The server answering. Any frame counts as proof of life, not just a pong. */
+  deliver(frame: unknown): void {
+    this.onmessage?.({ data: JSON.stringify(frame) });
+  }
 }
 
 vi.stubGlobal('WebSocket', FakeWebSocket);
@@ -113,5 +118,102 @@ describe('control frame replay', () => {
 
     const focus = frames(second).filter((f) => (f as { t: string }).t === 'channel.focus');
     expect(focus).toEqual([{ t: 'channel.focus', channelId: 'c2' }]);
+  });
+});
+
+
+/**
+ * Staying connected without a reload.
+ *
+ * The bug these pin: the heartbeat only ever *wrote*. `send` on a half-open socket
+ * succeeds, `readyState` stays OPEN and `onclose` never fires — so a laptop that slept
+ * or a proxy that timed the connection out left the tab reading "Connected" with
+ * nothing arriving and no reconnect, and the only cure was reloading the page. The
+ * server has always dropped a client that goes quiet; this is that rule pointed back.
+ */
+describe('noticing a connection that has quietly died', () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = [];
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    socket.disconnect();
+    vi.useRealTimers();
+  });
+
+  it('keeps a socket that answers', () => {
+    socket.connect();
+    const ws = FakeWebSocket.instances.at(-1)!;
+    ws.open();
+
+    // Four heartbeats, each answered. Well past the dead-after window.
+    for (let i = 0; i < 4; i += 1) {
+      vi.advanceTimersByTime(25_000);
+      ws.deliver({ t: 'pong' });
+    }
+
+    expect(ws.readyState).toBe(FakeWebSocket.OPEN);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
+  it('closes a socket that stops answering, so the reconnect and resync can run', () => {
+    socket.connect();
+    const ws = FakeWebSocket.instances.at(-1)!;
+    ws.open();
+    const reconnected = vi.fn();
+    socket.onReconnect = reconnected;
+
+    // Silence. The heartbeat keeps writing into a socket that is OPEN and dead.
+    vi.advanceTimersByTime(25_000 * 3 + 5_000);
+    expect(ws.readyState).toBe(3);
+
+    vi.advanceTimersByTime(5_000);
+    const replacement = FakeWebSocket.instances.at(-1)!;
+    expect(replacement).not.toBe(ws);
+    replacement.open();
+    expect(reconnected).toHaveBeenCalled();
+    socket.onReconnect = null;
+  });
+
+  it('any frame counts as proof of life, not only a pong', () => {
+    socket.connect();
+    const ws = FakeWebSocket.instances.at(-1)!;
+    ws.open();
+
+    for (let i = 0; i < 4; i += 1) {
+      vi.advanceTimersByTime(25_000);
+      ws.deliver({ t: 'typing', channelId: 'c1', userId: 'u1', threadRootId: null });
+    }
+
+    expect(ws.readyState).toBe(FakeWebSocket.OPEN);
+  });
+
+  it('reconnects at once when the network returns instead of serving out the backoff', () => {
+    socket.connect();
+    const ws = FakeWebSocket.instances.at(-1)!;
+    ws.open();
+    ws.close();
+
+    // A later attempt would otherwise wait up to thirty seconds.
+    const waiting = FakeWebSocket.instances.length;
+    window.dispatchEvent(new Event('online'));
+    expect(FakeWebSocket.instances.length).toBe(waiting + 1);
+  });
+
+  it('probes a socket that still claims to be open when the tab comes back', () => {
+    socket.connect();
+    const ws = FakeWebSocket.instances.at(-1)!;
+    ws.open();
+
+    // Long enough that the last frame is stale, short of the heartbeat's own verdict.
+    vi.advanceTimersByTime(26_000);
+    ws.sent.length = 0;
+    window.dispatchEvent(new Event('focus'));
+    expect(JSON.parse(ws.sent.at(-1)!)).toEqual({ t: 'ping' });
+
+    // Nothing answers the probe, so the socket is closed rather than left stuck.
+    vi.advanceTimersByTime(4_000);
+    expect(ws.readyState).toBe(3);
   });
 });
