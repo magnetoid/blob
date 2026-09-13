@@ -349,6 +349,23 @@ move, and `<Field>` for the ~140 console field sites belongs with it.
 
 ### W8 (Nov 2–8) · Platform decisions, each with its gate — M
 
+*Generated types done 2026-09-13.* `openapi-typescript` is a devDep of
+`packages/shared`; `pnpm openapi` writes `src/generated/api.d.ts` beside `openapi.json`,
+and that package's `test` script re-runs the generator with `--check` before the type
+test, so a stale file fails the gate rather than drifting quietly.
+`src/contract.test-d.ts` compares all 26 name-matched types both ways under
+`vitest --typecheck`, with optionality normalised recursively — FastAPI marks a field
+with a default as not *required* while always serialising it, so the raw comparison is
+noise. It found four real drifts on its first run, all now fixed: the server described
+`ScheduledMessage.repeat` and `Work.status` as free strings where the client had always
+narrowed them to literals (both are `Literal[...]` on the server now, so FastAPI
+validates them and the schema describes them); the client declared `Channel.memberIds`
+optional where the server always sends the key and nulls it; and the server carried two
+theme models, the second differing only by a `created_at` nothing read, which is gone.
+`Message.blocks` is the one deliberate exception and says so in the test: the server
+stores what an app published as JSON, the client types the seven shapes it can draw.
+Still to do in W8: the React 19.3 bump, the Vite 8 measurement, and the popover spike.
+
 | Change | Verdict | What it deletes | Gate and rollback |
 |---|---|---|---|
 | **Generated TS types from `openapi.json`** (`openapi-typescript`, one devDep in `packages/shared`) | **Yes** | W10: the twins in `types.ts`, hand-typed return types in `api.ts` | `pnpm openapi` also writes `packages/shared/src/generated/api.d.ts`; `contract.test-d.ts` (vitest `--typecheck`) asserts each of the 50 hand-written types is assignable both ways. The dump's own rule: diff quiet for two weeks, then W10 switches `api.ts` to `paths[...]` and deletes the twins. `protocol.ts` stays hand-written (the socket union has its parity test). Rollback: revert W10 alone. |

@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request, conflict, forbidden, not_found
 from ..lib.ids import new_id
-from ..schemas.base import CamelModel, require_iso
+from ..schemas.base import CamelModel
 
 #: Every token a theme may set. Anything else is rejected rather than ignored, so a
 #: typo surfaces at save time instead of silently doing nothing.
@@ -97,7 +97,6 @@ class Theme(CamelModel):
     tokens: dict[str, str]
     is_preset: bool
     is_enabled: bool
-    created_at: str
 
 
 def validate_tokens(tokens: dict[str, Any]) -> dict[str, str]:
@@ -384,7 +383,6 @@ def _row_to_theme(row: Any) -> Theme:
         tokens=row.tokens or {},
         is_preset=row.is_preset,
         is_enabled=row.is_enabled,
-        created_at=require_iso(row.created_at),
     )
 
 
@@ -428,7 +426,7 @@ async def list_themes(session: AsyncSession, workspace_id: str) -> list[Theme]:
         await session.execute(
             text(
                 """
-                SELECT id, slug, name, mode, tokens, is_preset, is_enabled, created_at
+                SELECT id, slug, name, mode, tokens, is_preset, is_enabled
                   FROM themes WHERE workspace_id = :ws
                  ORDER BY is_preset DESC, mode, lower(name) LIMIT 100
                 """
@@ -473,7 +471,7 @@ async def save_theme(
                        SET name = :name, mode = :mode, tokens = cast(:tokens AS jsonb),
                            is_enabled = :is_enabled
                      WHERE id = :id AND workspace_id = :ws
-                    RETURNING id, slug, name, mode, tokens, is_preset, is_enabled, created_at
+                    RETURNING id, slug, name, mode, tokens, is_preset, is_enabled
                     """
                 ),
                 {
@@ -495,8 +493,7 @@ async def save_theme(
                         INSERT INTO themes
                           (id, workspace_id, slug, name, mode, tokens, created_by)
                         VALUES (:id, :ws, :slug, :name, :mode, cast(:tokens AS jsonb), :by)
-                        RETURNING id, slug, name, mode, tokens, is_preset, is_enabled,
-                                  created_at
+                        RETURNING id, slug, name, mode, tokens, is_preset, is_enabled
                         """
                     ),
                     {

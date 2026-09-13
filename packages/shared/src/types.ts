@@ -76,7 +76,8 @@ export interface Channel {
   lastMessageId: string | null;
   createdAt: string;
   /** Present only for dm / group_dm. */
-  memberIds?: string[];
+  /** Present only for dm / group_dm; null everywhere else, never absent. */
+  memberIds: string[] | null;
   /** Set when this is a work channel: the assignment behind it. */
   workId: string | null;
   /** The room's switch for nudging whoever asked a question nobody answered. */

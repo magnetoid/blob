@@ -5653,6 +5653,11 @@
           "repeat": {
             "anyOf": [
               {
+                "enum": [
+                  "daily",
+                  "weekdays",
+                  "weekly"
+                ],
                 "type": "string"
               },
               {
@@ -6135,10 +6140,6 @@
       },
       "Theme": {
         "properties": {
-          "createdAt": {
-            "title": "Createdat",
-            "type": "string"
-          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -6182,8 +6183,7 @@
           "mode",
           "tokens",
           "isPreset",
-          "isEnabled",
-          "createdAt"
+          "isEnabled"
         ],
         "title": "Theme",
         "type": "object"
@@ -6201,6 +6201,7 @@
         "type": "object"
       },
       "ThemeSummary": {
+        "description": "A theme as every caller sees it.\n\nNamed for the bootstrap payload it was written for, and identical to\n`services/themes.Theme` since that model stopped carrying a `created_at` nobody\nread. The two are one shape; keeping two names for it is the next tidy-up, and it\nis a rename across the theme editor rather than anything this file decides.",
         "properties": {
           "id": {
             "title": "Id",
@@ -7621,6 +7622,10 @@
             "title": "Rootmessageid"
           },
           "status": {
+            "enum": [
+              "open",
+              "done"
+            ],
             "title": "Status",
             "type": "string"
           },

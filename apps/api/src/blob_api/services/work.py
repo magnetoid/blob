@@ -57,7 +57,9 @@ class Work(CamelModel):
     root_message_id: str | None = None
     root_channel_id: str | None = None
     title: str
-    status: str
+    #: Open until somebody closes it; there is no third state, and the client renders
+    #: the tabs from this.
+    status: Literal["open", "done"]
     created_by: str | None = None
     created_at: str
     done_by: str | None = None

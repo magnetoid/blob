@@ -17,6 +17,8 @@ MessageKind = Literal["user", "system", "bot"]
 PresenceState = Literal["active", "away", "offline"]
 AgentTaskStatus = Literal["todo", "in_progress", "blocked", "done", "cancelled"]
 AgentTaskPriority = Literal["low", "medium", "high", "critical"]
+#: How often a scheduled message repeats. None is the schedule that happens once.
+ScheduleRepeat = Literal["daily", "weekdays", "weekly"]
 
 
 class QuietHours(CamelModel):
@@ -151,8 +153,8 @@ class ScheduledMessage(CamelModel):
     created_at: str
     #: Why it did not go, when it did not go.
     last_error: str | None = None
-    #: "daily", "weekdays", "weekly" — or None, which is the schedule that happens once.
-    repeat: str | None = None
+    #: None is the schedule that happens once.
+    repeat: ScheduleRepeat | None = None
     #: When a repeating one last went out. `sendAt` is always the *next* occurrence, so
     #: without this a recurring row gives the client no way to say "sent, and again on
     #: Monday".
@@ -248,6 +250,14 @@ class CommandSpec(CamelModel):
 
 
 class ThemeSummary(CamelModel):
+    """A theme as every caller sees it.
+
+    Named for the bootstrap payload it was written for, and identical to
+    `services/themes.Theme` since that model stopped carrying a `created_at` nobody
+    read. The two are one shape; keeping two names for it is the next tidy-up, and it
+    is a rename across the theme editor rather than anything this file decides.
+    """
+
     id: str
     slug: str
     name: str

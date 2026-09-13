@@ -18,7 +18,7 @@
     "check": "pnpm typecheck && pnpm lint && pnpm test",
     "migrate": "pnpm --filter @blob/api migrate",
     "seed": "pnpm --filter @blob/api seed",
-    "openapi": "pnpm --filter @blob/api --silent openapi > packages/shared/openapi.json",
+    "openapi": "pnpm --filter @blob/api --silent openapi > packages/shared/openapi.json && pnpm --filter @blob/shared openapi-types",
     "stamp": "node scripts/stamp-commits.mjs"
   },
   "devDependencies": {
