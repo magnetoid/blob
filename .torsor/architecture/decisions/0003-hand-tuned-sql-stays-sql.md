@@ -5,12 +5,12 @@ tags: [adr, data]
 links: []
 rules:
   - kind: forbid_pattern
-    target: "\\bOFFSET\\s+:"
+    target: "(?m)^(?!\\s*#).*\\bOFFSET\\s+:"
     scope: "apps/api/src/blob_api/services/*.py"
     message: "Chat queries use keyset pagination, never OFFSET — see ADR 0003."
     severity: error
   - kind: forbid_pattern
-    target: "\\btext\\("
+    target: "(?m)^(?!\\s*#).*\\btext\\("
     scope: "apps/api/src/blob_api/routers/*.py"
     message: "Routers shape and authorize; SQL belongs in a service — see ADR 0003."
     severity: error
@@ -46,3 +46,12 @@ check failed silently until it was added.
 
 Keyset pagination only, never OFFSET. Admin list endpoints may use OFFSET over small
 tables; the chat paths may not.
+
+Both patterns above open with `(?m)^(?!\s*#)` so that a full-line comment is not a
+violation. Without it the rule fired on its own explanation: a line reading
+`# A router never calls text( ) itself` in `routers/files.py` failed the gate, which
+means the one place the rule is worth writing down is the one place it could not be
+written. A commented-out call is not a call, so skipping those lines detects nothing
+less. A trailing comment on a line that also holds code still counts — `x = 1  # text(`
+and `x = text(1)` are the same string to a regex, and on a code line the strict reading
+is the safe one.
