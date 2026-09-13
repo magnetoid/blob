@@ -7198,6 +7198,13 @@ button.person-trigger:hover {
   max-width: 400px;
 }
 
+.home-run-go {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* ─── home dashboard ─────────────────────────────────────────────────────── */
 .home-body {
   overflow: auto;

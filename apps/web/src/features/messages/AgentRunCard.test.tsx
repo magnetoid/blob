@@ -65,8 +65,10 @@ describe('waiting on a decision', () => {
     render(
       <AgentRunCard run={run({ status: 'interrupted', finishedAt: '2026-09-05T10:00:05.000Z' })} />,
     );
-    expect(screen.getByText(/needs a decision/)).toBeTruthy();
+    expect(screen.getByText(/waiting for your answer/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /stop/i })).toBeNull();
+    // Never "see below": the same card renders on Home, where nothing is below it.
+    expect(screen.queryByText(/see below/)).toBeNull();
   });
 
   it('reads as answered once it has been', () => {

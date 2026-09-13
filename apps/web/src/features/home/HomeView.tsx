@@ -167,6 +167,10 @@ export function HomeView() {
             {waiting.length === 0 && <p className="muted">Nothing waiting.</p>}
             {waiting.map((run) => (
               <div key={run.id} className="home-run">
+                {/* The question itself is a message in the channel, with the buttons
+                    or the box to answer it. This row is the way there, and says so —
+                    a card that only reported the wait left people looking for a
+                    control that lives one screen away. */}
                 <button
                   type="button"
                   className="home-row"
@@ -178,6 +182,7 @@ export function HomeView() {
                 >
                   <strong>{run.agentName}</strong>
                   <span className="muted">{placeName(run.channelId)}</span>
+                  <span className="home-run-go">Answer →</span>
                 </button>
                 <AgentRunCard run={run} />
               </div>

@@ -124,7 +124,10 @@ function statusLabel(run: AgentRunView): string {
     case 'refused':
       return run.error ?? 'refused — over its daily budget';
     case 'interrupted':
-      return run.answeredAt ? 'answered' : 'needs a decision — see below';
+      // Not "see below": this card also renders on Home, in the one section people
+      // are meant to check for exactly this, where there is nothing below it — the
+      // question is in a channel and the row above the card is the way there.
+      return run.answeredAt ? 'answered' : 'waiting for your answer';
     case 'expired':
       return 'nobody answered in time';
     default:
