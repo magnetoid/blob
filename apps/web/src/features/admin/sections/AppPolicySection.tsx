@@ -224,7 +224,7 @@ function PolicyEditor({
         <select
           className="input"
           aria-label="What a shared agent may read"
-          style={{ maxWidth: 180 }}
+          style={{ maxWidth: 230 }}
           value={policy.agentReads}
           onChange={(event) => {
             const next = event.target.value === "asker" ? "asker" : "audience";
