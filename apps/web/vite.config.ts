@@ -123,10 +123,20 @@ export default defineConfig({
     sourcemap: 'hidden',
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React changes on a different cadence from the app; a separate chunk means
-          // an app deploy doesn't re-download the framework.
-          react: ['react', 'react-dom'],
+        /**
+         * React changes on a different cadence from the app; a separate chunk means an
+         * app deploy doesn't re-download the framework.
+         *
+         * Matched by module path rather than by package name. The name form silently
+         * stopped catching `react-dom` on React 19 — the entry the app imports is
+         * `react-dom/client`, so only `react` itself landed in the chunk and 130 KB of
+         * renderer went back into the app bundle, to be re-downloaded on every deploy.
+         * A path test cannot miss that way, and it picks up `scheduler`, which is
+         * React's own dependency and belongs on React's cadence.
+         */
+        manualChunks(id: string) {
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react';
+          return undefined;
         },
       },
     },

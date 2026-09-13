@@ -364,7 +364,25 @@ optional where the server always sends the key and nulls it; and the server carr
 theme models, the second differing only by a `created_at` nothing read, which is gone.
 `Message.blocks` is the one deliberate exception and says so in the test: the server
 stores what an app published as JSON, the client types the seven shapes it can draw.
-Still to do in W8: the React 19.3 bump, the Vite 8 measurement, and the popover spike.
+*React 19.3 done 2026-09-13.* react, react-dom, the two `@types` packages,
+`@testing-library/react` and `@vitejs/plugin-react` 5 (6 needs Vite 8, which is a
+separate decision); zero type errors, zero lint errors, 85 vitest files and 624 tests
+unchanged, and no source change beyond the build config. Measured, because the plan's
+own rule is that a platform change carries a number:
+
+| chunk (raw) | React 18 | React 19 |
+|---|---|---|
+| framework | 141.7 KB | 223.2 KB |
+| app | 316.1 KB | 315.0 KB |
+
+React 19's client renderer is genuinely bigger — about 23 KB more over the wire after
+gzip — on a chunk that is cached across deploys. The app chunk, which is the one W2's
+target names, is unchanged. The bump also **found a real defect**: `manualChunks` named
+its packages as strings, and on React 19 that silently stopped matching `react-dom`,
+which put 130 KB of renderer back into the app chunk to be re-downloaded on every
+deploy. It matches by module path now, and picks up `scheduler` while it is there.
+
+Still to do in W8: the Vite 8 measurement and the popover spike.
 
 | Change | Verdict | What it deletes | Gate and rollback |
 |---|---|---|---|
