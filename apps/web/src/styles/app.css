@@ -5680,6 +5680,27 @@ a.build-commit-sha:hover {
     margin-left: auto;
   }
 
+  /* A console row is an avatar, a name with its meta, and the controls. Side by side
+     they leave the meta about 150px, which wraps one word per line under buttons that
+     hang over the edge — "Deactivate" was 41px past it. The controls take their own
+     line instead: the name block claims the rest of the first one, and the row grows
+     downwards, which is the direction a phone has room in. */
+  .admin-row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .admin-row > .grow {
+    flex-basis: 0;
+    min-width: 120px;
+  }
+
+  .admin-row-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
   /* "Enter to send" is a keyboard's rule. On a phone the Return key inserts a line
      the way every other text field there does, and the send button is right beside
      it, so the hint was describing a convention this device does not have — while

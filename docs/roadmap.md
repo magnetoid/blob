@@ -433,6 +433,12 @@ gaps were.
   the hint and that row span the card now. Beside it, the collapsed "Connect an agent"
   control is a `.btn` in a grid cell, so it stretched the full column and centred its
   own text — it read as a heading nobody could tell was pressable.
+* **Console rows were unusable on a phone.** An avatar, a name with its meta and up to
+  four controls sat side by side, which left the meta about 150px — one word per line —
+  under buttons hanging 41px past the edge. The controls take their own line now. The
+  sweep that found it checks every console and workspace route at 400px and ignores
+  anything inside a container that is meant to scroll sideways, which is what the
+  guide's section strip is; the first version of the check called that a defect.
 * **`/robots.txt` answered with HTML**, because `web.py` serves index.html for anything
   it does not recognise. A workspace is private and every page behind it needs a session,
   so the file says `Disallow: /` and a crawler is told rather than handed the app shell.
