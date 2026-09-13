@@ -6,13 +6,19 @@
  * at. A `releases` table would drift the moment somebody wrote an entry before the deploy
  * finished, or after a rollback, and it would drift silently.
  *
- * Identified by date, not by a version number. Every package here still says 0.1.0 and
- * there has never been a tagged release, so numbering these 0.2 through 0.5 after the
- * fact would be inventing a history that did not happen. A date is true and is also what
- * somebody actually wants to know: is this newer than the last time I looked.
+ * Carries both a version and a date, and the date is still the identity. "Newer than
+ * what I have seen" is a string comparison against the date, which is what the unread
+ * dot beside the menu uses, and two releases could share a version far more easily than
+ * they could share a day.
  *
- * To add one: put a new object at the top of `RELEASES` with today's date. The date is
- * the identity, so it has to be unique and it has to sort — both hold for ISO dates.
+ * The numbers were assigned to the existing entries in one pass on 2026-09-13 rather
+ * than grown one release at a time — a deliberate decision, and the honest way to read
+ * them is as an ordering of what shipped, not as thirteen tagged releases that each had
+ * their own moment. Everything from 1.0.0 on is a real version cut at the time.
+ *
+ * To add one: put a new object at the top of `RELEASES` with today's date and the next
+ * version, and set the same version in the four `package.json` files so that what the
+ * page says and what the build says cannot drift.
  * Entries are user-facing. "Fixed the N+1 in the unread query" belongs in a commit
  * message; "channels stop flickering when you switch quickly" belongs here.
  */
@@ -27,6 +33,8 @@ interface ChangelogEntry {
 export interface Release {
   /** ISO date. The identity, and what "newer than what I have seen" compares. */
   date: string;
+  /** Semantic version, oldest 0.1.0 through to the current one. */
+  version: string;
   /** One line naming the theme, so the list can be skimmed. */
   title: string;
   entries: ChangelogEntry[];
@@ -34,7 +42,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-13',
+    version: '1.0.0',
+    title: 'Staying connected, and a version to call it',
+    entries: [
+      {
+        kind: 'fixed',
+        text: 'Chat no longer goes quiet until you reload. A connection that died while the machine slept, or that a proxy timed out, used to leave the app reading "Connected" with nothing arriving; it now notices the silence, reconnects, and fetches whatever it missed.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Coming back to the tab, or back onto the network, reconnects immediately instead of waiting out a backoff.',
+      },
+      {
+        kind: 'changed',
+        text: 'Updates now carry a version number as well as a date, and the page tells you which one you are running.',
+      },
+    ],
+  },
+  {
     date: '2026-09-11',
+    version: '0.13.0',
     title: 'People, Later, and Files',
     entries: [
       {
@@ -53,6 +81,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-09-10',
+    version: '0.12.0',
     title: 'Search, colon emoji, and the rest of the toolbar',
     entries: [
       {
@@ -79,6 +108,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-09-07',
+    version: '0.11.0',
     title: 'Five places a member could reach further than they are',
     entries: [
       {
@@ -107,6 +137,7 @@ export const RELEASES: readonly Release[] = [
     // One date, one release: everything that went out on the 6th is this entry, which is
     // what "newer than the last time I looked" means to somebody reading it.
     date: '2026-09-06',
+    version: '0.10.0',
     title: 'Your own assistant can read this workspace',
     entries: [
       {
@@ -169,6 +200,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-09-05',
+    version: '0.9.0',
     title: 'Agents that work together',
     entries: [
       {
@@ -215,6 +247,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-09-04',
+    version: '0.8.0',
     title: 'Whose agent it is',
     entries: [
       {
@@ -233,6 +266,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-09-03',
+    version: '0.7.0',
     title: 'Six things that said one thing and did another',
     entries: [
       {
@@ -283,6 +317,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-09-02',
+    version: '0.6.0',
     title: 'Commands you already know, and messages that come back',
     entries: [
       {
@@ -341,6 +376,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-08-26',
+    version: '0.5.0',
     title: 'Blob has an agent now',
     entries: [
       {
@@ -363,6 +399,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-08-25',
+    version: '0.4.0',
     title: 'Finding your way back to things',
     entries: [
       {
@@ -418,6 +455,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-08-24',
+    version: '0.3.0',
     title: 'Agents that dial in, and a keyboard',
     entries: [
       {
@@ -443,6 +481,7 @@ export const RELEASES: readonly Release[] = [
     // Was a second 2026-08-24 block. Dates are the identity here and have to be unique,
     // so the earlier of the two releases takes the day before it.
     date: '2026-08-23',
+    version: '0.2.0',
     title: 'Emoji, slash commands, and more than one workspace',
     entries: [
       {
@@ -469,6 +508,7 @@ export const RELEASES: readonly Release[] = [
   },
   {
     date: '2026-08-22',
+    version: '0.1.0',
     title: 'Two consoles, split by whose job it is',
     entries: [
       {

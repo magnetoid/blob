@@ -26,6 +26,7 @@ import {
   type Release,
 } from '../../lib/changelog.ts';
 import {
+  APP_VERSION,
   BUILD_BRANCH,
   BUILD_COMMIT_SHORT,
   BUILD_TIME,
@@ -54,7 +55,7 @@ function ThisBuild() {
   // known; the commit is the only part that can go missing. So the card appears for what
   // it has and drops the sha rather than dropping itself — "which build am I running" is
   // still answered by a date and a time when it cannot be answered by a hash.
-  if (!BUILD_VERSION && !built) return null;
+  if (!APP_VERSION && !BUILD_VERSION && !built) return null;
 
   const link = commitUrl(isIdentified() ? BUILD_COMMIT_SHORT : (serverCommit ?? ''));
 
@@ -62,7 +63,10 @@ function ThisBuild() {
     <section className="build-card">
       <div className="build-card-main">
         <span className="build-label">You’re running</span>
-        <span className="build-version">{BUILD_VERSION}</span>
+        <span className="build-version">{APP_VERSION ? `v${APP_VERSION}` : BUILD_VERSION}</span>
+        {/* The release answers "which version"; the date answers "which build of it",
+            which is not the same question in an app that deploys from main all day. */}
+        {APP_VERSION && BUILD_VERSION && <span className="build-calver">{BUILD_VERSION}</span>}
         {commit &&
           (link ? (
             <a className="build-sha" href={link} target="_blank" rel="noreferrer noopener">
@@ -174,7 +178,7 @@ export function WhatsNewView() {
             <div className="release-head">
               <h2 className="release-title">{release.title}</h2>
               <div className="release-stamp">
-                <span className="release-version">{release.date.replace(/-/g, '.')}</span>
+                <span className="release-version">v{release.version}</span>
                 <time className="release-date" dateTime={release.date}>
                   {formatReleaseDate(release.date)}
                 </time>
@@ -198,10 +202,9 @@ export function WhatsNewView() {
 
         <p className="muted release-foot">
           Blob deploys straight from its main branch, so these notes ship with the build
-          you are running rather than being written about it afterwards. The version is a
-          date — of the commit where the build could read one, of the build itself where
-          it could not. Nothing here is tagged, and a made-up release number would say
-          less than a date does.
+          you are running rather than being written about it afterwards. Each update
+          carries its version; the date beside your build is the commit it came from,
+          which is the exact answer when a version covers more than one deploy.
         </p>
       </div>
     </main>

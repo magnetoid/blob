@@ -75,6 +75,7 @@ describe('the list itself', () => {
       expect(release.title.length).toBeGreaterThan(0);
       expect(release.entries.length).toBeGreaterThan(0);
       expect(release.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(release.version).toMatch(/^\d+\.\d+\.\d+$/);
     }
   });
 
@@ -139,5 +140,32 @@ describe('formatReleaseDate', () => {
 
   it('renders a real date as something readable', () => {
     expect(formatReleaseDate('2026-08-25')).toMatch(/2026/);
+  });
+});
+
+describe('versions', () => {
+  /** Numbers and dates have to agree on the order, or the page contradicts itself:
+   * the list is newest-first by date, so the versions must descend with it. */
+  it('descend with the dates', () => {
+    const order = RELEASES.map((release) =>
+      release.version.split('.').map((part) => Number(part)),
+    );
+    for (let i = 1; i < order.length; i += 1) {
+      const [newer, older] = [order[i - 1]!, order[i]!];
+      // Strictly descending, compared piecewise: major, then minor, then patch.
+      const cmp =
+        newer[0]! - older[0]! || newer[1]! - older[1]! || newer[2]! - older[2]!;
+      expect(cmp).toBeGreaterThan(0);
+    }
+  });
+
+  it('are unique', () => {
+    const versions = RELEASES.map((release) => release.version);
+    expect(new Set(versions).size).toBe(versions.length);
+  });
+
+  it('match the version the packages declare', async () => {
+    const pkg = await import('../../package.json');
+    expect(RELEASES[0]!.version).toBe(pkg.version);
   });
 });

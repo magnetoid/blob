@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -98,6 +99,11 @@ export default defineConfig({
     // git could not be asked — a day out at worst, and never blank. See `lib/buildInfo`.
     __BUILD_VERSION__: JSON.stringify(
       (commitDate.slice(0, 10) || new Date().toISOString().slice(0, 10)).replace(/-/g, '.'),
+    ),
+    // The release this build belongs to. Read from package.json rather than typed here,
+    // so bumping the version in one place cannot leave the page claiming the old one.
+    __APP_VERSION__: JSON.stringify(
+      JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version,
     ),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __BUILD_REPO_URL__: JSON.stringify(repoWebUrl() || process.env.SOURCE_REPO_URL || ''),

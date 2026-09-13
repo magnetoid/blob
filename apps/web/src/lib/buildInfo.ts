@@ -28,6 +28,7 @@ declare const __BUILD_COMMIT_SHORT__: string;
 declare const __BUILD_TIME__: string;
 declare const __BUILD_BRANCH__: string;
 declare const __BUILD_VERSION__: string;
+declare const __APP_VERSION__: string;
 declare const __BUILD_REPO_URL__: string;
 declare const __BUILD_COMMITS__: string;
 
@@ -68,6 +69,16 @@ export const BUILD_TIME = constant('time', () => __BUILD_TIME__);
  * continuously deployed app: is mine newer than yours.
  */
 export const BUILD_VERSION = constant('version', () => __BUILD_VERSION__);
+
+/** The release this build belongs to — `1.0.0`. Stamped from package.json.
+ *
+ * Distinct from BUILD_VERSION, which is the commit's date: a continuously deployed app
+ * is usually somewhere *after* the last version it cut, and both halves of that are
+ * worth saying. The version answers "which release is this", the date and the commit
+ * answer "exactly which build".
+ */
+export const APP_VERSION: string =
+  typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '';
 
 /** Where a commit can be read in full. Empty when the remote is not a web host. */
 const REPO_URL = constant('repo', () => __BUILD_REPO_URL__) || GENERATED_REPO_URL;
