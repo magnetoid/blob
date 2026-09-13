@@ -78,14 +78,19 @@ export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
 
   return (
     <div className="admin-app-form">
-      <div className="admin-row-title">Deploy an agent from a repository</div>
-      <p className="pref-hint" style={{ margin: '4px 0 12px' }}>
+      <div className="admin-row-title admin-app-form-wide">
+        Deploy an agent from a repository
+      </div>
+      <p className="pref-hint admin-app-form-wide" style={{ margin: '4px 0 12px' }}>
         The repository needs a <code>blob-app.json</code> at its root. It runs in its own
         container and reaches the workspace only through the API, with the scopes you
         approve below.
       </p>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+      {/* One row across the card, not one half of a two-column grid: this was
+          sharing the width with the paragraph beside it, which left an https:// field
+          110px wide and pushed "Read manifest" through the card's own border. */}
+      <div className="admin-app-form-wide repo-row">
         <label className="field grow">
           <span className="field-label">Repository</span>
           <input
@@ -99,7 +104,7 @@ export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
             }}
           />
         </label>
-        <label className="field" style={{ width: 130 }}>
+        <label className="field repo-ref">
           <span className="field-label">Branch or tag</span>
           <input
             className="input"
@@ -111,8 +116,7 @@ export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
           />
         </label>
         <button
-          className="btn"
-          style={{ marginBottom: 2 }}
+          className="btn repo-read"
           onClick={() => void read()}
           disabled={!repoUrl.trim() || busy}
         >

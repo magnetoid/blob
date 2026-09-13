@@ -80,7 +80,9 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
   if (!open) {
     return (
       <div className="admin-app-form">
-        <button className="btn btn-ghost" onClick={() => setOpen(true)}>
+        {/* A grid item stretches, and a `.btn` centres its own text, so this read as
+            a centred heading rather than as something to press. */}
+        <button className="btn btn-ghost admin-form-open" onClick={() => setOpen(true)}>
           Connect an agent on your machine
         </button>
         <p className="muted admin-form-hint">
@@ -93,8 +95,8 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
 
   return (
     <div className="admin-app-form">
-      <h4>Connect an agent on your machine</h4>
-      <p className="muted admin-form-hint">
+      <h4 className="admin-app-form-wide">Connect an agent on your machine</h4>
+      <p className="muted admin-form-hint admin-app-form-wide">
         Blob gives you a token. Your agent opens a WebSocket to{' '}
         <code>{location.origin.replace(/^http/, 'ws')}/ws/agent</code> with it, and says
         what it is when it connects.

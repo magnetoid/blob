@@ -427,6 +427,12 @@ gaps were.
   name read aloud, and Lighthouse's `label-content-name-mismatch` failed on them. A row
   is named by its own text now, and the label appears only when the sidebar is collapsed
   and there is no text to read. Accessibility 100, Best Practices 100, SEO 100.
+* **The Apps console's two forms sat in half a card.** `.admin-app-form` is a
+  two-column grid, and the repository row was taking one column: an `https://` field
+  110px wide, with "Read manifest" pushed through the card's own border. The heading,
+  the hint and that row span the card now. Beside it, the collapsed "Connect an agent"
+  control is a `.btn` in a grid cell, so it stretched the full column and centred its
+  own text — it read as a heading nobody could tell was pressable.
 * **`/robots.txt` answered with HTML**, because `web.py` serves index.html for anything
   it does not recognise. A workspace is private and every page behind it needs a session,
   so the file says `Disallow: /` and a crawler is told rather than handed the app shell.

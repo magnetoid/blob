@@ -3008,6 +3008,31 @@ dialog.dialog-host::backdrop {
   grid-column: 1 / -1;
 }
 
+/* A button in a card's grid is still a button: as wide as its words, at the start of
+   the row, not stretched across the column like a heading. */
+.admin-form-open {
+  justify-self: start;
+}
+
+/* A URL, a short ref and a button. The URL takes what is left and may shrink; the
+   other two are as wide as their content needs and no wider. */
+.repo-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.repo-ref {
+  width: 130px;
+  flex: none;
+}
+
+.repo-read {
+  flex: none;
+  margin-bottom: 2px;
+}
+
 .admin-app-permissions {
   grid-column: 1 / -1;
   display: grid;
