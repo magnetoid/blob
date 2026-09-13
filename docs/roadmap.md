@@ -485,11 +485,18 @@ gaps were.
 
 ### M1 (Dec 15 → Jan 15) · Agents you can trust
 
-- **Free-text answer to an interrupted run — S.** `AgentRunCard.tsx` gets an input for
-  `interrupted` runs whose decision has no enumerated options; the server side exists
-  (`routers/agentic.py:460` → `services/agent_chains.answer`) and `api.agentRuns.answer`
-  is already typed. Done when: a run that stopped to ask an open question can be
-  answered from the card and resumes.
+- **Free-text answer to an interrupted run — done 2026-09-13, and the gap was not where
+  this said it was.** The path is already complete: `decisions.decision_blocks` emits an
+  `input` block when the decision is free-text, `BlockRenderer` draws it and submits on
+  Enter, and `/api/interactions` routes it to `agent_chains.answer`. An input on the
+  card would have been a second way to do a thing that works.
+  What was wrong is what the card *said*. An interrupted run read "needs a decision —
+  see below", which is true under the message that asked and false on Home, where the
+  same card renders in the "Needs a decision" section — the one place somebody is told
+  to look — with nothing below it. It reads "waiting for your answer" now, and Home's
+  row carries an explicit "Answer →" to the conversation holding the question.
+  `api.agentRuns.answer` stays unused on purpose: it is the entrance for a client that
+  holds the run rather than the message, and no such client exists yet.
 - **Bound what a shared agent reads — S–M, ADR 0017.** Precisely: Blob does not have
   Claude Tag's rule. ADR 0013 is *command* authority. `jobs/agui.py:agent_tools` gives
   @Blob the asker's eyes wherever it is asked, so @Blob mentioned in `#general` can read
