@@ -86,14 +86,18 @@ engine and Redis clients are bound to the loop that created them.
 `check` (the gate plus `alembic check`), `image` (build the Dockerfile, boot
 `docker-compose.prod.yml`, hit `/healthz` and `/readyz`), and `intent`
 (`torsor guard --strict --severity error` over `git ls-files '*.py'`). On a green push to
-`main` a fourth job, `deploy`, POSTs the Coolify deploy hook — and it never has. Its
-secret has never been set on this repository, so what actually ships is the thing that
-job was written to replace: two repository webhooks POST Coolify's manual GitHub
-endpoint on every push and rebuild the two apps **ungated**, about a minute later, so a
-red build deploys as eagerly as a green one. Switching the gated path on means turning
-those webhooks off in the same breath, or every push builds twice. Treat a merge to
-`main` as a deploy that has already happened by the time CI goes green, and remember the
-2026-09-05 rule — one Coolify build at a time.
+`main` a fourth job, `deploy`, POSTs `/api/v1/deploy` carrying **both** application
+uuids, so one call ships both instances and Coolify queues them rather than building
+them side by side — the server is fixed at one concurrent build, which is the 2026-09-05
+rule. A push is live nine or ten minutes later, not one.
+
+That gate was fiction until 2026-09-13: its secret had never been set on this
+repository, so what actually deployed was two repository webhooks that rebuilt both apps
+a minute after every push, **ungated** — a red build shipped as eagerly as a green one,
+the exact thing the job exists to prevent. The webhooks (ids `670512272` and
+`677681557`) are now disabled, and re-enabling them is the one step that reverts this.
+Do not leave both paths on: every push would build twice, and the rule above is one
+build at a time.
 
 To ask what is deployed, read `SOURCE_COMMIT` off the running container or
 `bootstrap.serverCommit` in the client. **Do not** grep a seven-hex string out of the
