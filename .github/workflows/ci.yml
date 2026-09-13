@@ -185,8 +185,13 @@ jobs:
           TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
           if [ -z "$HOOK" ]; then
-            echo "COOLIFY_DEPLOY_HOOK is not set — skipping the deploy."
-            echo "Add it under Settings → Secrets and variables → Actions."
+            # A warning annotation, not a bare echo: this job's only purpose is to
+            # deploy, and a green tick on a step that did nothing is the exact failure
+            # the comment below is about. On 2026-09-13 both instances were found 38
+            # commits behind while every run showed "deploy: success", because the
+            # secret has never existed on this repository.
+            echo "::warning title=No deploy was made::COOLIFY_DEPLOY_HOOK is not set, so this push did not reach production. Add it under Settings → Secrets and variables → Actions."
+            echo "COOLIFY_DEPLOY_HOOK is not set — nothing was deployed."
             exit 0
           fi
           # --fail-with-body so a 401 or a wrong uuid fails the job *and* prints what
