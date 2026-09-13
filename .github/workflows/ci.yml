@@ -177,28 +177,27 @@ jobs:
     steps:
       - name: Ask Coolify to deploy
         env:
-          # The full URL from Coolify: Applications → the app → Webhooks → Deploy Webhook.
-          # It carries the resource uuid, so it identifies what to deploy on its own.
+          # `POST /api/v1/deploy?uuid=…`, carrying **both** application uuids
+          # comma-separated — this repo is one image deployed as two instances, and a
+          # gate that shipped only one of them would quietly leave the other behind,
+          # which is how Hadley sat months out of date before. Coolify queues them: the
+          # server is set to one concurrent build, which is the 2026-09-05 rule, so the
+          # second starts when the first is done rather than beside it.
           HOOK: ${{ secrets.COOLIFY_DEPLOY_HOOK }}
           # Coolify's API token, sent as a bearer. Separate secret because the URL is not
           # itself a credential and gets pasted around; the token is.
           TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
           if [ -z "$HOOK" ]; then
-            # Quiet, and deliberately not a warning. This job is a *second* path that
-            # has never been switched on, and the push has already reached production
-            # without it: two repository webhooks POST Coolify's manual GitHub endpoint
-            # on every push and rebuild the two apps about a minute later. Saying "no
-            # deploy was made" here states the opposite of what happened — which is the
-            # mistake this line replaces, made on 2026-09-13 from a bundle probe that
-            # reads the checked-in `pnpm stamp` history rather than the running commit.
-            # The deployed commit is `SOURCE_COMMIT` on the container; the deployments
-            # themselves are in Coolify, and the last 26 all finished.
-            #
-            # Before setting the secret, turn the two repository webhooks off. With both
-            # paths live every push builds twice, and the 2026-09-05 rule is one Coolify
-            # build at a time.
-            echo "COOLIFY_DEPLOY_HOOK is not set: the repository webhooks deploy this push, ungated."
+            # This is now the only way a commit reaches production, so an absent secret
+            # really does mean nothing shipped and the annotation is honest — which it
+            # was not on 2026-09-13, when it fired over deploys that had already
+            # happened through the repository webhooks. Those webhooks are off; if this
+            # branch is reached, either the secret was removed or someone is running the
+            # workflow from a fork, and `main` is ahead of both instances until it is
+            # put back.
+            echo "::warning title=No deploy was made::COOLIFY_DEPLOY_HOOK is not set, so this push did not reach production. Add it under Settings → Secrets and variables → Actions."
+            echo "COOLIFY_DEPLOY_HOOK is not set — nothing was deployed."
             exit 0
           fi
           # --fail-with-body so a 401 or a wrong uuid fails the job *and* prints what
