@@ -64,7 +64,7 @@ export function PersonCard({
     <Menu open={open} onClose={onClose} className="menu person-card">
       <div className="person-card-head">
         <Avatar user={live} size="lg" />
-        <div style={{ minWidth: 0 }}>
+        <div className="min-0">
           <div className="person-card-name">{live.displayName}</div>
           {live.fullName && live.fullName !== live.displayName && (
             <div className="person-card-title">{live.fullName}</div>

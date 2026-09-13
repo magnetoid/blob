@@ -307,8 +307,14 @@ written first — root and replies, the `llm:` kicker, the follow toggle. `Compo
 and `useSlashCommands` — all three on one `useAutocomplete` that owns the arrow keys —
 plus `useAttachments`, `AttachmentTray`, `FormatToolbar`, `SchedulePicker`,
 `ComposerOptions` and a pure `markdownWrap.ts` with its own test; the existing composer
-tests are untouched and green, so the DOM did not move. `<Field>` for the console's
-~140 field sites is still to do, and `style={{` stands at 236.
+tests are untouched and green, so the DOM did not move. The repeated layout properties became six utilities in `app.css` (`.grow`, `.min-0`,
+`.block`, `.relative`, `.m-0`, `.ellipsis`), taking `style={{` from 241 to 174, and
+`lib/sourceRatchets.test.ts` holds that number, the two remaining `let cancelled` copies
+(both outside a component) and `trapFocus` at zero. **The target of 60 is not met and
+the plan's premise was wrong**: what is left is one-off margins — 26px here, 10px there —
+and `tokens.css` has no space scale to bind them to, so converting them would re-space
+every console screen. That is a design decision for a visual pass, not a mechanical
+move, and `<Field>` for the ~140 console field sites belongs with it.
 
 - `Composer.tsx` (1,238) → `useMentionAutocomplete.ts`, `useEmojiAutocomplete.ts`,
   `useSlashCommands.ts`, `AttachmentTray.tsx`, `FormatToolbar.tsx`, `SchedulePicker.tsx`.

@@ -231,7 +231,7 @@ export function HealthSection({
     return (
       <section className="dashboard-dashboard">
         <div className="dashboard-toolbar">
-          <h2 className="page-title" style={{ margin: 0 }}>
+          <h2 className="page-title m-0">
             Health dashboard
           </h2>
         </div>

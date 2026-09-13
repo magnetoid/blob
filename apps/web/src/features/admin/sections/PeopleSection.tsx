@@ -69,7 +69,7 @@ export function PeopleSection({
                 user={{ displayName: user.displayName, avatarUrl: null }}
                 size="lg"
               />
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="grow min-0">
                 <div className="admin-row-title">
                   {user.displayName}
                   {user.role !== "member" && (
@@ -172,7 +172,7 @@ export function PeopleSection({
 
       {resetLink && (
         <div className="draft-chip" style={{ margin: "12px 0", width: "100%" }}>
-          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span className="grow ellipsis">
             For {resetLink.name}, good for an hour: {resetLink.url}
           </span>
           <button

@@ -114,7 +114,7 @@ export function PreferencesSection({ onSignedOut }: ConsoleSectionProps) {
       </h2>
 
       <div className="pref-row">
-        <div style={{ flex: 1 }}>
+        <div className="grow">
           <div className="pref-label">Preferred language</div>
           <div className="pref-hint">
             Message translation uses this as your target language when teammates write in
@@ -142,7 +142,7 @@ export function PreferencesSection({ onSignedOut }: ConsoleSectionProps) {
       </div>
 
       <div className="pref-row">
-        <div style={{ flex: 1 }}>
+        <div className="grow">
           <div className="pref-label">Auto-translate incoming messages</div>
           <div className="pref-hint">
             Show translated copies inline when your preferred language is set.
@@ -165,7 +165,7 @@ export function PreferencesSection({ onSignedOut }: ConsoleSectionProps) {
       </div>
 
       <div className="pref-row">
-        <div style={{ flex: 1 }}>
+        <div className="grow">
           <div className="pref-label">Enter sends a message</div>
           <div className="pref-hint">
             When off, Enter starts a new line and ⌘Enter sends instead.
@@ -364,7 +364,7 @@ function DevicesPanel() {
     <div style={{ marginTop: 12 }}>
       {sessions.map((session) => (
         <div key={session.id} className="pref-row" style={{ padding: '10px 0' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="grow min-0">
             <div className="pref-label">
               {describeAgent(session.userAgent)}
               {session.current && ' — this device'}

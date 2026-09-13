@@ -103,9 +103,8 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
           <span>
             <span className="pref-label">Private</span>
             <span
-              className="pref-hint"
+              className="pref-hint block"
               id="create-channel-private-hint"
-              style={{ display: "block" }}
             >
               Only invited people can find or read it.
             </span>

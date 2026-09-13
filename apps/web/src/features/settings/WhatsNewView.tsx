@@ -154,7 +154,7 @@ export function WhatsNewView() {
   return (
     <main className="pane">
       <header className="pane-header">
-        <div style={{ minWidth: 0 }}>
+        <div className="min-0">
           <div className="pane-heading">
             <h1 className="pane-title">What's new</h1>
           </div>

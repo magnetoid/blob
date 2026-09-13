@@ -156,7 +156,7 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
 
         {!archived && (
           <div className="pref-row">
-            <div style={{ flex: 1 }}>
+            <div className="grow">
               <div className="pref-label">Nudge unanswered questions</div>
               <div className="pref-hint">
                 When a question here goes a day with no reply, no reaction and nobody else

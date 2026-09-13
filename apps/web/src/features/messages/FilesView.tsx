@@ -26,7 +26,7 @@ export function FilesView() {
   return (
     <main className="pane">
       <header className="pane-header">
-        <div style={{ minWidth: 0 }}>
+        <div className="min-0">
           <div className="pane-heading">
             <h1 className="pane-title">Files</h1>
           </div>

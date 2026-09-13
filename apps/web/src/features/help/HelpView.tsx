@@ -226,7 +226,7 @@ export function HelpView() {
   return (
     <main className="pane">
       <header className="pane-header">
-        <div style={{ minWidth: 0 }}>
+        <div className="min-0">
           <div className="pane-heading">
             <h1 className="pane-title">Help</h1>
           </div>

@@ -54,7 +54,7 @@ export function ActivityView({ initialKind = 'all' }: { initialKind?: ActivityKi
   return (
     <main className="pane">
       <header className="pane-header">
-        <div style={{ minWidth: 0 }}>
+        <div className="min-0">
           <div className="pane-heading">
             <h1 className="pane-title">Activity</h1>
           </div>

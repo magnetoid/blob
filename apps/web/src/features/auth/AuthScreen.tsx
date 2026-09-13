@@ -297,7 +297,7 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
             <span style={{ display: "flex", gap: 6 }}>
               <input
                 id="auth-password"
-                className="input"
+                className="input grow"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -306,7 +306,6 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
                 autoComplete={
                   mode === "login" ? "current-password" : "new-password"
                 }
-                style={{ flex: 1 }}
               />
               <button
                 type="button"

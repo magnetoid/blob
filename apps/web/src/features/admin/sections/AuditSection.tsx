@@ -83,7 +83,7 @@ export function AuditSection() {
       <div className="admin-table">
         {events.map((event) => (
           <div className="admin-row" key={event.id}>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="grow min-0">
               <div className="admin-row-title">
                 {humanizeAction(event.action)}
                 {event.targetLabel && (

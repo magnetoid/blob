@@ -214,8 +214,7 @@ export function ProfileView() {
                   onChange={(event) => setStatusEmoji(event.target.value)}
                 />
                 <input
-                  className="input"
-                  style={{ flex: 1 }}
+                  className="input grow"
                   value={statusText}
                   maxLength={100}
                   placeholder="Heads down until 3"

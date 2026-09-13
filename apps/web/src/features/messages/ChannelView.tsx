@@ -331,7 +331,7 @@ export function ChannelView() {
         >
           Catch up
         </button>
-        <div style={{ position: "relative" }}>
+        <div className="relative">
           <button
             className="btn btn-ghost"
             title="Pinned messages"

@@ -35,7 +35,7 @@ export function ChannelsSection({
           key={channel.id}
           data-inactive={channel.archivedAt !== null}
         >
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="grow min-0">
             <div className="admin-row-title">
               {channel.name ? `#${channel.name}` : "Direct message"}
               {channel.kind !== "public" && (

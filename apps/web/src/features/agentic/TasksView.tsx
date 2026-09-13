@@ -28,7 +28,7 @@ export function TasksView() {
   return (
     <main className="pane">
       <header className="pane-header">
-        <div style={{ minWidth: 0 }}>
+        <div className="min-0">
           <div className="pane-heading">
             <h1 className="pane-title">Tasks</h1>
           </div>
@@ -104,7 +104,7 @@ function TaskResults({
             type="button"
             onClick={() => void go(task)}
           >
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="grow min-0">
               <div className="search-result-head">
                 <span className="search-result-author">{task.title}</span>
                 <span className="search-result-meta">

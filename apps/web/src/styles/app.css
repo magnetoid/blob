@@ -1880,8 +1880,32 @@ dialog.lightbox-host::backdrop {
   font-weight: 500;
 }
 
+/* Layout utilities. Deliberately few and deliberately literal: each one is a property
+   that was written inline dozens of times, and nothing here invents a scale. */
 .grow {
   flex: 1;
+}
+
+.min-0 {
+  min-width: 0;
+}
+
+.block {
+  display: block;
+}
+
+.relative {
+  position: relative;
+}
+
+.m-0 {
+  margin: 0;
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .composer-error {

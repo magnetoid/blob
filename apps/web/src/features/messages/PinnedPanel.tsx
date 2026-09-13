@@ -77,7 +77,7 @@ export function PinnedPanel({ channelId, onClose, onJump }: Props) {
           }}
         >
           <Avatar user={message.authorId ? users[message.authorId] : undefined} size="sm" />
-          <div style={{ minWidth: 0 }}>
+          <div className="min-0">
             <div className="pinned-item-author">{displayNameOf(message.authorId)}</div>
             <div className="pinned-item-body">
               {renderMarkdown(message.body, {

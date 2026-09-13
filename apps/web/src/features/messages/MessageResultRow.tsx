@@ -79,7 +79,7 @@ export function MessageResultRow({ message, onOpen, timestamp, footer, action, h
   return (
     <button className="search-result" type="button" onClick={onOpen}>
       <Avatar user={author} size="lg" />
-      <div style={{ flex: 1, minWidth: 0 }}>{content}</div>
+      <div className="grow min-0">{content}</div>
     </button>
   );
 }

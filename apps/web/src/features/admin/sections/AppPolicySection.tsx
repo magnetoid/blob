@@ -136,7 +136,7 @@ function PolicyEditor({
           : false;
         return (
           <div className="pref-row" key={capability.key}>
-            <div style={{ flex: 1 }}>
+            <div className="grow">
               <div className="pref-label">{capability.label}</div>
               <div className="pref-hint">
                 {cappedOff ? capability.ceilingHint : capability.hint}
@@ -158,7 +158,7 @@ function PolicyEditor({
       })}
 
       <div className="pref-row">
-        <div style={{ flex: 1 }}>
+        <div className="grow">
           <div className="pref-label">Most apps it may install</div>
           <div className="pref-hint">
             Leave empty for no limit. Reaching it stops the next install; it
@@ -184,7 +184,7 @@ function PolicyEditor({
       </div>
 
       <div className="pref-row">
-        <div style={{ flex: 1 }}>
+        <div className="grow">
           <div className="pref-label">Agent-to-agent hops</div>
           <div className="pref-hint">
             {policy.serverChainMaxDepth === 0

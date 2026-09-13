@@ -81,8 +81,7 @@ export function WebhooksSection({
 
       {created && (
         <div className="draft-chip" style={{ margin: "16px 0", width: "100%" }}>
-          <span
-            style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}
+          <span className="grow ellipsis"
           >
             {created}
           </span>
@@ -101,7 +100,7 @@ export function WebhooksSection({
       <div className="admin-table" style={{ marginTop: 16 }}>
         {webhooks.map((hook) => (
           <div className="admin-row" key={hook.id}>
-            <div style={{ flex: 1 }}>
+            <div className="grow">
               <div className="admin-row-title">{hook.name}</div>
               <div className="admin-row-meta">
                 {hook.lastUsedAt

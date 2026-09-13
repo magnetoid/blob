@@ -152,7 +152,7 @@ function AgentRow({
   return (
     <div className="admin-plugin-card">
       <div className="admin-row">
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="grow min-0">
           <div className="admin-row-title">
             {agent.name}
             <span

@@ -94,7 +94,7 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
         <label className="pref-row" style={{ maxWidth: 480, marginTop: 10 }}>
           <span className="pref-label">
             Let it post
-            <span className="pref-hint" style={{ display: 'block' }}>
+            <span className="pref-hint block">
               Off by default. A message it sends is indistinguishable from one you typed.
             </span>
           </span>
@@ -137,7 +137,7 @@ function TokenRow({
   return (
     <div className="admin-plugin-card">
       <div className="admin-row">
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="grow min-0">
           <div className="admin-row-title">
             {token.name}
             <span className="role-pill" data-muted={!writes}>
@@ -194,7 +194,7 @@ function AssistantSetup({ minted }: { minted: Minted }) {
   }
 
   return (
-    <div className="admin-secret-card" style={{ display: 'block' }}>
+    <div className="admin-secret-card block">
       <div className="admin-row-title">Point “{minted.name}” at this workspace</div>
       <div className="admin-row-meta" style={{ marginBottom: 12 }}>
         This token is shown once. Only its fingerprint is stored, so if you lose it, revoke

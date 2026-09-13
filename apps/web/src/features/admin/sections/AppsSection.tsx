@@ -164,7 +164,7 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
         </div>
 
         <div className="pref-row">
-          <div style={{ flex: 1 }}>
+          <div className="grow">
             <div className="pref-label">Agents may run</div>
             <div className="pref-hint">
               When off, mentions of agents are refused and nothing is
@@ -190,7 +190,7 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
 
         {secretNotice && (
           <div className="admin-secret-card">
-            <div style={{ minWidth: 0 }}>
+            <div className="min-0">
               <div className="admin-row-title">{secretNotice.pluginName}</div>
               <div className="admin-row-meta">
                 These credentials are shown once. Rotate them later if you lose

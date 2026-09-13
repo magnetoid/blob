@@ -108,14 +108,13 @@ export function FeedbackSection({
         return (
           <div
             key={ticket.id}
-            className="admin-row"
-            style={{ display: "block" }}
+            className="admin-row block"
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span className="feedback-kind" data-kind={ticket.kind}>
                 {ticket.kind}
               </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="grow min-0">
                 <div className="admin-row-title">{ticket.title}</div>
                 <div className="admin-row-meta">
                   {reporter?.displayName ?? "Someone who has since left"} ·{" "}
@@ -172,7 +171,7 @@ export function FeedbackSection({
                       Page snapshot
                     </button>
                   )}
-                  <span style={{ flex: 1 }} />
+                  <span className="grow" />
                   <button
                     className="btn"
                     onClick={() =>

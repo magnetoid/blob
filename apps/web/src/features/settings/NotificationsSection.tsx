@@ -85,7 +85,7 @@ export function NotificationsSection() {
       <PushPanel />
 
       <div className="pref-row">
-        <div style={{ flex: 1 }}>
+        <div className="grow">
           <div className="pref-label">Pause notifications</div>
           <div className="pref-hint">
             {snoozedUntil
@@ -122,7 +122,7 @@ export function NotificationsSection() {
       </div>
 
       <div className="pref-row">
-        <div style={{ flex: 1 }}>
+        <div className="grow">
           <div className="pref-label">Nudge me about unanswered questions</div>
           <div className="pref-hint">
             In channels that have it switched on, a question of yours that goes
@@ -141,7 +141,7 @@ export function NotificationsSection() {
       </div>
 
       <div className="pref-row">
-        <div style={{ flex: 1 }}>
+        <div className="grow">
           <div className="pref-label">Quiet hours</div>
           <div className="pref-hint">
             Only the hours you choose will notify you. Unread counts still
@@ -305,7 +305,7 @@ export function NotificationsSection() {
               className="pref-row"
               style={{ padding: "8px 0" }}
             >
-              <div style={{ flex: 1 }}>
+              <div className="grow">
                 <code>@{group.handle}</code>
                 <span className="pref-hint" style={{ marginLeft: 8 }}>
                   {group.name}
@@ -364,7 +364,7 @@ function PushPanel() {
   return (
     <>
       <div className="pref-row">
-        <div style={{ flex: 1 }}>
+        <div className="grow">
           <div className="pref-label">Notify this device</div>
           <div className="pref-hint">
             {state === "loading" ? "Checking…" : (tested ?? explanation)}
@@ -411,7 +411,7 @@ function PushPanel() {
       </div>
       {needsIosInstall() && state !== "unsupported" && (
         <div className="pref-row" style={{ alignItems: "flex-start" }}>
-          <div style={{ flex: 1 }}>
+          <div className="grow">
             <div className="pref-label">On iPhone and iPad</div>
             <div className="pref-hint">
               iOS only delivers push to installed web apps, and never says so:

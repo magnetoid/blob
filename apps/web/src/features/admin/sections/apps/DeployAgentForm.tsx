@@ -86,7 +86,7 @@ export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
       </p>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-        <label className="field" style={{ flex: 1 }}>
+        <label className="field grow">
           <span className="field-label">Repository</span>
           <input
             className="input"
@@ -169,16 +169,14 @@ export function DeployAgentForm({ scopeCatalog, onInstalled, onError }: Props) {
           {env.map((row) => (
             <div key={row.id} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               <input
-                className="input"
-                style={{ flex: 1 }}
+                className="input grow"
                 value={row.key}
                 placeholder="ANTHROPIC_API_KEY"
                 aria-label="Variable name"
                 onChange={(event) => setRow(row.id, { key: event.target.value })}
               />
               <input
-                className="input"
-                style={{ flex: 1 }}
+                className="input grow"
                 type="password"
                 value={row.value}
                 placeholder="value"

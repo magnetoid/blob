@@ -71,7 +71,7 @@ function DeliveryRow({
     delivery.status === 'failed' || delivery.status === 'dead';
   return (
     <div className="admin-row">
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="grow min-0">
         <button
           type="button"
           style={{ width: '100%', textAlign: 'left' }}

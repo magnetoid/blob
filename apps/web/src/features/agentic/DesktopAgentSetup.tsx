@@ -65,7 +65,7 @@ export function DesktopAgentSetup({
   }
 
   return (
-    <div className="admin-secret-card" style={{ display: 'block' }}>
+    <div className="admin-secret-card block">
       <div className="admin-row-title">Connect {agentName} from your machine</div>
       <div className="admin-row-meta" style={{ marginBottom: 12 }}>
         {agentName} dials Blob and holds the connection, so it needs no public address

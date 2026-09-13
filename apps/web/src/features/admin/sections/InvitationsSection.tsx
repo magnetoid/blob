@@ -93,8 +93,7 @@ export function InvitationsSection({
 
       {link && (
         <div className="draft-chip" style={{ marginBottom: 18, width: "100%" }}>
-          <span
-            style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}
+          <span className="grow ellipsis"
           >
             {link}
           </span>
@@ -114,7 +113,7 @@ export function InvitationsSection({
             key={invite.id}
             data-inactive={invite.status !== "pending"}
           >
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="grow min-0">
               <div className="admin-row-title">
                 {invite.email ?? "Shareable link"}
                 <span

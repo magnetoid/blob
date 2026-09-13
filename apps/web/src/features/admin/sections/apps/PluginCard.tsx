@@ -56,7 +56,7 @@ export function PluginCard({
   return (
     <div className="admin-plugin-card">
       <div className="admin-row">
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="grow min-0">
           <div className="admin-row-title">
             {plugin.name}
             <span className="role-pill">
@@ -303,7 +303,7 @@ export function PluginCard({
           {runs.length > 0 ? (
             runs.map((run) => (
               <div className="admin-row" key={run.id}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="grow min-0">
                   <div className="admin-row-title">
                     {run.channelName ? `#${run.channelName}` : "a channel"}
                     {/* Not muted for `interrupted`: the agent is waiting for
@@ -346,7 +346,7 @@ export function PluginCard({
               const detail = deliveryDetails[delivery.id];
               return (
                 <div className="admin-row" key={delivery.id}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="grow min-0">
                     <button
                       type="button"
                       style={{ width: "100%", textAlign: "left" }}

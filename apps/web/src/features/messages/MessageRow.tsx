@@ -408,8 +408,7 @@ export const MessageRow = memo(function MessageRow({
                       {attachment.filename}
                     </span>
                     <span
-                      className="attachment-size"
-                      style={{ display: "block" }}
+                      className="attachment-size block"
                     >
                       {formatBytes(attachment.sizeBytes)}
                     </span>
@@ -432,8 +431,7 @@ export const MessageRow = memo(function MessageRow({
             </span>
             {message.linkPreview.description && (
               <span
-                className="link-preview-description"
-                style={{ display: "block" }}
+                className="link-preview-description block"
               >
                 {message.linkPreview.description}
               </span>
@@ -652,7 +650,7 @@ export const MessageRow = memo(function MessageRow({
           does nothing on exactly the deployments this project is built for. */}
       {copyFallback && (
         <div className="copy-fallback">
-          <label className="field" style={{ margin: 0 }}>
+          <label className="field m-0">
             <span className="field-label">Copy this link</span>
             <input
               className="input"

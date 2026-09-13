@@ -230,7 +230,7 @@ export function ThemesSection({
                 background: theme.tokens["--accent"] ?? "var(--accent)",
               }}
             />
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="grow min-0">
               <div className="admin-row-title">
                 {theme.name}
                 <span

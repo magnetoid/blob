@@ -150,9 +150,8 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
               <span>
                 <span className="pref-label">Attach diagnostics</span>
                 <span
-                  className="pref-hint"
+                  className="pref-hint block"
                   id="feedback-diagnostics-hint"
-                  style={{ display: "block" }}
                 >
                   A snapshot of this page and the browser console, so an admin
                   can see what you saw. Passwords are never included.

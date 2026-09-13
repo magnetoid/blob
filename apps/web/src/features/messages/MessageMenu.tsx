@@ -70,7 +70,7 @@ export function MessageMenu({
   const saved = useStore((s) => s.savedMessageIds.has(message.id));
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className="relative">
       <button
         className="message-action"
         type="button"
