@@ -86,10 +86,20 @@ engine and Redis clients are bound to the loop that created them.
 `check` (the gate plus `alembic check`), `image` (build the Dockerfile, boot
 `docker-compose.prod.yml`, hit `/healthz` and `/readyz`), and `intent`
 (`torsor guard --strict --severity error` over `git ls-files '*.py'`). On a green push to
-`main` a fourth job POSTs the Coolify deploy hook. It is `needs:`-gated rather than a
-repository webhook on purpose: a webhook would deploy a red build as eagerly as a green
-one. Treat a merge to `main` as a deploy, and remember the 2026-09-05 rule — one Coolify
-build at a time.
+`main` a fourth job, `deploy`, POSTs the Coolify deploy hook — and it never has. Its
+secret has never been set on this repository, so what actually ships is the thing that
+job was written to replace: two repository webhooks POST Coolify's manual GitHub
+endpoint on every push and rebuild the two apps **ungated**, about a minute later, so a
+red build deploys as eagerly as a green one. Switching the gated path on means turning
+those webhooks off in the same breath, or every push builds twice. Treat a merge to
+`main` as a deploy that has already happened by the time CI goes green, and remember the
+2026-09-05 rule — one Coolify build at a time.
+
+To ask what is deployed, read `SOURCE_COMMIT` off the running container or
+`bootstrap.serverCommit` in the client. **Do not** grep a seven-hex string out of the
+served bundle: `pnpm stamp` checks sixty commit subjects into the source, so the first
+match is the newest *stamped* commit and not the one running. That probe is how both
+instances were reported 38 commits behind on 2026-09-13 while both were serving the tip.
 
 ## Architecture
 
