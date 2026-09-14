@@ -216,7 +216,7 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
       </div>
 
       <MessageList
-        key={rootId}
+        conversationId={rootId}
         messages={thread ?? []}
         runsByMessageId={runsByMessageId}
         hasMore={false}

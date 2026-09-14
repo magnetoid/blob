@@ -406,6 +406,21 @@ Worth knowing before changing the equivalent code:
   `docker_compose_raw` (the trap above). Do not read `SOURCE_COMMIT` off a container as
   proof a commit "passed": it proves what was built, not what was tested.
 
+- **A keyed `<MessageList>` leaked its DOM on every channel switch.** `ChannelView` said
+  `key={activeChannelId}` — the ordinary React way to reset a list — and React unmounted
+  the old component while leaving its DOM in the document. Measured 2026-09-14 against a
+  production build, 671 messages in the channel: one `.message-list` became seven after
+  six switches, 236 DOM nodes became 4,555, the trace started reporting `DOMSize` and
+  `ForcedReflow`, CLS went 0.00 → 0.05, and the switch interaction took 772 ms (383 ms
+  script, 387 ms presentation) because every stranded list still took part in layout and
+  paint. It got worse the longer the tab was open, which is what "the chat is slow" meant.
+  The fix is `conversationId` as a prop plus an explicit reset — `virtualizer.measure()`,
+  the stick-to-bottom flag and the two pieces of list state — and a source guard in
+  `MessageList.leak.test.tsx` so the key cannot come back. **Count DOM nodes across a few
+  channel switches before believing the client is idle**; React having unmounted a
+  component is not evidence its elements are gone. The same pattern was in `ThreadPanel`
+  (`key={rootId}`) and went the same way.
+
 - **`MAX(uuid)` does not exist in Postgres.** There is no max aggregate for the type, so
   "the newest message per channel" is `DISTINCT ON (channel_id) … ORDER BY channel_id,
   id DESC`, which also walks the existing index rather than aggregating the table.

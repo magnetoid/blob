@@ -91,6 +91,7 @@ type ListProps = Parameters<typeof MessageList>[0];
 
 function renderList(overrides: Partial<ListProps> = {}) {
   const props: ListProps = {
+    conversationId: 'c1',
     messages: makeMessages(500),
     hasMore: false,
     loading: false,

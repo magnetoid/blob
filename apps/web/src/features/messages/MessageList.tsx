@@ -17,6 +17,14 @@ import { useStore } from "../../lib/store.ts";
 import { EmptyState } from "../../components/EmptyState.tsx";
 
 interface Props {
+  /**
+   * The conversation on screen — a channel id, or a thread's root id.
+   *
+   * Not rendered. It is how this component is told "that was a different conversation,
+   * forget what you measured", which used to be said with `key=` on the element and
+   * cannot be any more — see the reset effect below.
+   */
+  conversationId: string;
   messages: Message[];
   hasMore: boolean;
   loading: boolean;
@@ -37,6 +45,7 @@ interface Props {
 const STICK_THRESHOLD = 120;
 
 export function MessageList({
+  conversationId,
   messages,
   hasMore,
   loading,
@@ -160,6 +169,45 @@ export function MessageList({
     measureElement: (element) => element.getBoundingClientRect().height,
     overscan: 12,
   });
+
+  /**
+   * A different conversation: forget everything measured about the last one.
+   *
+   * This was `key={channelId}` on the element in `ChannelView` (and `key={rootId}` in
+   * `ThreadPanel`), which is the ordinary React way to say it — and it leaked. React
+   * unmounted the old list and left its DOM behind, so every channel switch added
+   * another `.message-list` to the pane: six switches, six lists, every one of them
+   * still laid out and painted on every frame while only the newest was live. Measured
+   * on 2026-09-14 against a production build with 671 messages in the channel: 236 DOM
+   * nodes became 3,209 after six switches, and the click that switched channel took
+   * 772 ms — 383 ms of script and 387 ms of presentation, both growing with each one.
+   * The `.message-list` count stayed at one the moment the key came off.
+   *
+   * So the reset is done by hand, which is also more honest about what the key was for:
+   * the measurement cache, the stick-to-bottom flag and the two pieces of per-list UI
+   * state. `measure()` clears the virtualizer's `itemSizeCache` — the whole reason the
+   * key was there, because a channel switch that kept the previous channel's row
+   * heights left holes between rows until you scrolled far enough to remeasure.
+   *
+   * It runs before the scroll effect below, which is declaration order and deliberate:
+   * that effect reads `wasAtBottom` and `previousMetrics` on the same commit and would
+   * otherwise mistake a new conversation for a prepended page of the old one.
+   */
+  const seenConversation = useRef(conversationId);
+  useLayoutEffect(() => {
+    // Not on mount: a fresh component already holds every one of these defaults, and
+    // setting state here would spend a second render before the first paint.
+    if (seenConversation.current === conversationId) return;
+    seenConversation.current = conversationId;
+    virtualizer.measure();
+    wasAtBottom.current = true;
+    previousMetrics.current = { firstId: null, lastId: null, scrollHeight: 0 };
+    setJumpBarDismissed(false);
+    setTabStopId(null);
+    // `virtualizer` is a fresh object every render, so it cannot be a dependency —
+    // the same reason the effect below says so.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
 
   useLayoutEffect(() => {
     const node = scrollRef.current;
