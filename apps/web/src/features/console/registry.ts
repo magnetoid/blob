@@ -25,6 +25,16 @@ export interface SectionEntry<Id extends string = string> {
   keywords?: string[];
   badge?: 'new';
   ownerOnly?: boolean;
+  /**
+   * Reachable by URL, not offered in the nav.
+   *
+   * For a section whose page has been folded into another's — Members now shows user
+   * groups, invitations and accounts on one page — but whose id has to survive: it is
+   * in bookmarks, its detail pages (`/admin/groups/:id`) still open there, and
+   * `sectionEntry` still has to answer for it. Dropping the row would have made
+   * every one of those a 404 to save one line of nav.
+   */
+  hidden?: boolean;
 }
 
 interface PlannedSectionEntry {
@@ -117,22 +127,34 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
     label: 'People',
     sections: [
       {
+        // One page, four parts — members, user groups, invitations and (for the owner)
+        // every account on the server. They were four rows, and the only way to find
+        // out which held the person you were after was to open all four; the same
+        // reason You folded profile, preferences and notifications together.
         id: 'members',
-        label: 'Members',
-        description: 'Everyone here, and what they can do.',
-        keywords: ['users', 'people', 'roles', 'admin', 'owner', 'deactivate', 'sessions'],
+        label: 'People',
+        description: 'Everyone here, the groups they are in, who is invited, and every account.',
+        keywords: [
+          'users', 'people', 'roles', 'admin', 'owner', 'deactivate', 'sessions',
+          'team', 'teams', 'user group', '@team', 'mention', 'oncall',
+          'invite', 'invitations', 'join', 'link',
+          'accounts', 'members', 'everyone', 'directory',
+        ],
       },
+      // The three below are hidden, not gone: their URLs and detail pages still work.
       {
         id: 'groups',
         label: 'User groups',
         description: 'Teams that can be mentioned as one name, like @platform-team.',
         keywords: ['team', 'teams', 'user group', '@team', 'mention', 'oncall'],
+        hidden: true,
       },
       {
         id: 'invitations',
         label: 'Invitations',
         description: 'Who has been invited, and who has not arrived yet.',
         keywords: ['invite', 'join', 'link'],
+        hidden: true,
       },
       {
         id: 'users',
@@ -140,6 +162,7 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
         description: 'Every account on this server.',
         keywords: ['users', 'people', 'accounts', 'members', 'everyone', 'directory'],
         ownerOnly: true,
+        hidden: true,
       },
     ],
   },
@@ -291,6 +314,7 @@ export function filterGroups<Id extends string>(
       ...group,
       sections: group.sections.filter((entry) => {
         if (!isPlanned(entry) && entry.ownerOnly && !isOwner) return false;
+        if (!isPlanned(entry) && entry.hidden) return false;
         if (!needle) return true;
         if (entry.label.toLowerCase().includes(needle)) return true;
         if (group.label.toLowerCase().includes(needle)) return true;

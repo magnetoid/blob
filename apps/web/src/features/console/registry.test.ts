@@ -40,8 +40,28 @@ describe('the admin registry', () => {
   });
 
   it('finds the entry for a section', () => {
-    expect(sectionEntry('members').label).toBe('Members');
+    expect(sectionEntry('members').label).toBe('People');
     expect(sectionEntry('users').label).toBe('Accounts');
+  });
+
+  it('keeps a folded section reachable but out of the nav', () => {
+    // Groups, invitations and accounts now live on the People page. Their ids stay:
+    // bookmarks, `/admin/groups/:id` and `sectionEntry` all still have to answer.
+    for (const id of ['groups', 'invitations', 'users'] as const) {
+      expect(sectionEntry(id).hidden).toBe(true);
+    }
+    const shown = filterGroups(ADMIN_NAV, '', true).flatMap((g) => g.sections.map((s) => s.id));
+    expect(shown).toContain('members');
+    expect(shown).not.toContain('groups');
+    expect(shown).not.toContain('invitations');
+    expect(shown).not.toContain('users');
+  });
+
+  it('finds the people page by any of the words the four pages answered to', () => {
+    for (const word of ['invite', 'team', 'accounts', 'deactivate']) {
+      const ids = filterGroups(ADMIN_NAV, word, true).flatMap((g) => g.sections.map((s) => s.id));
+      expect(ids, word).toContain('members');
+    }
   });
 
   it('keeps the two people pages together', () => {

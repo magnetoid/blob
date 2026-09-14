@@ -30,7 +30,7 @@ import { EmojiSection } from './sections/EmojiSection.tsx';
 import { GeneralSection } from './sections/GeneralSection.tsx';
 import { GroupsSection } from './sections/GroupsSection.tsx';
 import { InvitationsSection } from './sections/InvitationsSection.tsx';
-import { PeopleSection } from './sections/PeopleSection.tsx';
+import { PeopleHub } from './sections/PeopleHub.tsx';
 import { ThemesSection } from './sections/ThemesSection.tsx';
 import { WebhooksSection } from './sections/WebhooksSection.tsx';
 
@@ -44,7 +44,7 @@ const NAV_ID = 'admin-console-nav';
 const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps>> = {
   general: GeneralSection,
   appearance: ThemesSection,
-  members: PeopleSection,
+  members: PeopleHub,
   groups: GroupsSection,
   invitations: InvitationsSection,
   channels: ChannelsSection,
