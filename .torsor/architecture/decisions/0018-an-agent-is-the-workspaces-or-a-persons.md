@@ -45,11 +45,19 @@ the whole of the difference.**
 
 *The workspace's* (`owner_user_id IS NULL`). An admin installs it once and it is
 everybody's: anyone may mention it, it appears in every member's Agents section, it spends
-the workspace's budget, and an admin enables, disables and uninstalls it. The built-in
-`Blob` agent is one; so is the agent from the `magnetoid/janus` repository, which is
-deployed alongside the system and installed for the whole workspace. Its runtime has
-nothing to do with this — it is the workspace's because an admin installed it for
-everyone.
+the workspace's budget, and an admin enables, disables and uninstalls it.
+
+Two of them exist in production and they are **not** the same agent, which is worth
+saying because the name invites the mistake. `Blob` (slug `blob-agent`, `runtime:
+builtin`) is the agent this server runs itself, in-process, with no endpoint at all,
+spending the server's own model key through `lib/llm.py`. `Janus` (slug `janus`,
+`runtime: external`) is the agent from the `magnetoid/janus` repository, deployed
+alongside the system at its own origin and reached over AG-UI, carrying its own model
+configuration inside its own deployment — on 2026-09-14 `gpt-5.6-terra` while Blob's was
+DeepSeek. A model outage on one says nothing about the other.
+
+What makes both of them the workspace's is neither their runtime nor where they came
+from: it is that an admin installed them for everyone.
 
 *A person's* (`owner_user_id` set). One member brings their own assistant into the
 workspace. It answers them. It is listed only for them, and every "mine" lookup answers
