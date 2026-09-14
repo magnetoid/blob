@@ -285,6 +285,12 @@ fades keep their duration. Anything sized for a pointer gets a 44px minimum unde
   held back behind a plan check or an enterprise tier — the deployment a team runs is the
   whole product. Agents join a workspace as real members with real permissions, and their
   output lands in the conversation rather than in a panel bolted beside it.
+- **The work, not only the talk.** Blob organises a team as well as carrying what it
+  says: a thread that reaches a decision leaves a decision behind, and an action agreed in
+  a channel becomes a task with a human owner without anybody retyping it elsewhere. This
+  is what makes work channels, tasks, decisions, summaries and scheduled runs core rather
+  than scope creep. It does not license a project-management product — everything it
+  covers lives in a channel, under that channel's membership and permissions.
 - **As familiar as Slack.** Someone who uses Slack should not have to learn Blob: the same
   layout, the same words for things — channels, threads, DMs, reactions, ⌘K — and the same
   keyboard reflexes. Where a cleverer interaction competes with the one Slack users already
@@ -311,10 +317,18 @@ fades keep their duration. Anything sized for a pointer gets a 44px minimum unde
   apps. Private channels answer 404, not 403, because their existence is private.
 - **Fail toward the workspace staying up.** A dead mail server, a broken plugin, a slow
   app or a failed unfurl degrades that one thing and nothing else.
+- **Find out what the current answer is before building the old one.** Before a feature is
+  designed, or a dependency or platform API chosen, look up the present state of the art
+  and say what you found; propose the current approach first and give a reason if you
+  recommend an older one. Ready is part of the rule — client code means Chrome, Firefox
+  and Safari today, which is why the design layer still refuses anchor positioning and
+  scroll-driven animations. "I checked and the established option is still right" answers
+  this; "I did not check" does not.
 
 ### Architecture rules (machine-enforced — `torsor guard` flags violations)
 - forbid_pattern: `(?m)^(?!\s*#).*\bOFFSET\s+:` in `apps/api/src/blob_api/services/*.py` — Chat queries use keyset pagination, never OFFSET — see ADR 0003. (per ADR 0003: SQLAlchemy for schema, verbatim SQL for the hot paths)
 - forbid_pattern: `(?m)^(?!\s*#).*\btext\(` in `apps/api/src/blob_api/routers/*.py` — Routers shape and authorize; SQL belongs in a service — see ADR 0003. (per ADR 0003: SQLAlchemy for schema, verbatim SQL for the hot paths)
+- forbid_pattern: `(?m)^(?!\s*#).*\bsession\.add\(` and `(?m)^(?!\s*#).*\bselect\(` in `services/*.py` and `routers/*.py` — db/models.py defines the schema; it is not a query layer, and reads are text() with bound parameters — see ADR 0003. (These were prose until 2026-09-14: CLAUDE.md described them as a grep somebody had to remember to run.)
 - forbid_layer_import: `blob_api\.routers(\.|$)` in `apps/api/src/blob_api/realtime/*.py` — realtime/ must not import routers/ — the socket tier moves out as a unit. ADR 0004. (per ADR 0004: Persist, then broadcast — structurally)
 - forbid_layer_import: `blob_api\.routers(\.|$)` in `apps/api/src/blob_api/plugins/*.py` — plugins/ must not import routers/ — routers depend on the plugin layer, not the reverse. ADR 0005. (per ADR 0005: A plugin's bot is a real user row)
 

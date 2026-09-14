@@ -8,12 +8,18 @@ tags: [charter]
 
 ## What we are building
 
-Blob is an open-source, self-hosted AI agentic work-team communication platform, and it
-deliberately looks and feels like Slack: channels, DMs, threads, reactions, mentions,
-full-history search and live presence, with
-a superadmin console, a theme system and an app platform where agents are members of the
-workspace rather than integrations beside it. One workspace per deployment, run by the
-team that uses it.
+Blob is an open-source, self-hosted AI agentic platform for a team's communication **and
+its organisation**, and it deliberately looks and feels like Slack: channels, DMs,
+threads, reactions, mentions, full-history search and live presence, with a superadmin
+console, a theme system and an app platform where agents are members of the workspace
+rather than integrations beside it. One workspace per deployment, run by the team that
+uses it.
+
+The second half of that sentence is load-bearing and is the newer half. A chat app
+carries what a team says; Blob is also where the team's work is decided, assigned and
+followed up — work channels with a `work_items` row, tasks with a human owner, decisions
+with citations, recurring runs that compile a standup. Those are not integrations parked
+beside the conversation. They are in it, because the decision was made in it.
 
 ## Why it exists
 
@@ -30,6 +36,15 @@ working in the same rooms under the same permissions.
   held back behind a plan check or an enterprise tier — the deployment a team runs is the
   whole product. Agents join a workspace as real members with real permissions, and their
   output lands in the conversation rather than in a panel bolted beside it.
+- **The work, not only the talk.** Blob organises a team as well as carrying what it
+  says. A thread that reaches a decision should be able to leave a decision behind, and
+  an action agreed in a channel should become a task with a human owner without anybody
+  retyping it somewhere else. This is the principle that makes work channels, tasks,
+  decisions, summaries and scheduled agent runs core rather than scope creep — and it is
+  the reason an agent here is asked to *do* something with a conversation, not merely to
+  answer in it. It does not license a project-management product: everything it covers
+  must live in a channel, under the same membership and the same permissions as the
+  conversation it came from.
 - **As familiar as Slack.** Someone who uses Slack should not have to learn Blob: the same
   layout, the same words for things — channels, threads, DMs, reactions, ⌘K — and the same
   keyboard reflexes. Where a cleverer interaction competes with the one Slack users already
@@ -51,3 +66,12 @@ working in the same rooms under the same permissions.
   apps. Private channels answer 404, not 403, because their existence is private.
 - **Fail toward the workspace staying up.** A dead mail server, a broken plugin, a slow
   app or a failed unfurl degrades that one thing and nothing else.
+- **Find out what the current answer is before building the old one.** Before a feature
+  is designed, or a dependency or platform API chosen, look up the present state of the
+  art and say what you found. Propose the current approach first; if you recommend an
+  older one, give the reason. The expensive mistake here is not a bug — it is a month
+  spent shipping the 2023 way of doing what 2026 does in a tenth of the code, and no test
+  catches that. Ready is part of the rule: client code means Chrome, Firefox and Safari
+  today, which is why the design layer still refuses anchor positioning and scroll-driven
+  animations. "I checked and the established option is still right" answers this rule;
+  "I did not check" does not.

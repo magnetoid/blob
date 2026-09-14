@@ -14,6 +14,26 @@ rules:
     scope: "apps/api/src/blob_api/routers/*.py"
     message: "Routers shape and authorize; SQL belongs in a service — see ADR 0003."
     severity: error
+  - kind: forbid_pattern
+    target: "(?m)^(?!\\s*#).*\\bsession\\.add\\("
+    scope: "apps/api/src/blob_api/services/*.py"
+    message: "db/models.py defines the schema; it is not a query layer — see ADR 0003."
+    severity: error
+  - kind: forbid_pattern
+    target: "(?m)^(?!\\s*#).*\\bsession\\.add\\("
+    scope: "apps/api/src/blob_api/routers/*.py"
+    message: "db/models.py defines the schema; it is not a query layer — see ADR 0003."
+    severity: error
+  - kind: forbid_pattern
+    target: "(?m)^(?!\\s*#).*\\bselect\\("
+    scope: "apps/api/src/blob_api/services/*.py"
+    message: "Reads are text() with bound parameters, not a query builder — see ADR 0003."
+    severity: error
+  - kind: forbid_pattern
+    target: "(?m)^(?!\\s*#).*\\bselect\\("
+    scope: "apps/api/src/blob_api/routers/*.py"
+    message: "Reads are text() with bound parameters, not a query builder — see ADR 0003."
+    severity: error
 ---
 
 # ADR 0003: SQLAlchemy for schema, verbatim SQL for the hot paths
