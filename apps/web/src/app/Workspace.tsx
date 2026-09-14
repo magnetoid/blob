@@ -411,6 +411,10 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         onToggleSidebar={toggleSidebar}
         view={view}
         minimal
+        onSearch={() => {
+          setPaletteOnly(undefined);
+          setPaletteOpen(true);
+        }}
       />
       <Sidebar
         collapsed={sidebarCollapsed}

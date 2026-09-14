@@ -2484,8 +2484,26 @@ dialog.palette-host {
   color: var(--accent);
 }
 
+/* A message result is a sentence, not a name, so the row has to be able to give up
+   width rather than push the kind badge off the end. `min-width: 0` is the part that
+   does the work — a flex child will not shrink below its content without it. */
+.palette-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The hint says who and where, which stays legible when the body is cut instead. */
+.palette-item-hint {
+  flex: none;
+  font-size: var(--text-meta);
+  white-space: nowrap;
+}
+
 .palette-item-kind {
   margin-left: auto;
+  padding-left: 8px;
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.06em;

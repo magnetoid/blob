@@ -38,6 +38,14 @@ interface Props {
   view: View;
   /** The chat shell keeps the bar intentionally sparse. */
   minimal?: boolean;
+  /** Open the palette instead of navigating to the search page.
+   *
+   * The bar's search button used to leave the conversation to answer a question about
+   * it, which is the one thing a reader looking something up does not want. Where a
+   * palette is mounted it takes the click; the console has none, so there the button
+   * still navigates and nothing has to know why.
+   */
+  onSearch?: () => void;
   /** Draw the workspace mark and switcher here.
    *
    * True everywhere now. It was false in the main shell for a while, with the sidebar
@@ -55,6 +63,7 @@ export function TopBar({
   view,
   minimal = false,
   brand = true,
+  onSearch,
 }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
@@ -140,7 +149,7 @@ export function TopBar({
           <button
             className="topbar-nav-btn"
             aria-pressed={view === 'search'}
-            onClick={() => navigate(pathForView('search'))}
+            onClick={() => (onSearch ? onSearch() : navigate(pathForView('search')))}
             aria-label="Search"
             data-tooltip="Search"
           >
@@ -178,7 +187,7 @@ export function TopBar({
           <button
             className="topbar-search-btn"
             aria-pressed={view === 'search'}
-            onClick={() => navigate(pathForView('search'))}
+            onClick={() => (onSearch ? onSearch() : navigate(pathForView('search')))}
             aria-label="Search"
             title="Search"
           >

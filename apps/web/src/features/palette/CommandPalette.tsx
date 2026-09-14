@@ -7,20 +7,26 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
-import { showChannel } from "../../lib/navigation.ts";
-import { navigate } from "../../lib/router.ts";
+import { showChannel, showMessage } from "../../lib/navigation.ts";
+import { navigate, pathForRoute } from "../../lib/router.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { Dialog } from "../../components/Dialog.tsx";
 
 interface Item {
   id: string;
   label: string;
-  kind: "Channel" | "Person" | "Action";
+  kind: "Channel" | "Person" | "Action" | "Message";
   hint?: string;
   run: () => void | Promise<void>;
+}
+
+/** A body on one line, so a result is one row whatever was typed into it. */
+function oneLine(body: string): string {
+  return body.replace(/\s+/g, " ").trim();
 }
 
 export function CommandPalette({
@@ -45,11 +51,54 @@ export function CommandPalette({
 
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
+  const [found, setFound] = useState<{ messages: Message[]; total: number }>({
+    messages: [],
+    total: 0,
+  });
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  /**
+   * What was *said*, not just where to go.
+   *
+   * The palette used to offer "Search messages…" as an action that navigated away, so
+   * ⌘K could tell you a channel existed and never what was in it — and the bar's search
+   * button left the conversation to answer a question about it. One surface finds
+   * anything now; `/search` stays for a shareable link and for paging through a long
+   * result, which a popup should not try to be.
+   *
+   * Debounced, because search is rate limited server-side and a palette is typed into
+   * quickly. `live` is the part worth keeping: without it an earlier, slower response
+   * can land after a later one and leave the list showing results for a prefix of what
+   * is in the box — the race every search field gets wrong once.
+   */
+  useEffect(() => {
+    const q = query.trim();
+    if (only === "people" || q.length < 2) {
+      setFound({ messages: [], total: 0 });
+      return;
+    }
+    let live = true;
+    const timer = setTimeout(() => {
+      void api
+        .search(q)
+        .then((result) => {
+          if (live) setFound({ messages: result.messages, total: result.total });
+        })
+        .catch(() => {
+          // A failed search must not take the jump list down with it: the palette's
+          // first job still works offline, and a toast over a popup is noise.
+          if (live) setFound({ messages: [], total: 0 });
+        });
+    }, 180);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [query, only]);
 
   const items = useMemo<Item[]>(() => {
     const channelItems: Item[] = Object.values(channels)
@@ -149,16 +198,60 @@ export function CommandPalette({
     return [...channelItems, ...peopleItems, ...actionItems];
   }, [channels, users, currentUser, setPrefs, channelTitle, only]);
 
+  const messageItems = useMemo<Item[]>(
+    () =>
+      found.messages.slice(0, 6).map((message) => {
+        const channel = channels[message.channelId];
+        const where = channel
+          ? channel.name
+            ? `#${channel.name}`
+            : channelTitle(channel)
+          : "a conversation";
+        return {
+          id: `m-${message.id}`,
+          label: oneLine(message.body) || "(no text)",
+          kind: "Message",
+          hint: `${(message.authorId ? users[message.authorId]?.displayName : null) ?? "Someone"} · ${where}`,
+          run: async () => {
+            await showMessage(message.id);
+          },
+        };
+      }),
+    [found.messages, channels, users, channelTitle],
+  );
+
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase().replace(/^[#@]/, "");
     if (!q) return items.slice(0, 12);
-    return items
+    // Jumping stays first and stays fast — it is what the key is reached for, and it
+    // answers while the search request is still in the air. Messages take the room
+    // below rather than competing for the same twelve slots.
+    const jump = items
       .map((item) => ({ item, score: score(item.label.toLowerCase(), q) }))
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 12)
+      .slice(0, messageItems.length > 0 ? 6 : 12)
       .map((entry) => entry.item);
-  }, [items, query]);
+
+    const all = [...jump, ...messageItems];
+    if (found.total > messageItems.length) {
+      all.push({
+        id: "m-all",
+        label: `See all ${found.total} results for “${query.trim()}”`,
+        kind: "Action",
+        // The page, not the popup: modifiers, sorting and paging live there, and the
+        // URL is the thing somebody sends to a colleague.
+        run: () => navigate(pathForRoute({ view: "search", query: query.trim() })),
+      });
+    }
+    return all;
+  }, [items, query, messageItems, found.total]);
+
+  // Results arrive after the list was already drawn, so the highlight can end up past
+  // the end of it. Enter would then do nothing at all, which reads as a broken palette.
+  useEffect(() => {
+    if (index >= matches.length) setIndex(0);
+  }, [matches.length, index]);
 
   async function choose(item: Item | undefined) {
     if (!item) return;
@@ -205,7 +298,7 @@ export function CommandPalette({
           placeholder={
             only === "people"
               ? "Message someone…"
-              : "Jump to a channel, a person, or an action…"
+              : "Search everything — channels, people, messages…"
           }
           onChange={(e) => {
             setQuery(e.target.value);
@@ -248,8 +341,8 @@ export function CommandPalette({
                     size="sm"
                   />
                 )}
-                <span>{item.label}</span>
-                {item.hint && <span className="muted">{item.hint}</span>}
+                <span className="palette-item-label">{item.label}</span>
+                {item.hint && <span className="palette-item-hint muted">{item.hint}</span>}
                 <span className="palette-item-kind">{item.kind}</span>
               </button>
             ))
