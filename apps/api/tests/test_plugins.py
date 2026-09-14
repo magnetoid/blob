@@ -20,11 +20,11 @@ from sqlalchemy import text
 from blob_api.db.engine import SessionFactory
 from blob_api.lib import net
 from blob_api.lib.errors import AppError
-from blob_api.plugins import signing
+from blob_api.plugins import registry, signing
 from blob_api.plugins.delivery import BACKOFF_SEC, backoff_for
 from blob_api.plugins.manifest import EVENT_SCOPES, EVENTS, SCOPES, Manifest, validate_manifest
 
-from .helpers import Client, invite_and_sign_up, send_message, sign_up
+from .helpers import Client, invite_and_sign_up, send_message, sign_up, workspace_id_of
 
 APP = {
     "slug": "standup-bot",
@@ -919,3 +919,38 @@ class TestAppChannels:
             f"/api/admin/plugins/{installed['plugin']['id']}/channels/{team['general']}", {}
         )
         assert response.status == 403
+
+
+# ─── installing with an operator-chosen secret ────────────────────────────────
+async def test_install_can_be_given_its_signing_secret(team: dict) -> None:
+    """A seeded agent's secret comes from the environment, not from us.
+
+    Blob normally mints one at install and shows it once. That cannot work for an agent
+    whose container environment is written before Blob starts: the two would never agree.
+    """
+    workspace_id = await workspace_id_of(team["owner"])
+    manifest = Manifest(
+        slug="secret-probe",
+        name="Secret Probe",
+        runtime="external",
+        agui_url="https://example.invalid/v1/agui",
+        scopes=[],
+    )
+    async with SessionFactory() as session:
+        async with session.begin():
+            installed = await registry.install(
+                session,
+                workspace_id=workspace_id,
+                manifest=manifest,
+                installed_by=team["owner"].user_id,
+                signing_secret="a-secret-the-operator-chose",
+            )
+            stored = (
+                await session.execute(
+                    text("SELECT signing_secret FROM plugin_secrets WHERE plugin_id = :id"),
+                    {"id": installed.plugin_id},
+                )
+            ).fetchone()
+    assert installed.signing_secret == "a-secret-the-operator-chose"
+    assert stored is not None
+    assert stored.signing_secret == "a-secret-the-operator-chose"

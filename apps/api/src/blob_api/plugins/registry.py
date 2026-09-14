@@ -90,6 +90,10 @@ async def install(
     #: True only when Blob is seeding its own agent. Defaults to false so that a route
     #: reaching this without thinking about it gets the refusal rather than the exemption.
     trusted: bool = False,
+    #: Use this instead of generating one. Only the seeder passes it, and only because an
+    #: agent running as a service in this stack reads its half of the secret from a static
+    #: container environment — a value Blob generated afterwards could never reach it.
+    signing_secret: str | None = None,
 ) -> Installed:
     validate_manifest(manifest, reserved_commands=reserved_commands, trusted=trusted)
 
@@ -134,7 +138,7 @@ async def install(
         },
     )
 
-    secret = new_secret()
+    secret = signing_secret or new_secret()
     await session.execute(
         text("INSERT INTO plugin_secrets (plugin_id, signing_secret) VALUES (:id, :secret)"),
         {"id": plugin_id, "secret": secret},
