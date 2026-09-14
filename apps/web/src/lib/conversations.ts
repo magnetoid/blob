@@ -59,9 +59,43 @@ export function joinedChannels(
     });
 }
 
-function openDms(channels: Record<string, ChannelWithState>): ChannelWithState[] {
+/**
+ * A one-to-one conversation with an agent that has been uninstalled.
+ *
+ * `uninstall` retires the bot thoroughly — deactivated, its handle released so nobody
+ * can mention it, its address mangled so the name is free for the next install — and
+ * keeps every message it ever sent. The one thing it cannot do is close the DM, so the
+ * conversation stayed in the sidebar drawing the name of a program that is no longer in
+ * the workspace. Four of them in one production workspace on 2026-09-14, three empty.
+ *
+ * Excluded from the sidebar rather than moved down to the people: a deactivated
+ * colleague's DM belongs under Direct messages — Slack keeps it, and they are still
+ * somebody you spoke to — but an uninstalled app is not somebody you have a direct
+ * message with. The history is still there, reachable by search and by URL; it was the
+ * sidebar's claim that the agent is here that was false.
+ *
+ * A *group* DM it was in stays, for the reason `isAgentDm` gives: that is a conversation
+ * between people which an agent was also in.
+ */
+function isRetiredAgentDm(channel: ChannelWithState, users: UserDirectory): boolean {
+  if (channel.kind !== 'dm') return false;
+  return (channel.memberIds ?? []).some(
+    (id) => users[id]?.kind === 'bot' && users[id]?.deactivated,
+  );
+}
+
+function openDms(
+  channels: Record<string, ChannelWithState>,
+  users: UserDirectory = {},
+): ChannelWithState[] {
   return Object.values(channels).filter(
-    (c) => c.membership !== null && !c.archivedAt && (c.kind === 'dm' || c.kind === 'group_dm'),
+    (c) =>
+      c.membership !== null &&
+      !c.archivedAt &&
+      (c.kind === 'dm' || c.kind === 'group_dm') &&
+      // One rule, one place: both lists below are built from this, so neither can end up
+      // showing a conversation the other has dropped.
+      !isRetiredAgentDm(c, users),
   );
 }
 
@@ -70,7 +104,7 @@ export function agentConversations(
   channels: Record<string, ChannelWithState>,
   users: UserDirectory = {},
 ): ChannelWithState[] {
-  return openDms(channels).filter((c) => isAgentDm(c, users));
+  return openDms(channels, users).filter((c) => isAgentDm(c, users));
 }
 
 /** The direct messages with people, in the order they arrived. */
@@ -78,7 +112,7 @@ export function directMessages(
   channels: Record<string, ChannelWithState>,
   users: UserDirectory = {},
 ): ChannelWithState[] {
-  return openDms(channels).filter((c) => !isAgentDm(c, users));
+  return openDms(channels, users).filter((c) => !isAgentDm(c, users));
 }
 
 /** Everything you can step through with the keyboard, top to bottom as drawn. */

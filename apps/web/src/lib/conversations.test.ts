@@ -293,3 +293,60 @@ describe('agents are their own section', () => {
     expect(stepUnread(unread, 'alpha', 1, users)).toBe('dm-scout');
   });
 });
+
+/**
+ * An uninstalled agent stops being in the workspace, so it stops being in the sidebar.
+ *
+ * `uninstall` retires the bot thoroughly — `deactivated_at` set, its handle released so
+ * nobody can mention it, its address mangled so the name is free again — and keeps every
+ * message it ever sent. What it cannot do is close the DM, so the conversation stayed in
+ * the Agents section drawing a name for a program that is gone. Measured on production
+ * 2026-09-14: four such rows in one workspace, three of the conversations empty.
+ *
+ * It does not move to Direct messages either. A deactivated colleague's DM belongs there
+ * — Slack keeps it, and they are still a person you spoke to — but an uninstalled app is
+ * not somebody you have a direct message with. The history stays reachable by search and
+ * by URL; it is the sidebar's claim that the agent is here that was false.
+ */
+describe('an agent that was uninstalled', () => {
+  const users = {
+    me: { id: 'me', kind: 'human', displayName: 'Me' },
+    ana: { id: 'ana', kind: 'human', displayName: 'Ana', deactivated: true },
+    scout: { id: 'scout', kind: 'bot', displayName: 'Scout' },
+    gone: { id: 'gone', kind: 'bot', displayName: 'Janus', deactivated: true },
+  } as unknown as Parameters<typeof conversationOrder>[1];
+
+  const channels = workspace(
+    channel('alpha'),
+    channel('dm-ana', { kind: 'dm', name: null, memberIds: ['me', 'ana'] }),
+    channel('dm-scout', { kind: 'dm', name: null, memberIds: ['me', 'scout'] }),
+    channel('dm-gone', { kind: 'dm', name: null, memberIds: ['me', 'gone'] }),
+  );
+
+  it('leaves the Agents section', () => {
+    expect(agentConversations(channels, users).map((c) => c.id)).toEqual(['dm-scout']);
+  });
+
+  it('does not reappear under the people instead', () => {
+    expect(directMessages(channels, users).map((c) => c.id)).toEqual(['dm-ana']);
+  });
+
+  it('is gone from the list the keyboard walks, which is the drawn one', () => {
+    expect(conversationOrder(channels, users).map((c) => c.id)).toEqual([
+      'alpha',
+      'dm-scout',
+      'dm-ana',
+    ]);
+  });
+
+  it('keeps a deactivated person, who is still somebody you spoke to', () => {
+    expect(directMessages(channels, users).map((c) => c.id)).toContain('dm-ana');
+  });
+
+  it('keeps a group the retired agent was in, because it has people in it', () => {
+    const withGroup = workspace(
+      channel('group', { kind: 'group_dm', name: null, memberIds: ['me', 'ana', 'gone'] }),
+    );
+    expect(directMessages(withGroup, users).map((c) => c.id)).toEqual(['group']);
+  });
+});
