@@ -11,7 +11,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { WhatsNewView } from './WhatsNewView.tsx';
-import { RELEASES } from '../../lib/changelog.ts';
+import { RELEASES, formatReleaseDate } from '../../lib/changelog.ts';
 import { BUILD_COMMITS, BUILD_VERSION, isIdentified } from '../../lib/buildInfo.ts';
 
 afterEach(cleanup);
@@ -27,11 +27,17 @@ describe('what’s new', () => {
   it('stamps each release with a version as well as a date', () => {
     render(<WhatsNewView />);
 
-    // The version is the release date in the same shape the build stamp uses, so the
-    // two halves of the page can be compared by eye.
     const newest = RELEASES[0];
     expect(newest).toBeDefined();
-    expect(screen.getAllByText(newest!.date.replace(/-/g, '.')).length).toBeGreaterThan(0);
+    // The release's own version and its own date, which is what this test is named for.
+    //
+    // It used to assert that the release date appeared in the build stamp's shape
+    // (`2026.09.13`) — but that stamp is the *commit's* date, so the assertion held only
+    // while HEAD was still the commit that shipped the newest release. It passed on the
+    // day and failed the next morning, taking `pnpm check` and therefore the deploy gate
+    // with it. A test that measures the calendar is not measuring the page.
+    expect(screen.getAllByText(`v${newest!.version}`).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(formatReleaseDate(newest!.date)).length).toBeGreaterThan(0);
   });
 
   it('marks the notes read on arrival', () => {
