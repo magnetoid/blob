@@ -440,6 +440,35 @@ Worth knowing before changing the equivalent code:
   `store.unread.window.test.ts`. The first three were the pointer being wrong; this one is
   the *window* being behind, which no amount of pointer maintenance fixes.
 
+- **Uninstalling an agent cannot close its DM, so the sidebar kept naming it.**
+  `plugins.registry.uninstall` retires a bot as thoroughly as it can — `deactivated_at`
+  set, handle released so nobody can mention it, address mangled so the next install can
+  reuse the name, every message it sent kept — but nothing closes the conversation, and
+  the Agents section was built from "a one-to-one DM with a bot in it" without asking
+  whether that bot was still here. One production workspace on 2026-09-14 held six
+  retired bots (`BBlob`, `Blob` ×2, `Janus` ×2, `blob`) and four open DMs with them,
+  three of the conversations empty. The rule now lives in `conversations.openDms`, which
+  both the agent list and the people list are built from, so the two cannot disagree and
+  the keyboard walks what the sidebar draws. Excluded rather than moved to Direct
+  messages: a deactivated colleague's DM belongs there and stays, an uninstalled program
+  is not somebody you have a direct message with.
+
+- **Disabled is not deactivated, and the difference is the handle.** An agent whose app
+  an admin switched off answers nothing, so `agentIsAvailable` treats it like a retired
+  one in the sidebar, the agent DMs and the mention autocomplete. Do **not** implement
+  that by setting `deactivated_at` on the bot while it is disabled, which is the obvious
+  shortcut: deactivation calls `handles.release_user`, so the agent would lose its name
+  to whoever claimed it next and have nothing to take back when it was re-enabled. It is
+  its own wire field, `User.agentDisabled`, computed only in `users.list_users` — the one
+  query the client builds its agent list from — with `EXISTS` and not a join, because
+  `USER_COLUMNS` is unqualified and `plugins` carries `id`, `name` and `status` of its
+  own. A **third** state with the same shape is still open: `agents_enabled` false at
+  workspace level makes every run refuse (`jobs/agui.py`) while every agent stays listed.
+  **A workspace that has installed the same agent a few times holds several bot rows with
+  one display name** — three called "Blob" in that workspace — so anything that finds an
+  agent by name must check availability first, which is what `HomeView`'s ask box did
+  backwards.
+
 - **`MAX(uuid)` does not exist in Postgres.** There is no max aggregate for the type, so
   "the newest message per channel" is `DISTINCT ON (channel_id) … ORDER BY channel_id,
   id DESC`, which also walks the existing index rather than aggregating the table.
