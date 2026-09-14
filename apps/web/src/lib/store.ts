@@ -325,6 +325,63 @@ function inChannelHistory(message: Message): boolean {
   return !message.threadRootId || message.alsoInChannel;
 }
 
+/**
+ * Bring the loaded window up to the channel's newest message, if it is not there.
+ *
+ * `applyEvent` folds an arrival only into a list that already ends at the channel's
+ * `lastMessageId` — otherwise a live message would land directly beneath a row hundreds
+ * older with the gap invisible, and get the backlog between them acked. That is right
+ * for everybody else's messages and wrong for your own: opening a channel with more than
+ * half a page of unread loads a window *around* the read cursor (`openChannel`'s
+ * `jumpToUnread`, and `around` returns at most 25 rows after it), so the list very often
+ * does not reach the tail — and then the message you just typed was dropped by that same
+ * rule. The optimistic row is removed the instant the 201 arrives, so it did not linger
+ * either: the message simply was not there, and only a reload brought it back.
+ *
+ * So sending goes to where the message landed, which is what Slack does and the only
+ * honest answer — the alternative is showing your message above a gap it is not above.
+ * A failed fetch is swallowed on purpose: the message is stored, and failing the send
+ * over a refresh would be a worse lie than a stale window.
+ */
+async function ensureTailLoaded(
+  set: Parameters<StateCreator<State>>[0],
+  get: () => State,
+  channelId: string,
+): Promise<void> {
+  const existing = get().messages[channelId];
+  // Nothing on screen to be behind, or a first page still in flight — which merges
+  // arrivals when it lands and needs no help from here.
+  if (!existing?.loaded) return;
+  const newest = stripPending(existing.items).at(-1)?.id ?? null;
+  if (newest === (get().channels[channelId]?.lastMessageId ?? null)) return;
+
+  let page: { messages: Message[]; hasMore: boolean };
+  try {
+    page = await api.messages.history(channelId, { limit: 50 });
+  } catch {
+    return;
+  }
+  set((s) => ({
+    messages: {
+      ...s.messages,
+      [channelId]: {
+        // Replaced, not merged, for the reason the `around` branch of `openChannel`
+        // gives: this page and the window it supersedes are not neighbours.
+        items: overlayChannelOutbox(
+          s.currentUser,
+          sortOutbox(s.outbox),
+          channelId,
+          page.messages,
+        ),
+        hasMore: page.hasMore,
+        loading: false,
+        loaded: true,
+        error: false,
+      },
+    },
+  }));
+}
+
 export const useStore = create<State>((set, get) => ({
   ready: false,
   status: "offline",
@@ -511,6 +568,11 @@ export const useStore = create<State>((set, get) => ({
           return next;
         });
         get().applyEvent({ t: "message.new", message });
+        // The same reason as `sendMessage`: a message of your own is the one arrival
+        // that must never be dropped for landing in a window behind the tail. Delayed
+        // by a reconnect rather than typed a second ago, but still yours.
+        if (inChannelHistory(message))
+          await ensureTailLoaded(set, get, latest.channelId);
       } catch (error) {
         if (isRecoverableSendError(error)) {
           setOutbox(set, get, (outbox) => ({
@@ -865,6 +927,11 @@ export const useStore = create<State>((set, get) => ({
         return next;
       });
       get().applyEvent({ t: "message.new", message });
+      // Ordered after the fold deliberately: `applyEvent` has just moved the channel's
+      // tail pointer to this message, so "is the window at the tail?" is now exactly
+      // "did the fold happen?" — and in the ordinary case it did, so this returns
+      // without a request.
+      if (inChannelHistory(message)) await ensureTailLoaded(set, get, channelId);
     } catch (error) {
       if (isRecoverableSendError(error)) {
         setOutbox(set, get, (outbox) => ({

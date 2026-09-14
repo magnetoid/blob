@@ -421,6 +421,25 @@ Worth knowing before changing the equivalent code:
   component is not evidence its elements are gone. The same pattern was in `ThreadPanel`
   (`key={rootId}`) and went the same way.
 
+- **Opening a channel with unread puts you in a window that is behind the tail, and your
+  own message was dropped into it.** `openChannel`'s `jumpToUnread` fetches
+  `around(lastRead)`, and `history`'s `around` returns *at most `limit // 2`* rows after
+  the cursor — 25 on a 50-row page. So with more than 25 unread the loaded list does not
+  reach `channels[id].lastMessageId`, and `applyEvent`'s `wasAtTail` test is false for the
+  rest of the session. That test exists to stop a live message landing beneath a row
+  hundreds older, which is right for everybody else's messages; for your own it meant the
+  message you had just typed was thrown away — the optimistic row is deleted the instant
+  the 201 lands — so the channel looked like it had swallowed it, and only a reload (once
+  the cursor had crept forward) brought it back. Reproduced 2026-09-14 by posting 30
+  messages while the tab was closed, opening the channel and sending: the message was the
+  newest row the server held and was nowhere in the document. `ensureTailLoaded` in
+  `store.ts` now fetches the newest page after your own send, both from `sendMessage` and
+  from `flushOutbox`. **This is the fourth route to "messages stop appearing until I
+  reload"** — after the thread reply that advanced the pointer, the reconnect replay that
+  walked it backwards, and the delete that stranded it, all pinned in
+  `store.unread.window.test.ts`. The first three were the pointer being wrong; this one is
+  the *window* being behind, which no amount of pointer maintenance fixes.
+
 - **`MAX(uuid)` does not exist in Postgres.** There is no max aggregate for the type, so
   "the newest message per channel" is `DISTINCT ON (channel_id) … ORDER BY channel_id,
   id DESC`, which also walks the existing index rather than aggregating the table.

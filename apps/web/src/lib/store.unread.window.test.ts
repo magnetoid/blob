@@ -16,12 +16,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const markRead = vi.fn(async () => ({}));
+const sendApi = vi.fn();
+const history = vi.fn();
 
 vi.mock("./api.ts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api.ts")>();
   return {
     ...actual,
-    api: { ...actual.api, channels: { ...actual.api.channels, markRead } },
+    api: {
+      ...actual.api,
+      channels: { ...actual.api.channels, markRead },
+      messages: { ...actual.api.messages, send: sendApi, history },
+    },
   };
 });
 
@@ -90,7 +96,11 @@ function loadChannel(
   } as never);
 }
 
-beforeEach(() => markRead.mockClear());
+beforeEach(() => {
+  markRead.mockClear();
+  sendApi.mockReset();
+  history.mockReset();
+});
 
 describe("a message arriving while the tail is on screen", () => {
   it("is folded in and marks the channel read", () => {
@@ -214,5 +224,101 @@ describe("deleting the newest message", () => {
       .applyEvent({ t: "message.deleted", id: "m1", channelId: "c1", threadRootId: null } as never);
 
     expect(useStore.getState().channels["c1"]?.lastMessageId).toBeNull();
+  });
+});
+
+/**
+ * The fourth route, and the only one where dropping the message is indefensible.
+ *
+ * Opening a channel with more than half a page of unread loads a window *around* the
+ * read cursor — `openChannel`'s `jumpToUnread` — and `around` returns at most 25 rows
+ * after it. So the list you are looking at very often does not reach the channel's
+ * newest message, and `wasAtTail` above is false for the rest of the session.
+ *
+ * For somebody else's message that is right: it would land beneath a row hundreds
+ * older with the gap invisible. For your own it is not. You typed it, the server
+ * stored it, the optimistic row is removed the moment the 201 comes back — and then
+ * the real one is dropped, so the message you just sent is simply not there, and only
+ * a reload brings it back.
+ *
+ * The answer is Slack's: sending takes you to where the message landed.
+ */
+describe("a message you send from a window behind the tail", () => {
+  it("is on screen afterwards, with the messages it followed", async () => {
+    loadChannel(["m100", "m101"], "m900", { status: "online" });
+    sendApi.mockResolvedValue({
+      message: msg("m901", { authorId: "me" }),
+    });
+    history.mockResolvedValue({
+      messages: [msg("m899"), msg("m900"), msg("m901", { authorId: "me" })],
+      hasMore: true,
+    });
+
+    await useStore.getState().sendMessage("c1", "hello");
+
+    expect(useStore.getState().messages["c1"]?.items.map((m) => m.id)).toEqual([
+      "m899",
+      "m900",
+      "m901",
+    ]);
+  });
+
+  it("costs no extra request when the list already reached the tail", async () => {
+    loadChannel(["m1", "m2"], "m2", { status: "online" });
+    sendApi.mockResolvedValue({ message: msg("m3", { authorId: "me" }) });
+
+    await useStore.getState().sendMessage("c1", "hello");
+
+    expect(history).not.toHaveBeenCalled();
+    expect(useStore.getState().messages["c1"]?.items.map((m) => m.id)).toEqual([
+      "m1",
+      "m2",
+      "m3",
+    ]);
+  });
+
+  it("leaves the channel where it is for a thread reply, which is not in it", async () => {
+    loadChannel(["m100", "m101"], "m900", { status: "online" });
+    sendApi.mockResolvedValue({
+      message: msg("m901", { authorId: "me", threadRootId: "m50" }),
+    });
+
+    await useStore.getState().sendMessage("c1", "hello", "m50");
+
+    expect(history).not.toHaveBeenCalled();
+  });
+});
+
+describe("a queued message replayed after a reconnect", () => {
+  it("is shown too — it is still yours, only delayed", async () => {
+    loadChannel(["m100", "m101"], "m900", {
+      status: "online",
+      outbox: {
+        q1: {
+          clientMsgId: "q1",
+          channelId: "c1",
+          threadRootId: null,
+          body: "hello",
+          attachmentIds: [],
+          alsoInChannel: false,
+          createdAt: "2026-09-01T10:00:00.000Z",
+          status: "queued",
+          attempts: 0,
+          lastError: null,
+        },
+      },
+    });
+    sendApi.mockResolvedValue({ message: msg("m901", { authorId: "me" }) });
+    history.mockResolvedValue({
+      messages: [msg("m900"), msg("m901", { authorId: "me" })],
+      hasMore: true,
+    });
+
+    await useStore.getState().flushOutbox();
+
+    expect(useStore.getState().messages["c1"]?.items.map((m) => m.id)).toEqual([
+      "m900",
+      "m901",
+    ]);
   });
 });
