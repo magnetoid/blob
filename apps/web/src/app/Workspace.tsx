@@ -411,7 +411,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         onToggleSidebar={toggleSidebar}
         view={view}
         minimal
-        brand={false}
       />
       <Sidebar
         collapsed={sidebarCollapsed}

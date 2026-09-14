@@ -9,7 +9,6 @@ import { useStore } from '../../lib/store.ts';
 import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
 import { agentConversations, directMessages, joinedChannels } from '../../lib/conversations.ts';
-import { WorkspaceSwitcher } from '../shell/WorkspaceSwitcher.tsx';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import {
   ChevronLeftIcon,
@@ -42,7 +41,6 @@ export function Sidebar({
   const currentUser = useStore((s) => s.currentUser);
   const activeView = parseRoute(usePath()).view;
   const savedCount = useStore((s) => s.savedMessageIds.size);
-  const workspaceName = useStore((s) => s.workspaceName);
   const agentRuns = useStore((s) => s.agentRuns);
 
   const [creating, setCreating] = useState(false);
@@ -96,17 +94,11 @@ export function Sidebar({
   return (
     <aside className="sidebar" data-collapsed={collapsed ? 'true' : 'false'}>
       <div className="sidebar-header">
-        {/* The workspace mark and name, which the top bar used to carry. Moved here
-            because this is where the design puts identity and where the eye starts:
-            top-left, above the list of the places inside it. The mark is the initial on
-            the accent, so a workspace is recognisable before its name is read — and at
-            collapsed width the mark is all that is left, which is the point of it. */}
-        <div className="sidebar-identity">
-          <span className="workspace-mark" aria-hidden="true">
-            {workspaceName.trim().charAt(0).toUpperCase() || 'B'}
-          </span>
-          {!collapsed && <WorkspaceSwitcher name={workspaceName} />}
-        </div>
+        {/* Identity lives in the top bar, not here. It sat in this corner for a while
+            because that is where Slack puts it, but the bar spans both the list and the
+            conversation while this column does not — a name that names the whole app
+            belongs above the whole app. Moving it also gives the channel list back the
+            height the header was spending, which is most of what "compact" buys. */}
         {onToggleCollapse && (
           <button
             type="button"

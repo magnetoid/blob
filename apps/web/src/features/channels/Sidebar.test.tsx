@@ -37,23 +37,24 @@ function seed() {
 }
 
 describe('the sidebar header', () => {
-  it('carries the workspace mark and name, which the top bar no longer does', () => {
-    // The reverse of what this asserted before. The name used to live in the top bar
-    // and repeating it here would have been noise; the design moves identity to the top
-    // of the channel list, and `TopBar` in the main shell is now passed `brand={false}`.
+  it('draws no identity of its own — the top bar carries it', () => {
+    // This has now swung both ways, so it is worth saying why rather than just which:
+    // the bar spans the channel list *and* the conversation, this column spans only the
+    // list, and the workspace names the whole app. What the test is really pinning is
+    // that exactly one surface draws the name — two copies a few centimetres apart is
+    // the defect either arrangement can produce.
     seed();
     const { container } = render(<Sidebar />);
 
-    expect(screen.getByText('Imba')).toBeTruthy();
-    expect(container.querySelector('.workspace-mark')?.textContent).toBe('I');
+    expect(container.querySelector('.workspace-mark')).toBeNull();
+    expect(screen.queryByText('Imba')).toBeNull();
   });
 
-  it('keeps the mark when collapsed, since an initial is still an identity', () => {
+  it('draws none when collapsed either', () => {
     seed();
     const { container } = render(<Sidebar collapsed />);
 
-    expect(container.querySelector('.workspace-mark')?.textContent).toBe('I');
-    expect(screen.queryByText('Imba')).toBeNull();
+    expect(container.querySelector('.workspace-mark')).toBeNull();
   });
 
   it('offers a collapse control beside it', () => {

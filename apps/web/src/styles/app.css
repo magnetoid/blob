@@ -773,10 +773,13 @@ button {
  * a letter in it is still recognisably *this* workspace. Sized to the avatar scale
  * rather than the icon scale so it reads as an identity and not a button.
  */
-.sidebar-identity {
+/* Identity sits in the top bar now, not in the channel column. The selectors moved
+   with it rather than being duplicated: the sidebar no longer draws a mark at all, so
+   a `.sidebar-identity` rule left behind would style nothing and read as if it did. */
+.topbar-identity {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -784,8 +787,8 @@ button {
   flex: none;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--accent-contrast);
@@ -797,7 +800,7 @@ button {
 
 /* The switcher moved here from the top bar and inherits its class, so the name is
    restated at the weight the sidebar heading wants rather than the bar's. */
-.sidebar-identity .topbar-brand {
+.topbar-identity .topbar-brand {
   min-width: 0;
   font-size: var(--text-title);
   font-weight: 700;
@@ -835,10 +838,10 @@ button {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   width: 100%;
-  min-height: 40px;
-  padding: 8px 10px;
+  min-height: 34px;
+  padding: 5px 9px;
   border-radius: var(--radius-md);
   color: var(--text-2);
   font-size: var(--text-row);

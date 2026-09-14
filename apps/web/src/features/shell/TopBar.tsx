@@ -40,10 +40,11 @@ interface Props {
   minimal?: boolean;
   /** Draw the workspace mark and switcher here.
    *
-   * False in the main shell, where the sidebar carries identity — the design puts the
-   * workspace at the top of the channel list, and two copies of one name a few
-   * centimetres apart is the kind of thing nobody reports and everybody notices. The
-   * console has no sidebar, so there it stays true.
+   * True everywhere now. It was false in the main shell for a while, with the sidebar
+   * carrying identity instead — but the bar spans the list and the conversation while
+   * that column only spans the list, and a name that names the whole app belongs above
+   * the whole app. Exactly one surface draws it either way: two copies of one name a
+   * few centimetres apart is the kind of thing nobody reports and everybody notices.
    */
   brand?: boolean;
 }
@@ -74,7 +75,16 @@ export function TopBar({
           <MenuIcon size="lg" />
         </button>
       )}
-      {brand && <WorkspaceSwitcher name={workspaceName} />}
+      {brand && (
+        <div className="topbar-identity">
+          {/* The initial on the accent, so a workspace is recognisable before its name
+              is read — and the only part of identity a narrow bar keeps. */}
+          <span className="workspace-mark" aria-hidden="true">
+            {workspaceName.trim().charAt(0).toUpperCase() || 'B'}
+          </span>
+          <WorkspaceSwitcher name={workspaceName} />
+        </div>
+      )}
 
       {minimal && (
         <nav className="topbar-tabs" aria-label="Workspace">

@@ -137,14 +137,18 @@
   --text-xl: 22px;
 
   /* ─── layout ───────────────────────────────────────────────────────────── */
-  --sidebar-width: 264px;
+  --sidebar-width: 240px;
   --panel-width: 380px;
-  --header-height: 64px;
-  --topbar-height: 48px;
-  --pane-gutter: 22px;
+  --header-height: 56px;
+  --topbar-height: 44px;
+  --pane-gutter: 16px;
 
   /* ─── density (Balanced) ───────────────────────────────────────────────── */
-  --message-padding-y: 10px;
+  /* The chrome above and this were loosened together in 2026-09 and tightened together
+     again: type is already small (14px body), so density has to come out of space or
+     out of legibility, and it is not coming out of legibility. Touch is unaffected —
+     the `pointer: coarse` block keeps every target at 44px. */
+  --message-padding-y: 8px;
 
   /* ─── elevation ────────────────────────────────────────────────────────── */
   /* Every level opens with a 1px ring, so a surface's border and its shadow can
@@ -287,11 +291,13 @@
 }
 
 :root[data-density='compact'] {
-  --message-padding-y: 5px;
+  --message-padding-y: 4px;
+  --pane-gutter: 12px;
 }
 
 :root[data-density='airy'] {
-  --message-padding-y: 15px;
+  --message-padding-y: 13px;
+  --pane-gutter: 22px;
 }
 
 /* Dark, selected by the OS when the viewer has made no explicit choice. */
