@@ -199,6 +199,20 @@ class Settings(BaseSettings):
     LIVEKIT_API_KEY: str | None = None
     LIVEKIT_API_SECRET: str | None = None
 
+    #: Janus, when it is running as a service in this stack (`COMPOSE_PROFILES=janus`).
+    #:
+    #: The URL is internal on purpose — `http://janus:8642/v1/agui` on the `blob-agents`
+    #: network — and it never reaches `_assert_reachable`, which is the SSRF guard on the
+    #: *registration routes*. Blob composes this from its own settings rather than taking
+    #: it from anybody, so the exemption is a property of where the code path starts.
+    JANUS_AGUI_URL: str | None = None
+    #: Shared with the Janus service, which reads it as BLOB_SIGNING_SECRET. One value in
+    #: the operator's .env read by both sides, because a container's environment is static
+    #: and cannot be told a secret Blob generated after it started.
+    JANUS_SIGNING_SECRET: str | None = None
+    #: What people type after `@`. The slug stays `janus`; only the name is configurable.
+    JANUS_AGENT_NAME: str = "Janus"
+
     @field_validator(
         "SMTP_USER",
         "SMTP_PASS",
@@ -225,6 +239,8 @@ class Settings(BaseSettings):
         "AGENT_SHELL_HOST",
         "AGENT_SHELL_KEY",
         "AGENT_SHELL_HOST_KEY",
+        "JANUS_AGUI_URL",
+        "JANUS_SIGNING_SECRET",
     )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:
