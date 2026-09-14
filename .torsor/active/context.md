@@ -469,6 +469,22 @@ Worth knowing before changing the equivalent code:
   agent by name must check availability first, which is what `HomeView`'s ask box did
   backwards.
 
+- **A retired model name hangs instead of 404ing, and that is what "the agent does not
+  answer" looked like.** Both production instances ran `LLM_MODEL=deepseek-chat` against
+  `api.deepseek.com`. On 2026-09-14 that model was gone: `GET /v1/models` listed only
+  `deepseek-flash` and `deepseek-v4-pro`, and a completion for `deepseek-chat` returned
+  200 headers and then **no body at all** — 60 s from this laptop and from the production
+  container alike, so it was neither the network nor the key (`/v1/models` and
+  `/user/balance` both answered in under 0.4 s with $9.78 on the account). Every run
+  therefore hung to `LLM_READ_TIMEOUT_SEC` and failed. Imba had one agent run in seven
+  days; Hadley had none. `deepseek-flash` does not answer either, despite being listed.
+  **When an agent goes quiet, ask the provider `GET /v1/models` before reading any Blob
+  code** — it says what the account can actually call, and costs one request. Verified
+  before switching the default: `deepseek-v4-pro` answers in ~1 s, emits OpenAI-shaped
+  `tool_calls`, and streams — it also streams `reasoning_content` with `content: null`,
+  which `_openai` already skips because it yields only `str` deltas, so the visible text
+  arrives intact and the reasoning is correctly ignored.
+
 - **`MAX(uuid)` does not exist in Postgres.** There is no max aggregate for the type, so
   "the newest message per channel" is `DISTINCT ON (channel_id) … ORDER BY channel_id,
   id DESC`, which also walks the existing index rather than aggregating the table.

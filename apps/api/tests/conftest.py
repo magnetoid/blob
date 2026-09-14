@@ -46,7 +46,7 @@ os.environ["ARGON2_PROFILE"] = "fast"
 # `LLM_MODEL` belongs in this list as much as the other three, and leaving it out is how
 # this was found: `test_summary_model` turns the provider on with monkeypatch and then
 # asserts the *default* model for it, so a developer whose .env named a model watched two
-# tests fail with `llm:deepseek-chat != llm:claude-sonnet-5` and nothing to explain it.
+# tests fail with `llm:deepseek-v4-pro != llm:claude-sonnet-5` and nothing to explain it.
 os.environ["LLM_PROVIDER"] = "disabled"
 os.environ["LLM_API_KEY"] = ""
 os.environ["LLM_BASE_URL"] = ""

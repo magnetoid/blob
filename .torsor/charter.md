@@ -31,20 +31,23 @@ working in the same rooms under the same permissions.
 
 ## Non-negotiable principles
 
-- **Open source, and agent-native.** Blob is an open-source AI agentic work-team
-  communication platform. Every feature ships in this repo under one licence, with nothing
-  held back behind a plan check or an enterprise tier — the deployment a team runs is the
-  whole product. Agents join a workspace as real members with real permissions, and their
-  output lands in the conversation rather than in a panel bolted beside it.
-- **The work, not only the talk.** Blob organises a team as well as carrying what it
-  says. A thread that reaches a decision should be able to leave a decision behind, and
-  an action agreed in a channel should become a task with a human owner without anybody
-  retyping it somewhere else. This is the principle that makes work channels, tasks,
-  decisions, summaries and scheduled agent runs core rather than scope creep — and it is
-  the reason an agent here is asked to *do* something with a conversation, not merely to
-  answer in it. It does not license a project-management product: everything it covers
-  must live in a channel, under the same membership and the same permissions as the
-  conversation it came from.
+- **Open source, and agent-native.** Every feature ships in this repo under one licence,
+  with nothing held back behind a plan check or an enterprise tier — the deployment a team
+  runs is the whole product. Agents join a workspace as real members with real
+  permissions, and their output lands in the conversation rather than in a panel bolted
+  beside it.
+- **The work, not only the talk.** A thread that reaches a decision leaves a decision
+  behind, and an action agreed in a channel becomes a task with a human owner without
+  anybody retyping it elsewhere — which is why work channels, tasks, decisions, summaries
+  and scheduled runs are core rather than scope creep, and why an agent here is asked to
+  *do* something with a conversation rather than only answer in it. It does not license a
+  project-management product: everything it covers lives in a channel, under that
+  channel's membership and permissions.
+- **An agent is the workspace's or a person's.** `plugins.owner_user_id` NULL means an
+  admin installed it for everyone (the built-in agent, the `magnetoid/janus` one that
+  ships with the system); set means one member's, answering them, listed only for them,
+  lent out through `agent_delegations`. Whose it is stays private — 404, not 403. How it
+  arrives never implies which kind it is. ADR 0018.
 - **As familiar as Slack.** Someone who uses Slack should not have to learn Blob: the same
   layout, the same words for things — channels, threads, DMs, reactions, ⌘K — and the same
   keyboard reflexes. Where a cleverer interaction competes with the one Slack users already

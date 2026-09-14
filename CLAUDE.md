@@ -21,10 +21,14 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-seventeen ADRs; the principles below are their summary, not a substitute. 0013–0017 are the
-agentic surface — chains, work channels, summaries and nudges, the MCP caller, and what
-a shared agent may read — and are the ones this digest compresses hardest, so read them
-before changing that code.
+eighteen ADRs; the principles below are their summary, not a substitute. 0013–0018 are the
+agentic surface — chains, work channels, summaries and nudges, the MCP caller, what
+a shared agent may read, and whose an agent is — and are the ones this digest compresses
+hardest, so read them before changing that code. The shortest way in: an agent in a
+workspace is either the workspace's (`plugins.owner_user_id` NULL — an admin installed it
+for everyone, like the built-in Blob and the `magnetoid/janus` agent) or one person's
+(set — theirs, listed only for them, lent out through `agent_delegations`); an assistant
+holding an `mcp_token` is neither, because it is the person (0016, 0018).
 
 `docs/` carries the three integrator guides (`apps.md`, `agent-socket.md`,
 `agent-terminal.md`) alongside planning history; the guides are current, the rest is not.

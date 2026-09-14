@@ -77,8 +77,11 @@ class TestConfiguration:
     def test_a_key_alone_configures_it(self, deepseek: dict[str, Any]) -> None:
         assert llm.configured() is True
 
-    def test_the_default_model_is_deepseek_chat(self, deepseek: dict[str, Any]) -> None:
-        assert llm.model_name() == "deepseek-chat"
+    def test_the_default_model_is_one_deepseek_still_serves(
+        self, deepseek: dict[str, Any]
+    ) -> None:
+        # Pinned because the last default stopped existing and took the agent with it.
+        assert llm.model_name() == "deepseek-v4-pro"
 
     def test_an_explicit_model_still_wins(
         self, deepseek: dict[str, Any], monkeypatch: pytest.MonkeyPatch

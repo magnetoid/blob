@@ -56,7 +56,12 @@ ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-5",
     "openai": "gpt-4.1",
-    "deepseek": "deepseek-chat",
+    # `deepseek-chat` until 2026-09-14, when DeepSeek stopped serving it. It does not
+    # 404: the API answers 200 and then never sends a body, so a run hung until
+    # LLM_READ_TIMEOUT_SEC and failed with nothing to explain it. `/v1/models` is the
+    # thing to ask when an agent goes quiet — it lists what the account can actually
+    # call, which is the charter's "find out what the current answer is" in one request.
+    "deepseek": "deepseek-v4-pro",
 }
 
 #: Where each provider lives when the operator has not said otherwise.

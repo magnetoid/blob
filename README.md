@@ -424,7 +424,7 @@ host port that differs from 7881 also needs `rtc.tcp_port` in a LiveKit config.
 | `LLM_PROVIDER` | `disabled` | `anthropic`, `openai` or `deepseek`. Turns on **@Blob**, the Catch-up summaries and model-written thread summaries. |
 | `LLM_API_KEY` | unset | The server's key, unlike an installed agent's, which its own container holds. |
 | `LLM_BASE_URL` | unset | Not needed for the three providers above — each knows its own host. Set it for a proxy, or an OpenAI-compatible server you run. |
-| `LLM_MODEL` | unset | Empty means a current model rather than a cheap one: `claude-sonnet-5`, `gpt-4.1`, `deepseek-chat`. |
+| `LLM_MODEL` | unset | Empty means a current model rather than a cheap one: `claude-sonnet-5`, `gpt-4.1`, `deepseek-v4-pro`. Check `GET /v1/models` on the provider before pinning one — a name that has been retired may hang rather than 404. |
 | `LLM_MAX_TOKENS` | `2048` | |
 
 Set these on **the app and the worker both**: the app seeds the agent, the worker is what
