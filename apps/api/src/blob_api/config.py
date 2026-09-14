@@ -288,3 +288,14 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+
+def served_commit() -> str | None:
+    """The commit this process serves, normalised, or None when nobody said.
+
+    One place for the trimming because two callers need the same answer: `/readyz`,
+    which the deploy job reads to verify what actually shipped, and `bootstrap`, which
+    "What's new" reads. A host that pads the value or pastes a long one must not make the
+    two disagree about which build this is.
+    """
+    return (settings.SOURCE_COMMIT or "").strip()[:40] or None

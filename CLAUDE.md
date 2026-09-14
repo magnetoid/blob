@@ -91,6 +91,18 @@ uuids, so one call ships both instances and Coolify queues them rather than buil
 them side by side — the server is fixed at one concurrent build, which is the 2026-09-05
 rule. A push is live nine or ten minutes later, not one.
 
+The job does not trust its own 200. Coolify builds the **tip of main** when the build
+starts, not the commit CI tested, so a commit pushed during those nine minutes used to
+ship on the previous commit's green run with none of its own gates — production was seen
+serving a commit whose CI was still running on 2026-09-14. Since then `deploy` refuses to
+POST when main has already moved on (that commit's run deploys instead), and afterwards
+polls `/readyz` on both origins, which now reports `commit`, and **fails** if the served
+commit is not its own. A bypass is a red job that names both commits, not a quiet drift.
+The job also has its own never-cancelled concurrency group, so a newer push queues behind
+a deploy in flight rather than orphaning a Coolify build. This narrows the hole; closing
+it means deploying the image CI built, tagged by SHA — planned, and gated on a week of
+this holding.
+
 That gate was fiction until 2026-09-13: its secret had never been set on this
 repository, so what actually deployed was two repository webhooks that rebuilt both apps
 a minute after every push, **ungated** — a red build shipped as eagerly as a green one,

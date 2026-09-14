@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import settings
+from ..config import served_commit
 from ..lib.auth import SessionUser
 from ..lib.errors import bad_request, conflict, no_such_person, not_found, unique_violation
 from ..lib.ids import new_id
@@ -142,7 +142,7 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
         # Trimmed and bounded rather than passed through: it is an environment variable
         # set by whoever deployed, so it is operator input, and a 40-character hex string
         # is the whole of what it can usefully be.
-        server_commit=(settings.SOURCE_COMMIT or "").strip()[:40] or None,
+        server_commit=served_commit(),
     )
 
 

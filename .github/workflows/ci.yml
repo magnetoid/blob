@@ -174,8 +174,33 @@ jobs:
     needs: [check, image, intent]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    # Its own concurrency group, and never cancelled. The workflow-level group above
+    # cancels an older run when a newer push arrives, which is right for the checks and
+    # wrong here: a run cancelled after the POST leaves Coolify building anyway, with
+    # nobody left to verify what came out. Newer pushes queue behind this instead — the
+    # server builds one at a time regardless (the 2026-09-05 rule).
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
     steps:
+      # Coolify does not build the commit this run tested. It checks out the *tip of
+      # main* when the build starts, so a commit pushed during the ~9 minutes a build
+      # takes ships on the previous commit's green run without its own gates — seen on
+      # 2026-09-14, when production reported a commit whose CI was still in progress.
+      # Two steps close most of that and make the rest loud: refuse to deploy on purpose
+      # when main has already moved on (that commit's run will), and afterwards read the
+      # commit the servers actually serve, and fail if it is not this one.
+      - name: Is this still the tip of main?
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          tip=$(git ls-remote -q "https://github.com/$REPO.git" refs/heads/main | cut -f1)
+          if [ -n "$tip" ] && [ "$tip" != "$GITHUB_SHA" ]; then
+            echo "::notice title=Deferred to a newer commit::main has moved on to ${tip:0:7} since ${GITHUB_SHA:0:7} was tested. That commit's own run deploys; this one does not, so a build never ships something this run did not check."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
       - name: Ask Coolify to deploy
+        if: env.SKIP != '1'
         env:
           # `POST /api/v1/deploy?uuid=…`, carrying **both** application uuids
           # comma-separated — this repo is one image deployed as two instances, and a
@@ -198,6 +223,7 @@ jobs:
             # put back.
             echo "::warning title=No deploy was made::COOLIFY_DEPLOY_HOOK is not set, so this push did not reach production. Add it under Settings → Secrets and variables → Actions."
             echo "COOLIFY_DEPLOY_HOOK is not set — nothing was deployed."
+            echo "SKIP=1" >> "$GITHUB_ENV"
             exit 0
           fi
           # --fail-with-body so a 401 or a wrong uuid fails the job *and* prints what
@@ -208,3 +234,29 @@ jobs:
             -H 'Accept: application/json' \
             --max-time 60 \
             -w '\nHTTP %{http_code}\n'
+      # The half that makes a bypass visible. `/readyz` reports the commit the process
+      # was built from (Coolify sets SOURCE_COMMIT on the container to what it checked
+      # out), so this reads the servers rather than trusting the 200 above. Both
+      # instances, in the order Coolify builds them; the second waits behind the first,
+      # which is why the deadline is longer than one build. A miss is a red job that
+      # names both commits — the thing that was silent before.
+      - name: Verify what shipped
+        if: env.SKIP != '1'
+        env:
+          ORIGINS: https://chat.imbamarketing.com https://chat.hadleyconsulting.global
+        run: |
+          deadline=$((SECONDS + 1500))
+          for origin in $ORIGINS; do
+            while :; do
+              served=$(curl -sS --max-time 15 "$origin/readyz" 2>/dev/null | jq -r '.commit // empty' 2>/dev/null || true)
+              if [ "$served" = "$GITHUB_SHA" ]; then
+                echo "$origin serves ${served:0:7}"
+                break
+              fi
+              if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "::error title=Production is not on this commit::$origin serves ${served:-no commit at all} 25 minutes after the deploy was asked for; expected ${GITHUB_SHA:0:7}. Either the build failed on the server, or a different commit shipped on this run's build."
+                exit 1
+              fi
+              sleep 20
+            done
+          done

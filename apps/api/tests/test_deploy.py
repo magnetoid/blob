@@ -15,6 +15,7 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
+from blob_api.config import settings
 from blob_api.web import mount_web
 
 from .helpers import Client
@@ -127,7 +128,23 @@ async def test_liveness_does_not_publish_socket_counts(client: Client) -> None:
 async def test_readiness_checks_the_datastores(client: Client) -> None:
     response = await client.get("/readyz")
     assert response.status == 200
-    assert response.body == {"ok": True}
+    # No SOURCE_COMMIT in the test environment: the key is present and honest about it,
+    # so the deploy job's `jq '.commit // empty'` sees "nothing yet" rather than a lie.
+    assert response.body == {"ok": True, "commit": None}
+
+
+async def test_readiness_names_the_commit_it_serves(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What the deploy job reads back after asking Coolify for a deploy.
+
+    Coolify builds the tip of main, not the commit CI tested, so the job cannot trust its
+    own 200 — it has to ask the server which build answered. Trimmed and capped the same
+    way `bootstrap.serverCommit` is, so the two never disagree about the build.
+    """
+    monkeypatch.setattr(settings, "SOURCE_COMMIT", "  " + "c" * 45 + "  ")
+    response = await client.get("/readyz")
+    assert response.body["commit"] == "c" * 40
 
 
 @pytest.mark.parametrize("path", ["/healthz", "/readyz"])

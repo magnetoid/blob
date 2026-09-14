@@ -392,6 +392,20 @@ Worth knowing before changing the equivalent code:
   the UI's reload-compose button. After any compose change: update the snapshot, then
   deploy.
 
+- **Coolify builds the tip of main, not the commit that asked for the deploy.** The CI
+  `deploy` job POSTs after `check`, `image` and `intent` are green, but the build that
+  follows checks out whatever `main` is *then* — so a commit pushed during the ~9-minute
+  build ships on the previous commit's green run, with none of its own gates. Seen on
+  2026-09-14: both instances reported `SOURCE_COMMIT=0955008` while that commit's CI was
+  still in progress. CI's own `image` job builds `blob:ci` with `push: false` and discards
+  it, so nothing ties the tested image to the deployed one. Since that day `deploy` (a)
+  refuses when `git ls-remote` says main has moved on, (b) polls `/readyz`, which reports
+  `commit`, on both origins and fails if the served commit is not its own, and (c) runs in
+  its own never-cancelled concurrency group. That makes a bypass loud, not impossible —
+  closing it is deploying the CI-built image by SHA, which also means syncing
+  `docker_compose_raw` (the trap above). Do not read `SOURCE_COMMIT` off a container as
+  proof a commit "passed": it proves what was built, not what was tested.
+
 - **`MAX(uuid)` does not exist in Postgres.** There is no max aggregate for the type, so
   "the newest message per channel" is `DISTINCT ON (channel_id) … ORDER BY channel_id,
   id DESC`, which also walks the existing index rather than aggregating the table.
