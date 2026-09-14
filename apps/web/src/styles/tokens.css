@@ -203,6 +203,10 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-color: ease;
   --motion-scale-in: 0.96;
+  /* Pressing. Small enough that it reads as the surface giving rather than as the
+     control moving — and it is a transform, so it costs a composite and never a
+     layout. Goes to 1 under reduced motion with the rest of the scale family. */
+  --motion-press: 0.97;
   --motion-slide: 4px;
   --motion-slide-lg: 8px;
 

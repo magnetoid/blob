@@ -59,7 +59,11 @@ export const SETTINGS_NAV: NavGroup<SettingsSection>[] = [
     sections: [
       {
         id: 'preferences',
-        label: 'Preferences',
+        // The page has held the profile, the preferences, notifications and the account
+        // since they stopped being three screens — but the row still said "Preferences",
+        // so somebody looking for their display name had no reason to open it. The id
+        // stays `preferences` because it is a URL people have already bookmarked.
+        label: 'Profile & preferences',
         description:
           'Who the workspace sees, how Blob looks, and when it may interrupt you.',
         keywords: [

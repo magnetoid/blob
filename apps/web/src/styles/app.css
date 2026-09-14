@@ -87,6 +87,7 @@ button {
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-scale-in: 1;
+    --motion-press: 1;
     --motion-slide: 0px;
     --motion-slide-lg: 0px;
   }
@@ -1524,6 +1525,18 @@ button {
   /* Keyed by emoji, so a new one mounts and plays this while the others sit still.
      Reacting is the smallest thing you can do to a message and the only feedback was
      the chip being there a frame later. */
+  animation: reaction-pop var(--dur-fast) var(--ease-out);
+}
+
+@keyframes reaction-pop {
+  from {
+    transform: scale(var(--motion-scale-in));
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .reaction span:first-child {
@@ -2477,6 +2490,12 @@ dialog.palette-host {
   border-radius: var(--radius-md);
   font-size: var(--text-row);
   text-align: left;
+  /* Arrowing moves the highlight below, and ⌘K is now where message search happens too
+     — so the list is read by moving down it rather than by pointing at one row. A
+     highlight that snaps makes a long list feel like separate screens. */
+  transition:
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color);
 }
 
 .palette-item[data-active="true"] {
@@ -2694,6 +2713,9 @@ dialog.dialog-host::backdrop {
 .channel-row:active,
 .topbar-nav-btn:active {
   background: var(--surface-hover-deep);
+  /* The deeper ground says "armed"; the scale says "you pressed it". Transform only,
+     so a row that is 34px tall does not reflow the list under the finger. */
+  transform: scale(var(--motion-press));
 }
 
 /* ─── empty states ───────────────────────────────────────────────────────── */

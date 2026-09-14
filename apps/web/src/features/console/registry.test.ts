@@ -83,7 +83,7 @@ describe('the settings registry', () => {
   });
 
   it('finds the entry for a section', () => {
-    expect(settingsEntry('preferences').label).toBe('Preferences');
+    expect(settingsEntry('preferences').label).toBe('Profile & preferences');
   });
 
   it('shares no section id with the admin console', () => {
