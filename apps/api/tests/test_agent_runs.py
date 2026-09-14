@@ -208,3 +208,58 @@ class TestRetention:
         # Every mention writes a row and nothing else would ever remove one.
         assert removed == 1
         assert await runs_of(agent) == []
+
+
+# ─── the console's numbers ────────────────────────────────────────────────────
+class TestTheConsoleNumbers:
+    """The three numbers the admin table shows beside an agent: runs this week, runs in
+    flight, and how many public channels the bot is in — and the chart under it."""
+
+    async def _row(self, agent: dict) -> dict:
+        listed = (await agent["team"]["owner"].get("/api/admin/plugins")).body["plugins"]
+        return next(p for p in listed if p["id"] == agent["app"]["plugin"]["id"])
+
+    async def test_a_finished_run_counts_for_the_week_and_not_as_live(self, agent: dict) -> None:
+        await ask(agent, b"hello")
+        row = await self._row(agent)
+        assert row["runsLastWeek"] == 1
+        assert row["runningNow"] == 0
+        # Installed into #general by the fixture, and nowhere else.
+        assert row["channelCount"] == 1
+
+    async def test_a_run_in_flight_is_live(self, agent: dict) -> None:
+        trigger = await ask(agent, b"hello")
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                text(
+                    "UPDATE agent_runs SET status = 'running', finished_at = NULL"
+                    " WHERE trigger_message_id = :m"
+                ),
+                {"m": trigger},
+            )
+        row = await self._row(agent)
+        assert row["runningNow"] == 1
+        assert row["runsLastWeek"] == 1
+
+    async def test_a_refused_run_is_not_activity(self, agent: dict) -> None:
+        trigger = await ask(agent, b"hello")
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                text("UPDATE agent_runs SET status = 'refused' WHERE trigger_message_id = :m"),
+                {"m": trigger},
+            )
+        assert (await self._row(agent))["runsLastWeek"] == 0
+
+    async def test_the_chart_has_every_day_and_adds_up(self, agent: dict) -> None:
+        await ask(agent, b"one")
+        await ask(agent, b"two")
+        response = await agent["team"]["owner"].get("/api/admin/plugins/activity")
+        assert response.status == 200, response.body
+        days = response.body["days"]
+        # Seven bars, the quiet ones at zero rather than missing.
+        assert len(days) == 7
+        assert sum(d["runs"] for d in days) == 2
+        assert days[-1]["runs"] == 2  # today, UTC
+
+    async def test_the_chart_is_the_admins(self, agent: dict) -> None:
+        assert (await agent["team"]["member"].get("/api/admin/plugins/activity")).status == 403

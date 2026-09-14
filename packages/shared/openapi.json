@@ -1,6 +1,24 @@
 {
   "components": {
     "schemas": {
+      "ActivityDay": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "runs"
+        ],
+        "title": "ActivityDay",
+        "type": "object"
+      },
       "ActivityItemOut": {
         "properties": {
           "actorId": {
@@ -43,33 +61,6 @@
           "message"
         ],
         "title": "ActivityItemOut",
-        "type": "object"
-      },
-      "ActivityOut": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ActivityItemOut"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "nextCursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nextcursor"
-          }
-        },
-        "required": [
-          "items"
-        ],
-        "title": "ActivityOut",
         "type": "object"
       },
       "AddEmojiInput": {
@@ -4709,6 +4700,11 @@
             ],
             "title": "Budgetsecondsperday"
           },
+          "channelCount": {
+            "default": 0,
+            "title": "Channelcount",
+            "type": "integer"
+          },
           "createdAt": {
             "title": "Createdat",
             "type": "string"
@@ -4812,9 +4808,19 @@
             ],
             "title": "Requesturl"
           },
+          "runningNow": {
+            "default": 0,
+            "title": "Runningnow",
+            "type": "integer"
+          },
           "runsLastDay": {
             "default": 0,
             "title": "Runslastday",
+            "type": "integer"
+          },
+          "runsLastWeek": {
+            "default": 0,
+            "title": "Runslastweek",
             "type": "integer"
           },
           "runtime": {
@@ -7994,6 +8000,33 @@
         "title": "WorkspaceSettingsOut",
         "type": "object"
       },
+      "blob_api__routers__activity__ActivityOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ActivityOut",
+        "type": "object"
+      },
       "blob_api__routers__agentic__AgentRunsOut": {
         "properties": {
           "runs": {
@@ -8223,6 +8256,22 @@
         "title": "ChannelsOut",
         "type": "object"
       },
+      "blob_api__routers__plugins__ActivityOut": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityDay"
+            },
+            "title": "Days",
+            "type": "array"
+          }
+        },
+        "required": [
+          "days"
+        ],
+        "title": "ActivityOut",
+        "type": "object"
+      },
       "blob_api__routers__plugins__AgentRunsOut": {
         "properties": {
           "runs": {
@@ -8356,7 +8405,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ActivityOut"
+                  "$ref": "#/components/schemas/blob_api__routers__activity__ActivityOut"
                 }
               }
             },
@@ -9622,6 +9671,28 @@
           }
         },
         "summary": "Install Plugin",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/activity": {
+      "get": {
+        "description": "Runs per day over the trailing week, for the console's chart. Zeros included.",
+        "operationId": "activity_api_admin_plugins_activity_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/blob_api__routers__plugins__ActivityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Activity",
         "tags": [
           "admin"
         ]

@@ -603,11 +603,14 @@ async def list_for_workspace(session: AsyncSession, workspace_id: str) -> list[A
 
 async def listing_details(
     session: AsyncSession, plugin_ids: list[str]
-) -> tuple[dict[str, list[str]], dict[str, Any], dict[str, str]]:
-    """Scopes, delivery counts and bot ids for a page of plugins, in three queries.
+) -> tuple[dict[str, list[str]], dict[str, Any], dict[str, str], dict[str, int]]:
+    """Scopes, delivery counts, bot ids and channel counts for a page of plugins.
 
-    Batched because the per-row version made the console's plugin list a 3N+1 — each of
-    these round-tripped per plugin, so ten apps cost thirty-one queries to render.
+    Four queries however many plugins there are. Batched because the per-row version
+    made the console's plugin list a 3N+1 — each of these round-tripped per plugin, so
+    ten apps cost thirty-one queries to render. The channel count is the fourth: the
+    console's Access column says "in 6 channels" without asking per row, and it counts
+    what `public_channels_for_bot` lists — public, unarchived, the bot a member.
     """
     scope_rows = (
         await session.execute(
@@ -651,7 +654,25 @@ async def listing_details(
         )
     ).fetchall()
     bots_by = {str(entry.bot_plugin_id): str(entry.id) for entry in bot_rows}
-    return scopes_by, counts_by, bots_by
+    channel_rows = (
+        await session.execute(
+            text(
+                """
+                SELECT u.bot_plugin_id AS plugin_id, count(*) AS channels
+                  FROM channel_members cm
+                  JOIN users u ON u.id = cm.user_id
+                  JOIN channels c ON c.id = cm.channel_id
+                 WHERE u.bot_plugin_id = ANY(cast(:ids AS uuid[]))
+                   AND c.kind = 'public'
+                   AND c.archived_at IS NULL
+                 GROUP BY u.bot_plugin_id
+                """
+            ),
+            {"ids": plugin_ids},
+        )
+    ).fetchall()
+    channels_by = {str(entry.plugin_id): int(entry.channels) for entry in channel_rows}
+    return scopes_by, counts_by, bots_by, channels_by
 
 
 async def set_owner(

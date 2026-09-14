@@ -167,6 +167,10 @@ async def test_installing_returns_secrets_exactly_once(team: dict) -> None:
     assert listed[0]["id"] == body["plugin"]["id"]
     assert "signingSecret" not in listed[0]
     assert "botToken" not in listed[0]
+    # The console table's numbers, present and zero on a fresh install: no runs yet,
+    # nothing live, and not in any channel until somebody adds it to one.
+    numbers = (listed[0]["runsLastWeek"], listed[0]["runningNow"], listed[0]["channelCount"])
+    assert numbers == (0, 0, 0)
 
 
 async def test_a_member_cannot_install_or_list_apps(team: dict) -> None:

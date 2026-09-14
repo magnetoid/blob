@@ -902,6 +902,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/plugins/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Activity
+         * @description Runs per day over the trailing week, for the console's chart. Zeros included.
+         */
+        get: operations["activity_api_admin_plugins_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/plugins/bridge": {
         parameters: {
             query?: never;
@@ -3329,6 +3349,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityDay */
+        ActivityDay: {
+            /** Date */
+            date: string;
+            /** Runs */
+            runs: number;
+        };
         /** ActivityItemOut */
         ActivityItemOut: {
             /** Actorid */
@@ -3340,13 +3367,6 @@ export interface components {
             /** Kind */
             kind: string;
             message: components["schemas"]["Message"];
-        };
-        /** ActivityOut */
-        ActivityOut: {
-            /** Items */
-            items: components["schemas"]["ActivityItemOut"][];
-            /** Nextcursor */
-            nextCursor?: string | null;
         };
         /** AddEmojiInput */
         AddEmojiInput: {
@@ -3760,6 +3780,13 @@ export interface components {
             /** Workspaceid */
             workspaceId: string;
         };
+        /** ActivityOut */
+        blob_api__routers__activity__ActivityOut: {
+            /** Items */
+            items: components["schemas"]["ActivityItemOut"][];
+            /** Nextcursor */
+            nextCursor?: string | null;
+        };
         /** AgentRunsOut */
         blob_api__routers__agentic__AgentRunsOut: {
             /** Runs */
@@ -3855,6 +3882,11 @@ export interface components {
         blob_api__routers__channels__ChannelsOut: {
             /** Channels */
             channels: components["schemas"]["ChannelWithState"][];
+        };
+        /** ActivityOut */
+        blob_api__routers__plugins__ActivityOut: {
+            /** Days */
+            days: components["schemas"]["ActivityDay"][];
         };
         /** AgentRunsOut */
         blob_api__routers__plugins__AgentRunsOut: {
@@ -5042,6 +5074,11 @@ export interface components {
             budgetRunsPerDay?: number | null;
             /** Budgetsecondsperday */
             budgetSecondsPerDay?: number | null;
+            /**
+             * Channelcount
+             * @default 0
+             */
+            channelCount: number;
             /** Createdat */
             createdAt: string;
             /** Deploymentstatus */
@@ -5078,10 +5115,20 @@ export interface components {
             /** Requesturl */
             requestUrl?: string | null;
             /**
+             * Runningnow
+             * @default 0
+             */
+            runningNow: number;
+            /**
              * Runslastday
              * @default 0
              */
             runsLastDay: number;
+            /**
+             * Runslastweek
+             * @default 0
+             */
+            runsLastWeek: number;
             /** Runtime */
             runtime: string;
             /** Scopes */
@@ -6182,8 +6229,8 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type ActivityDay = components['schemas']['ActivityDay'];
 export type ActivityItemOut = components['schemas']['ActivityItemOut'];
-export type ActivityOut = components['schemas']['ActivityOut'];
 export type AddEmojiInput = components['schemas']['AddEmojiInput'];
 export type AddMembersInput = components['schemas']['AddMembersInput'];
 export type AdminChannel = components['schemas']['AdminChannel'];
@@ -6211,6 +6258,7 @@ export type AuditEntry = components['schemas']['AuditEntry'];
 export type AuditOut = components['schemas']['AuditOut'];
 export type AuthStateOut = components['schemas']['AuthStateOut'];
 export type AuthTestOut = components['schemas']['AuthTestOut'];
+export type blob_api__routers__activity__ActivityOut = components['schemas']['blob_api__routers__activity__ActivityOut'];
 export type blob_api__routers__agentic__AgentRunsOut = components['schemas']['blob_api__routers__agentic__AgentRunsOut'];
 export type blob_api__routers__agentic__AgentTaskOut = components['schemas']['blob_api__routers__agentic__AgentTaskOut'];
 export type blob_api__routers__agentic__AgentTasksOut = components['schemas']['blob_api__routers__agentic__AgentTasksOut'];
@@ -6224,6 +6272,7 @@ export type blob_api__routers__bot_api__ReactionInput = components['schemas']['b
 export type blob_api__routers__bot_api__ThreadSummaryOut = components['schemas']['blob_api__routers__bot_api__ThreadSummaryOut'];
 export type blob_api__routers__bot_api__UsersOut = components['schemas']['blob_api__routers__bot_api__UsersOut'];
 export type blob_api__routers__channels__ChannelsOut = components['schemas']['blob_api__routers__channels__ChannelsOut'];
+export type blob_api__routers__plugins__ActivityOut = components['schemas']['blob_api__routers__plugins__ActivityOut'];
 export type blob_api__routers__plugins__AgentRunsOut = components['schemas']['blob_api__routers__plugins__AgentRunsOut'];
 export type blob_api__routers__users__UsersOut = components['schemas']['blob_api__routers__users__UsersOut'];
 export type blob_api__schemas__models__MessageOut = components['schemas']['blob_api__schemas__models__MessageOut'];
@@ -6417,7 +6466,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityOut"];
+                    "application/json": components["schemas"]["blob_api__routers__activity__ActivityOut"];
                 };
             };
             /** @description Validation Error */
@@ -8060,6 +8109,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activity_api_admin_plugins_activity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["blob_api__routers__plugins__ActivityOut"];
                 };
             };
         };

@@ -88,6 +88,12 @@ class PluginOut(CamelModel):
     budget_seconds_per_day: int | None = None
     runs_last_day: int = 0
     seconds_last_day: int = 0
+    #: The console table's two numbers beside the name, and its Access column. A week
+    #: is the window a person judges an agent over; "live" is the one thing on the page
+    #: worth a glance; the channel count is how many public rooms the bot is a member of.
+    runs_last_week: int = 0
+    running_now: int = 0
+    channel_count: int = 0
 
 
 class AppChannel(CamelModel):
@@ -183,8 +189,9 @@ async def _to_plugins(session: Any, rows: Sequence[Any]) -> list[PluginOut]:
     ids = [str(row.id) for row in rows]
     if not ids:
         return []
-    scopes_by, counts_by, bots_by = await registry.listing_details(session, ids)
+    scopes_by, counts_by, bots_by, channels_by = await registry.listing_details(session, ids)
     usage_by = await agent_run_service.usage_by_plugin(session, ids)
+    activity_by = await agent_run_service.activity_by_plugin(session, ids)
 
     return [
         await _build_plugin(
@@ -193,6 +200,8 @@ async def _to_plugins(session: Any, rows: Sequence[Any]) -> list[PluginOut]:
             counts=counts_by.get(str(row.id)),
             bot_id=bots_by.get(str(row.id)),
             usage=usage_by.get(str(row.id)),
+            activity=activity_by.get(str(row.id)),
+            channel_count=channels_by.get(str(row.id), 0),
         )
         for row in rows
     ]
@@ -205,6 +214,8 @@ async def _build_plugin(
     counts: Any,
     bot_id: str | None,
     usage: tuple[int, int] | None = None,
+    activity: tuple[int, int] | None = None,
+    channel_count: int = 0,
 ) -> PluginOut:
     return PluginOut(
         id=row.id,
@@ -237,6 +248,9 @@ async def _build_plugin(
         budget_seconds_per_day=getattr(row, "budget_seconds_per_day", None),
         runs_last_day=usage[0] if usage else 0,
         seconds_last_day=usage[1] if usage else 0,
+        runs_last_week=activity[0] if activity else 0,
+        running_now=activity[1] if activity else 0,
+        channel_count=channel_count,
     )
 
 
@@ -273,6 +287,25 @@ async def list_plugins(admin: SessionUser = Depends(require_admin)) -> PluginsOu
     async with session_scope() as session:
         rows = await registry.list_for_workspace(session, admin.workspace_id)
         return PluginsOut(plugins=await _to_plugins(session, rows))
+
+
+class ActivityDay(CamelModel):
+    date: str
+    runs: int
+
+
+class ActivityOut(CamelModel):
+    days: list[ActivityDay]
+
+
+# Declared before any `/{plugin_id}` route: a literal segment registered after a
+# parameter would be read as a plugin id and answer 404 for a page that exists.
+@router.get("/activity", response_model=ActivityOut)
+async def activity(admin: SessionUser = Depends(require_admin)) -> ActivityOut:
+    """Runs per day over the trailing week, for the console's chart. Zeros included."""
+    async with session_scope() as session:
+        days = await agent_run_service.runs_by_day(session, admin.workspace_id)
+    return ActivityOut(days=[ActivityDay(**day) for day in days])
 
 
 @router.post("", response_model=InstalledOut, status_code=201)

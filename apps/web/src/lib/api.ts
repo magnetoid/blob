@@ -274,7 +274,7 @@ export interface AdminPlugin {
   name: string;
   description: string | null;
   runtime: string;
-  status: "enabled" | "disabled" | "needs_review";
+  status: "enabled" | "disabled" | "needs_review" | "failed";
   version: string;
   requestUrl: string | null;
   /** Set when the app answers over AG-UI rather than a webhook. */
@@ -301,6 +301,10 @@ export interface AdminPlugin {
   budgetSecondsPerDay: number | null;
   runsLastDay: number;
   secondsLastDay: number;
+  /** The console table's numbers: a week of runs, runs in flight, public channels joined. */
+  runsLastWeek: number;
+  runningNow: number;
+  channelCount: number;
   /** Set only for an agent Blob deployed from a repository. */
   sourceRepo?: string | null;
   sourceRef?: string | null;

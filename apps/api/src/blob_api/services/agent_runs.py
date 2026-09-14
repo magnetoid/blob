@@ -235,6 +235,79 @@ async def usage_by_plugin(
     return {str(row.plugin_id): (int(row.runs), int(row.seconds)) for row in rows}
 
 
+async def activity_by_plugin(
+    session: AsyncSession, plugin_ids: list[str]
+) -> dict[str, tuple[int, int]]:
+    """Trailing-week runs and runs in flight, per plugin, for the console table.
+
+    The console's two numbers beside an agent's name: "41 runs · 1 live". A week
+    rather than the budget's day because that is the window a person judges an agent
+    over, and `running_now` is its own count because a live run is the one thing on the
+    page worth a glance. `refused` is left out of the week as it is from the budget — a
+    run that never started is not the agent's activity. `agent_runs_plugin_recent`
+    covers both.
+    """
+    if not plugin_ids:
+        return {}
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT plugin_id,
+                       count(*) FILTER (
+                           WHERE started_at > now() - interval '7 days'
+                             AND status <> 'refused'
+                       ) AS runs_week,
+                       count(*) FILTER (WHERE status = 'running') AS running_now
+                  FROM agent_runs
+                 WHERE plugin_id = ANY(cast(:ids AS uuid[]))
+                   AND (started_at > now() - interval '7 days' OR status = 'running')
+                 GROUP BY plugin_id
+                """
+            ),
+            {"ids": plugin_ids},
+        )
+    ).fetchall()
+    return {str(row.plugin_id): (int(row.runs_week), int(row.running_now)) for row in rows}
+
+
+async def runs_by_day(
+    session: AsyncSession, workspace_id: str, days: int = 7
+) -> list[dict[str, Any]]:
+    """Runs per calendar day over the trailing window, every day present, zeros included.
+
+    Generated from a series rather than grouped from the rows, so a quiet Sunday is a
+    bar of height zero and not a missing bar — the chart reads the gap, a list would
+    not. Days are UTC dates; the console labels them, it does not shift them.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                WITH days AS (
+                    SELECT generate_series(
+                        (now() AT TIME ZONE 'UTC')::date - (:days - 1),
+                        (now() AT TIME ZONE 'UTC')::date,
+                        interval '1 day'
+                    )::date AS day
+                )
+                SELECT d.day,
+                       count(r.id) AS runs
+                  FROM days d
+                  LEFT JOIN agent_runs r
+                    ON (r.started_at AT TIME ZONE 'UTC')::date = d.day
+                   AND r.workspace_id = :ws
+                   AND r.status <> 'refused'
+                 GROUP BY d.day
+                 ORDER BY d.day
+                """
+            ),
+            {"ws": workspace_id, "days": days},
+        )
+    ).fetchall()
+    return [{"date": row.day.isoformat(), "runs": int(row.runs)} for row in rows]
+
+
 async def finish(
     session: AsyncSession,
     run_id: str,
