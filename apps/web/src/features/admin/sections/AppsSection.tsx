@@ -5,20 +5,18 @@ import {
   api,
   type AdminPlugin,
   type AdminPluginCatalog,
-  type AdminAgentRun,
-  type AdminPluginDelivery,
-  type AdminPluginDeliveryDetail,
+  type WorkspacePolicy,
 } from "../../../lib/api.ts";
-import { showError } from "../../../lib/toasts.ts";
-import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
-import { ConnectAgentForm } from './apps/ConnectAgentForm.tsx';
-import { DesktopAgentSetup } from '../../agentic/DesktopAgentSetup.tsx';
-import { DeployAgentForm } from './apps/DeployAgentForm.tsx';
-import { useAdminAction } from '../../console/hooks.ts';
-import { AppSettings } from "./AppSettings.tsx";
-import { InstallAppForm } from "./apps/InstallAppForm.tsx";
-import { PluginCard } from "./apps/PluginCard.tsx";
+import { navigate } from "../../../lib/router.ts";
+import { useStore } from "../../../lib/store.ts";
+import { Dialog } from "../../../components/Dialog.tsx";
 import { EmptyState } from "../../../components/EmptyState.tsx";
+import { ConnectAgentForm } from "./apps/ConnectAgentForm.tsx";
+import { InstallAppForm } from "./apps/InstallAppForm.tsx";
+import { DesktopAgentSetup } from "../../agentic/DesktopAgentSetup.tsx";
+import { JanusSetup } from "../../agentic/JanusSetup.tsx";
+import { useAdminAction } from "../../console/hooks.ts";
+import { AppSettings } from "./AppSettings.tsx";
 
 /**
  * /admin/apps is the list; /admin/apps/{id} is one app's settings.
@@ -41,31 +39,39 @@ export function AppsSection({
   );
 }
 
+type InstallPath = "janus" | "bridge" | "app";
+
+interface SecretNotice {
+  pluginName: string;
+  signingSecret?: string;
+  botToken?: string;
+  /** Which instructions follow the token: Janus dials in itself; the bridge is for any
+   * other AG-UI agent; an app by URL needs neither. */
+  setup?: "janus" | "bridge";
+}
+
+/**
+ * The console, as Meadow artboard 2c draws it: one line of numbers, one button, one
+ * table, the guardrails beside it and a week of bars under it.
+ *
+ * It used to be three install forms stacked above a column of cards, each card carrying
+ * seven buttons, a budget dial, a consent block and an activity log. Everything per-app
+ * now lives on the app's own page — the row here says what the agent is, where it may
+ * act, how busy it is and whether it is on, and Configure is the rest. "Deploy from a
+ * repository" is no longer an entry point: the container runtime still works for the
+ * apps that have it, but the way in is Janus first, the bridge for any other agent, and
+ * an app by URL third.
+ */
 function AppsList({ onError }: { onError: (message: string | null) => void }) {
   const [catalog, setCatalog] = useState<AdminPluginCatalog | null>(null);
   const [plugins, setPlugins] = useState<AdminPlugin[]>([]);
   const [agentsEnabled, setAgentsEnabled] = useState(true);
-  const [deliveries, setDeliveries] = useState<
-    Record<string, AdminPluginDelivery[]>
-  >({});
-  const [runs, setRuns] = useState<Record<string, AdminAgentRun[]>>({});
-  const [expandedDeliveryId, setExpandedDeliveryId] = useState<string | null>(
-    null,
-  );
-  const [deliveryDetails, setDeliveryDetails] = useState<
-    Record<string, AdminPluginDeliveryDetail>
-  >({});
+  const [activity, setActivity] = useState<{ date: string; runs: number }[]>([]);
+  const [policy, setPolicy] = useState<WorkspacePolicy | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
-  const [uninstalling, setUninstalling] = useState<AdminPlugin | null>(null);
-  const [secretNotice, setSecretNotice] = useState<{
-    pluginName: string;
-    signingSecret?: string;
-    botToken?: string;
-    //: Set for a socket agent, whose token is not just a credential to keep but the
-    //: thing you paste into the bridge. Only that path gets the setup instructions.
-    desktop?: boolean;
-  } | null>(null);
+  const [installing, setInstalling] = useState<InstallPath | null>(null);
+  const [secretNotice, setSecretNotice] = useState<SecretNotice | null>(null);
+  const workspaceId = useStore((s) => s.workspaceId);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -73,11 +79,13 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
       api.admin.pluginCatalog(),
       api.admin.plugins(),
       api.admin.settings(),
+      api.admin.activity().catch(() => ({ days: [] })),
     ])
-      .then(([nextCatalog, nextPlugins, settings]) => {
+      .then(([nextCatalog, nextPlugins, settings, nextActivity]) => {
         setCatalog(nextCatalog);
         setPlugins(nextPlugins.plugins);
         setAgentsEnabled(settings.settings.agentsEnabled !== false);
+        setActivity(nextActivity.days);
       })
       .catch(() => onError("Could not load apps."))
       .finally(() => setLoading(false));
@@ -87,88 +95,62 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
     const timer = setTimeout(load, 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  // The guardrails are instance policy, which a workspace admin who is not the instance
+  // owner may not read. The panel then shows what is always true and links to the page
+  // that holds the rest, rather than failing the whole list over a 403.
+  useEffect(() => {
+    if (!workspaceId) return;
+    let live = true;
+    void api.admin
+      .workspacePolicy(workspaceId)
+      .then((next) => {
+        if (live) setPolicy(next);
+      })
+      .catch(() => {
+        if (live) setPolicy(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [workspaceId]);
+
   const act = useAdminAction(onError, load);
 
   const copySecret = async (value: string) => {
     await navigator.clipboard.writeText(value);
   };
 
-  const loadDeliveries = async (pluginId: string) => {
-    try {
-      const response = await api.admin.pluginDeliveries(pluginId);
-      setDeliveries((current) => ({
-        ...current,
-        [pluginId]: response.deliveries,
-      }));
-    } catch {
-      onError("Could not load delivery attempts.");
-    }
-  };
-
-  const loadRuns = async (pluginId: string) => {
-    try {
-      const response = await api.admin.pluginRuns(pluginId);
-      setRuns((current) => ({ ...current, [pluginId]: response.runs }));
-    } catch {
-      onError("Could not load recent runs.");
-    }
-  };
-
-  // Both, on one click. "Did the app hear us" and "did it manage to reply" are the same
-  // question to whoever is looking, and an app only ever has one of the two logs anyway:
-  // deliveries are for webhook apps, runs for agents.
-  const toggleActivity = (pluginId: string) => {
-    setSelectedPluginId((current) => (current === pluginId ? null : pluginId));
-    if (!deliveries[pluginId]) void loadDeliveries(pluginId);
-    if (!runs[pluginId]) void loadRuns(pluginId);
-  };
-
-  // The payload is fetched lazily and kept: a queued delivery's body never changes, so
-  // the second expand needs no request. A failed fetch collapses the row again so the
-  // next click retries instead of leaving an empty panel open.
-  const toggleDelivery = (pluginId: string, deliveryId: string) => {
-    const opening = expandedDeliveryId !== deliveryId;
-    setExpandedDeliveryId(opening ? deliveryId : null);
-    if (opening && !deliveryDetails[deliveryId]) {
-      void api.admin
-        .pluginDelivery(pluginId, deliveryId)
-        .then((detail) =>
-          setDeliveryDetails((current) => ({
-            ...current,
-            [deliveryId]: detail,
-          })),
-        )
-        .catch((err: unknown) => {
-          setExpandedDeliveryId((current) =>
-            current === deliveryId ? null : current,
-          );
-          showError(err);
-        });
-    }
-  };
+  const installed = plugins.length;
+  const runningNow = plugins.reduce((sum, p) => sum + (p.runningNow ?? 0), 0);
+  const runsThisWeek = plugins.reduce((sum, p) => sum + (p.runsLastWeek ?? 0), 0);
 
   return (
     <section>
       <div className="admin-apps-shell">
         <div className="admin-apps-intro">
-          <div>
-            <h2 className="admin-apps-title">
-              External apps and agent endpoints
-            </h2>
-            <p className="pref-hint" style={{ margin: "6px 0 0" }}>
-              Register HTTPS endpoints, grant only the scopes they need, and
-              keep every secret rotation and delivery attempt visible to admins.
+          <div className="min-0">
+            <h2 className="admin-apps-title">Agents</h2>
+            <p className="admin-summary muted" aria-live="polite">
+              {installed} installed · {runningNow} running now · {runsThisWeek} runs this
+              week
             </p>
           </div>
-          <div className="role-pill">zero-trust</div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setInstalling("janus")}
+          >
+            + Install agent
+          </button>
         </div>
 
         <div className="pref-row">
           <div className="grow">
             <div className="pref-label">Agents may run</div>
             <div className="pref-hint">
-              When off, mentions of agents are refused and nothing is
-              dispatched. Apps still receive webhook deliveries.
+              When off, mentions of agents are refused and nothing is dispatched. Apps
+              still receive webhook deliveries.
             </div>
           </div>
           <button
@@ -193,8 +175,7 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
             <div className="min-0">
               <div className="admin-row-title">{secretNotice.pluginName}</div>
               <div className="admin-row-meta">
-                These credentials are shown once. Rotate them later if you lose
-                them.
+                These credentials are shown once. Rotate them later if you lose them.
               </div>
             </div>
             {secretNotice.signingSecret && (
@@ -224,7 +205,10 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
           </div>
         )}
 
-        {secretNotice?.desktop && secretNotice.botToken && (
+        {secretNotice?.setup === "janus" && secretNotice.botToken && (
+          <JanusSetup agentName={secretNotice.pluginName} botToken={secretNotice.botToken} />
+        )}
+        {secretNotice?.setup === "bridge" && secretNotice.botToken && (
           <DesktopAgentSetup
             agentName={secretNotice.pluginName}
             botToken={secretNotice.botToken}
@@ -232,99 +216,260 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
           />
         )}
 
-        <DeployAgentForm
-          scopeCatalog={catalog?.scopes ?? {}}
-          onError={onError}
-          onInstalled={(pluginName, signingSecret, botToken) => {
-            setSecretNotice({ pluginName, signingSecret, botToken });
-            load();
-          }}
-        />
-
-        <ConnectAgentForm
-          scopeCatalog={catalog?.scopes ?? {}}
-          onError={onError}
-          onConnected={(pluginName, botToken, signingSecret) => {
-            // Both secrets, and they do different jobs. The token is how the agent's
-            // bridge authenticates *to* Blob; the signing secret is how the bridge proves
-            // to the agent that a run came from Blob. Showing only the token was the bug:
-            // the setup it produced could not work against an agent that verifies.
-            setSecretNotice({
-              pluginName,
-              botToken,
-              signingSecret,
-              desktop: true,
-            });
-            load();
-          }}
-        />
-
-        <InstallAppForm
-          catalog={catalog}
-          onError={onError}
-          onInstalled={(notice) => {
-            setSecretNotice(notice);
-            load();
-          }}
-        />
-
-        {loading && plugins.length === 0 ? (
-          <p className="muted">Loading apps…</p>
-        ) : (
-          <div className="admin-table">
-            {plugins.map((plugin) => (
-              <PluginCard
-                key={plugin.id}
-                plugin={plugin}
-                expanded={selectedPluginId === plugin.id}
-                scopeCatalog={catalog?.scopes ?? {}}
-                runs={runs[plugin.id] ?? []}
-                deliveries={deliveries[plugin.id] ?? []}
-                expandedDeliveryId={expandedDeliveryId}
-                deliveryDetails={deliveryDetails}
-                act={act}
-                onError={onError}
-                onSecret={setSecretNotice}
-                onToggleActivity={() => toggleActivity(plugin.id)}
-                onToggleDelivery={(deliveryId) =>
-                  toggleDelivery(plugin.id, deliveryId)
-                }
-                onReplay={(deliveryId) =>
-                  void act(async () => {
-                    await api.admin.replayPluginDelivery(
-                      plugin.id,
-                      deliveryId,
-                    );
-                    await loadDeliveries(plugin.id);
-                  })
-                }
-                onUninstall={() => setUninstalling(plugin)}
-              />
-            ))}
-            {plugins.length === 0 && (
-              <EmptyState title="No apps installed yet" style={{ margin: "32px auto 0" }}>
-                Register an external app to connect project tools, bots, or
-                internal agent services into this workspace.
+        <div className="admin-console-grid">
+          <div className="min-0">
+            {loading && plugins.length === 0 ? (
+              <p className="muted">Loading agents…</p>
+            ) : plugins.length === 0 ? (
+              <EmptyState title="No agents yet" style={{ margin: "32px auto 0" }}>
+                Install Janus, connect an agent from your machine, or register an app by
+                its URL.
               </EmptyState>
+            ) : (
+              <div className="admin-table-scroll">
+                <table className="admin-table admin-agents">
+                  <thead>
+                    <tr>
+                      <th scope="col">Agent</th>
+                      <th scope="col">Access</th>
+                      <th scope="col">Runs 7d</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">
+                        <span className="sr-only">Configure</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {plugins.map((plugin) => (
+                      <AgentRow key={plugin.id} plugin={plugin} act={act} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
+
+            {activity.length > 0 && <RunsThisWeek days={activity} />}
           </div>
-        )}
+
+          <Guardrails policy={policy} />
+        </div>
       </div>
 
-      {uninstalling && (
-        <ConfirmDialog
-          title={`Uninstall ${uninstalling.name}?`}
-          body="Its tokens stop working and it stops receiving events. Messages it posted stay."
-          confirmLabel="Uninstall"
-          danger
-          onClose={() => setUninstalling(null)}
-          onConfirm={() => {
-            const plugin = uninstalling;
-            setUninstalling(null);
-            void act(() => api.admin.uninstallPlugin(plugin.id));
-          }}
-        />
+      {installing && (
+        <Dialog label="Install an agent" onClose={() => setInstalling(null)}>
+          <div className="admin-install">
+            <div className="chip-row" aria-label="How the agent joins">
+              {(
+                [
+                  ["janus", "Janus"],
+                  ["bridge", "Another agent on this machine"],
+                  ["app", "An app by URL"],
+                ] as const
+              ).map(([path, label]) => (
+                <button
+                  key={path}
+                  type="button"
+                  className="chip"
+                  aria-pressed={installing === path}
+                  onClick={() => setInstalling(path)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {installing === "janus" && (
+              <p className="pref-hint">
+                Janus dials Blob itself — no bridge, no public address. Register it here,
+                then give it the two values this page prints.
+              </p>
+            )}
+            {installing === "bridge" && (
+              <p className="pref-hint">
+                Any other AG-UI agent, with the bridge holding Blob's socket beside it.
+              </p>
+            )}
+
+            {installing === "app" ? (
+              <InstallAppForm
+                catalog={catalog}
+                onError={onError}
+                onInstalled={(notice) => {
+                  setSecretNotice(notice);
+                  setInstalling(null);
+                  load();
+                }}
+              />
+            ) : (
+              <ConnectAgentForm
+                scopeCatalog={catalog?.scopes ?? {}}
+                onError={onError}
+                onConnected={(pluginName, botToken, signingSecret) => {
+                  setSecretNotice({
+                    pluginName,
+                    botToken,
+                    signingSecret,
+                    setup: installing === "janus" ? "janus" : "bridge",
+                  });
+                  setInstalling(null);
+                  load();
+                }}
+              />
+            )}
+          </div>
+        </Dialog>
       )}
     </section>
   );
+}
+
+/** What the agent may reach, in a sentence. The scopes themselves are on its page. */
+function accessOf(plugin: AdminPlugin): string {
+  if (plugin.runtime === "builtin") return "All channels · acts as each asker";
+  const n = plugin.channelCount ?? 0;
+  const where = n === 1 ? "1 channel" : `${n} channels`;
+  const readOnly = !plugin.scopes.includes("messages:write");
+  return readOnly ? `${where} · read-only` : where;
+}
+
+const STATUS_LABEL: Record<AdminPlugin["status"], string> = {
+  enabled: "enabled",
+  disabled: "disabled",
+  needs_review: "needs review",
+  failed: "failed",
+};
+
+function AgentRow({
+  plugin,
+  act,
+}: {
+  plugin: AdminPlugin;
+  act: (run: () => Promise<unknown>) => Promise<void>;
+}) {
+  const enabled = plugin.status === "enabled";
+  const live = plugin.runningNow ?? 0;
+  return (
+    <tr data-inactive={!enabled}>
+      <td>
+        <div className="admin-row-title">{plugin.name}</div>
+        <div className="admin-row-meta">
+          {plugin.description || plugin.slug}
+          <span className="role-pill" style={{ marginLeft: 8 }}>
+            {plugin.runtime}
+          </span>
+        </div>
+      </td>
+      <td className="admin-row-meta">{accessOf(plugin)}</td>
+      <td>
+        <span>{plugin.runsLastWeek ?? 0}</span>
+        {live > 0 && (
+          <span className="admin-live" aria-label={`${live} running now`}>
+            ● {live} live
+          </span>
+        )}
+      </td>
+      <td>
+        <span className="role-pill" data-status={plugin.status}>
+          {STATUS_LABEL[plugin.status] ?? plugin.status}
+        </span>
+        {plugin.runtime === "socket" && plugin.online != null && (
+          <span className="role-pill" data-online={plugin.online} style={{ marginLeft: 6 }}>
+            {plugin.online ? "online" : "offline"}
+          </span>
+        )}
+      </td>
+      <td className="admin-row-actions">
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => void act(() => api.admin.setPluginEnabled(plugin.id, !enabled))}
+        >
+          {enabled ? "Disable" : "Enable"}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => navigate(`/admin/apps/${plugin.id}`)}
+        >
+          Configure
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+/**
+ * Three statements, and honest about which are live. The first is ADR 0013 and has no
+ * switch; the next two are policy an instance owner edits on the App policy page; the
+ * last does not exist yet — `agent_write_approval` is in the roadmap and nowhere else —
+ * and a tick that does nothing is worse than no tick.
+ */
+function Guardrails({ policy }: { policy: WorkspacePolicy | null }) {
+  return (
+    <aside className="admin-guardrails" aria-labelledby="guardrails-title">
+      <h3 id="guardrails-title" className="section-label">
+        Guardrails
+      </h3>
+      <ul className="admin-guardrail-list">
+        <li>Agents act with the asker's permissions</li>
+        {policy && (
+          <li>
+            Agents may message each other
+            {policy.agentChainMaxDepth > 0
+              ? ` (max ${policy.agentChainMaxDepth} hops)`
+              : " — off"}
+          </li>
+        )}
+        {policy && (
+          <li>
+            A shared agent reads{" "}
+            {policy.agentReads === "audience"
+              ? "the room it answers in"
+              : "everything the asker can see"}
+          </li>
+        )}
+        <li className="muted" data-unavailable="true">
+          Destructive tools require a human click — not yet available
+        </li>
+      </ul>
+      <button
+        type="button"
+        className="btn btn-ghost"
+        onClick={() => navigate("/admin/app-policy")}
+      >
+        App policy
+      </button>
+    </aside>
+  );
+}
+
+function RunsThisWeek({ days }: { days: { date: string; runs: number }[] }) {
+  const max = Math.max(1, ...days.map((d) => d.runs));
+  return (
+    <section className="admin-chart" aria-labelledby="runs-week-title">
+      <h3 id="runs-week-title" className="section-label">
+        Runs this week
+      </h3>
+      <div className="admin-chart-bars" role="img" aria-label={days.map((d) => `${weekday(d.date)} ${d.runs}`).join(", ")}>
+        {days.map((day) => (
+          <div key={day.date} className="admin-chart-col">
+            <div
+              className="admin-chart-bar"
+              style={{ height: `${Math.round((day.runs / max) * 100)}%` }}
+              title={`${day.runs} on ${day.date}`}
+            />
+            <span className="admin-chart-label">{weekday(day.date)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function weekday(date: string): string {
+  // The server's days are UTC dates; label them as such rather than shifting them.
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
+    weekday: "short",
+    timeZone: "UTC",
+  });
 }

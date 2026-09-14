@@ -55,6 +55,10 @@ function seed(ownerUserId: string | null) {
     plugins: [{ ...PLUGIN, ownerUserId }],
   } as never);
   vi.spyOn(api.admin, 'appChannels').mockResolvedValue({ channels: [] } as never);
+  // The page hosts the per-app card now, which asks for these on arrival.
+  vi.spyOn(api.admin, 'pluginCatalog').mockResolvedValue({ scopes: {}, events: {} } as never);
+  vi.spyOn(api.admin, 'pluginRuns').mockResolvedValue({ runs: [] } as never);
+  vi.spyOn(api.admin, 'pluginDeliveries').mockResolvedValue({ deliveries: [] } as never);
 }
 
 function ownerPicker() {

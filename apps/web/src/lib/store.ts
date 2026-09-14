@@ -63,6 +63,8 @@ interface State {
   status: SocketStatus;
   currentUser: CurrentUser | null;
   workspaceName: string;
+  /** The workspace's id, for the admin routes that are keyed by it. */
+  workspaceId: string;
   themes: Theme[];
   /** The workspace's own emoji, for the picker and for `:name:` in a body. */
   customEmoji: CustomEmoji[];
@@ -328,6 +330,7 @@ export const useStore = create<State>((set, get) => ({
   status: "offline",
   currentUser: null,
   workspaceName: "",
+  workspaceId: "",
   themes: [],
   customEmoji: [],
   workVersions: {},
@@ -363,6 +366,7 @@ export const useStore = create<State>((set, get) => ({
       ready: true,
       currentUser: data.user,
       workspaceName: data.workspace.name,
+      workspaceId: data.workspace.id,
       themes: data.themes,
       customEmoji: data.customEmoji,
       savedMessageIds: new Set(data.savedMessageIds),
@@ -385,6 +389,7 @@ export const useStore = create<State>((set, get) => ({
     set({
       ready: false,
       workspaceName: "",
+  workspaceId: "",
       themes: [],
       customEmoji: [],
   workVersions: {},

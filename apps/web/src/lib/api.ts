@@ -1018,6 +1018,9 @@ export const api = {
 
     pluginCatalog: () => get<AdminPluginCatalog>("/api/admin/plugins/catalog"),
     plugins: () => get<{ plugins: AdminPlugin[] }>("/api/admin/plugins"),
+    /** Runs per day over the trailing week, for the console's chart. Zeros included. */
+    activity: () =>
+      get<{ days: { date: string; runs: number }[] }>("/api/admin/plugins/activity"),
     installPlugin: (input: {
       slug: string;
       name: string;

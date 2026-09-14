@@ -3153,6 +3153,115 @@ dialog.dialog-host::backdrop {
   border-bottom: 0;
 }
 
+/* ─── the agents console (Meadow 2c) ─────────────────────────────────────── */
+/* One line of numbers, one table, the guardrails beside it, a week of bars under it.
+   The table is the real `.admin-table` ruleset above; it used to wrap a stack of card
+   divs too, which is why that class briefly meant two things. */
+.admin-summary {
+  margin: 4px 0 0;
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-console-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 22px;
+  align-items: start;
+}
+
+/* Tables may be wider than a phone; the page must never scroll sideways. */
+.admin-table-scroll {
+  overflow-x: auto;
+}
+
+.admin-agents td {
+  vertical-align: top;
+}
+
+.admin-row-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* A run in flight, in the agents' own colour. The one thing on the page worth a glance. */
+.admin-live {
+  margin-left: 8px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--iris);
+  white-space: nowrap;
+}
+
+.admin-guardrails {
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+}
+
+.admin-guardrail-list {
+  margin: 8px 0 12px;
+  padding-left: 18px;
+  font-size: var(--text-meta);
+  line-height: 1.5;
+}
+
+.admin-guardrail-list li + li {
+  margin-top: 6px;
+}
+
+.admin-guardrail-list li[data-unavailable="true"] {
+  opacity: 0.6;
+}
+
+.admin-chart {
+  margin-top: 22px;
+}
+
+.admin-chart-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  height: 96px;
+  align-items: end;
+  margin-top: 8px;
+}
+
+.admin-chart-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+}
+
+.admin-chart-bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background: var(--accent);
+  transition: height var(--dur-open) var(--ease-standard);
+}
+
+.admin-chart-label {
+  font-size: var(--text-2xs);
+  color: var(--text-faint);
+}
+
+.admin-install {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: min(560px, calc(100vw - 48px));
+}
+
+@media (max-width: 860px) {
+  .admin-console-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .admin-row {
   display: flex;
   align-items: center;
