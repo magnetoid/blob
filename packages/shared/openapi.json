@@ -16515,7 +16515,7 @@
     },
     "/readyz": {
       "get": {
-        "description": "Readiness: can this process serve? Used as the gate on a deploy.",
+        "description": "Readiness: can this process serve, and which build is it?\n\nThe commit is here for the deploy job. Coolify builds the tip of main rather than\nthe commit CI tested, so a green run could ship something else without anybody\nnoticing \u2014 the job now reads this after it asks for a deploy and fails if the\ncommit is not its own. It is not new exposure: `bootstrap.serverCommit` already\nshows the same value to anyone signed in, and the repository is public.",
         "operationId": "readyz_readyz_get",
         "responses": {
           "200": {

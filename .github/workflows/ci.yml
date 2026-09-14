@@ -122,8 +122,13 @@ jobs:
           docker compose -f docker-compose.prod.yml exec -T app python -c "
           import json, urllib.request
           for path in ('healthz', 'readyz'):
-              body = urllib.request.urlopen(f'http://127.0.0.1:3000/{path}', timeout=10).read()
-              assert json.loads(body) == {'ok': True}, (path, body)
+              body = json.loads(urllib.request.urlopen(f'http://127.0.0.1:3000/{path}', timeout=10).read())
+              assert body.get('ok') is True, (path, body)
+              # readyz also names the commit it serves, for the deploy job's verify step.
+              # Nobody set SOURCE_COMMIT on this stack, so the key is present and null —
+              # the honest answer, and the shape the verify step's jq expects to skip.
+              if path == 'readyz':
+                  assert 'commit' in body, (path, body)
               print(path, 'ok')
           "
 

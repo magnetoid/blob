@@ -3308,7 +3308,13 @@ export interface paths {
         };
         /**
          * Readyz
-         * @description Readiness: can this process serve? Used as the gate on a deploy.
+         * @description Readiness: can this process serve, and which build is it?
+         *
+         *     The commit is here for the deploy job. Coolify builds the tip of main rather than
+         *     the commit CI tested, so a green run could ship something else without anybody
+         *     noticing — the job now reads this after it asks for a deploy and fails if the
+         *     commit is not its own. It is not new exposure: `bootstrap.serverCommit` already
+         *     shows the same value to anyone signed in, and the repository is public.
          */
         get: operations["readyz_readyz_get"];
         put?: never;
