@@ -91,6 +91,10 @@ def to_user(row: Any) -> User:
         status_text=None if expired else row.status_text,
         status_expires_at=None if expired else iso(expires_at),
         deactivated=row.deactivated_at is not None,
+        # Only the roster computes this; everywhere else a user is read without the
+        # plugin beside it, and False is the truthful answer for all of them —
+        # `getattr` the way `kind` above is read.
+        agent_disabled=bool(getattr(row, "agent_disabled", False)),
     )
 
 

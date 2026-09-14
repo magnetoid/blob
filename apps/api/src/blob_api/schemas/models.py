@@ -88,6 +88,11 @@ class User(CamelModel):
     status_text: str | None = None
     status_expires_at: str | None = None
     deactivated: bool = False
+    #: An agent whose app is switched off. False for every person, and for an agent that
+    #: is installed and enabled. Distinct from `deactivated`, which is retirement:
+    #: deactivating a bot releases its handle, so a disabled agent would lose its name to
+    #: whoever claimed it next — which is why this is its own field and not that one.
+    agent_disabled: bool = False
 
 
 class CurrentUser(User):

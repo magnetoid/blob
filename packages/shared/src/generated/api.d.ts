@@ -4265,6 +4265,11 @@ export interface components {
          * @description The signed-in user sees more of themselves than of others.
          */
         CurrentUser: {
+            /**
+             * Agentdisabled
+             * @default false
+             */
+            agentDisabled: boolean;
             /** Avatarurl */
             avatarUrl?: string | null;
             /**
@@ -5972,6 +5977,11 @@ export interface components {
          * @description Public shape of a user. Never includes password_hash or another user's email.
          */
         User: {
+            /**
+             * Agentdisabled
+             * @default false
+             */
+            agentDisabled: boolean;
             /** Avatarurl */
             avatarUrl?: string | null;
             /**

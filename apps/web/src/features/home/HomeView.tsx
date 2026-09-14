@@ -9,6 +9,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import type { AgentTask } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
+import { agentIsAvailable } from '../../lib/conversations.ts';
 import { showChannel, showThread } from '../../lib/navigation.ts';
 import { showError } from '../../lib/toasts.ts';
 import { SendIcon } from '../../components/Icon.tsx';
@@ -75,12 +76,14 @@ export function HomeView() {
     [users, presence, currentUser],
   );
 
-  const blob = useMemo(
-    () =>
-      Object.values(users).find((u) => u.kind === 'bot' && u.displayName === 'Blob') ??
-      Object.values(users).find((u) => u.kind === 'bot' && !u.deactivated),
-    [users],
-  );
+  // Availability first, name second. This used to take any bot called "Blob" before it
+  // looked at whether that bot was still in the workspace — and a workspace that has
+  // installed and uninstalled the agent a few times holds several rows with that name,
+  // so the box could be wired to a retired account that answers nothing.
+  const blob = useMemo(() => {
+    const usable = Object.values(users).filter((u) => u.kind === 'bot' && agentIsAvailable(u));
+    return usable.find((u) => u.displayName === 'Blob') ?? usable[0];
+  }, [users]);
 
   const askChannel = useMemo(
     () =>

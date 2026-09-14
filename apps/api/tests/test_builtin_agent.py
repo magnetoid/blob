@@ -239,6 +239,31 @@ class TestItIsAPluginLikeAnyOther:
         # mentioned, so being present costs a line in the member list and nothing else.
         assert agent["id"] in member_ids
 
+    async def test_the_roster_says_when_an_agent_is_switched_off(
+        self, model: dict, client: Client
+    ) -> None:
+        # The client draws its agent list from this roster and had no way to tell a
+        # working agent from one an admin had disabled, so a disabled agent kept a row in
+        # the sidebar and a DM that answered nothing.
+        owner = await sign_up(client, "Founder")
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        agent = next(p for p in apps if p["slug"] == builtin.WORKSPACE_SLUG)
+
+        people = (await owner.get("/api/users")).body["users"]
+        bot = next(u for u in people if u["displayName"] == workspace_agent.AGENT_NAME)
+        assert bot["agentDisabled"] is False
+        # A person is never one, whatever their state.
+        assert all(u["agentDisabled"] is False for u in people if u["kind"] != "bot")
+
+        await owner.post(f"/api/admin/plugins/{agent['id']}/enabled", {"enabled": False})
+
+        people = (await owner.get("/api/users")).body["users"]
+        bot = next(u for u in people if u["displayName"] == workspace_agent.AGENT_NAME)
+        assert bot["agentDisabled"] is True
+        # Disabling is not retirement: the account stays, and so does its handle, or
+        # enabling it again would find its name taken.
+        assert bot["deactivated"] is False
+
     async def test_nothing_is_seeded_without_a_model(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
     ) -> None:

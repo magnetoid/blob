@@ -79,9 +79,23 @@ export function joinedChannels(
  */
 function isRetiredAgentDm(channel: ChannelWithState, users: UserDirectory): boolean {
   if (channel.kind !== 'dm') return false;
-  return (channel.memberIds ?? []).some(
-    (id) => users[id]?.kind === 'bot' && users[id]?.deactivated,
-  );
+  return (channel.memberIds ?? []).some((id) => {
+    const user = users[id];
+    return user?.kind === 'bot' && !agentIsAvailable(user);
+  });
+}
+
+/**
+ * Whether this agent is one you can actually talk to.
+ *
+ * Two ways for it not to be, and they are different states: `deactivated` is retirement,
+ * set by uninstall and never undone, and `agentDisabled` is an admin switching the app
+ * off, which they can switch back on. The sidebar treats them the same because the
+ * reader's question is the same one — will anything answer me — and the answer is no in
+ * both cases. An admin sees the disabled one in Administration, where it can be enabled.
+ */
+export function agentIsAvailable(user: { deactivated?: boolean; agentDisabled?: boolean }): boolean {
+  return !user.deactivated && !user.agentDisabled;
 }
 
 function openDms(

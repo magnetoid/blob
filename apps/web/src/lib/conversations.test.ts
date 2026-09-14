@@ -350,3 +350,27 @@ describe('an agent that was uninstalled', () => {
     expect(directMessages(withGroup, users).map((c) => c.id)).toEqual(['group']);
   });
 });
+
+describe('an agent whose app is switched off', () => {
+  // Same treatment as an uninstalled one, and for the same reason: a DM that will never
+  // be answered is not a conversation. Different state though — this one comes back the
+  // moment an admin enables the app, and its handle was never released.
+  const users = {
+    me: { id: 'me', kind: 'human', displayName: 'Me' },
+    scout: { id: 'scout', kind: 'bot', displayName: 'Scout' },
+    off: { id: 'off', kind: 'bot', displayName: 'Rusty', agentDisabled: true },
+  } as unknown as Parameters<typeof conversationOrder>[1];
+
+  const channels = workspace(
+    channel('dm-scout', { kind: 'dm', name: null, memberIds: ['me', 'scout'] }),
+    channel('dm-off', { kind: 'dm', name: null, memberIds: ['me', 'off'] }),
+  );
+
+  it('is out of the Agents section', () => {
+    expect(agentConversations(channels, users).map((c) => c.id)).toEqual(['dm-scout']);
+  });
+
+  it('does not land among the people either', () => {
+    expect(directMessages(channels, users).map((c) => c.id)).toEqual([]);
+  });
+});

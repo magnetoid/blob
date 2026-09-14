@@ -63,7 +63,9 @@ export function useMentionAutocomplete(
 
     const people: MentionCandidate[] = matchMentions(
       Object.values(users).filter(
-        (u) => !u.deactivated && u.id !== currentUser?.id,
+        // An agent that is uninstalled or switched off is not a mention worth
+        // offering: the name would resolve and nothing would ever answer it.
+        (u) => !u.deactivated && !u.agentDisabled && u.id !== currentUser?.id,
       ),
       q,
       (u) => [u.displayName, u.fullName],

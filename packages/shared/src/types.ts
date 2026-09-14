@@ -23,6 +23,14 @@ export interface User {
   statusText: string | null;
   statusExpiresAt: string | null;
   deactivated: boolean;
+  /**
+   * An agent whose app is switched off. False for every person.
+   *
+   * Its own field rather than folded into `deactivated`, which means retirement:
+   * deactivating a bot releases its handle, so a disabled agent would lose its name to
+   * whoever claimed it next.
+   */
+  agentDisabled: boolean;
 }
 
 /** The signed-in user sees more of themselves than of others. */

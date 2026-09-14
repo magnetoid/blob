@@ -8,7 +8,12 @@ import { navigate, parseRoute, usePath } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
 import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
-import { agentConversations, directMessages, joinedChannels } from '../../lib/conversations.ts';
+import {
+  agentConversations,
+  agentIsAvailable,
+  directMessages,
+  joinedChannels,
+} from '../../lib/conversations.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import {
   ChevronLeftIcon,
@@ -66,7 +71,11 @@ export function Sidebar({
       .sort(byDisplayName);
     return {
       people: active.filter((u) => u.kind !== 'bot'),
-      agents: active.filter((u) => u.kind === 'bot'),
+      // An agent whose app is uninstalled or switched off answers nothing, so listing it
+      // here offers a conversation that cannot happen. `agentIsAvailable` is the same
+      // test `conversations.ts` applies to the agent DMs, so the two halves of this one
+      // section cannot disagree about who is here.
+      agents: active.filter((u) => u.kind === 'bot' && agentIsAvailable(u)),
     };
   }, [users, currentUser]);
 

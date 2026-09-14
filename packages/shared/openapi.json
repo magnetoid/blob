@@ -2415,6 +2415,11 @@
       "CurrentUser": {
         "description": "The signed-in user sees more of themselves than of others.",
         "properties": {
+          "agentDisabled": {
+            "default": false,
+            "title": "Agentdisabled",
+            "type": "boolean"
+          },
           "avatarUrl": {
             "anyOf": [
               {
@@ -7327,6 +7332,11 @@
       "User": {
         "description": "Public shape of a user. Never includes password_hash or another user's email.",
         "properties": {
+          "agentDisabled": {
+            "default": false,
+            "title": "Agentdisabled",
+            "type": "boolean"
+          },
           "avatarUrl": {
             "anyOf": [
               {

@@ -32,6 +32,7 @@ const person = {
   statusText: null,
   statusExpiresAt: null,
   deactivated: false,
+  agentDisabled: false,
 };
 
 beforeEach(() => {

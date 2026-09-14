@@ -291,12 +291,23 @@ async def list_users(
     session: AsyncSession, workspace_id: str, *, active_only: bool = False
 ) -> list[User]:
     """Everybody in the workspace. The client wants the deactivated too — they still
-    wrote messages — where an app asking `users.list` wants who is here now."""
+    wrote messages — where an app asking `users.list` wants who is here now.
+
+    This is the only query that says whether an agent's app is switched off, because it
+    is the only one the client builds its agent list from. `EXISTS` rather than a join:
+    `USER_COLUMNS` is unqualified and `plugins` carries `id`, `name` and `status` of its
+    own, so joining it would make every one of those columns ambiguous.
+    """
     rows = (
         await session.execute(
             text(
                 f"""
-                SELECT {USER_COLUMNS} FROM users
+                SELECT {USER_COLUMNS},
+                       (kind = 'bot' AND NOT EXISTS (
+                            SELECT 1 FROM plugins p
+                             WHERE p.id = users.bot_plugin_id AND p.status = 'enabled'
+                        )) AS agent_disabled
+                  FROM users
                  WHERE workspace_id = :ws AND (NOT :active_only OR deactivated_at IS NULL)
                  ORDER BY lower(display_name) LIMIT 1000
                 """

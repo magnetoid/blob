@@ -121,6 +121,32 @@ describe('agents have their own section', () => {
     } as never);
   }
 
+  it('leaves out an agent whose app is switched off', () => {
+    // Uninstalled and disabled are different states — one is retirement, the other an
+    // admin toggle — but the reader's question is the same, and the answer is the same:
+    // nothing will answer you. An admin re-enables it in Administration.
+    useStore.setState({
+      workspaceName: 'Imba',
+      currentUser: { ...ME, role: 'owner' },
+      users: {
+        u1: ME,
+        b1: SCOUT,
+        b2: { id: 'b2', kind: 'bot', displayName: 'Rusty', deactivated: false, agentDisabled: true },
+        b3: { id: 'b3', kind: 'bot', displayName: 'Gone', deactivated: true },
+      },
+      channels: {},
+      presence: {},
+      agentRuns: {},
+      savedMessageIds: new Set(),
+    } as never);
+    render(<Sidebar />);
+
+    const section = screen.getByText('Agents').closest('section');
+    expect(section?.textContent).toContain('Scout');
+    expect(section?.textContent).not.toContain('Rusty');
+    expect(section?.textContent).not.toContain('Gone');
+  });
+
   it('lists an agent under Agents, not among the people', () => {
     seedWithAgent();
     render(<Sidebar />);
