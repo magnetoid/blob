@@ -118,6 +118,59 @@ class TestSeeding:
                 )
         assert first == second
 
+    async def test_an_existing_janus_moves_to_the_internal_url(
+        self, janus: None, client: Client
+    ) -> None:
+        """Production already has a `janus` row pointing at a public domain.
+
+        Updated in place rather than reinstalled: `uninstall` retires the bot — it sets
+        `deactivated_at`, releases the handle and mangles the address — so a
+        remove-and-reinstall would take the agent's history, its channel memberships and
+        its place in the sidebar with it.
+        """
+        owner = await sign_up(client, "Founder")
+        workspace_id = await workspace_id_of(owner)
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                plugin_id = await janus_agent.ensure(
+                    session, workspace_id, installed_by=owner.user_id
+                )
+                assert plugin_id is not None
+                await session.execute(
+                    text("UPDATE plugins SET agui_url = :old WHERE id = :id"),
+                    {"old": "https://janus.example.com/v1/agui", "id": plugin_id},
+                )
+
+        async with SessionFactory() as session:
+            bot_before = (
+                await session.execute(
+                    text("SELECT id FROM users WHERE bot_plugin_id = :id"), {"id": plugin_id}
+                )
+            ).fetchone()
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                again = await janus_agent.ensure(
+                    session, workspace_id, installed_by=owner.user_id
+                )
+        assert again == plugin_id
+
+        async with SessionFactory() as session:
+            row = (
+                await session.execute(
+                    text("SELECT agui_url FROM plugins WHERE id = :id"), {"id": plugin_id}
+                )
+            ).fetchone()
+            bot_after = (
+                await session.execute(
+                    text("SELECT id FROM users WHERE bot_plugin_id = :id"), {"id": plugin_id}
+                )
+            ).fetchone()
+        assert row is not None and row.agui_url == "http://janus:8642/v1/agui"
+        assert bot_before is not None and bot_after is not None
+        assert bot_before.id == bot_after.id
+
 
 class TestTheUrlIsNotExemptFromTheGuardItSkips:
     async def test_the_same_url_typed_by_hand_is_still_refused(self, client: Client) -> None:

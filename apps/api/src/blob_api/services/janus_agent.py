@@ -79,6 +79,17 @@ async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str)
 
     plugin_id = await existing_id(session, workspace_id)
     if plugin_id is not None:
+        # Production already holds a `janus` row pointing at a public domain. Moved rather
+        # than reinstalled: `uninstall` retires the bot — deactivated, handle released,
+        # address mangled — so remove-and-reinstall would take its history, its channel
+        # memberships and its place in the sidebar with it.
+        #
+        # Only the URL. Not the name, not the scopes: a grant an admin revoked must stay
+        # revoked across a restart, and a name somebody changed is theirs.
+        await session.execute(
+            text("UPDATE plugins SET agui_url = :url, updated_at = now() WHERE id = :id"),
+            {"url": settings.JANUS_AGUI_URL, "id": plugin_id},
+        )
         return plugin_id
 
     installed = await registry.install(
