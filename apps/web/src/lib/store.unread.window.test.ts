@@ -166,3 +166,53 @@ describe("a channel someone asked to keep unread", () => {
     expect(useStore.getState().channels["c1"]?.hasUnread).toBe(false);
   });
 });
+
+/**
+ * Deleting the newest message must not strand the tail pointer.
+ *
+ * The third route to one symptom. `wasAtTail` above compares the last loaded row against
+ * the channel's `lastMessageId`, and a pointer left naming a row that no longer exists
+ * never matches again — so every later message in that channel is dropped from the open
+ * view and only a reload brings it back. A thread reply used to advance the pointer to
+ * something the channel list could never hold; a replay after a reconnect used to walk it
+ * backwards; and deleting the newest message stranded it. The rule the three share is
+ * that the pointer has to be maintained wherever the tail moves.
+ */
+describe("deleting the newest message", () => {
+  it("moves the tail pointer back, so later messages still arrive live", () => {
+    loadChannel(["m1", "m2"], "m2");
+
+    useStore
+      .getState()
+      .applyEvent({ t: "message.deleted", id: "m2", channelId: "c1", threadRootId: null } as never);
+
+    expect(useStore.getState().channels["c1"]?.lastMessageId).toBe("m1");
+
+    // The part that was broken: this used to be dropped in silence.
+    useStore
+      .getState()
+      .applyEvent({ t: "message.new", message: msg("m3") } as never);
+
+    expect(useStore.getState().messages["c1"]?.items.map((m) => m.id)).toEqual(["m1", "m3"]);
+  });
+
+  it("leaves the pointer alone when the deleted message was not the newest", () => {
+    loadChannel(["m1", "m2"], "m2");
+
+    useStore
+      .getState()
+      .applyEvent({ t: "message.deleted", id: "m1", channelId: "c1", threadRootId: null } as never);
+
+    expect(useStore.getState().channels["c1"]?.lastMessageId).toBe("m2");
+  });
+
+  it("clears the pointer when the channel is emptied, rather than naming a ghost", () => {
+    loadChannel(["m1"], "m1");
+
+    useStore
+      .getState()
+      .applyEvent({ t: "message.deleted", id: "m1", channelId: "c1", threadRootId: null } as never);
+
+    expect(useStore.getState().channels["c1"]?.lastMessageId).toBeNull();
+  });
+});

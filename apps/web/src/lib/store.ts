@@ -1137,7 +1137,10 @@ export const useStore = create<State>((set, get) => ({
         set((s) => {
           const existing = s.messages[event.channelId];
           const next: Partial<State> = {};
-          if (existing) {
+          const kept = existing
+            ? stripPending(existing.items).filter((m) => m.id !== event.id)
+            : null;
+          if (existing && kept) {
             next.messages = {
               ...s.messages,
               [event.channelId]: {
@@ -1146,9 +1149,32 @@ export const useStore = create<State>((set, get) => ({
                   s.currentUser,
                   sortOutbox(s.outbox),
                   event.channelId,
-                  stripPending(existing.items).filter((m) => m.id !== event.id),
+                  kept,
                 ),
               },
+            };
+          }
+
+          // The tail pointer named the message that just went, and nothing moved it.
+          //
+          // `message.new` folds an arrival only when the loaded list already ends at
+          // this pointer — that is the `wasAtTail` test above, and it is what keeps a
+          // permalink window from having live messages appended to it. Leaving the
+          // pointer naming a row that no longer exists makes that test false for the
+          // rest of the session, so every later message in this channel is dropped from
+          // the open view and only a reload brings it back.
+          //
+          // This is the third route to that same symptom: a thread reply advanced it to
+          // something the channel list could never hold, a replay after a reconnect
+          // walked it backwards, and deleting the newest message strands it. Both of
+          // those are fixed a few lines up. The rule underneath all three is that the
+          // pointer has to be maintained wherever the tail moves — and deletion moves
+          // the tail.
+          const channel = s.channels[event.channelId];
+          if (channel && channel.lastMessageId === event.id && kept) {
+            next.channels = {
+              ...s.channels,
+              [event.channelId]: { ...channel, lastMessageId: kept.at(-1)?.id ?? null },
             };
           }
           if (event.threadRootId && s.threads[event.threadRootId]) {
