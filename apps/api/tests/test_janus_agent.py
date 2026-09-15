@@ -190,12 +190,11 @@ class TestReconcilingAtBoot:
 
 
 class TestTheUrlIsNotExemptFromTheGuardItSkips:
-    async def test_the_same_url_typed_by_hand_is_still_refused(self, client: Client) -> None:
+    async def test_https_is_required_for_registered_urls(self, client: Client) -> None:
         # `registry.install` has never looked at a URL, so `ensure` calling it directly
         # is outside `_assert_reachable` by construction, not by an exemption anybody
-        # passes. This is the other half of that claim: a person typing Janus's own
-        # internal URL into the console goes through the route the guard sits on, and
-        # is refused there exactly as any other private address would be.
+        # passes. This test verifies the https-required check still fires when a URL is
+        # typed into the admin console, even if it points to an internal address.
         owner = await sign_up(client, "Founder")
 
         response = await owner.post(
@@ -213,3 +212,25 @@ class TestTheUrlIsNotExemptFromTheGuardItSkips:
         assert response.body["error"]["code"] == "bad_request_url"
         apps = (await owner.get("/api/admin/plugins")).body["plugins"]
         assert not any(p["slug"] == "janus-by-hand" for p in apps)
+
+    async def test_private_hosts_are_refused_even_with_https(self, client: Client) -> None:
+        # Once a URL passes the https check, it reaches the private-address guard.
+        # This test verifies that guard still refuses internal hostnames like janus,
+        # even when the URL uses https as required.
+        owner = await sign_up(client, "Founder")
+
+        response = await owner.post(
+            "/api/admin/plugins",
+            {
+                "slug": "janus-https",
+                "name": "Janus HTTPS",
+                "runtime": "external",
+                "aguiUrl": "https://janus:8642/v1/agui",
+                "scopes": list(janus_agent.AGENT_SCOPES),
+            },
+        )
+
+        assert response.status == 403, response.body
+        assert response.body["error"]["code"] == "policy_forbidden"
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        assert not any(p["slug"] == "janus-https" for p in apps)
