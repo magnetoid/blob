@@ -22,7 +22,7 @@ from sqlalchemy import text
 from blob_api.config import settings
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
-from blob_api.plugins import builtin, streams
+from blob_api.plugins import streams
 from blob_api.services import agent_chains
 
 from .helpers import (
@@ -387,27 +387,6 @@ class TestStop:
         await agui_job.handle_agui_run(hop_message, parent_run)
 
         assert seen["/planner"] == []
-
-
-class TestTheBuiltinKnowsTheRoom:
-    def test_it_is_told_who_else_is_in_the_room(self) -> None:
-        persona = builtin.Persona(name="Blob", workspace_name="Imba")
-        prompt = builtin.system_prompt(persona, channel_name="general", participants=["Planner"])
-        assert "Planner" in prompt
-        assert "@Name" in prompt
-
-    def test_and_says_nothing_about_agents_when_it_is_alone(self) -> None:
-        persona = builtin.Persona(name="Blob", workspace_name="Imba")
-        prompt = builtin.system_prompt(persona, channel_name="general")
-        assert "Other agents" not in prompt
-
-    def test_being_asked_by_an_agent_is_described_as_such(self) -> None:
-        persona = builtin.Persona(name="Blob", workspace_name="Imba")
-        prompt = builtin.system_prompt(
-            persona, channel_name="general", asked_by_agent="Janus", on_behalf_of="Marko"
-        )
-        assert "mentioned by Janus" in prompt
-        assert "on behalf of Marko" in prompt
 
 
 class TestThePolicyRoundTrips:

@@ -1,9 +1,11 @@
 """Model-written thread summaries: cited, bounded, and honest about failing.
 
 The provider is faked at the transport `lib/llm.py` owns (`open_client`), never at
-`httpx.AsyncClient` — see the `model` fixture in test_builtin_agent for why. The fake
-answers whole (no stream), which is the call `complete` makes, and records every request
-body so the tests can pin what the model is shown and asked for.
+`httpx.AsyncClient`: that name is the one module object every importer shares, including
+the test suite's own client, so a fake meant for the model ends up answering the requests
+to the app under test. The fake answers whole (no stream), which is the call `complete`
+makes, and records every request body so the tests can pin what the model is shown and
+asked for.
 """
 
 from __future__ import annotations

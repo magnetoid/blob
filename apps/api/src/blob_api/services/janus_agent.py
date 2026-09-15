@@ -1,11 +1,9 @@
 """Making sure a workspace has Janus, when Janus is running beside us.
 
-The shape is `services/workspace_agent.py`'s and the reasoning is the same: an agent that
-has to be registered by hand is an agent a team may never get. The differences are the two
-that matter.
-
-It is installed **untrusted**. The built-in agent is Blob's own code and is seeded
-`trusted=True`; Janus is somebody else's, so it holds granted scopes like any app and
+Janus is the agent Blob ships with, and it is seeded rather than registered by hand for
+the reason a workspace has one at all: an agent a team has to install themselves is an
+agent they may never get. It is nonetheless somebody else's program, installed through the
+ordinary path with no exemption — it holds granted scopes like any app, and
 `validate_manifest` refuses anything a manifest off the wire could not claim.
 
 Its signing secret **comes from the environment**. Blob normally mints one at install and
@@ -20,7 +18,7 @@ that starts here is outside the guard by construction. An admin typing the same 
 `POST /api/admin/plugins` is still refused, and `tests/test_janus_agent.py` pins it.
 
 The boot-time pass over every workspace and the joining of public channels are not this
-module's either: `services/agent_seeding.py` holds both, shared with the built-in agent.
+module's either: `services/agent_seeding.py` holds both.
 """
 
 from __future__ import annotations
@@ -75,8 +73,7 @@ async def existing_id(session: AsyncSession, workspace_id: str) -> str | None:
     """The row this service owns — never merely a row wearing its slug.
 
     The slug alone is not identity, and matching on it alone adopts rows that must not be
-    touched. `services/workspace_agent.existing_id` matches slug *and* runtime for this
-    same reason, and here there are two live ones:
+    touched — here there are two live ones:
 
     A `runtime = 'container'` janus row — one production instance has one — is re-healed
     by `jobs/deployments.py`, which rewrites every container row's `agui_url` from the

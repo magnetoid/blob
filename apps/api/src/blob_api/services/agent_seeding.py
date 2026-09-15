@@ -1,11 +1,10 @@
-"""What the two seeders share.
+"""The seeding that is not about which agent is being seeded.
 
-Two agents are seeded into a workspace rather than registered by hand — the one Blob runs
-itself (`workspace_agent.py`) and Janus, when it runs as a service in this stack
-(`janus_agent.py`). Each has its own idea of what "make sure" means for one workspace:
-what to install, which row counts as its own, what to reconcile on a row it installed
-earlier. What they must not each have is a copy of the two things below, because a rule
-written twice is a rule with two places to be forgotten in.
+Janus is seeded into a workspace rather than registered by hand, and what "make sure"
+means for one workspace — what to install, which row counts as its own, what to reconcile
+on a row installed earlier — is `janus_agent.py`'s. The two things below are not: the pass
+over every workspace at boot, and the joining of the public channels. They sit apart
+because neither knows or cares which agent it is doing it for.
 """
 
 from __future__ import annotations
@@ -26,8 +25,8 @@ log = logging.getLogger("blob.agent_seeding")
 class Ensure(Protocol):
     """A seeder's "make sure" for one workspace.
 
-    Answers the plugin id, or None when there was nothing to seed — no model configured,
-    the service not running, the name held by a row that is not the seeder's own.
+    Answers the plugin id, or None when there was nothing to seed — the service not
+    running, or the name held by a row that is not the seeder's own.
     """
 
     def __call__(
@@ -59,7 +58,7 @@ async def join_public_channels(session: AsyncSession, workspace_id: str, bot_use
 
     This is the join at seeding, for the channels that already exist. The ones founded
     afterwards are joined as they are founded, by `channels.create_channel`, which reads
-    the `in_every_public_channel` flag the seeders set at install — so "everywhere" holds
+    the `in_every_public_channel` flag the seeder sets at install — so "everywhere" holds
     without waiting for a restart.
 
     Scoped by workspace inside the statement, and `add_members` re-derives the boundary
@@ -95,10 +94,10 @@ async def reconcile_everywhere(
 ) -> int:
     """Run one seeder over every workspace. Returns how many gained the agent.
 
-    This is what runs at startup. Every setting that turns a seeder on — `LLM_PROVIDER`,
-    `JANUS_AGUI_URL` — arrives as an environment variable, so the moment it changes *is* a
-    restart; reconcile anywhere else and a server that has been running for a month gains
-    the agent for new workspaces and not for the ones already using it.
+    This is what runs at startup. The setting that turns the seeder on — `JANUS_AGUI_URL`
+    — arrives as an environment variable, so the moment it changes *is* a restart;
+    reconcile anywhere else and a server that has been running for a month gains the agent
+    for new workspaces and not for the ones already using it.
 
     **It never raises**, for the same reason: a workspace that cannot seed its agent must
     not stop the boot, and neither may a database that cannot list the workspaces. Both
@@ -111,10 +110,8 @@ async def reconcile_everywhere(
     sessions is also why this takes none — a caller cannot hand in one it will reuse.
 
     `lacking_slug` narrows the pass to workspaces holding no plugin of that slug at all.
-    The built-in seeder passes its slug because it never changes a row it installed
-    earlier, so a workspace that already has the agent needs nothing from it — a public
-    channel founded since is handled where it is founded, by `channels.create_channel`
-    reading `plugins.in_every_public_channel`. Janus leaves it None and visits every
+    It is for a seeder that never changes a row it installed earlier, so a workspace that
+    already has the agent needs nothing from it. Janus leaves it None and visits every
     workspace, because it also re-points the rows it installed earlier. The prefilter is
     keyed on the slug and not on a runtime on purpose: `registry.install` refuses a taken
     slug whatever its runtime, so a runtime test here would quietly skip a workspace that

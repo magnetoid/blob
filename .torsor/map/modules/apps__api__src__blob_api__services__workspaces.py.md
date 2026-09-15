@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-12T14:23:46'
-updated: '2026-09-12T14:23:46'
+created: '2026-09-16T01:13:47'
+updated: '2026-09-16T01:13:47'
 ---
 
 # apps/api/src/blob_api/services/workspaces.py
@@ -20,4 +20,4 @@ Symbols in `apps/api/src/blob_api/services/workspaces.py`.
 - L108 `password_hash_for(session: AsyncSession, email: str)` (function) — This person's password, from whichever of their rows still has one.
 - L131 `set_password_everywhere(session: AsyncSession, email: str, password_hash: str)` (function) — Write a new password to every row this person has.
 - L144 `found(session: AsyncSession, *, name: str, email: str, display_name: str, password_hash: str | None, grant_admin: bool=False)` (function) — Create a workspace with its founder, their default channels, and nothing else.
-- L216 `user_row_in(session: AsyncSession, workspace_id: str, email: str)` (function) — This person's account in one workspace, or 404 if they have none there.
+- L219 `user_row_in(session: AsyncSession, workspace_id: str, email: str)` (function) — This person's account in one workspace, or 404 if they have none there.

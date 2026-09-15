@@ -1,9 +1,8 @@
 """Janus as a service inside Blob's own stack.
 
-Seeded rather than registered, for the reason `services/workspace_agent.py` gives about
-the built-in agent: a setup task somebody may never do is not a feature. The difference
-is that this one is somebody else's code, so it is installed untrusted and holds granted
-scopes like any app.
+Seeded rather than registered by hand, because a setup task somebody may never do is not
+a feature — and it is nonetheless somebody else's code, so it goes in through the ordinary
+install path with no exemption and holds granted scopes like any app.
 """
 
 from __future__ import annotations
@@ -67,9 +66,8 @@ class TestSettings:
 
 @pytest.fixture
 def janus(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The live singleton, patched the way `test_builtin_agent.py`'s `model` fixture
-    patches the LLM settings — `conftest.py` forces `settings` off for the rest of the
-    suite, so a test that wants Janus running has to turn it on the same way."""
+    """The live singleton, turned on for the tests that need it. `conftest.py` forces
+    `settings` off for the whole suite, so a test that wants Janus running asks for this."""
     monkeypatch.setattr(settings, "JANUS_AGUI_URL", "http://janus:8642/v1/agui")
     monkeypatch.setattr(settings, "JANUS_SIGNING_SECRET", "shared-with-the-container")
     monkeypatch.setattr(settings, "JANUS_AGENT_NAME", "Janus")

@@ -33,8 +33,8 @@ os.environ["ARGON2_PROFILE"] = "fast"
 #
 # `config.Settings` reads the repo-root `.env`, so a developer who has configured a real
 # provider was, until this line, running the suite with `llm.configured()` true and a
-# live key in `settings`. That changes behaviour rather than just settings: the built-in
-# agent is seeded into a workspace only when a model exists, so bootstrap counts and the
+# live key in `settings`. That changes behaviour rather than just settings: Catch-up and
+# summaries take the model path only when a model exists, so bootstrap flags and the
 # "no model is configured" paths differ between that machine and CI — and anything that
 # reached a provider would spend the developer's key to do it.
 #

@@ -74,15 +74,15 @@ beforeEach(() => {
       plugin({}),
       plugin({
         id: 'p2',
-        slug: 'blob',
-        name: 'Blob',
-        description: 'Workspace assistant',
-        runtime: 'builtin',
+        slug: 'janus',
+        name: 'Janus',
+        description: 'Janus, running beside Blob',
+        runtime: 'external',
         scopes: ['messages:read', 'messages:write'],
         online: null,
         runsLastWeek: 30,
         runningNow: 0,
-        channelCount: 0,
+        channelCount: 4,
       }),
     ],
   });
@@ -106,7 +106,7 @@ describe('the agents console', () => {
     const { container } = render(<AppsSection onError={vi.fn()} />);
     await waitFor(() => expect(screen.getByText('Scout')).toBeTruthy());
     expect(screen.getByText('6 channels · read-only')).toBeTruthy();
-    expect(screen.getByText('All channels · acts as each asker')).toBeTruthy();
+    expect(screen.getByText('4 channels')).toBeTruthy();
     expect(screen.getByLabelText('1 running now')).toBeTruthy();
     expect(container.querySelector('.admin-plugin-card')).toBeNull();
     expect(container.querySelectorAll('table.admin-agents tbody tr')).toHaveLength(2);

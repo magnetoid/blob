@@ -87,22 +87,19 @@ async def install(
     source_ref: str | None = None,
     #: Names the built-ins already hold. Passed in because those live a layer above.
     reserved_commands: frozenset[str] = frozenset(),
-    #: True only when Blob is seeding its own agent. Defaults to false so that a route
-    #: reaching this without thinking about it gets the refusal rather than the exemption.
-    trusted: bool = False,
     #: Use this instead of generating one. Only the seeder passes it, and only because an
     #: agent running as a service in this stack reads its half of the secret from a static
     #: container environment — a value Blob generated afterwards could never reach it.
     signing_secret: str | None = None,
-    #: In every public channel, the ones founded later included. Only the seeders pass
+    #: In every public channel, the ones founded later included. Only the seeder passes
     #: it: an app an admin installs is invited room by room, and membership is also how
     #: far its `messages:write` reaches. See `db/models.Plugin.in_every_public_channel`.
     in_every_public_channel: bool = False,
-    #: Addressed by its DM without a mention. Only the seeders pass it, for the reason
+    #: Addressed by its DM without a mention. Only the seeder passes it, for the reason
     #: `db/models.Plugin.answers_dm_without_mention` gives.
     answers_dm_without_mention: bool = False,
 ) -> Installed:
-    validate_manifest(manifest, reserved_commands=reserved_commands, trusted=trusted)
+    validate_manifest(manifest, reserved_commands=reserved_commands)
 
     taken = (
         await session.execute(
@@ -599,11 +596,6 @@ async def bot_user_id(session: AsyncSession, plugin_id: str) -> str | None:
     return row.id if row else None
 
 
-#: Whether an agent can be reached by a mention at all: an address, a connection it
-#: opened itself, or no network at all — a socket agent has no `agui_url` and the
-#: built-in agent has neither end, so the URL test alone would filter out both. Two
-#: queries ask this and had each written it out; a mention that reaches one and not
-#: the other is exactly the bug the traps list records.
 async def list_for_workspace(session: AsyncSession, workspace_id: str) -> list[Any]:
     return list(
         (
@@ -833,4 +825,8 @@ async def public_channels_for_bot(
     )
 
 
-MENTIONABLE_AGENT = "(p.agui_url IS NOT NULL OR p.runtime IN ('socket', 'builtin'))"
+#: Whether an agent can be reached by a mention at all: an address, or a connection it
+#: opened itself — a socket agent has no `agui_url`, so the URL test alone would filter
+#: out every one of them. Two queries ask this and had each written it out; a mention that
+#: reaches one and not the other is exactly the bug the traps list records.
+MENTIONABLE_AGENT = "(p.agui_url IS NOT NULL OR p.runtime = 'socket')"

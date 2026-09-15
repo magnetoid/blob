@@ -1,9 +1,9 @@
-"""The pass both seeders make over every workspace at boot.
+"""The pass a seeder makes over every workspace at boot.
 
-Driven with a stand-in seeder rather than the real ones — those are pinned by
-`test_builtin_agent.py` and `test_janus_agent.py` — because what is under test here is the
-loop itself: which workspaces it visits, whom it installs as, what it counts, and the rule
-it exists for, that one workspace which cannot be seeded costs no other workspace its agent.
+Driven with a stand-in seeder rather than the real one — that is pinned by
+`test_janus_agent.py` — because what is under test here is the loop itself: which
+workspaces it visits, whom it installs as, what it counts, and the rule it exists for,
+that one workspace which cannot be seeded costs no other workspace its agent.
 """
 
 from __future__ import annotations

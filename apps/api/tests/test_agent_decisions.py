@@ -22,7 +22,6 @@ from sqlalchemy import text
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
 from blob_api.plugins import agui, decisions, streams
-from blob_api.services import workspace_agent
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up, workspace_id_of
 from .test_agent_socket import agent_socket, receive_until
@@ -35,7 +34,6 @@ from .test_agui import (
     join_channel,
     messages_in,
 )
-from .test_builtin_agent import model  # noqa: F401 — a fixture, used by name
 
 
 async def _nothing() -> None:
@@ -514,68 +512,6 @@ class TestWaiting:
 
 
 class TestTheOtherTransports:
-    async def test_the_builtin_gets_the_answer_as_its_next_turn(
-        self,
-        client: Client,
-        model: dict,  # noqa: F811 — the fixture, by name
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        owner = await sign_up(client, "Ada")
-        general = (await owner.get("/api/channels")).body["channels"][0]["id"]
-        inputs: list[dict] = []
-
-        # `tools=`/`call=` are what the job now hands the agent; a double that does
-        # not take them fails with a TypeError that looks nothing like the cause.
-        async def fake_stream(run_input: Any, persona: Any, **_tools: Any) -> Any:
-            inputs.append(dict(run_input))
-            yield {"type": "RUN_STARTED", "threadId": "t", "runId": "r"}
-            if len(inputs) == 1:
-                yield {
-                    "type": "RUN_FINISHED",
-                    "outcome": {
-                        "type": "interrupt",
-                        "interrupts": [{"id": "q", "message": "Which repo?"}],
-                    },
-                }
-            else:
-                yield {"type": "TEXT_MESSAGE_START", "messageId": "m1", "role": "assistant"}
-                yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": "m1", "delta": "On it."}
-                yield {"type": "TEXT_MESSAGE_END", "messageId": "m1"}
-                yield {"type": "RUN_FINISHED", "threadId": "t", "runId": "r"}
-
-        monkeypatch.setattr(streams.builtin, "stream", fake_stream)
-        recorded: list[tuple[Any, ...]] = []
-
-        def record(job: str, *args: Any) -> Any:
-            recorded.append((job, *args))
-            return _nothing()
-
-        from blob_api.services import agent_chains
-
-        monkeypatch.setattr(agent_chains, "enqueue", record)
-
-        sent = await send_message(
-            owner, general, f"@{workspace_agent.AGENT_NAME} start the release"
-        )
-        await agui_job.handle_agui_run(str(sent.body["message"]["id"]))
-        async with SessionFactory() as session:
-            run_id = (
-                await session.execute(
-                    text("SELECT id FROM agent_runs WHERE status = 'interrupted'")
-                )
-            ).scalar_one()
-
-        answered = await owner.post(f"/api/agent-runs/{run_id}/answer", {"value": "blob/main"})
-        assert answered.status == 200, answered.body
-        [(_, answer_id, parent)] = [r for r in recorded if r[0] == "agui_run"]
-        await agui_job.handle_agui_run(answer_id, parent)
-
-        assert len(inputs) == 2
-        # The built-in ignores `resume` and simply reads the answer as the newest turn.
-        assert inputs[1]["messages"][-1]["content"] == "blob/main"
-        assert inputs[1]["resume"][0]["payload"] == "blob/main"
-        assert "On it." in [m["body"] for m in await messages_in(general)]
-
     async def test_a_socket_agent_receives_the_resume_input(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
     ) -> None:

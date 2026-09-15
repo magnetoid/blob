@@ -1277,7 +1277,7 @@ class Plugin(Base):
     __tablename__ = "plugins"
     __table_args__ = (
         CheckConstraint(
-            "runtime IN ('local', 'external', 'container', 'socket', 'builtin')",
+            "runtime IN ('local', 'external', 'container', 'socket')",
             name="plugins_runtime_check",
         ),
         CheckConstraint(
@@ -1326,7 +1326,7 @@ class Plugin(Base):
     runtime: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'enabled'"))
     #: In every public channel, the ones founded after it was installed included. Only
-    #: the seeders set it — the built-in agent and Janus — because this is what
+    #: the seeder sets it — Janus, the agent a workspace gets — because this is what
     #: "reachable everywhere" means for an agent that is a real member: a mention needs
     #: membership, so `services/channels.create_channel` adds every flagged bot to a new
     #: public channel. Off for anything an admin installs by hand: an app is invited
@@ -1334,8 +1334,8 @@ class Plugin(Base):
     in_every_public_channel: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
-    #: Addressed by its DM: a message there needs no `@name`. Set only by the seeders —
-    #: the agents Blob presents as *the* assistant — never for an app installed by hand,
+    #: Addressed by its DM: a message there needs no `@name`. Set only by the seeder —
+    #: the agent Blob presents as *the* assistant — never for an app installed by hand,
     #: which would otherwise get a run for every line typed at it with no opt-in from
     #: its author. A person's own agent needs no flag: `owner_user_id` being the one
     #: person in the room is that case. See `jobs/agui_admission.personal_agent_for`.

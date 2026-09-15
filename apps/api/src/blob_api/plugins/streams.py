@@ -1,9 +1,9 @@
-"""The three ways an agent's AG-UI stream reaches Blob.
+"""The two ways an agent's AG-UI stream reaches Blob.
 
-One contract, three transports: an HTTP POST to the agent's endpoint (the direction
-every agent framework ships), the reversed socket for an agent with no address
-(ADR 0012), and the in-process builtin. Each returns the same `(fold, posts, error)`
-triple, so the job that answers a mention does not care where the agent lives.
+One contract, two transports: an HTTP POST to the agent's endpoint (the direction every
+agent framework ships), and the reversed socket for an agent with no address (ADR 0012).
+Both return the same `(fold, posts, error)` triple, so the job that answers a mention does
+not care where the agent lives.
 
 Lives in plugins/ rather than jobs/ because it is transport, not orchestration — and
 because the socket half already had its other end here.
@@ -12,20 +12,17 @@ because the socket half already had its other end here.
 from __future__ import annotations
 
 import json
-import logging
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 from ..config import settings
-from ..lib import llm, sse
-from . import agui, builtin, gateway
+from ..lib import sse
+from . import agui, gateway
 from .signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
-
-log = logging.getLogger("blob.plugins.streams")
 
 
 @dataclass(slots=True)
@@ -38,26 +35,13 @@ class Listener:
     agui_url: str | None
     signing_secret: str
     runtime: str = "external"
-    #: Only read for the built-in agent, which is told where it works. An external agent
-    #: is somebody else's program and is given the channel, not the workspace.
-    workspace_name: str = ""
-    #: Set only in a personal-agent DM: the one person on the other side. It is what turns
-    #: the workspace agent into *your* agent, and it is a name rather than an id because
-    #: the only thing downstream does with it is tell the model whose room this is.
-    owner_name: str | None = None
 
     @property
     def dials_in(self) -> bool:
         return self.runtime == "socket"
 
     @property
-    def runs_here(self) -> bool:
-        return self.runtime == builtin.RUNTIME
-
-    @property
     def transport(self) -> str:
-        if self.runs_here:
-            return "builtin"
         return "socket" if self.dials_in else "http"
 
 
@@ -67,8 +51,6 @@ async def stream_run(
     *,
     transport: httpx.AsyncBaseTransport | None = None,
     on_event: Callable[[Mapping[str, Any]], None] | None = None,
-    tools: Sequence[Mapping[str, Any]] = (),
-    call: llm.ToolRunner | None = None,
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
     """Call the agent and fold its stream. Returns (fold, messages to post, error).
 
@@ -80,8 +62,6 @@ async def stream_run(
     scheme — so an app that already verifies Blob's deliveries verifies this with the
     code it has.
     """
-    if listener.runs_here:
-        return await _stream_builtin(listener, run_input, on_event=on_event, tools=tools, call=call)
     if listener.dials_in:
         return await _stream_over_socket(listener, run_input, on_event=on_event)
 
@@ -231,58 +211,6 @@ async def _stream_over_socket(
         # because "it said nothing" and "it never woke up" want different apologies.
         posts.extend(fold.finish())
         return fold, posts, "the agent did not answer in time"
-
-    posts.extend(fold.finish())
-    return fold, posts, None
-
-
-async def _stream_builtin(
-    listener: Listener,
-    run_input: dict[str, Any],
-    *,
-    on_event: Callable[[Mapping[str, Any]], None] | None = None,
-    tools: Sequence[Mapping[str, Any]] = (),
-    call: llm.ToolRunner | None = None,
-) -> tuple[agui.Fold, list[agui.Post], str | None]:
-    """The same run, against a model, without leaving the process.
-
-    A third transport for the third time, and it costs the same as the second one did:
-    the same `Fold`, the same caps, the same treatment of a stream that stops early.
-    `plugins/agui.py` being a pure function of events is what keeps adding one to this
-    list a dozen lines rather than a parallel path — and it is why the run log, the 12k
-    split and the ten-message cap all applied to this agent before it existed.
-
-    No signature and no SSRF guard, because there is no request. Both of those exist to
-    make a hop across a network safe, and this one has no hop.
-    """
-    fold = agui.Fold()
-    posts: list[agui.Post] = []
-    persona = builtin.Persona(
-        name=listener.name,
-        workspace_name=listener.workspace_name,
-        owner_name=listener.owner_name,
-    )
-
-    seen_events = 0
-    try:
-        async for event in builtin.stream(run_input, persona, tools=tools, call=call):
-            seen_events += 1
-            if seen_events > settings.AGUI_MAX_EVENTS:
-                posts.extend(fold.finish())
-                return fold, posts, "the agent sent more events than we will read"
-            if on_event is not None:
-                on_event(event)
-            posts.extend(fold.feed(event))
-            if fold.finished:
-                return fold, posts, None
-    except Exception as error:
-        # `builtin.stream` turns a model failure into RUN_ERROR itself, so reaching here
-        # means a bug rather than a refusal. It still must not take the worker down: a
-        # broken built-in agent degrades to a run that failed with a reason, like any
-        # other agent that misbehaves.
-        log.exception("the built-in agent failed")
-        posts.extend(fold.finish())
-        return fold, posts, f"the agent failed: {error}"
 
     posts.extend(fold.finish())
     return fold, posts, None

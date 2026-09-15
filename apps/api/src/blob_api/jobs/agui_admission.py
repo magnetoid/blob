@@ -1,10 +1,10 @@
-"""Who answers a mention, and with what.
+"""Who answers a mention.
 
 The admission half of `jobs/agui.py`: which bots a message reached and may run
 (`listeners_for`), whether a DM is one person's private room with an agent the room may
-address (`personal_agent_for`), which tools an agent may hold and on whose authority
-(`agent_tools`), and the typing indicator a run shows while it thinks (`looks_busy`).
-None of this contacts an agent; all of it decides whether and how one is contacted.
+address (`personal_agent_for`), and the typing indicator a run shows while it thinks
+(`looks_busy`). None of this contacts an agent; all of it decides whether and how one is
+contacted.
 """
 
 from __future__ import annotations
@@ -13,20 +13,14 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
-from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db.engine import session_scope
-from ..lib import llm
-from ..lib.errors import AppError
 from ..plugins.registry import MENTIONABLE_AGENT
 from ..plugins.streams import Listener
 from ..realtime import presence
 from ..realtime.protocol import TYPING_TTL_MS
-from ..services import mcp as mcp_service
-from ..services import policies as policy_service
 
 log = logging.getLogger("blob.jobs.agui")
 
@@ -47,16 +41,14 @@ async def listeners_for(
             text(
                 f"""
                 SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
-                       p.runtime, s.signing_secret, w.name AS workspace_name
+                       p.runtime, s.signing_secret
                   FROM plugins p
                   JOIN users u ON u.bot_plugin_id = p.id
                   JOIN plugin_secrets s ON s.plugin_id = p.id
-                  JOIN workspaces w ON w.id = p.workspace_id
                  WHERE p.workspace_id = :ws
                    AND p.status = 'enabled'
-                   -- An address, a connection it opened itself, or no network at all.
-                   -- A socket agent has no agui_url and the built-in agent has neither
-                   -- end, so the URL test alone would filter out every one of both.
+                   -- An address, or a connection it opened itself. A socket agent has no
+                   -- agui_url, so the URL test alone would filter out every one of them.
                    AND {MENTIONABLE_AGENT}
                    AND u.id = ANY(cast(:ids AS uuid[]))
                    AND u.deactivated_at IS NULL
@@ -77,7 +69,6 @@ async def listeners_for(
             agui_url=row.agui_url,
             signing_secret=row.signing_secret,
             runtime=row.runtime,
-            workspace_name=row.workspace_name,
         )
         for row in rows
     ]
@@ -89,7 +80,7 @@ async def personal_agent_for(
     """The agent this channel is one person's private room with, when that agent may be
     addressed by the room.
 
-    A DM with the agent needs no `@Blob`, because there is nobody else it could be
+    A DM with an agent needs no mention, because there is nobody else the line could be
     addressed to — which is the whole reason a personal agent works without a second
     identity, a second bot, or a row anywhere. The room is what makes it personal.
 
@@ -113,12 +104,10 @@ async def personal_agent_for(
             text(
                 f"""
                 SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
-                       p.runtime, s.signing_secret, w.name AS workspace_name,
-                       other.display_name AS owner_name
+                       p.runtime, s.signing_secret
                   FROM plugins p
                   JOIN users u ON u.bot_plugin_id = p.id
                   JOIN plugin_secrets s ON s.plugin_id = p.id
-                  JOIN workspaces w ON w.id = p.workspace_id
                   JOIN channels c ON c.id = :channel_id
                                  AND c.workspace_id = p.workspace_id
                                  AND c.kind = 'dm'
@@ -133,11 +122,11 @@ async def personal_agent_for(
                                   AND other.deactivated_at IS NULL
                  WHERE p.workspace_id = :ws
                    AND p.status = 'enabled'
-                   -- It can be reached at all. The old `runtime = 'builtin'` test
-                   -- implied this; ownership does not, because `set_owner` will hand
-                   -- *any* installed app to a person. Without it a request_url-only app
-                   -- given to somebody makes their DM with it answer, every plain line,
-                   -- with "that agent has no endpoint to call" — see `plugins/streams`.
+                   -- It can be reached at all. Neither flag below implies it:
+                   -- `set_owner` will hand *any* installed app to a person, so without
+                   -- this a request_url-only app given to somebody makes their DM with
+                   -- it answer, every plain line, with "that agent has no endpoint to
+                   -- call" — see `plugins/streams`.
                    AND {MENTIONABLE_AGENT}
                    -- The room is the address for a resident agent, and for the
                    -- person's own agent. Never for an app installed by hand.
@@ -164,8 +153,6 @@ async def personal_agent_for(
         agui_url=row.agui_url,
         signing_secret=row.signing_secret,
         runtime=row.runtime,
-        workspace_name=row.workspace_name,
-        owner_name=row.owner_name,
     )
 
 
@@ -198,107 +185,6 @@ async def _is_private_room_with(
         )
     ).fetchone()
     return row is not None
-
-
-async def agent_tools(
-    listener: Listener, *, workspace_id: str, user_id: str, channel_id: str
-) -> tuple[list[dict[str, Any]], llm.ToolRunner | None]:
-    """The tools this agent may use, and a runner that runs them as the person who asked.
-
-    Two decisions live here rather than in the agent, because both are about authority and
-    the agent is the last place that should hold an opinion about its own.
-
-    **Whose eyes.** The caller is built from `initiated_by_user_id` — the person who
-    rooted the chain, never the agent and never the last speaker in it (ADR 0013). An
-    agent reached through somebody else's hop therefore reads what *that* person can read
-    and no more, so a private channel answers the agent exactly as it answers them, and
-    the blast radius of a prompt injection stops at the asker's own membership.
-
-    **And whose room.** The asker's reach was the whole bound, and it is the wrong one
-    when the answer is going somewhere other people are reading: `@Blob summarise
-    #salaries` typed in `#general` worked, and the summary landed in `#general`. Under
-    `agent_reads = 'audience'` (the default, migration 0037) the caller also carries the
-    room, and `services/mcp` narrows every read to what that room could have read for
-    itself. The exception is the agent's own DM with the asker: there the room *is* the
-    asker, which is the promise that DM already makes.
-
-    **Which tools.** `plugin_grants`, the same rows the console shows and an admin
-    revokes. No grant, no tool — and the tool is absent from the schema list rather than
-    refused at call time, because a model offered something it may not use will use it and
-    the person reads a permission error in the middle of an answer.
-
-    A refusal comes back as the tool's result, not as an exception: "I could not see that"
-    is an answer the model can write a sentence about, while a raised error would end the
-    run and tell the person nothing about what was asked for.
-    """
-    if not listener.runs_here or not user_id:
-        return [], None
-    async with session_scope() as session:
-        row = (
-            await session.execute(
-                text(
-                    """
-                    SELECT u.display_name, w.name AS workspace_name,
-                           coalesce(
-                             (SELECT array_agg(g.scope)
-                                FROM plugin_grants g
-                               WHERE g.plugin_id = :plugin_id),
-                             '{}'
-                           ) AS scopes
-                      FROM users u
-                      JOIN workspaces w ON w.id = :ws
-                     WHERE u.id = :user_id
-                       AND u.workspace_id = :ws
-                       AND u.deactivated_at IS NULL
-                    """
-                ),
-                {"plugin_id": listener.plugin_id, "ws": workspace_id, "user_id": user_id},
-            )
-        ).fetchone()
-        if row is None:
-            return [], None
-        # Read in the same session, before it closes: the answer decides what the model
-        # is handed, so it must not be a second round trip that could see a different
-        # policy from the one the scopes above were read under.
-        policy = await policy_service.effective_for(session, workspace_id)
-        room_bound = policy.agent_reads == "audience" and not await _is_private_room_with(
-            session,
-            channel_id=channel_id,
-            user_id=user_id,
-            bot_user_id=listener.bot_user_id,
-        )
-
-    granted = frozenset(row.scopes or ())
-    tools = mcp_service.tools_for_agent(granted)
-    if not tools:
-        return [], None
-    caller = mcp_service.McpCaller(
-        token_id="",
-        token_name=listener.name,
-        user_id=user_id,
-        workspace_id=workspace_id,
-        display_name=row.display_name,
-        workspace_name=row.workspace_name,
-        # Write only when an admin turned it on. `tools_for_agent` has already filtered
-        # `post_message` out of the schema without the grant, and this is the other half:
-        # the two must agree, or the model is offered a tool the dispatcher then refuses.
-        scopes=frozenset({"read", "write"})
-        if "messages:write.anywhere" in granted
-        else frozenset({"read"}),
-        # Never, for any agent. A person typing `@Planner do this` meant to start
-        # something; a model repeating a name it read did not, and ADR 0013 bounds chains
-        # by making a person's message the only thing that roots one.
-        may_start_runs=False,
-        room_channel_id=channel_id if room_bound else None,
-    )
-
-    async def run(name: str, arguments: dict[str, Any]) -> str:
-        try:
-            return await mcp_service.call(caller, name, arguments)
-        except AppError as error:
-            return f"That did not work: {error.message}"
-
-    return tools, run
 
 
 @asynccontextmanager

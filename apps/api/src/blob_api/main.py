@@ -28,7 +28,7 @@ from .lib.queue import close_queue
 from .lib.redis import close_redis, redis
 from .lib.security_headers import SecurityHeadersMiddleware
 from .realtime import hub
-from .services import janus_agent, workspace_agent
+from .services import janus_agent
 from .web import mount_web
 
 log = logging.getLogger("blob")
@@ -128,16 +128,14 @@ class SessionMiddleware:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await hub.start_redis_bridge()
-    # Every workspace gets the agents that are configured — the built-in one when a model
-    # is, Janus when it runs as a service in this stack — which is a no-op on all but the
-    # first boot after a setting changed. It lives here because those settings arrive as
-    # environment variables, so the moment one changes *is* a restart; put the reconcile
-    # anywhere else and a server that has been running for a month gains the feature for
-    # new workspaces and not for the ones already using it. For Janus the same pass also
-    # moves an already-installed agent off a public domain onto the internal address.
-    # Neither raises — `agent_seeding.reconcile_everywhere` logs and skips instead —
-    # because a workspace that cannot seed its agent must not stop the boot.
-    await workspace_agent.ensure_everywhere()
+    # Every workspace gets Janus when Janus runs as a service in this stack, which is a
+    # no-op on all but the first boot after the setting changed. It lives here because
+    # that setting arrives as an environment variable, so the moment it changes *is* a
+    # restart; put the reconcile anywhere else and a server that has been running for a
+    # month gains the agent for new workspaces and not for the ones already using it. The
+    # same pass also moves an already-installed agent off a public domain onto the
+    # internal address. It never raises — `agent_seeding.reconcile_everywhere` logs and
+    # skips instead — because a workspace that cannot seed its agent must not stop the boot.
     await janus_agent.ensure_everywhere()
 
     # Said once, at boot, where an operator reading a bad deploy will see it. Uploads go

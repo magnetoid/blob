@@ -3993,8 +3993,7 @@
               "local",
               "external",
               "container",
-              "socket",
-              "builtin"
+              "socket"
             ],
             "title": "Runtime",
             "type": "string"

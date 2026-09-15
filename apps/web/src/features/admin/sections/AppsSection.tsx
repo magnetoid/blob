@@ -325,7 +325,6 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
 
 /** What the agent may reach, in a sentence. The scopes themselves are on its page. */
 function accessOf(plugin: AdminPlugin): string {
-  if (plugin.runtime === "builtin") return "All channels · acts as each asker";
   const n = plugin.channelCount ?? 0;
   const where = n === 1 ? "1 channel" : `${n} channels`;
   const readOnly = !plugin.scopes.includes("messages:write");

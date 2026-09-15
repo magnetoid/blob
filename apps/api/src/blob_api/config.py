@@ -72,13 +72,14 @@ class Settings(BaseSettings):
     TRANSLATION_API_KEY: str | None = None
     TRANSLATION_TIMEOUT_SEC: float = 10.0
 
-    # The model behind the agent Blob runs itself. Every other agent brings its own key,
-    # because every other agent is somebody else's program; this one is Blob's, so the
-    # key is the server's.
+    # The model behind Catch-up and thread summaries — Blob's own two features that need
+    # one. The agent a workspace gets is Janus, and it brings its own key, because it is
+    # somebody else's program; these two are Blob's, so the key is the server's.
     #
-    # "disabled" is the default and a supported way to run: a workspace with no model
-    # keeps every agent it installed and simply has no built-in one. Nothing about that
-    # is an error state, so nothing degraded is offered in the UI and nothing 500s.
+    # "disabled" is the default and a supported way to run — both production instances do:
+    # a workspace with no model keeps its agent, Catch-up is not offered, and a thread
+    # summary comes from the keyword scan instead. Nothing about that is an error state,
+    # so nothing degraded is offered in the UI and nothing 500s.
     #: `deepseek` speaks OpenAI's wire shape at its own host, so it reuses that request
     #: builder and differs only in `DEFAULT_BASES` and `DEFAULT_MODELS` — it is a third
     #: provider, not a third code path. Naming it here rather than telling operators to
@@ -90,7 +91,7 @@ class Settings(BaseSettings):
     #: still decides the request shape; this only moves the host.
     LLM_BASE_URL: str | None = None
     #: Empty means the provider's default in `lib/llm.py`, which is a current model
-    #: rather than a cheap one — the built-in agent is the product's first impression.
+    #: rather than a cheap one — a summary nobody trusts is worse than no summary.
     LLM_MODEL: str | None = None
     LLM_MAX_TOKENS: int = 2_048
     LLM_TIMEOUT_SEC: float = 120.0

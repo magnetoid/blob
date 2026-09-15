@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-13T01:33:41'
-updated: '2026-09-13T01:33:41'
+created: '2026-09-16T01:13:47'
+updated: '2026-09-16T01:13:47'
 ---
 
 # apps/api/src/blob_api/jobs/agui_outcome.py
@@ -22,5 +22,5 @@ Symbols in `apps/api/src/blob_api/jobs/agui_outcome.py`.
 - L234 `_gather(listener: Listener, *, channel_id: str, thread_root_id: str | None, chain: agent_chains.Chain)` (function)
 - L302 `_start(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, trigger_id: str, trigger_user_id: str | None, chain: agent_chains.Chain)` (function) — The `running` row, written before the call and not after.
 - L358 `_stream(listener: Listener, run_input: Any, *, run_id: str, workspace_id: str, channel_id: str, thread_root_id: str | None, chain: agent_chains.Chain, card: run_card.CardFold)` (function) — Run the agent under the Stop button, showing the card as it forms.
-- L438 `_finish(listener: Listener, streamed: Streamed, *, run_id: str, workspace_id: str, channel_id: str, thread_root_id: str | None, thread_key: str, card: run_card.CardFold, post_count: int)` (function) — How the run ended, on the row and on the channel.
-- L566 `run_one(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, trigger_id: str, trigger_user_id: str | None, asker: str, channel_name: str, chain: agent_chains.Chain, max_depth: int, on_behalf_of: str | None)` (function)
+- L427 `_finish(listener: Listener, streamed: Streamed, *, run_id: str, workspace_id: str, channel_id: str, thread_root_id: str | None, thread_key: str, card: run_card.CardFold, post_count: int)` (function) — How the run ended, on the row and on the channel.
+- L555 `run_one(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, trigger_id: str, trigger_user_id: str | None, asker: str, channel_name: str, chain: agent_chains.Chain, max_depth: int, on_behalf_of: str | None)` (function)

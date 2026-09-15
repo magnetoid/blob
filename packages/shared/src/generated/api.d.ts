@@ -4836,7 +4836,7 @@ export interface components {
              * @default external
              * @enum {string}
              */
-            runtime: "local" | "external" | "container" | "socket" | "builtin";
+            runtime: "local" | "external" | "container" | "socket";
             /** Scopes */
             scopes?: string[];
             /** Slug */

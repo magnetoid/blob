@@ -40,7 +40,7 @@ from ..services import channels as channel_service
 from ..services import messages as message_service
 from ..services import work as work_service
 from ..services.serialize import message_event
-from .agui_admission import agent_tools, looks_busy
+from .agui_admission import looks_busy
 from .agui_stream import CardBroadcaster, wait_for_cancel
 
 log = logging.getLogger("blob.jobs.agui")
@@ -391,20 +391,8 @@ async def _stream(
             cancelled = True
         else:
             async with looks_busy(listener, channel_id, thread_root_id):
-                tools, tool_runner = await agent_tools(
-                    listener,
-                    workspace_id=workspace_id,
-                    user_id=chain.initiated_by_user_id,
-                    channel_id=channel_id,
-                )
                 stream_task = asyncio.create_task(
-                    stream_run(
-                        listener,
-                        run_input,
-                        on_event=broadcaster.on_event,
-                        tools=tools,
-                        call=tool_runner,
-                    )
+                    stream_run(listener, run_input, on_event=broadcaster.on_event)
                 )
                 waiters: set[asyncio.Task[Any]] = {stream_task}
                 cancel_task: asyncio.Task[None] | None = None
