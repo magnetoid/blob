@@ -210,5 +210,6 @@ class TestTheUrlIsNotExemptFromTheGuardItSkips:
         )
 
         assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "bad_request_url"
         apps = (await owner.get("/api/admin/plugins")).body["plugins"]
         assert not any(p["slug"] == "janus-by-hand" for p in apps)
