@@ -353,6 +353,18 @@ services:
       # The same value Blob holds as JANUS_SIGNING_SECRET. Its presence is also what
       # registers the /v1/agui route at all — no secret, no route.
       - BLOB_SIGNING_SECRET=${JANUS_SIGNING_SECRET}
+      # ⚠ These two do NOT configure the agent that answers a mention. Measured on
+      # 2026-09-15: nothing under Janus's `gateway/` or `agent/` reads `JANUS_MODEL` or
+      # `JANUS_INFERENCE_MODEL` — only its TUI and one-shot CLI paths do. The gateway
+      # reads `$JANUS_HOME/config.yaml`, which is `/opt/data/config.yaml` on the volume
+      # below, and a fresh volume starts on the image's packaged default
+      # (`anthropic/claude-opus-4.6`). Pointed at DeepSeek, that default is refused by
+      # name — "the supported API model names are deepseek-flash, deepseek-v4-pro" — and
+      # the run finishes with no text at all, which reaches a channel as silence.
+      #
+      # So after a first boot on a new volume the model has to be set in that file. A
+      # Blob settings page that writes it is the next slice; until then it is one edit
+      # and a restart of this container. These stay because the CLI paths do read them.
       - JANUS_TUI_PROVIDER=${JANUS_PROVIDER:-deepseek}
       # Not `deepseek-chat`: DeepSeek retired it on 2026-09-14 and it does not 404 — it
       # answers 200 and then sends no body, so a run hangs to the caller's timeout.
