@@ -44,6 +44,26 @@ class TestSettings:
         assert settings.JANUS_AGUI_URL is None
         assert settings.JANUS_SIGNING_SECRET is None
 
+    def test_a_blank_name_falls_back_to_the_default(self) -> None:
+        # Unlike the two settings above, this field is `str`, not `str | None`, so a
+        # blank value cannot mean "unset" — it falls back to the same default a missing
+        # `JANUS_AGENT_NAME` gets, not to "".
+        settings = build(JANUS_AGENT_NAME="")
+        assert settings.JANUS_AGENT_NAME == "Janus"
+
+    def test_manifest_does_not_raise_when_the_name_is_blank(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The settings-level test above is not the one that would have caught the actual
+        # bug: `services/janus_agent.manifest()` passes `JANUS_AGENT_NAME` straight to
+        # `Manifest.name`, a `Field(min_length=1, ...)`, and a blank value reaching that
+        # field raised a pydantic ValidationError there — not an AppError, so
+        # `services/signup.py` re-raised it and the first signup on a misconfigured
+        # instance 500'd with no workspace created. This pins that path directly.
+        monkeypatch.setattr(janus_agent, "settings", build(JANUS_AGENT_NAME=""))
+        manifest = janus_agent.manifest()
+        assert manifest.name == "Janus"
+
 
 @pytest.fixture
 def janus(monkeypatch: pytest.MonkeyPatch) -> None:

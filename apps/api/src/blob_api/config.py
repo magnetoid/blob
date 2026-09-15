@@ -246,6 +246,19 @@ class Settings(BaseSettings):
     def _blank_is_none(cls, value: str | None) -> str | None:
         return value or None
 
+    # Not folded into `_blank_is_none` above: that validator returns None for a blank
+    # value, and this field is `str`, not `str | None` — every caller downstream, above
+    # all `services/janus_agent.manifest()`, assumes a real name. Before this validator, a
+    # blank `JANUS_AGENT_NAME=` in an env file reached `Manifest.name`, a
+    # `Field(min_length=1, max_length=80)`, as `""`, and pydantic's ValidationError is not
+    # an AppError — `services/signup.py` re-raises anything that is not a unique
+    # violation, so the first signup on a misconfigured instance returned 500 with no
+    # workspace created.
+    @field_validator("JANUS_AGENT_NAME")
+    @classmethod
+    def _blank_janus_name_is_default(cls, value: str) -> str:
+        return value if value.strip() else "Janus"
+
     @property
     def is_prod(self) -> bool:
         return self.NODE_ENV == "production"

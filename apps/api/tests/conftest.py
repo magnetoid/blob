@@ -60,6 +60,14 @@ os.environ["LLM_MODEL"] = ""
 os.environ["JANUS_AGUI_URL"] = ""
 os.environ["JANUS_SIGNING_SECRET"] = ""
 
+# `JANUS_AGENT_NAME` belongs in this block for the same reason `LLM_MODEL` is in the one
+# above: left out, a developer with JANUS_AGENT_NAME exported in their shell would watch
+# `TestSettings::test_the_default_name_is_janus` fail with a name that is correct on their
+# machine and nowhere else. Forced to the default itself, not to "" like the two settings
+# above — blank no longer means unset for this field, it means the default, so setting it
+# to "" here would just prove the same fallback this file is trying to hold still against.
+os.environ["JANUS_AGENT_NAME"] = "Janus"
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import text
