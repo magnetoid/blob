@@ -213,9 +213,13 @@ place to look before changing them.
   `trusted=True`, so it is a `plugins` row with a bot in `users` and an admin revokes it
   with the same two clicks as anything else. The boot-time pass over every workspace and
   the public-channel join live once, in `services/agent_seeding.py`, and the Janus seeder
-  (`services/janus_agent.py`) runs through the same two. `lib/llm.py` is deliberately
-  the smallest possible provider layer with three callers — the built-in agent, the
-  unread recap, and thread summaries. Do not grow it into a framework.
+  (`services/janus_agent.py`) runs through the same two. Both set
+  `plugins.in_every_public_channel` at install, which is what puts them into a public
+  channel founded *later* (`services/channels.create_channel`) — a mention needs
+  membership, and an agent absent from a new room is silently deaf in it. Nothing an
+  admin installs by hand gets that flag. `lib/llm.py` is deliberately the smallest
+  possible provider layer with three callers — the built-in agent, the unread recap, and
+  thread summaries. Do not grow it into a framework.
 * **What a shared agent may read** (`services/mcp._refuse_outside_the_room`, ADR 0017).
   ADR 0013 says whose authority a run carries; this says where it may be spent. The
   workspace policy `agent_reads` defaults to `audience`: in a channel the agent reads

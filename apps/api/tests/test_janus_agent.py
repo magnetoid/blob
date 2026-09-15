@@ -257,6 +257,19 @@ class TestItIsInTheRoomsItIsMentionedIn:
         bot = next(u for u in people if u["displayName"] == settings.JANUS_AGENT_NAME)
         assert bot["id"] in member_ids
 
+    async def test_a_public_channel_founded_later_has_it(self, janus: None, client: Client) -> None:
+        # Seeded at signup into the channels that existed then; a channel founded
+        # afterwards gets it at founding, through the flag the install set.
+        owner = await sign_up(client, "Founder")
+        later = (await owner.post("/api/channels", {"name": "later", "kind": "public"})).body[
+            "channel"
+        ]
+
+        member_ids = (await owner.get(f"/api/channels/{later['id']}/members")).body["userIds"]
+        people = (await owner.get("/api/users")).body["users"]
+        bot = next(u for u in people if u["displayName"] == settings.JANUS_AGENT_NAME)
+        assert bot["id"] in member_ids
+
     async def test_it_does_not_join_a_private_channel(self, janus: None, client: Client) -> None:
         # A private channel's membership is what makes it private. Adding anyone to it —
         # a bot included — is the members' call, not the server's.

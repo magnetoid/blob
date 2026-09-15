@@ -452,7 +452,48 @@ async def create_channel(
         raise
 
     await add_members(session, channel_id, members)
+
+    if kind == "public":
+        # The agents that are in every public channel join this one now, not at the next
+        # restart. Membership is what a mention needs: a bot that is not in the room is
+        # refused by `assert_channel_access(require_member=True)` and the mention is
+        # dropped with no message, no error and no run row — so an agent that was put
+        # everywhere at seeding and into nothing founded since answers in the old rooms
+        # and is silently deaf in the new ones. Public only: a private channel's
+        # membership is the members' call, and `agent_seeding.join_public_channels`
+        # draws the same line at seeding.
+        residents = await _agents_in_every_public_channel(session, workspace_id)
+        if joining := [user_id for user_id in residents if user_id not in members]:
+            await add_members(session, channel_id, joining)
     return channel_id
+
+
+async def _agents_in_every_public_channel(session: AsyncSession, workspace_id: str) -> list[str]:
+    """The bots flagged `in_every_public_channel` at install — see `db/models.Plugin`.
+
+    Not filtered on the plugin's `status`, on purpose. A disabled agent joins and stays
+    quiet; filter it out and the channels founded while it was off are the rooms it is
+    deaf in once it is enabled again — the hole this exists to close, reopened by the
+    off switch. A retired one is excluded by its bot's `deactivated_at`, which
+    `uninstall` sets and nothing unsets.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT u.id FROM users u
+                  JOIN plugins p ON p.id = u.bot_plugin_id
+                 WHERE u.workspace_id = :ws
+                   AND u.kind = 'bot'
+                   AND u.deactivated_at IS NULL
+                   AND p.in_every_public_channel
+                 ORDER BY u.id
+                """
+            ),
+            {"ws": workspace_id},
+        )
+    ).fetchall()
+    return [str(row.id) for row in rows]
 
 
 async def join(session: AsyncSession, channel_id: str, user_id: str) -> None:

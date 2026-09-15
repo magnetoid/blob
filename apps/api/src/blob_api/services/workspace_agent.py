@@ -98,6 +98,7 @@ async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str)
             manifest=manifest(),
             installed_by=installed_by,
             trusted=True,
+            in_every_public_channel=True,
         )
         plugin_id = installed.plugin_id
         bot_user_id = installed.bot_user_id

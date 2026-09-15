@@ -1325,6 +1325,15 @@ class Plugin(Base):
     description: Mapped[str | None] = mapped_column(Text)
     runtime: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'enabled'"))
+    #: In every public channel, the ones founded after it was installed included. Only
+    #: the seeders set it — the built-in agent and Janus — because this is what
+    #: "reachable everywhere" means for an agent that is a real member: a mention needs
+    #: membership, so `services/channels.create_channel` adds every flagged bot to a new
+    #: public channel. Off for anything an admin installs by hand: an app is invited
+    #: room by room, and membership is also how far its `messages:write` reaches.
+    in_every_public_channel: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     version: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'0.0.0'"))
     request_url: Mapped[str | None] = mapped_column(Text)
     #: An AG-UI endpoint Blob calls when this app's bot is mentioned.

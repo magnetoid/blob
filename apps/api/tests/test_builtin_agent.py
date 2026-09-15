@@ -27,7 +27,7 @@ from blob_api.lib import llm
 from blob_api.plugins import builtin
 from blob_api.services import workspace_agent
 
-from .helpers import Client, send_message, sign_up, workspace_id_of
+from .helpers import Client, allow_policy, send_message, sign_up, workspace_id_of
 from .test_agui import team  # noqa: F401 — a fixture, used by name
 
 
@@ -294,6 +294,101 @@ class TestItIsAPluginLikeAnyOther:
                 )
             ).scalar_one()
         assert count == 1
+
+
+async def bot_id(owner: Client) -> str:
+    people = (await owner.get("/api/users")).body["users"]
+    return str(next(u["id"] for u in people if u["displayName"] == workspace_agent.AGENT_NAME))
+
+
+async def found(owner: Client, name: str, kind: str = "public") -> str:
+    answer = await owner.post("/api/channels", {"name": name, "kind": kind})
+    assert answer.status == 200, answer.body
+    return str(answer.body["channel"]["id"])
+
+
+async def members_of(owner: Client, channel_id: str) -> list[str]:
+    return list((await owner.get(f"/api/channels/{channel_id}/members")).body["userIds"])
+
+
+class TestItIsInEveryPublicChannel:
+    """The ones founded after it was seeded included.
+
+    Seeding put the agent into the channels that existed at the time and nothing put it
+    into a channel founded since, and a mention needs membership — so the agent answered
+    in #general and was silently deaf in every room created after it arrived.
+    """
+
+    async def test_it_answers_in_a_channel_founded_after_it_was_seeded(
+        self, model: dict, client: Client
+    ) -> None:
+        model["transport"] = anthropic_says("Here too.")
+        owner = await sign_up(client, "Founder")
+        later = await found(owner, "later")
+
+        sent = await send_message(owner, later, f"@{workspace_agent.AGENT_NAME} are you here?")
+        await agui_job.handle_agui_run(sent.body["message"]["id"])
+
+        history = (await owner.get(f"/api/channels/{later}/messages")).body["messages"]
+        # Without the join at founding this was dropped with no message, no error and
+        # no run row — indistinguishable from the agent being down.
+        assert any(m["body"] == "Here too." for m in history)
+
+    async def test_it_is_a_member_from_the_moment_the_channel_exists(
+        self, model: dict, client: Client
+    ) -> None:
+        owner = await sign_up(client, "Founder")
+        later = await found(owner, "later")
+        assert await bot_id(owner) in await members_of(owner, later)
+
+    async def test_a_private_channel_founded_later_is_not_joined(
+        self, model: dict, client: Client
+    ) -> None:
+        # The same line the seeding draws: a private channel's membership is what makes
+        # it private, and adding anyone to it is the members' call.
+        owner = await sign_up(client, "Founder")
+        private = await found(owner, "founders", kind="private")
+        assert await bot_id(owner) not in await members_of(owner, private)
+
+    async def test_an_agent_somebody_attached_for_themselves_is_not_added(
+        self, model: dict, client: Client
+    ) -> None:
+        # Only the seeders flag an install. A personal agent is listed for its owner
+        # alone, and an app an admin installs by hand is invited room by room —
+        # membership is also how far its `messages:write` reaches.
+        owner = await sign_up(client, "Founder")
+        await allow_policy(await workspace_id_of(owner))
+        attached = await owner.post("/api/agents/mine", {"name": "Desktop Claude"})
+        assert attached.status == 201, attached.body
+        later = await found(owner, "later")
+
+        members = await members_of(owner, later)
+        people = (await owner.get("/api/users")).body["users"]
+        mine = next(u for u in people if u["displayName"] == "Desktop Claude")
+        assert mine["id"] not in members
+        assert await bot_id(owner) in members
+
+    async def test_a_retired_agent_is_not_added(self, model: dict, client: Client) -> None:
+        owner = await sign_up(client, "Founder")
+        bot = await bot_id(owner)
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        plugin_id = next(p["id"] for p in apps if p["slug"] == builtin.WORKSPACE_SLUG)
+        assert (await owner.delete(f"/api/admin/plugins/{plugin_id}")).status == 200
+        later = await found(owner, "later")
+        assert bot not in await members_of(owner, later)
+
+    async def test_a_disabled_agent_still_joins(self, model: dict, client: Client) -> None:
+        # Disabled is not retired. Leave it out while it is off and the channels founded
+        # meanwhile are the rooms it is deaf in once it is switched back on — the hole
+        # this exists to close, reopened by the off switch. It joins and stays quiet.
+        owner = await sign_up(client, "Founder")
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        plugin_id = next(p["id"] for p in apps if p["slug"] == builtin.WORKSPACE_SLUG)
+        assert (
+            await owner.post(f"/api/admin/plugins/{plugin_id}/enabled", {"enabled": False})
+        ).status == 200
+        later = await found(owner, "later")
+        assert await bot_id(owner) in await members_of(owner, later)
 
 
 class TestAnsweringInAChannel:

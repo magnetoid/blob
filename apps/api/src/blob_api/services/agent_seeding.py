@@ -57,6 +57,11 @@ async def join_public_channels(session: AsyncSession, workspace_id: str, bot_use
     channel's membership is the thing that makes it private; adding anyone to it — a bot
     included — is the members' call, not the server's.
 
+    This is the join at seeding, for the channels that already exist. The ones founded
+    afterwards are joined as they are founded, by `channels.create_channel`, which reads
+    the `in_every_public_channel` flag the seeders set at install — so "everywhere" holds
+    without waiting for a restart.
+
     Scoped by workspace inside the statement, and `add_members` re-derives the boundary
     from the *channel* anyway — belt and braces on the one path that plants membership
     rows, which is where the workspace boundary has been wrong before.
@@ -107,15 +112,14 @@ async def reconcile_everywhere(
 
     `lacking_slug` narrows the pass to workspaces holding no plugin of that slug at all.
     The built-in seeder passes its slug because it never changes a row it installed
-    earlier — and that includes which channels the bot is in: a workspace that already has
-    the agent is not visited, so a public channel founded after the seeding is one the
-    agent has to be invited to. Janus leaves it None and visits every workspace, because
-    it also re-points the rows it installed earlier; a side effect is that it joins any
-    public channel founded since, at every restart. The prefilter is keyed on the slug and
-    not on a runtime on purpose: `registry.install` refuses a taken slug whatever its
-    runtime, so a runtime test here would quietly skip a workspace that holds some *other*
-    plugin of that runtime and not this one — a prefilter that disagrees with the thing it
-    is filtering for.
+    earlier, so a workspace that already has the agent needs nothing from it — a public
+    channel founded since is handled where it is founded, by `channels.create_channel`
+    reading `plugins.in_every_public_channel`. Janus leaves it None and visits every
+    workspace, because it also re-points the rows it installed earlier. The prefilter is
+    keyed on the slug and not on a runtime on purpose: `registry.install` refuses a taken
+    slug whatever its runtime, so a runtime test here would quietly skip a workspace that
+    holds some *other* plugin of that runtime and not this one — a prefilter that
+    disagrees with the thing it is filtering for.
 
     Counted by the difference, not by the answer: `ensure` returns the id of a row that
     was already there, and returns None when it seeded nothing, so a tally that read

@@ -94,6 +94,10 @@ async def install(
     #: agent running as a service in this stack reads its half of the secret from a static
     #: container environment — a value Blob generated afterwards could never reach it.
     signing_secret: str | None = None,
+    #: In every public channel, the ones founded later included. Only the seeders pass
+    #: it: an app an admin installs is invited room by room, and membership is also how
+    #: far its `messages:write` reaches. See `db/models.Plugin.in_every_public_channel`.
+    in_every_public_channel: bool = False,
 ) -> Installed:
     validate_manifest(manifest, reserved_commands=reserved_commands, trusted=trusted)
 
@@ -113,15 +117,16 @@ async def install(
             INSERT INTO plugins
               (id, workspace_id, slug, name, description, runtime, version,
                request_url, agui_url, events, installed_by, source_repo, source_ref,
-               deployment_status)
+               deployment_status, in_every_public_channel)
             VALUES
               (:id, :ws, :slug, :name, :description, :runtime, :version,
                :request_url, :agui_url, cast(:events AS text[]), :installed_by,
-               :source_repo, :source_ref, :deployment_status)
+               :source_repo, :source_ref, :deployment_status, :in_every_public_channel)
             """
         ),
         {
             "id": plugin_id,
+            "in_every_public_channel": in_every_public_channel,
             "ws": workspace_id,
             "slug": manifest.slug,
             "name": manifest.name,

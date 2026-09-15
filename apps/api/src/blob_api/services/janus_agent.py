@@ -154,6 +154,7 @@ async def _install(
             manifest=manifest(),
             installed_by=installed_by,
             signing_secret=settings.JANUS_SIGNING_SECRET,
+            in_every_public_channel=True,
         )
     except AppError as exc:
         if exc.code != "plugin_exists":
