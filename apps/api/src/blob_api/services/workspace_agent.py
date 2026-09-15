@@ -116,12 +116,16 @@ async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str)
         bot_user_id = await registry.bot_user_id(session, plugin_id)
 
     if bot_user_id:
-        await _join_public_channels(session, workspace_id, bot_user_id)
+        await join_public_channels(session, workspace_id, bot_user_id)
     return plugin_id
 
 
-async def _join_public_channels(session: AsyncSession, workspace_id: str, bot_user_id: str) -> None:
+async def join_public_channels(session: AsyncSession, workspace_id: str, bot_user_id: str) -> None:
     """Every public channel it is not already in.
+
+    Public rather than private because `services/janus_agent.py` seeds its agent the
+    same way and must not grow a second copy of this: two joiners would be two places
+    for the private-channel rule below to be forgotten in.
 
     Scoped by workspace inside the statement, and `add_members` re-derives the boundary
     from the *channel* anyway — belt and braces on the one path that plants membership
@@ -200,4 +204,12 @@ async def ensure_everywhere() -> int:
     return seeded
 
 
-__all__ = ["AGENT_NAME", "AGENT_SCOPES", "ensure", "ensure_everywhere", "existing_id", "manifest"]
+__all__ = [
+    "AGENT_NAME",
+    "AGENT_SCOPES",
+    "ensure",
+    "ensure_everywhere",
+    "existing_id",
+    "join_public_channels",
+    "manifest",
+]

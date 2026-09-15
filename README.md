@@ -442,6 +442,24 @@ answers a mention.
 Without a provider the Translate action answers "Translation is not configured for this
 workspace yet."
 
+### Janus
+
+Janus can run as a service in this stack rather than as a deployment of its own. It is off
+unless you ask for it:
+
+| Variable | Default | |
+|---|---|---|
+| `COMPOSE_PROFILES` | unset | Set to `janus` to start the service. |
+| `JANUS_AGUI_URL` | unset | `http://janus:8642/v1/agui` — internal, on the `blob-agents` network. Setting this and the secret is what installs the agent into every workspace at boot. |
+| `JANUS_SIGNING_SECRET` | unset | Shared: Blob signs with it, the service reads it as `BLOB_SIGNING_SECRET`. |
+| `JANUS_API_SERVER_KEY` | unset | Required by Janus's API server even on a private network. |
+| `JANUS_AGENT_NAME` | `Janus` | What people type after `@`. The slug is always `janus`. |
+| `JANUS_PROVIDER` / `JANUS_MODEL` | `deepseek` / `deepseek-v4-pro` | Provider and model move together — the same model is named differently by a direct API and by a router. |
+| `JANUS_VERSION` | `0.16.0` | The image tag. |
+
+The service publishes no port and has no domain: Blob reaches it on the internal network,
+and `/v1/agui` authenticates every request by HMAC.
+
 ### Hosting agents from a repository
 
 Off by default, and off is fine — agents can still be registered as external apps and run

@@ -52,6 +52,22 @@ os.environ["LLM_API_KEY"] = ""
 os.environ["LLM_BASE_URL"] = ""
 os.environ["LLM_MODEL"] = ""
 
+# Janus is here for exactly the same reason, and it became load-bearing the moment
+# `services/workspaces.py` started seeding it at signup: a developer running the janus
+# service locally would have every test workspace quietly gain a second agent, moving
+# plugin counts and rosters on their machine and nowhere else. `test_janus_agent.py`
+# turns it on with monkeypatch, which is the only way it should ever be on in here.
+os.environ["JANUS_AGUI_URL"] = ""
+os.environ["JANUS_SIGNING_SECRET"] = ""
+
+# `JANUS_AGENT_NAME` belongs in this block for the same reason `LLM_MODEL` is in the one
+# above: left out, a developer with JANUS_AGENT_NAME exported in their shell would watch
+# `TestSettings::test_the_default_name_is_janus` fail with a name that is correct on their
+# machine and nowhere else. Forced to the default itself, not to "" like the two settings
+# above — blank no longer means unset for this field, it means the default, so setting it
+# to "" here would just prove the same fallback this file is trying to hold still against.
+os.environ["JANUS_AGENT_NAME"] = "Janus"
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import text

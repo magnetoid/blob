@@ -86,6 +86,21 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-}
       - LLM_BASE_URL=${LLM_BASE_URL:-}
       - LLM_MODEL=${LLM_MODEL:-}
+      # Janus, when COMPOSE_PROFILES=janus starts the service further down. These belong
+      # here and not only in that service's own block: the values there are read by the
+      # container, and this file passes settings by explicit `environment:` entries with
+      # no `env_file` behind them, so a variable named only over there never reaches this
+      # process at all. Without these three lines an operator sets everything correctly
+      # and gets no agent and no error — `configured()` is false, the boot reconcile seeds
+      # nothing, and startup logs nothing because it only logs when it seeded something.
+      #
+      # The URL is internal (the `agents` network below), and the secret is the one value
+      # both sides read: the app writes it onto the install, the container verifies with
+      # it, and a mismatch is a 401 on every run that looks exactly like the agent being
+      # down. There is no orchestration step that could agree on it otherwise.
+      - JANUS_AGUI_URL=${JANUS_AGUI_URL:-}
+      - JANUS_SIGNING_SECRET=${JANUS_SIGNING_SECRET:-}
+      - JANUS_AGENT_NAME=${JANUS_AGENT_NAME:-Janus}
       # Hosting agents means calling the runner's API. Reach it through the host gateway
       # rather than by joining the runner's own Docker network: that network has a
       # container aliased `postgres` too, so joining it makes this app's `postgres`
@@ -182,6 +197,14 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-}
       - LLM_BASE_URL=${LLM_BASE_URL:-}
       - LLM_MODEL=${LLM_MODEL:-}
+      # The same three as the app, for the reason stated on the LLM block above: these two
+      # services are one image and a mention is answered *here*, so a value that is true in
+      # one container and absent in the other is the drift that produces an agent which
+      # exists, is mentionable, and cannot work. Seeding is the app's job today, and this
+      # is what keeps the day something here reads them from being a debugging session.
+      - JANUS_AGUI_URL=${JANUS_AGUI_URL:-}
+      - JANUS_SIGNING_SECRET=${JANUS_SIGNING_SECRET:-}
+      - JANUS_AGENT_NAME=${JANUS_AGENT_NAME:-Janus}
       # The deployment-sync cron runs here, refreshing hosted agents' status and
       # callback URLs — so the worker talks to the runner exactly as the app does.
       # Without these the sync silently syncs nothing, and a repointed agent stays
@@ -305,6 +328,60 @@ services:
       - '${LIVEKIT_UDP_PORT:-7882}:${LIVEKIT_UDP_PORT:-7882}/udp'
       - '${LIVEKIT_TCP_PORT:-7881}:7881'
 
+  # Janus, when this deployment wants it. Off unless COMPOSE_PROFILES=janus, for the same
+  # reason LiveKit is: on 2026-09-11 an optional service that could not start stopped the
+  # whole stack, and an agent nobody configured must not be able to keep chat down.
+  #
+  # No `ports:` and no domain on purpose. Blob reaches it on the `agents` network below at
+  # http://janus:8642/v1/agui, which is what JANUS_AGUI_URL says. Its /v1/agui
+  # authenticates every request by HMAC against the shared secret, and nothing else is
+  # exposed to anything.
+  janus:
+    image: ghcr.io/magnetoid/janus:${JANUS_VERSION:-0.16.0}
+    restart: unless-stopped
+    profiles: ["janus"]
+    # Without this the image's entrypoint starts the interactive CLI and the container
+    # comes up listening on nothing. Janus's own compose file says so too.
+    command: ["gateway", "run"]
+    networks: [agents]
+    environment:
+      - API_SERVER_ENABLED=true
+      - API_SERVER_HOST=0.0.0.0
+      - API_SERVER_PORT=8642
+      # Mandatory even on a private network: the API server refuses to start without it.
+      - API_SERVER_KEY=${JANUS_API_SERVER_KEY}
+      # The same value Blob holds as JANUS_SIGNING_SECRET. Its presence is also what
+      # registers the /v1/agui route at all — no secret, no route.
+      - BLOB_SIGNING_SECRET=${JANUS_SIGNING_SECRET}
+      - JANUS_TUI_PROVIDER=${JANUS_PROVIDER:-deepseek}
+      # Not `deepseek-chat`: DeepSeek retired it on 2026-09-14 and it does not 404 — it
+      # answers 200 and then sends no body, so a run hangs to the caller's timeout.
+      - JANUS_MODEL=${JANUS_MODEL:-deepseek-v4-pro}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # 90 iterations and a 30-minute API timeout are right for a terminal and hopeless
+      # for a chat message. What the caller actually allows is AGUI_MAX_RUN_SEC — 600s of
+      # wall clock on one run — and 30s of silence between events (AGUI_READ_TIMEOUT_SEC);
+      # the 120s in AGUI_TIMEOUT_SEC is the connect/write timeout and never the run cap.
+      # So 100s below is a deliberate cap well under what the caller would tolerate, on
+      # the view that a channel wants an answer or a failure quickly — not a number
+      # forced by the caller. Raising it is a product decision, not an edit to this line.
+      # The 15s keepalive is sized against the 30s silence cap, not against that 100s.
+      - JANUS_MAX_ITERATIONS=${JANUS_MAX_ITERATIONS:-25}
+      - BLOB_AGUI_RUN_TIMEOUT_SECONDS=100
+      - BLOB_AGUI_KEEPALIVE_SECONDS=15
+      # On a fresh volume the gateway is created stopped and answers nothing. This is the
+      # bootstrap the image reads once, on first boot, to bring it up.
+      - JANUS_GATEWAY_BOOTSTRAP_STATE=running
+    volumes:
+      # The image declares VOLUME /opt/data and JANUS_HOME points there. Without a named
+      # volume Docker mints an anonymous one and every deploy starts from nothing.
+      - janusdata:/opt/data
+    # No healthcheck, deliberately: under s6 the supervised process is not the API server,
+    # so container liveness says nothing, and a check that cannot pass fails the deploy.
+
   minio:
       # quay.io, not Docker Hub. MinIO stopped publishing to `minio/minio` there and the
       # repository now 404s, which broke both CI jobs and every `docker compose up` at
@@ -350,3 +427,4 @@ volumes:
   pgdata:
   redisdata:
   miniodata:
+  janusdata:

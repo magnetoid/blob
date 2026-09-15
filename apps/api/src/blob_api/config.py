@@ -199,6 +199,20 @@ class Settings(BaseSettings):
     LIVEKIT_API_KEY: str | None = None
     LIVEKIT_API_SECRET: str | None = None
 
+    #: Janus, when it is running as a service in this stack (`COMPOSE_PROFILES=janus`).
+    #:
+    #: The URL is internal on purpose — `http://janus:8642/v1/agui` on the `blob-agents`
+    #: network — and it never reaches `_assert_reachable`, which is the SSRF guard on the
+    #: *registration routes*. Blob composes this from its own settings rather than taking
+    #: it from anybody, so the exemption is a property of where the code path starts.
+    JANUS_AGUI_URL: str | None = None
+    #: Shared with the Janus service, which reads it as BLOB_SIGNING_SECRET. One value in
+    #: the operator's .env read by both sides, because a container's environment is static
+    #: and cannot be told a secret Blob generated after it started.
+    JANUS_SIGNING_SECRET: str | None = None
+    #: What people type after `@`. The slug stays `janus`; only the name is configurable.
+    JANUS_AGENT_NAME: str = "Janus"
+
     @field_validator(
         "SMTP_USER",
         "SMTP_PASS",
@@ -225,10 +239,25 @@ class Settings(BaseSettings):
         "AGENT_SHELL_HOST",
         "AGENT_SHELL_KEY",
         "AGENT_SHELL_HOST_KEY",
+        "JANUS_AGUI_URL",
+        "JANUS_SIGNING_SECRET",
     )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:
         return value or None
+
+    # Not folded into `_blank_is_none` above: that validator returns None for a blank
+    # value, and this field is `str`, not `str | None` — every caller downstream, above
+    # all `services/janus_agent.manifest()`, assumes a real name. Before this validator, a
+    # blank `JANUS_AGENT_NAME=` in an env file reached `Manifest.name`, a
+    # `Field(min_length=1, max_length=80)`, as `""`, and pydantic's ValidationError is not
+    # an AppError — `services/signup.py` re-raises anything that is not a unique
+    # violation, so the first signup on a misconfigured instance returned 500 with no
+    # workspace created.
+    @field_validator("JANUS_AGENT_NAME")
+    @classmethod
+    def _blank_janus_name_is_default(cls, value: str) -> str:
+        return value if value.strip() else "Janus"
 
     @property
     def is_prod(self) -> bool:

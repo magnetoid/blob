@@ -28,7 +28,7 @@ from .lib.queue import close_queue
 from .lib.redis import close_redis, redis
 from .lib.security_headers import SecurityHeadersMiddleware
 from .realtime import hub
-from .services import workspace_agent
+from .services import janus_agent, workspace_agent
 from .web import mount_web
 
 log = logging.getLogger("blob")
@@ -140,6 +140,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             log.info("seeded the built-in agent into %d workspace(s)", seeded)
     except Exception:
         log.exception("could not reconcile built-in agents")
+
+    # And Janus, when it is running as a service in this stack. Same reasoning as above:
+    # `JANUS_AGUI_URL` is an environment variable, so a restart is when it changes. This
+    # also moves an already-installed Janus off a public domain onto the internal one.
+    # It never raises: an agent that cannot be seeded must not stop the boot.
+    try:
+        seeded = await janus_agent.ensure_everywhere()
+        if seeded:
+            log.info("seeded Janus into %d workspace(s)", seeded)
+    except Exception:
+        log.exception("could not reconcile Janus")
 
     # Said once, at boot, where an operator reading a bad deploy will see it. Uploads go
     # straight from the browser to the bucket, so a storage endpoint this process can
