@@ -309,10 +309,35 @@ Prefix `/api/admin/janus`, every route `Depends(require_instance_admin)`:
    banner clear, see the new value; mention `@Janus` and get an answer. The same on the
    second instance the next day is the bar for calling it done.
 
+## Workspace admins
+
+Decided later the same day, with the built-in agent's retirement
+(`2026-09-15-janus-is-the-agent-design.md`): the page serves the *workspace* admin first,
+because Janus is now the one agent every workspace has, and the server-level parts above
+are the instance admin's section of it. So `/admin/janus` is reachable by a workspace
+admin or owner — not `ownerOnly` in the registry — and the page is two halves:
+
+* **This workspace** (any admin): on or off; the channels it is in, with the
+  `in_every_public_channel` flag as a switch — "Join every public channel automatically"
+  — so a workspace can choose invitation-only; the daily run budget; **instructions**, a
+  per-workspace text Blob sends with every run as `forwardedProps.instructions`, which
+  Janus 0.17.0 prepends to its system prompt (the Janus release gains that alongside the
+  config route); the run log for this workspace; a **"Say hello"** probe that starts a
+  run in the admin's DM with Janus and shows the reply, so "is it working?" has a button.
+  These are the workspace's own row, and every write goes through the plugin routes that
+  exist (`PUT /api/admin/plugins/{id}` gains `inEveryPublicChannel` and `instructions`).
+* **This server** (instance admin only, hidden otherwise with one line saying who can
+  change it): everything in "Blob side" above — model and provider, key, behaviour,
+  toolsets, skills, Advanced YAML, the restart.
+
+`plugins.instructions text NULL` joins the schema (migration alongside 0040–0042, or the
+next free number), sent only for the seeded agent — an app installed by hand never sees
+a field its author did not declare.
+
 ## Not in this
 
-* The built-in agent's model. It is environment-only (`LLM_*`) and stays so; the page is
-  Janus's.
+* The model for Catch-up and summaries. It is environment-only (`LLM_*`) and stays so;
+  the page is Janus's.
 * Skill installation or removal, SOUL.md, platform connectors (Telegram and the rest),
   Janus's own dashboard. Everything under `raw` is reachable through the Advanced tab; a
   form for any of it is a later decision.
