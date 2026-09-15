@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-15T22:17:59'
-updated: '2026-09-15T22:17:59'
+created: '2026-09-15T23:40:19'
+updated: '2026-09-15T23:40:19'
 ---
 
 # apps/api/src/blob_api/db/models.py
@@ -50,11 +50,11 @@ Symbols in `apps/api/src/blob_api/db/models.py`.
 - L1227 `Webhook` (class)
 - L1246 `Theme` (class) — Added by 003. A named set of token overrides on the built-in palette.
 - L1274 `Plugin` (class) — An installed app. One row whether it runs in-process or over HTTP.
-- L1373 `PluginCommand` (class) — A slash command an app provides.
-- L1399 `PluginSecret` (class)
-- L1409 `PluginGrant` (class)
-- L1423 `AgentDelegation` (class) — Somebody the owner has let command their agent.
-- L1470 `BotToken` (class)
-- L1484 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
-- L1516 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
-- L1555 `McpToken` (class) — A person's own assistant, holding their permissions from outside the browser.
+- L1381 `PluginCommand` (class) — A slash command an app provides.
+- L1407 `PluginSecret` (class)
+- L1417 `PluginGrant` (class)
+- L1431 `AgentDelegation` (class) — Somebody the owner has let command their agent.
+- L1478 `BotToken` (class)
+- L1492 `PluginDelivery` (class) — The outbox. Written in the transaction that caused the event, drained by the worker.
+- L1524 `FeedbackTicket` (class) — Added by 0007. A bug report, feature request or note, with its diagnostics.
+- L1563 `McpToken` (class) — A person's own assistant, holding their permissions from outside the browser.

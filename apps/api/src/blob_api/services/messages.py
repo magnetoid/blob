@@ -642,13 +642,14 @@ URL_RE = re.compile(r"https?://")
 async def addressed_by_the_room(session: AsyncSession, *, channel_id: str) -> bool:
     """Whether a message here needs no `@name` to reach an agent.
 
-    True for a one-to-one DM that has an enabled built-in agent in it. `jobs/agui.py`
-    has answered such a room without a mention since the personal agent shipped — see
-    `personal_agent_for`, which is the authority on the exact rule and re-checks every
-    condition when the job runs. Nothing ever *enqueued* the job, though: the send path
-    asked for a run only when the message mentioned somebody, so the room was the address
-    everywhere except where a person types. Typing into the agent's own DM did nothing at
-    all, and the client's empty state promised the opposite.
+    True for a one-to-one DM that holds an enabled agent the room may address: a resident
+    one (`answers_dm_without_mention`) or somebody's own. `jobs/agui.py` has answered such
+    a room without a mention since the personal agent shipped — see `personal_agent_for`,
+    which is the authority on the exact rule and re-checks every condition when the job
+    runs. Nothing ever *enqueued* the job, though: the send path asked for a run only when
+    the message mentioned somebody, so the room was the address everywhere except where a
+    person types. Typing into the agent's own DM did nothing at all, and the client's
+    empty state promised the opposite.
 
     Deliberately looser than `personal_agent_for`, and in the safe direction. This decides
     whether to *ask*; the job decides whether to *run*, and a job that finds no agent
@@ -666,7 +667,10 @@ async def addressed_by_the_room(session: AsyncSession, *, channel_id: str) -> bo
                                 AND u.deactivated_at IS NULL
                   JOIN plugins p ON p.id = u.bot_plugin_id
                                 AND p.status = 'enabled'
-                                AND p.runtime = 'builtin'
+                                -- Looser than the job on purpose (see above): the job
+                                -- checks that the owner is the person in the room.
+                                AND (p.answers_dm_without_mention
+                                     OR p.owner_user_id IS NOT NULL)
                  WHERE c.id = :channel_id AND c.kind = 'dm'
                  LIMIT 1
                 """

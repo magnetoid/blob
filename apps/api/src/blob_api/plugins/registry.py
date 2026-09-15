@@ -98,6 +98,9 @@ async def install(
     #: it: an app an admin installs is invited room by room, and membership is also how
     #: far its `messages:write` reaches. See `db/models.Plugin.in_every_public_channel`.
     in_every_public_channel: bool = False,
+    #: Addressed by its DM without a mention. Only the seeders pass it, for the reason
+    #: `db/models.Plugin.answers_dm_without_mention` gives.
+    answers_dm_without_mention: bool = False,
 ) -> Installed:
     validate_manifest(manifest, reserved_commands=reserved_commands, trusted=trusted)
 
@@ -117,16 +120,18 @@ async def install(
             INSERT INTO plugins
               (id, workspace_id, slug, name, description, runtime, version,
                request_url, agui_url, events, installed_by, source_repo, source_ref,
-               deployment_status, in_every_public_channel)
+               deployment_status, in_every_public_channel, answers_dm_without_mention)
             VALUES
               (:id, :ws, :slug, :name, :description, :runtime, :version,
                :request_url, :agui_url, cast(:events AS text[]), :installed_by,
-               :source_repo, :source_ref, :deployment_status, :in_every_public_channel)
+               :source_repo, :source_ref, :deployment_status, :in_every_public_channel,
+               :answers_dm_without_mention)
             """
         ),
         {
             "id": plugin_id,
             "in_every_public_channel": in_every_public_channel,
+            "answers_dm_without_mention": answers_dm_without_mention,
             "ws": workspace_id,
             "slug": manifest.slug,
             "name": manifest.name,

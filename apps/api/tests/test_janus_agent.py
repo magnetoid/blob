@@ -104,6 +104,17 @@ class TestSeeding:
             "messages:write",
         ]
 
+        async with SessionFactory() as session:
+            row = (
+                await session.execute(
+                    text("SELECT answers_dm_without_mention FROM plugins WHERE id = :id"),
+                    {"id": plugin_id},
+                )
+            ).fetchone()
+        # The agent Blob presents as *the* assistant is addressed by its own DM. Only a
+        # seeder may set this, so the install call is the only place it can be lost.
+        assert row is not None and row.answers_dm_without_mention is True
+
     async def test_the_secret_is_the_configured_one(self, janus: None, client: Client) -> None:
         owner = await sign_up(client, "Founder")
         workspace_id = await workspace_id_of(owner)

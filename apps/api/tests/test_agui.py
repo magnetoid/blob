@@ -303,6 +303,12 @@ def route_agent_to(monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTranspo
     real = httpx.AsyncClient
 
     def fake(**kwargs: Any) -> httpx.AsyncClient:
+        # `streams.httpx` is the httpx module itself, so this patch is global — and
+        # `Client.fork()` builds its own AsyncClient to reach the app under test. Leave
+        # an ASGI transport alone, or a person invited *after* an agent is routed gets a
+        # browser wired to the fake agent and every call answers in SSE.
+        if isinstance(kwargs.get("transport"), httpx.ASGITransport):
+            return real(**kwargs)
         kwargs.pop("transport", None)
         return real(**kwargs, transport=transport)
 

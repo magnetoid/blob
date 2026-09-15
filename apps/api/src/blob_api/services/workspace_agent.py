@@ -99,6 +99,7 @@ async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str)
             installed_by=installed_by,
             trusted=True,
             in_every_public_channel=True,
+            answers_dm_without_mention=True,
         )
         plugin_id = installed.plugin_id
         bot_user_id = installed.bot_user_id

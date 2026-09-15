@@ -1334,6 +1334,14 @@ class Plugin(Base):
     in_every_public_channel: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
+    #: Addressed by its DM: a message there needs no `@name`. Set only by the seeders —
+    #: the agents Blob presents as *the* assistant — never for an app installed by hand,
+    #: which would otherwise get a run for every line typed at it with no opt-in from
+    #: its author. A person's own agent needs no flag: `owner_user_id` being the one
+    #: person in the room is that case. See `jobs/agui_admission.personal_agent_for`.
+    answers_dm_without_mention: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     version: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'0.0.0'"))
     request_url: Mapped[str | None] = mapped_column(Text)
     #: An AG-UI endpoint Blob calls when this app's bot is mentioned.

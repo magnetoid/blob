@@ -1,8 +1,8 @@
 """Who answers a mention, and with what.
 
 The admission half of `jobs/agui.py`: which bots a message reached and may run
-(`listeners_for`), whether a DM is one person's private room with the built-in agent
-(`personal_agent_for`), which tools an agent may hold and on whose authority
+(`listeners_for`), whether a DM is one person's private room with an agent the room may
+address (`personal_agent_for`), which tools an agent may hold and on whose authority
 (`agent_tools`), and the typing indicator a run shows while it thinks (`looks_busy`).
 None of this contacts an agent; all of it decides whether and how one is contacted.
 """
@@ -21,7 +21,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db.engine import session_scope
 from ..lib import llm
 from ..lib.errors import AppError
-from ..plugins import builtin
 from ..plugins.registry import MENTIONABLE_AGENT
 from ..plugins.streams import Listener
 from ..realtime import presence
@@ -87,7 +86,8 @@ async def listeners_for(
 async def personal_agent_for(
     session: AsyncSession, *, workspace_id: str, channel_id: str
 ) -> Listener | None:
-    """The built-in agent, if this channel is one person's private room with it.
+    """The agent this channel is one person's private room with, when that agent may be
+    addressed by the room.
 
     A DM with the agent needs no `@Blob`, because there is nobody else it could be
     addressed to — which is the whole reason a personal agent works without a second
@@ -100,10 +100,13 @@ async def personal_agent_for(
     a model told "this is your private room with Ada" into a room Bo is also reading. The
     count is therefore checked directly, in the same query as everything else.
 
-    Scoped to `runtime = 'builtin'` deliberately. Widening the trigger to "any bot in a
-    DM" would hand every installed third-party app a run for every line typed at it, with
-    no manifest opt-in and no way for its author to decline — a change to somebody else's
-    contract, smuggled in as a convenience.
+    Never "any bot in a DM", deliberately. That would hand every installed third-party
+    app a run for every line typed at it, with no manifest opt-in and no way for its
+    author to decline — a change to somebody else's contract, smuggled in as a
+    convenience. So the room is the address in exactly two cases: a *resident* agent
+    (`plugins.answers_dm_without_mention`, set only by the seeder), and the person's own
+    agent (`plugins.owner_user_id` is the one person in the room — ADR 0018, "your
+    agent answers you").
     """
     row = (
         await session.execute(
@@ -130,7 +133,9 @@ async def personal_agent_for(
                                   AND other.deactivated_at IS NULL
                  WHERE p.workspace_id = :ws
                    AND p.status = 'enabled'
-                   AND p.runtime = :runtime
+                   -- The room is the address for a resident agent, and for the
+                   -- person's own agent. Never for an app installed by hand.
+                   AND (p.answers_dm_without_mention OR p.owner_user_id = other.id)
                    AND u.deactivated_at IS NULL
                    AND EXISTS (
                      SELECT 1 FROM plugin_grants g
@@ -140,7 +145,7 @@ async def personal_agent_for(
                          WHERE m.channel_id = c.id) = 2
                 """
             ),
-            {"ws": workspace_id, "channel_id": channel_id, "runtime": builtin.RUNTIME},
+            {"ws": workspace_id, "channel_id": channel_id},
         )
     ).fetchone()
     if row is None:
