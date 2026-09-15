@@ -19,22 +19,20 @@ environment variable, a restart is exactly when it changes.
 **Nothing is seeded when no model is configured.** An agent in the sidebar that answers
 every mention with "no model is configured" is worse than no agent: it is a broken feature
 where there could have been an absent one.
+
+The boot-time pass over every workspace and the joining of public channels are not this
+module's: `services/agent_seeding.py` holds both, shared with the Janus seeder.
 """
 
 from __future__ import annotations
 
-import logging
-
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db.engine import session_scope, transaction
 from ..lib import llm
 from ..plugins import builtin, registry
 from ..plugins.manifest import Manifest
-from .channels import add_members
-
-log = logging.getLogger("blob.workspace_agent")
+from . import agent_seeding
 
 #: What the bot is called, and so what people type to reach it. Short on purpose: this is
 #: typed mid-sentence, several times a day, by people who are mid-thought.
@@ -84,18 +82,9 @@ async def existing_id(session: AsyncSession, workspace_id: str) -> str | None:
 async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str) -> str | None:
     """Install the workspace agent if it is missing, and put it in the public channels.
 
-    Returns the plugin id, or None when there is no model to run it against.
-
-    Joining every public channel is the decision worth stating. Slack's own assistant is
-    reachable everywhere rather than invited room by room, and an agent nobody remembered
-    to add is an agent nobody uses. It only ever *speaks* when mentioned, so being present
-    costs a line in the member list and nothing else — and a channel that does not want it
-    can remove it, which is a decision a team can make once rather than a hundred small
-    ones they have to make before they get any value.
-
-    Private channels are not joined, ever, and not because of a technical limit. A private
-    channel's membership is the thing that makes it private; adding anyone to it — a bot
-    included — is the members' call, not the server's.
+    Returns the plugin id, or None when there is no model to run it against. Why every
+    public channel and never a private one is argued once, on
+    `agent_seeding.join_public_channels`.
     """
     if not llm.configured():
         return None
@@ -116,92 +105,24 @@ async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str)
         bot_user_id = await registry.bot_user_id(session, plugin_id)
 
     if bot_user_id:
-        await join_public_channels(session, workspace_id, bot_user_id)
+        await agent_seeding.join_public_channels(session, workspace_id, bot_user_id)
     return plugin_id
 
 
-async def join_public_channels(session: AsyncSession, workspace_id: str, bot_user_id: str) -> None:
-    """Every public channel it is not already in.
-
-    Public rather than private because `services/janus_agent.py` seeds its agent the
-    same way and must not grow a second copy of this: two joiners would be two places
-    for the private-channel rule below to be forgotten in.
-
-    Scoped by workspace inside the statement, and `add_members` re-derives the boundary
-    from the *channel* anyway — belt and braces on the one path that plants membership
-    rows, which is where the workspace boundary has been wrong before.
-    """
-    rows = (
-        await session.execute(
-            text(
-                """
-                SELECT c.id FROM channels c
-                 WHERE c.workspace_id = :ws
-                   AND c.kind = 'public'
-                   AND c.archived_at IS NULL
-                   AND NOT EXISTS (
-                     SELECT 1 FROM channel_members m
-                      WHERE m.channel_id = c.id AND m.user_id = :bot)
-                """
-            ),
-            {"ws": workspace_id, "bot": bot_user_id},
-        )
-    ).fetchall()
-    for row in rows:
-        await add_members(session, str(row.id), [bot_user_id])
-
-
 async def ensure_everywhere() -> int:
-    """Reconcile every workspace. Returns how many gained an agent.
+    """Reconcile every workspace at boot. Returns how many gained an agent.
 
-    Runs at startup, so that turning the model on for a server that has been running for a
-    month does not leave every existing workspace without the feature — and so that a
-    workspace created before this code existed is not permanently a second-class one.
-
-    **One transaction per workspace, not one for all of them.** A failure here is logged
-    and skipped, and a shared session could not survive that: the first error leaves the
-    session in a failed transaction and every workspace after it fails too, so the
-    "skip one" this is written for would silently become "skip the rest". Opening its own
-    sessions is also why it takes none — a caller cannot hand in one it will reuse.
+    Only the workspaces with no `blob-agent` plugin at all are visited: this seeder never
+    changes a row it installed earlier, so there is nothing for it to do anywhere else.
     """
     if not llm.configured():
         return 0
-
-    async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT w.id,
-                           (SELECT u.id FROM users u
-                             WHERE u.workspace_id = w.id AND u.role = 'owner'
-                               AND u.deactivated_at IS NULL
-                             ORDER BY u.id LIMIT 1) AS owner_id
-                      FROM workspaces w
-                     -- Keyed on the slug, not on the runtime. `ensure` is idempotent by
-                     -- slug, so a runtime test here would silently skip a workspace that
-                     -- has some *other* built-in plugin but not this one — a prefilter
-                     -- that disagrees with the thing it is filtering for.
-                     WHERE NOT EXISTS (
-                       SELECT 1 FROM plugins p
-                        WHERE p.workspace_id = w.id AND p.slug = :slug)
-                    """
-                ),
-                {"slug": builtin.WORKSPACE_SLUG},
-            )
-        ).fetchall()
-
-    seeded = 0
-    for row in rows:
-        if row.owner_id is None:
-            continue  # A workspace with no owner is mid-teardown; leave it alone.
-        try:
-            async with transaction() as (session, _):
-                if await ensure(session, str(row.id), installed_by=str(row.owner_id)):
-                    seeded += 1
-        except Exception:
-            log.exception("could not seed the built-in agent for workspace %s", row.id)
-    return seeded
+    return await agent_seeding.reconcile_everywhere(
+        "the built-in agent",
+        existing_id=existing_id,
+        ensure=ensure,
+        lacking_slug=builtin.WORKSPACE_SLUG,
+    )
 
 
 __all__ = [
@@ -210,6 +131,5 @@ __all__ = [
     "ensure",
     "ensure_everywhere",
     "existing_id",
-    "join_public_channels",
     "manifest",
 ]

@@ -18,6 +18,9 @@ never meets `_assert_reachable`, the SSRF guard on the registration *routes*. Th
 an exemption anybody passes: `registry.install` has never looked at a URL, so a caller
 that starts here is outside the guard by construction. An admin typing the same URL into
 `POST /api/admin/plugins` is still refused, and `tests/test_janus_agent.py` pins it.
+
+The boot-time pass over every workspace and the joining of public channels are not this
+module's either: `services/agent_seeding.py` holds both, shared with the built-in agent.
 """
 
 from __future__ import annotations
@@ -28,11 +31,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
-from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError
 from ..plugins import registry
 from ..plugins.manifest import Manifest
-from . import workspace_agent
+from . import agent_seeding
 
 log = logging.getLogger("blob.janus_agent")
 
@@ -108,7 +110,8 @@ async def existing_id(session: AsyncSession, workspace_id: str) -> str | None:
 
 
 async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str) -> str | None:
-    """Install Janus if it is missing, and put it in the public channels.
+    """Install Janus if it is missing, point it at the configured address if it is not,
+    and put it in the public channels.
 
     Returns the plugin id; None when Janus is not running, and None when the slug is held
     by a row this service does not own.
@@ -118,119 +121,91 @@ async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str)
 
     plugin_id = await existing_id(session, workspace_id)
     bot_user_id: str | None
-    if plugin_id is not None:
-        # Production already holds a `janus` row pointing at a public domain. Moved rather
-        # than reinstalled: `uninstall` retires the bot — deactivated, handle released,
-        # address mangled — so remove-and-reinstall would take its history, its channel
-        # memberships and its place in the sidebar with it.
-        #
-        # Only the URL and the secret. Not the name, not the scopes: a grant an admin
-        # revoked must stay revoked across a restart, and a name somebody changed is theirs.
-        await session.execute(
-            text("UPDATE plugins SET agui_url = :url, updated_at = now() WHERE id = :id"),
-            {"url": settings.JANUS_AGUI_URL, "id": plugin_id},
-        )
-        # The secret moves with it, and this is the half that would otherwise be silent.
-        # Blob signs an outbound run with `plugin_secrets.signing_secret` — the value
-        # minted at install — and only a *fresh* install writes the configured one. So an
-        # operator who generates a new JANUS_SIGNING_SECRET, which is exactly what
-        # `.env.example` invites, on a workspace that already holds a Blob-minted one gets
-        # the container verifying with one value while Blob signs with another: /v1/agui
-        # answers 401, every run fails, and nothing on screen points at the secret — it
-        # looks precisely like the agent being down. One value in the operator's `.env`,
-        # read by both sides, is the whole design of this, and a secret Blob minted
-        # earlier and never showed anybody cannot be that value.
-        await session.execute(
-            text("UPDATE plugin_secrets SET signing_secret = :secret WHERE plugin_id = :id"),
-            {"secret": settings.JANUS_SIGNING_SECRET, "id": plugin_id},
-        )
-        bot_user_id = await registry.bot_user_id(session, plugin_id)
-    else:
-        try:
-            installed = await registry.install(
-                session,
-                workspace_id=workspace_id,
-                manifest=manifest(),
-                installed_by=installed_by,
-                signing_secret=settings.JANUS_SIGNING_SECRET,
-            )
-        except AppError as exc:
-            if exc.code != "plugin_exists":
-                raise
-            # The slug is taken by a row `existing_id` refused to adopt — a container
-            # agent, or somebody's personal one called "Janus". Not ours to move, and not
-            # a reason to stop: this runs from a loop over every workspace at boot, so
-            # raising here would cost every workspace after this one its agent because of
-            # one workspace's name clash. `install` refuses before it writes anything, so
-            # the caller's transaction is still good.
-            log.warning(
-                "workspace %s already has a `%s` app that this seeder does not own; skipped",
-                workspace_id,
-                AGENT_SLUG,
-            )
+    if plugin_id is None:
+        installed = await _install(session, workspace_id, installed_by=installed_by)
+        if installed is None:
             return None
         plugin_id = installed.plugin_id
         bot_user_id = installed.bot_user_id
+    else:
+        await _repoint(session, plugin_id)
+        bot_user_id = await registry.bot_user_id(session, plugin_id)
 
     if bot_user_id:
-        # A seeded agent in no channels is a silent one. A mention in a channel the bot is
-        # not in fails `assert_channel_access(require_member=True)` and is dropped with no
-        # message, no error and no run row — indistinguishable from the agent being down,
-        # and a failure this project has already had with this agent. Public channels
-        # only, for the reason `workspace_agent` states: a private channel's membership is
-        # what makes it private, and adding anyone to it is the members' call, not the
-        # server's.
-        await workspace_agent.join_public_channels(session, workspace_id, bot_user_id)
+        await agent_seeding.join_public_channels(session, workspace_id, bot_user_id)
     return plugin_id
 
 
+async def _install(
+    session: AsyncSession, workspace_id: str, *, installed_by: str
+) -> registry.Installed | None:
+    """A fresh install, or None when the slug is taken by a row that is not ours.
+
+    That row is one `existing_id` refused to adopt — a container agent, or somebody's
+    personal one called "Janus". Not ours to move, and not a reason to stop: this runs
+    from a loop over every workspace at boot, so raising here would cost every workspace
+    after this one its agent because of one workspace's name clash. `install` refuses
+    before it writes anything, so the caller's transaction is still good.
+    """
+    try:
+        return await registry.install(
+            session,
+            workspace_id=workspace_id,
+            manifest=manifest(),
+            installed_by=installed_by,
+            signing_secret=settings.JANUS_SIGNING_SECRET,
+        )
+    except AppError as exc:
+        if exc.code != "plugin_exists":
+            raise
+        log.warning(
+            "workspace %s already has a `%s` app that this seeder does not own; skipped",
+            workspace_id,
+            AGENT_SLUG,
+        )
+        return None
+
+
+async def _repoint(session: AsyncSession, plugin_id: str) -> None:
+    """Move a row installed earlier onto the configured address and secret.
+
+    Production already held a `janus` row pointing at a public domain. Moved rather than
+    reinstalled: `uninstall` retires the bot — deactivated, handle released, address
+    mangled — so remove-and-reinstall would take its history, its channel memberships and
+    its place in the sidebar with it.
+
+    Only the URL and the secret. Not the name, not the scopes: a grant an admin revoked
+    must stay revoked across a restart, and a name somebody changed is theirs.
+
+    The secret is the half that would otherwise be silent. Blob signs an outbound run with
+    `plugin_secrets.signing_secret` — the value minted at install — and only a *fresh*
+    install writes the configured one. So an operator who generates a new
+    JANUS_SIGNING_SECRET, which is exactly what `.env.example` invites, on a workspace
+    that already holds a Blob-minted one gets the container verifying with one value
+    while Blob signs with another: /v1/agui answers 401, every run fails, and nothing on
+    screen points at the secret — it looks precisely like the agent being down. One value
+    in the operator's `.env`, read by both sides, is the whole design of this, and a
+    secret Blob minted earlier and never showed anybody cannot be that value.
+    """
+    await session.execute(
+        text("UPDATE plugins SET agui_url = :url, updated_at = now() WHERE id = :id"),
+        {"url": settings.JANUS_AGUI_URL, "id": plugin_id},
+    )
+    await session.execute(
+        text("UPDATE plugin_secrets SET signing_secret = :secret WHERE plugin_id = :id"),
+        {"secret": settings.JANUS_SIGNING_SECRET, "id": plugin_id},
+    )
+
+
 async def ensure_everywhere() -> int:
-    """Reconcile every workspace. Returns how many gained the agent.
+    """Reconcile every workspace at boot. Returns how many gained the agent.
 
-    Runs at startup, because `JANUS_AGUI_URL` arrives as an environment variable and the
-    moment it changes *is* a restart — so a server that has been running for a month gains
-    the agent for the workspaces already on it, not only for new ones.
-
-    **One transaction per workspace, not one for all of them.** A failure is logged and
-    skipped, and a shared session could not survive that: the first error leaves the
-    session in a failed transaction and every workspace after it fails too, turning the
-    "skip one" this is written for into "skip the rest".
+    Every workspace is visited, not only the ones without the agent: this is also what
+    moves an already-installed Janus off a public domain onto the internal address.
     """
     if not configured():
         return 0
-
-    async with session_scope() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT w.id,
-                           (SELECT u.id FROM users u
-                             WHERE u.workspace_id = w.id AND u.role = 'owner'
-                               AND u.deactivated_at IS NULL
-                             ORDER BY u.id LIMIT 1) AS owner_id
-                      FROM workspaces w
-                    """
-                )
-            )
-        ).fetchall()
-
-    seeded = 0
-    for row in rows:
-        if row.owner_id is None:
-            continue  # A workspace with no owner is mid-teardown; leave it alone.
-        try:
-            async with transaction() as (session, _):
-                before = await existing_id(session, str(row.id))
-                after = await ensure(session, str(row.id), installed_by=str(row.owner_id))
-                # Both halves. `ensure` returns None when the slug is held by a row it
-                # does not own, and a count that read "missing before" as "seeded now"
-                # would report an agent the workspace did not get.
-                if before is None and after is not None:
-                    seeded += 1
-        except Exception:
-            log.exception("could not seed Janus for workspace %s", row.id)
-    return seeded
+    return await agent_seeding.reconcile_everywhere("Janus", existing_id=existing_id, ensure=ensure)
 
 
 __all__ = [

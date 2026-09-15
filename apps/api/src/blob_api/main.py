@@ -128,29 +128,17 @@ class SessionMiddleware:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await hub.start_redis_bridge()
-    # Every workspace that has no built-in agent gets one, which is a no-op on all but
-    # the first boot after a model is configured. It lives here because `LLM_PROVIDER`
-    # arrives as an environment variable, so the moment it changes *is* a restart —
-    # putting the reconcile anywhere else would mean a server that has been running for a
-    # month gains the feature for new workspaces and not for the ones already using it.
-    # It never raises: a workspace that cannot seed its agent must not stop the boot.
-    try:
-        seeded = await workspace_agent.ensure_everywhere()
-        if seeded:
-            log.info("seeded the built-in agent into %d workspace(s)", seeded)
-    except Exception:
-        log.exception("could not reconcile built-in agents")
-
-    # And Janus, when it is running as a service in this stack. Same reasoning as above:
-    # `JANUS_AGUI_URL` is an environment variable, so a restart is when it changes. This
-    # also moves an already-installed Janus off a public domain onto the internal one.
-    # It never raises: an agent that cannot be seeded must not stop the boot.
-    try:
-        seeded = await janus_agent.ensure_everywhere()
-        if seeded:
-            log.info("seeded Janus into %d workspace(s)", seeded)
-    except Exception:
-        log.exception("could not reconcile Janus")
+    # Every workspace gets the agents that are configured — the built-in one when a model
+    # is, Janus when it runs as a service in this stack — which is a no-op on all but the
+    # first boot after a setting changed. It lives here because those settings arrive as
+    # environment variables, so the moment one changes *is* a restart; put the reconcile
+    # anywhere else and a server that has been running for a month gains the feature for
+    # new workspaces and not for the ones already using it. For Janus the same pass also
+    # moves an already-installed agent off a public domain onto the internal address.
+    # Neither raises — `agent_seeding.reconcile_everywhere` logs and skips instead —
+    # because a workspace that cannot seed its agent must not stop the boot.
+    await workspace_agent.ensure_everywhere()
+    await janus_agent.ensure_everywhere()
 
     # Said once, at boot, where an operator reading a bad deploy will see it. Uploads go
     # straight from the browser to the bucket, so a storage endpoint this process can
