@@ -148,11 +148,6 @@ def catalogue(caller: McpCaller) -> list[dict[str, Any]]:
     return mcp_catalogue.for_token(caller.scopes)
 
 
-def tools_for_agent(scopes: frozenset[str]) -> list[dict[str, Any]]:
-    """The same tools, offered to an agent, in the shape the model layer takes."""
-    return mcp_catalogue.for_agent(scopes)
-
-
 # --------------------------------------------------------------------------------------
 # Rendering — plain text, always carrying ids
 # --------------------------------------------------------------------------------------
@@ -627,5 +622,4 @@ __all__ = [
     "catalogue",
     "known",
     "resolve_token",
-    "tools_for_agent",
 ]

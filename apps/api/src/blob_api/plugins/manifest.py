@@ -32,16 +32,12 @@ Status = Literal["enabled", "disabled", "needs_review", "failed"]
 
 #: Every permission a plugin can hold. Granted as a set at install, one row each, so a
 #: single scope can be revoked without rewriting the rest.
+#:
+#: No scope goes in this table without a site that reads it, and none stays once its site
+#: goes. RETIRED_SCOPES below holds both halves of that rule.
 SCOPES: dict[str, str] = {
     "messages:read": "Read messages in channels it belongs to",
     "messages:write": "Post messages",
-    # Enforced in `services/mcp.tools_for_agent`: it is what puts `post_message` in the
-    # list of tools an agent is offered. Separate from `messages:write` because every
-    # agent already holds that one — it is how the runner posts a reply in the room the
-    # agent was mentioned in — while *choosing* a room is the power an injected
-    # instruction reaches for. No scope goes in this table without a site that reads it;
-    # see RETIRED_SCOPES below for what happened the last time one did.
-    "messages:write.anywhere": "Post in channels it chooses, not only where it was asked",
     "messages:moderate": "Edit and delete anyone's messages",
     "reactions:write": "Add and remove reactions",
     "channels:read": "See channels it belongs to",
@@ -63,6 +59,14 @@ SCOPES: dict[str, str] = {
 #: not exist. They are stripped rather than refused so a manifest written against the
 #: old catalogue still installs; if one of these capabilities is ever built, its scope
 #: comes back here-to-SCOPES with an enforcement site in the same commit.
+#:
+#: `messages:write.anywhere` arrived here from the other direction, on 2026-09-15: it had
+#: a site and lost it. It decided whether `post_message` appeared in the tool list offered
+#: to the agent Blob ran itself — the only agent Blob ever ran tools *for* — and that
+#: agent is retired (migration 0041). Every agent now speaks through its own bot token in
+#: the channels it belongs to, which is a membership bound rather than a scope one, so
+#: there is nothing left for this name to gate. A row that already holds it keeps it and
+#: it does nothing; a manifest asking for it is stripped like the rest.
 RETIRED_SCOPES = frozenset(
     {
         "channels:write",
@@ -73,6 +77,7 @@ RETIRED_SCOPES = frozenset(
         "admin:read",
         "store",
         "schedule",
+        "messages:write.anywhere",
     }
 )
 

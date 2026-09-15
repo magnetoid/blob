@@ -511,7 +511,7 @@ class TestWaiting:
         assert run["expires_at"].year == 2026 and run["expires_at"].month == 1
 
 
-class TestTheOtherTransports:
+class TestTheSocketTransport:
     async def test_a_socket_agent_receives_the_resume_input(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
     ) -> None:

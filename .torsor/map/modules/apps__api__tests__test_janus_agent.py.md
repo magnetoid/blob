@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-16T01:13:47'
-updated: '2026-09-16T01:13:47'
+created: '2026-09-16T01:40:02'
+updated: '2026-09-16T01:40:02'
 ---
 
 # apps/api/tests/test_janus_agent.py
@@ -30,17 +30,24 @@ Symbols in `apps/api/tests/test_janus_agent.py`.
 - L251 `TestItIsInTheRoomsItIsMentionedIn` (class)
 - L252 `test_the_bot_joins_the_public_channels(self, janus: None, client: Client)` (method)
 - L269 `test_a_public_channel_founded_later_has_it(self, janus: None, client: Client)` (method)
-- L282 `test_it_does_not_join_a_private_channel(self, janus: None, client: Client)` (method)
-- L301 `TestTheSlugAloneIsNotIdentity` (class) — A `janus` row is not this seeder's row unless it has this seeder's shape.
-- L304 `test_a_container_row_is_not_adopted(self, janus: None, client: Client)` (method)
-- L348 `test_somebodys_own_agent_is_not_adopted(self, janus: None, client: Client)` (method)
-- L384 `test_a_taken_slug_does_not_stop_the_boot_reconcile(self, janus: None, client: Client)` (method)
-- L408 `TestReconcilingAtBoot` (class)
-- L409 `test_a_workspace_that_predates_the_setting_gains_it_at_boot(self, client: Client, monkeypatch: pytest.MonkeyPatch)` (method) — Founded before anybody turned Janus on, which is every workspace on the deploy
-- L430 `test_reconciling_twice_seeds_nothing_the_second_time(self, janus: None, client: Client)` (method)
-- L438 `TestAWorkspaceFoundedAfterBoot` (class)
-- L439 `test_signing_up_seeds_it(self, janus: None, client: Client)` (method)
-- L448 `test_signing_up_seeds_nothing_when_it_is_not_running(self, client: Client)` (method)
-- L457 `TestTheUrlIsNotExemptFromTheGuardItSkips` (class)
-- L458 `test_https_is_required_for_registered_urls(self, client: Client)` (method)
-- L481 `test_private_hosts_are_refused_even_with_https(self, client: Client)` (method)
+- L283 `_bot_id(owner: Client)` (method)
+- L288 `_found_public(owner: Client, name: str)` (method)
+- L294 `_members_of(owner: Client, channel_id: str)` (method)
+- L298 `_plugin_id(owner: Client)` (method)
+- L302 `test_it_does_not_join_a_private_channel(self, janus: None, client: Client)` (method)
+- L320 `test_a_disabled_agent_still_joins(self, janus: None, client: Client)` (method)
+- L334 `test_a_retired_agent_is_not_added(self, janus: None, client: Client)` (method)
+- L350 `test_an_agent_somebody_attached_for_themselves_is_not_added(self, janus: None, client: Client)` (method)
+- L370 `TestTheSlugAloneIsNotIdentity` (class) — A `janus` row is not this seeder's row unless it has this seeder's shape.
+- L373 `test_a_container_row_is_not_adopted(self, janus: None, client: Client)` (method)
+- L417 `test_somebodys_own_agent_is_not_adopted(self, janus: None, client: Client)` (method)
+- L453 `test_a_taken_slug_does_not_stop_the_boot_reconcile(self, janus: None, client: Client)` (method)
+- L477 `TestReconcilingAtBoot` (class)
+- L478 `test_a_workspace_that_predates_the_setting_gains_it_at_boot(self, client: Client, monkeypatch: pytest.MonkeyPatch)` (method) — Founded before anybody turned Janus on, which is every workspace on the deploy
+- L499 `test_reconciling_twice_seeds_nothing_the_second_time(self, janus: None, client: Client)` (method)
+- L507 `TestAWorkspaceFoundedAfterBoot` (class)
+- L508 `test_signing_up_seeds_it(self, janus: None, client: Client)` (method)
+- L517 `test_signing_up_seeds_nothing_when_it_is_not_running(self, client: Client)` (method)
+- L526 `TestTheUrlIsNotExemptFromTheGuardItSkips` (class)
+- L527 `test_https_is_required_for_registered_urls(self, client: Client)` (method)
+- L550 `test_private_hosts_are_refused_even_with_https(self, client: Client)` (method)

@@ -8,8 +8,14 @@ its handle released so the name can be claimed, and the plugin row deleted — g
 secrets, tokens and queued deliveries cascade. Every message it ever sent stays, under a
 retired author, like any uninstalled app's.
 
-Then `plugins_runtime_check` is tightened to the runtimes that remain. `agent_runs`
-keeps `'builtin'` in its transport check: the run log is history and the rows stay.
+Its runs go with it. `agent_runs.plugin_id` is ON DELETE CASCADE, so deleting the plugin
+row deletes every run that agent ever made — exactly what uninstalling any app does, and
+not something to work around here: keeping them would mean a nullable `plugin_id` and a
+run log with no agent to attribute a row to. `agent_runs_transport_check` is left naming
+`'builtin'` all the same, because after this no row can carry that transport and there is
+nothing for a tighter check to protect.
+
+Then `plugins_runtime_check` is tightened to the runtimes that remain.
 
 Revision ID: 0041
 Revises: 0040

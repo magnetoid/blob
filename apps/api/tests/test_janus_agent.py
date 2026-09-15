@@ -14,7 +14,7 @@ from blob_api.config import Settings, settings
 from blob_api.db.engine import SessionFactory
 from blob_api.services import janus_agent
 
-from .helpers import Client, sign_up, workspace_id_of
+from .helpers import Client, allow_policy, sign_up, workspace_id_of
 
 REQUIRED = {
     "DATABASE_URL": "postgres://blob:blob@localhost:5432/blob_test",
@@ -279,6 +279,26 @@ class TestItIsInTheRoomsItIsMentionedIn:
         bot = next(u for u in people if u["displayName"] == settings.JANUS_AGENT_NAME)
         assert bot["id"] in member_ids
 
+    @staticmethod
+    async def _bot_id(owner: Client) -> str:
+        people = (await owner.get("/api/users")).body["users"]
+        return str(next(u for u in people if u["displayName"] == settings.JANUS_AGENT_NAME)["id"])
+
+    @staticmethod
+    async def _found_public(owner: Client, name: str) -> str:
+        made = await owner.post("/api/channels", {"name": name, "kind": "public"})
+        assert made.status == 200, made.body
+        return str(made.body["channel"]["id"])
+
+    @staticmethod
+    async def _members_of(owner: Client, channel_id: str) -> list[str]:
+        return list((await owner.get(f"/api/channels/{channel_id}/members")).body["userIds"])
+
+    @staticmethod
+    async def _plugin_id(owner: Client) -> str:
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        return str(next(p for p in apps if p["slug"] == janus_agent.AGENT_SLUG)["id"])
+
     async def test_it_does_not_join_a_private_channel(self, janus: None, client: Client) -> None:
         # A private channel's membership is what makes it private. Adding anyone to it —
         # a bot included — is the members' call, not the server's.
@@ -296,6 +316,55 @@ class TestItIsInTheRoomsItIsMentionedIn:
         people = (await owner.get("/api/users")).body["users"]
         bot = next(u for u in people if u["displayName"] == settings.JANUS_AGENT_NAME)
         assert bot["id"] not in member_ids
+
+    async def test_a_disabled_agent_still_joins(self, janus: None, client: Client) -> None:
+        # Disabled is not retired. Leave it out while it is off and the channels founded
+        # meanwhile are the rooms it is deaf in once it is switched back on — the hole
+        # `_agents_in_every_public_channel` exists to close, reopened by the off switch.
+        # It joins and stays quiet.
+        owner = await sign_up(client, "Founder")
+        plugin_id = await self._plugin_id(owner)
+        off = await owner.post(f"/api/admin/plugins/{plugin_id}/enabled", {"enabled": False})
+        assert off.status == 200, off.body
+
+        later = await self._found_public(owner, "later")
+
+        assert await self._bot_id(owner) in await self._members_of(owner, later)
+
+    async def test_a_retired_agent_is_not_added(self, janus: None, client: Client) -> None:
+        # The other side of the line above: disabled joins, retired does not. Two locks
+        # hold it, and `_agents_in_every_public_channel` has both — `uninstall` clears
+        # `bot_plugin_id`, which drops the bot from the join onto `plugins`, and it sets
+        # `deactivated_at`, which the WHERE clause tests. What is pinned here is the
+        # behaviour, not which lock turned: a bot nobody can mention any more must not
+        # keep being added to rooms.
+        owner = await sign_up(client, "Founder")
+        bot = await self._bot_id(owner)
+        plugin_id = await self._plugin_id(owner)
+        assert (await owner.delete(f"/api/admin/plugins/{plugin_id}")).status == 200
+
+        later = await self._found_public(owner, "later")
+
+        assert bot not in await self._members_of(owner, later)
+
+    async def test_an_agent_somebody_attached_for_themselves_is_not_added(
+        self, janus: None, client: Client
+    ) -> None:
+        # Only the seeder flags an install. A personal agent is listed for its owner
+        # alone, and an app an admin installs by hand is invited room by room —
+        # membership is also how far its `messages:write` reaches.
+        owner = await sign_up(client, "Founder")
+        await allow_policy(await workspace_id_of(owner))
+        attached = await owner.post("/api/agents/mine", {"name": "Desktop Claude"})
+        assert attached.status == 201, attached.body
+
+        later = await self._found_public(owner, "later")
+
+        members = await self._members_of(owner, later)
+        people = (await owner.get("/api/users")).body["users"]
+        mine = next(u for u in people if u["displayName"] == "Desktop Claude")
+        assert mine["id"] not in members
+        assert await self._bot_id(owner) in members
 
 
 class TestTheSlugAloneIsNotIdentity:

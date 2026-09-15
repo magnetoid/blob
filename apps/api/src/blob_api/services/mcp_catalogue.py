@@ -1,12 +1,16 @@
-"""The tool catalogue, once, for both kinds of principal.
+"""The tool catalogue, once.
 
-An assistant reaching in over MCP and the workspace's own agent are the same kind of
-principal — something acting for a person, holding exactly that person's reach — so
-they read one table. `for_token` filters it by what an MCP token holds; `for_agent` by
-the `plugin_grants` an admin gave the agent. Filtered rather than merely refused, both
-times: a model offered a tool it may not use will call it, and the person reads a
-permission error in the middle of an answer. The handlers that run the tools are in
-`services/mcp.py`.
+Every tool a person's assistant may call over `/api/mcp` (ADR 0016) is defined here and
+nowhere else, and `for_token` filters the table by what that token holds. Filtered rather
+than merely refused: a model offered a tool it may not use will call it, and the person
+reads a permission error in the middle of an answer. The handlers that run the tools are
+in `services/mcp.py`.
+
+There was a second reader until 2026-09-15 — the agent Blob ran itself was offered the
+same tools on the asker's authority, filtered by the scopes an admin had granted it
+instead. That agent is retired, and no external agent is offered Blob's tools: an agent
+acts through its own bot token, bounded by its channel membership. One principal now, and
+one filter.
 """
 
 from __future__ import annotations
@@ -29,14 +33,11 @@ _CHANNEL_SCHEMA = {
     "description": "A channel id, or a name like #general.",
 }
 
-#: The tools, once. `scope` is what an MCP *token* must hold; `grant` is the
-#: `plugin_grants` scope an *agent* must have been given for the same tool, because an
-#: agent's permissions are the plugin system's and a token's are its own. `None` means a
-#: tool that asks the server nothing about the workspace and so needs no grant.
+#: The tools, once. `scope` is what the calling token must hold — "read" for everything
+#: that only looks, "write" for the one that speaks.
 CATALOGUE: list[dict[str, Any]] = [
     {
         "name": "whoami",
-        "grant": None,
         "title": "Who this connection is",
         "description": (
             "Who this connection acts as, which workspace it is in, and whether it may "
@@ -48,7 +49,6 @@ CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "list_channels",
-        "grant": "channels:read",
         "title": "List channels",
         "description": (
             "Channels this person is in, plus the public ones they could join. Private "
@@ -69,7 +69,6 @@ CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "read_channel",
-        "grant": "messages:read",
         "title": "Read a channel",
         "description": (
             "The most recent messages in a channel, oldest first. Pass `before` with the "
@@ -92,7 +91,6 @@ CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "read_thread",
-        "grant": "messages:read",
         "title": "Read a thread",
         "description": "A thread in full: the message it started from and every reply.",
         "inputSchema": {
@@ -110,7 +108,6 @@ CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "search_messages",
-        "grant": "messages:read",
         "title": "Search messages",
         "description": (
             "Full-text search across everything this person can see. Supports the same "
@@ -130,7 +127,6 @@ CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "list_people",
-        "grant": "users:read",
         "title": "List people",
         "description": (
             "The people and agents in this workspace. A message names one by writing @ "
@@ -148,7 +144,6 @@ CATALOGUE: list[dict[str, Any]] = [
     },
     {
         "name": "post_message",
-        "grant": "messages:write.anywhere",
         "title": "Post a message",
         "description": (
             "Post to a channel or a thread, as the person this connection belongs to. "
@@ -195,32 +190,4 @@ def for_token(scopes: frozenset[str]) -> list[dict[str, Any]]:
         }
         for tool in CATALOGUE
         if tool["scope"] in scopes
-    ]
-
-
-def for_agent(scopes: frozenset[str]) -> list[dict[str, Any]]:
-    """The same tools, offered to an agent, in the shape the model layer takes.
-
-    One catalogue for both callers. An assistant reaching in over MCP and the workspace's
-    own agent are the same kind of principal — something acting for a person, holding
-    exactly that person's reach — so giving them separate tool tables would mean two
-    definitions of what "read a channel" is, and the second one drifting.
-
-    Filtered, not refused (the reason `catalogue` gives): a model offered a tool it may
-    not use will call it, and the person reads a permission error in the middle of an
-    answer.
-
-    The read tools ride in on grants an agent already needs for other reasons.
-    `post_message` does not: it hangs off `messages:write.anywhere`, which nothing is
-    seeded with, because answering where it was asked and choosing where to speak are
-    different powers and only the second one is what an injected instruction reaches for.
-    """
-    return [
-        {
-            "name": tool["name"],
-            "description": tool["description"],
-            "input_schema": tool["inputSchema"],
-        }
-        for tool in CATALOGUE
-        if tool["grant"] is None or tool["grant"] in scopes
     ]

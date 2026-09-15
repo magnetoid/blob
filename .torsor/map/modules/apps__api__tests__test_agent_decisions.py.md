@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-16T01:13:47'
-updated: '2026-09-16T01:13:47'
+created: '2026-09-16T01:40:01'
+updated: '2026-09-16T01:40:01'
 ---
 
 # apps/api/tests/test_agent_decisions.py
@@ -49,5 +49,5 @@ Symbols in `apps/api/tests/test_agent_decisions.py`.
 - L476 `test_an_expired_decision_is_refused(self, agent: dict)` (method)
 - L490 `test_the_sweep_expires_waiting_runs_and_settles_their_cards(self, agent: dict)` (method)
 - L508 `test_the_agents_own_deadline_wins_when_it_is_sooner(self, agent: dict)` (method)
-- L514 `TestTheOtherTransports` (class)
+- L514 `TestTheSocketTransport` (class)
 - L515 `test_a_socket_agent_receives_the_resume_input(self, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)
