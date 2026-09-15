@@ -28,6 +28,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
+from ..db.engine import session_scope, transaction
 from ..plugins import registry
 from ..plugins.manifest import Manifest
 
@@ -102,4 +103,58 @@ async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str)
     return installed.plugin_id
 
 
-__all__ = ["AGENT_SCOPES", "AGENT_SLUG", "configured", "ensure", "existing_id", "manifest"]
+async def ensure_everywhere() -> int:
+    """Reconcile every workspace. Returns how many gained the agent.
+
+    Runs at startup, because `JANUS_AGUI_URL` arrives as an environment variable and the
+    moment it changes *is* a restart — so a server that has been running for a month gains
+    the agent for the workspaces already on it, not only for new ones.
+
+    **One transaction per workspace, not one for all of them.** A failure is logged and
+    skipped, and a shared session could not survive that: the first error leaves the
+    session in a failed transaction and every workspace after it fails too, turning the
+    "skip one" this is written for into "skip the rest".
+    """
+    if not configured():
+        return 0
+
+    async with session_scope() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT w.id,
+                           (SELECT u.id FROM users u
+                             WHERE u.workspace_id = w.id AND u.role = 'owner'
+                               AND u.deactivated_at IS NULL
+                             ORDER BY u.id LIMIT 1) AS owner_id
+                      FROM workspaces w
+                    """
+                )
+            )
+        ).fetchall()
+
+    seeded = 0
+    for row in rows:
+        if row.owner_id is None:
+            continue  # A workspace with no owner is mid-teardown; leave it alone.
+        try:
+            async with transaction() as (session, _):
+                before = await existing_id(session, str(row.id))
+                await ensure(session, str(row.id), installed_by=str(row.owner_id))
+                if before is None:
+                    seeded += 1
+        except Exception:
+            log.exception("could not seed Janus for workspace %s", row.id)
+    return seeded
+
+
+__all__ = [
+    "AGENT_SCOPES",
+    "AGENT_SLUG",
+    "configured",
+    "ensure",
+    "ensure_everywhere",
+    "existing_id",
+    "manifest",
+]

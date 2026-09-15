@@ -172,6 +172,23 @@ class TestSeeding:
         assert bot_before.id == bot_after.id
 
 
+class TestReconcilingAtBoot:
+    async def test_every_workspace_gains_it_at_boot(self, janus: None, client: Client) -> None:
+        owner = await sign_up(client, "Founder")
+        seeded = await janus_agent.ensure_everywhere()
+        assert seeded >= 1
+
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        assert any(p["slug"] == "janus" for p in apps)
+
+    async def test_reconciling_twice_seeds_nothing_the_second_time(
+        self, janus: None, client: Client
+    ) -> None:
+        await sign_up(client, "Founder")
+        await janus_agent.ensure_everywhere()
+        assert await janus_agent.ensure_everywhere() == 0
+
+
 class TestTheUrlIsNotExemptFromTheGuardItSkips:
     async def test_the_same_url_typed_by_hand_is_still_refused(self, client: Client) -> None:
         # `registry.install` has never looked at a URL, so `ensure` calling it directly
