@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-15T23:40:20'
-updated: '2026-09-15T23:40:20'
+created: '2026-09-15T23:54:21'
+updated: '2026-09-15T23:54:21'
 ---
 
 # apps/api/tests/test_agent_dm.py
@@ -31,8 +31,10 @@ Symbols in `apps/api/tests/test_agent_dm.py`.
 - L162 `test_an_app_installed_by_hand_still_needs_a_mention(self, janus: None, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)
 - L177 `test_a_persons_own_agent_answers_its_owner(self, client: Client)` (method)
 - L192 `test_somebody_elses_agent_does_not_answer_you(self, client: Client)` (method)
-- L206 `record_jobs(monkeypatch: pytest.MonkeyPatch)` (function) — Every `enqueue(...)` call, recorded at call time rather than when it runs.
-- L225 `TestTheWayIn` (class) — Sending is what has to start the run, not a test calling the job by hand.
-- L228 `test_a_plain_message_in_the_agents_dm_asks_for_a_run(self, mine: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L236 `test_a_dm_between_two_people_asks_for_nothing(self, mine: dict, monkeypatch: pytest.MonkeyPatch)` (method)
-- L247 `test_an_app_installed_by_hand_asks_for_nothing(self, janus: None, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)
+- L205 `test_an_owned_app_with_no_endpoint_is_not_addressed_by_the_room(self, client: Client)` (method) — Ownership does not imply an agent can be reached.
+- L232 `record_jobs(monkeypatch: pytest.MonkeyPatch)` (function) — Every `enqueue(...)` call, recorded at call time rather than when it runs.
+- L251 `TestTheWayIn` (class) — Sending is what has to start the run, not a test calling the job by hand.
+- L254 `test_a_plain_message_in_the_agents_dm_asks_for_a_run(self, mine: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L262 `test_a_dm_between_two_people_asks_for_nothing(self, mine: dict, monkeypatch: pytest.MonkeyPatch)` (method)
+- L273 `test_a_dm_with_somebody_elses_agent_still_asks_and_the_job_refuses(self, client: Client, monkeypatch: pytest.MonkeyPatch)` (method) — The send path is looser than the job, and this is the gap it leaves open.
+- L300 `test_an_app_installed_by_hand_asks_for_nothing(self, janus: None, client: Client, monkeypatch: pytest.MonkeyPatch)` (method)

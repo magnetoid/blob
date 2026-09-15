@@ -111,7 +111,7 @@ async def personal_agent_for(
     row = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
                        p.runtime, s.signing_secret, w.name AS workspace_name,
                        other.display_name AS owner_name
@@ -133,6 +133,12 @@ async def personal_agent_for(
                                   AND other.deactivated_at IS NULL
                  WHERE p.workspace_id = :ws
                    AND p.status = 'enabled'
+                   -- It can be reached at all. The old `runtime = 'builtin'` test
+                   -- implied this; ownership does not, because `set_owner` will hand
+                   -- *any* installed app to a person. Without it a request_url-only app
+                   -- given to somebody makes their DM with it answer, every plain line,
+                   -- with "that agent has no endpoint to call" — see `plugins/streams`.
+                   AND {MENTIONABLE_AGENT}
                    -- The room is the address for a resident agent, and for the
                    -- person's own agent. Never for an app installed by hand.
                    AND (p.answers_dm_without_mention OR p.owner_user_id = other.id)

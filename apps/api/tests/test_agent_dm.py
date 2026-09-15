@@ -202,6 +202,32 @@ class TestWhichAgentsTheRoomAddresses:
             listener = await personal_agent_for(session, workspace_id=workspace_id, channel_id=dm)
         assert listener is None
 
+    async def test_an_owned_app_with_no_endpoint_is_not_addressed_by_the_room(
+        self, client: Client
+    ) -> None:
+        """Ownership does not imply an agent can be reached.
+
+        `PUT /api/admin/plugins/{id}/owner` hands *any* installed app to a person — there
+        is no runtime test on it — so an admin can own a plain webhook app to somebody.
+        Admitted here it would reach `plugins/streams.run_one`, which has no URL to POST
+        to, and `jobs/agui_outcome` would write `plugins.last_error` and post "that agent
+        has no endpoint to call" into the DM for every plain line typed in it.
+        """
+        owner = await sign_up(client, "Ada")
+        workspace_id = await workspace_id_of(owner)
+        app_body = await install(
+            owner, aguiUrl=None, requestUrl="https://apps.example.com/blob/events"
+        )
+        given = await owner.put(
+            f"/api/admin/plugins/{app_body['plugin']['id']}/owner", {"userId": owner.user_id}
+        )
+        assert given.status == 200, given.body
+        dm = await open_dm(owner, str(app_body["plugin"]["botUserId"]))
+
+        async with SessionFactory() as session:
+            listener = await personal_agent_for(session, workspace_id=workspace_id, channel_id=dm)
+        assert listener is None
+
 
 def record_jobs(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, ...]]:
     """Every `enqueue(...)` call, recorded at call time rather than when it runs."""
@@ -243,6 +269,33 @@ class TestTheWayIn:
         await send_message(mine["owner"], room, "lunch?")
 
         assert not [job for job in jobs if job[0] == "agui_run"]
+
+    async def test_a_dm_with_somebody_elses_agent_still_asks_and_the_job_refuses(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The send path is looser than the job, and this is the gap it leaves open.
+
+        `addressed_by_the_room` asks "is there an owned agent in this DM", not "is it
+        *yours*" — the owner is compared to the person in the room by the job, which
+        re-checks everything. Too tight here would lose the answer with no trace; too
+        loose costs a no-op job, and this pins which of the two this is.
+        """
+        ada = await sign_up(client, "Ada")
+        await allow_policy(await workspace_id_of(ada))
+        assert (await ada.post("/api/agents/mine", {"name": "Desktop Claude"})).status == 201
+        bot_id = await bot_named(ada, "Desktop Claude")
+        bo = await invite_and_sign_up(ada, "Bo")
+        dm = await open_dm(bo, bot_id)
+
+        jobs = record_jobs(monkeypatch)
+        sent = await send_message(bo, dm, "are you Ada's?")
+
+        assert ("agui_run", str(sent.body["message"]["id"])) in jobs
+        async with SessionFactory() as session:
+            refused = await personal_agent_for(
+                session, workspace_id=await workspace_id_of(bo), channel_id=dm
+            )
+        assert refused is None
 
     async def test_an_app_installed_by_hand_asks_for_nothing(
         self, janus: None, client: Client, monkeypatch: pytest.MonkeyPatch

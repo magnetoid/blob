@@ -88,9 +88,11 @@ async def stream_run(
     fold = agui.Fold()
     posts: list[agui.Post] = []
     if listener.agui_url is None:
-        # `listeners_for` admits an agent with no URL only when it dials in, so this is
-        # unreachable rather than merely unlikely — it is here because the type says the
-        # field is optional and silently POSTing to None is the worse way to find out.
+        # Both admission paths — `listeners_for` for a mention, `personal_agent_for` for
+        # a DM that is its own address — filter on `MENTIONABLE_AGENT`, which admits an
+        # agent with no URL only when it dials in. So this is unreachable rather than
+        # merely unlikely, and it is here because the type says the field is optional and
+        # silently POSTing to None is the worse way to find out.
         return fold, posts, "that agent has no endpoint to call"
     decoder = sse.SseDecoder()
     body = json.dumps(run_input).encode()

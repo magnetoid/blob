@@ -159,14 +159,16 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
             else []
         )
 
-        # A DM with the built-in agent is addressed by the room rather than by a mention:
-        # there is nobody else in it, so making people type `@Blob` at a wall would be
-        # ceremony. Slack's own assistant works this way and so does every DM anyone has
-        # ever sent, which is the point — this is the Slack reflex, not a new one.
+        # A DM with an agent the room may address — a resident one, or the person's own —
+        # is addressed by the room rather than by a mention: there is nobody else in it,
+        # so making people type `@Janus` at a wall would be ceremony. Slack's own
+        # assistant works this way and so does every DM anyone has ever sent, which is
+        # the point — this is the Slack reflex, not a new one. `personal_agent_for` holds
+        # the exact rule, and which agents qualify is its business rather than this one's.
         #
         # Only for a person's own message. An agent's reply in a two-member room is never
-        # a trigger here, which is what keeps two built-in agents from talking to each
-        # other for ever in a DM that happens to hold them both.
+        # a trigger here, which is what keeps two agents from talking to each other for
+        # ever in a DM that happens to hold them both.
         if chain.is_root:
             personal = await personal_agent_for(
                 session, workspace_id=trigger.workspace_id, channel_id=trigger.channel_id
