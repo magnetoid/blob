@@ -110,12 +110,8 @@ class TestSeeding:
 
         async with SessionFactory() as session:
             async with session.begin():
-                first = await janus_agent.ensure(
-                    session, workspace_id, installed_by=owner.user_id
-                )
-                second = await janus_agent.ensure(
-                    session, workspace_id, installed_by=owner.user_id
-                )
+                first = await janus_agent.ensure(session, workspace_id, installed_by=owner.user_id)
+                second = await janus_agent.ensure(session, workspace_id, installed_by=owner.user_id)
         assert first == second
 
     async def test_an_existing_janus_moves_to_the_internal_url(
@@ -151,9 +147,7 @@ class TestSeeding:
 
         async with SessionFactory() as session:
             async with session.begin():
-                again = await janus_agent.ensure(
-                    session, workspace_id, installed_by=owner.user_id
-                )
+                again = await janus_agent.ensure(session, workspace_id, installed_by=owner.user_id)
         assert again == plugin_id
 
         async with SessionFactory() as session:
@@ -171,15 +165,225 @@ class TestSeeding:
         assert bot_before is not None and bot_after is not None
         assert bot_before.id == bot_after.id
 
+    async def test_the_secret_is_reconciled_to_the_configured_one(
+        self, janus: None, client: Client
+    ) -> None:
+        """A workspace that already holds a Blob-minted secret has to move to the shared one.
+
+        Blob signs with `plugin_secrets.signing_secret`, not with the setting. Leave a
+        stale value there and the container verifies with one secret while Blob signs with
+        another: /v1/agui answers 401 and every run fails in a way that looks exactly like
+        the agent being down.
+        """
+        owner = await sign_up(client, "Founder")
+        workspace_id = await workspace_id_of(owner)
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                plugin_id = await janus_agent.ensure(
+                    session, workspace_id, installed_by=owner.user_id
+                )
+                assert plugin_id is not None
+                await session.execute(
+                    text("UPDATE plugin_secrets SET signing_secret = :old WHERE plugin_id = :id"),
+                    {"old": "minted-by-blob-and-never-shown-to-anyone", "id": plugin_id},
+                )
+
+        async with SessionFactory() as session:
+            bot_before = (
+                await session.execute(
+                    text("SELECT id FROM users WHERE bot_plugin_id = :id"), {"id": plugin_id}
+                )
+            ).fetchone()
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                again = await janus_agent.ensure(session, workspace_id, installed_by=owner.user_id)
+        assert again == plugin_id
+
+        async with SessionFactory() as session:
+            row = (
+                await session.execute(
+                    text("SELECT signing_secret FROM plugin_secrets WHERE plugin_id = :id"),
+                    {"id": plugin_id},
+                )
+            ).fetchone()
+            bot_after = (
+                await session.execute(
+                    text("SELECT id FROM users WHERE bot_plugin_id = :id"), {"id": plugin_id}
+                )
+            ).fetchone()
+        assert row is not None and row.signing_secret == "shared-with-the-container"
+        # Reconciled in place, like the URL: the bot and its history stay.
+        assert bot_before is not None and bot_after is not None
+        assert bot_before.id == bot_after.id
+
+
+class TestItIsInTheRoomsItIsMentionedIn:
+    async def test_the_bot_joins_the_public_channels(self, janus: None, client: Client) -> None:
+        # A mention in a channel the bot is not in fails the membership check and is
+        # dropped silently — no message, no error, no run row. An agent that was seeded
+        # and joined nothing is indistinguishable from one that is down.
+        owner = await sign_up(client, "Founder")
+        workspace_id = await workspace_id_of(owner)
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                await janus_agent.ensure(session, workspace_id, installed_by=owner.user_id)
+
+        channel = (await owner.get("/api/channels")).body["channels"][0]
+        member_ids = (await owner.get(f"/api/channels/{channel['id']}/members")).body["userIds"]
+        people = (await owner.get("/api/users")).body["users"]
+        bot = next(u for u in people if u["displayName"] == settings.JANUS_AGENT_NAME)
+        assert bot["id"] in member_ids
+
+    async def test_it_does_not_join_a_private_channel(self, janus: None, client: Client) -> None:
+        # A private channel's membership is what makes it private. Adding anyone to it —
+        # a bot included — is the members' call, not the server's.
+        owner = await sign_up(client, "Founder")
+        workspace_id = await workspace_id_of(owner)
+        private = (await owner.post("/api/channels", {"name": "founders", "kind": "private"})).body[
+            "channel"
+        ]
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                await janus_agent.ensure(session, workspace_id, installed_by=owner.user_id)
+
+        member_ids = (await owner.get(f"/api/channels/{private['id']}/members")).body["userIds"]
+        people = (await owner.get("/api/users")).body["users"]
+        bot = next(u for u in people if u["displayName"] == settings.JANUS_AGENT_NAME)
+        assert bot["id"] not in member_ids
+
+
+class TestTheSlugAloneIsNotIdentity:
+    """A `janus` row is not this seeder's row unless it has this seeder's shape."""
+
+    async def test_a_container_row_is_not_adopted(self, janus: None, client: Client) -> None:
+        # `jobs/deployments.py` re-heals every container row's agui_url from the runner at
+        # worker startup and every ten minutes after. Adopt one here and the address flaps
+        # forever: boot writes the internal URL, the sync writes the public one back.
+        owner = await sign_up(client, "Founder")
+        workspace_id = await workspace_id_of(owner)
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                plugin_id = await janus_agent.ensure(
+                    session, workspace_id, installed_by=owner.user_id
+                )
+                await session.execute(
+                    text(
+                        """
+                        UPDATE plugins
+                           SET runtime = 'container', agui_url = :url, source_repo = :repo
+                         WHERE id = :id
+                        """
+                    ),
+                    {
+                        "url": "https://janus.example.com/v1/agui",
+                        # `plugins_container_needs_repo`: a container row is one the
+                        # runner built, and the schema will not let it exist without one.
+                        "repo": "https://github.com/someone/janus",
+                        "id": plugin_id,
+                    },
+                )
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                # Refused, not raised: one workspace's name clash must not stop the boot
+                # reconcile for every workspace after it.
+                again = await janus_agent.ensure(session, workspace_id, installed_by=owner.user_id)
+        assert again is None
+
+        async with SessionFactory() as session:
+            row = (
+                await session.execute(
+                    text("SELECT agui_url FROM plugins WHERE id = :id"), {"id": plugin_id}
+                )
+            ).fetchone()
+        assert row is not None and row.agui_url == "https://janus.example.com/v1/agui"
+
+    async def test_somebodys_own_agent_is_not_adopted(self, janus: None, client: Client) -> None:
+        # `routers/my_agents.py` derives the slug from the name, so a member's personal
+        # agent called "Janus" holds this slug. Writing an agui_url onto it would be the
+        # server reaching into somebody's private agent.
+        owner = await sign_up(client, "Founder")
+        workspace_id = await workspace_id_of(owner)
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                plugin_id = await janus_agent.ensure(
+                    session, workspace_id, installed_by=owner.user_id
+                )
+                await session.execute(
+                    text(
+                        "UPDATE plugins SET owner_user_id = :owner, agui_url = :url WHERE id = :id"
+                    ),
+                    {
+                        "owner": owner.user_id,
+                        "url": "https://mine.example.com/v1/agui",
+                        "id": plugin_id,
+                    },
+                )
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                again = await janus_agent.ensure(session, workspace_id, installed_by=owner.user_id)
+        assert again is None
+
+        async with SessionFactory() as session:
+            row = (
+                await session.execute(
+                    text("SELECT agui_url FROM plugins WHERE id = :id"), {"id": plugin_id}
+                )
+            ).fetchone()
+        assert row is not None and row.agui_url == "https://mine.example.com/v1/agui"
+
+    async def test_a_taken_slug_does_not_stop_the_boot_reconcile(
+        self, janus: None, client: Client
+    ) -> None:
+        owner = await sign_up(client, "Founder")
+        workspace_id = await workspace_id_of(owner)
+
+        async with SessionFactory() as session:
+            async with session.begin():
+                plugin_id = await janus_agent.ensure(
+                    session, workspace_id, installed_by=owner.user_id
+                )
+                await session.execute(
+                    text(
+                        "UPDATE plugins SET runtime = 'container', source_repo = :repo "
+                        "WHERE id = :id"
+                    ),
+                    {"repo": "https://github.com/someone/janus", "id": plugin_id},
+                )
+
+        # Nothing raises, and the workspace is reported as having gained nothing rather
+        # than counted as seeded.
+        assert await janus_agent.ensure_everywhere() == 0
+
 
 class TestReconcilingAtBoot:
-    async def test_every_workspace_gains_it_at_boot(self, janus: None, client: Client) -> None:
+    async def test_a_workspace_that_predates_the_setting_gains_it_at_boot(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Founded before anybody turned Janus on, which is every workspace on the deploy
+        that adds it. The settings arrive as environment variables, so the moment they
+        change is a restart — and a restart is when this runs.
+
+        Signed up with Janus off on purpose: with it on, `services/workspaces.py` seeds it
+        at signup and this would be reconciling something already there.
+        """
         owner = await sign_up(client, "Founder")
-        seeded = await janus_agent.ensure_everywhere()
-        assert seeded >= 1
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        assert not any(p["slug"] == janus_agent.AGENT_SLUG for p in apps)
+
+        monkeypatch.setattr(settings, "JANUS_AGUI_URL", "http://janus:8642/v1/agui")
+        monkeypatch.setattr(settings, "JANUS_SIGNING_SECRET", "shared-with-the-container")
+        assert await janus_agent.ensure_everywhere() >= 1
 
         apps = (await owner.get("/api/admin/plugins")).body["plugins"]
-        assert any(p["slug"] == "janus" for p in apps)
+        assert any(p["slug"] == janus_agent.AGENT_SLUG for p in apps)
 
     async def test_reconciling_twice_seeds_nothing_the_second_time(
         self, janus: None, client: Client
@@ -187,6 +391,25 @@ class TestReconcilingAtBoot:
         await sign_up(client, "Founder")
         await janus_agent.ensure_everywhere()
         assert await janus_agent.ensure_everywhere() == 0
+
+
+class TestAWorkspaceFoundedAfterBoot:
+    async def test_signing_up_seeds_it(self, janus: None, client: Client) -> None:
+        # The boot reconcile cannot reach a workspace that does not exist yet, and on a
+        # fresh deployment the first workspace is founded at signup — so without the hook
+        # in `services/workspaces.py` it would hold @Blob and no @Janus until a restart.
+        owner = await sign_up(client, "Founder")
+
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        assert any(p["slug"] == janus_agent.AGENT_SLUG for p in apps)
+
+    async def test_signing_up_seeds_nothing_when_it_is_not_running(self, client: Client) -> None:
+        # No `janus` fixture: `conftest.py` leaves the settings off for the rest of the
+        # suite, which is the state every deployment that has not opted in is in.
+        owner = await sign_up(client, "Founder")
+
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        assert not any(p["slug"] == janus_agent.AGENT_SLUG for p in apps)
 
 
 class TestTheUrlIsNotExemptFromTheGuardItSkips:

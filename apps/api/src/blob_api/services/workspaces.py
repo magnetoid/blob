@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import new_id
-from . import handles, workspace_agent
+from . import handles, janus_agent, workspace_agent
 from .channels import DEFAULT_CHANNELS, add_members
 
 
@@ -209,6 +209,12 @@ async def found(
     # a no-op when no model is configured, because an agent that can only apologise is
     # worse than an absent one.
     await workspace_agent.ensure(session, workspace_id, installed_by=owner_id)
+    # And Janus, when it is running beside us, for the same reason and in the same
+    # transaction. The boot reconcile alone is not enough: on a fresh deployment the first
+    # workspace is founded at signup, *after* boot, so without this hook it would hold
+    # @Blob and no @Janus until somebody restarted the server. Silently a no-op when the
+    # settings are unset, exactly as the line above is when no model is configured.
+    await janus_agent.ensure(session, workspace_id, installed_by=owner_id)
 
     return Founded(workspace_id=workspace_id, slug=slug, owner_user_id=owner_id)
 

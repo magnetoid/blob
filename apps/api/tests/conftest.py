@@ -52,6 +52,14 @@ os.environ["LLM_API_KEY"] = ""
 os.environ["LLM_BASE_URL"] = ""
 os.environ["LLM_MODEL"] = ""
 
+# Janus is here for exactly the same reason, and it became load-bearing the moment
+# `services/workspaces.py` started seeding it at signup: a developer running the janus
+# service locally would have every test workspace quietly gain a second agent, moving
+# plugin counts and rosters on their machine and nowhere else. `test_janus_agent.py`
+# turns it on with monkeypatch, which is the only way it should ever be on in here.
+os.environ["JANUS_AGUI_URL"] = ""
+os.environ["JANUS_SIGNING_SECRET"] = ""
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import text
