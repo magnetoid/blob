@@ -947,6 +947,10 @@ button {
   line-height: 18px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  /* Keyed by its count in the sidebar, so React re-mounts it when the number moves and
+     this plays once. A digit swapping in place is the one change in the left column
+     nobody notices. */
+  animation: badge-pop var(--dur-fast) var(--ease-out);
 }
 
 .sidebar-add {
@@ -1165,7 +1169,13 @@ button {
 .message-list {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  /* Both axes named, because `overflow-y: auto` alone computes `overflow-x` to `auto`
+     too — and an inline axis that is a scroll container takes a second gutter from
+     `scrollbar-gutter` below, a strip of dead space between the last message and the
+     composer. Nothing here needs to scroll sideways: `.message-body` breaks long words
+     (`overflow-wrap: anywhere`) and anything genuinely wide — `pre`, `.diff-body` —
+     carries its own `overflow-x: auto`. */
+  overflow: hidden auto;
   padding: 22px 0 8px;
   /* So a short conversation can sit on the composer rather than floating at the top of
      an empty pane. See the auto margin below. */
@@ -1174,6 +1184,15 @@ button {
   /* Browser scroll-anchoring fights the virtualizer: a row that grows (image load,
      grouped padding) would yank the rest of the list and leave a hole. */
   overflow-anchor: none;
+  /* Holds the scrollbar's width whether or not there is one, so the column does not
+     shift sideways the moment a channel becomes long enough to scroll. (Nothing to
+     reserve where the platform overlays its scrollbars; nothing to fix there either.) */
+  scrollbar-gutter: stable;
+  /* Stops the scroll chaining out of the list at its ends: without it a trackpad flick
+     past the last message rubber-bands the document, and a pull down past the first
+     one can trigger the browser's refresh. Vertical only — `overscroll-behavior` would
+     also spend the inline axis and take two-finger back/forward with it. */
+  overscroll-behavior-y: contain;
 }
 
 .message-list-viewport {
@@ -1258,7 +1277,11 @@ button {
   gap: 12px;
   position: relative;
   padding: var(--message-padding-y) var(--pane-gutter);
-  transition: background-color var(--dur-fast) var(--ease-color);
+  /* Opacity sits here rather than on `[data-pending]` so both directions animate: a
+     message confirming, and a retry dimming it again. */
+  transition:
+    background-color var(--dur-fast) var(--ease-color),
+    opacity var(--dur-fast) var(--ease-color);
 }
 
 .message:hover {
@@ -1550,6 +1573,15 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* The count alone, keyed by its value: the chip stays put while the number ticks over.
+   The two motions divide by *what changed*, not by who did it. The chip's own
+   reaction-pop plays when a chip appears, because `.reaction` is keyed by its emoji and
+   only a new emoji mounts one — joining a chip somebody else started moves no chip. This
+   plays whenever the number changes, yours or anybody's. */
+.reaction-count {
+  animation: count-tick var(--dur-fast) var(--ease-out);
+}
+
 .reaction:hover {
   border-color: var(--hairline-strong);
 }
@@ -1839,6 +1871,11 @@ dialog.lightbox-host::backdrop {
 .composer-input {
   display: block;
   width: 100%;
+  /* Two lines plus this rule's 12px and 4px of padding, border-box. `rows` would say
+     the same thing and is ignored under `field-sizing`, so the floor has to be a
+     length; without it an empty composer would size to its one-line placeholder and be
+     a line shorter than it has always been. */
+  min-height: calc(2lh + 16px);
   max-height: 40vh;
   padding: 12px 14px 4px;
   border: 0;
@@ -1848,6 +1885,11 @@ dialog.lightbox-host::backdrop {
   font-size: var(--text-base);
   line-height: 1.6;
   color: var(--text);
+  /* The field grows with what is typed during layout rather than a frame later, so a
+     wrapping line no longer lifts the box after the character that caused it has
+     painted. `min-height` above is the floor and `max-height` the ceiling. Baseline
+     2026-06; Composer.tsx keeps the JavaScript measure for browsers without it. */
+  field-sizing: content;
 }
 
 .composer-footer {
@@ -1958,6 +2000,12 @@ dialog.lightbox-host::backdrop {
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
   background: var(--surface-muted);
+  /* An upload landing: the dim of `[data-status="uploading"]` lifts instead of stepping,
+     and on the base rule so a retry dims it again the same way. */
+  transition: opacity var(--dur-fast) var(--ease-color);
+  /* Keyed by `item.key` in AttachmentTray, so attaching a second file plays this on the
+     new chip alone and leaves an upload already in flight sitting still. */
+  animation: chip-in var(--dur-fast) var(--ease-out);
 }
 
 .attachment-chip[data-status="uploading"] {
@@ -4875,12 +4923,13 @@ select.chip {
 }
 
 /* ─── overlay motion ─────────────────────────────────────────────────────────
-   Menus enter and leave; everything else only enters. The difference is not taste,
-   it is mount semantics: `Menu` holds its panel through the exit with usePresence,
-   while the dialogs are `{open && <X/>}` in their parents and run real work on mount
-   — a focus trap, an autofocus, and in CatchUpPanel's case a request. Rendering them
-   always so they could animate out would fire all of that at start-up, so they keep
-   the conditional and lose the exit. An enter that is right is most of the benefit;
+   Menus, toasts, the thread panel and the two conversation notices enter and leave;
+   the dialogs only enter. The difference is not taste, it is mount semantics: each of
+   the first group is held in the document through its exit by usePresence, while the
+   dialogs are `{open && <X/>}` in their parents and run real work on mount — a focus
+   trap, an autofocus, and in CatchUpPanel's case a request. Rendering them always so
+   they could animate out would fire all of that at start-up, so they keep the
+   conditional and lose the exit. An enter that is right is most of the benefit;
    a missing exit reads as "fast", where a missing enter reads as "cheap".
 
    The palette is the exception that gets nothing: it is opened dozens of times a
@@ -4913,6 +4962,58 @@ select.chip {
   from {
     opacity: 0;
     transform: translateY(var(--motion-slide-lg));
+  }
+}
+
+/* And back out the way it came in — the same 8px, reversed. A panel is the largest
+   surface here, and a fade on its own at this size reads as a flicker. */
+@keyframes panel-slide-out {
+  to {
+    opacity: 0;
+    transform: translateY(var(--motion-slide-lg));
+  }
+}
+
+/* Played by every toast, which enters the bottom of the screen and so arrives from below. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-slide-lg));
+  }
+}
+
+/* Played by .badge — the sidebar's mention and saved counts — on every re-mount, which
+   is every change of the number it carries. Never all the way from transparent: the
+   badge is still there, it is only worth one more glance. */
+@keyframes badge-pop {
+  from {
+    transform: scale(var(--motion-scale-in));
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Played by .reaction-count whenever the number changes, whoever changed it. A rise
+   rather than a pop, because the chip around it is not moving. No opacity: a brand new
+   chip fades in as a whole with `reaction-pop`, and a digit fading inside a surface that
+   is itself fading is two ramps over the same 120ms — which is what your own first
+   reaction looked like. The tick is the rise, at full opacity. */
+@keyframes count-tick {
+  from {
+    transform: translateY(var(--motion-slide));
+  }
+}
+
+/* Played by .attachment-chip when a file is attached. No `to`: the chip settles on
+   whatever its own `data-status` says it should be, which for an upload in flight is
+   dimmed rather than opaque. */
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: scale(var(--motion-scale-in));
   }
 }
 
@@ -4950,8 +5051,63 @@ dialog.dialog-host::backdrop {
   animation: overlay-in var(--dur-modal) var(--ease-out);
 }
 
+/* The lightbox is a dialog too, and the one whose picture still cut in: its panel is
+   `.lightbox` rather than `.dialog`, so it took none of the entrance above. Its backdrop
+   never cut — `components/Dialog.tsx` renders `dialog-host` and `lightbox-host` on the
+   same element, so the rule above already fades it over --dur-open. It is restated here
+   on --dur-modal only so the picture and the dark behind it move on one token rather
+   than on two that are identical today. Enter only: `{open && <Dialog/>}` leaves
+   nothing mounted to animate out, so the close stays a cut like the rest of the dialogs. */
+dialog.lightbox-host::backdrop {
+  animation: backdrop-in var(--dur-modal) var(--ease-out);
+}
+
+.lightbox {
+  animation: overlay-in var(--dur-modal) var(--ease-out);
+}
+
+/* Rises in, and leaves by the same exit the menus take — Toasts.tsx holds it mounted
+   for that with usePresence, because the store forgets a dismissed toast at once. The
+   closed rule repeats `.toast` rather than leaning on the shared `[data-state="closed"]`
+   above: `.toast`'s own `pointer-events: auto` further down would otherwise outrank it
+   and leave a leaving toast catching clicks. */
 .toast {
+  animation: toast-in var(--dur-open) var(--ease-out);
+}
+
+.toast[data-state="closed"] {
+  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+  pointer-events: none;
+}
+
+/* The right-hand panel: a thread, or a terminal in the agent a DM is with. Only the
+   thread half is held: `ThreadPanelSlot` keeps it mounted through its exit, and the
+   shell keeps `data-panel="open"` for as long — the column the panel stands in is the
+   shell's, and taking it away on the first frame of the exit would drop the panel out
+   of the layout to animate. `AgentTerminalPanel` has neither a ref nor a `data-state`,
+   so the closed rule below never applies to it and closing a terminal still cuts; it
+   gets the entrance and nothing else. The closed rule has to be written out rather than
+   left to the shared `[data-state="closed"]` above, which `.panel` here would otherwise
+   outrank by coming later in the file. */
+.panel {
   animation: panel-slide-in var(--dur-open) var(--ease-out);
+}
+
+.panel[data-state="closed"] {
+  animation: panel-slide-out var(--dur-exit) var(--ease-in) forwards;
+}
+
+/* The two notices inside a conversation, which both used to appear and vanish with a
+   cut. No keyframes of their own: they are small overlays over the conversation and this
+   is what small overlays here do. Same specificity trap as the panel above. */
+.unread-jump-bar,
+.catchup-strip {
+  animation: overlay-in var(--dur-open) var(--ease-out);
+}
+
+.unread-jump-bar[data-state="closed"],
+.catchup-strip[data-state="closed"] {
+  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
 }
 
 @keyframes message-flash {
@@ -5595,15 +5751,23 @@ a.build-commit-sha:hover {
   pointer-events: auto;
 }
 
+/* On the ring, not a border. `.toast` above carries its edge in `--elev-2`'s `0 0 0 1px`
+   and has no border at all, so a `border-color` here coloured nothing and an error toast
+   and an info toast came out identical. Restating `--elev-2` after the ring is what
+   keeps the shadow. */
 .toast-error {
-  border-color: var(--danger);
+  box-shadow:
+    0 0 0 1px var(--danger),
+    var(--elev-2);
 }
 
 /* The other half of ToastKind. Without this rule an info notice was styled as a bare
    toast, which is not wrong so much as unsaid — it reads the same as a failure whose
    colour did not load. */
 .toast-info {
-  border-color: var(--accent-border);
+  box-shadow:
+    0 0 0 1px var(--accent-border),
+    var(--elev-2);
 }
 
 .toast-text {
@@ -6130,14 +6294,21 @@ a.build-commit-sha:hover {
   background: var(--iris-surface);
   max-width: 560px;
   font-size: var(--text-sm);
+  /* A run reaching its status: the rail's colour settles over a beat rather than
+     flattening in one frame. The border colour is what travels; the fill still steps
+     (a card may move its border colour and shadow, not its background), and a width
+     is a layout, not a composite. This card carries a border rather than elevation,
+     so there is no box-shadow to move with it. */
+  transition: border-color var(--dur-open) var(--ease-standard);
 }
 
 .agent-run-card[data-status="failed"],
 .agent-run-card[data-status="refused"] {
   /* A failure stops being an agent's colour and becomes a failure's. The rail is the
-     one thing read at a glance, so it carries the more urgent of the two. */
-  border-left-color: var(--danger);
+     one thing read at a glance, so it carries the more urgent of the two — set after
+     the shorthand, which would otherwise reset it to the hairline. */
   border-color: var(--hairline);
+  border-left-color: var(--danger);
   background: var(--surface-muted);
 }
 
@@ -7142,6 +7313,14 @@ button.person-trigger:hover {
   gap: 6px;
   padding: 8px var(--pane-gutter) 4px;
   border-bottom: 1px solid var(--line);
+}
+
+/* A tab being picked: the selected background and colour settle instead of switching.
+   Scoped to the tablist, because `.chip` is also every filter button in the app. */
+.work-tabs .chip {
+  transition:
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color);
 }
 
 .work-panel {

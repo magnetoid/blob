@@ -284,10 +284,17 @@ spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
 * **Elevation carries its own border.** Every `--elev-*` opens with a `0 0 0 1px` ring, so
   an elevated surface sets `box-shadow` and no `border`. Setting both is how four
   different popover treatments drifted apart before.
-* **Overlays enter; only menus leave.** `Menu` holds its panel through the exit with
-  `lib/usePresence.ts`; the dialogs are `{open && <X/>}` in their parents and run a focus
-  trap, an autofocus and (CatchUpPanel) a request on mount, so rendering them always —
-  which is what an exit animation needs — would fire all of that at start-up.
+* **Overlays enter; menus, toasts, the thread panel and the two conversation notices
+  also leave.** Each of those is held through a 150 ms exit by `lib/usePresence.ts`
+  (`{present, state}`; `animationend` on the node itself, or the exported `FALLBACK_MS`),
+  with `data-state="closed"` and `inert` on the leaving node — the thread panel through
+  `ThreadPanelSlot`, which also keeps the shell's third column until the panel is gone,
+  and only inside a conversation. A notice belongs to the channel it was for: the
+  catch-up strip and the unread jump bar are keyed by conversation so a switch never
+  fades out the previous channel's count. The dialogs are `{open && <X/>}` in their
+  parents and run a focus trap, an autofocus and (CatchUpPanel) a request on mount, so
+  rendering them always — which is what an exit animation needs — would fire all of that
+  at start-up; they enter only, the lightbox included. The palette gets no motion at all.
 
 Reduced motion is a token policy, not a blanket clamp: distances and scale go to zero and
 fades keep their duration. Anything sized for a pointer gets a 44px minimum under

@@ -1238,3 +1238,23 @@ them twice for that reason.
   version against `SUPPORTED_VERSIONS` (modern *and* legacy), so a legacy client politely
   asking for `2026-07-28` was told yes and then 400'd on every request after, because the
   modern path demands a `params._meta` a handshake never sends.
+
+## Trap: an optimistic reaction rolls back to what was true before the click
+
+`store.toggleReaction` writes the new membership straight into the store, then calls the
+server, and on failure calls `reacted(...)` again with the value it read *before* the
+click. That restore is unconditional: it does not look at what the row says now. So if a
+`reaction.added` frame for the same emoji and the same person lands between the optimistic
+write and the request's rejection — a retry that succeeded on the server, a second tab, a
+socket frame overtaking a slow HTTP response — the rollback undoes a change the server
+committed, and the chip is wrong until something refetches the message. Unlike the
+transient double-toggle a fast second click causes, this one does not heal on its own:
+no further frame is coming for a reaction that is already in the row.
+
+Accepted on 2026-09-16 with the small-motions slice, which specified this revert in so
+many words — "on failure it reverts and rethrows so the existing error toast still fires"
+— and scoped itself to motion; the race was found in the merge review and ruled out of
+the slice rather than fixed in it. The fix, when it is wanted, is for the catch branch to
+compare before it reverts: read the row out of the store the way the pre-flight check a
+few lines above already does, and revert only if that row still carries the optimistic
+value, instead of replaying a value captured a network round trip ago.

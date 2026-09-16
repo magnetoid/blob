@@ -14,6 +14,7 @@ import { MessageRow } from "./MessageRow.tsx";
 import { AgentRunCard } from "./AgentRunCard.tsx";
 import { flashMessage } from "../../lib/navigation.ts";
 import { useStore } from "../../lib/store.ts";
+import { usePresence } from "../../lib/usePresence.ts";
 import { EmptyState } from "../../components/EmptyState.tsx";
 
 interface Props {
@@ -297,6 +298,8 @@ export function MessageList({
     return () => node.removeEventListener("scroll", onScroll);
   }, [hasMore, loading, onLoadOlder]);
 
+  const jumpBarOpen = unreadCount > 0 && !jumpBarDismissed && !inThread;
+
   if (messages.length === 0) {
     if (error) {
       return (
@@ -358,32 +361,22 @@ export function MessageList({
       aria-live="polite"
       aria-relevant="additions"
     >
-      {unreadCount > 0 && !jumpBarDismissed && !inThread && (
-        <div className="unread-jump-bar">
-          <button
-            type="button"
-            className="unread-jump-action"
-            onClick={() => {
-              const target = messages[firstUnreadIndex];
-              if (!target) return;
-              virtualizer.scrollToIndex(firstUnreadIndex, { align: "center" });
-            }}
-          >
-            {unreadCount === 1
-              ? "1 new message"
-              : `${unreadCount} new messages`}{" "}
-            — jump
-          </button>
-          <button
-            type="button"
-            className="unread-jump-dismiss"
-            aria-label="Dismiss"
-            onClick={() => setJumpBarDismissed(true)}
-          >
-            ×
-          </button>
-        </div>
-      )}
+      {/* Keyed by the conversation, which is what stops one channel's bar from finishing
+          its exit over the next channel's messages: a switch mounts a new bar, and a new
+          bar that is not open has nothing to leave and renders nothing. The rest of this
+          list resets by hand on `conversationId` (see above) because it must keep its DOM
+          node; the bar has no such constraint, so it gets the key. */}
+      <UnreadJumpBar
+        key={conversationId}
+        open={jumpBarOpen}
+        count={unreadCount}
+        onJump={() => {
+          const target = messages[firstUnreadIndex];
+          if (!target) return;
+          virtualizer.scrollToIndex(firstUnreadIndex, { align: "center" });
+        }}
+        onDismiss={() => setJumpBarDismissed(true)}
+      />
       {hasMore && (
         <div style={{ padding: "8px 22px" }}>
           <button
@@ -438,6 +431,60 @@ export function MessageList({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * "N new messages — jump", at the top of a conversation you have not caught up with.
+ *
+ * A component of its own for two reasons, both about leaving. It holds itself through
+ * one exit with `usePresence`, which takes a ref and a hook — and it keeps the count it
+ * was showing while it goes, because `unreadCount` is already 0 by the time the channel
+ * has been read out from under it and "0 new messages" fading away is worse than no exit
+ * at all. Keeping both here rather than in the list is what lets the caller throw the
+ * whole thing away with a key when the conversation changes; held in the list, they
+ * survived the switch and the next channel inherited the last one's exit and its number.
+ */
+function UnreadJumpBar({
+  open,
+  count,
+  onJump,
+  onDismiss,
+}: {
+  open: boolean;
+  count: number;
+  onJump: () => void;
+  onDismiss: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { present, state } = usePresence(open, ref);
+  const [held, setHeld] = useState(count);
+  if (open && held !== count) setHeld(count);
+
+  if (!present) return null;
+
+  return (
+    // `inert` while it leaves, not merely `pointer-events: none`: the pointer is only one
+    // way in. Without it a bar on its way out keeps two buttons in the tab order and its
+    // text in the accessibility tree, offering a jump to a conversation that has been read.
+    <div
+      className="unread-jump-bar"
+      ref={ref}
+      data-state={state}
+      inert={state === "closed"}
+    >
+      <button type="button" className="unread-jump-action" onClick={onJump}>
+        {held === 1 ? "1 new message" : `${held} new messages`} — jump
+      </button>
+      <button
+        type="button"
+        className="unread-jump-dismiss"
+        aria-label="Dismiss"
+        onClick={onDismiss}
+      >
+        ×
+      </button>
     </div>
   );
 }

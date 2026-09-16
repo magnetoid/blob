@@ -131,7 +131,19 @@ export function Composer({
   }, [emojiOpen]);
 
   // Grow with content rather than scrolling a fixed two-line box.
+  //
+  // `field-sizing: content` in app.css does this during layout, so the box is the right
+  // height in the frame that draws the character; measuring here happens after that
+  // paint and the line arrives late. This is only the fallback for a browser without it
+  // — `typeof CSS` because a test DOM may not define it at all — and is deleted one
+  // release after this ships.
   useEffect(() => {
+    if (
+      typeof CSS !== "undefined" &&
+      CSS.supports?.("field-sizing", "content")
+    ) {
+      return;
+    }
     const node = textareaRef.current;
     if (!node) return;
     node.style.height = "auto";

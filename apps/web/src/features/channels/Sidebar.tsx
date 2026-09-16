@@ -339,7 +339,13 @@ function SidebarNavButton({
         {icon}
       </span>
       {!collapsed && <span className={`channel-name${muted ? ' muted' : ''}`}>{label}</span>}
-      {badge && <span className="badge badge-quiet">{badge}</span>}
+      {/* Keyed by the count so a change re-mounts it and it pops; the same count on an
+          unrelated re-render is the same node and sits still. */}
+      {badge && (
+        <span key={badge} className="badge badge-quiet">
+          {badge}
+        </span>
+      )}
     </button>
   );
 }
@@ -396,7 +402,11 @@ function ChannelRow({
             draft
           </span>
         )}
-        {channel.mentionCount > 0 && <span className="badge">{channel.mentionCount}</span>}
+        {channel.mentionCount > 0 && (
+          <span key={channel.mentionCount} className="badge">
+            {channel.mentionCount}
+          </span>
+        )}
         {live && (
           <span
             className="agent-live-dot"

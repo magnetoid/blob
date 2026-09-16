@@ -4,10 +4,14 @@
  * Three things a split must not move: the root and its replies render in order, a
  * summary a model wrote is marked as one (and the keyword scan is not), and the follow
  * toggle reflects the server's answer and flips it.
+ *
+ * And a fourth, since: closing the thread starts an exit instead of taking the panel
+ * away, which the slot around it is what holds.
  */
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { FALLBACK_MS } from '../../lib/usePresence.ts';
 
 const getThreadSummary = vi.fn();
 const listThreadTasks = vi.fn();
@@ -53,7 +57,7 @@ if (!('localStorage' in globalThis) || !globalThis.localStorage) {
   });
 }
 
-const { ThreadPanel } = await import('./ThreadPanel.tsx');
+const { ThreadPanel, ThreadPanelSlot } = await import('./ThreadPanel.tsx');
 const { useStore } = await import('../../lib/store.ts');
 
 function msg(id: string, body: string, overrides: Record<string, unknown> = {}) {
@@ -143,6 +147,10 @@ beforeAll(() => {
   };
 });
 
+/** Past usePresence's fallback, which is what ends an exit here: happy-dom runs no
+ *  animations, so the `animationend` a browser would send never comes. */
+const EXIT_SETTLED_MS = FALLBACK_MS + 100;
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.setItem('blob.threadTools', 'open');
@@ -152,7 +160,10 @@ beforeEach(() => {
   markThreadRead.mockResolvedValue({ ok: true });
   seed();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 async function renderPanel() {
   render(<ThreadPanel rootId="m1" />);
@@ -195,6 +206,78 @@ describe('the summary card', () => {
     expect(card?.getAttribute('data-written-by')).toBeNull();
     expect(screen.getByText('Summary')).toBeTruthy();
     expect(screen.getByText(/Keyword scan/)).toBeTruthy();
+  });
+});
+
+describe('closing the panel', () => {
+  async function renderSlot(rootId: string) {
+    const view = render(<ThreadPanelSlot rootId={rootId} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    return view;
+  }
+
+  it('draws nothing, and claims no column, when there is no thread', async () => {
+    // The shell derives its third grid column from this report, so a slot that mounts
+    // closed — which is what a view that is not a conversation leaves behind — must
+    // never once say it is present. A frame of that is 380px of the incoming view.
+    getThreadSummary.mockResolvedValue({ summary: null });
+    const onPresence = vi.fn();
+    const { unmount } = render(<ThreadPanelSlot rootId={null} onPresence={onPresence} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector('.panel')).toBeNull();
+    expect(onPresence).not.toHaveBeenCalledWith(true);
+    expect(onPresence).toHaveBeenCalledWith(false);
+
+    // And it lets go on the way out, rather than leaving the shell holding a column for
+    // a panel that is not in the document any more.
+    unmount();
+    expect(onPresence).not.toHaveBeenCalledWith(true);
+    expect(onPresence.mock.calls.at(-1)).toEqual([false]);
+  });
+
+  it('marks the panel open while the thread is up', async () => {
+    getThreadSummary.mockResolvedValue({ summary: null });
+    await renderSlot('m1');
+
+    const panel = document.querySelector('.panel')!;
+    expect(panel.getAttribute('data-state')).toBe('open');
+    expect(panel.hasAttribute('inert')).toBe(false);
+  });
+
+  it('holds the panel for its exit, still showing the thread it was closed with', async () => {
+    // Both halves of the hold. React drops a node on the render that stops returning it,
+    // so the panel used to vanish with nothing left to animate; and the store forgets the
+    // root id on the same render, so a panel rendering straight from it would spend its
+    // exit as an empty panel — no messages, no reply count, no channel name.
+    getThreadSummary.mockResolvedValue({ summary: null });
+    const { rerender } = await renderSlot('m1');
+
+    // Fake timers from here, not before: the mocked requests above resolve on their own.
+    vi.useFakeTimers();
+    rerender(<ThreadPanelSlot rootId={null} />);
+
+    const leaving = document.querySelector('.panel');
+    expect(leaving).toBeTruthy();
+    expect(leaving!.getAttribute('data-state')).toBe('closed');
+    // Out of the tab order and the accessibility tree for the 150ms it is still there:
+    // a close button, a follow toggle, a composer and every message link in it, plus the
+    // landmark itself, all for a thread that has been closed.
+    expect(leaving!.hasAttribute('inert')).toBe(true);
+    expect(
+      Array.from(document.querySelectorAll('.message-body')).map((node) => node.textContent),
+    ).toEqual(['the root', 'first reply', 'second reply']);
+    expect(screen.getByText(/2 replies/)).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(EXIT_SETTLED_MS);
+    });
+
+    expect(document.querySelector('.panel')).toBeNull();
   });
 });
 

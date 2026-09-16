@@ -11,7 +11,7 @@ import { create } from 'zustand';
 
 type ToastKind = 'error' | 'info';
 
-interface Toast {
+export interface Toast {
   id: number;
   kind: ToastKind;
   text: string;

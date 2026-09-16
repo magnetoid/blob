@@ -498,7 +498,12 @@ export const MessageRow = memo(function MessageRow({
                   <span>
                     <ReactionFace value={reaction.emoji} custom={customEmoji} />
                   </span>
-                  <span>{reaction.userIds.length}</span>
+                  {/* Keyed by its own value: any reaction moves one digit — yours as
+                      much as anybody's, because a key cannot tell whose click it was —
+                      and the re-mount is what makes it tick rather than swap. */}
+                  <span key={reaction.userIds.length} className="reaction-count">
+                    {reaction.userIds.length}
+                  </span>
                 </button>
               );
             })}

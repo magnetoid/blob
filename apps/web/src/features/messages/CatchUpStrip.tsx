@@ -17,7 +17,9 @@
  * first thing you have not read, this one offers to save you reading it.
  */
 
+import { useRef, useState } from 'react';
 import { useStore } from '../../lib/store.ts';
+import { usePresence } from '../../lib/usePresence.ts';
 import { SparkIcon } from '../../components/Icon.tsx';
 
 export function CatchUpStrip({
@@ -25,22 +27,40 @@ export function CatchUpStrip({
   mentionCount,
   onDismiss,
 }: {
+  /** False both for a read channel and for one whose strip was waved away. */
   hasUnread: boolean;
   mentionCount: number;
   onDismiss: () => void;
 }) {
-  if (!hasUnread) return null;
+  // Held in the document for one exit instead of disappearing on the click, or on the
+  // frame the channel is marked read. The count is held with it: reading the channel
+  // clears the mentions in the same commit that closes the strip, so the sentence would
+  // rewrite itself under the fade.
+  const ref = useRef<HTMLDivElement>(null);
+  const { present, state } = usePresence(hasUnread, ref);
+  const [heldMentions, setHeldMentions] = useState(mentionCount);
+  if (hasUnread && heldMentions !== mentionCount) setHeldMentions(mentionCount);
+
+  if (!present) return null;
 
   return (
-    <div className="catchup-strip">
+    // `inert` while it leaves, not merely `pointer-events: none`: the pointer is only one
+    // way in. Without it a strip on its way out keeps two buttons in the tab order and its
+    // offer in the accessibility tree, for a backlog that is no longer there.
+    <div
+      className="catchup-strip"
+      ref={ref}
+      data-state={state}
+      inert={state === 'closed'}
+    >
       <span className="catchup-strip-mark" aria-hidden="true">
         <SparkIcon size="sm" />
       </span>
       <p className="catchup-strip-text">
         <b>While you were away</b> —{' '}
-        {mentionCount > 0
-          ? `there are new messages here, and ${mentionCount} of them ${
-              mentionCount === 1 ? 'mentions' : 'mention'
+        {heldMentions > 0
+          ? `there are new messages here, and ${heldMentions} of them ${
+              heldMentions === 1 ? 'mentions' : 'mention'
             } you.`
           : 'there are new messages here.'}
       </p>

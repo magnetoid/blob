@@ -1,6 +1,6 @@
 /** The right panel's thread view: root message plus its replies and agentic helpers. */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { AgentRunView } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
@@ -8,6 +8,7 @@ import { showError } from "../../lib/toasts.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { closeThread } from "../../lib/navigation.ts";
 import { useFetch } from "../../lib/useFetch.ts";
+import { usePresence, type PresenceState } from "../../lib/usePresence.ts";
 import { byDisplayName } from "../../lib/format.ts";
 import { useMentionIndex } from "./mentionIndex.ts";
 import { MessageList } from "./MessageList.tsx";
@@ -73,7 +74,17 @@ function FollowToggle({ rootId }: { rootId: string }) {
   );
 }
 
-export function ThreadPanel({ rootId }: { rootId: string }) {
+export function ThreadPanel({
+  rootId,
+  panelRef,
+  state,
+}: {
+  rootId: string;
+  /** The element that animates away; `ThreadPanelSlot` watches it for `animationend`. */
+  panelRef?: RefObject<HTMLElement | null>;
+  /** `open` or `closed`, straight onto the root for the stylesheet to key the exit off. */
+  state?: PresenceState;
+}) {
   const thread = useStore((s) => s.threads[rootId]);
   const channels = useStore((s) => s.channels);
   const currentUser = useStore((s) => s.currentUser);
@@ -157,7 +168,17 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
   }
 
   return (
-    <aside className="panel" aria-label="Thread">
+    // `inert` while it leaves, not merely `pointer-events: none`: the pointer is only
+    // one way in. Without it a panel on its way out keeps its close button, its follow
+    // toggle, its composer and every message link in the tab order, and its landmark in
+    // the accessibility tree, for a thread that has been closed.
+    <aside
+      className="panel"
+      aria-label="Thread"
+      ref={panelRef}
+      data-state={state}
+      inert={state === "closed"}
+    >
       <div className="panel-header">
         <div>
           <h2 className="panel-title">Thread</h2>
@@ -256,4 +277,55 @@ export function ThreadPanel({ rootId }: { rootId: string }) {
       )}
     </aside>
   );
+}
+
+/**
+ * The panel's mounting envelope: what keeps it in the DOM long enough to leave.
+ *
+ * Two things have to be held, not one. `usePresence` holds the node for a single exit —
+ * without it React drops the panel on the render that closed the thread and there is
+ * nothing left to animate. And the root id is held with it: `activeThreadRootId` is null
+ * the moment the thread closes, so a panel still rendering from it would spend its exit
+ * as an empty panel with no messages, no reply count and no channel name. State rather
+ * than a ref, adjusted during render rather than in an effect, for the reason
+ * `usePresence` gives for its own: an effect lands a commit later, one frame too late.
+ *
+ * `onPresence` is what the shell listens to. `.shell[data-panel="open"]` is what gives
+ * the panel its grid column — and, under 900px, its fixed position — so the column has
+ * to outlast the exit, or the last 150ms plays on a panel the layout has already taken
+ * the ground out from under.
+ */
+export function ThreadPanelSlot({
+  rootId,
+  onPresence,
+}: {
+  /** The thread to show, or null: closed, and time to leave. */
+  rootId: string | null;
+  onPresence?: (present: boolean) => void;
+}) {
+  const panelRef = useRef<HTMLElement>(null);
+  const { present, state } = usePresence(rootId !== null, panelRef);
+  const [held, setHeld] = useState(rootId);
+  if (rootId !== null && rootId !== held) setHeld(rootId);
+
+  // Through a ref, so the effect below depends on `present` alone. Workspace passes a
+  // setState function and nothing changes, but a caller passing an inline lambda would
+  // give the effect a new dependency every render — and this effect's cleanup *reports*,
+  // so every render would say "gone" and then "here" again.
+  const report = useRef(onPresence);
+  useEffect(() => {
+    report.current = onPresence;
+  }, [onPresence]);
+
+  useEffect(() => {
+    report.current?.(present);
+    // Reported on the way out as well: a slot unmounted outright — the terminal taking
+    // the column, the view changing — has no exit to finish and must not leave the shell
+    // holding a column for a panel that is no longer there.
+    return () => report.current?.(false);
+  }, [present]);
+
+  if (!present || held === null) return null;
+
+  return <ThreadPanel rootId={held} panelRef={panelRef} state={state} />;
 }

@@ -12,9 +12,10 @@
  * property under test.
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import type { Message } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
+import { FALLBACK_MS } from "../../lib/usePresence.ts";
 
 /** Height the fake scroll container reports, and the height of one fake row. */
 const VIEWPORT_PX = 800;
@@ -69,7 +70,14 @@ vi.mock("./MessageRow.tsx", () => ({
 
 const { MessageList } = await import("./MessageList.tsx");
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+/** Past usePresence's fallback, which is what ends an exit here: happy-dom runs no
+ *  animations, so the `animationend` a browser would send never comes. */
+const EXIT_SETTLED_MS = FALLBACK_MS + 100;
 
 /** UUIDv7-ish ids: chronological string order is what the unread comparison relies on. */
 function makeMessages(count: number, startDay = "2026-08-20"): Message[] {
@@ -243,6 +251,71 @@ describe("MessageList", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 30));
       expect(useStore.getState().pendingScrollMessageId).toBe("a-thread-reply");
+    });
+  });
+
+  describe("the unread jump bar", () => {
+    function renderWithUnread() {
+      const messages = makeMessages(500);
+      // 99 of them are after the cursor.
+      return renderList({ messages, unreadAfterId: messages[400]!.id });
+    }
+
+    it("offers the count, marked open", () => {
+      const { container } = renderWithUnread();
+      const bar = container.querySelector(".unread-jump-bar");
+
+      expect(bar).toBeTruthy();
+      expect(bar!.getAttribute("data-state")).toBe("open");
+      expect(bar!.hasAttribute("inert")).toBe(false);
+      expect(bar!.textContent).toContain("99 new messages");
+    });
+
+    it("is held for its exit, still counting what it counted", () => {
+      // The channel is read out from under the bar: `unreadCount` is 0 on the same render
+      // that closes it, so a bar rendering from it would fade away saying "0 new
+      // messages" — and React would have dropped the node before it could fade at all.
+      const { container, rerender, props } = renderWithUnread();
+
+      vi.useFakeTimers();
+      rerender(<MessageList {...props} unreadAfterId={null} />);
+
+      const leaving = container.querySelector(".unread-jump-bar");
+      expect(leaving).toBeTruthy();
+      expect(leaving!.getAttribute("data-state")).toBe("closed");
+      expect(leaving!.textContent).toContain("99 new messages");
+      // Out of the tab order and the accessibility tree for the 150ms it is still there:
+      // it offers a jump into a conversation that has been read.
+      expect(leaving!.hasAttribute("inert")).toBe(true);
+
+      act(() => {
+        vi.advanceTimersByTime(EXIT_SETTLED_MS);
+      });
+
+      expect(container.querySelector(".unread-jump-bar")).toBeNull();
+    });
+
+    it("does not follow you into the next conversation", () => {
+      // The list is not remounted on a channel switch — that is the point of
+      // `conversationId` and the reset effect, and it is what makes a held bar dangerous.
+      // Without an identity of its own the bar stays present across the switch and plays
+      // the last channel's exit, counting the last channel's unread, over a channel that
+      // has been read.
+      const { container, rerender, props } = renderWithUnread();
+      expect(container.querySelector(".unread-jump-bar")).toBeTruthy();
+
+      rerender(
+        <MessageList
+          {...props}
+          conversationId="c2"
+          messages={makeMessages(20, "2026-08-21")}
+          unreadAfterId={null}
+        />,
+      );
+
+      // Not "closed", not present at all: there is nothing here that was ever open.
+      expect(container.querySelector(".unread-jump-bar")).toBeNull();
+      expect(container.textContent).not.toContain("99 new messages");
     });
   });
 });

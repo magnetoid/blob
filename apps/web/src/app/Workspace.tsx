@@ -22,7 +22,7 @@ import { TasksView } from '../features/agentic/TasksView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
 import { FilesView } from '../features/messages/FilesView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
-import { ThreadPanel } from '../features/messages/ThreadPanel.tsx';
+import { ThreadPanelSlot } from '../features/messages/ThreadPanel.tsx';
 import { BrowseChannels } from '../features/channels/BrowseChannels.tsx';
 import { ScheduledView } from '../features/messages/ScheduledView.tsx';
 import { AgentTerminalPanel } from '../features/agentic/AgentTerminalPanel.tsx';
@@ -87,6 +87,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   });
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  /** Whether the thread panel is in the document at all — open, or still leaving. */
+  const [threadPanelPresent, setThreadPanelPresent] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -171,8 +173,17 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const routeChannelId = route.view === 'channel' ? route.channelId : null;
   const routeThreadRootId = route.view === 'channel' ? (route.threadRootId ?? null) : null;
   useEffect(() => {
-    if (!routeChannelId) return;
     const store = useStore.getState();
+    if (!routeChannelId) {
+      // A route that is not a conversation carries no thread, and the store has to say
+      // so before the Back button brings the conversation back. `activeChannelId` stays
+      // — the rail, the stepping shortcuts and Esc all still mean "the channel you were
+      // in" — but a root id left behind here is one the URL no longer names, and the
+      // first render on the way back would open a panel nobody asked for and then spend
+      // 150ms fading it out again.
+      if (store.activeThreadRootId !== null) void store.openThread(null);
+      return;
+    }
     if (store.activeChannelId !== routeChannelId) void store.openChannel(routeChannelId);
     if (store.activeThreadRootId !== routeThreadRootId) void store.openThread(routeThreadRootId);
   }, [routeChannelId, routeThreadRootId]);
@@ -354,6 +365,19 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // a time: a thread, or a terminal in the agent this DM is with.
   const inConversation = view === 'messages' || view === 'channel';
   const panelOpen = inConversation && Boolean(activeThreadRootId || terminalTarget);
+  // The thread panel outlives its own close by one animation — `ThreadPanelSlot` holds
+  // it — and the column it stands in belongs to the shell, so the shell has to hold that
+  // for as long. Otherwise closing a thread takes the grid column away on the first
+  // frame of the exit and the panel finishes leaving from wherever it lands.
+  //
+  // Only while the conversation is still on screen, though. Leaving it closes the panel
+  // as a side effect, and holding the column for that exit would hand Activity, Tasks,
+  // Saved, Files or Search a viewport 380px narrower than the one they get 150ms later —
+  // the incoming view painting at the wrong width and then snapping. The hold is for a
+  // thread closing *inside* a conversation, which is the only place the motion is about
+  // anything. Derived rather than reported up by the slot on unmount, because that report
+  // is an effect: it would land a commit late and paint one frame of an empty column.
+  const panelPresent = panelOpen || (inConversation && threadPanelPresent);
 
   // Administration takes the whole window. The rail and channel list are navigation for
   // a conversation, and none of it helps someone reading an audit log. What does stay is
@@ -402,7 +426,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <div
       className="shell"
-      data-panel={panelOpen ? 'open' : 'closed'}
+      data-panel={panelPresent ? 'open' : 'closed'}
       data-sidebar={sidebarOpen ? 'open' : 'closed'}
       data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
     >
@@ -472,15 +496,29 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         </Suspense>
       )}
 
-      {panelOpen &&
-        (terminalTarget ? (
-          <AgentTerminalPanel
-            pluginId={terminalTarget.pluginId}
-            agentName={terminalTarget.agentName}
-          />
-        ) : (
-          <ThreadPanel rootId={activeThreadRootId as string} />
-        ))}
+      {panelOpen && terminalTarget ? (
+        <AgentTerminalPanel
+          pluginId={terminalTarget.pluginId}
+          agentName={terminalTarget.agentName}
+        />
+      ) : (
+        // Always rendered *while the conversation is on screen*, because a slot taken
+        // out of the tree the moment the thread closes is the thing this replaces. It
+        // draws nothing until there is a thread, and keeps drawing for one exit after
+        // there is not.
+        //
+        // Leaving the conversation is the one close that is not worth an exit, and the
+        // slot has to go with it rather than hold: the column it stands in is gone on
+        // the same render (`panelPresent` above), so a held panel would auto-place into
+        // an implicit third grid row and take 414px of height off the view that just
+        // arrived — the reflow this used to do sideways, done downwards. Safe to drop
+        // here only because `panelPresent` is derived, not reported: the shell is
+        // already two columns on this very render, so there is no frame of empty column
+        // waiting on the slot's unmount effect to say it has gone.
+        inConversation && (
+          <ThreadPanelSlot rootId={activeThreadRootId} onPresence={setThreadPanelPresent} />
+        )
+      )}
       {paletteOpen && (
           <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
         )}

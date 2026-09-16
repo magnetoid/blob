@@ -102,6 +102,20 @@ describe("openThread", () => {
     expect(useStore.getState().activeThreadRootId).toBeNull();
     expect(useToasts.getState().toasts.length).toBeGreaterThan(0);
   });
+
+  it("closing clears the root id without asking the server for a thread", async () => {
+    // What Workspace leans on when the route stops naming a conversation. The panel's
+    // root id has to be gone before the Back button brings the channel back — otherwise
+    // the first render on the way in opens a thread the URL does not name and then
+    // spends an animation closing it again — and paying for that with a request would
+    // be a fetch for a thread nobody is looking at.
+    useStore.setState({ activeThreadRootId: "root1" });
+
+    await useStore.getState().openThread(null);
+
+    expect(useStore.getState().activeThreadRootId).toBeNull();
+    expect(thread).not.toHaveBeenCalled();
+  });
 });
 
 describe("resync", () => {

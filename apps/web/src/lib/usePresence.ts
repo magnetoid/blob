@@ -16,8 +16,11 @@
 
 import { useEffect, useState, type RefObject } from 'react';
 
-/** Long enough for any exit in the stylesheet, short enough not to strand a node. */
-const FALLBACK_MS = 400;
+/** Long enough for any exit in the stylesheet, short enough not to strand a node.
+ *  Exported for the tests: happy-dom fires no `animationend`, so every suite that
+ *  watches something leave has to wait this out, and none of them should be holding a
+ *  copy of the number. */
+export const FALLBACK_MS = 400;
 
 export type PresenceState = 'open' | 'closed';
 
@@ -47,7 +50,16 @@ export function usePresence(open: boolean, node: RefObject<HTMLElement | null>):
 
     // Still mounted here, so the listener lands on the node about to animate.
     const el = node.current;
-    const finish = () => setExiting(false);
+    // `animationend` bubbles, and what this holds is a subtree rather than a leaf: the
+    // thread panel contains reaction chips (`reaction-pop`, 120ms), counts
+    // (`count-tick`), attachment chips, a message flash and the menus. Any of those
+    // ending during the 150ms exit would otherwise finish the exit for it and cut the
+    // panel instead of sliding it away. The timer below still calls this with no event,
+    // which is what keeps the floor working.
+    const finish = (event?: AnimationEvent) => {
+      if (event && event.target !== el) return;
+      setExiting(false);
+    };
     el?.addEventListener('animationend', finish);
     const timer = window.setTimeout(finish, FALLBACK_MS);
     return () => {

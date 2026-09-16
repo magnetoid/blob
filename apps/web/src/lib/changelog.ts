@@ -42,6 +42,29 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-16',
+    version: '1.1.1',
+    title: 'Small motions',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'A reaction lands the moment you click it, and steps back with a note if the server disagrees.',
+      },
+      {
+        kind: 'changed',
+        text: 'Toasts, the thread panel and the unread notices slide in and fade out instead of appearing and vanishing; a badge or a count that changes says so; attachment chips, run cards and tabs settle instead of switching; the image viewer fades up. With reduced motion on, every one of these is a plain fade.',
+      },
+      {
+        kind: 'fixed',
+        text: 'The message list no longer shifts by a scrollbar\'s width when a channel fills up, and the box you type in grows without a stutter.',
+      },
+      {
+        kind: 'fixed',
+        text: 'A failed agent run shows its red edge again.',
+      },
+    ],
+  },
+  {
     date: '2026-09-15',
     version: '1.1.0',
     title: 'One agent, and it is Janus',

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { Sidebar } from './Sidebar.tsx';
 import { useStore } from '../../lib/store.ts';
 
@@ -191,5 +191,66 @@ describe('agents have their own section', () => {
     render(<Sidebar />);
 
     expect(screen.queryByLabelText('Scout is working')).toBeNull();
+  });
+});
+
+/**
+ * A mention arriving in a channel you are not looking at moves one digit in the left
+ * column, and that was the entire tell. The badge is keyed by its own count, so React
+ * replaces the node when the number moves and the replacement plays `badge-pop` — the
+ * remount is the mechanism, so node identity is what a test can hold onto.
+ */
+describe('the unread mention badge', () => {
+  function seedWithMentions(mentionCount: number) {
+    useStore.setState({
+      workspaceName: 'Imba',
+      currentUser: { ...ME, role: 'owner' },
+      users: { u1: ME, u2: MATE },
+      channels: {
+        c1: {
+          id: 'c1',
+          kind: 'public',
+          name: 'general',
+          membership: { isStarred: false },
+          archivedAt: null,
+          memberIds: ['u1'],
+          mentionCount,
+        },
+      },
+      presence: {},
+      // Enough saved messages to put a badge on "Later" as well, which is the point:
+      // the nav badge is the first `.badge` in the sidebar, so an unscoped query reads
+      // it instead of the channel's and these tests would pass on the wrong number.
+      savedMessageIds: new Set(['m1', 'm2']),
+    } as never);
+  }
+
+  /** The channel's own badge. `.channel-row` will not do — the nav buttons carry that
+   *  class too — so the wrapper only a channel row has is what separates them. */
+  const channelBadge = (container: HTMLElement) =>
+    container.querySelector('.channel-row-wrap .badge')!;
+
+  it('is replaced when the count changes', () => {
+    seedWithMentions(3);
+    const { container } = render(<Sidebar />);
+    const before = channelBadge(container);
+    expect(before.textContent).toBe('3');
+
+    act(() => seedWithMentions(4));
+
+    const after = channelBadge(container);
+    expect(after.textContent).toBe('4');
+    expect(after).not.toBe(before);
+  });
+
+  it('is the same node when the count has not changed', () => {
+    // Otherwise every unrelated store update would pop a number nobody touched.
+    seedWithMentions(3);
+    const { container } = render(<Sidebar />);
+    const before = channelBadge(container);
+
+    act(() => seedWithMentions(3));
+
+    expect(channelBadge(container)).toBe(before);
   });
 });

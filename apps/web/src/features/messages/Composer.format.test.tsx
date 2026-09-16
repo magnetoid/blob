@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Composer } from './Composer.tsx';
 import { useStore } from '../../lib/store.ts';
@@ -90,5 +90,59 @@ describe('the composer formatting toolbar', () => {
     fireEvent.click(screen.getByLabelText('List'));
 
     expect(box.value).toBe('- hello');
+  });
+});
+
+/**
+ * `field-sizing: content` grows the box during layout, so it is the right height in the
+ * frame that draws the character. The JavaScript measure did it a paint later, which is
+ * the line arriving late. The measure stays only for browsers without the property, and
+ * these two cases are what says so: where it is supported the effect must write no
+ * inline height at all, because an inline height would override the CSS and hand the
+ * late growth straight back.
+ */
+describe('the composer autosize fallback', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  // Kept in front of the real namespace rather than replacing it: `CSS` also carries
+  // `escape`, and a stub that drops it would break anything reaching for it later in
+  // the same test rather than the thing under test. A spread would not do that — in
+  // happy-dom 20.11.6 `CSS` is a class instance, so `{ ...globalThis.CSS }` copies the
+  // unit factories it owns and leaves `escape` and `supports` behind on the prototype.
+  // Prototype chaining is what actually keeps them.
+  function stubSupports(answer: boolean) {
+    const supports = vi.fn(() => answer);
+    vi.stubGlobal('CSS', Object.assign(Object.create(globalThis.CSS ?? null), { supports }));
+    return supports;
+  }
+
+  it('leaves the height to CSS where field-sizing is supported', () => {
+    const supports = stubSupports(true);
+    renderComposer();
+
+    const box = type('one\ntwo\nthree');
+
+    expect(box.style.height).toBe('');
+    // The property actually asked about, not merely that something was asked.
+    expect(supports).toHaveBeenCalledWith('field-sizing', 'content');
+  });
+
+  it('measures and sets the height where it is not', () => {
+    stubSupports(false);
+    renderComposer();
+
+    const box = type('one\ntwo\nthree');
+
+    expect(box.style.height).toMatch(/^\d+px$/);
+  });
+
+  it('leaves the rest of the CSS namespace reachable', () => {
+    // What the helper above claims, said where it can fail. `escape` and `supports` live
+    // on happy-dom's `CSS` prototype while the unit factories are own fields, so a stub
+    // built by spreading the namespace keeps the units and loses these two.
+    stubSupports(true);
+
+    expect(typeof CSS.escape).toBe('function');
+    expect(CSS.escape('a b')).toBe('a\\ b');
   });
 });

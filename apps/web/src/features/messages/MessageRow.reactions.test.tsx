@@ -38,6 +38,10 @@ const message = (reactors: string[]): Message =>
     mentionGroupIds: [],
   }) as unknown as Message;
 
+const row = (reactors: string[]) => (
+  <MessageRow message={message(reactors)} previous={null} onOpenThread={vi.fn()} />
+);
+
 function show(reactors: string[]) {
   useStore.setState({
     users: {
@@ -55,13 +59,14 @@ function show(reactors: string[]) {
     editingMessageId: null,
     messageDeliveryState: () => null,
   } as never);
-  return render(
-    <MessageRow message={message(reactors)} previous={null} onOpenThread={vi.fn()} />,
-  );
+  return render(row(reactors));
 }
 
 /** The chip, found the way a screen-reader user reaches it: by role. */
 const chip = () => screen.getAllByRole('button').find((b) => b.classList.contains('reaction'))!;
+
+/** The number on the chip, as its own element so it can be animated on its own. */
+const count = () => chip().querySelector('.reaction-count')!;
 
 describe('a reaction chip', () => {
   it('is pressed when the reaction is yours', () => {
@@ -78,5 +83,41 @@ describe('a reaction chip', () => {
   it('still carries the styling hook, which is a separate concern', () => {
     show([ME]);
     expect(chip().dataset.mine).toBe('true');
+  });
+});
+
+/**
+ * Somebody else reacting to a message you are looking at changes one digit, and until
+ * now it changed silently. The count is keyed by its own value, so React replaces the
+ * node when the number moves and the replacement plays `count-tick` on mount — the
+ * whole mechanism is the remount, so what a test can hold onto is the node identity.
+ */
+describe('the count on a reaction chip', () => {
+  it('is a node of its own, so the chip is not the thing that re-mounts', () => {
+    show([THEM]);
+
+    expect(count().className).toBe('reaction-count');
+    expect(count().textContent).toBe('1');
+  });
+
+  it('is replaced when the number changes', () => {
+    const { rerender } = show([THEM]);
+    const before = count();
+
+    rerender(row([THEM, ME]));
+
+    expect(count().textContent).toBe('2');
+    expect(count()).not.toBe(before);
+  });
+
+  it('is the same node when the number has not changed', () => {
+    // Otherwise every unrelated re-render would pop a number that nobody touched.
+    const { rerender } = show([THEM]);
+    const before = count();
+
+    rerender(row([THEM]));
+
+    expect(count().textContent).toBe('1');
+    expect(count()).toBe(before);
   });
 });

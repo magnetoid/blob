@@ -986,26 +986,58 @@ export const useStore = create<State>((set, get) => ({
     return get().outbox[message.clientMsgId]?.status ?? null;
   },
 
+  /**
+   * Put your reaction on a message, or take it back.
+   *
+   * Optimistic: the chip changes under the pointer and the request follows it. It was
+   * the last deliberate action here that still waited for the socket to answer, which
+   * made a hit read as a miss on a slow connection and played `reaction-pop` whenever
+   * the server got round to it rather than at the moment of the click.
+   *
+   * The server's own `reaction.added` / `reaction.removed` frame then arrives for a
+   * state that already holds the change, and costs nothing because `withReaction` is
+   * idempotent — the same edit, applied twice, down to reference identity. On failure
+   * the inverse edit goes back on and the error is rethrown, so the caller's toast
+   * still fires.
+   */
   toggleReaction: async (message, emoji) => {
     const user = get().currentUser;
     if (!user) return;
-    const mine = message.reactions
-      .find((r) => r.emoji === emoji)
-      ?.userIds.includes(user.id);
-    if (mine) {
-      await api.messages.unreact(message.id, emoji);
-    } else {
-      await api.messages.react(message.id, emoji);
+    // Which way this toggle goes is read from the store, not from the argument. The
+    // argument is a React prop and a prop lags the store it came from by a render, which
+    // never mattered while the store only moved on a socket frame — both were stale in
+    // the same way — and matters now that the click itself moves the store. Two quick
+    // clicks on the same chip would otherwise both see "not mine" and both react.
+    const current =
+      get().messages[message.channelId]?.items.find(
+        (m) => m.id === message.id,
+      ) ??
+      get().threads[message.threadRootId ?? message.id]?.find(
+        (m) => m.id === message.id,
+      ) ??
+      message;
+    const mine =
+      current.reactions
+        .find((r) => r.emoji === emoji)
+        ?.userIds.includes(user.id) ?? false;
+
+    set((s) => reacted(s, message, emoji, user.id, !mine));
+    try {
+      if (mine) await api.messages.unreact(message.id, emoji);
+      else await api.messages.react(message.id, emoji);
+    } catch (error) {
+      set((s) => reacted(s, message, emoji, user.id, mine));
+      throw error;
     }
   },
 
   /**
    * Put a message aside, or take it back off the list.
    *
-   * Optimistic, and unlike a reaction it has to be: nothing is broadcast, so there is no
-   * event to correct the row afterwards — the set in this store *is* what the menu
-   * reads. Rolled back on failure rather than left hopeful, or the label would claim a
-   * message is saved when the server never heard about it.
+   * Optimistic, like a reaction, and with a stronger obligation to roll back: nothing
+   * is broadcast, so there is no event to correct the row afterwards — the set in this
+   * store *is* what the menu reads. Rolled back on failure rather than left hopeful, or
+   * the label would claim a message is saved when the server never heard about it.
    */
   toggleSaved: async (messageId) => {
     const saved = !get().savedMessageIds.has(messageId);
@@ -1269,47 +1301,21 @@ export const useStore = create<State>((set, get) => ({
 
       case "reaction.added":
       case "reaction.removed": {
-        const adding = event.t === "reaction.added";
-        const apply = (message: Message): Message => {
-          if (message.id !== event.messageId) return message;
-          const reactions = message.reactions.slice();
-          const index = reactions.findIndex((r) => r.emoji === event.emoji);
-          if (adding) {
-            if (index === -1) {
-              reactions.push({ emoji: event.emoji, userIds: [event.userId] });
-            } else {
-              const existing = reactions[index] as {
-                emoji: string;
-                userIds: string[];
-              };
-              if (!existing.userIds.includes(event.userId)) {
-                reactions[index] = {
-                  emoji: existing.emoji,
-                  userIds: [...existing.userIds, event.userId],
-                };
-              }
-            }
-          } else if (index >= 0) {
-            const existing = reactions[index] as {
-              emoji: string;
-              userIds: string[];
-            };
-            const userIds = existing.userIds.filter(
-              (id) => id !== event.userId,
-            );
-            if (userIds.length === 0) reactions.splice(index, 1);
-            else reactions[index] = { emoji: existing.emoji, userIds };
-          }
-          return { ...message, reactions };
-        };
-
-        // The event says which thread the message is in, so one thread list is
-        // touched rather than every open one; a root's reactions live in its own list.
-        const rootId = event.threadRootId ?? event.messageId;
-        set((s) => ({
-          messages: mapChannel(s.messages, event.channelId, apply),
-          threads: mapThread(s.threads, rootId, apply),
-        }));
+        // The very edit `toggleReaction` already made for whoever clicked, which is why
+        // it has to be a no-op the second time round rather than merely harmless.
+        set((s) =>
+          reacted(
+            s,
+            {
+              id: event.messageId,
+              channelId: event.channelId,
+              threadRootId: event.threadRootId,
+            },
+            event.emoji,
+            event.userId,
+            event.t === "reaction.added",
+          ),
+        );
         break;
       }
 
@@ -1748,6 +1754,68 @@ function mapThread(
   const items = mapItems(existing, fn);
   if (items === existing) return threads;
   return { ...threads, [rootId]: items };
+}
+
+/**
+ * A message with one person's reaction put on or taken off.
+ *
+ * Pure, and idempotent in both directions: adding an id already under the emoji, or
+ * removing one that is not there, returns the *very message it was handed*. That
+ * identity is not a nicety — `mapItems` reads it to leave the array alone, which is
+ * what stops an open list re-rendering for an event that changed nothing.
+ *
+ * Both halves of a reaction go through here: `toggleReaction` applies it at click time
+ * and the socket's confirming frame applies it again a moment later, so idempotency is
+ * one function's property rather than a rule two call sites have to remember. An emoji
+ * nobody is left under loses its chip.
+ */
+function withReaction(
+  message: Message,
+  emoji: string,
+  userId: string,
+  present: boolean,
+): Message {
+  const index = message.reactions.findIndex((r) => r.emoji === emoji);
+  // `noUncheckedIndexedAccess`, so this is already `Reaction | undefined` and `undefined`
+  // is exactly the `index === -1` case.
+  const existing = message.reactions[index];
+  if ((existing?.userIds.includes(userId) ?? false) === present) return message;
+
+  const reactions = message.reactions.slice();
+  if (!existing) {
+    reactions.push({ emoji, userIds: [userId] });
+  } else if (present) {
+    reactions[index] = { emoji, userIds: [...existing.userIds, userId] };
+  } else {
+    const userIds = existing.userIds.filter((id) => id !== userId);
+    if (userIds.length === 0) reactions.splice(index, 1);
+    else reactions[index] = { emoji, userIds };
+  }
+  return { ...message, reactions };
+}
+
+/**
+ * `withReaction` in both places a message can be on screen at once.
+ *
+ * The target says which thread the message is in, so one thread list is touched rather
+ * than every open one; a root's reactions live in its own list as well as the channel's,
+ * which is why both maps are walked either way.
+ */
+function reacted(
+  state: State,
+  target: { id: string; channelId: string; threadRootId: string | null },
+  emoji: string,
+  userId: string,
+  present: boolean,
+): Pick<State, "messages" | "threads"> {
+  const apply = (message: Message): Message =>
+    message.id === target.id
+      ? withReaction(message, emoji, userId, present)
+      : message;
+  return {
+    messages: mapChannel(state.messages, target.channelId, apply),
+    threads: mapThread(state.threads, target.threadRootId ?? target.id, apply),
+  };
 }
 
 function setOutbox(

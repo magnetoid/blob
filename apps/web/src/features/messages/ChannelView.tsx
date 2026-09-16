@@ -389,16 +389,24 @@ export function ChannelView() {
 
       {/* Dismissal is per channel and lives only as long as this session. A backlog you
           waved away is not a preference worth storing, and the strip disappears on its
-          own as soon as the channel is read. */}
-      {!dismissedCatchUp.has(activeChannelId) && (
-        <CatchUpStrip
-          hasUnread={Boolean(channel.hasUnread)}
-          mentionCount={channel.mentionCount ?? 0}
-          onDismiss={() =>
-            setDismissedCatchUp((current) => new Set(current).add(activeChannelId))
-          }
-        />
-      )}
+          own as soon as the channel is read.
+
+          Told rather than unmounted: the strip holds itself in the document for its exit,
+          and a component taken out of the tree by the click that dismissed it has nothing
+          left to animate. Both ways of closing it now go down the same prop.
+
+          Keyed by the channel, because holding it means it would otherwise survive a
+          channel switch — finishing one channel's exit over the next channel's messages,
+          or, between two channels that both have a backlog, rewriting its own sentence in
+          place instead of arriving. */}
+      <CatchUpStrip
+        key={activeChannelId}
+        hasUnread={Boolean(channel.hasUnread) && !dismissedCatchUp.has(activeChannelId)}
+        mentionCount={channel.mentionCount ?? 0}
+        onDismiss={() =>
+          setDismissedCatchUp((current) => new Set(current).add(activeChannelId))
+        }
+      />
 
       {archived && (
         <div className="pinned-bar">
