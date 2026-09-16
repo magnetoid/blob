@@ -226,12 +226,6 @@ class WorkspacePolicy(Base):
     """
 
     __tablename__ = "workspace_policies"
-    __table_args__ = (
-        CheckConstraint(
-            "agent_reads IN ('audience', 'asker')",
-            name="workspace_policies_agent_reads_check",
-        ),
-    )
 
     workspace_id: Mapped[str] = mapped_column(
         UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
@@ -255,12 +249,6 @@ class WorkspacePolicy(Base):
     #: environment's `AGENT_CHAIN_MAX_DEPTH` is the ceiling, as with every policy field.
     agent_chain_max_depth: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("4")
-    )
-    #: How far a shared agent may read when it answers in a room — `audience` bounds it
-    #: to what that room could read for itself, `asker` gives it the asker's own reach.
-    #: See migration 0037 and ADR 0013 for the authority this sits beside.
-    agent_reads: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'audience'")
     )
     updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     updated_by: Mapped[str | None] = mapped_column(

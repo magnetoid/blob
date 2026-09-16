@@ -89,7 +89,7 @@ beforeEach(() => {
   activity.mockResolvedValue({
     days: Array.from({ length: 7 }, (_, i) => ({ date: `2026-09-0${i + 1}`, runs: i })),
   });
-  workspacePolicy.mockResolvedValue({ agentChainMaxDepth: 3, agentReads: 'audience' });
+  workspacePolicy.mockResolvedValue({ agentChainMaxDepth: 3 });
   useStore.setState({ workspaceId: 'w1', users: {} } as never);
 });
 afterEach(cleanup);
@@ -115,7 +115,6 @@ describe('the agents console', () => {
   it('shows the guardrails honestly — two live, one not yet', async () => {
     render(<AppsSection onError={vi.fn()} />);
     await waitFor(() => expect(screen.getByText(/max 3 hops/)).toBeTruthy());
-    expect(screen.getByText(/the room it answers in/)).toBeTruthy();
     expect(screen.getByText(/not yet available/)).toBeTruthy();
   });
 

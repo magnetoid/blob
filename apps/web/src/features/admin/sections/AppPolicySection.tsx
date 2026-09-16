@@ -210,33 +210,6 @@ function PolicyEditor({
         />
       </div>
 
-      <div className="pref-row">
-        <div className="grow">
-          <div className="pref-label">What a shared agent may read</div>
-          <div className="pref-hint">
-            An agent answers with the eyes of whoever asked it. In a channel other
-            people are reading, that is more reach than the room has — “summarise
-            #salaries” asked in #general used to work, and the answer landed in
-            #general. “The room” bounds every read to public channels and the channel
-            it was asked in; its own DM with you is unchanged either way.
-          </div>
-        </div>
-        <select
-          className="input"
-          aria-label="What a shared agent may read"
-          style={{ maxWidth: 230 }}
-          value={policy.agentReads}
-          onChange={(event) => {
-            const next = event.target.value === "asker" ? "asker" : "audience";
-            if (next === policy.agentReads) return;
-            save({ agentReads: next });
-          }}
-        >
-          <option value="audience">The room it answers in</option>
-          <option value="asker">Everything the asker can see</option>
-        </select>
-      </div>
-
       <p className="pref-hint" style={{ marginTop: 18 }}>
         A workspace admin cannot read or change any of this. Blocking a scope
         here stops it being granted to any app in that workspace, whatever its

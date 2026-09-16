@@ -240,12 +240,7 @@ async def search(
     limit: int = 25,
     cursor: SearchCursor | None = None,
     sort: str = "relevance",
-    audience_channel_id: str | None = None,
 ) -> tuple[list[Message], int, SearchCursor | None]:
-    """`audience_channel_id` bounds the results to what one room could read for
-    itself — public channels, plus that room. It narrows the membership join above and
-    can never widen it, which is what makes it safe to hand to an agent answering in a
-    room somebody else is also reading. See `services/mcp` and migration 0037."""
     newest_first = sort == "newest"
     if cursor is not None and (cursor.rank is None) != newest_first:
         # The page after a relevance cursor is not the page after a recency one.
@@ -314,12 +309,6 @@ async def search(
                           OR m.author_id = cast(:author_id AS uuid))
                      AND (cast(:channel_id AS uuid) IS NULL
                           OR m.channel_id = cast(:channel_id AS uuid))
-                     -- The room's own ceiling, on top of the membership join: what the
-                     -- room could have read for itself, and nothing else.
-                     AND (cast(:audience AS uuid) IS NULL
-                          OR m.channel_id = cast(:audience AS uuid)
-                          OR EXISTS (SELECT 1 FROM channels ac
-                                      WHERE ac.id = m.channel_id AND ac.kind = 'public'))
                      AND (cast(:before AS timestamptz) IS NULL
                           OR m.created_at < cast(:before AS timestamptz))
                      AND (cast(:after AS timestamptz) IS NULL
@@ -349,7 +338,6 @@ async def search(
                 "needle": ilike_needle(query),
                 "author_id": author_id,
                 "channel_id": channel_id,
-                "audience": audience_channel_id,
                 "before": before,
                 "after": after,
                 "has": has,

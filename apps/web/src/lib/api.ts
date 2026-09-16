@@ -100,8 +100,6 @@ export interface WorkspacePolicy {
   maxApps: number | null;
   /** Hops an agent's reply may carry a chain past the person who started it. 0 = off. */
   agentChainMaxDepth: number;
-  /** How far a shared agent reads when it answers somewhere other people are reading. */
-  agentReads: "audience" | "asker";
   /** What the environment permits at all. Policy narrows this and can never widen it. */
   serverAllowsHosting: boolean;
   serverAllowsPrivateEndpoints: boolean;
@@ -115,7 +113,6 @@ type WorkspacePolicyInput = Pick<
   | "mayConnectSocketAgents"
   | "deniedScopes"
   | "agentChainMaxDepth"
-  | "agentReads"
 > & { maxApps: number | null };
 
 /** An agent that belongs to the signed-in member. */

@@ -156,37 +156,6 @@ async def personal_agent_for(
     )
 
 
-async def _is_private_room_with(
-    session: AsyncSession, *, channel_id: str, user_id: str, bot_user_id: str
-) -> bool:
-    """Is this channel a DM holding exactly this person and this agent?
-
-    `kind` alone cannot answer it: a DM's kind is set from the member count when it is
-    created and never re-derived, while `app_join_channel` can add a bot to a channel
-    with no kind test at all — so a `kind='dm'` row can hold three members. The count is
-    checked in the statement for the same reason `personal_agent_for` checks it there.
-    """
-    row = (
-        await session.execute(
-            text(
-                """
-                SELECT 1 FROM channels c
-                 WHERE c.id = :channel_id
-                   AND c.kind = 'dm'
-                   AND EXISTS (SELECT 1 FROM channel_members m
-                                WHERE m.channel_id = c.id AND m.user_id = :user_id)
-                   AND EXISTS (SELECT 1 FROM channel_members m
-                                WHERE m.channel_id = c.id AND m.user_id = :bot_user_id)
-                   AND (SELECT count(*) FROM channel_members m
-                         WHERE m.channel_id = c.id) = 2
-                """
-            ),
-            {"channel_id": channel_id, "user_id": user_id, "bot_user_id": bot_user_id},
-        )
-    ).fetchone()
-    return row is not None
-
-
 @asynccontextmanager
 async def looks_busy(
     listener: Listener, channel_id: str, thread_root_id: str | None

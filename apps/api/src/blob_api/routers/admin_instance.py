@@ -184,9 +184,6 @@ class PolicyOut(CamelModel):
     max_apps: int | None = None
     #: Hops an agent's reply may carry a chain past the person who started it; 0 = off.
     agent_chain_max_depth: int
-    #: How far a shared agent reads when it answers: `audience` bounds it to what the
-    #: room could read for itself, `asker` gives it the asker's own reach everywhere.
-    agent_reads: policy_service.AgentReads
     #: What the environment allows at all. Policy narrows this and can never widen it.
     server_allows_hosting: bool
     server_allows_private_endpoints: bool
@@ -204,7 +201,6 @@ class PolicyInput(CamelModel):
     denied_scopes: list[str] | None = None
     max_apps: int | None = Field(default=None, ge=0, le=1000)
     agent_chain_max_depth: int | None = Field(default=None, ge=0, le=16)
-    agent_reads: policy_service.AgentReads | None = None
 
 
 def _policy_out(workspace_id: str, policy: policy_service.Policy) -> PolicyOut:
@@ -216,7 +212,6 @@ def _policy_out(workspace_id: str, policy: policy_service.Policy) -> PolicyOut:
         denied_scopes=sorted(policy.denied_scopes),
         max_apps=policy.max_apps,
         agent_chain_max_depth=policy.agent_chain_max_depth,
-        agent_reads=policy.agent_reads,
         server_allows_hosting=settings.AGENT_RUNNER != "disabled",
         server_allows_private_endpoints=settings.AGENT_ALLOW_PRIVATE_ENDPOINTS,
         server_chain_max_depth=settings.AGENT_CHAIN_MAX_DEPTH,

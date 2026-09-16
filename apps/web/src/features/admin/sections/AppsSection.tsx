@@ -399,7 +399,7 @@ function AgentRow({
 
 /**
  * Three statements, and honest about which are live. The first is ADR 0013 and has no
- * switch; the next two are policy an instance owner edits on the App policy page; the
+ * switch; the second is policy an instance owner edits on the App policy page; the
  * last does not exist yet — `agent_write_approval` is in the roadmap and nowhere else —
  * and a tick that does nothing is worse than no tick.
  */
@@ -417,14 +417,6 @@ function Guardrails({ policy }: { policy: WorkspacePolicy | null }) {
             {policy.agentChainMaxDepth > 0
               ? ` (max ${policy.agentChainMaxDepth} hops)`
               : " — off"}
-          </li>
-        )}
-        {policy && (
-          <li>
-            A shared agent reads{" "}
-            {policy.agentReads === "audience"
-              ? "the room it answers in"
-              : "everything the asker can see"}
           </li>
         )}
         <li className="muted" data-unavailable="true">

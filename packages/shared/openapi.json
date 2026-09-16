@@ -4929,21 +4929,6 @@
             ],
             "title": "Agentchainmaxdepth"
           },
-          "agentReads": {
-            "anyOf": [
-              {
-                "enum": [
-                  "audience",
-                  "asker"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Agentreads"
-          },
           "deniedScopes": {
             "anyOf": [
               {
@@ -5015,14 +5000,6 @@
             "title": "Agentchainmaxdepth",
             "type": "integer"
           },
-          "agentReads": {
-            "enum": [
-              "audience",
-              "asker"
-            ],
-            "title": "Agentreads",
-            "type": "string"
-          },
           "deniedScopes": {
             "items": {
               "type": "string"
@@ -5077,7 +5054,6 @@
           "mayConnectSocketAgents",
           "deniedScopes",
           "agentChainMaxDepth",
-          "agentReads",
           "serverAllowsHosting",
           "serverAllowsPrivateEndpoints",
           "serverChainMaxDepth"

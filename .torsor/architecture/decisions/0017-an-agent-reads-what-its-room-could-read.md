@@ -1,5 +1,10 @@
 # 0017 — A shared agent reads no further than the room it is answering in
 
+> **Superseded on 2026-09-15 by [[0019-blob-ships-no-agent-of-its-own]].** The bound this
+> ADR describes applied to the tools the built-in agent ran on the asker's authority.
+> That agent is retired and no external agent is offered Blob's tools, so the bound has
+> no subject. The reasoning below is kept for the day one is.
+
 **Status:** accepted, 2026-09-13. Qualifies 0013 (a chain carries the rooting person's
 authority) by bounding where that authority may be *spent*. Leaves 0016 (an assistant
 token is a person) untouched.
@@ -72,7 +77,8 @@ has to notice, with the switch in the instance console for anyone who wants the 
   asked in, and not into a private channel it was not asked in. That is the same
   question the read bound answers and the more surprising direction of the two — an
   agent quoting a room is one thing, an agent speaking into a room nobody invited it to
-  is another — and `messages:write.anywhere` still decides whether it may choose a
-  channel at all. A workspace that wants the old reach for both sets `asker`.
+  is another — and `messages:write.anywhere` decided, at the time, whether it may choose
+  a channel at all. That scope is retired (`plugins/manifest.RETIRED_SCOPES`). A
+  workspace that wants the old reach for both sets `asker`.
 * `search` grew an `audience_channel_id` parameter. It narrows and can never widen, so
   passing it is always safe; passing `None` is exactly the old query.

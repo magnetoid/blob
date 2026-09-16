@@ -23,7 +23,7 @@ silently lose the ability at upgrade.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,13 +39,7 @@ POLICY_FIELDS = (
     "denied_scopes",
     "max_apps",
     "agent_chain_max_depth",
-    "agent_reads",
 )
-
-#: What a shared agent may read when it answers. `audience` bounds it to what the room
-#: it is answering in could read for itself; `asker` gives it the reach of the person
-#: who asked, wherever they asked. See migration 0037.
-AgentReads = Literal["audience", "asker"]
 
 
 @dataclass(slots=True)
@@ -60,9 +54,6 @@ class Policy:
     #: How many hops an agent's reply may carry a chain past the person who rooted it.
     #: 0 means only people start runs. See ADR 0013.
     agent_chain_max_depth: int = 4
-    #: ADR 0013 bounds what authority flows down a chain; this bounds what that
-    #: authority may *read* in the room the answer will land in.
-    agent_reads: AgentReads = "audience"
 
 
 def _row_to_policy(row: Any) -> Policy:
@@ -73,10 +64,6 @@ def _row_to_policy(row: Any) -> Policy:
         denied_scopes=frozenset(row.denied_scopes or []),
         max_apps=row.max_apps,
         agent_chain_max_depth=row.agent_chain_max_depth,
-        # Anything unrecognised reads as the safer of the two. A column value this code
-        # does not know about is a downgrade or a hand-edited row, and guessing "wider"
-        # there would quote a private channel into a public one.
-        agent_reads="asker" if row.agent_reads == "asker" else "audience",
     )
 
 
@@ -93,7 +80,7 @@ async def stored_for(session: AsyncSession, workspace_id: str) -> Policy:
                 """
                 SELECT may_host_agents, may_use_private_endpoints,
                        may_connect_socket_agents, denied_scopes, max_apps,
-                       agent_chain_max_depth, agent_reads
+                       agent_chain_max_depth
                   FROM workspace_policies WHERE workspace_id = :ws
                 """
             ),
@@ -121,9 +108,6 @@ async def effective_for(session: AsyncSession, workspace_id: str) -> Policy:
         # The environment is the ceiling here too: `AGENT_CHAIN_MAX_DEPTH=0` turns
         # agent-to-agent off server-wide whatever any workspace's row says.
         agent_chain_max_depth=min(stored.agent_chain_max_depth, settings.AGENT_CHAIN_MAX_DEPTH),
-        # No environment ceiling: this is a privacy bound rather than a capability, and
-        # an operator who wanted it off for everybody would be asking for the leak.
-        agent_reads=stored.agent_reads,
     )
 
 
@@ -151,7 +135,6 @@ async def write(
         "denied_scopes": list(fields.get("denied_scopes", sorted(current.denied_scopes))),
         "max_apps": fields.get("max_apps", current.max_apps),
         "agent_chain_max_depth": fields.get("agent_chain_max_depth", current.agent_chain_max_depth),
-        "agent_reads": fields.get("agent_reads", current.agent_reads),
     }
 
     await session.execute(
@@ -160,9 +143,9 @@ async def write(
             INSERT INTO workspace_policies
                 (workspace_id, may_host_agents, may_use_private_endpoints,
                  may_connect_socket_agents, denied_scopes, max_apps,
-                 agent_chain_max_depth, agent_reads, updated_by)
+                 agent_chain_max_depth, updated_by)
             VALUES (:ws, :host, :private, :socket, cast(:denied AS text[]), :max_apps,
-                    :chain_depth, :agent_reads, :actor)
+                    :chain_depth, :actor)
             ON CONFLICT (workspace_id) DO UPDATE SET
                 may_host_agents = EXCLUDED.may_host_agents,
                 may_use_private_endpoints = EXCLUDED.may_use_private_endpoints,
@@ -170,7 +153,6 @@ async def write(
                 denied_scopes = EXCLUDED.denied_scopes,
                 max_apps = EXCLUDED.max_apps,
                 agent_chain_max_depth = EXCLUDED.agent_chain_max_depth,
-                agent_reads = EXCLUDED.agent_reads,
                 updated_at = now(),
                 updated_by = EXCLUDED.updated_by
             """
@@ -183,7 +165,6 @@ async def write(
             "denied": merged["denied_scopes"],
             "max_apps": merged["max_apps"],
             "chain_depth": merged["agent_chain_max_depth"],
-            "agent_reads": merged["agent_reads"],
             "actor": actor_id,
         },
     )
