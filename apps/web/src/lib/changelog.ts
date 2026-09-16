@@ -42,6 +42,21 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-15',
+    version: '1.1.0',
+    title: 'One agent, and it is Janus',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'Blob\'s own assistant is retired. Janus is the agent every workspace gets, in every public channel from the moment a channel exists. Old conversations with @Blob stay readable.',
+      },
+      {
+        kind: 'added',
+        text: 'A direct message with your workspace\'s agent, or with your own, needs no @mention — the room is the address. An app somebody installed by hand still needs one.',
+      },
+    ],
+  },
+  {
     date: '2026-09-13',
     version: '1.0.0',
     title: 'Staying connected, and a version to call it',

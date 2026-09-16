@@ -76,13 +76,12 @@ export function HomeView() {
     [users, presence, currentUser],
   );
 
-  // Availability first, name second. This used to take any bot called "Blob" before it
-  // looked at whether that bot was still in the workspace — and a workspace that has
-  // installed and uninstalled the agent a few times holds several rows with that name,
-  // so the box could be wired to a retired account that answers nothing.
-  const blob = useMemo(() => {
+  // The first agent that can answer. There used to be a preference for one named
+  // "Blob", the agent Blob ran itself; that agent is retired and the workspace's agent
+  // is whichever is installed and available — Janus, where it is running.
+  const agent = useMemo(() => {
     const usable = Object.values(users).filter((u) => u.kind === 'bot' && agentIsAvailable(u));
-    return usable.find((u) => u.displayName === 'Blob') ?? usable[0];
+    return usable[0];
   }, [users]);
 
   const askChannel = useMemo(
@@ -96,15 +95,15 @@ export function HomeView() {
     event.preventDefault();
     const text = ask.trim();
     if (!text || sending) return;
-    if (!blob || !askChannel) {
+    if (!agent || !askChannel) {
       showError(new Error('No workspace agent is installed yet.'));
       return;
     }
     setSending(true);
     try {
-      const tagged = new RegExp(`@${blob.displayName}\\b`, 'i').test(text)
+      const tagged = new RegExp(`@${agent.displayName}\\b`, 'i').test(text)
         ? text
-        : `@${blob.displayName} ${text}`;
+        : `@${agent.displayName} ${text}`;
       await api.messages.send(askChannel.id, {
         body: tagged,
         clientMsgId: crypto.randomUUID(),
@@ -146,12 +145,12 @@ export function HomeView() {
               className="input"
               value={ask}
               onChange={(e) => setAsk(e.target.value)}
-              placeholder={blob ? `Ask @${blob.displayName}…` : 'No agent installed yet'}
+              placeholder={agent ? `Ask @${agent.displayName}…` : 'No agent installed yet'}
               aria-label="Ask the workspace agent"
-              disabled={!blob || sending}
+              disabled={!agent || sending}
             />
           </label>
-          <button className="btn btn-primary" type="submit" disabled={!blob || !ask.trim() || sending}>
+          <button className="btn btn-primary" type="submit" disabled={!agent || !ask.trim() || sending}>
             <SendIcon size="sm" />
             {sending ? 'Sending…' : 'Ask'}
           </button>
