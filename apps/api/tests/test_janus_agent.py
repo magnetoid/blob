@@ -499,7 +499,9 @@ class TestTheSlugAloneIsNotIdentity:
 
 
 def turn_janus_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    """What the `janus` fixture does, for a test that has to sign up with it off first."""
+    """The two settings the `janus` fixture turns on, for a test that has to sign up with
+    them off first. (The fixture also pins `JANUS_AGENT_NAME`; `conftest.py` forces that
+    one for the whole suite, so these two are what a test can be missing.)"""
     monkeypatch.setattr(settings, "JANUS_AGUI_URL", "http://janus:8642/v1/agui")
     monkeypatch.setattr(settings, "JANUS_SIGNING_SECRET", "shared-with-the-container")
 
@@ -651,7 +653,10 @@ class TestReconcilingAtBoot:
         self, client: Client, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # Counted by the difference between before and after, not by the answer alone:
-        # `ensure` returns None when it seeded nothing.
+        # `ensure` returns None when it seeded nothing. Signed up with Janus off on
+        # purpose: `existing_id` is the real one here, so the row has to be missing for
+        # the tally to have anything to count — with it seeded at signup, 0 would be true
+        # for the wrong reason.
         await sign_up(client, "Founder")
         turn_janus_on(monkeypatch)
         seeder = StandInEnsure(answer=None)

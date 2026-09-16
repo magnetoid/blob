@@ -291,12 +291,14 @@ Worth knowing before changing the equivalent code:
   patch. The fix is a named seam the module owns — `llm.open_client()` — which a test can
   replace with no reach outside the module. Any `monkeypatch.setattr(mod.somelib, ...)`
   has this shape.
-- **The worker answers mentions; the app only seeds.** A model key set on the API service
-  and not on the worker no longer produces the worst version of the built-in agent — that
-  agent is retired. What it produces now: Catch-up, which runs on the app, works; a
-  thread summary, written by the worker, says "no model is configured" because the
-  worker never got the key. Both services in `docker-compose.prod.yml` carry `LLM_*` for
-  this reason, and the same split applies to anything else the agent path will need.
+- **`LLM_*` is read by the app, not the worker.** A model key set on the API service and
+  not on the worker used to produce the worst version of the built-in agent — the worker
+  answered mentions and the app only seeded. That agent is retired, and with it the
+  worker's only use of the key: Catch-up and thread summaries both run at request time in
+  the app (`routers/agentic.py`, `routers/bot_api.py`, `services/catchup.py`); nothing
+  under `jobs/` calls `lib/llm.py`. Both services in `docker-compose.prod.yml` still carry
+  `LLM_*` so the two processes see one environment and a future worker-side caller does
+  not silently lack it — but a key on the app alone is what works today.
 - **Killing `pnpm check` mid-run orphans the parallel pytest workers.** `uv run pytest -q
   -n 4` forks onto `blob_test_gw0`..`gw3`; interrupt the run and the workers do not exit
   with it, so they sit on those databases holding locks. The next `pytest` run then fails

@@ -428,8 +428,9 @@ host port that differs from 7881 also needs `rtc.tcp_port` in a LiveKit config.
 | `LLM_MODEL` | unset | Empty means a current model rather than a cheap one: `claude-sonnet-5`, `gpt-4.1`, `deepseek-v4-pro`. Check `GET /v1/models` on the provider before pinning one — a name that has been retired may hang rather than 404. |
 | `LLM_MAX_TOKENS` | `2048` | |
 
-Set these on **the app and the worker both**: Catch-up runs in the app, and a thread
-summary is written in the worker.
+Set these on **the app and the worker both** — they run one image and should see one
+environment. Today only the app reads them: Catch-up and thread summaries are both made
+at request time.
 
 ### Translation
 
