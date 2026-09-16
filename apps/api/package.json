@@ -1,6 +1,6 @@
 {
   "name": "@blob/api",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Shim so the pnpm workspace still drives the Python backend.",
   "scripts": {

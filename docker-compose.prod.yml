@@ -75,13 +75,13 @@ services:
       - LIVEKIT_URL=${LIVEKIT_URL:-}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
-      # The agent Blob runs itself. Set LLM_PROVIDER and LLM_API_KEY and every workspace
-      # gets @Blob in its public channels; leave them and nothing is seeded.
+      # A model for Catch-up and thread summaries — not an agent; the agent is Janus,
+      # configured on its own service below. Set LLM_PROVIDER and LLM_API_KEY and this
+      # server can summarise; leave them and both features say so instead of guessing.
       #
-      # **Both services need these, not just this one.** The app seeds the agent at boot,
-      # but a mention is answered in the *worker* — so a key set here and not there
-      # produces the worst version of the feature: an agent that exists, is mentionable,
-      # and answers every mention with "no model is configured".
+      # **Both services need these, not just this one.** Catch-up runs here, in the app,
+      # but a thread summary is written in the *worker* — so a key set here and not there
+      # leaves Catch-up working while every thread summary says "no model is configured".
       - LLM_PROVIDER=${LLM_PROVIDER:-disabled}
       - LLM_API_KEY=${LLM_API_KEY:-}
       - LLM_BASE_URL=${LLM_BASE_URL:-}
@@ -191,8 +191,8 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
-      # A mention is answered here, not in the app. Same values as the app service; see
-      # the note there for what happens when only one of the two has them.
+      # A thread summary is written here, not in the app. Same values as the app service;
+      # see the note there for what happens when only one of the two has them.
       - LLM_PROVIDER=${LLM_PROVIDER:-disabled}
       - LLM_API_KEY=${LLM_API_KEY:-}
       - LLM_BASE_URL=${LLM_BASE_URL:-}

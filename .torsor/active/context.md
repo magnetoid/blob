@@ -292,10 +292,17 @@ Worth knowing before changing the equivalent code:
   replace with no reach outside the module. Any `monkeypatch.setattr(mod.somelib, ...)`
   has this shape.
 - **The worker answers mentions; the app only seeds.** A model key set on the API service
-  and not on the worker produces the worst version of the built-in agent: it exists, it is
-  mentionable, and it answers every mention with "no model is configured". Both services
-  in `docker-compose.prod.yml` carry `LLM_*` for this reason, and the same split applies
-  to anything else the agent path will need.
+  and not on the worker no longer produces the worst version of the built-in agent — that
+  agent is retired. What it produces now: Catch-up, which runs on the app, works; a
+  thread summary, written by the worker, says "no model is configured" because the
+  worker never got the key. Both services in `docker-compose.prod.yml` carry `LLM_*` for
+  this reason, and the same split applies to anything else the agent path will need.
+- **Killing `pnpm check` mid-run orphans the parallel pytest workers.** `uv run pytest -q
+  -n 4` forks onto `blob_test_gw0`..`gw3`; interrupt the run and the workers do not exit
+  with it, so they sit on those databases holding locks. The next `pytest` run then fails
+  almost every test at setup — the same "wall of errors with no assertion in it" the
+  two-heads trap describes, and just as easy to mistake for a real regression. `pgrep -fl
+  pytest` first, `pkill -f "pytest -q -n"`, then re-run (seen 2026-09-16).
 - **Coolify's env API creates duplicate keys, and which one reaches the container is a
   coin flip.** `POST /api/v1/applications/{uuid}/envs` does not upsert — it appends, and
   so does a `PATCH` that does not match. Every key on the janus-agui app had two entries;

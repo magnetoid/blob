@@ -72,13 +72,12 @@ has to notice, with the switch in the instance console for anyone who wants the 
   Slack's own DMs are: the room decides who reads the reply.
 * The bound is per workspace and set by the *instance* admin, not the workspace admin —
   policy its own subject can edit is not policy (see `db/models.WorkspacePolicy`).
-* **`post_message` is bounded too**, because it resolves its target through the same
-  helper. Under `audience` an agent may post to a public channel or to the room it was
-  asked in, and not into a private channel it was not asked in. That is the same
-  question the read bound answers and the more surprising direction of the two — an
-  agent quoting a room is one thing, an agent speaking into a room nobody invited it to
-  is another — and `messages:write.anywhere` decided, at the time, whether it may choose
-  a channel at all. That scope is retired (`plugins/manifest.RETIRED_SCOPES`). A
-  workspace that wants the old reach for both sets `asker`.
+* **`post_message` was bounded too**, because it resolved its target through the same
+  helper. Under `audience` an agent could post to a public channel or to the room it was
+  asked in, and not into a private channel it was not asked in. That was the same
+  question the read bound answered and the more surprising direction of the two — an
+  agent quoting a room was one thing, an agent speaking into a room nobody invited it to
+  was another — and `messages:write.anywhere` decided, at the time, whether it could
+  choose a channel at all. That scope is retired (`plugins/manifest.RETIRED_SCOPES`).
 * `search` grew an `audience_channel_id` parameter. It narrows and can never widen, so
   passing it is always safe; passing `None` is exactly the old query.

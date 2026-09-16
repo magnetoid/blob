@@ -186,8 +186,8 @@ grant scopes explicitly, and both end up as a real member of the workspace.
   question nobody answers within a day expires.
 - **Where an agent runs is a manifest field.** `external` is an HTTPS endpoint you host;
   `container` is one Blob deploys from a repository; `socket` dials in from a laptop
-  behind NAT and needs no address at all; `builtin` is the agent Blob runs itself. (A
-  fifth value, `local`, is reserved and not implemented.) [AG-UI](https://ag-ui.com) is
+  behind NAT and needs no address at all. (A fourth value, `local`, is reserved and not
+  implemented.) [AG-UI](https://ag-ui.com) is
   orthogonal to all of them — declare `aguiUrl` or `aguiPath` and Blob speaks it as the
   client, which is the direction every agent framework already ships.
 - **Your assistant reads Blob** — Blob is an [MCP](https://modelcontextprotocol.io) server.
@@ -208,9 +208,10 @@ grant scopes explicitly, and both end up as a real member of the workspace.
   delivery through a transactional outbox, interactive blocks and buttons, and
   app-provided slash commands that appear in the same list as the built-ins.
 - **Incoming webhooks** — post into a channel from CI or a cron job.
-- **A built-in agent** — set `LLM_PROVIDER` and `LLM_API_KEY` and every workspace gets
-  **@Blob**: a real plugin row with a bot user, holding three scopes, seeded into every
-  public channel and answering when mentioned. Disable it like any other app.
+- **An agent in every workspace** — Janus, run as a service in this stack
+  (`COMPOSE_PROFILES=janus`, see *Janus* below). It is seeded into every workspace, in
+  every public channel from the moment a channel exists, and a DM with it needs no
+  @mention.
 
 ### Slash commands
 
@@ -417,18 +418,18 @@ firewall. LiveKit advertises the UDP port it binds, so Blob passes that one valu
 flag and to both halves of the mapping; the TCP variable moves only the host side, and a
 host port that differs from 7881 also needs `rtc.tcp_port` in a LiveKit config.
 
-### The built-in agent
+### A model for Catch-up and summaries
 
 | Variable | Default | Notes |
 |---|---|---|
-| `LLM_PROVIDER` | `disabled` | `anthropic`, `openai` or `deepseek`. Turns on **@Blob**, the Catch-up summaries and model-written thread summaries. |
+| `LLM_PROVIDER` | `disabled` | `anthropic`, `openai` or `deepseek`. Turns on the Catch-up summaries and model-written thread summaries. It runs no agent: the agent is Janus. |
 | `LLM_API_KEY` | unset | The server's key, unlike an installed agent's, which its own container holds. |
 | `LLM_BASE_URL` | unset | Not needed for the three providers above — each knows its own host. Set it for a proxy, or an OpenAI-compatible server you run. |
 | `LLM_MODEL` | unset | Empty means a current model rather than a cheap one: `claude-sonnet-5`, `gpt-4.1`, `deepseek-v4-pro`. Check `GET /v1/models` on the provider before pinning one — a name that has been retired may hang rather than 404. |
 | `LLM_MAX_TOKENS` | `2048` | |
 
-Set these on **the app and the worker both**: the app seeds the agent, the worker is what
-answers a mention.
+Set these on **the app and the worker both**: Catch-up runs in the app, and a thread
+summary is written in the worker.
 
 ### Translation
 

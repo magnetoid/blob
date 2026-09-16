@@ -73,7 +73,70 @@ services:
     image: mailhog/mailhog:latest
     ports: ['1025:1025', '8025:8025']
 
+  # The agent the product assumes. `COMPOSE_PROFILES=janus docker compose up -d` starts
+  # it; the four JANUS_* lines in .env.example (JANUS_AGUI_URL, JANUS_SIGNING_SECRET,
+  # JANUS_AGENT_NAME, JANUS_API_SERVER_KEY) are what the API needs — the last one is
+  # required by this service itself, which refuses to start without it.
+  janus:
+    image: ghcr.io/magnetoid/janus:${JANUS_VERSION:-0.16.0}
+    restart: unless-stopped
+    profiles: ["janus"]
+    # Without this the image's entrypoint starts the interactive CLI and the container
+    # comes up listening on nothing. Janus's own compose file says so too.
+    command: ["gateway", "run"]
+    ports: ["8642:8642"]
+    environment:
+      - API_SERVER_ENABLED=true
+      - API_SERVER_HOST=0.0.0.0
+      - API_SERVER_PORT=8642
+      # Mandatory even on a private network: the API server refuses to start without it.
+      - API_SERVER_KEY=${JANUS_API_SERVER_KEY}
+      # The same value Blob holds as JANUS_SIGNING_SECRET. Its presence is also what
+      # registers the /v1/agui route at all — no secret, no route.
+      - BLOB_SIGNING_SECRET=${JANUS_SIGNING_SECRET}
+      # ⚠ These two do NOT configure the agent that answers a mention. Measured on
+      # 2026-09-15: nothing under Janus's `gateway/` or `agent/` reads `JANUS_MODEL` or
+      # `JANUS_INFERENCE_MODEL` — only its TUI and one-shot CLI paths do. The gateway
+      # reads `$JANUS_HOME/config.yaml`, which is `/opt/data/config.yaml` on the volume
+      # below, and a fresh volume starts on the image's packaged default
+      # (`anthropic/claude-opus-4.6`). Pointed at DeepSeek, that default is refused by
+      # name — "the supported API model names are deepseek-flash, deepseek-v4-pro" — and
+      # the run finishes with no text at all, which reaches a channel as silence.
+      #
+      # So after a first boot on a new volume the model has to be set in that file. A
+      # Blob settings page that writes it is the next slice; until then it is one edit
+      # and a restart of this container. These stay because the CLI paths do read them.
+      - JANUS_TUI_PROVIDER=${JANUS_PROVIDER:-deepseek}
+      # Not `deepseek-chat`: DeepSeek retired it on 2026-09-14 and it does not 404 — it
+      # answers 200 and then sends no body, so a run hangs to the caller's timeout.
+      - JANUS_MODEL=${JANUS_MODEL:-deepseek-v4-pro}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # 90 iterations and a 30-minute API timeout are right for a terminal and hopeless
+      # for a chat message. What the caller actually allows is AGUI_MAX_RUN_SEC — 600s of
+      # wall clock on one run — and 30s of silence between events (AGUI_READ_TIMEOUT_SEC);
+      # the 120s in AGUI_TIMEOUT_SEC is the connect/write timeout and never the run cap.
+      # So 100s below is a deliberate cap well under what the caller would tolerate, on
+      # the view that a channel wants an answer or a failure quickly — not a number
+      # forced by the caller. Raising it is a product decision, not an edit to this line.
+      # The 15s keepalive is sized against the 30s silence cap, not against that 100s.
+      - JANUS_MAX_ITERATIONS=${JANUS_MAX_ITERATIONS:-25}
+      - BLOB_AGUI_RUN_TIMEOUT_SECONDS=100
+      - BLOB_AGUI_KEEPALIVE_SECONDS=15
+      # On a fresh volume the gateway is created stopped and answers nothing. This is the
+      # bootstrap the image reads once, on first boot, to bring it up.
+      - JANUS_GATEWAY_BOOTSTRAP_STATE=running
+    volumes:
+      # The image declares VOLUME /opt/data and JANUS_HOME points there. Without a named
+      # volume Docker mints an anonymous one and every deploy starts from nothing.
+      - janusdata:/opt/data
+    # No healthcheck, deliberately: under s6 the supervised process is not the API server,
+    # so container liveness says nothing, and a check that cannot pass fails the deploy.
+
 volumes:
   pgdata:
   redisdata:
   miniodata:
+  janusdata:
