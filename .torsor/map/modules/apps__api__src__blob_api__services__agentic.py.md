@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-12T14:23:46'
-updated: '2026-09-12T14:23:46'
+created: '2026-09-16T03:06:37'
+updated: '2026-09-16T03:06:37'
 ---
 
 # apps/api/src/blob_api/services/agentic.py
@@ -28,8 +28,10 @@ Symbols in `apps/api/src/blob_api/services/agentic.py`.
 - L432 `get_summary(session: AsyncSession, thread_root_id: str)` (function)
 - L442 `store_summary(session: AsyncSession, *, workspace_id: str, channel_id: str, thread_root_id: str, created_by: str | None, provider: str, payload: SummaryPayload)` (function) — One row per thread; a refresh keeps the row's id, which tasks point at.
 - L500 `list_tasks_for_thread(session: AsyncSession, thread_root_id: str)` (function)
-- L519 `parse_due_at(raw: str | None)` (function) — A task's due date, as something asyncpg will bind.
-- L535 `create_task(session: AsyncSession, *, workspace_id: str, channel_id: str, thread_root_id: str | None, created_by: str | None, assignee_user_id: str | None, title: str, instructions: str, priority: str, due_at: str | None, summary_id: str | None, external_ref: dict[str, str])` (function)
-- L620 `get_task(session: AsyncSession, task_id: str)` (function)
-- L639 `_completed_at_for(status: str | None, previous: AgentTask)` (function)
-- L649 `update_task(session: AsyncSession, *, task_id: str, workspace_id: str, assignee_user_id: str | None, status: str | None, priority: str | None, due_at: str | None, outcome: str | None, instructions: str | None)` (function)
+- L519 `list_tasks_for_assignee(session: AsyncSession, workspace_id: str, user_id: str)` (function) — Everything assigned to one member, wherever it is — an app reading its own work.
+- L541 `list_tasks_visible_to(session: AsyncSession, user_id: str, workspace_id: str, *, assignee: str | None, status: str | None)` (function) — Tasks in channels this person can see, newest first.
+- L588 `parse_due_at(raw: str | None)` (function) — A task's due date, as something asyncpg will bind.
+- L604 `create_task(session: AsyncSession, *, workspace_id: str, channel_id: str, thread_root_id: str | None, created_by: str | None, assignee_user_id: str | None, title: str, instructions: str, priority: str, due_at: str | None, summary_id: str | None, external_ref: dict[str, str])` (function)
+- L689 `get_task(session: AsyncSession, task_id: str)` (function)
+- L708 `_completed_at_for(status: str | None, previous: AgentTask)` (function)
+- L718 `update_task(session: AsyncSession, *, task_id: str, workspace_id: str, assignee_user_id: str | None, status: str | None, priority: str | None, due_at: str | None, outcome: str | None, instructions: str | None)` (function)

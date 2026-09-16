@@ -4,20 +4,20 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-12T14:23:46'
-updated: '2026-09-12T14:23:46'
+created: '2026-09-16T03:06:37'
+updated: '2026-09-16T03:06:37'
 ---
 
 # Repository Map
 
 Modules and their key symbols (ranked by references).
 
-- **apps/api/src/blob_api/config.py** — 10 symbol(s)
+- **apps/api/src/blob_api/config.py** — 12 symbol(s)
   - `Settings` (class)
+  - `served_commit()` (function)
   - `get_settings()` (function)
   - `_blank_is_none(cls, value: str | None)` (method)
-  - `is_prod(self)` (method)
-  - `is_test(self)` (method)
+  - `_blank_janus_name_is_default(cls, value: str)` (method)
 - **apps/api/src/blob_api/db/engine.py** — 11 symbol(s)
   - `transaction()` (function)
   - `session_scope()` (function)
@@ -151,32 +151,38 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0036_agent_reads_people.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0037_agent_reads.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0038_voice_attachments.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0039_agents_in_every_public_channel.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0040_answers_dm_without_mention.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0041_retire_the_builtin_agent.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0042_drop_agent_reads.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 46 symbol(s)
   - `_now()` (function)
   - `Base` (class)
-  - `Meetup` (class)
   - `Workspace` (class)
   - `User` (class)
+  - `InstanceAdmin` (class)
 - **apps/api/src/blob_api/db/seed.py** — 3 symbol(s)
   - `seed()` (function)
   - `main()` (function)
   - `_run()` (function)
-- **apps/api/src/blob_api/jobs/agui.py** — 18 symbol(s)
-  - `_now_iso()` (function)
-  - `_post_as_bot(listener: Listener, *, workspace_id: str, channel_id: str, thread_root_id: str | None, body: str, client_msg_id: str, blocks: list[dict[str, Any]] | None, run_id: str | None=None, spawn: bool=False)` (function)
-  - `listeners_for(session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str])` (function)
-  - `personal_agent_for(session: AsyncSession, *, workspace_id: str, channel_id: str)` (function)
-  - `agent_tools(listener: Listener, *, workspace_id: str, user_id: str)` (function)
-- **apps/api/src/blob_api/jobs/deployments.py** — 1 symbol(s)
-  - `sync_hosted_agents(ctx: dict[str, Any])` (function)
-- **apps/api/src/blob_api/jobs/notify.py** — 3 symbol(s)
-  - `_broadcast_later(user_id: str, state: ReadStateOut)` (function)
-  - `_preview(body: str)` (function)
-  - `handle_notify(message_id: str)` (function)
-- **apps/api/src/blob_api/jobs/reminders.py** — 3 symbol(s)
-  - `fire_reminders(_ctx: dict[str, Any])` (function)
-  - `_deliver_later(user_id: str, event: dict[str, Any], note: str | None)` (function)
-  - `_push_reminder(user_id: str, note: str | None)` (function)
-- **apps/api/src/blob_api/jobs/retention.py** — 1 symbol(s)
-  - `sweep_retention()` (function)
-- **apps/api/src/blob_api/jobs/scheduled.py** — 1 symbol(…[truncated]
+- **apps/api/src/blob_api/jobs/agui.py** — 4 symbol(s)
+  - `_claim(message_id: str)` (function)
+  - `handle_agui_run(message_id: str, parent_run_id: str | None=None)` (function)
+  - `_run(message_id: str, parent_run_id: str | None=None)` (function)
+  - `expire_agent_decisions()` (function)
+- **apps/api/src/blob_api/jobs/agui_admission.py** — 3 symbol(s)
+  - `listeners_for(session: AsyncSession, *,…[truncated]

@@ -134,8 +134,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # restart; put the reconcile anywhere else and a server that has been running for a
     # month gains the agent for new workspaces and not for the ones already using it. The
     # same pass also moves an already-installed agent off a public domain onto the
-    # internal address. It never raises — `agent_seeding.reconcile_everywhere` logs and
-    # skips instead — because a workspace that cannot seed its agent must not stop the boot.
+    # internal address. It never raises — `janus_agent.ensure_everywhere` logs and skips
+    # instead — because a workspace that cannot seed its agent must not stop the boot.
     await janus_agent.ensure_everywhere()
 
     # Said once, at boot, where an operator reading a bad deploy will see it. Uploads go

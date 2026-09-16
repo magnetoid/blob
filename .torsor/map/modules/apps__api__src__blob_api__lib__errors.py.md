@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-12T14:23:46'
-updated: '2026-09-12T14:23:46'
+created: '2026-09-16T03:06:37'
+updated: '2026-09-16T03:06:37'
 ---
 
 # apps/api/src/blob_api/lib/errors.py
@@ -21,3 +21,9 @@ Symbols in `apps/api/src/blob_api/lib/errors.py`.
 - L45 `not_found(message: str="That doesn't exist.")` (function)
 - L49 `conflict(message: str, code: str='conflict')` (function)
 - L53 `too_many_requests(message: str='Too many attempts. Try again shortly.')` (function)
+- L61 `message_gone()` (function)
+- L65 `channel_gone()` (function)
+- L69 `thread_gone()` (function)
+- L73 `no_such_person()` (function)
+- L77 `no_such_group()` (function)
+- L81 `no_such_file()` (function)

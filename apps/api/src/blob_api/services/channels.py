@@ -460,7 +460,7 @@ async def create_channel(
         # dropped with no message, no error and no run row — so an agent that was put
         # everywhere at seeding and into nothing founded since answers in the old rooms
         # and is silently deaf in the new ones. Public only: a private channel's
-        # membership is the members' call, and `agent_seeding.join_public_channels`
+        # membership is the members' call, and `janus_agent.join_public_channels`
         # draws the same line at seeding.
         residents = await _agents_in_every_public_channel(session, workspace_id)
         if joining := [user_id for user_id in residents if user_id not in members]:

@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-12T14:23:46'
-updated: '2026-09-12T14:23:46'
+created: '2026-09-16T03:06:37'
+updated: '2026-09-16T03:06:37'
 ---
 
 # apps/api/tests/test_agent_runs.py
@@ -28,3 +28,10 @@ Symbols in `apps/api/tests/test_agent_runs.py`.
 - L177 `TestRetention` (class)
 - L178 `test_a_run_that_never_finished_is_closed(self, agent: dict)` (method)
 - L199 `test_old_runs_are_dropped(self, agent: dict)` (method)
+- L214 `TestTheConsoleNumbers` (class) — The three numbers the admin table shows beside an agent: runs this week, runs in
+- L218 `_row(self, agent: dict)` (method)
+- L222 `test_a_finished_run_counts_for_the_week_and_not_as_live(self, agent: dict)` (method)
+- L230 `test_a_run_in_flight_is_live(self, agent: dict)` (method)
+- L244 `test_a_refused_run_is_not_activity(self, agent: dict)` (method)
+- L253 `test_the_chart_has_every_day_and_adds_up(self, agent: dict)` (method)
+- L264 `test_the_chart_is_the_admins(self, agent: dict)` (method)

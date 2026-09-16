@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-12T14:23:46'
-updated: '2026-09-12T14:23:46'
+created: '2026-09-16T03:06:37'
+updated: '2026-09-16T03:06:37'
 ---
 
 # apps/api/src/blob_api/services/commands.py
@@ -47,3 +47,4 @@ Symbols in `apps/api/src/blob_api/services/commands.py`.
 - L891 `ordered()` (function) — Commands for `/help`, alphabetically — the order a reader can predict.
 - L896 `parse(text_input: str)` (function) — Split `/name rest` into its parts, or None when this is not a command at all.
 - L913 `run(ctx: CommandContext, name: str)` (function)
+- L928 `announce(session: AsyncSession, after: Any, result: CommandResult, *, user: SessionUser, channel_id: str)` (function) — Tell the workspace what a command did, after the transaction has committed.

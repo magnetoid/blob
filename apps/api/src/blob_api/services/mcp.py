@@ -69,16 +69,6 @@ class McpCaller:
     display_name: str
     workspace_name: str
     scopes: frozenset[str]
-    #: Whether a message this caller posts may root an agent chain.
-    #:
-    #: True for a person's assistant, because somebody typing `@Planner do this` into
-    #: their own assistant is still somebody typing. False when an *agent* holds the
-    #: tool: a model repeating a name it read in a channel did not mean to start
-    #: anything, and ADR 0013 bounds chains by making a person's message the only thing
-    #: that roots one. Without this, `post_message` would be a way around that guard
-    #: rather than a use of it — an agent could mint person-shaped messages that start
-    #: runs that post more messages.
-    may_start_runs: bool = True
 
     def may_write(self) -> bool:
         return "write" in self.scopes
@@ -511,13 +501,16 @@ async def _post_message(caller: McpCaller, arguments: dict[str, Any]) -> str:
         )
         # Persist, then broadcast — `after` drains past COMMIT. Without this the message
         # is stored and nobody is told: no socket frame, no notification, no agent run.
+        #
+        # A mention in it roots a chain, which is `announce`'s default: somebody typing
+        # `@Planner do this` into their own assistant is still somebody typing, and a
+        # token here resolves to a person and never to an agent (ADR 0016).
         await message_service.announce(
             session,
             after,
             result,
             workspace_id=caller.workspace_id,
             channel_id=channel_id,
-            start_agent_runs=caller.may_start_runs,
         )
     return f"Posted as {caller.display_name}. Message id {result.message.id}."
 

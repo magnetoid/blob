@@ -4,26 +4,27 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-12T14:23:46'
-updated: '2026-09-12T14:23:46'
+created: '2026-09-16T03:06:37'
+updated: '2026-09-16T03:06:37'
 ---
 
 # apps/api/src/blob_api/lib/auth.py
 
 Symbols in `apps/api/src/blob_api/lib/auth.py`.
 
-- L36 `hash_token(token: str)` (function)
-- L40 `hash_password(plain: str)` (function)
-- L45 `verify_password(hash_value: str, plain: str)` (function)
-- L56 `SessionUser` (class)
-- L65 `is_admin(self)` (method)
-- L69 `create_session(user_id: str, user_agent: str | None, ip: str | None)` (function)
-- L93 `resolve_session(token: str)` (function)
-- L137 `destroy_session(session_id: str)` (function)
-- L143 `destroy_other_sessions(user_id: str, keep_session_id: str | None=None)` (function) — Sign out everywhere, optionally keeping the session making the request.
-- L159 `set_session_cookie(response: Response, token: str)` (function)
-- L171 `clear_session_cookie(response: Response)` (function)
-- L175 `current_user(request: Request)` (function) — The signed-in user, or 401.
-- L183 `require_admin(request: Request)` (function) — Admin or owner, else 403.
-- L195 `require_owner(request: Request)` (function)
-- L202 `require_instance_admin(request: Request)` (function) — Administers the server, not a workspace on it.
+- L32 `build_hasher(profile: str, *, testing: bool)` (function) — The hasher for this process.
+- L52 `hash_token(token: str)` (function)
+- L56 `hash_password(plain: str)` (function)
+- L61 `verify_password(hash_value: str, plain: str)` (function)
+- L72 `SessionUser` (class)
+- L81 `is_admin(self)` (method)
+- L85 `create_session(user_id: str, user_agent: str | None, ip: str | None)` (function)
+- L109 `resolve_session(token: str)` (function)
+- L153 `destroy_session(session_id: str)` (function)
+- L159 `destroy_other_sessions(user_id: str, keep_session_id: str | None=None)` (function) — Sign out everywhere, optionally keeping the session making the request.
+- L175 `set_session_cookie(response: Response, token: str)` (function)
+- L187 `clear_session_cookie(response: Response)` (function)
+- L191 `current_user(request: Request)` (function) — The signed-in user, or 401.
+- L199 `require_admin(request: Request)` (function) — Admin or owner, else 403.
+- L211 `require_owner(request: Request)` (function)
+- L218 `require_instance_admin(request: Request)` (function) — Administers the server, not a workspace on it.

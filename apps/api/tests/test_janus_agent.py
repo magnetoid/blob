@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from blob_api.config import Settings, settings
 from blob_api.db.engine import SessionFactory
@@ -474,6 +475,67 @@ class TestTheSlugAloneIsNotIdentity:
         assert await janus_agent.ensure_everywhere() == 0
 
 
+def turn_janus_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """What the `janus` fixture does, for a test that has to sign up with it off first."""
+    monkeypatch.setattr(settings, "JANUS_AGUI_URL", "http://janus:8642/v1/agui")
+    monkeypatch.setattr(settings, "JANUS_SIGNING_SECRET", "shared-with-the-container")
+
+
+async def make_workspace(admin: Client, name: str) -> str:
+    response = await admin.post("/api/admin/instance/workspaces", {"name": name})
+    assert response.status == 201, response.body
+    return str(response.body["id"])
+
+
+async def owner_of(workspace_id: str) -> str:
+    async with SessionFactory() as session:
+        row = (
+            await session.execute(
+                text("SELECT id FROM users WHERE workspace_id = :ws AND role = 'owner'"),
+                {"ws": workspace_id},
+            )
+        ).fetchone()
+    assert row is not None
+    return str(row.id)
+
+
+class StandInEnsure:
+    """A stand-in for `ensure` that remembers every workspace it was asked about.
+
+    What `TestReconcilingAtBoot` is about is the pass itself — which workspaces it visits,
+    whom it installs as, what it counts — and the real `ensure` is pinned by the classes
+    above.
+
+    Told to fail, it fails the *first* workspace it is asked about — whichever that is,
+    since the pass promises no order — and fails it the way a seeder really would: with a
+    statement Postgres refuses, which leaves the transaction it ran in unusable. A
+    stand-in that merely raised before touching the session would let a loop that shared
+    one session across every workspace pass the same tests.
+    """
+
+    def __init__(self, *, fail_first: bool = False, answer: str | None = "a-plugin") -> None:
+        self.calls: list[tuple[str, str]] = []
+        self.fail_first = fail_first
+        self.failed: str | None = None
+        self.answer = answer
+
+    async def __call__(
+        self, session: AsyncSession, workspace_id: str, *, installed_by: str
+    ) -> str | None:
+        self.calls.append((workspace_id, installed_by))
+        # Every call touches the session it was given, so a session poisoned by an
+        # earlier failure is noticed rather than skipped past.
+        await session.execute(text("SELECT 1"))
+        if self.fail_first and self.failed is None:
+            self.failed = workspace_id
+            await session.execute(text("SELECT 1/0"))
+        return self.answer
+
+    @property
+    def visited(self) -> set[str]:
+        return {workspace_id for workspace_id, _ in self.calls}
+
+
 class TestReconcilingAtBoot:
     async def test_a_workspace_that_predates_the_setting_gains_it_at_boot(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
@@ -489,8 +551,7 @@ class TestReconcilingAtBoot:
         apps = (await owner.get("/api/admin/plugins")).body["plugins"]
         assert not any(p["slug"] == janus_agent.AGENT_SLUG for p in apps)
 
-        monkeypatch.setattr(settings, "JANUS_AGUI_URL", "http://janus:8642/v1/agui")
-        monkeypatch.setattr(settings, "JANUS_SIGNING_SECRET", "shared-with-the-container")
+        turn_janus_on(monkeypatch)
         assert await janus_agent.ensure_everywhere() >= 1
 
         apps = (await owner.get("/api/admin/plugins")).body["plugins"]
@@ -502,6 +563,81 @@ class TestReconcilingAtBoot:
         await sign_up(client, "Founder")
         await janus_agent.ensure_everywhere()
         assert await janus_agent.ensure_everywhere() == 0
+
+    async def test_one_workspaces_failure_costs_no_other_its_agent(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The rule the pass exists for. Signed up with Janus off so that neither
+        # workspace already holds it, then turned on: both are workspaces the pass has
+        # something to do for.
+        founder = await sign_up(client, "Founder")
+        first = await workspace_id_of(founder)
+        second = await make_workspace(founder, "Second")
+        turn_janus_on(monkeypatch)
+        seeder = StandInEnsure(fail_first=True)
+        monkeypatch.setattr(janus_agent, "ensure", seeder)
+
+        seeded = await janus_agent.ensure_everywhere()
+
+        assert seeder.visited == {first, second}
+        assert seeder.failed in {first, second}
+        # The other one was seeded in a transaction of its own, which is the only way it
+        # could have been after the first one's was left in a failed state.
+        assert seeded == 1
+
+    async def test_each_workspace_is_seeded_as_its_own_owner(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A person is one user row per workspace, so the founder's id in the first
+        # workspace is not who installs in the second.
+        founder = await sign_up(client, "Founder")
+        first = await workspace_id_of(founder)
+        second = await make_workspace(founder, "Second")
+        turn_janus_on(monkeypatch)
+        seeder = StandInEnsure()
+        monkeypatch.setattr(janus_agent, "ensure", seeder)
+
+        await janus_agent.ensure_everywhere()
+
+        installed_by = dict(seeder.calls)
+        assert installed_by[first] == founder.user_id
+        assert installed_by[second] == await owner_of(second)
+        assert installed_by[first] != installed_by[second]
+
+    async def test_a_workspace_with_no_owner_is_left_alone(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        founder = await sign_up(client, "Founder")
+        first = await workspace_id_of(founder)
+        second = await make_workspace(founder, "Second")
+        async with SessionFactory() as session:
+            async with session.begin():
+                await session.execute(
+                    text("UPDATE users SET deactivated_at = now() WHERE workspace_id = :ws"),
+                    {"ws": second},
+                )
+        turn_janus_on(monkeypatch)
+        seeder = StandInEnsure()
+        monkeypatch.setattr(janus_agent, "ensure", seeder)
+
+        await janus_agent.ensure_everywhere()
+
+        assert seeder.visited == {first}
+
+    async def test_a_workspace_that_gained_nothing_is_not_counted(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Counted by the difference between before and after, not by the answer alone:
+        # `ensure` returns None when it seeded nothing.
+        await sign_up(client, "Founder")
+        turn_janus_on(monkeypatch)
+        seeder = StandInEnsure(answer=None)
+        monkeypatch.setattr(janus_agent, "ensure", seeder)
+
+        seeded = await janus_agent.ensure_everywhere()
+
+        assert len(seeder.visited) == 1
+        assert seeded == 0
 
 
 class TestAWorkspaceFoundedAfterBoot:
