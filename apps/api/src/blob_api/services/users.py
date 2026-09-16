@@ -306,7 +306,15 @@ async def list_users(
                        (kind = 'bot' AND NOT EXISTS (
                             SELECT 1 FROM plugins p
                              WHERE p.id = users.bot_plugin_id AND p.status = 'enabled'
-                        )) AS agent_disabled
+                        )) AS agent_disabled,
+                       -- The resident agent: seeded, in every public channel, addressed
+                       -- by its DM. The home view targets it rather than whichever bot
+                       -- sorts first, which may be somebody's own agent or an app that
+                       -- is not in #general — where a mention is dropped silently.
+                       (kind = 'bot' AND EXISTS (
+                            SELECT 1 FROM plugins p
+                             WHERE p.id = users.bot_plugin_id AND p.in_every_public_channel
+                        )) AS agent_resident
                   FROM users
                  WHERE workspace_id = :ws AND (NOT :active_only OR deactivated_at IS NULL)
                  ORDER BY lower(display_name) LIMIT 1000

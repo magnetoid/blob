@@ -194,8 +194,8 @@ sockets are an API process's — so every run crosses through Redis, which is wh
 claims a run id with `SET NX` and why `stream_events` subscribes before it publishes.
 
 **What sits on top of the plugin layer.** `plugins/` is the transport; these five are the
-product built on it. The first three relax a rule an earlier ADR set, so the ADR is the
-place to look before changing them.
+product built on it. Each of the first three departs from a rule an earlier ADR set, so
+the ADR is the place to look before changing them.
 
 * **Chains** (`services/agent_chains.py`, ADR 0013). "Only a person's message starts a
   run" was the loop guard, and it was structural rather than a counter. A chain replaces

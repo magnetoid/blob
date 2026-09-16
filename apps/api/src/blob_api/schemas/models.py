@@ -93,6 +93,12 @@ class User(CamelModel):
     #: deactivating a bot releases its handle, so a disabled agent would lose its name to
     #: whoever claimed it next — which is why this is its own field and not that one.
     agent_disabled: bool = False
+    #: The workspace's resident agent — the one Blob seeded, in every public channel and
+    #: addressed by its DM. What the home view's ask box targets: any other bot may be
+    #: somebody's own agent or an app that is not in #general, and a mention there is
+    #: dropped with no reply and no error. Only the roster computes it, like the field
+    #: above; everywhere else False is the truthful default.
+    agent_resident: bool = False
 
 
 class CurrentUser(User):

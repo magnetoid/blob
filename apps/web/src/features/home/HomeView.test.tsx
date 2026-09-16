@@ -53,4 +53,18 @@ describe('HomeView', () => {
     expect(screen.getByText('Catch me up')).toBeTruthy();
     expect(await screen.findByText('#general')).toBeTruthy();
   });
+
+  it('asks the resident agent, not whichever bot sorts first', () => {
+    // The roster is alphabetical. "Alerts" is an app that is not in #general; a mention
+    // aimed at it there is dropped silently. The seeded agent is the one to ask.
+    useStore.setState({
+      users: {
+        u1: { id: 'u1', kind: 'human', displayName: 'Marko', deactivated: false },
+        b0: { id: 'b0', kind: 'bot', displayName: 'Alerts', deactivated: false, agentResident: false },
+        b1: { id: 'b1', kind: 'bot', displayName: 'Janus', deactivated: false, agentResident: true },
+      },
+    } as never);
+    render(<HomeView />);
+    expect(screen.getByPlaceholderText('Ask @Janus…')).toBeTruthy();
+  });
 });

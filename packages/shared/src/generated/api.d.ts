@@ -4270,6 +4270,11 @@ export interface components {
              * @default false
              */
             agentDisabled: boolean;
+            /**
+             * Agentresident
+             * @default false
+             */
+            agentResident: boolean;
             /** Avatarurl */
             avatarUrl?: string | null;
             /**
@@ -5975,6 +5980,11 @@ export interface components {
              * @default false
              */
             agentDisabled: boolean;
+            /**
+             * Agentresident
+             * @default false
+             */
+            agentResident: boolean;
             /** Avatarurl */
             avatarUrl?: string | null;
             /**

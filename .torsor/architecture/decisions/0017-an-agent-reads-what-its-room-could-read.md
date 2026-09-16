@@ -5,7 +5,7 @@
 > That agent is retired and no external agent is offered Blob's tools, so the bound has
 > no subject. The reasoning below is kept for the day one is.
 
-**Status:** accepted, 2026-09-13. Qualifies 0013 (a chain carries the rooting person's
+**Status:** superseded by 0019 on 2026-09-15; accepted 2026-09-13. Qualifies 0013 (a chain carries the rooting person's
 authority) by bounding where that authority may be *spent*. Leaves 0016 (an assistant
 token is a person) untouched.
 

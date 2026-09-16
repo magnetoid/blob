@@ -267,6 +267,8 @@ class TestItIsInTheRoomsItIsMentionedIn:
         people = (await owner.get("/api/users")).body["users"]
         bot = next(u for u in people if u["displayName"] == settings.JANUS_AGENT_NAME)
         assert bot["id"] in member_ids
+        # And the roster says so: this is the agent the home view's ask box targets.
+        assert bot["agentResident"] is True
 
     async def test_a_public_channel_founded_later_has_it(self, janus: None, client: Client) -> None:
         # Seeded at signup into the channels that existed then; a channel founded
@@ -366,6 +368,8 @@ class TestItIsInTheRoomsItIsMentionedIn:
         people = (await owner.get("/api/users")).body["users"]
         mine = next(u for u in people if u["displayName"] == "Desktop Claude")
         assert mine["id"] not in members
+        # Not resident either, so the home view will not aim a #general mention at it.
+        assert mine["agentResident"] is False
         assert await self._bot_id(owner) in members
 
     async def test_it_answers_in_a_channel_founded_after_it_was_seeded(

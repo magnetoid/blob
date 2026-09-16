@@ -358,7 +358,7 @@ describe('an agent whose app is switched off', () => {
   const users = {
     me: { id: 'me', kind: 'human', displayName: 'Me' },
     scout: { id: 'scout', kind: 'bot', displayName: 'Scout' },
-    off: { id: 'off', kind: 'bot', displayName: 'Rusty', agentDisabled: true },
+    off: { id: 'off', kind: 'bot', displayName: 'Rusty', agentDisabled: true, agentResident: false },
   } as unknown as Parameters<typeof conversationOrder>[1];
 
   const channels = workspace(

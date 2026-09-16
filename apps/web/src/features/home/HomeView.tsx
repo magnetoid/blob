@@ -81,7 +81,10 @@ export function HomeView() {
   // is whichever is installed and available — Janus, where it is running.
   const agent = useMemo(() => {
     const usable = Object.values(users).filter((u) => u.kind === 'bot' && agentIsAvailable(u));
-    return usable[0];
+    // The resident one first. The roster is alphabetical, so "whichever bot is first"
+    // may be somebody's own agent or an app that is not in #general — and a mention
+    // there is dropped with no reply and no error, which reads as the agent being down.
+    return usable.find((u) => u.agentResident) ?? usable[0];
   }, [users]);
 
   const askChannel = useMemo(

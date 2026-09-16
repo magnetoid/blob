@@ -95,6 +95,7 @@ def to_user(row: Any) -> User:
         # plugin beside it, and False is the truthful answer for all of them —
         # `getattr` the way `kind` above is read.
         agent_disabled=bool(getattr(row, "agent_disabled", False)),
+        agent_resident=bool(getattr(row, "agent_resident", False)),
     )
 
 

@@ -2420,6 +2420,11 @@
             "title": "Agentdisabled",
             "type": "boolean"
           },
+          "agentResident": {
+            "default": false,
+            "title": "Agentresident",
+            "type": "boolean"
+          },
           "avatarUrl": {
             "anyOf": [
               {
@@ -7310,6 +7315,11 @@
           "agentDisabled": {
             "default": false,
             "title": "Agentdisabled",
+            "type": "boolean"
+          },
+          "agentResident": {
+            "default": false,
+            "title": "Agentresident",
             "type": "boolean"
           },
           "avatarUrl": {

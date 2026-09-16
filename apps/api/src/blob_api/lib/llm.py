@@ -88,8 +88,9 @@ def _takes_strict_json_schema() -> bool:
 class LlmError(Exception):
     """No model is configured, or the provider refused.
 
-    Carries a sentence meant for a person reading a channel, because that is where it
-    ends up: `stream_run` turns it into the run's error and the run log shows it.
+    Carries a sentence meant for a person, because that is where it ends up: Catch-up
+    answers with it (`services/catchup.py`, as `llm_failed`), and a thread summary falls
+    back to the keyword scan and labels itself as such (`services/agentic.py`).
     """
 
 
@@ -130,8 +131,8 @@ async def stream_reply(
     """Yield the reply as it is written.
 
     Text deltas only. Both providers interleave bookkeeping events — token counts, stop
-    reasons, content-block boundaries — and none of it is Blob's business: the caller is
-    turning this into AG-UI events and needs the prose.
+    reasons, content-block boundaries — and none of it is Blob's business: the recap
+    joins these into one reply and wants the prose.
     """
     if not configured():
         raise LlmError("no model is configured for this server")

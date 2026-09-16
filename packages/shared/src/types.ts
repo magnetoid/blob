@@ -31,6 +31,12 @@ export interface User {
    * whoever claimed it next.
    */
   agentDisabled: boolean;
+  /**
+   * The workspace's resident agent — seeded, in every public channel, addressed by its
+   * DM. The home view targets it: any other bot may be somebody's own agent or an app
+   * that is not in #general, where a mention is dropped with no reply and no error.
+   */
+  agentResident: boolean;
 }
 
 /** The signed-in user sees more of themselves than of others. */

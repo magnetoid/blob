@@ -131,7 +131,7 @@ describe('agents have their own section', () => {
       users: {
         u1: ME,
         b1: SCOUT,
-        b2: { id: 'b2', kind: 'bot', displayName: 'Rusty', deactivated: false, agentDisabled: true },
+        b2: { id: 'b2', kind: 'bot', displayName: 'Rusty', deactivated: false, agentDisabled: true, agentResident: false },
         b3: { id: 'b3', kind: 'bot', displayName: 'Gone', deactivated: true },
       },
       channels: {},
