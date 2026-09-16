@@ -13,9 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from blob_api.config import Settings, settings
 from blob_api.db.engine import SessionFactory
+from blob_api.jobs import agui as agui_job
 from blob_api.services import janus_agent
 
-from .helpers import Client, allow_policy, sign_up, workspace_id_of
+from .helpers import Client, allow_policy, send_message, sign_up, workspace_id_of
 
 REQUIRED = {
     "DATABASE_URL": "postgres://blob:blob@localhost:5432/blob_test",
@@ -366,6 +367,28 @@ class TestItIsInTheRoomsItIsMentionedIn:
         mine = next(u for u in people if u["displayName"] == "Desktop Claude")
         assert mine["id"] not in members
         assert await self._bot_id(owner) in members
+
+    async def test_it_answers_in_a_channel_founded_after_it_was_seeded(
+        self, janus: None, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Without the join at founding (commit 1d424d73) this was dropped with no
+        # message, no error and no run row — indistinguishable from the agent being down.
+        from .test_agent_dm import says
+        from .test_agui import agent_speaks, route_agent_to
+
+        owner = await sign_up(client, "Founder")
+        transport, seen = agent_speaks(*says("Here too."))
+        route_agent_to(monkeypatch, transport)
+        later = (await owner.post("/api/channels", {"name": "later", "kind": "public"})).body[
+            "channel"
+        ]["id"]
+
+        sent = await send_message(owner, later, f"@{settings.JANUS_AGENT_NAME} are you here?")
+        await agui_job.handle_agui_run(sent.body["message"]["id"])
+
+        history = (await owner.get(f"/api/channels/{later}/messages")).body["messages"]
+        assert any(m["body"] == "Here too." for m in history)
+        assert len(seen) == 1
 
 
 class TestTheSlugAloneIsNotIdentity:
