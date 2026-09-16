@@ -293,8 +293,9 @@ async def list_users(
     """Everybody in the workspace. The client wants the deactivated too — they still
     wrote messages — where an app asking `users.list` wants who is here now.
 
-    This is the only query that says whether an agent's app is switched off, because it
-    is the only one the client builds its agent list from. `EXISTS` rather than a join:
+    This is the only query that says whether an agent's app is switched off, and whether
+    it is the workspace's resident agent, because it is the only one the client builds
+    its agent list from. `EXISTS` rather than a join:
     `USER_COLUMNS` is unqualified and `plugins` carries `id`, `name` and `status` of its
     own, so joining it would make every one of those columns ambiguous.
     """

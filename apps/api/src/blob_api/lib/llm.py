@@ -88,9 +88,10 @@ def _takes_strict_json_schema() -> bool:
 class LlmError(Exception):
     """No model is configured, or the provider refused.
 
-    Carries a sentence meant for a person, because that is where it ends up: Catch-up
-    answers with it (`services/catchup.py`, as `llm_failed`), and a thread summary falls
-    back to the keyword scan and labels itself as such (`services/agentic.py`).
+    Carries a sentence meant for a person, because that is where it ends up: both
+    callers answer with it as `llm_failed` — Catch-up (`services/catchup.py`) and a
+    thread summary (`services/agentic.py`). The keyword-scan fallback for summaries is
+    chosen before any model call, when no model is configured, never from here.
     """
 
 

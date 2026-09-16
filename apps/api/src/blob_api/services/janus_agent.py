@@ -73,10 +73,10 @@ async def existing_id(session: AsyncSession, workspace_id: str) -> str | None:
     The slug alone is not identity, and matching on it alone adopts rows that must not be
     touched — here there are two live ones:
 
-    A `runtime = 'container'` janus row — one production instance had one, until
-    2026-09-15 — is re-healed
-    by `jobs/deployments.py`, which rewrites every container row's `agui_url` from the
-    runner at worker startup and again every ten minutes. Adopt it and the address flaps:
+    A `runtime = 'container'` janus row — one production instance had one until
+    2026-09-15 — is re-healed by `jobs/deployments.py`, which rewrites every container
+    row's `agui_url` from the runner at worker startup and again every ten minutes. Adopt
+    it and the address flaps:
     boot writes the internal URL, the sync writes the public one back, and the migration
     never sticks.
 
