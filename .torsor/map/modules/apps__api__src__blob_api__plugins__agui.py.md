@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-12T14:23:46'
-updated: '2026-09-12T14:23:46'
+created: '2026-09-17T00:13:07'
+updated: '2026-09-17T00:13:07'
 ---
 
 # apps/api/src/blob_api/plugins/agui.py
@@ -35,4 +35,4 @@ Symbols in `apps/api/src/blob_api/plugins/agui.py`.
 - L388 `_choices_of(item: Mapping[str, Any])` (function)
 - L428 `_earliest_expiry(items: Sequence[Mapping[str, Any]])` (function)
 - L445 `to_agui_messages(messages: Sequence[Message], *, bot_user_id: str, names: Mapping[str, str])` (function) — Blob history as AG-UI `Message[]`, oldest first.
-- L473 `build_run_input(*, thread_id: str, run_id: str, messages: list[dict[str, Any]], channel_name: str, trigger_user: str, asked_by_agent: str | None=None, on_behalf_of: str | None=None, participants: Sequence[str]=(), state: Any=None, parent_run_id: str | None=None, resume: Sequence[Mapping[str, Any]] | None=None)` (function) — The POST body.
+- L473 `build_run_input(*, thread_id: str, run_id: str, messages: list[dict[str, Any]], channel_name: str, trigger_user: str, asked_by_agent: str | None=None, on_behalf_of: str | None=None, participants: Sequence[str]=(), state: Any=None, parent_run_id: str | None=None, resume: Sequence[Mapping[str, Any]] | None=None, instructions: str | None=None)` (function) — The POST body.

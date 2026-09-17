@@ -1330,6 +1330,14 @@ class Plugin(Base):
     answers_dm_without_mention: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
+    #: What this workspace tells the agent it was given — carried with every run as
+    #: `forwardedProps.instructions`, which Janus reads as an ephemeral system prompt.
+    #: Per workspace rather than in the agent's own configuration because one container
+    #: serves every workspace on the instance. Set by an admin through
+    #: `POST /api/admin/plugins/{id}/instructions`, which refuses an agent somebody owns:
+    #: a person's agent is not the workspace's to instruct. NULL means nothing to say,
+    #: and then no key is sent at all.
+    instructions: Mapped[str | None] = mapped_column(Text)
     version: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'0.0.0'"))
     request_url: Mapped[str | None] = mapped_column(Text)
     #: An AG-UI endpoint Blob calls when this app's bot is mentioned.

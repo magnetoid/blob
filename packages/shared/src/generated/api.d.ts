@@ -468,6 +468,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/janus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Janus Overview
+         * @description Janus as a whole: what it is, and every workspace that has it.
+         */
+        get: operations["janus_overview_api_admin_janus_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/janus/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Janus Config
+         * @description Change what Janus runs on, and by default restart it into the change.
+         */
+        put: operations["update_janus_config_api_admin_janus_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/janus/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restart Janus
+         * @description Restart the gateway without changing anything it runs on.
+         */
+        post: operations["restart_janus_api_admin_janus_restart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/plugins": {
         parameters: {
             query?: never;
@@ -736,6 +796,61 @@ export interface paths {
         /** Update Agent Env */
         put: operations["update_agent_env_api_admin_plugins__plugin_id__env_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/plugins/{plugin_id}/everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Everywhere
+         * @description Whether this agent joins public channels founded from now on.
+         *
+         *     Where the bot goes next, and nothing else. No channel that already exists gains the
+         *     bot or loses it — today's rooms are the channels list's business, one join at a time
+         *     and visible as itself — and the boot-time backfill in `services/janus_agent.ensure`
+         *     reads the same switch, so turning it off still means it after the next deploy.
+         *
+         *     What it deliberately does *not* decide is whether this is the workspace's resident
+         *     agent: that is the agent's identity (`services/janus_agent.SEEDED_AGENT`), read by
+         *     `services/users.list_users` for the home view. It used to be this flag, so choosing
+         *     invitation-only also stopped the home view addressing the agent at all.
+         */
+        post: operations["set_everywhere_api_admin_plugins__plugin_id__everywhere_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/plugins/{plugin_id}/instructions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Instructions
+         * @description Set (or clear) the standing instruction this workspace sends with every run.
+         *
+         *     It travels as `forwardedProps.instructions` on the run input, which the agent reads
+         *     as an ephemeral system prompt for that run — Blob keeps no copy in the conversation
+         *     and the agent keeps none between runs. Per workspace rather than in the agent's own
+         *     configuration because one Janus container serves every workspace on the instance.
+         */
+        post: operations["set_instructions_api_admin_plugins__plugin_id__instructions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4467,6 +4582,11 @@ export interface components {
             /** Value */
             value?: string | null;
         };
+        /** EverywhereInput */
+        EverywhereInput: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** FeedbackInput */
         FeedbackInput: {
             /**
@@ -4723,6 +4843,21 @@ export interface components {
             /** Workspaces */
             workspaces: components["schemas"]["InstanceWorkspace"][];
         };
+        /**
+         * InstructionsInput
+         * @description What the workspace tells its agent. Empty, blank or an explicit null clears it.
+         *
+         *     `text` is required, with no default: `extra="ignore"` is the wire's rule, so a body
+         *     with the key misspelt or missing would otherwise arrive as "clear it" and wipe the
+         *     workspace's prompt with nothing on screen to say why.
+         *
+         *     4000 characters is Janus's ceiling for `forwardedProps.instructions`; a longer text
+         *     would be refused at the far end after the admin had been told it was saved.
+         */
+        InstructionsInput: {
+            /** Text */
+            text: string | null;
+        };
         /** InteractionInput */
         InteractionInput: {
             /** Actionid */
@@ -4752,6 +4887,94 @@ export interface components {
             email: string | null;
             /** Workspace */
             workspace: string;
+        };
+        /**
+         * JanusAppliedOut
+         * @description Janus's answer to a write: what landed, what it warns about, whether it is going.
+         */
+        JanusAppliedOut: {
+            /** Applied */
+            applied: {
+                [key: string]: unknown;
+            };
+            /** Draintimeoutseconds */
+            drainTimeoutSeconds: number;
+            /** Restarting */
+            restarting: boolean;
+            /** Warnings */
+            warnings: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * JanusConfigChangeIn
+         * @description The camelCase twin of Janus's `PUT /v1/config` body. Every field optional.
+         *
+         *     Unvalidated beyond its shape on purpose: Janus validates the meaning — unknown keys,
+         *     a `max_turns` that arrived as a string, a name that is not an API key — and answers
+         *     with a sentence the page shows. A second copy of those rules here would be one that
+         *     drifts, and the one it would drift *against* is a release Blob does not ship.
+         */
+        JanusConfigChangeIn: {
+            /** Agent */
+            agent?: {
+                [key: string]: unknown;
+            } | null;
+            /** Apikeys */
+            apiKeys?: {
+                [key: string]: string;
+            } | null;
+            /** Model */
+            model?: {
+                [key: string]: unknown;
+            } | null;
+            /** Raw */
+            raw?: string | null;
+            /** Restart */
+            restart?: boolean | null;
+            /** Toolsets */
+            toolsets?: string[] | null;
+        };
+        /** JanusInstallOut */
+        JanusInstallOut: {
+            /** Channelcount */
+            channelCount: number;
+            /** Isthisworkspace */
+            isThisWorkspace: boolean;
+            /** Pluginid */
+            pluginId: string;
+            /** Runslastweek */
+            runsLastWeek: number;
+            /** Status */
+            status: string;
+            /** Workspaceid */
+            workspaceId: string;
+            /** Workspacename */
+            workspaceName: string;
+        };
+        /** JanusOverviewOut */
+        JanusOverviewOut: {
+            /** Aguiurl */
+            aguiUrl: string | null;
+            capabilities: components["schemas"]["JanusPartOut"];
+            config: components["schemas"]["JanusPartOut"];
+            health: components["schemas"]["JanusPartOut"];
+            /** Installs */
+            installs: components["schemas"]["JanusInstallOut"][];
+            /** Secretset */
+            secretSet: boolean;
+            skills: components["schemas"]["JanusPartOut"];
+            toolsets: components["schemas"]["JanusPartOut"];
+        };
+        /**
+         * JanusPartOut
+         * @description One of Janus's routes: its answer, or the reason there isn't one.
+         */
+        JanusPartOut: {
+            /** Data */
+            data?: unknown | null;
+            /** Error */
+            error?: string | null;
         };
         /** JoinInput */
         JoinInput: {
@@ -5104,6 +5327,13 @@ export interface components {
             failedDeliveries: number;
             /** Id */
             id: string;
+            /**
+             * Ineverypublicchannel
+             * @default false
+             */
+            inEveryPublicChannel: boolean;
+            /** Instructions */
+            instructions?: string | null;
             /** Lasterror */
             lastError?: string | null;
             /** Name */
@@ -6328,6 +6558,7 @@ export type DeploymentOut = components['schemas']['DeploymentOut'];
 export type EnvInput = components['schemas']['EnvInput'];
 export type EnvOut = components['schemas']['EnvOut'];
 export type EnvVarOut = components['schemas']['EnvVarOut'];
+export type EverywhereInput = components['schemas']['EverywhereInput'];
 export type FeedbackInput = components['schemas']['FeedbackInput'];
 export type FeedbackStatusInput = components['schemas']['FeedbackStatusInput'];
 export type FeedbackTicket = components['schemas']['FeedbackTicket'];
@@ -6346,9 +6577,15 @@ export type InstanceUser = components['schemas']['InstanceUser'];
 export type InstanceUsersOut = components['schemas']['InstanceUsersOut'];
 export type InstanceWorkspace = components['schemas']['InstanceWorkspace'];
 export type InstanceWorkspacesOut = components['schemas']['InstanceWorkspacesOut'];
+export type InstructionsInput = components['schemas']['InstructionsInput'];
 export type InteractionInput = components['schemas']['InteractionInput'];
 export type InviteOut = components['schemas']['InviteOut'];
 export type InvitePreviewOut = components['schemas']['InvitePreviewOut'];
+export type JanusAppliedOut = components['schemas']['JanusAppliedOut'];
+export type JanusConfigChangeIn = components['schemas']['JanusConfigChangeIn'];
+export type JanusInstallOut = components['schemas']['JanusInstallOut'];
+export type JanusOverviewOut = components['schemas']['JanusOverviewOut'];
+export type JanusPartOut = components['schemas']['JanusPartOut'];
 export type JoinInput = components['schemas']['JoinInput'];
 export type LaterInput = components['schemas']['LaterInput'];
 export type LaterItemOut = components['schemas']['LaterItemOut'];
@@ -7328,6 +7565,79 @@ export interface operations {
             };
         };
     };
+    janus_overview_api_admin_janus_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JanusOverviewOut"];
+                };
+            };
+        };
+    };
+    update_janus_config_api_admin_janus_config_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JanusConfigChangeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JanusAppliedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restart_janus_api_admin_janus_restart_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JanusAppliedOut"];
+                };
+            };
+        };
+    };
     list_plugins_api_admin_plugins_get: {
         parameters: {
             query?: never;
@@ -7857,6 +8167,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnvOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_everywhere_api_admin_plugins__plugin_id__everywhere_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EverywhereInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_instructions_api_admin_plugins__plugin_id__instructions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstructionsInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginOut"];
                 };
             };
             /** @description Validation Error */

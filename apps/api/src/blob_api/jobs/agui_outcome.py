@@ -600,6 +600,7 @@ async def run_one(
         state=gathered.state,
         parent_run_id=chain.parent_agui_run_id,
         resume=chain.resume,
+        instructions=listener.instructions,
     )
     run_id = await _start(
         listener,

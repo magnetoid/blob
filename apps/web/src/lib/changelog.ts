@@ -42,6 +42,25 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-17',
+    version: '1.2.0',
+    title: 'Janus has a page',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Agents & apps → Janus: turn your workspace\'s agent on or off, choose its channels, seat it in every public channel you found from now on, set its daily budget, and tell it how to behave here — a few lines it reads with every run. Say hello from the page to check it answers.',
+      },
+      {
+        kind: 'added',
+        text: 'For the server\'s admin, the same page shows what Janus runs on and lets you change it: provider and model, the key (shown only as set or not set, never its value), reasoning effort, toolsets, the config file itself, and a restart.',
+      },
+      {
+        kind: 'changed',
+        text: 'An agent handed to a person is theirs everywhere at once: it stops taking workspace instructions, stops being seated in new public channels, and stops being the agent the home page asks.',
+      },
+    ],
+  },
+  {
     date: '2026-09-16',
     version: '1.1.1',
     title: 'Small motions',

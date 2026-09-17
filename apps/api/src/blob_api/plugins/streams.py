@@ -35,6 +35,10 @@ class Listener:
     agui_url: str | None
     signing_secret: str
     runtime: str = "external"
+    #: What this workspace tells this agent, sent with the run as
+    #: `forwardedProps.instructions`. None when the workspace has nothing to say —
+    #: `plugins.instructions`, read by both admission paths.
+    instructions: str | None = None
 
     @property
     def dials_in(self) -> bool:

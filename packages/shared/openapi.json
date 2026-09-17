@@ -2952,6 +2952,19 @@
         "title": "EnvVarOut",
         "type": "object"
       },
+      "EverywhereInput": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "EverywhereInput",
+        "type": "object"
+      },
       "FeedbackInput": {
         "properties": {
           "body": {
@@ -3598,6 +3611,28 @@
         "title": "InstanceWorkspacesOut",
         "type": "object"
       },
+      "InstructionsInput": {
+        "description": "What the workspace tells its agent. Empty, blank or an explicit null clears it.\n\n`text` is required, with no default: `extra=\"ignore\"` is the wire's rule, so a body\nwith the key misspelt or missing would otherwise arrive as \"clear it\" and wipe the\nworkspace's prompt with nothing on screen to say why.\n\n4000 characters is Janus's ceiling for `forwardedProps.instructions`; a longer text\nwould be refused at the far end after the admin had been told it was saved.",
+        "properties": {
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "InstructionsInput",
+        "type": "object"
+      },
       "InteractionInput": {
         "properties": {
           "actionId": {
@@ -3686,6 +3721,244 @@
           "workspace"
         ],
         "title": "InvitePreviewOut",
+        "type": "object"
+      },
+      "JanusAppliedOut": {
+        "description": "Janus's answer to a write: what landed, what it warns about, whether it is going.",
+        "properties": {
+          "applied": {
+            "additionalProperties": true,
+            "title": "Applied",
+            "type": "object"
+          },
+          "drainTimeoutSeconds": {
+            "title": "Draintimeoutseconds",
+            "type": "number"
+          },
+          "restarting": {
+            "title": "Restarting",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "applied",
+          "warnings",
+          "restarting",
+          "drainTimeoutSeconds"
+        ],
+        "title": "JanusAppliedOut",
+        "type": "object"
+      },
+      "JanusConfigChangeIn": {
+        "description": "The camelCase twin of Janus's `PUT /v1/config` body. Every field optional.\n\nUnvalidated beyond its shape on purpose: Janus validates the meaning \u2014 unknown keys,\na `max_turns` that arrived as a string, a name that is not an API key \u2014 and answers\nwith a sentence the page shows. A second copy of those rules here would be one that\ndrifts, and the one it would drift *against* is a release Blob does not ship.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent"
+          },
+          "apiKeys": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apikeys"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          },
+          "restart": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restart"
+          },
+          "toolsets": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolsets"
+          }
+        },
+        "title": "JanusConfigChangeIn",
+        "type": "object"
+      },
+      "JanusInstallOut": {
+        "properties": {
+          "channelCount": {
+            "title": "Channelcount",
+            "type": "integer"
+          },
+          "isThisWorkspace": {
+            "title": "Isthisworkspace",
+            "type": "boolean"
+          },
+          "pluginId": {
+            "title": "Pluginid",
+            "type": "string"
+          },
+          "runsLastWeek": {
+            "title": "Runslastweek",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "workspaceId": {
+            "title": "Workspaceid",
+            "type": "string"
+          },
+          "workspaceName": {
+            "title": "Workspacename",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspaceId",
+          "workspaceName",
+          "pluginId",
+          "status",
+          "channelCount",
+          "runsLastWeek",
+          "isThisWorkspace"
+        ],
+        "title": "JanusInstallOut",
+        "type": "object"
+      },
+      "JanusOverviewOut": {
+        "properties": {
+          "aguiUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aguiurl"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/JanusPartOut"
+          },
+          "config": {
+            "$ref": "#/components/schemas/JanusPartOut"
+          },
+          "health": {
+            "$ref": "#/components/schemas/JanusPartOut"
+          },
+          "installs": {
+            "items": {
+              "$ref": "#/components/schemas/JanusInstallOut"
+            },
+            "title": "Installs",
+            "type": "array"
+          },
+          "secretSet": {
+            "title": "Secretset",
+            "type": "boolean"
+          },
+          "skills": {
+            "$ref": "#/components/schemas/JanusPartOut"
+          },
+          "toolsets": {
+            "$ref": "#/components/schemas/JanusPartOut"
+          }
+        },
+        "required": [
+          "health",
+          "capabilities",
+          "config",
+          "skills",
+          "toolsets",
+          "aguiUrl",
+          "secretSet",
+          "installs"
+        ],
+        "title": "JanusOverviewOut",
+        "type": "object"
+      },
+      "JanusPartOut": {
+        "description": "One of Janus's routes: its answer, or the reason there isn't one.",
+        "properties": {
+          "data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "title": "JanusPartOut",
         "type": "object"
       },
       "JoinInput": {
@@ -4755,6 +5028,22 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "inEveryPublicChannel": {
+            "default": false,
+            "title": "Ineverypublicchannel",
+            "type": "boolean"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
           },
           "lastError": {
             "anyOf": [
@@ -9611,6 +9900,92 @@
         ]
       }
     },
+    "/api/admin/janus": {
+      "get": {
+        "description": "Janus as a whole: what it is, and every workspace that has it.",
+        "operationId": "janus_overview_api_admin_janus_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JanusOverviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Janus Overview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/janus/config": {
+      "put": {
+        "description": "Change what Janus runs on, and by default restart it into the change.",
+        "operationId": "update_janus_config_api_admin_janus_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JanusConfigChangeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JanusAppliedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Janus Config",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/janus/restart": {
+      "post": {
+        "description": "Restart the gateway without changing anything it runs on.",
+        "operationId": "restart_janus_api_admin_janus_restart_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JanusAppliedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Restart Janus",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/plugins": {
       "get": {
         "operationId": "list_plugins_api_admin_plugins_get",
@@ -10557,6 +10932,114 @@
           }
         },
         "summary": "Update Agent Env",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/{plugin_id}/everywhere": {
+      "post": {
+        "description": "Whether this agent joins public channels founded from now on.\n\nWhere the bot goes next, and nothing else. No channel that already exists gains the\nbot or loses it \u2014 today's rooms are the channels list's business, one join at a time\nand visible as itself \u2014 and the boot-time backfill in `services/janus_agent.ensure`\nreads the same switch, so turning it off still means it after the next deploy.\n\nWhat it deliberately does *not* decide is whether this is the workspace's resident\nagent: that is the agent's identity (`services/janus_agent.SEEDED_AGENT`), read by\n`services/users.list_users` for the home view. It used to be this flag, so choosing\ninvitation-only also stopped the home view addressing the agent at all.",
+        "operationId": "set_everywhere_api_admin_plugins__plugin_id__everywhere_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EverywhereInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Everywhere",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/{plugin_id}/instructions": {
+      "post": {
+        "description": "Set (or clear) the standing instruction this workspace sends with every run.\n\nIt travels as `forwardedProps.instructions` on the run input, which the agent reads\nas an ephemeral system prompt for that run \u2014 Blob keeps no copy in the conversation\nand the agent keeps none between runs. Per workspace rather than in the agent's own\nconfiguration because one Janus container serves every workspace on the instance.",
+        "operationId": "set_instructions_api_admin_plugins__plugin_id__instructions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstructionsInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Instructions",
         "tags": [
           "admin"
         ]

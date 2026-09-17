@@ -483,6 +483,7 @@ def build_run_input(
     state: Any = None,
     parent_run_id: str | None = None,
     resume: Sequence[Mapping[str, Any]] | None = None,
+    instructions: str | None = None,
 ) -> dict[str, Any]:
     """The POST body.
 
@@ -502,6 +503,13 @@ def build_run_input(
     The extra context items exist for a chain (ADR 0013): `asked_by_agent` names the agent
     whose reply mentioned this one, `on_behalf_of` the person whose authority the hop runs
     on, and `participants` the other agents in the room, so an agent can address one.
+
+    `instructions` is what the workspace told this agent (`plugins.instructions`), and it
+    is the one thing that travels in `forwardedProps` — Janus reads it as an ephemeral
+    system prompt for the run. The key is present only when there is something to say: an
+    agent receiving `instructions: ""` would prepend an empty line to its prompt, and a
+    workspace that has said nothing must leave the wire exactly as it was before this
+    existed.
     """
     context: list[dict[str, str]] = [
         {"description": "channel", "value": channel_name},
@@ -520,7 +528,7 @@ def build_run_input(
         "messages": messages,
         "tools": [],
         "context": context,
-        "forwardedProps": {},
+        "forwardedProps": {"instructions": instructions} if instructions else {},
     }
     if parent_run_id is not None:
         body["parentRunId"] = parent_run_id

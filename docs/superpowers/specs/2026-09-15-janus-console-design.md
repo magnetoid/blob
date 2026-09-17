@@ -4,6 +4,10 @@
 `2026-09-14-janus-in-the-blob-stack-design.md`, whose open question — how a setting made in
 Blob reaches a running Janus — is settled here.
 
+**Built** on branch `janus-console`, 2026-09-17, in five tasks. The design below stands as
+written; where the build settled something differently the section carries an **As built
+(2026-09-17)** note at its end, and that note is the one to believe.
+
 ## What this is
 
 Janus runs inside Blob's stack as a service (`docker-compose.prod.yml`, profile `janus`),
@@ -224,6 +228,50 @@ this module's queries.
   editor; a connection failure is `bad_request("Janus did not answer.", code="janus_unreachable")`,
   inline, the way `services/meetups.py` raises `livekit_not_configured`.
 
+**As built (2026-09-17).**
+
+* The client timeout is **twelve** seconds, not ten. Janus's own `GET /v1/config` budgets
+  ten for the live provider call behind `models.ids`, so a ten-second deadline here
+  reported an unreachable Janus that was merely busy asking DeepSeek what it serves.
+* `overview(session, workspace_id)` takes the caller's workspace, and each install row
+  carries `is_this_workspace` so the page can *mark* the row that is the reader's own — a
+  label rather than the link the plan called for, for the reason in the `Installs.tsx`
+  note below. The five Janus parts are fetched *before* the installs query opens, so no
+  pooled connection is held across the twelve-second fan-out.
+* A fourth path for a key that the design did not anticipate: one written by hand into
+  `config.yaml` (a `custom_providers` entry takes its own `api_key`) comes back inside
+  `raw`, which Janus returns verbatim. So `raw` is redacted on the way out — the value of
+  any key named or ending `api_key` (also `api-key`/`apiKey`)/`token`/`secret`/`password` becomes the fixed
+  placeholder `«redacted»` — and a submitted `raw` still carrying that placeholder is
+  refused before Janus sees it, rather than writing the word into the file as the key.
+  Exempt: `${VAR}`, which Janus expands from the environment and its documentation
+  recommends as the way to keep a key out of the file, and the values that are nothing at
+  all — empty, quoted-empty, `null`, `~`. Redacting either showed a placeholder for
+  something that was never secret and made the Advanced tab unsaveable, because the
+  refusal's advice, *put the key back*, is wrong where there is no key to put back. A bare
+  `$VAR` is **not** exempt: Janus does not expand it, so it is a literal string and a
+  credential like any other.
+* The redaction is a line rule, not a parse, because it also has to work on text that does
+  not parse — a YAML error quoting the line it choked on. Its blind spots are named rather
+  than claimed away: a flow map (`{api_key: …}`), a block scalar (`api_key: >` with the
+  value indented beneath), a plain scalar on the line after its key, a quoted key name,
+  and a multi-line quoted scalar. Ruled sufficient for this slice — Janus's own docs and
+  `janus config set` write none of those shapes, and the cost if wrong is a key in an
+  unusual YAML shape shown to an instance admin on their own server. The structural fix is
+  **Janus-side redaction, recorded as a 0.17.1 follow-up**.
+* Everything built out of Janus's answer is scrubbed against the credentials the request
+  is carrying — the refusal message, its issues, *and* the 200 success body — because a
+  PyYAML error quotes the offending line back. Values under eight characters are still
+  redacted from the file but are not used as scrub needles: `OLLAMA_API_KEY=none` is what
+  a local model wants, and a four-letter needle would turn every "none" in Janus's own
+  words into `***`, mangling the sentence an operator has to read.
+* Two refusals are Blob's own and are raised before the call: `janus_empty_change` (a body
+  with nothing in it but `restart` — "do nothing at all" must not read as a save that
+  worked) and `janus_raw_redacted`. `janus_refused` keeps its meaning of *Janus saw this
+  and said no*, so a code never misnames who refused and sends the next reader to the
+  wrong logs.
+* `restart(session, actor)` sits beside `update` for the restart-with-no-change path.
+
 ### Routes — `routers/admin_janus.py`
 
 Prefix `/api/admin/janus`, every route `Depends(require_instance_admin)`:
@@ -234,6 +282,22 @@ Prefix `/api/admin/janus`, every route `Depends(require_instance_admin)`:
 * Unconfigured → `bad_request("Janus is not running in this stack.", code="janus_not_configured")`.
 
 `pnpm openapi` regenerates the contract; `test_openapi_contract.py` enforces it.
+
+**As built (2026-09-17).**
+
+* A third route: `POST /api/admin/janus/restart` → `JanusAppliedOut`, the page's Restart
+  button. Restarting without changing anything was a thing the design's `PUT` could only
+  do by sending a field it did not mean.
+* The schema names are `JanusOverviewOut` (a `JanusPartOut` — `{data, error}` — per Janus
+  route, plus `JanusInstallOut` per workspace), `JanusConfigChangeIn` and
+  `JanusAppliedOut`. `data` is deliberately untyped: Janus's `/v1/config` grows fields
+  every release and a Blob-side mirror would be a second thing to keep in step. The one
+  field that is *about* a secret, `providers[].key`, is narrowed in the service instead,
+  where it cannot be forgotten.
+* `janus_refused` carries the issues as structured data, not only as a sentence:
+  `AppError` and `bad_request` gained an optional `detail`, and `ApiError.detail` on the
+  client unwraps it, so the Advanced box lists every issue Janus raised beside the editor
+  rather than the first line of the refusal.
 
 ### Client
 
@@ -268,6 +332,39 @@ Prefix `/api/admin/janus`, every route `Depends(require_instance_admin)`:
   `external`, no owner) routes Configure to `/admin/janus`.
 * `lib/api.ts`: `admin.janus()` and `admin.updateJanus(change)`.
 
+**As built (2026-09-17).**
+
+* The registry row is **not** `ownerOnly` — the "Workspace admins" section below is what
+  the build followed. A workspace admin opens the page; the server half is a block inside
+  it, and an admin who is not the instance admin sees one line saying who can change it.
+* `lib/api.ts` gained `admin.restartJanus()` beside the other two.
+* Reasoning effort is Janus's own list — `none`, `minimal`, `low`, `medium`, `high`,
+  `xhigh` (`janus_constants.VALID_REASONING_EFFORTS`, with `none` ahead of it, which
+  `parse_reasoning_effort` takes as "do not ask for reasoning") — not an invented three.
+  `/v1/config` lists the personalities it knows and not the efforts, which is why this one
+  list is Blob's copy and says so.
+* The key field is write-only *and cleared whenever the provider select changes*:
+  `apiKeys` is keyed by the selected provider's variable, so a key pasted for DeepSeek and
+  left sitting while the select moved would have been written under `OPENAI_API_KEY`.
+  Every select renders its current value even when that value is not in the list it was
+  offered, so an unexpected provider is never a blank box inviting a change.
+* The parts as built: `Setup`, `Status`, `Restart`, `ThisWorkspace`, `ThisServer`,
+  `ModelForm`, `BehaviourForm`, `Toolsets`, `Skills`, `Installs`, `RawConfig` and
+  `Issues`, with `config.ts` and `apply.ts` holding the read/write helpers the forms share
+  and `seeded.ts` holding the identity predicate the page, the row it finds and the Apps
+  list's Configure all ask.
+* **Where it is installed** (`Installs.tsx`): the reader's own workspace row is *marked* —
+  `this one`, under the name — and links nowhere. The plan above had it linking to
+  `/admin/apps/{id}`, but for the seeded row that is not the page Janus is configured on:
+  the Apps list routes that row's Configure to `/admin/janus` (`AppsSection.tsx`), which
+  is this page, so the link would have led back to where the reader already was. The row
+  in the nav is the other way here, one click away. `is_this_workspace` still comes down
+  on every row; marking is all it is asked for.
+* **Setup** shows only when no `janus`-slugged row exists at all. A row that wears the
+  slug without the identity — somebody's own agent, or one dialling in over a socket —
+  gets the workspace half with the two controls *inert and explained*, because sending an
+  admin to a page that says "install Janus" while Janus is right there answering is a lie.
+
 ### Tests
 
 * `tests/test_admin_janus.py` (backend), Janus faked through `janus_console.open_client`
@@ -296,6 +393,13 @@ Prefix `/api/admin/janus`, every route `Depends(require_instance_admin)`:
   field.
 * The API base is derived from a setting and never from input, so the SSRF guard on the
   registration routes is not bypassed here; there is no user-supplied URL.
+
+**As built (2026-09-17).** The first bullet holds, and a key turned out to reach Blob by
+four routes rather than one: Janus's own mask (narrowed again here rather than relayed —
+"the other side promised" is not a defence for a secret), a key written by hand into
+`config.yaml` and returned inside `raw`, anything built out of Janus's *answer* (a parse
+error quotes the line it choked on), and the audit row. See the service section's note for
+each; Janus-side redaction of `raw` is the recorded 0.17.1 follow-up.
 
 ## Rollout
 
@@ -333,6 +437,46 @@ admin or owner — not `ownerOnly` in the registry — and the page is two halve
 `plugins.instructions text NULL` joins the schema (migration alongside 0040–0042, or the
 next free number), sent only for the seeded agent — an app installed by hand never sees
 a field its author did not declare.
+
+**As built (2026-09-17).**
+
+* `plugins.instructions` is migration **0043**, and a run carries it as
+  `forwardedProps.instructions` only when the row is the seeded one — a `CASE` in both
+  admission queries, so the run path forwards nothing for any other row however the column
+  is set.
+* The two writes are **their own routes**, not fields on `PUT /api/admin/plugins/{id}`:
+  `POST /api/admin/plugins/{id}/instructions` (`{text}`) and
+  `POST /api/admin/plugins/{id}/everywhere` (`{enabled}`). Each field is required with no
+  default, because `extra="ignore"` is the wire's rule and a misspelt or missing key on a
+  `PUT` would have read as "clear the workspace's prompt" or "stand the agent down from
+  every room founded from now on", with nothing on screen to say why. `text` is trimmed
+  before the 4000-character check (Janus's ceiling) — a textarea hands back the newline
+  the person ended on — and an empty, blank or explicitly null text clears it.
+* **Seeded-only is held on the server, not by hiding the field.** Both routes refuse an
+  owned row with `agent_is_owned` ("a person's own agent is not the workspace's to
+  instruct/place" — ADR 0018, and it is checked first because it is the case an admin can
+  undo) and anything else with `agent_not_seeded`. The page renders the two controls inert
+  with the reason rather than hiding them, so the refusal and the display agree.
+* Three reads were corrected while the flag became a switch somebody may turn off:
+  `services/users.agent_resident` (the home view's pick) reads the **seeded identity**,
+  not the flag, so choosing invitation-only no longer stops the home view addressing the
+  agent at all; `services/janus_agent.ensure()`'s boot backfill reads the switch on an
+  existing row, so a switch turned off is not turned back on by the next deploy — it was
+  the flag undone by the thing that honours it; and `services/channels.create_channel`'s
+  auto-join requires the identity **as well as** the flag, so a Janus later handed to a
+  person stops being seated in public channels founded afterwards.
+* The identity itself lives in `services/seeded.py` and nowhere else — one definition with
+  five readers (`janus_agent.existing_id`, both admission queries, `users.list_users`,
+  `channels.create_channel`, the two plugin routes) plus the client's `seeded.ts` twin.
+  Its own module rather than `janus_agent`'s, because `channels.create_channel` became a
+  reader and `janus_agent` imports `channels.add_members`: the identity in the module that
+  owns the seeder is an import cycle in the module that founds a channel. It is a *shape*,
+  not a provenance — a row hand-installed with slug `janus`, runtime `external` and no
+  owner would count, and only a provenance column would close that.
+* **"Say hello"** is `api.dms.open([botUserId])`, then the store's ordinary
+  `sendMessage`, then navigate to the DM. The ordinary send path on purpose: a probe that
+  took a route of its own would prove the route of its own works. The navigation is last,
+  so a send that fails leaves the admin on the page that can explain why.
 
 ## Not in this
 

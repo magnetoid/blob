@@ -208,6 +208,26 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
         ],
       },
       {
+        // Not ownerOnly: Janus is the agent every workspace here has, so its on/off,
+        // its channels, its budget and what it is told to do are a workspace admin's.
+        // The half only the server's admin can change is a block inside the page.
+        id: 'janus',
+        label: 'Janus',
+        description:
+          "The agent every workspace here has: where it is, what it may spend, how it should behave — and, for the server's admin, what it runs on.",
+        keywords: [
+          'agent',
+          'model',
+          'provider',
+          'deepseek',
+          'key',
+          'instructions',
+          'toolsets',
+          'skills',
+          'restart',
+        ],
+      },
+      {
         id: 'webhooks',
         label: 'Webhooks',
         description: 'Incoming URLs that let another system post into a channel here.',

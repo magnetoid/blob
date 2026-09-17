@@ -211,6 +211,15 @@ class Settings(BaseSettings):
     #: the operator's .env read by both sides, because a container's environment is static
     #: and cannot be told a secret Blob generated after it started.
     JANUS_SIGNING_SECRET: str | None = None
+    #: The bearer for Janus's own API — the same value the compose file hands the `janus`
+    #: service as `API_SERVER_KEY`. The signing secret authenticates a *run*; this
+    #: authenticates everything else Janus exposes, `GET`/`PUT /v1/config` included, which
+    #: is what the console's Janus page reads and writes.
+    #:
+    #: A setting, never a request field. It is full control of that API, so the address it
+    #: is sent to is composed from `JANUS_AGUI_URL` and can never come from a caller —
+    #: see `services/janus_console.api_base`.
+    JANUS_API_SERVER_KEY: str | None = None
     #: What people type after `@`. The slug stays `janus`; only the name is configurable.
     JANUS_AGENT_NAME: str = "Janus"
 
@@ -242,6 +251,7 @@ class Settings(BaseSettings):
         "AGENT_SHELL_HOST_KEY",
         "JANUS_AGUI_URL",
         "JANUS_SIGNING_SECRET",
+        "JANUS_API_SERVER_KEY",
     )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:

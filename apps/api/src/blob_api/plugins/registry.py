@@ -513,6 +513,56 @@ async def set_budget(
     )
 
 
+async def set_instructions(
+    session: AsyncSession, plugin_id: str, workspace_id: str, instructions: str | None
+) -> str | None:
+    """What this workspace tells its agent, carried with every run. Returns what is now
+    stored, so a caller can audit the length without re-reading the row.
+
+    Blank is nothing to say: empty, whitespace-only and absent all store NULL, because a
+    run must then send no `instructions` key rather than an empty string an agent would
+    prepend to its prompt. Surrounding whitespace is trimmed for the same reason a name
+    is — a trailing newline from a textarea is not part of what was meant.
+
+    Admin-set only, like the budget above and for the same reason: an agent that could
+    write its own standing instruction by shipping an update would make the field
+    decorative.
+    """
+    await by_id(session, plugin_id, workspace_id)
+    stored = (instructions or "").strip() or None
+    await session.execute(
+        text("UPDATE plugins SET instructions = :instructions, updated_at = now() WHERE id = :id"),
+        {"id": plugin_id, "instructions": stored},
+    )
+    return stored
+
+
+async def set_in_every_public_channel(
+    session: AsyncSession, plugin_id: str, workspace_id: str, enabled: bool
+) -> None:
+    """Whether this agent's bot joins public channels founded from now on.
+
+    The flag alone: `services/channels.create_channel` reads it at founding and
+    `services/janus_agent.ensure` re-reads it at boot, and nothing here walks into rooms
+    that already exist or out of them. Today's channels are changed one at a time through
+    the channels routes, where each join is visible as itself.
+
+    Not residency. Whether the home view addresses this agent is decided by which agent it
+    *is*, not by where it sits — `services/users.list_users`.
+    """
+    await by_id(session, plugin_id, workspace_id)
+    await session.execute(
+        text(
+            """
+            UPDATE plugins
+               SET in_every_public_channel = :enabled, updated_at = now()
+             WHERE id = :id
+            """
+        ),
+        {"id": plugin_id, "enabled": enabled},
+    )
+
+
 async def set_status(
     session: AsyncSession, plugin_id: str, workspace_id: str, status: Status
 ) -> None:

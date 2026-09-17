@@ -27,6 +27,7 @@ export const ADMIN_SECTIONS = [
   'channels',
   'emoji',
   'apps',
+  'janus',
   'webhooks',
   'deliveries',
   'users',

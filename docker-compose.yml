@@ -76,9 +76,13 @@ services:
   # The agent the product assumes. `COMPOSE_PROFILES=janus docker compose up -d` starts
   # it; the four JANUS_* lines in .env.example (JANUS_AGUI_URL, JANUS_SIGNING_SECRET,
   # JANUS_AGENT_NAME, JANUS_API_SERVER_KEY) are what the API needs — the last one is
-  # required by this service itself, which refuses to start without it.
+  # required by this service itself, which refuses to start without it, *and* read by the
+  # app, for the Janus page: /admin/janus reads and changes what Janus runs on through
+  # this service's own API. In dev the API runs on the host off the repo-root .env, so
+  # there is nothing to pass it here the way docker-compose.prod.yml passes the `app`
+  # service; set it in .env once and both sides have it.
   janus:
-    image: ghcr.io/magnetoid/janus:${JANUS_VERSION:-0.16.0}
+    image: ghcr.io/magnetoid/janus:${JANUS_VERSION:-0.17.0}
     restart: unless-stopped
     profiles: ["janus"]
     # Without this the image's entrypoint starts the interactive CLI and the container

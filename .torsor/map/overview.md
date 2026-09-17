@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-16T03:06:37'
-updated: '2026-09-16T03:06:37'
+created: '2026-09-17T00:13:06'
+updated: '2026-09-17T00:13:06'
 ---
 
 # Repository Map
@@ -169,6 +169,9 @@ Modules and their key symbols (ranked by references).
 - **apps/api/src/blob_api/db/migrations/versions/0042_drop_agent_reads.py** — 2 symbol(s)
   - `upgrade()` (function)
   - `downgrade()` (function)
+- **apps/api/src/blob_api/db/migrations/versions/0043_plugin_instructions.py** — 2 symbol(s)
+  - `upgrade()` (function)
+  - `downgrade()` (function)
 - **apps/api/src/blob_api/db/models.py** — 46 symbol(s)
   - `_now()` (function)
   - `Base` (class)
@@ -183,6 +186,4 @@ Modules and their key symbols (ranked by references).
   - `_claim(message_id: str)` (function)
   - `handle_agui_run(message_id: str, parent_run_id: str | None=None)` (function)
   - `_run(message_id: str, parent_run_id: str | None=None)` (function)
-  - `expire_agent_decisions()` (function)
-- **apps/api/src/blob_api/jobs/agui_admission.py** — 3 symbol(s)
-  - `listeners_for(session: AsyncSession, *,…[truncated]
+  -…[truncated]

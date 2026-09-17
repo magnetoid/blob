@@ -7,6 +7,8 @@ install path with no exemption and holds granted scopes like any app.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -393,6 +395,128 @@ class TestItIsInTheRoomsItIsMentionedIn:
         history = (await owner.get(f"/api/channels/{later}/messages")).body["messages"]
         assert any(m["body"] == "Here too." for m in history)
         assert len(seen) == 1
+
+
+class TestWhatTheWorkspaceTellsIt:
+    """The agent is the same container for every workspace on the instance; the standing
+    instruction is each workspace's own, and travels with the run rather than living in
+    Janus's configuration where it would belong to all of them at once."""
+
+    async def test_the_instructions_reach_janus_with_the_run(
+        self, janus: None, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from .test_agent_dm import says
+        from .test_agui import agent_speaks, route_agent_to
+
+        owner = await sign_up(client, "Founder")
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        plugin_id = next(p for p in apps if p["slug"] == janus_agent.AGENT_SLUG)["id"]
+        told = await owner.post(
+            f"/api/admin/plugins/{plugin_id}/instructions",
+            {"text": "We ship on Thursdays. Never promise a date."},
+        )
+        assert told.status == 200, told.body
+        transport, seen = agent_speaks(*says("Thursday it is."))
+        route_agent_to(monkeypatch, transport)
+
+        channel = (await owner.get("/api/channels")).body["channels"][0]["id"]
+        sent = await send_message(owner, channel, f"@{settings.JANUS_AGENT_NAME} when do we ship?")
+        await agui_job.handle_agui_run(sent.body["message"]["id"])
+
+        assert len(seen) == 1
+        body = json.loads(seen[0].content)
+        assert body["forwardedProps"] == {
+            "instructions": "We ship on Thursdays. Never promise a date."
+        }
+
+
+class TestTheEverywhereSwitchHoldsAcrossABoot:
+    """Turning "join every public channel" off has to mean it, and mean it tomorrow.
+
+    Two readers of the flag made it not mean it: `ensure()` re-seated the bot into every
+    public channel at each boot, and `agent_resident` on a user row was the flag itself,
+    so an admin who chose invitation-only also stopped the home view addressing the agent
+    at all.
+    """
+
+    @staticmethod
+    async def _plugin_id(owner: Client) -> str:
+        apps = (await owner.get("/api/admin/plugins")).body["plugins"]
+        return str(next(p for p in apps if p["slug"] == janus_agent.AGENT_SLUG)["id"])
+
+    @staticmethod
+    async def _bot(owner: Client) -> dict:
+        people = (await owner.get("/api/users")).body["users"]
+        return dict(next(u for u in people if u["displayName"] == settings.JANUS_AGENT_NAME))
+
+    @staticmethod
+    async def _reconcile(owner: Client) -> None:
+        async with SessionFactory() as session:
+            async with session.begin():
+                await janus_agent.ensure(
+                    session, await workspace_id_of(owner), installed_by=owner.user_id
+                )
+
+    async def test_it_is_still_the_resident_agent_with_the_switch_off(
+        self, janus: None, client: Client
+    ) -> None:
+        # The home view's ask box targets the resident agent. Residency is *whose agent
+        # this is* — the one Blob seeded — not where it happens to sit, so a workspace
+        # that chose invitation-only still has somewhere to send "ask Janus".
+        owner = await sign_up(client, "Founder")
+        assert (await self._bot(owner))["agentResident"] is True
+
+        off = await owner.post(
+            f"/api/admin/plugins/{await self._plugin_id(owner)}/everywhere", {"enabled": False}
+        )
+
+        assert off.status == 200, off.body
+        assert (await self._bot(owner))["agentResident"] is True
+
+    async def test_a_boot_does_not_re_seat_it_when_the_switch_is_off(
+        self, janus: None, client: Client
+    ) -> None:
+        # `ensure_everywhere()` runs at every boot, and it used to call
+        # `join_public_channels` for an existing row whatever the flag said — so an admin
+        # who chose invitation-only found the bot back in every room after the next deploy.
+        owner = await sign_up(client, "Founder")
+        off = await owner.post(
+            f"/api/admin/plugins/{await self._plugin_id(owner)}/everywhere", {"enabled": False}
+        )
+        assert off.status == 200, off.body
+        later = (await owner.post("/api/channels", {"name": "later", "kind": "public"})).body[
+            "channel"
+        ]["id"]
+        bot_id = (await self._bot(owner))["id"]
+        assert bot_id not in (await owner.get(f"/api/channels/{later}/members")).body["userIds"]
+
+        await self._reconcile(owner)
+
+        members = (await owner.get(f"/api/channels/{later}/members")).body["userIds"]
+        assert bot_id not in members
+
+    async def test_a_boot_catches_it_up_when_the_switch_is_on(
+        self, janus: None, client: Client
+    ) -> None:
+        # The other direction, and the reason the backfill exists: with the switch on, a
+        # public channel the bot is missing from is a room it would be silently deaf in.
+        owner = await sign_up(client, "Founder")
+        plugin_id = await self._plugin_id(owner)
+        assert (
+            await owner.post(f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": False})
+        ).status == 200
+        later = (await owner.post("/api/channels", {"name": "later", "kind": "public"})).body[
+            "channel"
+        ]["id"]
+        bot_id = (await self._bot(owner))["id"]
+        assert (
+            await owner.post(f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": True})
+        ).status == 200
+
+        await self._reconcile(owner)
+
+        members = (await owner.get(f"/api/channels/{later}/members")).body["userIds"]
+        assert bot_id in members
 
 
 class TestTheSlugAloneIsNotIdentity:

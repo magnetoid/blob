@@ -17,6 +17,7 @@ from ..lib.errors import channel_gone, conflict, forbidden, not_found, unique_vi
 from ..lib.ids import new_id
 from ..schemas.base import require_iso
 from ..schemas.models import BrowsableChannel, Channel, ChannelWithState
+from . import seeded
 from .serialize import channel_event, membership_event, to_channel, to_channel_with_state
 
 #: Channels every new member joins automatically.
@@ -454,8 +455,9 @@ async def create_channel(
     await add_members(session, channel_id, members)
 
     if kind == "public":
-        # The agents that are in every public channel join this one now, not at the next
-        # restart. Membership is what a mention needs: a bot that is not in the room is
+        # The resident agent — the seeded one, with the workspace's switch on — joins this
+        # one now, not at the next restart.
+        # Membership is what a mention needs: a bot that is not in the room is
         # refused by `assert_channel_access(require_member=True)` and the mention is
         # dropped with no message, no error and no run row — so an agent that was put
         # everywhere at seeding and into nothing founded since answers in the old rooms
@@ -469,7 +471,16 @@ async def create_channel(
 
 
 async def _agents_in_every_public_channel(session: AsyncSession, workspace_id: str) -> list[str]:
-    """The bots flagged `in_every_public_channel` at install — see `db/models.Plugin`.
+    """The seeded agent, when it is flagged `in_every_public_channel` — see `db/models`.
+
+    **Identity as well as the flag.** The flag is the workspace's switch and the routes
+    that set it refuse anything but the seeded row, but nothing takes it *away* when a row
+    stops being that agent: `registry.set_owner` writes `owner_user_id` and no more, so an
+    admin handing Janus to a person on the app page leaves the flag standing on a row that
+    is now theirs. On the flag alone this walked the bot into every channel founded
+    afterwards while the console drew the switch off and said a person's own agent is not
+    the workspace's to place. Migration 0039 is where the property is written down — the
+    flag belongs to the rows the seeders own, by the identity the seeders use.
 
     Not filtered on the plugin's `status`, on purpose. A disabled agent joins and stays
     quiet; filter it out and the channels founded while it was off are the rooms it is
@@ -480,13 +491,14 @@ async def _agents_in_every_public_channel(session: AsyncSession, workspace_id: s
     rows = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT u.id FROM users u
                   JOIN plugins p ON p.id = u.bot_plugin_id
                  WHERE u.workspace_id = :ws
                    AND u.kind = 'bot'
                    AND u.deactivated_at IS NULL
                    AND p.in_every_public_channel
+                   AND {seeded.SEEDED_AGENT}
                  ORDER BY u.id
                 """
             ),

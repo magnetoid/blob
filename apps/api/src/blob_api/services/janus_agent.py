@@ -30,17 +30,20 @@ from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError
 from ..plugins import registry
 from ..plugins.manifest import Manifest
+from . import seeded
 from .channels import add_members
 
 log = logging.getLogger("blob.janus_agent")
 
-#: Fixed. The seeder matches on it to stay idempotent and the bot's address derives from
-#: it, so it is not something to make configurable — the display name is.
-AGENT_SLUG = "janus"
-
-#: Fixed too, and load-bearing beyond the manifest: with the slug it is what tells this
-#: service's row apart from the other rows that can wear the name. See `existing_id`.
-AGENT_RUNTIME = "external"
+#: Re-exported rather than defined here: `services/channels.create_channel` reads the
+#: identity too, and this module imports `channels.add_members`, so the definition lives
+#: in `services/seeded.py` where both can read it. Bound as module attributes, so
+#: `janus_agent.SEEDED_AGENT` and `janus_agent.AGENT_SLUG` still answer for every caller
+#: that has always asked here.
+AGENT_SLUG = seeded.AGENT_SLUG
+AGENT_RUNTIME = seeded.AGENT_RUNTIME
+SEEDED_AGENT = seeded.SEEDED_AGENT
+is_seeded_row = seeded.is_seeded_row
 
 AGENT_DESCRIPTION = "Janus, running beside Blob. Mention it in any channel to ask something."
 
@@ -91,15 +94,13 @@ async def existing_id(session: AsyncSession, workspace_id: str) -> str | None:
     row = (
         await session.execute(
             text(
-                """
-                SELECT id FROM plugins
-                 WHERE workspace_id = :ws
-                   AND slug = :slug
-                   AND runtime = :runtime
-                   AND owner_user_id IS NULL
+                f"""
+                SELECT p.id FROM plugins p
+                 WHERE p.workspace_id = :ws
+                   AND {SEEDED_AGENT}
                 """
             ),
-            {"ws": workspace_id, "slug": AGENT_SLUG, "runtime": AGENT_RUNTIME},
+            {"ws": workspace_id},
         )
     ).fetchone()
     return str(row.id) if row else None
@@ -107,7 +108,7 @@ async def existing_id(session: AsyncSession, workspace_id: str) -> str | None:
 
 async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str) -> str | None:
     """Install Janus if it is missing, point it at the configured address if it is not,
-    and put it in the public channels.
+    and — if the workspace still wants it everywhere — put it in the public channels.
 
     Returns the plugin id; None when Janus is not running, and None when the slug is held
     by a row this service does not own.
@@ -123,13 +124,32 @@ async def ensure(session: AsyncSession, workspace_id: str, *, installed_by: str)
             return None
         plugin_id = installed.plugin_id
         bot_user_id = installed.bot_user_id
+        # A fresh install is flagged on by `_install`, so the backfill is what "everywhere"
+        # means for it rather than a second decision.
+        wants_every_room = True
     else:
         await _repoint(session, plugin_id)
         bot_user_id = await registry.bot_user_id(session, plugin_id)
+        # An admin may have chosen invitation-only since the last boot. This runs from
+        # `ensure_everywhere` at *every* start, so an unconditional backfill was a switch
+        # that came back on with the next deploy — the flag undone by the thing that
+        # honours it.
+        wants_every_room = await _wants_every_public_channel(session, plugin_id)
 
-    if bot_user_id:
+    if bot_user_id and wants_every_room:
         await join_public_channels(session, workspace_id, bot_user_id)
     return plugin_id
+
+
+async def _wants_every_public_channel(session: AsyncSession, plugin_id: str) -> bool:
+    """The switch as the workspace last left it — `POST /api/admin/plugins/{id}/everywhere`."""
+    row = (
+        await session.execute(
+            text("SELECT in_every_public_channel FROM plugins WHERE id = :id"),
+            {"id": plugin_id},
+        )
+    ).fetchone()
+    return bool(row and row.in_every_public_channel)
 
 
 async def _install(
@@ -290,7 +310,10 @@ async def ensure_everywhere() -> int:
         log.exception("could not list the workspaces to seed Janus into")
         return 0
 
-    seeded = 0
+    # Not `seeded`: that is the name of the module this one imports for the agent's
+    # identity, and a local of the same name would shadow it — silently here, and as an
+    # `UnboundLocalError` the day a line above this one reads `seeded.SEEDED_AGENT`.
+    installed = 0
     for row in rows:
         if row.owner_id is None:
             continue  # A workspace with no owner is mid-teardown; leave it alone.
@@ -303,10 +326,10 @@ async def ensure_everywhere() -> int:
             log.exception("could not seed Janus into workspace %s", workspace_id)
             continue
         if before is None and after is not None:
-            seeded += 1
-    if seeded:
-        log.info("seeded Janus into %d workspace(s)", seeded)
-    return seeded
+            installed += 1
+    if installed:
+        log.info("seeded Janus into %d workspace(s)", installed)
+    return installed
 
 
 __all__ = [

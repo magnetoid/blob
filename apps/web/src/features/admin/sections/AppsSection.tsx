@@ -17,6 +17,7 @@ import { DesktopAgentSetup } from "../../agentic/DesktopAgentSetup.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
 import { useAdminAction } from "../../console/hooks.ts";
 import { AppSettings } from "./AppSettings.tsx";
+import { isSeededJanus } from "./janus/seeded.ts";
 
 /**
  * /admin/apps is the list; /admin/apps/{id} is one app's settings.
@@ -388,7 +389,14 @@ function AgentRow({
         <button
           type="button"
           className="btn btn-ghost"
-          onClick={() => navigate(`/admin/apps/${plugin.id}`)}
+          // The agent every workspace has owns a page of its own — the workspace's half
+          // of it, and for the server's admin what Janus runs on. The generic app page
+          // shows none of that, so its row goes there instead.
+          onClick={() =>
+            navigate(
+              isSeededJanus(plugin) ? "/admin/janus" : `/admin/apps/${plugin.id}`,
+            )
+          }
         >
           Configure
         </button>

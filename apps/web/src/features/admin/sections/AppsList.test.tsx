@@ -12,6 +12,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 const plugins = vi.fn();
 const activity = vi.fn();
 const workspacePolicy = vi.fn();
+const navigate = vi.fn();
 
 vi.mock('../../../lib/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../lib/api.ts')>();
@@ -29,6 +30,11 @@ vi.mock('../../../lib/api.ts', async (importOriginal) => {
       },
     },
   };
+});
+
+vi.mock('../../../lib/router.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../lib/router.ts')>();
+  return { ...actual, navigate };
 });
 
 const { AppsSection } = await import('./AppsSection.tsx');
@@ -69,6 +75,7 @@ beforeEach(() => {
   plugins.mockReset();
   activity.mockReset();
   workspacePolicy.mockReset();
+  navigate.mockReset();
   plugins.mockResolvedValue({
     plugins: [
       plugin({}),
@@ -136,6 +143,42 @@ describe('the agents console', () => {
     expect(choices[0]?.textContent).toBe('Janus');
     expect(choices[0]?.getAttribute('aria-pressed')).toBe('true');
     expect(dialog.textContent).toContain('no bridge');
+  });
+
+  it('sends Configure for the seeded Janus to its own page, and everything else to the app page', async () => {
+    // Janus has a console page of its own — the workspace's half of it plus, for the
+    // server's admin, what Janus runs on. The generic app page would show none of that.
+    render(<AppsSection onError={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Janus')).toBeTruthy());
+
+    const rows = [...document.querySelectorAll('table.admin-agents tbody tr')];
+    const configure = (row: Element) =>
+      [...row.querySelectorAll('button')].find((b) => b.textContent === 'Configure')!;
+
+    fireEvent.click(configure(rows[1] as Element));
+    expect(navigate).toHaveBeenCalledWith('/admin/janus');
+
+    fireEvent.click(configure(rows[0] as Element));
+    expect(navigate).toHaveBeenCalledWith('/admin/apps/p1');
+  });
+
+  it('sends a Janus somebody owns to the app page, because the Janus page is not about it', async () => {
+    // The slug is not the identity. A person's own agent called Janus, or one dialling in
+    // over a socket, is configured where every other app is — and the Janus page's
+    // workspace controls are ones the server would refuse for it.
+    plugins.mockResolvedValue({
+      plugins: [
+        plugin({ id: 'p3', slug: 'janus', name: 'Janus', runtime: 'external', ownerUserId: 'u2' }),
+      ],
+    });
+    render(<AppsSection onError={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Janus')).toBeTruthy());
+
+    fireEvent.click(
+      [...document.querySelectorAll('button')].find((b) => b.textContent === 'Configure')!,
+    );
+
+    expect(navigate).toHaveBeenCalledWith('/admin/apps/p3');
   });
 
   it('draws a bar for every day of the week', async () => {

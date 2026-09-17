@@ -6,14 +6,30 @@ The codes here are part of the client contract — `apps/web/src/lib/api.ts` unw
 
 from __future__ import annotations
 
+from typing import Any
+
 
 class AppError(Exception):
-    def __init__(self, status_code: int, code: str, message: str, field: str | None = None) -> None:
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        field: str | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.code = code
         self.message = message
         self.field = field
+        #: Structured extra for a refusal one sentence cannot carry, serialised as
+        #: `error.detail`. `field` answers "which input"; this answers "here is the list".
+        #: Added for `janus_refused`, which relays Janus's `issues` — `{severity, message,
+        #: hint}` each — so the Advanced editor can show every one of them beside the text
+        #: instead of only the first. Optional and omitted when unset, so the client
+        #: contract (`{code, message, field?}`) is unchanged for every other code.
+        self.detail = detail
 
 
 def unique_violation(exc: Exception) -> bool:
@@ -27,9 +43,11 @@ def unique_violation(exc: Exception) -> bool:
     return code == "23505" or "duplicate key value" in str(exc)
 
 
-def bad_request(message: str, code: str = "bad_request") -> AppError:
+def bad_request(
+    message: str, code: str = "bad_request", detail: dict[str, Any] | None = None
+) -> AppError:
     """The request is malformed or fails validation."""
-    return AppError(400, code, message)
+    return AppError(400, code, message, detail=detail)
 
 
 def unauthorized(message: str = "Sign in to continue.") -> AppError:

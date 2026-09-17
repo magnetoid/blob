@@ -23,6 +23,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import PlainTextResponse
+from pydantic import Field, field_validator
 
 from ..db.engine import session_scope, transaction
 from ..lib import net
@@ -36,6 +37,7 @@ from ..services import agent_runs as agent_run_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import commands as command_service
+from ..services import janus_agent
 from ..services import policies as policy_service
 from ..services.audit import actor_for
 from ..tools import agent_bridge
@@ -94,6 +96,13 @@ class PluginOut(CamelModel):
     runs_last_week: int = 0
     running_now: int = 0
     channel_count: int = 0
+    #: Whether the bot joins public channels founded from now on. True only for the agent
+    #: a workspace was seeded with, until an admin says otherwise — an app installed by
+    #: hand is invited room by room, and membership is how far its `messages:write` reaches.
+    in_every_public_channel: bool = False
+    #: What this workspace tells its agent, sent with every run as
+    #: `forwardedProps.instructions`. None when it has nothing to say.
+    instructions: str | None = None
 
 
 class AppChannel(CamelModel):
@@ -251,6 +260,8 @@ async def _build_plugin(
         runs_last_week=activity[0] if activity else 0,
         running_now=activity[1] if activity else 0,
         channel_count=channel_count,
+        in_every_public_channel=bool(getattr(row, "in_every_public_channel", False)),
+        instructions=getattr(row, "instructions", None),
     )
 
 
@@ -636,6 +647,137 @@ async def set_budget(
                 "runsPerDay": payload.runs_per_day,
                 "secondsPerDay": payload.seconds_per_day,
             },
+        )
+        row = await registry.by_id(session, plugin_id, admin.workspace_id)
+        return await _to_plugin(session, row)
+
+
+def _assert_the_workspace_may_direct(row: Any, *, owned: str, not_seeded: str) -> None:
+    """Both controls below are the workspace's word about **the agent Blob seeded**.
+
+    Two refusals rather than one, because they call for different answers. An agent with
+    an owner answers that person and whoever they lent it to (ADR 0018), so the
+    workspace's word would be spoken through somebody's private assistant — that is
+    `agent_is_owned`, and it is checked first because it is the case an admin can undo.
+
+    Anything else holding neither identity is an app somebody registered: it never
+    declared a field for a workspace prompt, and seating it in every public channel
+    founded from now on widens how far its `messages:write` reaches without an admin ever
+    seeing themselves widen it. The property the migration claims is held here, not on the
+    page that hides the field — the page is a courtesy; this is the lock.
+    """
+    if getattr(row, "owner_user_id", None) is not None:
+        raise bad_request(owned, code="agent_is_owned")
+    if not janus_agent.is_seeded_row(row):
+        raise bad_request(not_seeded, code="agent_not_seeded")
+
+
+class InstructionsInput(CamelModel):
+    """What the workspace tells its agent. Empty, blank or an explicit null clears it.
+
+    `text` is required, with no default: `extra="ignore"` is the wire's rule, so a body
+    with the key misspelt or missing would otherwise arrive as "clear it" and wipe the
+    workspace's prompt with nothing on screen to say why.
+
+    4000 characters is Janus's ceiling for `forwardedProps.instructions`; a longer text
+    would be refused at the far end after the admin had been told it was saved.
+    """
+
+    text: str | None = Field(max_length=4000)
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def _trim_before_measuring(cls, value: Any) -> Any:
+        """Trimmed before the length check, not after it.
+
+        A textarea hands back what was typed plus the newline the person ended on, and
+        measuring first refused a 4000-character instruction over a character that is
+        never stored.
+        """
+        return value.strip() if isinstance(value, str) else value
+
+
+@router.post("/{plugin_id}/instructions", response_model=PluginOut)
+async def set_instructions(
+    plugin_id: IdParam,
+    payload: InstructionsInput,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> PluginOut:
+    """Set (or clear) the standing instruction this workspace sends with every run.
+
+    It travels as `forwardedProps.instructions` on the run input, which the agent reads
+    as an ephemeral system prompt for that run — Blob keeps no copy in the conversation
+    and the agent keeps none between runs. Per workspace rather than in the agent's own
+    configuration because one Janus container serves every workspace on the instance.
+    """
+    async with transaction() as (session, _after):
+        existing = await registry.by_id(session, plugin_id, admin.workspace_id)
+        _assert_the_workspace_may_direct(
+            existing,
+            owned="A person's own agent is not the workspace's to instruct.",
+            not_seeded="Only the agent Blob seeds takes workspace instructions.",
+        )
+        stored = await registry.set_instructions(
+            session, plugin_id, admin.workspace_id, payload.text
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.instructions_set",
+            target_type="plugin",
+            target_id=plugin_id,
+            # The length, never the text: the log is read by people who are not entitled
+            # to the workspace's prompt, and "somebody changed it, by this much" is the
+            # forensic fact.
+            metadata={"pluginId": plugin_id, "length": len(stored or "")},
+        )
+        row = await registry.by_id(session, plugin_id, admin.workspace_id)
+        return await _to_plugin(session, row)
+
+
+class EverywhereInput(CamelModel):
+    #: Required, for the reason `InstructionsInput.text` is: an absent key must not read
+    #: as "off" and quietly stand the agent down from every room founded afterwards.
+    enabled: bool
+
+
+@router.post("/{plugin_id}/everywhere", response_model=PluginOut)
+async def set_everywhere(
+    plugin_id: IdParam,
+    payload: EverywhereInput,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> PluginOut:
+    """Whether this agent joins public channels founded from now on.
+
+    Where the bot goes next, and nothing else. No channel that already exists gains the
+    bot or loses it — today's rooms are the channels list's business, one join at a time
+    and visible as itself — and the boot-time backfill in `services/janus_agent.ensure`
+    reads the same switch, so turning it off still means it after the next deploy.
+
+    What it deliberately does *not* decide is whether this is the workspace's resident
+    agent: that is the agent's identity (`services/janus_agent.SEEDED_AGENT`), read by
+    `services/users.list_users` for the home view. It used to be this flag, so choosing
+    invitation-only also stopped the home view addressing the agent at all.
+    """
+    async with transaction() as (session, _after):
+        existing = await registry.by_id(session, plugin_id, admin.workspace_id)
+        _assert_the_workspace_may_direct(
+            existing,
+            owned="A person's own agent is not the workspace's to place.",
+            not_seeded="Only the agent Blob seeds is placed in every public channel.",
+        )
+        await registry.set_in_every_public_channel(
+            session, plugin_id, admin.workspace_id, payload.enabled
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.everywhere_set",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"pluginId": plugin_id, "enabled": payload.enabled},
         )
         row = await registry.by_id(session, plugin_id, admin.workspace_id)
         return await _to_plugin(session, row)

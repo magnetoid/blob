@@ -60,10 +60,20 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
 PUBLIC_PREFIXES = ("/api/invites/", "/api/hooks/", "/api/v1/")
 
 
-def _error(status: int, code: str, message: str, field: str | None = None) -> JSONResponse:
+def _error(
+    status: int,
+    code: str,
+    message: str,
+    field: str | None = None,
+    detail: dict[str, Any] | None = None,
+) -> JSONResponse:
     body: dict[str, Any] = {"code": code, "message": message}
     if field:
         body["field"] = field
+    # Omitted unless a code actually carries one, so `{code, message, field?}` stays the
+    # shape every existing client branch sees. See `AppError.detail`.
+    if detail:
+        body["detail"] = detail
     return JSONResponse({"error": body}, status_code=status)
 
 
@@ -186,7 +196,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
-        return _error(exc.status_code, exc.code, exc.message, exc.field)
+        return _error(exc.status_code, exc.code, exc.message, exc.field, exc.detail)
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -262,6 +272,7 @@ def create_app() -> FastAPI:
     from .routers.admin import router as admin_router
     from .routers.admin_emoji import router as admin_emoji_router
     from .routers.admin_instance import router as admin_instance_router
+    from .routers.admin_janus import router as admin_janus_router
     from .routers.agent_shell import router as agent_shell_router
     from .routers.agent_socket import router as agent_socket_router
     from .routers.agentic import router as agentic_router
@@ -304,6 +315,7 @@ def create_app() -> FastAPI:
     app.include_router(meetup_router)
     app.include_router(admin_router)
     app.include_router(admin_instance_router)
+    app.include_router(admin_janus_router)
     app.include_router(admin_emoji_router)
     app.include_router(group_router)
     app.include_router(group_member_router)

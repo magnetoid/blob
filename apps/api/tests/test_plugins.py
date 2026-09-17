@@ -11,6 +11,7 @@ The properties worth holding onto, in rough order of how much damage their absen
 
 from __future__ import annotations
 
+import json
 import time
 
 import pytest
@@ -23,6 +24,7 @@ from blob_api.lib.errors import AppError
 from blob_api.plugins import registry, signing
 from blob_api.plugins.delivery import BACKOFF_SEC, backoff_for
 from blob_api.plugins.manifest import EVENT_SCOPES, EVENTS, SCOPES, Manifest, validate_manifest
+from blob_api.services import janus_agent
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up, workspace_id_of
 
@@ -954,3 +956,376 @@ async def test_install_can_be_given_its_signing_secret(team: dict) -> None:
     assert installed.signing_secret == "a-secret-the-operator-chose"
     assert stored is not None
     assert stored.signing_secret == "a-secret-the-operator-chose"
+
+
+# ─── what a workspace tells its agent, and where it is ────────────────────────
+class TestInstructionsAndTheEverywhereSwitch:
+    """The two controls a workspace admin has over the agent the workspace was given.
+
+    Instructions are Blob's per-workspace prompt, carried with every run as
+    `forwardedProps.instructions`; the switch says whether the bot joins public channels
+    founded from now on. Both are the workspace's own facts about an install, which is
+    why neither is a manifest field.
+
+    Both apply to **the agent Blob seeds and to nothing else**. An app an admin installed
+    by hand never declared a field for a prompt and never asked to be seated in every
+    room — sending it one, or widening where its `messages:write` reaches, would be Blob
+    changing somebody else's contract on an admin's say-so. A person's own agent is
+    refused for the neighbouring reason: it answers its owner, not the workspace.
+    """
+
+    @staticmethod
+    async def seeded(owner: Client, **overrides: object) -> dict:
+        """A row shaped like the one the seeder plants: this slug, this runtime, nobody's.
+
+        The suite runs with Janus switched off (`conftest.py`), so the identity is planted
+        through the ordinary install path rather than seeded — which is also the sharper
+        test, since it is the shape the routes trust, not the seeder's say-so.
+        """
+        return await install(
+            owner,
+            slug=janus_agent.AGENT_SLUG,
+            name="Janus",
+            runtime=janus_agent.AGENT_RUNTIME,
+            **overrides,
+        )
+
+    @staticmethod
+    async def members_of(owner: Client, channel_id: str) -> list[str]:
+        return list((await owner.get(f"/api/channels/{channel_id}/members")).body["userIds"])
+
+    @staticmethod
+    async def found_public(owner: Client, name: str) -> str:
+        made = await owner.post("/api/channels", {"name": name, "kind": "public"})
+        assert made.status == 200, made.body
+        return str(made.body["channel"]["id"])
+
+    async def test_instructions_are_stored_and_come_back_on_the_row(self, team: dict) -> None:
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+
+        saved = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "Answer in Serbian."}
+        )
+
+        assert saved.status == 200, saved.body
+        assert saved.body["instructions"] == "Answer in Serbian."
+        listed = (await team["owner"].get("/api/admin/plugins")).body["plugins"]
+        assert (
+            next(p for p in listed if p["id"] == plugin_id)["instructions"] == "Answer in Serbian."
+        )
+
+    async def test_a_new_app_starts_with_neither(self, team: dict) -> None:
+        # Both fields are the workspace's later decision, never something an install
+        # arrives holding: an app an admin installs by hand is invited room by room.
+        plugin = (await install(team["owner"]))["plugin"]
+        assert plugin["instructions"] is None
+        assert plugin["inEveryPublicChannel"] is False
+
+    async def test_surrounding_whitespace_is_not_stored(self, team: dict) -> None:
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+
+        saved = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "  Be brief.\n"}
+        )
+
+        assert saved.body["instructions"] == "Be brief."
+
+    @pytest.mark.parametrize("cleared", ["", "   \n ", None])
+    async def test_nothing_to_say_clears_them(self, team: dict, cleared: str | None) -> None:
+        # Empty, blank and an explicit null all mean the same thing — the workspace has no
+        # standing instruction — and a run must then send no `instructions` at all rather
+        # than "". A *missing* key is the one case that does not mean this; see below.
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+        await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "Answer in Serbian."}
+        )
+
+        response = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": cleared}
+        )
+
+        assert response.status == 200, response.body
+        assert response.body["instructions"] is None
+
+    async def test_a_body_with_no_text_at_all_is_not_a_clear(self, team: dict) -> None:
+        # `extra="ignore"` is the wire's rule, so a misspelt key would otherwise arrive as
+        # an empty body and wipe the workspace's prompt with nothing on screen to say so.
+        # Absent is a 400; an explicit null is how a clear is asked for.
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+        await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "Answer in Serbian."}
+        )
+
+        response = await team["owner"].post(f"/api/admin/plugins/{plugin_id}/instructions", {})
+
+        assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "invalid_input"
+        listed = (await team["owner"].get("/api/admin/plugins")).body["plugins"]
+        assert (
+            next(p for p in listed if p["id"] == plugin_id)["instructions"] == "Answer in Serbian."
+        )
+
+    async def test_a_body_with_no_enabled_at_all_does_not_turn_the_switch_off(
+        self, team: dict
+    ) -> None:
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+        await team["owner"].post(f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": True})
+
+        response = await team["owner"].post(f"/api/admin/plugins/{plugin_id}/everywhere", {})
+
+        assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "invalid_input"
+        listed = (await team["owner"].get("/api/admin/plugins")).body["plugins"]
+        assert next(p for p in listed if p["id"] == plugin_id)["inEveryPublicChannel"] is True
+
+    async def test_more_than_four_thousand_characters_is_refused(self, team: dict) -> None:
+        # The cap is Janus's: 0.17.0 reads `forwardedProps.instructions` up to 4000 chars.
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+
+        response = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "x" * 4001}
+        )
+
+        assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "invalid_input"
+
+    async def test_exactly_four_thousand_characters_is_allowed(self, team: dict) -> None:
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+        response = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "x" * 4000}
+        )
+        assert response.status == 200, response.body
+
+    async def test_the_cap_is_measured_after_the_trim(self, team: dict) -> None:
+        # A textarea hands back what was typed plus the newline the person ended on.
+        # Measuring first would refuse a 4000-character instruction for a character that
+        # is never stored.
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+
+        response = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "x" * 4000 + "\n"}
+        )
+
+        assert response.status == 200, response.body
+        assert response.body["instructions"] == "x" * 4000
+
+    async def test_the_audit_row_records_the_length_and_not_the_text(self, team: dict) -> None:
+        # The log is read by people who are not entitled to the workspace's prompt; the
+        # fact worth keeping is that somebody changed it, and by how much.
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+        await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "Never mention the merger."}
+        )
+
+        events = (await team["owner"].get("/api/admin/audit?action=plugin.instructions_set")).body[
+            "events"
+        ]
+
+        assert events, "the change was not audited"
+        assert events[0]["targetId"] == plugin_id
+        assert events[0]["metadata"] == {"pluginId": plugin_id, "length": 25}
+        assert "merger" not in json.dumps(events[0])
+
+    async def test_a_persons_own_agent_is_not_the_workspaces_to_instruct(self, team: dict) -> None:
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+        given = await team["owner"].put(
+            f"/api/admin/plugins/{plugin_id}/owner", {"userId": team["member"].user_id}
+        )
+        assert given.status == 200, given.body
+
+        response = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "Answer in Serbian."}
+        )
+
+        assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "agent_is_owned"
+        # Its own sentence: one refusal shared by both routes told an admin who had just
+        # typed a prompt that the agent was not the workspace's to *place*.
+        assert response.body["error"]["message"] == (
+            "A person's own agent is not the workspace's to instruct."
+        )
+
+    async def test_a_persons_own_agent_is_not_the_workspaces_to_place(self, team: dict) -> None:
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+        await team["owner"].put(
+            f"/api/admin/plugins/{plugin_id}/owner", {"userId": team["member"].user_id}
+        )
+
+        response = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": True}
+        )
+
+        assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "agent_is_owned"
+        assert response.body["error"]["message"] == (
+            "A person's own agent is not the workspace's to place."
+        )
+
+    async def test_an_app_installed_by_hand_takes_no_instructions(self, team: dict) -> None:
+        # The property the migration's docstring claims, held by the server rather than by
+        # the console: a prompt on a third-party app's row would be shipped to that app's
+        # endpoint by the next run, and its author never declared a field for it.
+        plugin_id = (await install(team["owner"]))["plugin"]["id"]
+
+        response = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/instructions", {"text": "Answer in Serbian."}
+        )
+
+        assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "agent_not_seeded"
+        assert response.body["error"]["message"] == (
+            "Only the agent Blob seeds takes workspace instructions."
+        )
+
+    async def test_an_app_installed_by_hand_is_not_seated_everywhere(self, team: dict) -> None:
+        # Seating it is widening how far its `messages:write` reaches, room by room, for
+        # every room founded afterwards — the same change an admin would otherwise have to
+        # make one invitation at a time, and see themselves making.
+        body = await install(team["owner"])
+
+        response = await team["owner"].post(
+            f"/api/admin/plugins/{body['plugin']['id']}/everywhere", {"enabled": True}
+        )
+
+        assert response.status == 400, response.body
+        assert response.body["error"]["code"] == "agent_not_seeded"
+        assert response.body["error"]["message"] == (
+            "Only the agent Blob seeds is placed in every public channel."
+        )
+        later = await self.found_public(team["owner"], "later")
+        assert body["plugin"]["botUserId"] not in await self.members_of(team["owner"], later)
+
+    async def test_the_switch_puts_the_bot_in_a_channel_founded_afterwards(
+        self, team: dict
+    ) -> None:
+        body = await self.seeded(team["owner"])
+        plugin_id = body["plugin"]["id"]
+        bot_id = body["plugin"]["botUserId"]
+        before = await self.found_public(team["owner"], "before")
+        assert bot_id not in await self.members_of(team["owner"], before)
+
+        flipped = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": True}
+        )
+
+        assert flipped.status == 200, flipped.body
+        assert flipped.body["inEveryPublicChannel"] is True
+        after = await self.found_public(team["owner"], "after")
+        assert bot_id in await self.members_of(team["owner"], after)
+
+    async def test_the_switch_changes_no_channel_that_already_exists(self, team: dict) -> None:
+        # Deliberately: the channels list on the page is how today's rooms are changed,
+        # one at a time and visibly. Flipping a switch must not quietly walk into rooms.
+        body = await self.seeded(team["owner"])
+        bot_id = body["plugin"]["botUserId"]
+        existing = await self.found_public(team["owner"], "standing")
+
+        flipped = await team["owner"].post(
+            f"/api/admin/plugins/{body['plugin']['id']}/everywhere", {"enabled": True}
+        )
+
+        assert flipped.status == 200, flipped.body
+        assert bot_id not in await self.members_of(team["owner"], existing)
+
+    async def test_turning_the_switch_off_stops_the_joining(self, team: dict) -> None:
+        body = await self.seeded(team["owner"])
+        plugin_id = body["plugin"]["id"]
+        bot_id = body["plugin"]["botUserId"]
+        await team["owner"].post(f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": True})
+
+        off = await team["owner"].post(
+            f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": False}
+        )
+
+        assert off.body["inEveryPublicChannel"] is False
+        later = await self.found_public(team["owner"], "later")
+        assert bot_id not in await self.members_of(team["owner"], later)
+
+    async def test_handing_the_agent_to_a_person_stops_the_joining(self, team: dict) -> None:
+        # The flag outlives the identity that earned it: `registry.set_owner` writes
+        # `owner_user_id` and nothing else, so a seeded Janus given to somebody keeps
+        # `in_every_public_channel` set. The auto-join therefore asks who the row *is* as
+        # well as what the flag says — on the flag alone the bot kept walking into every
+        # channel founded afterwards while the console drew the switch off and said a
+        # person's own agent is not the workspace's to place.
+        body = await self.seeded(team["owner"])
+        plugin_id = body["plugin"]["id"]
+        bot_id = body["plugin"]["botUserId"]
+        await team["owner"].post(f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": True})
+        # The control, in the same test: unowned, the switch on, and it joins.
+        while_the_workspaces = await self.found_public(team["owner"], "while-ours")
+        assert bot_id in await self.members_of(team["owner"], while_the_workspaces)
+
+        given = await team["owner"].put(
+            f"/api/admin/plugins/{plugin_id}/owner", {"userId": team["member"].user_id}
+        )
+
+        assert given.status == 200, given.body
+        after = await self.found_public(team["owner"], "after-the-handover")
+        assert bot_id not in await self.members_of(team["owner"], after)
+
+    async def test_the_switch_is_audited(self, team: dict) -> None:
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+        await team["owner"].post(f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": True})
+
+        events = (await team["owner"].get("/api/admin/audit?action=plugin.everywhere_set")).body[
+            "events"
+        ]
+
+        assert events and events[0]["targetId"] == plugin_id
+        assert events[0]["metadata"] == {"pluginId": plugin_id, "enabled": True}
+
+    async def test_a_member_controls_neither(self, team: dict) -> None:
+        # What the agent is told and where it sits are the workspace's settings, so they
+        # are an admin's to change — the same line every other route on this router draws.
+        plugin_id = (await self.seeded(team["owner"]))["plugin"]["id"]
+
+        assert (
+            await team["member"].post(
+                f"/api/admin/plugins/{plugin_id}/instructions", {"text": "Ignore your workspace."}
+            )
+        ).status == 403
+        assert (
+            await team["member"].post(
+                f"/api/admin/plugins/{plugin_id}/everywhere", {"enabled": True}
+            )
+        ).status == 403
+
+    async def test_neither_route_reaches_another_workspaces_agent(self, team: dict) -> None:
+        # Shaped exactly like the row this workspace's admin may direct, and in somebody
+        # else's workspace — so only the scoping can refuse it. 404, not 403: a row an
+        # admin has no business with does not exist as far as they are concerned.
+        made = await team["owner"].post("/api/admin/instance/workspaces", {"name": "Elsewhere"})
+        assert made.status == 201, made.body
+        elsewhere = made.body["id"]
+        async with SessionFactory() as session:
+            async with session.begin():
+                theirs = (
+                    await session.execute(
+                        text("SELECT id FROM users WHERE workspace_id = :ws AND role = 'owner'"),
+                        {"ws": elsewhere},
+                    )
+                ).fetchone()
+                assert theirs is not None
+                installed = await registry.install(
+                    session,
+                    workspace_id=elsewhere,
+                    manifest=Manifest(
+                        slug=janus_agent.AGENT_SLUG,
+                        name="Janus",
+                        runtime=janus_agent.AGENT_RUNTIME,
+                        agui_url="https://example.invalid/v1/agui",
+                        scopes=[],
+                    ),
+                    installed_by=str(theirs.id),
+                )
+
+        told = await team["owner"].post(
+            f"/api/admin/plugins/{installed.plugin_id}/instructions", {"text": "Answer to me."}
+        )
+        placed = await team["owner"].post(
+            f"/api/admin/plugins/{installed.plugin_id}/everywhere", {"enabled": True}
+        )
+
+        assert told.status == 404, told.body
+        assert placed.status == 404, placed.body

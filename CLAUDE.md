@@ -217,9 +217,21 @@ the ADR is the place to look before changing them.
   *later* (`services/channels.create_channel`), and `plugins.answers_dm_without_mention`,
   which is what lets a DM with it need no `@` — a mention needs membership, and an agent
   absent from a new room is silently deaf in it. Nothing an admin installs by hand gets
-  either flag. Blob runs no agent of its own any more: `lib/llm.py` is deliberately the
-  smallest possible provider layer with two callers — the unread recap and thread
-  summaries. Do not grow it into a framework.
+  either flag. Neither flag is the *identity*, though — that is `services/seeded.py`
+  (slug `janus`, runtime `external`, no owner), and it is what the workspace's
+  instructions (`plugins.instructions`, forwarded as `forwardedProps.instructions`), the
+  everywhere switch, the home view's resident agent and the auto-join into a channel
+  founded now all key on, so a workspace that turns the switch off still has an agent and
+  a hand-installed row is refused both controls. `Agents & apps → Janus` is the console
+  page for all of that, and its server half reads and changes what Janus *is* through
+  `services/janus_console.py` — a client of Janus's own `/health`, `/v1/config` and three
+  more, bearing `JANUS_API_SERVER_KEY` at an address composed from `JANUS_AGUI_URL` and
+  never from a request; a provider key typed there passes through this process to Janus
+  and is gone, with no row, log line or response body carrying it, and `config.yaml` comes
+  back to the page with its inline keys redacted, so a save still holding the placeholder
+  is refused rather than written. Blob runs no agent of its own any more: `lib/llm.py` is
+  deliberately the smallest possible provider layer with two callers — the unread recap
+  and thread summaries. Do not grow it into a framework.
 * **Summaries and nudges** (`services/agentic.py`, `services/unanswered.py`, ADR 0015).
   `thread_summaries.provider` records *which* engine wrote a row: `heuristic-v1` for the
   keyword scan that runs when no model is configured, `llm:<model>` otherwise. Both

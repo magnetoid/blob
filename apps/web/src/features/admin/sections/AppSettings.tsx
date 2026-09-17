@@ -24,6 +24,7 @@ import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { byDisplayName } from "../../../lib/format.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { showError } from "../../../lib/toasts.ts";
+import { AppChannelList } from "./apps/AppChannelList.tsx";
 import { PluginCard } from "./apps/PluginCard.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
 import { DesktopAgentSetup } from "../../agentic/DesktopAgentSetup.tsx";
@@ -121,7 +122,6 @@ export function AppSettings({ pluginId, onError }: Props) {
     return <p className="pref-hint">That app is not installed here.</p>;
 
   const endpoint = plugin.aguiUrl ?? plugin.requestUrl;
-  const joined = channels.filter((channel) => channel.joined);
   // Bots cannot own an agent — the server refuses one, and offering it here would be a
   // control that only ever produces an error.
   const owner = plugin.ownerUserId ? users[plugin.ownerUserId] : undefined;
@@ -177,39 +177,7 @@ export function AppSettings({ pluginId, onError }: Props) {
 
       <div>
         <h3 className="section-label">Channels</h3>
-        <div className="pref-hint" style={{ marginBottom: 10 }}>
-          {joined.length === 0
-            ? "This app is not in any channel yet, so nobody can reach it. Add it to one."
-            : `Mentioning it in ${
-                joined.length === 1 ? "this channel" : "these channels"
-              } will reach it.`}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {channels.length === 0 && (
-            <div className="pref-hint">
-              There are no public channels to add it to.
-            </div>
-          )}
-          {channels.map((channel) => (
-            <div className="pref-row" key={channel.id}>
-              <div>
-                <div className="pref-label">#{channel.name ?? channel.id}</div>
-              </div>
-              <button
-                className={channel.joined ? "btn btn-ghost" : "btn"}
-                onClick={() =>
-                  void act(() =>
-                    channel.joined
-                      ? api.admin.appLeaveChannel(pluginId, channel.id)
-                      : api.admin.appJoinChannel(pluginId, channel.id),
-                  )
-                }
-              >
-                {channel.joined ? "Remove" : "Add"}
-              </button>
-            </div>
-          ))}
-        </div>
+        <AppChannelList pluginId={pluginId} channels={channels} act={act} />
       </div>
 
       <div>

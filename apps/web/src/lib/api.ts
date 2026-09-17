@@ -302,6 +302,19 @@ export interface AdminPlugin {
   runsLastWeek: number;
   runningNow: number;
   channelCount: number;
+  /**
+   * Whether the bot is seated in public channels founded from now on.
+   *
+   * Where it goes next, and nothing else: no channel that already exists gains it or
+   * loses it when this changes. Only the agent Blob seeds takes the flag — the routes
+   * refuse it for anything else.
+   */
+  inEveryPublicChannel: boolean;
+  /**
+   * What this workspace tells its agent, sent with every run as
+   * `forwardedProps.instructions`. Null when it has nothing to say.
+   */
+  instructions: string | null;
   /** Set only for an agent Blob deployed from a repository. */
   sourceRepo?: string | null;
   sourceRef?: string | null;
@@ -311,6 +324,66 @@ export interface AdminPlugin {
    * runtime — where the question is meaningless and `false` would read as "broken".
    */
   online?: boolean | null;
+}
+
+/**
+ * One of Janus's own routes, as the overview carries it: its answer, or the reason
+ * there isn't one.
+ *
+ * Every part is fetched separately and none of them is required for the page to draw,
+ * so a dead `/v1/skills` costs the skills list and nothing else.
+ */
+export interface JanusPart<T = unknown> {
+  data: T | null;
+  error: string | null;
+}
+
+/** One workspace on this server that has Janus installed. */
+export interface JanusInstall {
+  workspaceId: string;
+  workspaceName: string;
+  pluginId: string;
+  status: string;
+  channelCount: number;
+  runsLastWeek: number;
+  isThisWorkspace: boolean;
+}
+
+/**
+ * What the server's admin sees of Janus itself: whether it is up, what it runs on, and
+ * where it is installed. Never a key — the value passes through Blob to Janus and is
+ * gone; nothing here can carry one back.
+ */
+export interface JanusOverview {
+  health: JanusPart;
+  capabilities: JanusPart;
+  config: JanusPart;
+  skills: JanusPart;
+  toolsets: JanusPart;
+  /** What this stack was told to call, or empty when it was told nothing. */
+  aguiUrl: string | null;
+  secretSet: boolean;
+  installs: JanusInstall[];
+}
+
+/** The camelCase twin of Janus's own `PUT /v1/config` body. Every field optional. */
+export interface JanusConfigChange {
+  model?: Record<string, unknown> | null;
+  agent?: Record<string, unknown> | null;
+  /** The **full** enabled list: an entry left out is dropped at the far end. */
+  toolsets?: string[] | null;
+  /** Name → value. Passed through to Janus and never stored or echoed here. */
+  apiKeys?: Record<string, string> | null;
+  raw?: string | null;
+  restart?: boolean | null;
+}
+
+/** Janus's answer to a write: what landed, what it warns about, whether it is going. */
+export interface JanusApplied {
+  applied: Record<string, unknown>;
+  warnings: Record<string, unknown>[];
+  restarting: boolean;
+  drainTimeoutSeconds: number;
 }
 
 export interface AgentRepoPreview {
@@ -414,13 +487,27 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly field?: string;
+  /**
+   * The structured half of a refusal one sentence cannot carry — `lib/errors.AppError`'s
+   * `detail`, unwrapped rather than dropped. `field` answers "which input"; this answers
+   * "here is the list". Set only by the codes that send one (`janus_refused` carries
+   * Janus's `issues`), `undefined` everywhere else, so nothing else changes.
+   */
+  readonly detail?: Record<string, unknown>;
 
-  constructor(status: number, code: string, message: string, field?: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    field?: string,
+    detail?: Record<string, unknown>,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.field = field;
+    this.detail = detail;
   }
 }
 
@@ -452,13 +539,21 @@ async function request<T>(
 
   if (!res.ok) {
     const error = (
-      payload as { error?: { code: string; message: string; field?: string } }
+      payload as {
+        error?: {
+          code: string;
+          message: string;
+          field?: string;
+          detail?: Record<string, unknown>;
+        };
+      }
     )?.error;
     throw new ApiError(
       res.status,
       error?.code ?? "unknown",
       error?.message ?? "Something went wrong.",
       error?.field,
+      error?.detail,
     );
   }
 
@@ -1007,6 +1102,19 @@ export const api = {
 
     health: () => get<AdminHealth>("/api/admin/health"),
 
+    /**
+     * Janus itself: up or down, what it runs on, and every workspace here that has it.
+     *
+     * Instance admins only — a workspace admin gets 403 — so a caller that needs the
+     * page to stand for both has to treat a failure as "not mine to see" rather than as
+     * an error. The workspace's own half of the Janus page reads none of this.
+     */
+    janus: () => get<JanusOverview>("/api/admin/janus"),
+    /** Changed fields only: what is not sent is not touched at the far end. */
+    updateJanus: (change: JanusConfigChange) =>
+      put<JanusApplied>("/api/admin/janus/config", change),
+    restartJanus: () => post<JanusApplied>("/api/admin/janus/restart"),
+
     webhooks: () => get<{ webhooks: AdminWebhook[] }>("/api/admin/webhooks"),
     createWebhook: (channelId: string, name: string) =>
       post<AdminWebhook>("/api/admin/webhooks", { channelId, name }),
@@ -1051,6 +1159,20 @@ export const api = {
       pluginId: string,
       budget: { runsPerDay: number | null; secondsPerDay: number | null },
     ) => post<AdminPlugin>(`/api/admin/plugins/${pluginId}/budget`, budget),
+    /**
+     * What this workspace tells its agent, or null to clear it.
+     *
+     * `text` is always sent, even as null. The server makes it required with no default,
+     * so a body without the key is a 400 `invalid_input` rather than anything else — and
+     * that refusal is the point: `extra="ignore"` is the wire's rule, so a key misspelt
+     * or left out would otherwise have read as "clear it" and wiped the workspace's
+     * prompt with nothing on screen to say why.
+     */
+    setPluginInstructions: (pluginId: string, text: string | null) =>
+      post<AdminPlugin>(`/api/admin/plugins/${pluginId}/instructions`, { text }),
+    /** Whether the agent joins public channels founded from now on. */
+    setPluginEverywhere: (pluginId: string, enabled: boolean) =>
+      post<AdminPlugin>(`/api/admin/plugins/${pluginId}/everywhere`, { enabled }),
     rotatePluginSecret: (pluginId: string) =>
       post<{ signingSecret: string }>(`/api/admin/plugins/${pluginId}/secret`),
     issuePluginToken: (pluginId: string) =>

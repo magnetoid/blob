@@ -21,6 +21,7 @@ from ..plugins.registry import MENTIONABLE_AGENT
 from ..plugins.streams import Listener
 from ..realtime import presence
 from ..realtime.protocol import TYPING_TTL_MS
+from ..services import seeded
 
 log = logging.getLogger("blob.jobs.agui")
 
@@ -41,7 +42,15 @@ async def listeners_for(
             text(
                 f"""
                 SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
-                       p.runtime, s.signing_secret
+                       p.runtime, s.signing_secret,
+                       -- Whose text this is, asked here rather than trusted from the
+                       -- column: the routes only ever write it onto the seeded agent, but
+                       -- a row can hold text those routes never wrote — a backup taken
+                       -- before the rule, a psql prompt. Forwarding it would hand a
+                       -- third-party app's endpoint a prompt its author never declared a
+                       -- field for, so the run path decides for itself.
+                       CASE WHEN {seeded.SEEDED_AGENT} THEN p.instructions END
+                         AS instructions
                   FROM plugins p
                   JOIN users u ON u.bot_plugin_id = p.id
                   JOIN plugin_secrets s ON s.plugin_id = p.id
@@ -69,6 +78,7 @@ async def listeners_for(
             agui_url=row.agui_url,
             signing_secret=row.signing_secret,
             runtime=row.runtime,
+            instructions=row.instructions,
         )
         for row in rows
     ]
@@ -104,7 +114,15 @@ async def personal_agent_for(
             text(
                 f"""
                 SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
-                       p.runtime, s.signing_secret
+                       p.runtime, s.signing_secret,
+                       -- Whose text this is, asked here rather than trusted from the
+                       -- column: the routes only ever write it onto the seeded agent, but
+                       -- a row can hold text those routes never wrote — a backup taken
+                       -- before the rule, a psql prompt. Forwarding it would hand a
+                       -- third-party app's endpoint a prompt its author never declared a
+                       -- field for, so the run path decides for itself.
+                       CASE WHEN {seeded.SEEDED_AGENT} THEN p.instructions END
+                         AS instructions
                   FROM plugins p
                   JOIN users u ON u.bot_plugin_id = p.id
                   JOIN plugin_secrets s ON s.plugin_id = p.id
@@ -153,6 +171,7 @@ async def personal_agent_for(
         agui_url=row.agui_url,
         signing_secret=row.signing_secret,
         runtime=row.runtime,
+        instructions=row.instructions,
     )
 
 

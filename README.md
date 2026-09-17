@@ -454,10 +454,10 @@ unless you ask for it:
 | `COMPOSE_PROFILES` | unset | Set to `janus` to start the service. |
 | `JANUS_AGUI_URL` | unset | `http://janus:8642/v1/agui` — internal, on the `blob-agents` network. Setting this and the secret is what installs the agent into every workspace at boot. |
 | `JANUS_SIGNING_SECRET` | unset | Shared: Blob signs with it, the service reads it as `BLOB_SIGNING_SECRET`. |
-| `JANUS_API_SERVER_KEY` | unset | Required by Janus's API server even on a private network. |
+| `JANUS_API_SERVER_KEY` | unset | Required by Janus's API server even on a private network — and also read by the app, for the Janus page: a run is authenticated by the signing secret, but `/admin/janus` reads and changes what Janus runs on through Janus's own API. |
 | `JANUS_AGENT_NAME` | `Janus` | What people type after `@`. The slug is always `janus`. |
 | `JANUS_PROVIDER` / `JANUS_MODEL` | `deepseek` / `deepseek-v4-pro` | Provider and model move together — the same model is named differently by a direct API and by a router. **These reach Janus's CLI paths, not the agent that answers a mention:** its gateway reads `config.yaml` on its own volume, and a fresh volume starts on the image's packaged default. Set the model there after the first boot, or a run finishes with no text and the channel sees silence. |
-| `JANUS_VERSION` | `0.16.0` | The image tag. |
+| `JANUS_VERSION` | `0.17.0` | The image tag. |
 
 The service publishes no port and has no domain: Blob reaches it on the internal network,
 and `/v1/agui` authenticates every request by HMAC.

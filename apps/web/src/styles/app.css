@@ -7625,3 +7625,94 @@ button.person-trigger:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── the Janus page, server half ─────────────────────────────────────────── */
+/* Every part of this page has one shape: a heading, a line saying what the part is for,
+   the controls, and a Save. The spacing is the same in all of them, so it is set once as
+   a gap rather than as a margin on each — which is also what keeps a handful more
+   `style={{ marginBottom: 10 }}` out of a client that is ratcheting them down. */
+.janus-part {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.janus-part > * {
+  margin-block: 0;
+}
+
+/* A Save is as wide as its words; everything above it is as wide as the page. */
+.janus-part > .btn {
+  align-self: flex-start;
+}
+
+/* The reason Janus is unreadable, and the button that asks again — one row, and the
+   reason takes whatever the button does not. */
+.janus-retry {
+  align-items: center;
+  gap: 10px;
+}
+
+/* Four fields that pair naturally — provider with model, address with key — so two
+   columns at a width that has room for them and one column where it does not. The
+   minimum is what a URL and a model name need before they start wrapping mid-token. */
+.janus-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+/* A restart, or a restart that did not come back. Not `.connection-banner`: that one is
+   the app's own top-of-window strip and carries its bottom hairline. */
+.janus-banner {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--accent-wash);
+  color: var(--text-2);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  box-shadow: var(--elev-1);
+}
+
+/* Mixed from `--danger` rather than given a colour name of its own: the 44 theme names
+   are a contract `services/themes.py` allowlists and slices by index. */
+.janus-banner[data-bad="true"] {
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  color: var(--danger);
+}
+
+/* What Janus said about the last save, under the form that said it. */
+.janus-issues {
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--text-meta);
+  line-height: 1.5;
+}
+
+.janus-issue-hint {
+  margin-left: 6px;
+  color: var(--text-4);
+  overflow-wrap: anywhere;
+}
+
+/* A model id is one long token — `anthropic/claude-sonnet-4.5` — in a tile that is 170px
+   wide on a phone. Scoped to this page rather than put on `.stat-value`, which the home
+   and health dashboards spend on numbers that must not start breaking. */
+.janus-part .stat-value {
+  overflow-wrap: anywhere;
+}
+
+/* Tall enough to read a config file in, and it grows rather than scrolls a few lines at
+   a time. `tab-size` because YAML is indentation. */
+.janus-raw {
+  min-height: 260px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  line-height: 1.55;
+  tab-size: 2;
+  white-space: pre;
+}

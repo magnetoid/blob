@@ -1,6 +1,5 @@
 /** One installed app: its status row, admin actions, and the activity panel. */
 
-import { useState } from "react";
 import {
   api,
   ApiError,
@@ -12,6 +11,8 @@ import {
 import { useStore } from "../../../../lib/store.ts";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
 import { AgentDeployment } from './AgentDeployment.tsx';
+import { BudgetRow } from './BudgetRow.tsx';
+import { RunLog } from './RunLog.tsx';
 
 export function PluginCard({
   plugin,
@@ -300,42 +301,7 @@ export function PluginCard({
       {expanded && (
         <div className="admin-plugin-deliveries">
           <h5 className="section-label">Recent runs</h5>
-          {runs.length > 0 ? (
-            runs.map((run) => (
-              <div className="admin-row" key={run.id}>
-                <div className="grow min-0">
-                  <div className="admin-row-title">
-                    {run.channelName ? `#${run.channelName}` : "a channel"}
-                    {/* Not muted for `interrupted`: the agent is waiting for
-                        a person, which is the one outcome somebody can act
-                        on, and greying it would read as "nothing to do". */}
-                    <span
-                      className="role-pill"
-                      data-muted={
-                        run.status !== "succeeded" &&
-                        run.status !== "interrupted"
-                      }
-                    >
-                      {run.status}
-                    </span>
-                  </div>
-                  <div className="admin-row-meta">
-                    {run.triggerUserName ?? "someone"} asked ·{" "}
-                    {formatRelative(run.startedAt)}
-                    {run.durationMs !== null &&
-                      ` · ${run.durationMs} ms`}
-                    {` · ${run.postCount} ${run.postCount === 1 ? "reply" : "replies"}`}
-                    {run.transport === "socket" && " · over its own socket"}
-                    {run.error && ` · ${run.error}`}
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="muted">
-              This app has not been asked anything yet.
-            </p>
-          )}
+          <RunLog runs={runs} />
 
           <h5 className="section-label" style={{ marginTop: 14 }}>
             Deliveries
@@ -415,116 +381,6 @@ export function PluginCard({
             </p>
           )}
         </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * The meter and the dial on one line: what the trailing day cost, against the caps.
- *
- * Budgets are measured in what Blob can observe — runs begun and wall-clock time
- * occupied — because token counts belong to the agent's own provider. Admins think in
- * minutes, the server stores seconds; the conversion lives here and nowhere else. The
- * component is keyed on the saved caps, so a save that comes back from the reload
- * reseeds the inputs instead of fighting them.
- */
-function BudgetRow({
-  plugin,
-  act,
-}: {
-  plugin: AdminPlugin;
-  act: (run: () => Promise<unknown>) => Promise<void>;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [runs, setRuns] = useState(
-    plugin.budgetRunsPerDay !== null ? String(plugin.budgetRunsPerDay) : "",
-  );
-  const [minutes, setMinutes] = useState(
-    plugin.budgetSecondsPerDay !== null
-      ? String(Math.round(plugin.budgetSecondsPerDay / 60))
-      : "",
-  );
-
-  const usedMinutes = Math.round(plugin.secondsLastDay / 60);
-  const capped =
-    plugin.budgetRunsPerDay !== null || plugin.budgetSecondsPerDay !== null;
-  const used =
-    `${plugin.runsLastDay} run${plugin.runsLastDay === 1 ? "" : "s"}` +
-    (plugin.budgetRunsPerDay !== null ? ` of ${plugin.budgetRunsPerDay}` : "") +
-    ` · ${usedMinutes}m` +
-    (plugin.budgetSecondsPerDay !== null
-      ? ` of ${Math.round(plugin.budgetSecondsPerDay / 60)}m`
-      : "");
-
-  const save = () => {
-    const runsNum = runs.trim() === "" ? null : Number(runs);
-    const minutesNum = minutes.trim() === "" ? null : Number(minutes);
-    if (runsNum !== null && (!Number.isInteger(runsNum) || runsNum < 1)) return;
-    if (minutesNum !== null && (!Number.isInteger(minutesNum) || minutesNum < 1))
-      return;
-    void act(() =>
-      api.admin.setPluginBudget(plugin.id, {
-        runsPerDay: runsNum,
-        secondsPerDay: minutesNum !== null ? minutesNum * 60 : null,
-      }),
-    ).then(() => setEditing(false));
-  };
-
-  return (
-    <div className="admin-budget">
-      {editing ? (
-        <>
-          <label className="admin-budget-field">
-            Runs / day
-            <input
-              className="input admin-budget-input"
-              type="number"
-              min={1}
-              placeholder="∞"
-              value={runs}
-              onChange={(e) => setRuns(e.target.value)}
-            />
-          </label>
-          <label className="admin-budget-field">
-            Minutes / day
-            <input
-              className="input admin-budget-input"
-              type="number"
-              min={1}
-              placeholder="∞"
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value)}
-            />
-          </label>
-          <button className="btn btn-primary" onClick={save}>
-            Save
-          </button>
-          <button className="btn btn-ghost" onClick={() => setEditing(false)}>
-            Cancel
-          </button>
-        </>
-      ) : (
-        <>
-          <span className="admin-budget-label">
-            {capped ? "Budget" : "Budget: unlimited"}
-          </span>
-          <span className="admin-budget-usage" data-over={
-            (plugin.budgetRunsPerDay !== null &&
-              plugin.runsLastDay >= plugin.budgetRunsPerDay) ||
-            (plugin.budgetSecondsPerDay !== null &&
-              plugin.secondsLastDay >= plugin.budgetSecondsPerDay) ||
-            undefined
-          }>
-            {used} in the last 24h
-          </span>
-          <button
-            className="btn btn-ghost admin-budget-edit"
-            onClick={() => setEditing(true)}
-          >
-            {capped ? "Edit" : "Set a budget"}
-          </button>
-        </>
       )}
     </div>
   );

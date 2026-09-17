@@ -36,6 +36,7 @@ from . import channels as channel_service
 from . import commands as command_service
 from . import handles as handle_service
 from . import saved as saved_service
+from . import seeded
 from . import themes as theme_service
 from . import user_groups as group_service
 from .serialize import USER_COLUMNS, read_prefs, to_current_user, to_user, to_workspace
@@ -308,13 +309,19 @@ async def list_users(
                             SELECT 1 FROM plugins p
                              WHERE p.id = users.bot_plugin_id AND p.status = 'enabled'
                         )) AS agent_disabled,
-                       -- The resident agent: seeded, in every public channel, addressed
-                       -- by its DM. The home view targets it rather than whichever bot
-                       -- sorts first, which may be somebody's own agent or an app that
-                       -- is not in #general — where a mention is dropped silently.
+                       -- The resident agent: the one Blob seeded. The home view targets
+                       -- it rather than whichever bot sorts first, which may be somebody's
+                       -- own agent or an app that is not in #general — where a mention is
+                       -- dropped silently.
+                       --
+                       -- Identity, not the `in_every_public_channel` flag this used to
+                       -- read. The flag is an admin's switch: turning it off to run
+                       -- invitation-only also stopped the home view addressing the agent
+                       -- at all, and turning it on for a second app made two rows claim
+                       -- residency. Where the agent sits is not who it is.
                        (kind = 'bot' AND EXISTS (
                             SELECT 1 FROM plugins p
-                             WHERE p.id = users.bot_plugin_id AND p.in_every_public_channel
+                             WHERE p.id = users.bot_plugin_id AND {seeded.SEEDED_AGENT}
                         )) AS agent_resident
                   FROM users
                  WHERE workspace_id = :ws AND (NOT :active_only OR deactivated_at IS NULL)

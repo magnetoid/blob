@@ -11,94 +11,94 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
-    "sha": "cb06907e2ca5d2d47cdb5b425fc9aba0dff606fc",
-    "shortSha": "cb06907e",
-    "subject": "fix: say what the lightbox backdrop and the run card really do",
-    "date": "2026-09-16T21:55:03+02:00",
+    "sha": "c48b38b5506ca7d5091a183652d15de0880e92f2",
+    "shortSha": "c48b38b5",
+    "subject": "docs: record the Janus page",
+    "date": "2026-09-17T05:33:29+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "570f0dc7679801d50bc201b5b582cdfe6a7b4e56",
-    "shortSha": "570f0dc7",
-    "subject": "feat: the lightbox fades up",
-    "date": "2026-09-16T21:31:55+02:00",
+    "sha": "22f7c87a5d8ccbd9542866c70549681e590ddf8f",
+    "shortSha": "22f7c87a",
+    "subject": "fix: say nothing about Janus until the reading that would say it has landed",
+    "date": "2026-09-17T05:24:58+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "2cbb96a2b65d59d20b5dd6c7ff85ffa5d0f82158",
-    "shortSha": "2cbb96a2",
-    "subject": "feat: chips, run cards and tabs settle instead of switching",
-    "date": "2026-09-16T19:46:16+02:00",
+    "sha": "00dc5950a45de7eb64395e6c9d46606c40b0bbc8",
+    "shortSha": "00dc5950",
+    "subject": "fix: stop a key following the select onto the wrong provider",
+    "date": "2026-09-17T05:10:57+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "e818af099100b6565416ae41abbac43d835ca9b2",
-    "shortSha": "e818af09",
-    "subject": "fix: a notice that is leaving belongs to the channel it was for",
-    "date": "2026-09-16T19:02:21+02:00",
+    "sha": "eb6f07076f1f4394dcb282debdee7c05f29fea27",
+    "shortSha": "eb6f0707",
+    "subject": "fix: seat the agent everywhere only while it is still the workspace's",
+    "date": "2026-09-17T04:37:21+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "8a595e957f1e03a3f08302638c8fc9876550931e",
-    "shortSha": "8a595e95",
-    "subject": "feat: a number that changes says so",
-    "date": "2026-09-16T18:35:06+02:00",
+    "sha": "815d3557f9617e6081586c739e95d158e6d772e9",
+    "shortSha": "815d3557",
+    "subject": "feat: the Janus page, for the server",
+    "date": "2026-09-17T04:12:41+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "aea469e2582b52c0dcdd64ba22317c9696255ffe",
-    "shortSha": "aea469e2",
-    "subject": "feat: the thread panel and the notices leave the way they came",
-    "date": "2026-09-16T18:14:41+02:00",
+    "sha": "d7f70a14b8a5ad43ae119c2cbc177a1ef30288a6",
+    "shortSha": "d7f70a14",
+    "subject": "feat: the Janus page, for the workspace",
+    "date": "2026-09-17T03:03:42+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "6c4aa2b82b321e65e349b8ca2075cab1a9db056b",
-    "shortSha": "6c4aa2b8",
-    "subject": "fix: do not say the same thing twice on the way out",
-    "date": "2026-09-16T17:36:44+02:00",
+    "sha": "36bcefcc25c680f148b33e422c08361e1d65425a",
+    "shortSha": "36bcefcc",
+    "subject": "fix: let a keyless config through the redaction that was eating it",
+    "date": "2026-09-17T02:24:18+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "04f50ec49963dda55b493b4a87f630f09642cea2",
-    "shortSha": "04f50ec4",
-    "subject": "fix: spend one axis, and keep the composer two lines",
-    "date": "2026-09-16T17:33:17+02:00",
+    "sha": "43904e1d93278f0e9ca1adaee6c02f06259caf33",
+    "shortSha": "43904e1d",
+    "subject": "fix: only the agent Blob seeds takes the workspace's word",
+    "date": "2026-09-17T02:04:16+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "016d974809239c7d02f0686d30f32ff60aae73e1",
-    "shortSha": "016d9748",
-    "subject": "feat: toasts arrive and leave instead of appearing and vanishing",
-    "date": "2026-09-16T17:25:09+02:00",
+    "sha": "0e13b7e0dbd2638ca9ed2efaab7e38dd01900a13",
+    "shortSha": "0e13b7e0",
+    "subject": "fix: stop a key escaping through Janus's answers, and the file itself",
+    "date": "2026-09-17T01:41:29+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "3312640d0c58448f0615858f1ece96c7f813f8f9",
-    "shortSha": "3312640d",
-    "subject": "fix: read which way a reaction toggles from the store",
-    "date": "2026-09-16T17:06:03+02:00",
+    "sha": "8f744ce16be64a03e62f3dfd8dd524b54b89d26e",
+    "shortSha": "8f744ce1",
+    "subject": "feat: a workspace tells its agent how to behave, and where to be",
+    "date": "2026-09-17T00:23:46+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "fba64c61a3b6f8f82fb2bb8fcc2c45cbce8ad764",
-    "shortSha": "fba64c61",
-    "subject": "fix: stop the list and the composer from jumping",
-    "date": "2026-09-16T16:59:40+02:00",
+    "sha": "ed2c83b0d445f31b0a9c9c1ee770ceb4898a538e",
+    "shortSha": "ed2c83b0",
+    "subject": "feat: let the console read and change Janus's configuration",
+    "date": "2026-09-16T23:41:30+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "5c6a9d8719b0851c4364d24df312ec2f43ce8038",
-    "shortSha": "5c6a9d87",
-    "subject": "feat: react before the server answers",
-    "date": "2026-09-16T16:30:08+02:00",
+    "sha": "c601efac604a9f0d9f69da5958a41a28bac8c41c",
+    "shortSha": "c601efac",
+    "subject": "docs: plan the Janus page",
+    "date": "2026-09-16T23:06:37+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "6e2937c360922ce65363a0cc4131f1075725b1f6",
-    "shortSha": "6e2937c3",
-    "subject": "Design and plan the small motions",
-    "date": "2026-09-16T16:09:33+02:00",
+    "sha": "baaecf7b654aca269f6b3a62f3f8d5d9d40c9169",
+    "shortSha": "baaecf7b",
+    "subject": "feat: small motions — the client's small moments enter, leave and settle",
+    "date": "2026-09-16T23:05:01+02:00",
     "author": "Marko Tiosavljevic"
   },
   {

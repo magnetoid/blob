@@ -1258,3 +1258,30 @@ the slice rather than fixed in it. The fix, when it is wanted, is for the catch 
 compare before it reverts: read the row out of the store the way the pre-flight check a
 few lines above already does, and revert only if that row still carries the optimistic
 value, instead of replaying a value captured a network round trip ago.
+
+## Trap: a serial `pytest` and `pnpm check` share Redis db 15
+
+`tests/workers.py` gives every xdist worker a Redis db of its own by counting *down* from
+the configured one — `REDIS_URL` ends `/15`, so `gw0` gets 15, `gw1` 14, and so on — and a
+run with no xdist worker id gets no override at all, which means db 15 as well. So a
+serial `uv run pytest -q` and a `pnpm check` (whose API half is `pytest -q -n 4`) both
+flush and write db 15, and every test wipes Redis at setup. The Postgres halves do not
+collide — a serial run is `blob_test` and `gw0` is `blob_test_gw0` — so what this looks
+like is not a database error but socket, presence and rate-limit assertions failing in
+whichever run lost the race, in ones and twos, differently each time, with both runs
+otherwise green when either is run alone.
+
+Found on 2026-09-17 in the Janus console slice, where two agents were working the same
+checkout. The rule is one pytest at a time per checkout, whatever the flags; if two are
+genuinely wanted, the second needs its own `REDIS_URL` db, not its own `-n`.
+
+## Trap: `torsor guard $(git ls-files '*.py')` cannot see a file you have not staged
+
+CI's intent job is `torsor guard --strict --severity error $(git ls-files '*.py')`, which
+is exact there because CI checks out a commit and every file in it is tracked. Run the
+same line locally on a branch that adds a module and the new file is simply absent from
+the argument list: `git ls-files` reads the index, so an untracked file is guarded by
+nothing and the command says PASS. A new service is exactly where a new violation lives —
+`services/janus_console.py` was written, guarded green and only actually guarded after the
+`git add` — so `git add -A` first, or pass the paths, and treat a PASS on an unstaged
+branch as unmeasured rather than clean.

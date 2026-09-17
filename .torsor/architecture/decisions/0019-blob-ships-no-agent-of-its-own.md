@@ -71,5 +71,13 @@ are untouched.
 
 * Every workspace's agent runs in its own process with its own model and key, configured
   on Janus's side (see the console design of the same date for how Blob reaches it).
+* The seeded row's contract gained two controls when that console was built
+  (`docs/superpowers/specs/2026-09-15-janus-console-design.md`, shipped 2026-09-17):
+  `plugins.instructions`, a per-workspace standing prompt sent as
+  `forwardedProps.instructions` on every run, and `in_every_public_channel` as a switch a
+  workspace admin may turn off. Both are the seeded identity's alone — one definition in
+  `services/seeded.py`, enforced on the server, `agent_not_seeded` for every other row —
+  because an app installed by hand declared no field for a workspace's words and never
+  asked for a seat in each room founded after it.
 * Old conversations show messages from a retired "Blob", like any uninstalled app's.
 * A deployment that has not set `COMPOSE_PROFILES=janus` goes from one agent to none.
