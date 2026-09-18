@@ -110,3 +110,28 @@ export async function showMessage(messageId: string): Promise<boolean> {
 export function permalinkFor(messageId: string): string {
   return `${window.location.origin}/m/${messageId}`;
 }
+
+/**
+ * Open a channel somebody found, joining a public one they are not in first.
+ *
+ * ⌘K and /search both land here, so "found it" and "in it" are one step and one rule.
+ * A private channel can only be in a result the asker is already a member of, which is
+ * why `joined` is enough and the kind check is belt and braces.
+ */
+export async function showChannelFromResult(
+  channelId: string,
+  options: { joined: boolean; kind: string },
+): Promise<void> {
+  if (!options.joined && options.kind === 'public') {
+    const { channel } = await api.channels.join(channelId);
+    useStore.setState((s) => ({ channels: { ...s.channels, [channel.id]: channel } }));
+  }
+  await showChannel(channelId);
+}
+
+/** Open the DM with somebody, creating it if this is the first message. */
+export async function showDirectMessage(userId: string): Promise<void> {
+  const { channel } = await api.dms.open([userId]);
+  useStore.setState((s) => ({ channels: { ...s.channels, [channel.id]: channel } }));
+  await showChannel(channel.id);
+}

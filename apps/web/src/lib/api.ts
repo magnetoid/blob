@@ -639,12 +639,22 @@ export const api = {
 
   files: {
     list: (
-      query: { channelId?: string; kind?: "all" | "image" | "file" | "voice"; cursor?: string } = {},
+      query: {
+        channelId?: string;
+        kind?: "all" | "image" | "file" | "voice";
+        cursor?: string;
+        /** Filename contains, case-insensitive. ⌘K's Files section and /search?scope=files. */
+        q?: string;
+        /** Ask for one more than you will show, and a row came back means "there is more". */
+        limit?: number;
+      } = {},
     ) => {
       const params = new URLSearchParams();
       if (query.channelId) params.set("channelId", query.channelId);
       if (query.kind && query.kind !== "all") params.set("kind", query.kind);
       if (query.cursor) params.set("cursor", query.cursor);
+      if (query.q) params.set("q", query.q);
+      if (query.limit) params.set("limit", String(query.limit));
       const suffix = params.size ? `?${params}` : "";
       return get<{ items: FileEntry[]; nextCursor: string | null }>(`/api/attachments${suffix}`);
     },

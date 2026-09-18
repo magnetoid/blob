@@ -6,20 +6,60 @@
  * first release rather than as polish later.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Message } from "@blob/shared";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import type { FileEntry, Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
-import { showChannel, showMessage } from "../../lib/navigation.ts";
-import { navigate, pathForRoute } from "../../lib/router.ts";
+import {
+  showChannelFromResult,
+  showDirectMessage,
+  showMessage,
+} from "../../lib/navigation.ts";
+import { navigate } from "../../lib/router.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { Dialog } from "../../components/Dialog.tsx";
+
+/** The sections, in the order they are drawn — which is also the order Tab walks. */
+type Section = "Channels" | "People" | "Messages" | "Files" | "Actions";
+
+const SCOPES = ["all", "channels", "people", "messages", "files"] as const;
+type PaletteScope = (typeof SCOPES)[number];
+
+/** What the input's accessible name says it is searching. */
+const SCOPE_LABEL: Record<PaletteScope, string> = {
+  all: "everything",
+  channels: "channels",
+  people: "people",
+  messages: "messages",
+  files: "files",
+};
+
+/**
+ * The one section a narrowed scope draws, or null for "draw them all".
+ *
+ * One table rather than two: the same answer decides which request goes out and which
+ * rows are kept, so a scope that stopped fetching but kept rendering cannot happen.
+ */
+const SCOPE_SECTION: Record<PaletteScope, Section | null> = {
+  all: null,
+  channels: "Channels",
+  people: "People",
+  messages: "Messages",
+  files: "Files",
+};
+
+/** Whether a section's own request should go out at all. */
+function fetches(scope: PaletteScope, section: Section): boolean {
+  const sole = SCOPE_SECTION[scope];
+  return sole === null || sole === section;
+}
 
 interface Item {
   id: string;
   label: string;
-  kind: "Channel" | "Person" | "Action" | "Message";
+  kind: "Channel" | "Person" | "Action" | "Message" | "File";
+  section: Section;
   hint?: string;
   run: () => void | Promise<void>;
 }
@@ -51,10 +91,12 @@ export function CommandPalette({
 
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
+  const [scope, setScope] = useState<PaletteScope>("all");
   const [found, setFound] = useState<{ messages: Message[]; total: number }>({
     messages: [],
     total: 0,
   });
+  const [files, setFiles] = useState<FileEntry[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -77,7 +119,7 @@ export function CommandPalette({
    */
   useEffect(() => {
     const q = query.trim();
-    if (only === "people" || q.length < 2) {
+    if (only === "people" || q.length < 2 || !fetches(scope, "Messages")) {
       setFound({ messages: [], total: 0 });
       return;
     }
@@ -98,49 +140,75 @@ export function CommandPalette({
       live = false;
       clearTimeout(timer);
     };
-  }, [query, only]);
+  }, [query, only, scope]);
 
-  const items = useMemo<Item[]>(() => {
-    const channelItems: Item[] = Object.values(channels)
-      .filter((c) => !c.archivedAt)
-      .map((channel) => ({
-        id: `c-${channel.id}`,
-        label: channel.name ? `#${channel.name}` : channelTitle(channel),
-        kind: "Channel",
-        hint: channel.membership ? undefined : "not joined",
-        run: async () => {
-          if (!channel.membership && channel.kind === "public") {
-            const { channel: joined } = await api.channels.join(channel.id);
-            useStore.setState((s) => ({
-              channels: { ...s.channels, [joined.id]: joined },
-            }));
-          }
-          await showChannel(channel.id);
-        },
-      }));
+  /** Files by name. One more than is shown, so "there is more" needs no count. */
+  useEffect(() => {
+    const q = query.trim();
+    if (only === "people" || q.length < 2 || !fetches(scope, "Files")) {
+      setFiles([]);
+      return;
+    }
+    let live = true;
+    const wanted = scope === "files" ? 13 : 6;
+    const timer = setTimeout(() => {
+      void api.files
+        .list({ q, limit: wanted })
+        .then((result) => {
+          if (live) setFiles(result.items);
+        })
+        .catch(() => {
+          if (live) setFiles([]);
+        });
+    }, 180);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [query, only, scope]);
 
-    const peopleItems: Item[] = Object.values(users)
-      .filter((u) => !u.deactivated && u.id !== currentUser?.id)
-      .map((person) => ({
-        id: `u-${person.id}`,
-        label: person.displayName,
-        kind: "Person",
-        run: async () => {
-          const { channel } = await api.dms.open([person.id]);
-          useStore.setState((s) => ({
-            channels: { ...s.channels, [channel.id]: channel },
-          }));
-          await showChannel(channel.id);
-        },
-      }));
+  const channelItems = useMemo<Item[]>(
+    () =>
+      Object.values(channels)
+        .filter((c) => !c.archivedAt)
+        .map((channel) => ({
+          id: `c-${channel.id}`,
+          label: channel.name ? `#${channel.name}` : channelTitle(channel),
+          kind: "Channel",
+          section: "Channels",
+          hint: channel.membership ? undefined : "not joined",
+          run: () =>
+            showChannelFromResult(channel.id, {
+              joined: channel.membership !== null,
+              kind: channel.kind,
+            }),
+        })),
+    [channels, channelTitle],
+  );
 
+  const peopleItems = useMemo<Item[]>(
+    () =>
+      Object.values(users)
+        .filter((u) => !u.deactivated && u.id !== currentUser?.id)
+        .map((person) => ({
+          id: `u-${person.id}`,
+          label: person.displayName,
+          kind: "Person",
+          section: "People",
+          run: () => showDirectMessage(person.id),
+        })),
+    [users, currentUser],
+  );
+
+  const actionItems = useMemo<Item[]>(() => {
     const theme = currentUser?.prefs.theme ?? "system";
     const density = currentUser?.prefs.density ?? "comfortable";
-    const actionItems: Item[] = [
+    return [
       {
         id: "a-home",
         label: "Home — what needs you",
         kind: "Action",
+        section: "Actions",
         run: () => navigate("/"),
       },
       {
@@ -148,12 +216,14 @@ export function CommandPalette({
         label:
           theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
         kind: "Action",
+        section: "Actions",
         run: () => setPrefs({ theme: theme === "dark" ? "light" : "dark" }),
       },
       {
         id: "a-browse",
         label: "Browse channels…",
         kind: "Action",
+        section: "Actions",
         run: () => navigate("/channels"),
       },
       {
@@ -164,6 +234,7 @@ export function CommandPalette({
         id: "a-search",
         label: "Search messages…",
         kind: "Action",
+        section: "Actions",
         run: () => navigate("/search"),
       },
       {
@@ -172,12 +243,14 @@ export function CommandPalette({
         id: "a-help",
         label: "Help — how Blob works",
         kind: "Action",
+        section: "Actions",
         run: () => navigate("/help"),
       },
       {
         id: "a-catchup",
         label: "Catch me up — summarise what I haven't read",
         kind: "Action",
+        section: "Actions",
         run: () => useStore.setState({ catchupScope: "all" }),
       },
       {
@@ -187,20 +260,18 @@ export function CommandPalette({
             ? "Use comfortable density"
             : "Use compact density",
         kind: "Action",
+        section: "Actions",
         run: () =>
           setPrefs({
             density: density === "compact" ? "comfortable" : "compact",
           }),
       },
     ];
-
-    if (only === "people") return peopleItems;
-    return [...channelItems, ...peopleItems, ...actionItems];
-  }, [channels, users, currentUser, setPrefs, channelTitle, only]);
+  }, [currentUser, setPrefs]);
 
   const messageItems = useMemo<Item[]>(
     () =>
-      found.messages.slice(0, 6).map((message) => {
+      found.messages.slice(0, 13).map((message) => {
         const channel = channels[message.channelId];
         const where = channel
           ? channel.name
@@ -211,6 +282,7 @@ export function CommandPalette({
           id: `m-${message.id}`,
           label: oneLine(message.body) || "(no text)",
           kind: "Message",
+          section: "Messages",
           hint: `${(message.authorId ? users[message.authorId]?.displayName : null) ?? "Someone"} · ${where}`,
           run: async () => {
             await showMessage(message.id);
@@ -220,38 +292,155 @@ export function CommandPalette({
     [found.messages, channels, users, channelTitle],
   );
 
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase().replace(/^[#@]/, "");
-    if (!q) return items.slice(0, 12);
-    // Jumping stays first and stays fast — it is what the key is reached for, and it
-    // answers while the search request is still in the air. Messages take the room
-    // below rather than competing for the same twelve slots.
-    const jump = items
-      .map((item) => ({ item, score: score(item.label.toLowerCase(), q) }))
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, messageItems.length > 0 ? 6 : 12)
-      .map((entry) => entry.item);
+  const fileItems = useMemo<Item[]>(
+    () =>
+      files.map((entry) => {
+        const channel = channels[entry.channelId];
+        const where = channel
+          ? channel.name
+            ? `#${channel.name}`
+            : channelTitle(channel)
+          : "a conversation";
+        return {
+          id: `f-${entry.id}`,
+          label: entry.filename,
+          kind: "File",
+          section: "Files",
+          hint: where,
+          run: async () => {
+            // The file is not the destination — the message that carries it is, which is
+            // where it can be read in the conversation it was posted into.
+            await showMessage(entry.messageId);
+          },
+        };
+      }),
+    [files, channels, channelTitle],
+  );
 
-    const all = [...jump, ...messageItems];
-    if (found.total > messageItems.length) {
-      all.push({
-        id: "m-all",
-        label: `See all ${found.total} results for “${query.trim()}”`,
-        kind: "Action",
-        // The page, not the popup: modifiers, sorting and paging live there, and the
-        // URL is the thing somebody sends to a colleague.
-        run: () => navigate(pathForRoute({ view: "search", query: query.trim() })),
-      });
+  const matches = useMemo<Item[]>(() => {
+    const q = query.trim().toLowerCase().replace(/^[#@]/, "");
+    // The one section this list is showing, or null for all of them. A people picker is
+    // the same thing arrived at differently: it opened narrowed, and Tab cannot widen it.
+    const sole: Section | null =
+      only === "people" ? "People" : SCOPE_SECTION[scope];
+    const wanted = (section: Section) => sole === null || section === sole;
+    // A section sharing the list gets five rows and a way to see the rest; a section
+    // that owns the list gets the twelve the flat list always had.
+    const room = sole === null ? 5 : 12;
+
+    if (!q) {
+      // With nothing typed this is still the jump list it has always been.
+      return [...channelItems, ...peopleItems, ...actionItems]
+        .filter((item) => wanted(item.section))
+        .slice(0, 12);
     }
-    return all;
-  }, [items, query, messageItems, found.total]);
+
+    const rank = (list: Item[]) =>
+      list
+        .map((item) => ({ item, s: score(item.label.toLowerCase(), q) }))
+        .filter((entry) => entry.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .map((entry) => entry.item);
+
+    const out: Item[] = [];
+    const seeAll = (section: Section, label: string, target: string): Item => ({
+      id: `see-${section}`,
+      label,
+      kind: "Action",
+      section,
+      // The page, not the popup: modifiers, sorting and paging live there, and the URL
+      // is the thing somebody sends to a colleague.
+      run: () => navigate(target),
+    });
+    const term = encodeURIComponent(query.trim());
+
+    if (wanted("Channels")) {
+      const all = rank(channelItems);
+      const shown = all.slice(0, room);
+      out.push(...shown);
+      if (all.length > shown.length) {
+        out.push(
+          seeAll(
+            "Channels",
+            `See all ${all.length} channels`,
+            `/search?q=${term}&scope=channels`,
+          ),
+        );
+      }
+    }
+    if (wanted("People")) {
+      const all = rank(peopleItems);
+      const shown = all.slice(0, room);
+      out.push(...shown);
+      if (all.length > shown.length) {
+        out.push(
+          seeAll(
+            "People",
+            `See all ${all.length} people`,
+            `/search?q=${term}&scope=people`,
+          ),
+        );
+      }
+    }
+    if (wanted("Messages")) {
+      // Server-ranked: never re-sorted here, or the palette would disagree with /search.
+      const shown = messageItems.slice(0, room);
+      out.push(...shown);
+      if (found.total > shown.length) {
+        out.push(
+          seeAll(
+            "Messages",
+            `See all ${found.total} results for “${query.trim()}”`,
+            `/search?q=${term}`,
+          ),
+        );
+      }
+    }
+    if (wanted("Files")) {
+      const shown = fileItems.slice(0, room);
+      out.push(...shown);
+      // No count: /api/attachments is keyset-paged and returns no total, so the row asks
+      // for one more than it shows and says "more" rather than inventing a number.
+      if (fileItems.length > shown.length) {
+        out.push(
+          seeAll(
+            "Files",
+            `See all files matching “${query.trim()}”`,
+            `/search?q=${term}&scope=files`,
+          ),
+        );
+      }
+    }
+    if (wanted("Actions")) out.push(...rank(actionItems).slice(0, 5));
+
+    return out;
+  }, [
+    query,
+    scope,
+    only,
+    channelItems,
+    peopleItems,
+    actionItems,
+    messageItems,
+    fileItems,
+    found.total,
+  ]);
 
   // Results arrive after the list was already drawn, so the highlight can end up past
   // the end of it. Enter would then do nothing at all, which reads as a broken palette.
   useEffect(() => {
     if (index >= matches.length) setIndex(0);
   }, [matches.length, index]);
+
+  /** Walk the scope ring. Shift walks it backwards, so it is not a one-way trip. */
+  function stepScope(backwards: boolean) {
+    setIndex(0);
+    setScope((current) => {
+      const at = SCOPES.indexOf(current);
+      const next = backwards ? at - 1 + SCOPES.length : at + 1;
+      return SCOPES[next % SCOPES.length]!;
+    });
+  }
 
   async function choose(item: Item | undefined) {
     if (!item) return;
@@ -284,67 +473,99 @@ export function CommandPalette({
          * focused element does not change — without it ⌘K, the main way to get anywhere
          * in this app, is a text box that silently swallows arrow keys.
          */}
-        <input
-          ref={inputRef}
-          className="palette-input"
-          value={query}
-          role="combobox"
-          aria-expanded={matches.length > 0}
-          aria-controls="palette-results"
-          aria-autocomplete="list"
-          aria-activedescendant={
-            matches.length > 0 ? `palette-option-${index}` : undefined
-          }
-          placeholder={
-            only === "people"
-              ? "Message someone…"
-              : "Search everything — channels, people, messages…"
-          }
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setIndex(0);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              setIndex((i) => (i + 1) % Math.max(matches.length, 1));
-            } else if (event.key === "ArrowUp") {
-              event.preventDefault();
-              setIndex(
-                (i) => (i - 1 + matches.length) % Math.max(matches.length, 1),
-              );
-            } else if (event.key === "Enter") {
-              event.preventDefault();
-              void choose(matches[index]);
+        <div className="palette-field">
+          <input
+            ref={inputRef}
+            className="palette-input"
+            value={query}
+            role="combobox"
+            aria-label={
+              only === "people"
+                ? "Message someone"
+                : `Search ${SCOPE_LABEL[scope]} — Tab changes what is searched`
             }
-          }}
-        />
+            aria-expanded={matches.length > 0}
+            aria-controls="palette-results"
+            aria-autocomplete="list"
+            aria-activedescendant={
+              matches.length > 0 ? `palette-option-${index}` : undefined
+            }
+            placeholder={
+              only === "people"
+                ? "Message someone…"
+                : "Search everything — channels, people, messages…"
+            }
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setIndex(0);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setIndex((i) => (i + 1) % Math.max(matches.length, 1));
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setIndex(
+                  (i) => (i - 1 + matches.length) % Math.max(matches.length, 1),
+                );
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                void choose(matches[index]);
+              } else if (event.key === "Tab" && !only) {
+                // Tab is the scope key here, not a focus key. This is a combobox: focus
+                // never leaves the input, and the options are not tab stops (tabIndex -1
+                // below), so nothing is taken away by claiming it.
+                event.preventDefault();
+                stepScope(event.shiftKey);
+              }
+            }}
+          />
+          {!only && (
+            /* A phone has no Tab key, so the indicator is also the control. */
+            <button
+              type="button"
+              className="chip palette-scope"
+              onClick={() => stepScope(false)}
+            >
+              ⇥ {SCOPE_LABEL[scope]}
+            </button>
+          )}
+        </div>
 
         <div className="palette-results" id="palette-results" role="listbox">
           {matches.length === 0 ? (
             <div className="palette-empty">Nothing matched “{query}”</div>
           ) : (
             matches.map((item, i) => (
-              <button
-                key={item.id}
-                id={`palette-option-${i}`}
-                role="option"
-                aria-selected={i === index}
-                className="palette-item"
-                data-active={i === index}
-                onMouseEnter={() => setIndex(i)}
-                onClick={() => void choose(item)}
-              >
-                {item.kind === "Person" && (
-                  <Avatar
-                    user={{ displayName: item.label, avatarUrl: null }}
-                    size="sm"
-                  />
+              <Fragment key={item.id}>
+                {item.section !== matches[i - 1]?.section && (
+                  /* Presentational: each row already announces its kind through the
+                     badge, so the listbox stays a flat list of options. */
+                  <div className="palette-section" aria-hidden="true">
+                    {item.section}
+                  </div>
                 )}
-                <span className="palette-item-label">{item.label}</span>
-                {item.hint && <span className="palette-item-hint muted">{item.hint}</span>}
-                <span className="palette-item-kind">{item.kind}</span>
-              </button>
+                <button
+                  id={`palette-option-${i}`}
+                  role="option"
+                  tabIndex={-1}
+                  aria-selected={i === index}
+                  className="palette-item"
+                  data-active={i === index}
+                  onMouseEnter={() => setIndex(i)}
+                  onClick={() => void choose(item)}
+                >
+                  {item.kind === "Person" && (
+                    <Avatar
+                      user={{ displayName: item.label, avatarUrl: null }}
+                      size="sm"
+                    />
+                  )}
+                  <span className="palette-item-label">{item.label}</span>
+                  {item.hint && <span className="palette-item-hint muted">{item.hint}</span>}
+                  <span className="palette-item-kind">{item.kind}</span>
+                </button>
+              </Fragment>
             ))
           )}
         </div>
