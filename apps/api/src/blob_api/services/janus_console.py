@@ -333,11 +333,14 @@ def secret_values_in(raw: str | None) -> tuple[str, ...]:
 def redact_secrets(raw: str) -> str:
     """`config.yaml`'s text with every inline credential replaced by `REDACTED`.
 
-    **Blob does this, not Janus, on purpose.** Janus 0.17.0 returns the file exactly as
-    written, which is right for the thing that owns it: `janus config set` and an operator
-    with a shell both need the real text. Blob is the only reader that puts that file on a
-    web page, so Blob is where a key stops — the same reasoning that narrows
-    `providers[].key` to `{set, tail}` rather than trusting the sender's mask.
+    **Janus does this too, since 0.17.1.** Its `GET /v1/config` parses the file and
+    replaces every credential before the text leaves its process, which covers the shapes
+    a line rule cannot see — a flow map, a block scalar, a quoted key, a value on a
+    continuation line. This stays as defence in depth: a 0.17.0 Janus, or a regression
+    there, must not turn this page into the place a key is read from — the same reasoning
+    that narrows `providers[].key` to `{set, tail}` rather than trusting the sender's
+    mask. The placeholder is the same string on both sides, so a save still holding it is
+    refused by whichever side sees it first.
 
     Only a value that really is a secret goes, and only the value: the key name, the
     indentation, the quotes, the comments and the line order all survive, so what the

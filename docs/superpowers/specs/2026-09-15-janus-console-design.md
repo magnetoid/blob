@@ -500,3 +500,10 @@ a field its author did not declare.
   a model that does not passes validation and fails at the first run. The picker exists to
   make the common case impossible; the Advanced tab is for people who accept the risk, and
   the page says that too.
+
+**As built, 2026-09-18 — where the redaction lives.** Janus 0.17.1 redacts `raw` at the
+source: `GET /v1/config` parses `config.yaml` with the round-trip loader and replaces every
+value under a credential-named key with `«redacted»` before the text leaves the process
+(flow maps, block scalars, quoted keys and lists included), and `PUT` refuses a `raw` that
+still holds the placeholder. Blob's `redact_secrets` stays as defence in depth with the same
+placeholder, and the compose files pin `0.17.1`.

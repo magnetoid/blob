@@ -237,7 +237,7 @@ describe('when this stack has no Janus', () => {
     expect(envLine('JANUS_AGUI_URL')).toContain('not set');
     expect(envLine('JANUS_SIGNING_SECRET')).not.toContain('not set');
     expect(envLine('JANUS_API_SERVER_KEY')).not.toContain('not set');
-    expect(envLine('JANUS_VERSION')).toContain('0.17.0');
+    expect(envLine('JANUS_VERSION')).toContain('0.17.1');
   });
 
   it('does not claim the stack is broken when it is only this workspace that has none', async () => {

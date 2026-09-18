@@ -82,7 +82,7 @@ services:
   # there is nothing to pass it here the way docker-compose.prod.yml passes the `app`
   # service; set it in .env once and both sides have it.
   janus:
-    image: ghcr.io/magnetoid/janus:${JANUS_VERSION:-0.17.0}
+    image: ghcr.io/magnetoid/janus:${JANUS_VERSION:-0.17.1}
     restart: unless-stopped
     profiles: ["janus"]
     # Without this the image's entrypoint starts the interactive CLI and the container

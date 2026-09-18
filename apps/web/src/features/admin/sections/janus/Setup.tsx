@@ -13,7 +13,7 @@
 import type { JanusOverview } from "../../../../lib/api.ts";
 
 /** Janus's image tag, as `.env.example` and both compose files pin it. */
-const JANUS_VERSION = "0.17.0";
+const JANUS_VERSION = "0.17.1";
 
 const LINES = [
   {

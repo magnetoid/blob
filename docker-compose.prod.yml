@@ -340,7 +340,7 @@ services:
   # authenticates every request by HMAC against the shared secret, and nothing else is
   # exposed to anything.
   janus:
-    image: ghcr.io/magnetoid/janus:${JANUS_VERSION:-0.17.0}
+    image: ghcr.io/magnetoid/janus:${JANUS_VERSION:-0.17.1}
     restart: unless-stopped
     profiles: ["janus"]
     # Without this the image's entrypoint starts the interactive CLI and the container

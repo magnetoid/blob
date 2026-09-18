@@ -228,8 +228,8 @@ the ADR is the place to look before changing them.
   more, bearing `JANUS_API_SERVER_KEY` at an address composed from `JANUS_AGUI_URL` and
   never from a request; a provider key typed there passes through this process to Janus
   and is gone, with no row, log line or response body carrying it, and `config.yaml` comes
-  back to the page with its inline keys redacted, so a save still holding the placeholder
-  is refused rather than written. Blob runs no agent of its own any more: `lib/llm.py` is
+  back to the page with its inline keys redacted — by Janus itself since 0.17.1, and again
+  here — so a save still holding the placeholder is refused rather than written. Blob runs no agent of its own any more: `lib/llm.py` is
   deliberately the smallest possible provider layer with two callers — the unread recap
   and thread summaries. Do not grow it into a framework.
 * **Summaries and nudges** (`services/agentic.py`, `services/unanswered.py`, ADR 0015).
