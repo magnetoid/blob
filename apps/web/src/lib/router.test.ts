@@ -203,3 +203,40 @@ describe('a search carries its query', () => {
     expect(parseRoute('/channels?q=noise')).toEqual({ view: 'browse' });
   });
 });
+
+describe('a search carries its scope', () => {
+  it('reads the scope out of the URL', () => {
+    expect(parseRoute('/search?q=deploy&scope=files')).toEqual({
+      view: 'search',
+      query: 'deploy',
+      scope: 'files',
+    });
+    expect(parseRoute('/search?q=deploy&scope=channels')).toEqual({
+      view: 'search',
+      query: 'deploy',
+      scope: 'channels',
+    });
+  });
+
+  it('never writes the default scope, so one screen has one URL', () => {
+    expect(pathForRoute({ view: 'search', query: 'deploy', scope: 'messages' })).toBe(
+      '/search?q=deploy',
+    );
+    expect(parseRoute('/search?q=deploy&scope=messages')).toEqual({
+      view: 'search',
+      query: 'deploy',
+    });
+  });
+
+  it('ignores a scope nobody serves', () => {
+    expect(parseRoute('/search?q=deploy&scope=nonsense')).toEqual({
+      view: 'search',
+      query: 'deploy',
+    });
+  });
+
+  it('round-trips a scoped search', () => {
+    const route = parseRoute('/search?q=from%3A%40ana%20deploy&scope=files');
+    expect(pathForRoute(route)).toBe('/search?q=from%3A%40ana%20deploy&scope=files');
+  });
+});

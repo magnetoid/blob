@@ -488,7 +488,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           <HelpView />
         </Suspense>
       )}
-      {view === 'search' && <SearchView initialQuery={route.view === 'search' ? (route.query ?? '') : ''} />}
+      {view === 'search' && (
+        <SearchView
+          initialQuery={route.view === 'search' ? (route.query ?? '') : ''}
+          initialScope={route.view === 'search' ? route.scope : undefined}
+        />
+      )}
       {view === 'meetup' && (
         <Suspense fallback={<main className="pane" />}>
           <MeetupView meetupId={route.meetupId} />

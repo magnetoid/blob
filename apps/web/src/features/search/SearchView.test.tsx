@@ -14,13 +14,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 
 const search = vi.fn();
+const listFiles = vi.fn();
+const navigate = vi.fn();
 
 vi.mock('../../lib/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/api.ts')>();
-  return { ...actual, api: { search: (...args: unknown[]) => search(...(args as [])) } };
+  return {
+    ...actual,
+    api: {
+      search: (...args: unknown[]) => search(...(args as [])),
+      files: { list: (...args: unknown[]) => listFiles(...(args as [])) },
+    },
+  };
 });
 
-vi.mock('../../lib/navigation.ts', () => ({ showMessage: vi.fn() }));
+vi.mock('../../lib/navigation.ts', () => ({
+  showMessage: vi.fn(),
+  showChannelFromResult: vi.fn(),
+  showDirectMessage: vi.fn(),
+}));
+
+vi.mock('../../lib/router.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/router.ts')>();
+  return { ...actual, navigate };
+});
 
 const { SearchView } = await import('./SearchView.tsx');
 
@@ -51,6 +68,8 @@ function deferred<T>() {
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   search.mockReset();
+  listFiles.mockReset();
+  navigate.mockReset();
 });
 
 afterEach(() => {
@@ -195,5 +214,67 @@ describe('the parsed query echo', () => {
     await type('from:@nobodyatall');
 
     expect(screen.getByText('Could not place from:nobodyatall.')).toBeTruthy();
+  });
+});
+
+describe('search scopes', () => {
+  it('searches messages and nothing else by default', async () => {
+    search.mockResolvedValue({ messages: [message('m1', 'a result')], total: 1, nextCursor: null });
+
+    render(<SearchView />);
+    await type('deploy');
+
+    expect(search).toHaveBeenCalled();
+    expect(listFiles).not.toHaveBeenCalled();
+  });
+
+  it('lists filenames when the URL asked for files', async () => {
+    listFiles.mockResolvedValue({
+      items: [
+        {
+          id: 'f1',
+          filename: 'deploy-runbook.pdf',
+          mime: 'application/pdf',
+          sizeBytes: 10,
+          width: null,
+          height: null,
+          url: '/api/files/f1',
+          thumbUrl: null,
+          kind: 'file',
+          durationMs: null,
+          waveform: null,
+          transcriptStatus: 'none',
+          transcriptProvider: null,
+          channelId: 'c1',
+          messageId: 'm9',
+          createdAt: '2026-09-01T09:00:00.000Z',
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(<SearchView initialScope="files" />);
+    await type('deploy');
+
+    expect(listFiles).toHaveBeenCalledWith({ q: 'deploy' });
+    expect(search).not.toHaveBeenCalled();
+    expect(screen.getByText('deploy-runbook.pdf')).toBeTruthy();
+  });
+
+  it('puts the chosen scope in the URL', async () => {
+    render(<SearchView />);
+    await type('deploy');
+    fireEvent.click(screen.getByRole('button', { name: 'Files' }));
+
+    expect(navigate).toHaveBeenCalledWith('/search?q=deploy&scope=files', { replace: true });
+  });
+
+  it('keeps the has: filters and the sort on messages only', async () => {
+    render(<SearchView initialScope="files" />);
+    await type('deploy');
+
+    // `has:link` over a list of filenames is not a narrowing, it is nonsense.
+    expect(screen.queryByRole('button', { name: 'Has link' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Sort results' })).toBeNull();
   });
 });

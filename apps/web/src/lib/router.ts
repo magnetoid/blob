@@ -58,6 +58,17 @@ export const ADMIN_DETAIL_SECTIONS: readonly AdminSection[] = [
 /** Where a bare /admin lands. */
 const DEFAULT_ADMIN_SECTION: AdminSection = 'general';
 
+/**
+ * What a /search URL is looking through.
+ *
+ * `messages` is the default and is never written, so `/search?q=x` means exactly what it
+ * has always meant and no screen has two URLs. The palette's own fifth state, `all`, is a
+ * popup thing and never reaches a link.
+ */
+export type SearchScope = 'messages' | 'channels' | 'people' | 'files';
+
+const SEARCH_SCOPES: readonly string[] = ['messages', 'channels', 'people', 'files'];
+
 export type Route =
   | { view: 'home' }
   | { view: 'messages' }
@@ -77,7 +88,7 @@ export type Route =
   | { view: 'meetup'; meetupId: string }
   /** A permalink to one message. Resolved, then replaced by the conversation. */
   | { view: 'permalink'; messageId: string }
-  | { view: 'search'; query?: string }
+  | { view: 'search'; query?: string; scope?: SearchScope }
   | { view: 'settings'; section: SettingsSection }
   | { view: 'admin'; section: AdminSection; detailId?: string };
 
@@ -140,9 +151,15 @@ export function parseRoute(path: string): Route {
   if (permalink) return { view: 'permalink', messageId: permalink[1] as string };
   if (clean === '/search') {
     // Shareable and bookmarkable, the way Slack's is: the search someone sent you
-    // opens as the search they ran.
+    // opens as the search they ran, looking through what they were looking through.
     const query = params.get('q') ?? '';
-    return query ? { view: 'search', query } : { view: 'search' };
+    const asked = params.get('scope');
+    const scope =
+      asked && asked !== 'messages' && SEARCH_SCOPES.includes(asked)
+        ? (asked as SearchScope)
+        : undefined;
+    if (query) return scope ? { view: 'search', query, scope } : { view: 'search', query };
+    return scope ? { view: 'search', scope } : { view: 'search' };
   }
   // Your profile, your preferences and your notifications were three pages; they are
   // one now, and both old URLs are real links people hold.
@@ -231,8 +248,13 @@ export function pathForRoute(route: Route): string {
       return `/meetup/${route.meetupId}`;
     case 'permalink':
       return `/m/${route.messageId}`;
-    case 'search':
-      return route.query ? `/search?q=${encodeURIComponent(route.query)}` : '/search';
+    // A hand-built string rather than URLSearchParams, which writes a space as `+`:
+    // the modifier grammar puts spaces in a query and `%20` is what round-trips.
+    case 'search': {
+      const scope = route.scope && route.scope !== 'messages' ? `scope=${route.scope}` : '';
+      if (!route.query) return scope ? `/search?${scope}` : '/search';
+      return `/search?q=${encodeURIComponent(route.query)}${scope ? `&${scope}` : ''}`;
+    }
     case 'settings':
       return `/settings/${route.section}`;
     case 'admin':

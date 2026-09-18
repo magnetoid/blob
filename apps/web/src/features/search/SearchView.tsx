@@ -5,11 +5,16 @@
  * has:link before:2026-01-01` — with the free text as whatever is left over.
  */
 
-import { useEffect, useRef, useState } from "react";
-import { navigate, pathForRoute } from "../../lib/router.ts";
-import type { Message } from "@blob/shared";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { navigate, pathForRoute, type SearchScope } from "../../lib/router.ts";
+import type { FileEntry, Message } from "@blob/shared";
 import { api, ApiError, type ParsedSearchQuery, type SearchSort } from "../../lib/api.ts";
-import { showMessage } from "../../lib/navigation.ts";
+import {
+  showChannelFromResult,
+  showDirectMessage,
+  showMessage,
+} from "../../lib/navigation.ts";
+import { useStore } from "../../lib/store.ts";
 import { SearchIcon } from "../../components/Icon.tsx";
 import { MessageResultRow } from "../messages/MessageResultRow.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
@@ -17,6 +22,17 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 const SORTS: Array<{ value: SearchSort; label: string }> = [
   { value: 'relevance', label: 'Most relevant' },
   { value: 'newest', label: 'Most recent' },
+];
+
+/**
+ * What is being searched. A different question from FILTERS below, which are `has:`
+ * shortcuts *within* a message search — so they are two rows, not one.
+ */
+const SCOPES: Array<{ value: SearchScope; label: string }> = [
+  { value: "messages", label: "Messages" },
+  { value: "files", label: "Files" },
+  { value: "channels", label: "Channels" },
+  { value: "people", label: "People" },
 ];
 
 const FILTERS = [
@@ -36,8 +52,19 @@ function echoTokens(parsed: ParsedSearchQuery): string[] {
   return tokens;
 }
 
-export function SearchView({ initialQuery = "" }: { initialQuery?: string }) {
+export function SearchView({
+  initialQuery = "",
+  initialScope,
+}: {
+  initialQuery?: string;
+  initialScope?: SearchScope;
+}) {
   const [query, setQuery] = useState(initialQuery);
+  const [scope, setScope] = useState<SearchScope>(initialScope ?? "messages");
+  /** Filenames the server matched. Null while there is nothing to match against. */
+  const [fileHits, setFileHits] = useState<FileEntry[] | null>(null);
+  const people = useStore((s) => s.users);
+  const me = useStore((s) => s.currentUser);
   const [filter, setFilter] = useState<string>("");
   /** Relevance answers "find the thing I remember"; recency answers "what was said
    *  about this lately". Slack offers both and people use both. */
@@ -72,10 +99,10 @@ export function SearchView({ initialQuery = "" }: { initialQuery?: string }) {
   // what makes Back leave the search rather than rewind it letter by letter.
   useEffect(() => {
     const term = query.trim();
-    navigate(pathForRoute({ view: "search", query: term || undefined }), {
+    navigate(pathForRoute({ view: "search", query: term || undefined, scope }), {
       replace: true,
     });
-  }, [query]);
+  }, [query, scope]);
 
   // Debounce so typing doesn't fire a request per keystroke.
   useEffect(() => {
@@ -88,7 +115,10 @@ export function SearchView({ initialQuery = "" }: { initialQuery?: string }) {
     // results for a search that was no longer on screen.
     let live = true;
     const timer = setTimeout(async () => {
-      if (!term) {
+      // Nothing typed, or the question is no longer about messages at all. Either way
+      // the message view is reset rather than left holding the last search's list
+      // behind a scope that is not showing it.
+      if (scope !== "messages" || !term) {
         setResults(null);
         setTotal(0);
         setNextCursor(null);
@@ -130,7 +160,53 @@ export function SearchView({ initialQuery = "" }: { initialQuery?: string }) {
       live = false;
       clearTimeout(timer);
     };
-  }, [query, filter, sort]);
+  }, [query, filter, sort, scope]);
+
+  useEffect(() => {
+    const term = query.trim();
+    if (scope !== "files" || !term) {
+      setFileHits(null);
+      return;
+    }
+    let live = true;
+    const timer = setTimeout(async () => {
+      try {
+        const result = await api.files.list({ q: term });
+        if (live) setFileHits(result.items);
+      } catch {
+        if (live) setFileHits([]);
+      }
+    }, 220);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [query, scope]);
+
+  // Channels never leave the client: the store holds exactly the asker's reach.
+  const channels = useStore((s) => s.channels);
+  const channelHits = useMemo(() => {
+    const term = query.trim().toLowerCase().replace(/^#/, "");
+    if (scope !== "channels" || !term) return null;
+    return Object.values(channels).filter(
+      (channel) =>
+        !channel.archivedAt &&
+        [channel.name, channel.topic, channel.description].some((field) =>
+          (field ?? "").toLowerCase().includes(term),
+        ),
+    );
+  }, [channels, query, scope]);
+
+  const peopleHits = useMemo(() => {
+    const term = query.trim().toLowerCase().replace(/^@/, "");
+    if (!term) return [];
+    return Object.values(people).filter(
+      (person) =>
+        !person.deactivated &&
+        person.id !== me?.id &&
+        person.displayName.toLowerCase().includes(term),
+    );
+  }, [people, me, query]);
 
   /**
    * The next page, appended.
@@ -173,36 +249,155 @@ export function SearchView({ initialQuery = "" }: { initialQuery?: string }) {
             aria-label="Search messages"
           />
         </div>
-        <div className="chip-row">
-          {FILTERS.map((f) => (
+        <div className="chip-row" role="group" aria-label="What to search">
+          {SCOPES.map((option) => (
             <button
-              key={f.label}
+              key={option.value}
               className="chip"
               type="button"
-              aria-pressed={filter === f.value}
-              onClick={() => setFilter(f.value)}
+              aria-pressed={scope === option.value}
+              onClick={() => setScope(option.value)}
             >
-              {f.label}
+              {option.label}
             </button>
           ))}
-          <div className="search-sort" role="group" aria-label="Sort results">
-            {SORTS.map((option) => (
+        </div>
+        {scope === "messages" && (
+          <div className="chip-row">
+            {FILTERS.map((f) => (
               <button
-                key={option.value}
+                key={f.label}
                 className="chip"
                 type="button"
-                aria-pressed={sort === option.value}
-                onClick={() => setSort(option.value)}
+                aria-pressed={filter === f.value}
+                onClick={() => setFilter(f.value)}
               >
-                {option.label}
+                {f.label}
               </button>
             ))}
+            <div className="search-sort" role="group" aria-label="Sort results">
+              {SORTS.map((option) => (
+                <button
+                  key={option.value}
+                  className="chip"
+                  type="button"
+                  aria-pressed={sort === option.value}
+                  onClick={() => setSort(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="search-results">
-        {failed ? (
+        {scope === "files" ? (
+          fileHits === null ? (
+            <EmptyState mark={<SearchIcon size="xl" />} title="Search files by name">
+              Type part of a filename. Only files in conversations you are in are
+              searched.
+            </EmptyState>
+          ) : fileHits.length === 0 ? (
+            <EmptyState title={`No filename matches “${query}”`}>
+              Try a shorter fragment — the match is anywhere in the name.
+            </EmptyState>
+          ) : (
+            <ul className="browse-list">
+              {fileHits.map((entry) => (
+                <li key={entry.id} className="browse-row">
+                  <div className="browse-row-main">
+                    <div className="browse-row-name">{entry.filename}</div>
+                    <div className="browse-row-meta">{entry.createdAt.slice(0, 10)}</div>
+                  </div>
+                  {/* The file is not the destination — the message carrying it is, which
+                      is where it can be read in the conversation it was posted into. */}
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => void showMessage(entry.messageId)}
+                  >
+                    Open
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : scope === "channels" ? (
+          channelHits === null ? (
+            <EmptyState mark={<SearchIcon size="xl" />} title="Search channels by name">
+              Type part of a name, a topic or a description. Only channels you can see
+              are searched.
+            </EmptyState>
+          ) : channelHits.length === 0 ? (
+            <EmptyState title={`No channel matches “${query}”`}>
+              Try a shorter fragment — the match is anywhere in the name, the topic or
+              the description.
+            </EmptyState>
+          ) : (
+            <ul className="browse-list">
+              {channelHits.map((channel) => (
+                <li key={channel.id} className="browse-row">
+                  <div className="browse-row-main">
+                    <div className="browse-row-name">
+                      <span className="channel-hash" aria-hidden="true">
+                        #
+                      </span>
+                      {channel.name}
+                    </div>
+                    {/* Whichever the workspace actually filled in: both boxes answer
+                        "what is this channel for". */}
+                    {(channel.description || channel.topic) && (
+                      <div className="browse-row-meta">
+                        {channel.description || channel.topic}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() =>
+                      void showChannelFromResult(channel.id, {
+                        joined: channel.membership !== null,
+                        kind: channel.kind,
+                      })
+                    }
+                  >
+                    Open
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : scope === "people" ? (
+          !query.trim() ? (
+            <EmptyState mark={<SearchIcon size="xl" />} title="Search people by name">
+              Type part of a name. Everybody in the workspace is here, agents included.
+            </EmptyState>
+          ) : peopleHits.length === 0 ? (
+            <EmptyState title={`Nobody matches “${query}”`}>
+              Try a shorter fragment — the match is anywhere in the display name.
+            </EmptyState>
+          ) : (
+            <ul className="browse-list">
+              {peopleHits.map((person) => (
+                <li key={person.id} className="browse-row">
+                  <div className="browse-row-main">
+                    <div className="browse-row-name">{person.displayName}</div>
+                    {person.title && (
+                      <div className="browse-row-meta">{person.title}</div>
+                    )}
+                  </div>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => void showDirectMessage(person.id)}
+                  >
+                    Message
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : failed ? (
           <EmptyState
             title={failure === "rate-limited" ? "Too many searches at once" : "Search didn’t answer"}
           >
