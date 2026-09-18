@@ -49,6 +49,15 @@ const SCOPE_SECTION: Record<PaletteScope, Section | null> = {
   files: "Files",
 };
 
+/**
+ * How many rows a section gets: twelve when it owns the list, five when it shares it.
+ *
+ * A section that fetches asks for one more than it will draw, which is how "there is
+ * more" is known without a count — so both numbers come from here and the +1 cannot
+ * drift away from the budget it is one more than.
+ */
+const ROOM = { sole: 12, shared: 5 } as const;
+
 /** Whether a section's own request should go out at all. */
 function fetches(scope: PaletteScope, section: Section): boolean {
   const sole = SCOPE_SECTION[scope];
@@ -150,7 +159,7 @@ export function CommandPalette({
       return;
     }
     let live = true;
-    const wanted = scope === "files" ? 13 : 6;
+    const wanted = (scope === "files" ? ROOM.sole : ROOM.shared) + 1;
     const timer = setTimeout(() => {
       void api.files
         .list({ q, limit: wanted })
@@ -171,18 +180,17 @@ export function CommandPalette({
     () =>
       Object.values(channels)
         .filter((c) => !c.archivedAt)
-        .map((channel) => ({
-          id: `c-${channel.id}`,
-          label: channel.name ? `#${channel.name}` : channelTitle(channel),
-          kind: "Channel",
-          section: "Channels",
-          hint: channel.membership ? undefined : "not joined",
-          run: () =>
-            showChannelFromResult(channel.id, {
-              joined: channel.membership !== null,
-              kind: channel.kind,
-            }),
-        })),
+        .map((channel) => {
+          const joined = channel.membership !== null;
+          return {
+            id: `c-${channel.id}`,
+            label: channel.name ? `#${channel.name}` : channelTitle(channel),
+            kind: "Channel",
+            section: "Channels",
+            hint: joined ? undefined : "not joined",
+            run: () => showChannelFromResult(channel.id, { joined, kind: channel.kind }),
+          };
+        }),
     [channels, channelTitle],
   );
 
@@ -271,7 +279,7 @@ export function CommandPalette({
 
   const messageItems = useMemo<Item[]>(
     () =>
-      found.messages.slice(0, 13).map((message) => {
+      found.messages.slice(0, ROOM.sole + 1).map((message) => {
         const channel = channels[message.channelId];
         const where = channel
           ? channel.name
@@ -324,9 +332,9 @@ export function CommandPalette({
     const sole: Section | null =
       only === "people" ? "People" : SCOPE_SECTION[scope];
     const wanted = (section: Section) => sole === null || section === sole;
-    // A section sharing the list gets five rows and a way to see the rest; a section
-    // that owns the list gets the twelve the flat list always had.
-    const room = sole === null ? 5 : 12;
+    // A section sharing the list gets a way to see the rest; a section that owns the
+    // list gets the twelve rows the flat list always had.
+    const room = sole === null ? ROOM.shared : ROOM.sole;
 
     if (!q) {
       // With nothing typed this is still the jump list it has always been.
@@ -411,7 +419,7 @@ export function CommandPalette({
         );
       }
     }
-    if (wanted("Actions")) out.push(...rank(actionItems).slice(0, 5));
+    if (wanted("Actions")) out.push(...rank(actionItems).slice(0, ROOM.shared));
 
     return out;
   }, [
@@ -525,7 +533,14 @@ export function CommandPalette({
             <button
               type="button"
               className="chip palette-scope"
+              // Touch is the platform this button exists for, and a tap that moved focus
+              // off the input would drop the on-screen keyboard mid-search. Preventing
+              // mousedown's default is what keeps focus where it already is; the click
+              // still lands.
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => stepScope(false)}
+              // The visible text is a glyph and a noun; the name says it is a control.
+              aria-label={`Searching ${SCOPE_LABEL[scope]} — change what is searched`}
             >
               ⇥ {SCOPE_LABEL[scope]}
             </button>
@@ -534,7 +549,14 @@ export function CommandPalette({
 
         <div className="palette-results" id="palette-results" role="listbox">
           {matches.length === 0 ? (
-            <div className="palette-empty">Nothing matched “{query}”</div>
+            <div className="palette-empty">
+              {/* Messages and files only exist once something has been asked for, so an
+                  empty box there has matched nothing rather than failed to. Channels and
+                  people are already in the store, so their empty list is an answer. */}
+              {!query.trim() && (scope === "messages" || scope === "files")
+                ? `Type to search ${SCOPE_LABEL[scope]}`
+                : `Nothing matched “${query}”`}
+            </div>
           ) : (
             matches.map((item, i) => (
               <Fragment key={item.id}>

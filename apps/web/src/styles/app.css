@@ -2494,6 +2494,8 @@ dialog.palette-host {
   border-bottom: 1px solid var(--hairline-soft);
 }
 
+/* The focus indicator for the input inside, which suppresses its own ring. It lives on
+   the row rather than the input so it spans the scope control too. */
 .palette-field:focus-within {
   border-bottom-color: var(--accent);
 }
@@ -2511,8 +2513,8 @@ dialog.palette-host {
   padding: 16px 18px;
   border: 0;
   /* The palette autofocuses this input and traps focus, so a ring around it would
-     draw a box around the whole top of the dialog for no information. The bottom
-     rule turning accent is the indicator. */
+     draw a box around the whole top of the dialog for no information.
+     `.palette-field:focus-within` above is the indicator instead. */
   outline: none;
   background: transparent;
   font-size: var(--text-title);
