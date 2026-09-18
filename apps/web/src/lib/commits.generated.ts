@@ -11,87 +11,24 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
-    "sha": "c48b38b5506ca7d5091a183652d15de0880e92f2",
-    "shortSha": "c48b38b5",
-    "subject": "docs: record the Janus page",
-    "date": "2026-09-17T05:33:29+02:00",
+    "sha": "58be134b99d172624f971b1c163873040c97a918",
+    "shortSha": "58be134b",
+    "subject": "fix: keep each stack's Janus on its own network",
+    "date": "2026-09-18T04:45:32+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "22f7c87a5d8ccbd9542866c70549681e590ddf8f",
-    "shortSha": "22f7c87a",
-    "subject": "fix: say nothing about Janus until the reading that would say it has landed",
-    "date": "2026-09-17T05:24:58+02:00",
+    "sha": "e8c49f156fa3bf93ffd6e566ccec538fcb423644",
+    "shortSha": "e8c49f15",
+    "subject": "docs: the README says what Blob is, and shows it",
+    "date": "2026-09-17T21:03:24+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
-    "sha": "00dc5950a45de7eb64395e6c9d46606c40b0bbc8",
-    "shortSha": "00dc5950",
-    "subject": "fix: stop a key following the select onto the wrong provider",
-    "date": "2026-09-17T05:10:57+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "eb6f07076f1f4394dcb282debdee7c05f29fea27",
-    "shortSha": "eb6f0707",
-    "subject": "fix: seat the agent everywhere only while it is still the workspace's",
-    "date": "2026-09-17T04:37:21+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "815d3557f9617e6081586c739e95d158e6d772e9",
-    "shortSha": "815d3557",
-    "subject": "feat: the Janus page, for the server",
-    "date": "2026-09-17T04:12:41+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d7f70a14b8a5ad43ae119c2cbc177a1ef30288a6",
-    "shortSha": "d7f70a14",
-    "subject": "feat: the Janus page, for the workspace",
-    "date": "2026-09-17T03:03:42+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "36bcefcc25c680f148b33e422c08361e1d65425a",
-    "shortSha": "36bcefcc",
-    "subject": "fix: let a keyless config through the redaction that was eating it",
-    "date": "2026-09-17T02:24:18+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "43904e1d93278f0e9ca1adaee6c02f06259caf33",
-    "shortSha": "43904e1d",
-    "subject": "fix: only the agent Blob seeds takes the workspace's word",
-    "date": "2026-09-17T02:04:16+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "0e13b7e0dbd2638ca9ed2efaab7e38dd01900a13",
-    "shortSha": "0e13b7e0",
-    "subject": "fix: stop a key escaping through Janus's answers, and the file itself",
-    "date": "2026-09-17T01:41:29+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "8f744ce16be64a03e62f3dfd8dd524b54b89d26e",
-    "shortSha": "8f744ce1",
-    "subject": "feat: a workspace tells its agent how to behave, and where to be",
-    "date": "2026-09-17T00:23:46+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "ed2c83b0d445f31b0a9c9c1ee770ceb4898a538e",
-    "shortSha": "ed2c83b0",
-    "subject": "feat: let the console read and change Janus's configuration",
-    "date": "2026-09-16T23:41:30+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "c601efac604a9f0d9f69da5958a41a28bac8c41c",
-    "shortSha": "c601efac",
-    "subject": "docs: plan the Janus page",
-    "date": "2026-09-16T23:06:37+02:00",
+    "sha": "90aa14720659f903dc558b4951cc17f760a5a980",
+    "shortSha": "90aa1472",
+    "subject": "feat: the Janus page — a workspace configures its agent, a server configures Janus",
+    "date": "2026-09-17T06:35:19+02:00",
     "author": "Marko Tiosavljevic"
   },
   {
@@ -428,6 +365,69 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "5029c37e",
     "subject": "Put the workspace above the whole app, and give the chrome its space back",
     "date": "2026-09-14T03:28:38+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "b86ff397a40fd2b5915fc18a1f4fea55763695f2",
+    "shortSha": "b86ff397",
+    "subject": "Stop a deleted message stranding the channel's tail pointer",
+    "date": "2026-09-14T03:28:24+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "a6e80f48e693fa373d0283fbfc0fd30b81f6f7d9",
+    "shortSha": "a6e80f48",
+    "subject": "Stop a test measuring the calendar instead of the page",
+    "date": "2026-09-14T03:26:08+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "75dc9a4988b97aa8dae46d25c5e52ae72481a451",
+    "shortSha": "75dc9a49",
+    "subject": "Let ADR 0003's rule be written down in the file it governs",
+    "date": "2026-09-14T00:30:35+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "5e30253f51166fdbc1eb210230cac752ae3bf63e",
+    "shortSha": "5e30253f",
+    "subject": "Map the voice attachment migration and its tests",
+    "date": "2026-09-13T23:53:50+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "56873ca01122a292ef9c779237d0aaac5a799a45",
+    "shortSha": "56873ca0",
+    "subject": "Give the releases version numbers, and this one a name",
+    "date": "2026-09-13T23:51:59+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "8632627d5c1fe816e06c97155b13e709622d35ea",
+    "shortSha": "8632627d",
+    "subject": "Notice a connection that has quietly died",
+    "date": "2026-09-13T23:49:57+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "72c7b417f840ee60f0986bbf1eefd7dbc1a4ebe8",
+    "shortSha": "72c7b417",
+    "subject": "Give an attachment the shape a voice message needs",
+    "date": "2026-09-13T23:47:09+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "17f09f25014e39e7fb05e5d39949442606d84d18",
+    "shortSha": "17f09f25",
+    "subject": "Describe the deploy path that now exists",
+    "date": "2026-09-13T21:31:34+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "e42ca5ce15eec0c2afd82c7313ba8b0071583adf",
+    "shortSha": "e42ca5ce",
+    "subject": "Deploy from the gate instead of from the push",
+    "date": "2026-09-13T21:23:27+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

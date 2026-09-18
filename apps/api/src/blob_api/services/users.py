@@ -38,6 +38,7 @@ from . import handles as handle_service
 from . import saved as saved_service
 from . import seeded
 from . import themes as theme_service
+from . import translation as translation_service
 from . import user_groups as group_service
 from .serialize import USER_COLUMNS, read_prefs, to_current_user, to_user, to_workspace
 
@@ -144,6 +145,7 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
         # set by whoever deployed, so it is operator input, and a 40-character hex string
         # is the whole of what it can usefully be.
         server_commit=served_commit(),
+        translation_enabled=translation_service.configured(),
     )
 
 

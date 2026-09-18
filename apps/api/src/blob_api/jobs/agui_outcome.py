@@ -654,16 +654,12 @@ async def run_one(
         return  # Stopped on request; no apology, nothing posted.
 
     if reason:
+        # The card under the asker's message already says failed, and why — `_finish`
+        # wrote the reason onto the run. This used to post it a second time as a message
+        # from the agent ("I couldn't finish that — …"), and two copies of one failure a
+        # few lines apart read as a bug of their own (2026-09-18). The plugin's
+        # `last_error` still records it, which is what the console shows.
         await record_error(listener.plugin_id, reason)
-        await post_as_bot(
-            listener,
-            workspace_id=workspace_id,
-            channel_id=channel_id,
-            thread_root_id=thread_root_id,
-            body=f"I couldn't finish that — {reason}.",
-            client_msg_id=f"agui:{trigger_id}:error",
-            blocks=None,
-        )
     elif decision is not None:
         decision_message_id = await post_as_bot(
             listener,

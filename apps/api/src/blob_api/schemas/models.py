@@ -395,6 +395,10 @@ class Bootstrap(CamelModel):
     #: own at build time and prefers that; this is what answers when the build could not
     #: read a repository, which is the ordinary case for a deploy from a source tree.
     server_commit: str | None = None
+    #: Whether this server has a translation provider. Without one the client draws no
+    #: Translate action and no translation preference at all, rather than controls whose
+    #: only possible answer is "not configured".
+    translation_enabled: bool = False
 
 
 class ReadStateOut(CamelModel):

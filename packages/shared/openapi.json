@@ -1463,6 +1463,11 @@
             "title": "Themes",
             "type": "array"
           },
+          "translationEnabled": {
+            "default": false,
+            "title": "Translationenabled",
+            "type": "boolean"
+          },
           "user": {
             "$ref": "#/components/schemas/CurrentUser"
           },

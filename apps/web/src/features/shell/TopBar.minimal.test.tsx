@@ -63,4 +63,43 @@ describe('the minimal top bar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(navigateMock).toHaveBeenCalledWith('/search');
   });
+
+  it('carries the control that folds the channel list, and says which way it goes', () => {
+    useStore.setState({
+      workspaceName: 'Imba',
+      currentUser: { id: 'u1', displayName: 'Marko', role: 'owner' },
+      status: 'online',
+    } as never);
+    const onToggleCollapse = vi.fn();
+
+    const { rerender } = render(
+      <TopBar onFeedback={vi.fn()} view="messages" minimal onToggleCollapse={onToggleCollapse} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Hide channel list' }));
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <TopBar
+        onFeedback={vi.fn()}
+        view="messages"
+        minimal
+        onToggleCollapse={onToggleCollapse}
+        sidebarCollapsed
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Show channel list' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Hide channel list' })).toBeNull();
+  });
+
+  it('draws no such control where nothing folds, so the console bar stays as it was', () => {
+    useStore.setState({
+      workspaceName: 'Imba',
+      currentUser: { id: 'u1', displayName: 'Marko', role: 'owner' },
+      status: 'online',
+    } as never);
+
+    render(<TopBar onFeedback={vi.fn()} view="admin" />);
+
+    expect(screen.queryByRole('button', { name: /channel list/ })).toBeNull();
+  });
 });

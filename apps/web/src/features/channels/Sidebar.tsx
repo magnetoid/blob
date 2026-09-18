@@ -16,7 +16,6 @@ import {
 } from '../../lib/conversations.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
 import {
-  ChevronLeftIcon,
   ClockIcon,
   FileIcon,
   HomeIcon,
@@ -33,13 +32,9 @@ import { byDisplayName } from '../../lib/format.ts';
 
 interface SidebarProps {
   collapsed?: boolean;
-  onToggleCollapse?: () => void;
 }
 
-export function Sidebar({
-  collapsed = false,
-  onToggleCollapse,
-}: SidebarProps = {}) {
+export function Sidebar({ collapsed = false }: SidebarProps = {}) {
   const channels = useStore((s) => s.channels);
   const users = useStore((s) => s.users);
   const presence = useStore((s) => s.presence);
@@ -102,25 +97,9 @@ export function Sidebar({
 
   return (
     <aside className="sidebar" data-collapsed={collapsed ? 'true' : 'false'}>
-      <div className="sidebar-header">
-        {/* Identity lives in the top bar, not here. It sat in this corner for a while
-            because that is where Slack puts it, but the bar spans both the list and the
-            conversation while this column does not — a name that names the whole app
-            belongs above the whole app. Moving it also gives the channel list back the
-            height the header was spending, which is most of what "compact" buys. */}
-        {onToggleCollapse && (
-          <button
-            type="button"
-            className="icon-btn sidebar-collapse"
-            aria-label={collapsed ? 'Expand left menu' : 'Collapse left menu'}
-            aria-pressed={collapsed}
-            onClick={onToggleCollapse}
-          >
-            <ChevronLeftIcon size="md" />
-          </button>
-        )}
-      </div>
-
+      {/* No header. Identity lives in the top bar, and so does the control that collapses
+          this column — a band up here holding one chevron cost the list a header's height
+          and read as empty space above it. The list starts where the column starts. */}
       <div className="sidebar-scroll">
         <section className="sidebar-section">
           <SidebarNavButton

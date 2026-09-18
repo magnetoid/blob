@@ -156,7 +156,7 @@ class Settings(BaseSettings):
     # Every one of these is a containment bound rather than a tuning knob: a mentioned
     # agent runs in the worker, so an agent that hangs or floods must cost a bounded
     # amount of somebody else's latency.
-    #: Whole run, wall clock. After this the person gets "I couldn't finish that".
+    #: Whole run, wall clock. After this the run card says failed, and why.
     AGUI_TIMEOUT_SEC: float = 120.0
     #: Between events. Catches an agent that opened a stream and then stopped talking.
     AGUI_READ_TIMEOUT_SEC: float = 30.0

@@ -59,6 +59,7 @@ function signedIn() {
       role: 'owner',
       prefs: { autoTranslate: true, language: 'en' },
     },
+    translationEnabled: true,
   } as never);
 }
 
@@ -134,5 +135,18 @@ describe('auto-translate', () => {
     // A new revision is a different thing to translate, so the key changes and the
     // one attempt it is allowed is a fresh one.
     await waitFor(() => expect(translate).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('a server with no provider', () => {
+  it('draws nothing at all, rather than a button that can only say so', () => {
+    useStore.setState({ translationEnabled: false } as never);
+
+    const { container } = render(
+      <MessageTranslation message={aMessage() as never} pending={false} editing={false} />,
+    );
+
+    expect(container.innerHTML).toBe('');
+    expect(translate).not.toHaveBeenCalled();
   });
 });

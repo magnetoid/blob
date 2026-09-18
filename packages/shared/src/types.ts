@@ -419,6 +419,9 @@ export interface Bootstrap {
   mutedGroupIds: string[];
   /** The commit the server is running, when its host said which. Null when nobody did. */
   serverCommit: string | null;
+  /** Whether the server has a translation provider. Without one the client draws no
+   * Translate action and no translation preference. */
+  translationEnabled: boolean;
 }
 
 /** A named set of people, mentionable as one handle: `@platform-team`. */

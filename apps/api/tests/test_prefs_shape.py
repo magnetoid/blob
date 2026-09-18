@@ -130,3 +130,30 @@ class TestTheBuildTheServerIsRunning:
         boot = (await owner.get("/api/bootstrap")).body
 
         assert boot["serverCommit"] == "b" * 40
+
+
+class TestWhetherTranslationIsOn:
+    """The bootstrap says whether this server can translate at all.
+
+    Without a provider the client draws no Translate action and no translation
+    preference — a control whose only possible answer is "not configured" is worse
+    than none — so the flag has to be honest in both states.
+    """
+
+    async def test_off_when_no_provider_is_set(self, client: Client) -> None:
+        # conftest leaves TRANSLATION_PROVIDER at its default, which is disabled.
+        owner = await sign_up(client, "Quiet Translator")
+
+        boot = (await owner.get("/api/bootstrap")).body
+
+        assert boot["translationEnabled"] is False
+
+    async def test_on_the_moment_a_provider_is(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "TRANSLATION_PROVIDER", "deepl")
+        owner = await sign_up(client, "Polyglot Owner")
+
+        boot = (await owner.get("/api/bootstrap")).body
+
+        assert boot["translationEnabled"] is True

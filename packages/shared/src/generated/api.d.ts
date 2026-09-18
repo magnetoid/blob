@@ -4050,6 +4050,11 @@ export interface components {
             serverCommit?: string | null;
             /** Themes */
             themes: components["schemas"]["ThemeSummary"][];
+            /**
+             * Translationenabled
+             * @default false
+             */
+            translationEnabled: boolean;
             user: components["schemas"]["CurrentUser"];
             /** Users */
             users: components["schemas"]["User"][];

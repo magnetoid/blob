@@ -42,6 +42,29 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-18',
+    version: '1.2.1',
+    title: 'The channel list starts at the top',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'The control that folds the channel list moved into the top bar, beside the workspace name — the same ☰ that opens the list on a phone. The band it used to sit in is gone, and the list starts where the column starts.',
+      },
+      {
+        kind: 'changed',
+        text: 'Translate appears only on a server that can translate. Where no provider is configured, the action and the language preference stay out of the way instead of answering "not configured".',
+      },
+      {
+        kind: 'fixed',
+        text: 'A run that fails says so once, on the card under your message, instead of there and again as a message from the agent.',
+      },
+      {
+        kind: 'fixed',
+        text: 'On a host running two Blob workspaces, each one\'s Janus answers only its own. A mention no longer lands on the other workspace\'s agent and comes back as a refused signature.',
+      },
+    ],
+  },
+  {
     date: '2026-09-17',
     version: '1.2.0',
     title: 'Janus has a page',

@@ -433,6 +433,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       <TopBar
         onFeedback={() => setFeedbackOpen(true)}
         onToggleSidebar={toggleSidebar}
+        onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
+        sidebarCollapsed={sidebarCollapsed}
         view={view}
         minimal
         onSearch={() => {
@@ -440,10 +442,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           setPaletteOpen(true);
         }}
       />
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
-      />
+      <Sidebar collapsed={sidebarCollapsed} />
       {sidebarOpen && (
         <button
           type="button"

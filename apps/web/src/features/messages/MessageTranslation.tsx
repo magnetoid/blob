@@ -49,10 +49,13 @@ interface Props {
 
 export function MessageTranslation({ message, pending, editing }: Props) {
   const currentUser = useStore((s) => s.currentUser);
+  const translationEnabled = useStore((s) => s.translationEnabled);
   const preferredLanguage = currentUser?.prefs.language ?? null;
   const autoTranslate = Boolean(currentUser?.prefs.autoTranslate && preferredLanguage);
   const mine = message.authorId === currentUser?.id;
-  if (!preferredLanguage) return null;
+  // A server with no provider gets no Translate action at all: the only thing the button
+  // could do there is answer "not configured", and a control like that is worse than none.
+  if (!preferredLanguage || !translationEnabled) return null;
 
   return (
     <MessageTranslationBody

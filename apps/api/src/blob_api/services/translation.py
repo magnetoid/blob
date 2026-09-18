@@ -255,3 +255,13 @@ def _libre_code(value: str) -> str:
 
 def _deepl_code(value: str) -> str:
     return normalize_language_code(value).upper()
+
+
+def configured() -> bool:
+    """Whether this server has a provider at all.
+
+    The bootstrap carries it so the client can draw no translation control on a server
+    where the only possible answer would be "not configured" — the same honesty the
+    push and meetup switches already keep.
+    """
+    return settings.TRANSLATION_PROVIDER != "disabled"

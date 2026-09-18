@@ -34,6 +34,12 @@ interface Props {
   onFeedback: () => void;
   /** Narrow viewports only (CSS hides it elsewhere): opens the channel drawer. */
   onToggleSidebar?: () => void;
+  /** Wide viewports only (CSS hides it on a phone): collapses the channel list to a rail
+   * of icons and brings it back. Same glyph, same spot as the drawer button, so the ≡
+   * means "the channel list" at every width. */
+  onToggleCollapse?: () => void;
+  /** Whether that list is collapsed right now, so the control can say which way it goes. */
+  sidebarCollapsed?: boolean;
   /** The whole app's view, so a screen the bar cannot reach simply presses nothing. */
   view: View;
   /** The chat shell keeps the bar intentionally sparse. */
@@ -60,6 +66,8 @@ interface Props {
 export function TopBar({
   onFeedback,
   onToggleSidebar,
+  onToggleCollapse,
+  sidebarCollapsed = false,
   view,
   minimal = false,
   brand = true,
@@ -78,8 +86,21 @@ export function TopBar({
         <button
           type="button"
           className="topbar-hamburger"
+          data-when="narrow"
           aria-label="Channels"
           onClick={onToggleSidebar}
+        >
+          <MenuIcon size="lg" />
+        </button>
+      )}
+      {onToggleCollapse && (
+        <button
+          type="button"
+          className="topbar-hamburger"
+          data-when="wide"
+          aria-label={sidebarCollapsed ? 'Show channel list' : 'Hide channel list'}
+          title={sidebarCollapsed ? 'Show channel list' : 'Hide channel list'}
+          onClick={onToggleCollapse}
         >
           <MenuIcon size="lg" />
         </button>

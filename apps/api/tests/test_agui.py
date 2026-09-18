@@ -571,7 +571,7 @@ class TestRoundTrip:
         assert seen == []
         assert [m for m in await messages_in(team["general"]) if m["kind"] == "bot"] == []
 
-    async def test_a_run_error_tells_the_person_and_records_it(
+    async def test_a_run_error_lands_on_the_card_once_and_is_recorded(
         self, team: dict, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         app_body = await install(team["owner"])
@@ -584,8 +584,14 @@ class TestRoundTrip:
         sent = await send_message(team["owner"], team["general"], "@Helper hello")
         await agui_job.handle_agui_run(sent.body["message"]["id"])
 
+        # The card under the asker's message carries the failure and its reason. It used
+        # to be posted a second time as a message from the agent, and two copies of one
+        # failure a few lines apart read as a bug of their own — so no apology message.
         bodies = [m["body"] for m in await messages_in(team["general"])]
-        assert any("couldn't finish" in b for b in bodies)
+        assert not any("couldn't finish" in b for b in bodies)
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body["runs"]
+        assert runs[0]["status"] == "failed"
+        assert "the model refused" in (runs[0]["error"] or "")
 
         async with SessionFactory() as session:
             error = (
@@ -607,8 +613,12 @@ class TestRoundTrip:
         sent = await send_message(team["owner"], team["general"], "@Helper hello")
         await agui_job.handle_agui_run(sent.body["message"]["id"])  # must not raise
 
+        # The status lands on the run — the card under the mention — and nowhere else.
         bodies = [m["body"] for m in await messages_in(team["general"])]
-        assert any("500" in b for b in bodies)
+        assert not any("500" in b for b in bodies)
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body["runs"]
+        assert runs[0]["status"] == "failed"
+        assert "500" in (runs[0]["error"] or "")
 
     async def test_a_silent_run_posts_nothing(
         self, team: dict, monkeypatch: pytest.MonkeyPatch

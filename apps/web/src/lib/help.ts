@@ -69,7 +69,7 @@ export const SECTIONS: Section[] = [
         body: [
           'The top bar holds the workspace name, the buttons that switch between Messages, Search and Preferences, a Feedback button, and your avatar at the far right. The avatar is the account menu — this page, your profile, preferences and what has shipped recently all hang off it.',
           'The left column lists the channels you are in, starred ones first and the rest alphabetically, then your direct messages. Anything with unread messages is bold; a number beside it counts mentions rather than messages, so a busy channel does not shout at you for conversation you were not part of.',
-          'On a narrow screen the left column becomes a drawer behind the ☰ button, and the thread panel takes the whole width instead of splitting it.',
+          'The ☰ button beside the workspace name folds the left column down to a rail of icons and opens it back up. On a narrow screen the same button opens the column as a drawer, and the thread panel takes the whole width instead of splitting it.',
         ],
         keywords: ['layout', 'sidebar', 'top bar', 'navigation', 'where'],
       },

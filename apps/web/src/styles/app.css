@@ -758,15 +758,6 @@ button {
     border-color var(--dur-fast) var(--ease-color);
 }
 
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 14px 12px;
-  border-bottom: 1px solid var(--hairline-soft);
-}
-
 /* The workspace, at the top of the list of places inside it.
  *
  * A mark and a name. The mark is the initial on the accent, and it is the half that
@@ -809,15 +800,6 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.sidebar-collapse {
-  flex: none;
-  color: var(--text-4);
-}
-
-.sidebar[data-collapsed="true"] .sidebar-collapse svg {
-  transform: rotate(180deg);
 }
 
 .sidebar-search {
@@ -971,11 +953,6 @@ button {
 .sidebar-add:hover {
   background: var(--surface-hover-warm);
   color: var(--text);
-}
-
-.sidebar[data-collapsed="true"] .sidebar-header {
-  justify-content: center;
-  padding-inline: 8px;
 }
 
 .sidebar[data-collapsed="true"] .section-label,
@@ -5908,14 +5885,29 @@ a.build-commit-sha:hover {
    The admin console has had its own drawer since R2; this brings the conversation —
    the screen a phone actually opens — up to the same standard. */
 
+/* Two buttons share this class and this spot at the left edge of the bar. On a phone the
+   ≡ opens the channel drawer; at a desk the same ≡ collapses the channel list to a rail
+   of icons and brings it back. CSS shows exactly one per width — `data-when` says which —
+   so each carries the label for the thing it actually does. The list column keeps no
+   header of its own for this: a band holding one chevron read as empty space above it. */
 .topbar-hamburger {
-  display: none;
+  display: inline-flex;
+  align-items: center;
   border: 0;
   background: none;
   color: var(--text-rail);
   padding: 6px;
   border-radius: var(--radius-sm);
   cursor: pointer;
+}
+
+.topbar-hamburger:hover {
+  background: var(--surface-hover-deep);
+  color: var(--text);
+}
+
+.topbar-hamburger[data-when="narrow"] {
+  display: none;
 }
 
 .drawer-scrim {
@@ -5956,9 +5948,12 @@ a.build-commit-sha:hover {
     display: none;
   }
 
-  .topbar-hamburger {
+  .topbar-hamburger[data-when="narrow"] {
     display: inline-flex;
-    align-items: center;
+  }
+
+  .topbar-hamburger[data-when="wide"] {
+    display: none;
   }
 
   /* The compact bar keeps only what matters: team name and search. */
@@ -6104,9 +6099,6 @@ a.build-commit-sha:hover {
     }
   }
 
-  .sidebar-collapse {
-    display: none;
-  }
 }
 
 /* Touch targets.

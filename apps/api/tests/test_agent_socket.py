@@ -330,10 +330,15 @@ class TestRunRouting:
         sent = await send_message(team["owner"], team["general"], "@Desktop are you there?")
         await agui_job.handle_agui_run(sent.body["message"]["id"])
 
+        # It degrades to a failed card under the mention rather than to silence: the
+        # person asked something and is owed an answer, even if the answer is "not right
+        # now". The card is the one place it is said — an apology message on top of it
+        # read as the same failure twice.
         bodies = await messages_in(team["general"])
-        # It degrades to an apology in the channel rather than to silence: the person
-        # asked something and is owed an answer, even if the answer is "not right now".
-        assert any("not connected" in body for body in bodies)
+        assert not any("not connected" in body for body in bodies)
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body["runs"]
+        assert runs[0]["status"] == "failed"
+        assert "not connected" in (runs[0]["error"] or "")
 
     async def test_a_run_reaching_two_holders_is_answered_once(self, team: dict) -> None:
         """Pub/sub is fan-out, and an agent can be connected twice mid-reconnect.

@@ -57,13 +57,6 @@ describe('the sidebar header', () => {
     expect(container.querySelector('.workspace-mark')).toBeNull();
   });
 
-  it('offers a collapse control beside it', () => {
-    seed();
-    render(<Sidebar onToggleCollapse={vi.fn()} />);
-
-    expect(screen.getByLabelText('Collapse left menu')).toBeTruthy();
-  });
-
   it('has no search button, because the bar and ⌘F already have one', () => {
     seed();
     const { container } = render(<Sidebar />);
