@@ -526,7 +526,7 @@ switches it off with the same two clicks as anything else.
 | Variable | Default | |
 |---|---|---|
 | `COMPOSE_PROFILES` | unset | Set to `janus` to start the service (`janus,meetups` for both). |
-| `JANUS_AGUI_URL` | unset | `http://janus:8642/v1/agui` — internal, on the `blob-agents` network. |
+| `JANUS_AGUI_URL` | unset | `http://janus:8642/v1/agui` — internal, on the stack's own network. Never the shared `blob-agents` one: a second Blob on the same host answers to the same name there, and its Janus refuses the other stack's signature. |
 | `JANUS_SIGNING_SECRET` | unset | Shared: Blob signs every run with it, the service reads it as `BLOB_SIGNING_SECRET`. A mismatch is a 401 that looks exactly like the agent being down. |
 | `JANUS_API_SERVER_KEY` | unset | Read by the service as `API_SERVER_KEY`, and by the app for one purpose: the Janus page reads and changes what Janus runs on through Janus's own API, bearing this key, at an address composed from `JANUS_AGUI_URL` and never from a request. |
 | `JANUS_AGENT_NAME` | `Janus` | What people type after `@`. The slug is always `janus`. |

@@ -94,7 +94,7 @@ services:
       # and gets no agent and no error — `configured()` is false, the boot reconcile seeds
       # nothing, and startup logs nothing because it only logs when it seeded something.
       #
-      # The URL is internal (the `agents` network below), and the secret is the one value
+      # The URL is internal (the stack's own network), and the secret is the one value
       # both sides read: the app writes it onto the install, the container verifies with
       # it, and a mismatch is a 401 on every run that looks exactly like the agent being
       # down. There is no orchestration step that could agree on it otherwise.
@@ -335,7 +335,7 @@ services:
   # reason LiveKit is: on 2026-09-11 an optional service that could not start stopped the
   # whole stack, and an agent nobody configured must not be able to keep chat down.
   #
-  # No `ports:` and no domain on purpose. Blob reaches it on the `agents` network below at
+  # No `ports:` and no domain on purpose. Blob reaches it on the stack's own network at
   # http://janus:8642/v1/agui, which is what JANUS_AGUI_URL says. Its /v1/agui
   # authenticates every request by HMAC against the shared secret, and nothing else is
   # exposed to anything.
@@ -346,7 +346,14 @@ services:
     # Without this the image's entrypoint starts the interactive CLI and the container
     # comes up listening on nothing. Janus's own compose file says so too.
     command: ["gateway", "run"]
-    networks: [agents]
+    # The stack's own network and nothing else — in particular not `agents`. That one is
+    # named `blob-agents` precisely so it can be shared across stacks on a host, and two
+    # Blob stacks on one box each ran a service called `janus` on it: Docker's DNS then
+    # answered `janus` with both addresses, a run signed for one workspace reached the
+    # other workspace's agent, and that agent refused the signature — a 401 that looked
+    # exactly like a wrong secret (2026-09-18). On `default` the name resolves inside this
+    # stack only, which is the only place it has to.
+    networks: [default]
     environment:
       - API_SERVER_ENABLED=true
       - API_SERVER_HOST=0.0.0.0

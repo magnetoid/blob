@@ -1285,3 +1285,20 @@ nothing and the command says PASS. A new service is exactly where a new violatio
 `services/janus_console.py` was written, guarded green and only actually guarded after the
 `git add` — so `git add -A` first, or pass the paths, and treat a PASS on an unstaged
 branch as unmeasured rather than clean.
+
+## Trap: two Blob stacks on one host share `blob-agents`, and both called their agent `janus`
+
+The network is named `blob-agents` on purpose — a hosted agent stack deployed beside Blob
+joins it by a name it can predict. That also means every Blob stack on the host joins the
+*same* network, and Docker's embedded DNS answers a service name with every container that
+carries it as an alias on any network the asker shares. With Janus on that network in both
+stacks, `janus` resolved to two addresses from inside either app container, a run signed
+for one workspace could reach the other workspace's Janus, and that one answered 401
+`bad_signature`: right secret, wrong agent (2026-09-18 — Hadley's 02:36:25 UTC run was
+rejected by Imba's Janus at 02:36:25.87). The tell is a rejection logged by the *other*
+stack's container while this stack's logged nothing.
+
+The Janus service is on `default` only now — the stack's own network, where the name
+cannot collide. Anything added to `docker-compose.prod.yml` that a second stack would also
+run under the same service name needs the same care: the shared network is for reaching
+agents *outside* the stack, never for a service the stack itself owns.
