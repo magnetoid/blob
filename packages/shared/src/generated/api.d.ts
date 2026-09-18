@@ -9375,6 +9375,7 @@ export interface operations {
                 cursor?: string | null;
                 kind?: string;
                 limit?: number;
+                q?: string | null;
             };
             header?: never;
             path?: never;

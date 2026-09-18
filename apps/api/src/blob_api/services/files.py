@@ -27,6 +27,9 @@ async def listing(
     kind: str,
     cursor: str | None,
     limit: int,
+    #: Case-insensitive substring of the filename. None means no filter — `''` would
+    #: match every row through the LIKE and is normalised away in the router.
+    q: str | None = None,
 ) -> tuple[list[Any], str | None]:
     """Files posted in channels this person can see, newest first, keyset-paged.
 
@@ -75,6 +78,10 @@ async def listing(
                         OR (:kind = 'file' AND a.mime NOT LIKE 'image/%' AND a.kind = 'file')
                    )
                    AND (
+                        CAST(:q AS text) IS NULL
+                        OR a.filename ILIKE '%' || CAST(:q AS text) || '%'
+                   )
+                   AND (
                         CAST(:cursor AS uuid) IS NULL
                         OR (a.created_at, a.id) < (
                             SELECT created_at, id FROM attachments
@@ -90,6 +97,7 @@ async def listing(
                 "user_id": user.id,
                 "channel_id": channel_id,
                 "kind": kind,
+                "q": q,
                 "cursor": cursor,
                 "limit": limit + 1,
             },

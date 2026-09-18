@@ -111,6 +111,7 @@ async def list_attachments(
     kind: str = Query("all"),
     cursor: str | None = None,
     limit: int = Query(40, ge=1, le=100),
+    q: str | None = Query(None, max_length=100),
 ) -> FileListOut:
     """Files posted in channels this person can see, newest first.
 
@@ -123,9 +124,19 @@ async def list_attachments(
     if cursor and not looks_like_id(cursor):
         raise bad_request("That files cursor is not one we issued.")
 
+    # Blank is absent: `''` would go into the LIKE as '%%' and match everything, which
+    # is the same answer but a sequential scan to get there.
+    needle = q.strip() if q else None
+
     async with session_scope() as session:
         page, next_cursor = await file_service.listing(
-            session, user, channel_id=channel_id, kind=kind, cursor=cursor, limit=limit
+            session,
+            user,
+            channel_id=channel_id,
+            kind=kind,
+            cursor=cursor,
+            limit=limit,
+            q=needle or None,
         )
     return FileListOut(items=[_file_entry(row) for row in page], next_cursor=next_cursor)
 

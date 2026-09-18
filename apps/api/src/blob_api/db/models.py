@@ -5,6 +5,7 @@ model does not spell them out:
   * `messages.search_tsv` is a STORED generated column — `Computed(..., persisted=True)`.
   * Five indexes are partial — `postgresql_where=`.
   * Two are GIN — `postgresql_using="gin"`.
+  * One carries a non-default operator class — `postgresql_ops=`.
 Without these, the first `--autogenerate` proposes dropping them.
 
 UUID columns use `as_uuid=False` so ids round-trip as strings, matching the TypeScript
@@ -483,6 +484,15 @@ class Attachment(Base):
         # Every image in every channel renders as GET /api/files/<object_key>; without
         # this the hottest read in the app is a sequential scan.
         Index("attachments_object_key", "object_key"),
+        # ⌘K's Files section filters on the name: `ILIKE '%term%'` cannot use a b-tree,
+        # and pg_trgm is installed (0032). Mirrors 0044 — `alembic check` compares an
+        # index by name, columns and uniqueness, all of which this reflects cleanly.
+        Index(
+            "attachments_filename_trgm",
+            "filename",
+            postgresql_using="gin",
+            postgresql_ops={"filename": "gin_trgm_ops"},
+        ),
         CheckConstraint("kind IN ('file', 'voice')", name="attachments_kind_check"),
         CheckConstraint(
             "transcript_status IN ('none', 'pending', 'done', 'failed')",

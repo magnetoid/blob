@@ -21,7 +21,11 @@ from .test_workspace_isolation import two_workspaces  # noqa: F401  (fixture)
 
 
 async def _plant_attachment(
-    workspace_id: str, uploader_id: str, *, message_id: str | None = None
+    workspace_id: str,
+    uploader_id: str,
+    *,
+    message_id: str | None = None,
+    filename: str = "shot.png",
 ) -> tuple[str, str]:
     attachment_id = new_id()
     object_key = f"{workspace_id}/test/{attachment_id}.png"
@@ -32,7 +36,7 @@ async def _plant_attachment(
                 INSERT INTO attachments
                   (id, workspace_id, uploader_id, object_key, filename, mime, size_bytes,
                    message_id)
-                VALUES (:id, :ws, :up, :key, 'shot.png', 'image/png', 1234, :message_id)
+                VALUES (:id, :ws, :up, :key, :filename, 'image/png', 1234, :message_id)
                 """
             ),
             {
@@ -40,6 +44,7 @@ async def _plant_attachment(
                 "ws": workspace_id,
                 "up": uploader_id,
                 "key": object_key,
+                "filename": filename,
                 "message_id": message_id,
             },
         )
@@ -213,3 +218,83 @@ class TestAvatars:
         cleared = await team["owner"].patch("/api/me", {"avatarAttachmentId": None})
         assert cleared.status == 200
         assert cleared.body["user"]["avatarUrl"] is None
+
+
+class TestFilenameFilter:
+    """`q` over `attachments.filename`, which is what ⌘K's Files section asks for.
+
+    The last test is the one worth the class: a filter is a new way to ask a question,
+    and a new way to ask must not be a new way to learn that a private channel exists.
+    """
+
+    async def test_a_filename_filter_narrows_the_library(self, team: dict) -> None:
+        sent = await send_message(team["owner"], team["private"]["id"], "two files")
+        message_id = sent.body["message"]["id"]
+        wanted, _ = await _plant_attachment(
+            team["workspace"],
+            team["owner"].user_id,
+            message_id=message_id,
+            filename="deploy-runbook.pdf",
+        )
+        other, _ = await _plant_attachment(
+            team["workspace"],
+            team["owner"].user_id,
+            message_id=message_id,
+            filename="holiday-photo.png",
+        )
+
+        response = await team["member"].get("/api/attachments?q=deploy")
+        assert response.status == 200, response.body
+        ids = [item["id"] for item in response.body["items"]]
+        assert wanted in ids
+        assert other not in ids
+
+    async def test_the_filter_matches_the_middle_of_a_name_and_ignores_case(
+        self, team: dict
+    ) -> None:
+        sent = await send_message(team["owner"], team["private"]["id"], "one file")
+        wanted, _ = await _plant_attachment(
+            team["workspace"],
+            team["owner"].user_id,
+            message_id=sent.body["message"]["id"],
+            filename="Q3-DEPLOY-notes.md",
+        )
+
+        response = await team["member"].get("/api/attachments?q=deploy-no")
+        assert response.status == 200, response.body
+        assert wanted in [item["id"] for item in response.body["items"]]
+
+    async def test_a_blank_filter_is_the_whole_library(self, team: dict) -> None:
+        sent = await send_message(team["owner"], team["private"]["id"], "one file")
+        wanted, _ = await _plant_attachment(
+            team["workspace"],
+            team["owner"].user_id,
+            message_id=sent.body["message"]["id"],
+            filename="anything.png",
+        )
+
+        response = await team["member"].get("/api/attachments?q=")
+        assert response.status == 200, response.body
+        assert wanted in [item["id"] for item in response.body["items"]]
+
+    async def test_an_outsider_never_sees_a_private_channels_file_by_name(self, team: dict) -> None:
+        sent = await send_message(team["owner"], team["private"]["id"], "secret")
+        hidden, _ = await _plant_attachment(
+            team["workspace"],
+            team["owner"].user_id,
+            message_id=sent.body["message"]["id"],
+            filename="deploy-secrets.env",
+        )
+
+        response = await team["outsider"].get("/api/attachments?q=deploy")
+        assert response.status == 200, response.body
+        assert hidden not in [item["id"] for item in response.body["items"]]
+
+    async def test_an_outsiders_filter_on_a_private_channel_still_answers_404(
+        self, team: dict
+    ) -> None:
+        # 404, not 403 and not an empty list: the channel's existence is the private
+        # part, and a filter must not become a way to probe for it.
+        channel_id = team["private"]["id"]
+        response = await team["outsider"].get(f"/api/attachments?channelId={channel_id}&q=deploy")
+        assert response.status == 404, response.body
