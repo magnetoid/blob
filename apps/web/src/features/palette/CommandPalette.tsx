@@ -129,8 +129,7 @@ export function CommandPalette({
   useEffect(() => {
     const q = query.trim();
     if (only === "people" || q.length < 2 || !fetches(scope, "Messages")) {
-      setFound({ messages: [], total: 0 });
-      return;
+      return undefined;
     }
     let live = true;
     const timer = setTimeout(() => {
@@ -155,8 +154,7 @@ export function CommandPalette({
   useEffect(() => {
     const q = query.trim();
     if (only === "people" || q.length < 2 || !fetches(scope, "Files")) {
-      setFiles([]);
-      return;
+      return undefined;
     }
     let live = true;
     const wanted = (scope === "files" ? ROOM.sole : ROOM.shared) + 1;
@@ -435,14 +433,14 @@ export function CommandPalette({
   ]);
 
   // Results arrive after the list was already drawn, so the highlight can end up past
-  // the end of it. Enter would then do nothing at all, which reads as a broken palette.
-  useEffect(() => {
-    if (index >= matches.length) setIndex(0);
-  }, [matches.length, index]);
+  // the end of it. Derive a valid index instead of spending another render correcting it.
+  const activeIndex = index < matches.length ? index : 0;
 
   /** Walk the scope ring. Shift walks it backwards, so it is not a one-way trip. */
   function stepScope(backwards: boolean) {
     setIndex(0);
+    setFound({ messages: [], total: 0 });
+    setFiles([]);
     setScope((current) => {
       const at = SCOPES.indexOf(current);
       const next = backwards ? at - 1 + SCOPES.length : at + 1;
@@ -496,7 +494,7 @@ export function CommandPalette({
             aria-controls="palette-results"
             aria-autocomplete="list"
             aria-activedescendant={
-              matches.length > 0 ? `palette-option-${index}` : undefined
+              matches.length > 0 ? `palette-option-${activeIndex}` : undefined
             }
             placeholder={
               only === "people"
@@ -506,6 +504,8 @@ export function CommandPalette({
             onChange={(e) => {
               setQuery(e.target.value);
               setIndex(0);
+              setFound({ messages: [], total: 0 });
+              setFiles([]);
             }}
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") {
@@ -518,7 +518,7 @@ export function CommandPalette({
                 );
               } else if (event.key === "Enter") {
                 event.preventDefault();
-                void choose(matches[index]);
+                void choose(matches[activeIndex]);
               } else if (event.key === "Tab" && !only) {
                 // Tab is the scope key here, not a focus key. This is a combobox: focus
                 // never leaves the input, and the options are not tab stops (tabIndex -1
@@ -571,9 +571,9 @@ export function CommandPalette({
                   id={`palette-option-${i}`}
                   role="option"
                   tabIndex={-1}
-                  aria-selected={i === index}
+                  aria-selected={i === activeIndex}
                   className="palette-item"
-                  data-active={i === index}
+                  data-active={i === activeIndex}
                   onMouseEnter={() => setIndex(i)}
                   onClick={() => void choose(item)}
                 >

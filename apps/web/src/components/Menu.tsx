@@ -34,7 +34,13 @@ interface Props {
   children: ReactNode;
 }
 
-export function Menu({ open, onClose, className, suspendDismiss = false, children }: Props) {
+export function Menu({
+  open,
+  onClose,
+  className,
+  suspendDismiss = false,
+  children,
+}: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   // Whatever held focus when the menu opened — the trigger, wherever the browser left
   // it. Focus goes back there on close so a keyboard user is not stranded on <body>.
@@ -44,13 +50,22 @@ export function Menu({ open, onClose, className, suspendDismiss = false, childre
   useEffect(() => {
     if (!open) return undefined;
     openerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const panel = panelRef.current;
     return () => {
       // Restore only when closing left focus nowhere — the panel that held it is
       // already gone when this cleanup runs. A click that closed the menu by landing
       // on another control has given that control focus, and keeps it.
       const active = document.activeElement;
-      if (active === null || active === document.body) openerRef.current?.focus();
+      if (
+        active === null ||
+        active === document.body ||
+        (active instanceof Node && panel?.contains(active))
+      ) {
+        openerRef.current?.focus();
+      }
       openerRef.current = null;
     };
   }, [open]);
@@ -96,18 +111,30 @@ export function Menu({ open, onClose, className, suspendDismiss = false, childre
       // Steer only focus the menu plausibly owns: inside the panel, on the element
       // that opened it, or nowhere (Safari does not focus a clicked button). Arrows
       // pressed in a composer behind an open menu keep moving the caret there.
-      if (!inPanel && active !== openerRef.current && active !== document.body && active !== null) {
+      if (
+        !inPanel &&
+        active !== openerRef.current &&
+        active !== document.body &&
+        active !== null
+      ) {
         return;
       }
-      const items = Array.from(panel.querySelectorAll<HTMLElement>(ITEM_SELECTOR));
+      const items = Array.from(
+        panel.querySelectorAll<HTMLElement>(ITEM_SELECTOR),
+      );
       if (items.length === 0) return;
       event.preventDefault();
       const index = active instanceof HTMLElement ? items.indexOf(active) : -1;
       let next: number;
       if (event.key === 'Home') next = 0;
       else if (event.key === 'End') next = items.length - 1;
-      else if (event.key === 'ArrowDown') next = index < 0 ? 0 : (index + 1) % items.length;
-      else next = index < 0 ? items.length - 1 : (index - 1 + items.length) % items.length;
+      else if (event.key === 'ArrowDown')
+        next = index < 0 ? 0 : (index + 1) % items.length;
+      else
+        next =
+          index < 0
+            ? items.length - 1
+            : (index - 1 + items.length) % items.length;
       items[next]?.focus();
     };
     window.addEventListener('click', onClick, true);
@@ -125,7 +152,13 @@ export function Menu({ open, onClose, className, suspendDismiss = false, childre
   if (!present) return null;
 
   return (
-    <div className={className} role="menu" ref={panelRef} data-state={state}>
+    <div
+      className={className}
+      role="menu"
+      ref={panelRef}
+      data-state={state}
+      inert={state === 'closed' ? true : undefined}
+    >
       {children}
     </div>
   );

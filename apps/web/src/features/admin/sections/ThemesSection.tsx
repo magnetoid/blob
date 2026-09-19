@@ -11,15 +11,13 @@ import type { Theme } from "@blob/shared";
 import { api, ApiError } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { useStore } from "../../../lib/store.ts";
-import { applyTheme, pickTheme, previewTokens } from "../../../lib/theme.ts";
-
-/** Built-in defaults, read off the document so the editor starts from the real values. */
-function currentValue(token: string): string {
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(token)
-    .trim();
-  return normalizeColor(value) || "#000000";
-}
+import {
+  applyTheme,
+  pickTheme,
+  previewTheme,
+  themeChoices,
+} from "../../../lib/theme.ts";
+import { themeContrastIssues } from "../../../lib/themeContrast.ts";
 
 /** <input type="color"> only accepts #rrggbb, so rgb()/short hex is converted. */
 function normalizeColor(value: string): string {
@@ -60,6 +58,7 @@ export function ThemesSection({
   const [name, setName] = useState("");
   const [mode, setMode] = useState<"light" | "dark">("light");
   const [tokens, setTokens] = useState<Record<string, string>>({});
+  const [baseTokens, setBaseTokens] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Theme | null>(null);
 
@@ -75,15 +74,44 @@ export function ThemesSection({
 
   /** Put the user's own palette back after a preview. */
   const restore = useCallback(() => {
-    if (prefs)
-      applyTheme(pickTheme(useStore.getState().themes, prefs), prefs.theme);
+    if (prefs) {
+      const available = useStore.getState().themes;
+      applyTheme(
+        pickTheme(available, prefs),
+        prefs.theme,
+        themeChoices(available, prefs),
+      );
+    }
   }, [prefs]);
+
+  function previewEditor(
+    nextMode: "light" | "dark",
+    nextTokens: Record<string, string>,
+    refreshBase = false,
+  ) {
+    if (refreshBase) {
+      previewTheme({ mode: nextMode, tokens: {} });
+      const computed = getComputedStyle(document.documentElement);
+      setBaseTokens(
+        Object.fromEntries(
+          Object.values(groups)
+            .flat()
+            .map((token) => [
+              token,
+              normalizeColor(computed.getPropertyValue(token)) || "#000000",
+            ]),
+        ),
+      );
+    }
+    previewTheme({ mode: nextMode, tokens: nextTokens });
+  }
 
   function startEdit(theme: Theme, duplicate: boolean) {
     setEditing(duplicate ? { ...theme, id: "", isPreset: false } : theme);
     setName(duplicate ? `${theme.name} copy` : theme.name);
     setMode(theme.mode);
     setTokens({ ...theme.tokens });
+    previewEditor(theme.mode, theme.tokens, true);
   }
 
   function stopEdit() {
@@ -95,7 +123,7 @@ export function ThemesSection({
   function setToken(token: string, value: string) {
     const next = { ...tokens, [token]: value };
     setTokens(next);
-    previewTokens({ [token]: value });
+    previewEditor(mode, next);
   }
 
   async function save() {
@@ -123,6 +151,10 @@ export function ThemesSection({
   }
 
   const editableGroups = useMemo(() => Object.entries(groups), [groups]);
+  const contrastIssues = useMemo(
+    () => themeContrastIssues({ ...baseTokens, ...tokens }),
+    [baseTokens, tokens],
+  );
 
   if (editing) {
     return (
@@ -148,7 +180,11 @@ export function ThemesSection({
             <select
               className="input"
               value={mode}
-              onChange={(e) => setMode(e.target.value as "light" | "dark")}
+              onChange={(e) => {
+                const next = e.target.value as "light" | "dark";
+                setMode(next);
+                previewEditor(next, tokens, true);
+              }}
             >
               <option value="light">light</option>
               <option value="dark">dark</option>
@@ -157,7 +193,7 @@ export function ThemesSection({
           <button
             className="btn btn-primary"
             onClick={() => void save()}
-            disabled={saving}
+            disabled={saving || contrastIssues.length > 0}
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -171,39 +207,61 @@ export function ThemesSection({
           themes and lightens in dark ones, so it is set explicitly rather than
           derived.
         </p>
+        {contrastIssues.length > 0 && (
+          <div className="theme-contrast-warning" role="alert">
+            <strong>
+              Contrast needs attention before this theme can be saved.
+            </strong>
+            <ul>
+              {contrastIssues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {editableGroups.map(([group, groupTokens]) => (
           <div key={group} style={{ marginTop: 18 }}>
             <h3 className="section-label">{group}</h3>
             <div className="token-grid">
-              {groupTokens.map((token) => (
-                <label className="token-row" key={token}>
-                  <input
-                    type="color"
-                    value={
-                      normalizeColor(tokens[token] ?? "") || currentValue(token)
-                    }
-                    onChange={(e) => setToken(token, e.target.value)}
-                    aria-label={token}
-                  />
-                  <span className="token-name">{token.replace(/^--/, "")}</span>
-                  {tokens[token] && (
-                    <button
-                      className="btn btn-ghost"
-                      title="Reset to the built-in value"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const next = { ...tokens };
-                        delete next[token];
-                        setTokens(next);
-                        restore();
-                      }}
-                    >
-                      ↺
-                    </button>
-                  )}
-                </label>
-              ))}
+              {groupTokens.map((token) => {
+                const inputId = `theme-${token.slice(2)}`;
+                return (
+                  <div className="token-row" key={token}>
+                    <input
+                      id={inputId}
+                      type="color"
+                      value={
+                        normalizeColor(tokens[token] ?? "") ||
+                        baseTokens[token] ||
+                        "#000000"
+                      }
+                      onChange={(e) => setToken(token, e.target.value)}
+                      aria-label={token}
+                    />
+                    <label className="token-name" htmlFor={inputId}>
+                      {token.replace(/^--/, "")}
+                    </label>
+                    {tokens[token] && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        title="Reset to the built-in value"
+                        aria-label={`Reset ${token} to the built-in value`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const next = { ...tokens };
+                          delete next[token];
+                          setTokens(next);
+                          previewEditor(mode, next);
+                        }}
+                      >
+                        ↺
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}

@@ -67,7 +67,7 @@ export function PreferencesCard() {
         Light palette
       </h2>
       <PaletteGallery
-        themes={themes.filter((t) => t.mode === 'light')}
+        themes={themes.filter((theme) => theme.mode === 'light' && theme.isEnabled)}
         chosen={prefs.themeLight}
         onChoose={(slug) => void setPrefs({ themeLight: slug })}
       />
@@ -76,7 +76,7 @@ export function PreferencesCard() {
         Dark palette
       </h2>
       <PaletteGallery
-        themes={themes.filter((t) => t.mode === 'dark')}
+        themes={themes.filter((theme) => theme.mode === 'dark' && theme.isEnabled)}
         chosen={prefs.themeDark}
         onChoose={(slug) => void setPrefs({ themeDark: slug })}
       />

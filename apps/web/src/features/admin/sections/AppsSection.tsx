@@ -1,6 +1,6 @@
 /** Installed apps, and the agents this workspace hosts. */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import {
   api,
   type AdminPlugin,
@@ -67,7 +67,9 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
   const [catalog, setCatalog] = useState<AdminPluginCatalog | null>(null);
   const [plugins, setPlugins] = useState<AdminPlugin[]>([]);
   const [agentsEnabled, setAgentsEnabled] = useState(true);
-  const [activity, setActivity] = useState<{ date: string; runs: number }[]>([]);
+  const [activity, setActivity] = useState<{ date: string; runs: number }[]>(
+    [],
+  );
   const [policy, setPolicy] = useState<WorkspacePolicy | null>(null);
   const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState<InstallPath | null>(null);
@@ -124,7 +126,10 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
 
   const installed = plugins.length;
   const runningNow = plugins.reduce((sum, p) => sum + (p.runningNow ?? 0), 0);
-  const runsThisWeek = plugins.reduce((sum, p) => sum + (p.runsLastWeek ?? 0), 0);
+  const runsThisWeek = plugins.reduce(
+    (sum, p) => sum + (p.runsLastWeek ?? 0),
+    0,
+  );
 
   return (
     <section>
@@ -133,8 +138,8 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
           <div className="min-0">
             <h2 className="admin-apps-title">Agents</h2>
             <p className="admin-summary muted" aria-live="polite">
-              {installed} installed · {runningNow} running now · {runsThisWeek} runs this
-              week
+              {installed} installed · {runningNow} running now · {runsThisWeek}{" "}
+              runs this week
             </p>
           </div>
           <button
@@ -150,8 +155,8 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
           <div className="grow">
             <div className="pref-label">Agents may run</div>
             <div className="pref-hint">
-              When off, mentions of agents are refused and nothing is dispatched. Apps
-              still receive webhook deliveries.
+              When off, mentions of agents are refused and nothing is
+              dispatched. Apps still receive webhook deliveries.
             </div>
           </div>
           <button
@@ -176,7 +181,8 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
             <div className="min-0">
               <div className="admin-row-title">{secretNotice.pluginName}</div>
               <div className="admin-row-meta">
-                These credentials are shown once. Rotate them later if you lose them.
+                These credentials are shown once. Rotate them later if you lose
+                them.
               </div>
             </div>
             {secretNotice.signingSecret && (
@@ -207,7 +213,10 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
         )}
 
         {secretNotice?.setup === "janus" && secretNotice.botToken && (
-          <JanusSetup agentName={secretNotice.pluginName} botToken={secretNotice.botToken} />
+          <JanusSetup
+            agentName={secretNotice.pluginName}
+            botToken={secretNotice.botToken}
+          />
         )}
         {secretNotice?.setup === "bridge" && secretNotice.botToken && (
           <DesktopAgentSetup
@@ -222,9 +231,12 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
             {loading && plugins.length === 0 ? (
               <p className="muted">Loading agents…</p>
             ) : plugins.length === 0 ? (
-              <EmptyState title="No agents yet" style={{ margin: "32px auto 0" }}>
-                Install Janus, connect an agent from your machine, or register an app by
-                its URL.
+              <EmptyState
+                title="No agents yet"
+                style={{ margin: "32px auto 0" }}
+              >
+                Install Janus, connect an agent from your machine, or register
+                an app by its URL.
               </EmptyState>
             ) : (
               <div className="admin-table-scroll">
@@ -281,13 +293,14 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
 
             {installing === "janus" && (
               <p className="pref-hint">
-                Janus dials Blob itself — no bridge, no public address. Register it here,
-                then give it the two values this page prints.
+                Janus dials Blob itself — no bridge, no public address. Register
+                it here, then give it the two values this page prints.
               </p>
             )}
             {installing === "bridge" && (
               <p className="pref-hint">
-                Any other AG-UI agent, with the bridge holding Blob's socket beside it.
+                Any other AG-UI agent, with the bridge holding Blob's socket
+                beside it.
               </p>
             )}
 
@@ -373,7 +386,11 @@ function AgentRow({
           {STATUS_LABEL[plugin.status] ?? plugin.status}
         </span>
         {plugin.runtime === "socket" && plugin.online != null && (
-          <span className="role-pill" data-online={plugin.online} style={{ marginLeft: 6 }}>
+          <span
+            className="role-pill"
+            data-online={plugin.online}
+            style={{ marginLeft: 6 }}
+          >
             {plugin.online ? "online" : "offline"}
           </span>
         )}
@@ -382,7 +399,9 @@ function AgentRow({
         <button
           type="button"
           className="btn btn-ghost"
-          onClick={() => void act(() => api.admin.setPluginEnabled(plugin.id, !enabled))}
+          onClick={() =>
+            void act(() => api.admin.setPluginEnabled(plugin.id, !enabled))
+          }
         >
           {enabled ? "Disable" : "Enable"}
         </button>
@@ -394,7 +413,9 @@ function AgentRow({
           // shows none of that, so its row goes there instead.
           onClick={() =>
             navigate(
-              isSeededJanus(plugin) ? "/admin/janus" : `/admin/apps/${plugin.id}`,
+              isSeededJanus(plugin)
+                ? "/admin/janus"
+                : `/admin/apps/${plugin.id}`,
             )
           }
         >
@@ -449,12 +470,20 @@ function RunsThisWeek({ days }: { days: { date: string; runs: number }[] }) {
       <h3 id="runs-week-title" className="section-label">
         Runs this week
       </h3>
-      <div className="admin-chart-bars" role="img" aria-label={days.map((d) => `${weekday(d.date)} ${d.runs}`).join(", ")}>
+      <div
+        className="admin-chart-bars"
+        role="img"
+        aria-label={days.map((d) => `${weekday(d.date)} ${d.runs}`).join(", ")}
+      >
         {days.map((day) => (
           <div key={day.date} className="admin-chart-col">
             <div
               className="admin-chart-bar"
-              style={{ height: `${Math.round((day.runs / max) * 100)}%` }}
+              style={
+                {
+                  "--bar-scale": day.runs / max,
+                } as CSSProperties
+              }
               title={`${day.runs} on ${day.date}`}
             />
             <span className="admin-chart-label">{weekday(day.date)}</span>

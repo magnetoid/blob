@@ -121,8 +121,10 @@
   --clay-text: #5a4632;
 
   /* ─── type ─────────────────────────────────────────────────────────────── */
-  --font-ui: 'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --font-ui:
+    'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
   --text-2xs: 10.5px;
   --text-xs: 11px;
@@ -157,8 +159,7 @@
      the palette instead of sitting on top of it. */
   --shadow-ink: 26 29 27;
   --elev-1:
-    0 0 0 1px var(--hairline),
-    0 1px 2px rgb(var(--shadow-ink) / 6%),
+    0 0 0 1px var(--hairline), 0 1px 2px rgb(var(--shadow-ink) / 6%),
     0 2px 4px -2px rgb(var(--shadow-ink) / 6%);
   --elev-2:
     0 0 0 1px var(--hairline-popover),
@@ -194,6 +195,7 @@
      (tokens streaming) and the 1.6s pulse (presence, a live run), and both stop the
      instant the work does. Nothing bounces. */
   --dur-fast: 120ms;
+  --dur-micro: 120ms;
   --dur-open: 160ms;
   --dur-exit: 150ms;
   --dur-modal: 160ms;
@@ -207,8 +209,15 @@
      control moving — and it is a transform, so it costs a composite and never a
      layout. Goes to 1 under reduced motion with the rest of the scale family. */
   --motion-press: 0.97;
+  --motion-lift: -1px;
+  --motion-action-enter: 2px;
   --motion-slide: 4px;
   --motion-slide-lg: 8px;
+
+  /* Dashboard aliases are structural, not new palette inputs. They deliberately
+     derive from themeable tokens so every custom palette inherits them for free. */
+  --surface-raised: var(--surface-2);
+  --accent-soft: var(--accent-border);
 
   /* ─── stacking ─────────────────────────────────────────────────────────── */
   /* One ladder, ordered by what has to survive what. The emoji picker used to sit
@@ -372,15 +381,10 @@
        ladder rather than these greens. */
     --surface-2: color-mix(in oklab, var(--surface) 92%, #fff);
     --surface-3: color-mix(in oklab, var(--surface) 86%, #fff);
-    --elev-1:
-      0 0 0 1px rgb(255 255 255 / 8%),
-      0 1px 2px rgb(0 0 0 / 40%);
-    --elev-2:
-      0 0 0 1px rgb(255 255 255 / 8%),
-      0 8px 24px -8px rgb(0 0 0 / 50%);
+    --elev-1: 0 0 0 1px rgb(255 255 255 / 8%), 0 1px 2px rgb(0 0 0 / 40%);
+    --elev-2: 0 0 0 1px rgb(255 255 255 / 8%), 0 8px 24px -8px rgb(0 0 0 / 50%);
     --elev-3:
-      0 0 0 1px rgb(255 255 255 / 10%),
-      0 16px 48px -12px rgb(0 0 0 / 60%);
+      0 0 0 1px rgb(255 255 255 / 10%), 0 16px 48px -12px rgb(0 0 0 / 60%);
 
     --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
   }
@@ -388,82 +392,77 @@
 
 /* Dark, selected by the viewer. */
 :root[data-theme='dark'] {
-    --bg: var(--dark-bg);
-    --bg-rail: var(--dark-bg-rail);
-    --bg-sidebar: var(--dark-bg-sidebar);
-    --surface: var(--dark-surface);
-    --surface-hover: var(--dark-surface-hover);
-    --surface-hover-warm: var(--dark-surface-hover-warm);
-    --surface-hover-deep: var(--dark-surface-hover-deep);
-    --surface-row-hover: var(--dark-surface-row-hover);
-    --surface-muted: var(--dark-surface-muted);
-    --surface-icon: var(--dark-surface-icon);
-    --hairline: var(--dark-hairline);
-    --hairline-soft: var(--dark-hairline-soft);
-    --hairline-strong: var(--dark-hairline-strong);
-    --hairline-popover: var(--dark-hairline-popover);
-    --text: var(--dark-text);
-    --text-body: var(--dark-text-body);
-    --text-2: var(--dark-text-2);
-    --text-3: var(--dark-text-3);
-    --text-4: var(--dark-text-4);
-    --text-5: var(--dark-text-5);
-    --text-label: var(--dark-text-label);
-    --text-faint: var(--dark-text-faint);
-    --text-rail: var(--dark-text-rail);
-    --accent: var(--dark-accent);
-    --accent-hover: var(--dark-accent-hover);
-    --accent-contrast: var(--dark-accent-contrast);
-    --accent-wash: var(--dark-accent-wash);
-    --accent-wash-rail: var(--dark-accent-wash-rail);
-    --accent-wash-soft: var(--dark-accent-wash-soft);
-    --accent-border: var(--dark-accent-border);
-    --accent-border-soft: var(--dark-accent-border-soft);
-    --avatar-bg: var(--dark-avatar-bg);
-    --presence-online: var(--dark-presence-online);
-    --presence-away: var(--dark-presence-away);
-    --presence-offline: var(--dark-presence-offline);
-    --unread-line: var(--dark-unread-line);
-    --unread-text: var(--dark-unread-text);
-    --danger: var(--dark-danger);
-    --disabled-bg: var(--dark-disabled-bg);
-    --disabled-fg: var(--dark-disabled-fg);
-    --track-off: var(--dark-track-off);
-    --scrollbar: var(--dark-scrollbar);
-    --knob: var(--dark-knob);
-    --backdrop: var(--dark-backdrop);
-    --iris: var(--dark-iris);
-    --clay: var(--dark-clay);
-    --clay-text: var(--dark-clay-text);
-    --iris-strong: var(--dark-iris-strong);
-    --iris-deep: var(--dark-iris-deep);
-    --iris-soft: var(--dark-iris-soft);
-    --iris-tint: var(--dark-iris-tint);
-    --iris-surface: var(--dark-iris-surface);
-    --iris-surface-2: var(--dark-iris-surface-2);
-    --iris-border: var(--dark-iris-border);
-    --iris-border-soft: var(--dark-iris-border-soft);
-    --iris-text: var(--dark-iris-text);
-    --iris-text-faint: var(--dark-iris-text-faint);
-    --iris-shimmer: var(--dark-iris-shimmer);
+  --bg: var(--dark-bg);
+  --bg-rail: var(--dark-bg-rail);
+  --bg-sidebar: var(--dark-bg-sidebar);
+  --surface: var(--dark-surface);
+  --surface-hover: var(--dark-surface-hover);
+  --surface-hover-warm: var(--dark-surface-hover-warm);
+  --surface-hover-deep: var(--dark-surface-hover-deep);
+  --surface-row-hover: var(--dark-surface-row-hover);
+  --surface-muted: var(--dark-surface-muted);
+  --surface-icon: var(--dark-surface-icon);
+  --hairline: var(--dark-hairline);
+  --hairline-soft: var(--dark-hairline-soft);
+  --hairline-strong: var(--dark-hairline-strong);
+  --hairline-popover: var(--dark-hairline-popover);
+  --text: var(--dark-text);
+  --text-body: var(--dark-text-body);
+  --text-2: var(--dark-text-2);
+  --text-3: var(--dark-text-3);
+  --text-4: var(--dark-text-4);
+  --text-5: var(--dark-text-5);
+  --text-label: var(--dark-text-label);
+  --text-faint: var(--dark-text-faint);
+  --text-rail: var(--dark-text-rail);
+  --accent: var(--dark-accent);
+  --accent-hover: var(--dark-accent-hover);
+  --accent-contrast: var(--dark-accent-contrast);
+  --accent-wash: var(--dark-accent-wash);
+  --accent-wash-rail: var(--dark-accent-wash-rail);
+  --accent-wash-soft: var(--dark-accent-wash-soft);
+  --accent-border: var(--dark-accent-border);
+  --accent-border-soft: var(--dark-accent-border-soft);
+  --avatar-bg: var(--dark-avatar-bg);
+  --presence-online: var(--dark-presence-online);
+  --presence-away: var(--dark-presence-away);
+  --presence-offline: var(--dark-presence-offline);
+  --unread-line: var(--dark-unread-line);
+  --unread-text: var(--dark-unread-text);
+  --danger: var(--dark-danger);
+  --disabled-bg: var(--dark-disabled-bg);
+  --disabled-fg: var(--dark-disabled-fg);
+  --track-off: var(--dark-track-off);
+  --scrollbar: var(--dark-scrollbar);
+  --knob: var(--dark-knob);
+  --backdrop: var(--dark-backdrop);
+  --iris: var(--dark-iris);
+  --clay: var(--dark-clay);
+  --clay-text: var(--dark-clay-text);
+  --iris-strong: var(--dark-iris-strong);
+  --iris-deep: var(--dark-iris-deep);
+  --iris-soft: var(--dark-iris-soft);
+  --iris-tint: var(--dark-iris-tint);
+  --iris-surface: var(--dark-iris-surface);
+  --iris-surface-2: var(--dark-iris-surface-2);
+  --iris-border: var(--dark-iris-border);
+  --iris-border-soft: var(--dark-iris-border-soft);
+  --iris-text: var(--dark-iris-text);
+  --iris-text-faint: var(--dark-iris-text-faint);
+  --iris-shimmer: var(--dark-iris-shimmer);
 
-    /* Shadows still exist in dark, but the surface ladder carries most of the
+  /* Shadows still exist in dark, but the surface ladder carries most of the
        elevation; the ring turns to white at low alpha because a hairline that dark
        reads as nothing. Derived from --surface, so a custom dark theme gets its own
        ladder rather than these greens. */
-    --surface-2: color-mix(in oklab, var(--surface) 92%, #fff);
-    --surface-3: color-mix(in oklab, var(--surface) 86%, #fff);
-    --elev-1:
-      0 0 0 1px rgb(255 255 255 / 8%),
-      0 1px 2px rgb(0 0 0 / 40%);
-    --elev-2:
-      0 0 0 1px rgb(255 255 255 / 8%),
-      0 8px 24px -8px rgb(0 0 0 / 50%);
-    --elev-3:
-      0 0 0 1px rgb(255 255 255 / 10%),
-      0 16px 48px -12px rgb(0 0 0 / 60%);
+  --surface-2: color-mix(in oklab, var(--surface) 92%, #fff);
+  --surface-3: color-mix(in oklab, var(--surface) 86%, #fff);
+  --elev-1: 0 0 0 1px rgb(255 255 255 / 8%), 0 1px 2px rgb(0 0 0 / 40%);
+  --elev-2: 0 0 0 1px rgb(255 255 255 / 8%), 0 8px 24px -8px rgb(0 0 0 / 50%);
+  --elev-3:
+    0 0 0 1px rgb(255 255 255 / 10%), 0 16px 48px -12px rgb(0 0 0 / 60%);
 
-    --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
+  --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
 }
 
 /* ─── muted text on an elevated surface ─────────────────────────────────────
@@ -484,14 +483,17 @@
    Derived rather than hard-coded, so a custom dark theme's own greys climb too.
    ────────────────────────────────────────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) :is(.user-menu-panel,
+  :root:not([data-theme='light'])
+    :is(
+      .user-menu-panel,
       .autocomplete,
       .palette,
       .dialog,
       .emoji-picker,
       .pinned-panel,
       .menu,
-      .toast) {
+      .toast
+    ) {
     --text-3: color-mix(in oklab, var(--dark-text-3) 82%, #fff);
     --text-4: color-mix(in oklab, var(--dark-text-4) 80%, #fff);
     --text-5: color-mix(in oklab, var(--dark-text-5) 78%, #fff);
@@ -501,14 +503,17 @@
   }
 }
 
-:root[data-theme='dark'] :is(.user-menu-panel,
-      .autocomplete,
-      .palette,
-      .dialog,
-      .emoji-picker,
-      .pinned-panel,
-      .menu,
-      .toast) {
+:root[data-theme='dark']
+  :is(
+    .user-menu-panel,
+    .autocomplete,
+    .palette,
+    .dialog,
+    .emoji-picker,
+    .pinned-panel,
+    .menu,
+    .toast
+  ) {
   --text-3: color-mix(in oklab, var(--dark-text-3) 82%, #fff);
   --text-4: color-mix(in oklab, var(--dark-text-4) 80%, #fff);
   --text-5: color-mix(in oklab, var(--dark-text-5) 78%, #fff);

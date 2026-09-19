@@ -165,8 +165,7 @@ export function SearchView({
   useEffect(() => {
     const term = query.trim();
     if (scope !== "files" || !term) {
-      setFileHits(null);
-      return;
+      return undefined;
     }
     let live = true;
     const timer = setTimeout(async () => {
@@ -244,7 +243,10 @@ export function SearchView({
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setFileHits(null);
+            }}
             placeholder="Search messages — try from:@name or in:#channel"
             aria-label="Search messages"
           />
@@ -256,7 +258,10 @@ export function SearchView({
               className="chip"
               type="button"
               aria-pressed={scope === option.value}
-              onClick={() => setScope(option.value)}
+              onClick={() => {
+                setScope(option.value);
+                setFileHits(null);
+              }}
             >
               {option.label}
             </button>

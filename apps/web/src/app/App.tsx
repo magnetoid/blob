@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '../lib/api.ts';
 import { connectStoreToSocket, useStore } from '../lib/store.ts';
 import { flushDrafts } from '../lib/drafts.ts';
-import { applyTheme, pickTheme } from '../lib/theme.ts';
+import { applyTheme, pickTheme, themeChoices } from '../lib/theme.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
 import { resetTokenFromUrl } from '../features/auth/tokens.ts';
 import { Workspace } from './Workspace.tsx';
@@ -40,7 +40,9 @@ export function App() {
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 401) {
-          const state = await api.auth.state().catch(() => ({ needsSetup: false }));
+          const state = await api.auth
+            .state()
+            .catch(() => ({ needsSetup: false }));
           if (cancelled) return;
           setNeedsSetup(state.needsSetup);
           setPhase('signed-out');
@@ -86,7 +88,12 @@ export function App() {
     root.setAttribute('data-density', prefs?.density ?? 'comfortable');
     if (!prefs) return undefined;
 
-    const apply = () => applyTheme(pickTheme(themes, prefs), prefs.theme);
+    const apply = () =>
+      applyTheme(
+        pickTheme(themes, prefs),
+        prefs.theme,
+        themeChoices(themes, prefs),
+      );
     apply();
 
     // 'system' has to follow the OS while the app is open, not only at load.
@@ -110,8 +117,8 @@ export function App() {
         <div className="auth-card">
           <h1>Can’t reach the server</h1>
           <p className="muted">
-            The workspace didn’t answer. It may be restarting, or something between you
-            and it may be down.
+            The workspace didn’t answer. It may be restarting, or something
+            between you and it may be down.
           </p>
           <button
             type="button"

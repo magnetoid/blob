@@ -15,58 +15,109 @@ import type { Theme, UserPrefs } from '@blob/shared';
 /** Mirrors the chosen palette so the pre-hydration script can avoid a flash. */
 const STORAGE_KEY = 'blob.theme';
 
-interface ThemeChoice {
+export interface ThemeChoice {
   mode: 'light' | 'dark';
   tokens: Record<string, string>;
 }
 
+export interface ThemeChoices {
+  light: ThemeChoice;
+  dark: ThemeChoice;
+}
+
 /** Which mode applies right now, resolving 'system' against the OS. */
-function resolveMode(preference: UserPrefs['theme']): 'light' | 'dark' {
+export function resolveMode(preference: UserPrefs['theme']): 'light' | 'dark' {
   if (preference === 'light' || preference === 'dark') return preference;
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+}
+
+function pickThemeForMode(
+  themes: Theme[],
+  prefs: Pick<UserPrefs, 'theme' | 'themeLight' | 'themeDark'>,
+  mode: 'light' | 'dark',
+): ThemeChoice {
+  const wanted = mode === 'dark' ? prefs.themeDark : prefs.themeLight;
+  const enabled = themes.filter((theme) => theme.isEnabled);
+  const match =
+    enabled.find((theme) => theme.slug === wanted && theme.mode === mode) ??
+    enabled.find((theme) => theme.mode === mode);
+  return { mode, tokens: match?.tokens ?? {} };
+}
+
+export function themeChoices(
+  themes: Theme[],
+  prefs: Pick<UserPrefs, 'theme' | 'themeLight' | 'themeDark'>,
+): ThemeChoices {
+  return {
+    light: pickThemeForMode(themes, prefs, 'light'),
+    dark: pickThemeForMode(themes, prefs, 'dark'),
+  };
 }
 
 export function pickTheme(
   themes: Theme[],
   prefs: Pick<UserPrefs, 'theme' | 'themeLight' | 'themeDark'>,
 ): ThemeChoice {
-  const mode = resolveMode(prefs.theme);
-  const wanted = mode === 'dark' ? prefs.themeDark : prefs.themeLight;
-  const match =
-    themes.find((t) => t.slug === wanted && t.mode === mode) ??
-    themes.find((t) => t.mode === mode);
-  return { mode, tokens: match?.tokens ?? {} };
+  return themeChoices(themes, prefs)[resolveMode(prefs.theme)];
 }
 
 let applied: string[] = [];
 
-/**
- * Write a theme onto the document.
- *
- * Tokens set by a previous theme are removed first, so switching from a heavily
- * customised palette back to a sparse one does not leave the old values behind.
- */
-export function applyTheme(choice: ThemeChoice, preference: UserPrefs['theme']): void {
+function writeTheme(choice: ThemeChoice, preference: UserPrefs['theme']): void {
   const root = document.documentElement;
+  const bootTokens = (root.dataset.themeTokens ?? '')
+    .split(' ')
+    .filter(Boolean);
 
-  for (const name of applied) {
+  for (const name of new Set([...applied, ...bootTokens])) {
     if (!(name in choice.tokens)) root.style.removeProperty(name);
   }
   for (const [name, value] of Object.entries(choice.tokens)) {
     root.style.setProperty(name, value);
   }
   applied = Object.keys(choice.tokens);
+  root.dataset.themeTokens = applied.join(' ');
+  root.dataset.resolvedTheme = choice.mode;
 
   if (preference === 'system') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', preference);
 
   // Native controls and scrollbars follow color-scheme, not our tokens.
   root.style.colorScheme = choice.mode;
+  const accent =
+    choice.tokens['--accent'] ??
+    (choice.mode === 'dark' ? '#5fb287' : '#1f5c3d');
+  document
+    .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    ?.setAttribute('content', accent);
+}
+
+/**
+ * Write and persist a theme.
+ *
+ * Tokens set by a previous theme are removed first, so switching from a heavily
+ * customised palette back to a sparse one does not leave the old values behind.
+ */
+export function applyTheme(
+  choice: ThemeChoice,
+  preference: UserPrefs['theme'],
+  choices?: ThemeChoices,
+): void {
+  writeTheme(choice, preference);
 
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ preference, mode: choice.mode, tokens: choice.tokens }),
+      JSON.stringify({
+        preference,
+        mode: choice.mode,
+        tokens: choice.tokens,
+        palettes: choices
+          ? { light: choices.light.tokens, dark: choices.dark.tokens }
+          : undefined,
+      }),
     );
   } catch {
     // Private browsing or a full quota: the theme still applies, it just flashes
@@ -74,11 +125,7 @@ export function applyTheme(choice: ThemeChoice, preference: UserPrefs['theme']):
   }
 }
 
-/** Preview without persisting — used by the theme editor while you drag a picker. */
-export function previewTokens(tokens: Record<string, string>): void {
-  const root = document.documentElement;
-  for (const [name, value] of Object.entries(tokens)) {
-    root.style.setProperty(name, value);
-  }
-  applied = [...new Set([...applied, ...Object.keys(tokens)])];
+/** Preview a complete palette without replacing the user's persisted choice. */
+export function previewTheme(choice: ThemeChoice): void {
+  writeTheme(choice, choice.mode);
 }

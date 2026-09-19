@@ -5,7 +5,7 @@
  * library to do the same and carries no dependency into the bundle.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type CSSProperties } from "react";
 import {
   METRICS,
   ZOOM_OPTIONS,
@@ -86,7 +86,9 @@ export function TrendChart({
             <select
               className="select"
               value={zoom}
-              onChange={(event) => onZoom(Number(event.target.value) as ChartZoom)}
+              onChange={(event) =>
+                onZoom(Number(event.target.value) as ChartZoom)
+              }
             >
               {ZOOM_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -118,7 +120,8 @@ export function TrendChart({
         {currentSample ? (
           <>
             <strong>{metricDef.label}</strong> was{" "}
-            {metricDef.format(currentSample.health)} at {sampleLabel(currentSample)}.
+            {metricDef.format(currentSample.health)} at{" "}
+            {sampleLabel(currentSample)}.
             {selectedSampleAt === currentSample.at &&
               " Activity is currently filtered to items after this point."}
           </>
@@ -141,11 +144,13 @@ export function TrendChart({
         }}
       >
         {visible.length === 0 ? (
-          <div className="dashboard-empty">Waiting for the first live sample…</div>
+          <div className="dashboard-empty">
+            Waiting for the first live sample…
+          </div>
         ) : (
           visible.map((sample) => {
             const value = metricDef.raw(sample.health);
-            const percent = `${Math.max(8, Math.round((value / max) * 100))}%`;
+            const scale = Math.max(0.08, value / max);
             const active = selectedSampleAt === sample.at;
             return (
               <button
@@ -153,7 +158,7 @@ export function TrendChart({
                 type="button"
                 className="dashboard-bar"
                 data-active={active ? "true" : "false"}
-                style={{ height: percent }}
+                style={{ "--bar-scale": scale } as CSSProperties}
                 aria-label={`${metricDef.label} at ${sampleLabel(sample)}: ${metricDef.format(
                   sample.health,
                 )}`}
@@ -164,9 +169,7 @@ export function TrendChart({
                 onFocus={() => setHoveredSampleAt(sample.at)}
                 onMouseLeave={() => setHoveredSampleAt(null)}
                 onBlur={() => setHoveredSampleAt(null)}
-                onClick={() =>
-                  onSelectSample(active ? null : sample.at)
-                }
+                onClick={() => onSelectSample(active ? null : sample.at)}
               >
                 <span className="sr-only">{sampleLabel(sample)}</span>
               </button>

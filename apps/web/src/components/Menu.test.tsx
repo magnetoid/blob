@@ -96,6 +96,47 @@ describe('a menu’s dismissal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('returns focus to its opener and makes the exiting panel inert', () => {
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <>
+        <button type="button">Open menu</button>
+        <Menu open={false} onClose={onClose} className="menu">
+          <button role="menuitem" type="button">
+            First
+          </button>
+        </Menu>
+      </>,
+    );
+    const trigger = screen.getByText('Open menu');
+    trigger.focus();
+    rerender(
+      <>
+        <button type="button">Open menu</button>
+        <Menu open onClose={onClose} className="menu">
+          <button role="menuitem" type="button">
+            First
+          </button>
+        </Menu>
+      </>,
+    );
+    screen.getByText('First').focus();
+
+    rerender(
+      <>
+        <button type="button">Open menu</button>
+        <Menu open={false} onClose={onClose} className="menu">
+          <button role="menuitem" type="button">
+            First
+          </button>
+        </Menu>
+      </>,
+    );
+
+    expect(document.activeElement).toBe(trigger);
+    expect(screen.getByRole('menu')).toHaveProperty('inert', true);
+  });
+
   it('closes on a click outside the panel', () => {
     const onClose = open();
 
