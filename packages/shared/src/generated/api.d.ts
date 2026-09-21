@@ -1576,6 +1576,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/attachments/{attachment_id}/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Page
+         * @description A web page, served as itself for the side panel to frame — in a sandbox, always.
+         *
+         *     The panel cannot draw a page's text into a `srcdoc` frame the way it draws a picture:
+         *     a `srcdoc` document inherits the app's own policy, and `script-src 'self'` refuses
+         *     every inline script a page has. From here the only policy is `_PAGE_POLICY`, which
+         *     the page cannot edit because it is a header, and whose `sandbox` holds however the
+         *     URL is opened.
+         */
+        get: operations["page_api_attachments__attachment_id__page_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attachments/{attachment_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview
+         * @description A file as the side panel shows it: its text, or its PDF — nothing else, and
+         *     nothing that could run.
+         *
+         *     One of two routes where a file's bytes pass through this process on their way to a
+         *     browser (the other is `page`). A download stays a redirect to storage; a preview
+         *     cannot be one, because its headers are the point — text has to arrive as inert
+         *     `text/plain` whatever it was uploaded as, and a PDF has to be framable by this origin
+         *     and no other, which storage cannot be told. Who may look is the download rule,
+         *     unchanged.
+         */
+        get: operations["preview_api_attachments__attachment_id__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/forgot-password": {
         parameters: {
             query?: never;
@@ -9390,6 +9444,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FileListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    page_api_attachments__attachment_id__page_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_attachments__attachment_id__preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

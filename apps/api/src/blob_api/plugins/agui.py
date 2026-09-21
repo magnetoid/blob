@@ -29,6 +29,8 @@ Three details cost more to rediscover than to record:
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 from collections.abc import Mapping, Sequence
@@ -71,6 +73,42 @@ ARTIFACT_MAX_ITEMS = 10
 ARTIFACT_MAX_BYTES = 200_000
 ARTIFACT_KINDS = frozenset({"diff", "html", "markdown"})
 
+#: Files one run may hand over (`blob.file.*`), and how many bytes of them in all. The
+#: budget is the worker's memory rather than the workspace's upload limit — the pieces are
+#: held until the stream ends — which is why it is per run and smaller. The job applies
+#: the workspace's limit to each file on top of this.
+FILE_MAX_ITEMS = 10
+FILE_MAX_BYTES = 25 * 1024 * 1024
+
+#: The three events a file travels as. The triad is the protocol's own shape for text
+#: (`TEXT_MESSAGE_START`/`CONTENT`/`END`), so an agent author has seen it before.
+FILE_EVENTS = frozenset({"blob.file.start", "blob.file.chunk", "blob.file.end"})
+
+#: Lines of "couldn't attach" under one message, matching the block element cap; the
+#: last one says how many more there were rather than dropping them silently.
+NOTE_LINE_LIMIT = 5
+
+
+@dataclass(slots=True)
+class AgentFile:
+    """A file an agent handed over, whole, for the job to check and store."""
+
+    name: str
+    #: The type the agent claimed, or None when it did not say — the job guesses from the
+    #: name. A claim is only a claim: the job sniffs the bytes before trusting it.
+    mime: str | None
+    data: bytes
+
+
+@dataclass(slots=True)
+class _Arriving:
+    """A file between its start and its end."""
+
+    name: str
+    mime: str | None
+    declared: int | None
+    buffer: bytearray = field(default_factory=bytearray)
+
 
 @dataclass(slots=True)
 class Post:
@@ -81,6 +119,11 @@ class Post:
     part: int
     body: str
     tools: list[str] = field(default_factory=list)
+    #: What the agent handed over with this message. Empty for most answers.
+    files: list[AgentFile] = field(default_factory=list)
+    #: Blob's own lines about files that did not make it, shown under the message. Never
+    #: the agent's words: an absence is the failure nobody in a channel can diagnose.
+    notes: list[str] = field(default_factory=list)
 
     def client_msg_id(self, run_id: str) -> str:
         """Deterministic, so re-running a job cannot post the answer twice.
@@ -93,18 +136,33 @@ class Post:
         return f"agui:{run_id}:{self.agui_message_id}{tail}"
 
     def blocks(self) -> list[dict[str, Any]] | None:
-        """A context block naming the tools the agent used, or None.
+        """Context lines under the answer — the tools it used, the files that did not
+        make it — or None when there is nothing to say.
 
-        Blob builds this, never the agent: the block union is closed, and letting a
+        Blob builds these, never the agent: the block union is closed, and letting a
         stream mint interactive UI would be a rendering surface nobody reviewed.
         """
-        if not self.tools:
-            return None
-        listed = ", ".join(self.tools[:TOOL_LINE_LIMIT])
-        more = len(self.tools) - TOOL_LINE_LIMIT
-        if more > 0:
-            listed += f" and {more} more"
-        return [{"type": "context", "elements": [{"type": "mrkdwn", "text": f"Used {listed}"}]}]
+        blocks: list[dict[str, Any]] = []
+        if self.tools:
+            listed = ", ".join(self.tools[:TOOL_LINE_LIMIT])
+            more = len(self.tools) - TOOL_LINE_LIMIT
+            if more > 0:
+                listed += f" and {more} more"
+            blocks.append(
+                {"type": "context", "elements": [{"type": "mrkdwn", "text": f"Used {listed}"}]}
+            )
+        if self.notes:
+            lines = self.notes[:NOTE_LINE_LIMIT]
+            if len(self.notes) > NOTE_LINE_LIMIT:
+                extra = len(self.notes) - NOTE_LINE_LIMIT + 1
+                lines = [*self.notes[: NOTE_LINE_LIMIT - 1], f"…and {extra} more files."]
+            blocks.append(
+                {
+                    "type": "context",
+                    "elements": [{"type": "mrkdwn", "text": line} for line in lines],
+                }
+            )
+        return blocks or None
 
 
 class Fold:
@@ -116,13 +174,28 @@ class Fold:
     and silence is the one failure a person in a channel cannot diagnose.
     """
 
-    def __init__(self, *, max_body_chars: int = MAX_BODY_CHARS) -> None:
+    def __init__(
+        self, *, max_body_chars: int = MAX_BODY_CHARS, max_file_bytes: int = FILE_MAX_BYTES
+    ) -> None:
         self._max_body = max_body_chars
         self._open: dict[str, list[str]] = {}
         self._part: dict[str, int] = {}
         self._tools: list[str] = []
         self._calls: dict[str, str] = {}
         self._posted = 0
+        #: The last message sealed. Nothing is written until the stream ends, so a file
+        #: or a note that arrives after the answer can still join it.
+        self._last: Post | None = None
+        # Files: between start and end, whole and waiting for a message to ride on, and
+        # Blob's notes about the ones that did not make it, waiting likewise.
+        self._max_file_bytes = max_file_bytes
+        self._arriving: dict[str, _Arriving] = {}
+        self._closed_files: set[str] = set()
+        self._ready: list[AgentFile] = []
+        self._notes: list[str] = []
+        self._file_count = 0
+        self._file_bytes = 0
+        self._said_too_many = False
         self.error: str | None = None
         #: The question the agent stopped to ask, as one line; see `interrupt_prompt`.
         self.interrupt: str | None = None
@@ -193,6 +266,10 @@ class Fold:
             self._take_artifact(event.get("value"))
             return []
 
+        if kind == "CUSTOM" and event.get("name") in FILE_EVENTS:
+            self._take_file_event(str(event.get("name")), event.get("value"))
+            return []
+
         if kind == "STATE_SNAPSHOT":
             self._take_state(event.get("snapshot"))
             return []
@@ -233,6 +310,85 @@ class Fold:
             return
         self.artifacts.append({"kind": kind, "title": title.strip()[:200], "body": body})
 
+    def _take_file_event(self, name: str, value: Any) -> None:
+        """One piece of a file on its way. Never fatal: a bad file is dropped and said
+        so, and the answer it came with is posted regardless."""
+        if not isinstance(value, Mapping):
+            return
+        file_id = value.get("id")
+        if not isinstance(file_id, str) or not file_id:
+            return
+        if name == "blob.file.start":
+            self._start_file(file_id, value)
+        elif name == "blob.file.chunk":
+            self._file_piece(file_id, value.get("data"))
+        else:
+            self._end_file(file_id)
+
+    def _start_file(self, file_id: str, value: Mapping[str, Any]) -> None:
+        if file_id in self._arriving or file_id in self._closed_files:
+            return  # A repeated start is noise, not a second file.
+        raw_name = value.get("name")
+        name = display_name(raw_name) if isinstance(raw_name, str) else ""
+        if not name:
+            self._closed_files.add(file_id)
+            log.info("agui: a file arrived with no name; dropped")
+            return
+        if self._file_count >= FILE_MAX_ITEMS:
+            self._closed_files.add(file_id)
+            if not self._said_too_many:
+                self._said_too_many = True
+                self._notes.append(f"Only the first {FILE_MAX_ITEMS} files were attached.")
+            return
+        declared = value.get("size")
+        declared = declared if isinstance(declared, int) and declared >= 0 else None
+        if declared is not None and self._file_bytes + declared > self._max_file_bytes:
+            # Refused before a byte of it is held, rather than after most of it is.
+            self._closed_files.add(file_id)
+            self._notes.append(_too_large(name))
+            return
+        mime = value.get("mimeType")
+        claimed = mime.lower().split(";", 1)[0].strip() if isinstance(mime, str) else ""
+        self._file_count += 1
+        self._arriving[file_id] = _Arriving(name=name, mime=claimed or None, declared=declared)
+
+    def _file_piece(self, file_id: str, data: Any) -> None:
+        arriving = self._arriving.get(file_id)
+        if arriving is None or not isinstance(data, str):
+            return
+        try:
+            piece = base64.b64decode(data, validate=True)
+        except (binascii.Error, ValueError):
+            self._drop_file(file_id, f"Couldn't attach `{arriving.name}`: it arrived damaged.")
+            return
+        if self._file_bytes + len(piece) > self._max_file_bytes:
+            self._drop_file(file_id, _too_large(arriving.name))
+            return
+        arriving.buffer.extend(piece)
+        self._file_bytes += len(piece)
+
+    def _end_file(self, file_id: str) -> None:
+        arriving = self._arriving.get(file_id)
+        if arriving is None:
+            return
+        if arriving.declared is not None and arriving.declared != len(arriving.buffer):
+            self._drop_file(file_id, f"Couldn't attach `{arriving.name}`: it arrived incomplete.")
+            return
+        del self._arriving[file_id]
+        self._closed_files.add(file_id)
+        self._ready.append(
+            AgentFile(name=arriving.name, mime=arriving.mime, data=bytes(arriving.buffer))
+        )
+
+    def _drop_file(self, file_id: str, note: str) -> None:
+        arriving = self._arriving.pop(file_id, None)
+        self._closed_files.add(file_id)
+        if arriving is not None:
+            # What it held is released, so the budget measures what is actually kept.
+            self._file_bytes -= len(arriving.buffer)
+        self._notes.append(note)
+        log.info("agui: a file was dropped: %s", note)
+
     def _take_state(self, state: Any) -> None:
         """Keep the state if it fits; drop it for the rest of the run if it does not."""
         try:
@@ -247,10 +403,36 @@ class Fold:
         self.state = state
 
     def finish(self) -> list[Post]:
-        """Seal every message still open, oldest first."""
+        """Seal every message still open, oldest first, and settle the files.
+
+        A file still arriving when the stream ends did not arrive, and says so. Whole
+        files and notes ride on the message sealed next or, failing that, on the last one
+        sealed; only a run that posted nothing at all gives them a message of their own.
+        Safe to call twice — the second call finds nothing left to do.
+        """
+        for file_id, arriving in list(self._arriving.items()):
+            note = f"Couldn't attach `{arriving.name}`: it never finished arriving."
+            self._drop_file(file_id, note)
         posts: list[Post] = []
         for message_id in list(self._open):
             posts.extend(self._seal(message_id))
+        if self._ready or self._notes:
+            if self._last is not None:
+                self._last.files.extend(self._ready)
+                self._last.notes.extend(self._notes)
+            else:
+                self._posted += 1
+                tools, self._tools = self._tools, []
+                self._last = Post(
+                    agui_message_id="files",
+                    part=1,
+                    body="",
+                    tools=tools,
+                    files=self._ready,
+                    notes=self._notes,
+                )
+                posts.append(self._last)
+            self._ready, self._notes = [], []
         return posts
 
     def _append(self, message_id: str, delta: str) -> list[Post]:
@@ -280,12 +462,39 @@ class Fold:
             return None
         self._posted += 1
         tools, self._tools = self._tools, []
-        return Post(
+        files, self._ready = self._ready, []
+        notes, self._notes = self._notes, []
+        self._last = Post(
             agui_message_id=message_id,
             part=self._part.get(message_id, 1),
             body=body,
             tools=tools,
+            files=files,
+            notes=notes,
         )
+        return self._last
+
+
+#: Characters a file name keeps. Control characters would forge lines in a note or a log;
+#: a backtick would close the code span the name is shown in.
+_NAME_DROPS = {chr(n) for n in range(32)} | {"\x7f", "`"}
+_NAME_MAX_CHARS = 200
+
+
+def display_name(raw: str) -> str:
+    """The name an agent gave a file, as Blob will show and store it.
+
+    Only the last path segment: an agent that sends `/opt/data/site/index.html` means the
+    file, and the rest of its disk is nobody's business. Long names keep their end, which
+    is where the extension is.
+    """
+    last = raw.replace("\\", "/").rsplit("/", 1)[-1]
+    cleaned = "".join(c for c in last if c not in _NAME_DROPS).strip()
+    return cleaned[-_NAME_MAX_CHARS:]
+
+
+def _too_large(name: str) -> str:
+    return f"Couldn't attach `{name}`: it's more than an agent may hand over in one run."
 
 
 def _message_id(event: Mapping[str, Any]) -> str:

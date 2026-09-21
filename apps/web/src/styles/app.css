@@ -495,6 +495,33 @@ button {
   grid-template-columns: 84px minmax(0, 1fr) var(--panel-width);
 }
 
+/* Only where the panel is a column. Below 900px it is an overlay and the shell drops to
+   fewer columns, and these selectors — one attribute more specific than the narrow
+   rules — would otherwise put the third column back under the overlay and push the top
+   bar off the side of a phone. */
+@media (min-width: 901px) {
+  .shell[data-panel='open'][data-panel-kind='file'] {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width-file);
+  }
+
+  .shell[data-sidebar-collapsed='true'][data-panel='open'][data-panel-kind='file'] {
+    grid-template-columns: 84px minmax(0, 1fr) var(--panel-width-file);
+  }
+}
+
+/* A file's panel takes width from the conversation, and the conversation's header runs
+   out first: a name, a description and four labelled controls want about 800px. Below
+   the width that leaves them that — 1860px, once the panel's clamp is done — the labels
+   go and the icons keep their `title`, the trade the phone layout already makes.
+   Keyed on the viewport rather than on the column because the header cannot measure its
+   own column without `container-type`, and the containment that brings would trap the
+   header's menus in a stacking context underneath the message list. */
+@media (max-width: 1860px) {
+  .shell[data-panel-kind='file'] .pane-action-label {
+    display: none;
+  }
+}
+
 /* ─── top bar ────────────────────────────────────────────────────────────── */
 .topbar {
   grid-column: 1 / -1;
@@ -1703,11 +1730,15 @@ dialog.lightbox-host::backdrop {
   opacity: 1;
 }
 
+/* A file on a message: the card opens it beside the conversation, and the button at the
+   end downloads it. Two targets in one box, so the box carries the border and each half
+   carries its own hover. */
 .attachment-file {
   display: inline-flex;
   align-items: center;
-  gap: 11px;
-  padding: 10px 13px;
+  gap: 4px;
+  max-width: 100%;
+  padding-right: 6px;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
@@ -1716,7 +1747,34 @@ dialog.lightbox-host::backdrop {
 
 .attachment-file:hover {
   border-color: var(--hairline-strong);
+}
+
+.attachment-file-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 10px 7px 10px 13px;
+  color: inherit;
+}
+
+.attachment-file-open:hover {
   text-decoration: none;
+}
+
+.attachment-file-open:hover .attachment-name {
+  text-decoration: underline;
+}
+
+.attachment-text {
+  min-width: 0;
+}
+
+.attachment-text .attachment-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .attachment-icon {
@@ -5357,6 +5415,10 @@ button.member-row:hover {
     box-shadow: var(--elev-3);
   }
 
+  .shell[data-panel='open'] .panel.file-preview {
+    width: min(var(--panel-width-file), 92vw);
+  }
+
   .topbar-feedback-label {
     display: none;
   }
@@ -6131,6 +6193,12 @@ a.build-commit-sha:hover {
     left: 0;
     width: auto;
     z-index: var(--z-panel);
+  }
+
+  /* A file's panel too: the wider overlay above is for tablets, and its extra class
+     would otherwise outrank the full bleed here and pin a 380px panel to the left. */
+  .shell[data-panel='open'] .panel.file-preview {
+    width: auto;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -7473,6 +7541,158 @@ button.person-trigger:hover {
   border-radius: var(--radius-md);
   box-shadow: 0 0 0 1px var(--hairline); /* borders over shadows: only the frame, the composer and overlays float */
   background: #fff;
+}
+
+/* ─── a file, open in the right-hand panel ───────────────────────────────── */
+.file-preview-heading {
+  min-width: 0;
+}
+
+.file-preview-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-preview-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin-left: 8px;
+}
+
+.file-preview-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* A page, an SVG or a PDF fills the panel edge to edge: it brings its own margins. White
+   whatever the theme, because it is somebody's document and was drawn on white. */
+.file-preview-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #fff;
+}
+
+.file-preview-document {
+  max-width: 72ch;
+  padding: 16px var(--pane-gutter) 24px;
+}
+
+.file-preview-document h1,
+.file-preview-document h2,
+.file-preview-document h3,
+.file-preview-document h4,
+.file-preview-document h5,
+.file-preview-document h6,
+.work-document h1,
+.work-document h2,
+.work-document h3,
+.work-document h4,
+.work-document h5,
+.work-document h6 {
+  margin: 18px 0 8px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.file-preview-document h1,
+.work-document h1 {
+  font-size: var(--text-xl);
+}
+
+.file-preview-document h2,
+.work-document h2 {
+  font-size: var(--text-lg);
+}
+
+.file-preview-document h3,
+.work-document h3 {
+  font-size: var(--text-title);
+}
+
+.file-preview-document > :first-child,
+.work-document > :first-child {
+  margin-top: 0;
+}
+
+.file-preview-code {
+  flex: 1;
+  margin: 0;
+  padding: 14px var(--pane-gutter);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-body);
+  white-space: pre;
+  tab-size: 2;
+}
+
+.file-preview-table-wrap {
+  flex: 1;
+  overflow: auto;
+}
+
+.file-preview-table {
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+.file-preview-table th,
+.file-preview-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--hairline-soft);
+  text-align: left;
+  vertical-align: top;
+  white-space: pre-wrap;
+}
+
+/* The first column starts on the panel's gutter, level with the file name above it. */
+.file-preview-table th:first-child,
+.file-preview-table td:first-child {
+  padding-left: var(--pane-gutter);
+}
+
+/* The header row stays put while the rows scroll under it. */
+.file-preview-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-sidebar);
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+
+.file-preview-note,
+.file-preview-status {
+  padding: 12px var(--pane-gutter);
+  font-size: var(--text-sm);
+  color: var(--text-4);
+}
+
+.file-preview-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px var(--pane-gutter);
+  text-align: center;
+  color: var(--text-3);
+}
+
+.file-preview-empty p {
+  margin: 0;
 }
 
 /* A unified diff, drawn. Colour is the only thing added to the text. */

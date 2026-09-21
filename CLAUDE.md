@@ -21,11 +21,11 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-nineteen ADRs; the principles below are their summary, not a substitute. 0013–0019 are
+twenty ADRs; the principles below are their summary, not a substitute. 0013–0020 are
 the agentic surface — chains, work channels, summaries and nudges, the MCP caller, whose
-an agent is, and that Blob ships no agent of its own (0017, what a shared agent may read,
-is superseded by 0019) — and are the ones this digest compresses hardest, so read them
-before changing that code. The shortest way in: an agent in a workspace is either the
+an agent is, that Blob ships no agent of its own (0017, what a shared agent may read,
+is superseded by 0019), and how an agent hands over a file (0020) — and are the ones this
+digest compresses hardest, so read them before changing that code. The shortest way in: an agent in a workspace is either the
 workspace's (`plugins.owner_user_id` NULL — an admin installed it for everyone, like the
 `magnetoid/janus` agent, the one Blob seeds) or one person's (set — theirs, listed only
 for them, lent out through `agent_delegations`); an assistant holding an `mcp_token` is
@@ -193,7 +193,7 @@ process holding the socket is not the process running the job — mentions are t
 sockets are an API process's — so every run crosses through Redis, which is why the holder
 claims a run id with `SET NX` and why `stream_events` subscribes before it publishes.
 
-**What sits on top of the plugin layer.** `plugins/` is the transport; these five are the
+**What sits on top of the plugin layer.** `plugins/` is the transport; these six are the
 product built on it. Each of the first three departs from a rule an earlier ADR set, so
 the ADR is the place to look before changing them.
 
@@ -237,6 +237,15 @@ the ADR is the place to look before changing them.
   keyword scan that runs when no model is configured, `llm:<model>` otherwise. Both
   production instances run with no model, so every path has to be honest in that state.
   Nudges go to the asker alone — see the privacy principle below.
+* **Files from agents, and the file panel** (`services/agent_files.py`,
+  `features/messages/FilePreviewPanel.tsx`, ADR 0020). An agent hands over a file inside
+  the run it is answering — `CUSTOM` events `blob.file.start`/`chunk`/`end`, base64
+  pieces — because the Janus beside Blob holds no credential to upload with. The file
+  meets a person's upload rules and rides on the answer; anything refused is a line under
+  it, never an absence. Clicking a file opens it in the right-hand column: text from
+  `/api/attachments/:id/preview` as inert `text/plain`, a PDF inline, a web page from
+  `/api/attachments/:id/page` under its own `sandbox` header — never `srcdoc`, which
+  inherits the app's policy and has every inline script refused.
 * **The agent terminal** (`routers/agent_shell.py`, `lib/agentTerminal.ts`). A third
   WebSocket endpoint beside `realtime/ws.py` and `plugins/gateway.py`, pumping bytes
   between a PTY and xterm.js. It authenticates with the ordinary session cookie —

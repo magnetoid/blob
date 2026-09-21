@@ -141,6 +141,9 @@
   /* ─── layout ───────────────────────────────────────────────────────────── */
   --sidebar-width: 240px;
   --panel-width: 380px;
+  /* A file in the panel: a page or a PDF needs more than a thread's 380px to be read,
+     and never so much that the conversation it came from stops being usable. */
+  --panel-width-file: clamp(380px, 44vw, 760px);
   --header-height: 56px;
   --topbar-height: 44px;
   --pane-gutter: 16px;

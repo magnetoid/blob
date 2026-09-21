@@ -37,6 +37,7 @@ export function WorkPreview({ artifact }: { artifact: WorkArtifact }) {
           knownNames: new Map(),
           currentUserId,
           customEmoji,
+          headings: true,
         })}
       </div>
     );

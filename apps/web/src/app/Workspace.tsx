@@ -26,6 +26,8 @@ import { ThreadPanelSlot } from '../features/messages/ThreadPanel.tsx';
 import { BrowseChannels } from '../features/channels/BrowseChannels.tsx';
 import { ScheduledView } from '../features/messages/ScheduledView.tsx';
 import { AgentTerminalPanel } from '../features/agentic/AgentTerminalPanel.tsx';
+import { FilePreviewPanel } from '../features/messages/FilePreviewPanel.tsx';
+import { closeFilePreview } from '../lib/filePreview.ts';
 import { CommandPalette } from '../features/palette/CommandPalette.tsx';
 import { SearchView } from '../features/search/SearchView.tsx';
 // Lazy: the consoles are ~3,000 lines of JSX an ordinary member never renders,
@@ -68,6 +70,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const catchupScope = useStore((s) => s.catchupScope);
   const lightbox = useStore((s) => s.lightbox);
   const terminalTarget = useStore((s) => s.terminalTarget);
+  const filePreview = useStore((s) => s.filePreview);
   const openChannel = useStore((s) => s.openChannel);
   const openThread = useStore((s) => s.openThread);
 
@@ -362,9 +365,10 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   ]);
 
   // The right-hand column belongs to the conversation view only, and holds one thing at
-  // a time: a thread, or a terminal in the agent this DM is with.
+  // a time: a thread, a terminal in the agent this DM is with, or a file.
   const inConversation = view === 'messages' || view === 'channel';
-  const panelOpen = inConversation && Boolean(activeThreadRootId || terminalTarget);
+  const panelOpen =
+    inConversation && Boolean(activeThreadRootId || terminalTarget || filePreview);
   // The thread panel outlives its own close by one animation — `ThreadPanelSlot` holds
   // it — and the column it stands in belongs to the shell, so the shell has to hold that
   // for as long. Otherwise closing a thread takes the grid column away on the first
@@ -427,6 +431,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     <div
       className="shell"
       data-panel={panelPresent ? 'open' : 'closed'}
+      // A file wants more of the width than a thread does: a page or a PDF in a thread's
+      // 380px is a page nobody can read.
+      data-panel-kind={panelOpen && filePreview ? 'file' : undefined}
       data-sidebar={sidebarOpen ? 'open' : 'closed'}
       data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
     >
@@ -500,7 +507,15 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         </Suspense>
       )}
 
-      {panelOpen && terminalTarget ? (
+      {panelOpen && filePreview ? (
+        // Keyed by file, so opening another is a new panel with its own fetch rather
+        // than this one briefly showing the last file's text under the new name.
+        <FilePreviewPanel
+          key={filePreview.id}
+          attachment={filePreview}
+          onClose={closeFilePreview}
+        />
+      ) : panelOpen && terminalTarget ? (
         <AgentTerminalPanel
           pluginId={terminalTarget.pluginId}
           agentName={terminalTarget.agentName}

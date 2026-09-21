@@ -109,8 +109,9 @@ async def listing(
 
 async def open_ticket(
     session: AsyncSession,
-    user: SessionUser,
     *,
+    workspace_id: str,
+    uploader_id: str,
     attachment_id: str,
     object_key: str,
     filename: str,
@@ -118,7 +119,11 @@ async def open_ticket(
     size_bytes: int,
     kind: str = "file",
 ) -> None:
-    """The row an upload ticket is written against, before any byte has moved."""
+    """The row an upload is written against, before any byte has moved.
+
+    By ids rather than a session user: an agent's file arrives in the worker, where the
+    uploader is its bot and there is no request to take a user from.
+    """
     await session.execute(
         text(
             """
@@ -129,8 +134,8 @@ async def open_ticket(
         ),
         {
             "id": attachment_id,
-            "ws": user.workspace_id,
-            "uploader_id": user.id,
+            "ws": workspace_id,
+            "uploader_id": uploader_id,
             "object_key": object_key,
             "filename": filename,
             "mime": mime,
@@ -225,6 +230,30 @@ async def for_download(session: AsyncSession, user: SessionUser, key: str) -> An
                 """
             ),
             {"key": key, "user_id": user.id, "ws": user.workspace_id},
+        )
+    ).fetchone()
+
+
+async def for_preview(session: AsyncSession, user: SessionUser, attachment_id: str) -> Any:
+    """An attachment by id, with whether this person is in its channel.
+
+    The same inputs `for_download` gives the download rule, which the preview obeys
+    unchanged; by id rather than key because the panel opens an attachment, not a URL.
+    """
+    return (
+        await session.execute(
+            text(
+                """
+                SELECT a.object_key, a.filename, a.mime, a.size_bytes, a.message_id,
+                       a.uploader_id, a.uploaded_at, cm.user_id AS channel_member
+                  FROM attachments a
+                  LEFT JOIN messages m ON m.id = a.message_id
+                  LEFT JOIN channel_members cm
+                         ON cm.channel_id = m.channel_id AND cm.user_id = :user_id
+                 WHERE a.id = :id AND a.workspace_id = :ws
+                """
+            ),
+            {"id": attachment_id, "user_id": user.id, "ws": user.workspace_id},
         )
     ).fetchone()
 

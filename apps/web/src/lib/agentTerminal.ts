@@ -17,9 +17,10 @@ export async function openAgentTerminal(botUserId: string): Promise<void> {
     const target = await api.agents.terminalTarget(botUserId);
     useStore.setState({
       terminalTarget: { pluginId: target.pluginId, agentName: target.agentName },
-      // A terminal and a thread share the one panel column, so opening one closes the
-      // other rather than leaving the shell to decide which it meant.
+      // A terminal, a thread and a file share the one panel column, so opening one
+      // closes the others rather than leaving the shell to decide which it meant.
       activeThreadRootId: null,
+      filePreview: null,
     });
   } catch (err) {
     // The server's own sentence, which names the reason: an agent Blob does not host

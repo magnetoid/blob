@@ -352,6 +352,7 @@ What Blob does with the stream:
 | `RUN_FINISHED` with an `interrupt` outcome | The question is posted **with buttons or a text box**, minted from your `interrupts[].responseSchema` (an `enum`, a `oneOf` with `const`/`title`, or a boolean) — or from `metadata.options`. Only the person the run is on behalf of can answer. Their answer is posted as their own message and your agent is called again with `resume: [{interruptId, status: "resolved", payload}]`, `parentRunId` (the `runId` of the run that asked) and `state` (below). A question nobody answers within a day expires. |
 | `STATE_SNAPSHOT` / `STATE_DELTA` | Folded (deltas are RFC 6902) and **remembered per conversation**: the next run in the same channel or thread receives it as `state`. A resume receives the state the run had when it stopped. 64 KiB cap. |
 | `CUSTOM` with `name: "blob.artifact"` | In a work channel, publishes an artifact — see below. Elsewhere, ignored. |
+| `CUSTOM` named `blob.file.start` / `chunk` / `end` | Hands over a file, attached to your answer — see [Handing over a file](#handing-over-a-file). |
 | `RUN_ERROR` | A short message saying it could not finish, and `lastError` on the app |
 | everything else | Ignored, including all reasoning events — an agent's working-out is not its answer |
 
@@ -380,6 +381,34 @@ nothing at all — not even an error, because a private channel's existence is p
 > **Any member of a channel your agent is in can make it speak, and whatever it says is
 > posted as your app.** That is the feature, and it is also the threat model: treat channel
 > content as untrusted input to your agent.
+
+### Handing over a file
+
+Anything your agent makes — a page, a PDF, a spreadsheet, a chart, a zip — can arrive as an
+attachment on its answer, in any channel or DM. It travels inside the run as three events:
+
+```json
+{"type": "CUSTOM", "name": "blob.file.start",
+ "value": {"id": "f1", "name": "index.html", "mimeType": "text/html", "size": 18342}}
+{"type": "CUSTOM", "name": "blob.file.chunk", "value": {"id": "f1", "data": "<base64>"}}
+{"type": "CUSTOM", "name": "blob.file.end", "value": {"id": "f1"}}
+```
+
+Send as many `chunk` events as the file needs, in order; keep each piece under 256 KiB of
+file (a socket frame is capped at 512 KiB). `mimeType` and `size` are optional — without a
+type Blob guesses from the name, and a declared size that does not match what arrived drops
+the file. The file is attached to the next message you send, or to your last one if it
+arrives after it; a run that sends only files gets a message holding just them.
+
+The file meets every rule a person's upload does: executables are refused by name, the
+bytes must be what the type says (a page claiming to be a PNG is refused), and each file
+must fit the workspace's upload limit. A run may hand over ten files and 25 MiB in all
+(`AGUI_MAX_FILE_BYTES`). Whatever is refused is **said under your answer** — *Couldn't
+attach `setup.exe`: .exe files can't be shared here.* — never silently dropped.
+
+People open a file in a panel beside the conversation: a page runs in a sandbox with no
+network and no cookies, a PDF in the browser's viewer, Markdown, CSV, JSON and code as
+documents and text. Everything else downloads.
 
 ### Publishing artifacts into a work channel
 

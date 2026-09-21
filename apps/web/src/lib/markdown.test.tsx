@@ -271,3 +271,36 @@ describe("search hit highlighting", () => {
     expect(el.querySelector("code mark")).toBeNull();
   });
 });
+
+describe("headings, for documents only", () => {
+  function drawDocument(body: string) {
+    return render(
+      <div>{renderMarkdown(body, { ...options(), headings: true })}</div>,
+    ).container;
+  }
+
+  it("a message has none — a leading # is just a character", () => {
+    const container = draw("# general is where standup happens");
+    expect(container.querySelector("h1")).toBeNull();
+    expect(container.textContent).toContain("# general is where standup happens");
+  });
+
+  it("a document gets them, one to six levels, as elements", () => {
+    const container = drawDocument("# Plan\n\n## Friday\nShip **it**.\n###### Small");
+    expect(container.querySelector("h1")?.textContent).toBe("Plan");
+    expect(container.querySelector("h2")?.textContent).toBe("Friday");
+    expect(container.querySelector("h6")?.textContent).toBe("Small");
+    expect(container.querySelector("p strong")?.textContent).toBe("it");
+  });
+
+  it("a heading's text is rendered inline like any other, never as markup", () => {
+    const container = drawDocument("# <img src=x onerror=alert(1)> *bold*");
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("h1")?.textContent).toContain("<img src=x");
+  });
+
+  it("needs the space after the hashes, as CommonMark does", () => {
+    const container = drawDocument("#hashtag");
+    expect(container.querySelector("h1")).toBeNull();
+  });
+});

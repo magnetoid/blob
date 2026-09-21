@@ -36,13 +36,27 @@ describe("framing the document", () => {
     );
   });
 
-  it("adds a head when the page has none, and wraps a fragment", () => {
-    expect(framedDocument("<html><body>hi</body></html>")).toContain(
-      "<head><meta http-equiv",
-    );
+  it("wraps a fragment as a document with the policy first", () => {
     const fragment = framedDocument("<p>just this</p>");
-    expect(fragment.startsWith("<!doctype html>")).toBe(true);
+    expect(fragment.startsWith('<!doctype html><meta http-equiv="Content-Security-Policy"')).toBe(
+      true,
+    );
     expect(fragment).toContain("<p>just this</p>");
+  });
+
+  it("comes before anything the page wrote, so the page cannot steer it", () => {
+    // A regex for the page's own <head> could be pointed at a comment: the policy
+    // would land inside it and do nothing. First in the document, it is always in
+    // the head the parser opens.
+    const out = framedDocument(
+      "<!-- <head> --><html><head><script>fetch('https://x')</script></head></html>",
+    );
+    expect(out.startsWith('<!doctype html><meta http-equiv="Content-Security-Policy"')).toBe(
+      true,
+    );
+    // Where a browser's parser then puts it — the implied head — is checked in a real
+    // browser; happy-dom's parser does not implement the implied-head rule.
+    expect(out.indexOf("Content-Security-Policy")).toBeLessThan(out.indexOf("<!-- <head> -->"));
   });
 
   it("the policy forbids every kind of network", () => {

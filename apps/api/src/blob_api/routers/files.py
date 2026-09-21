@@ -12,15 +12,15 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response, StreamingResponse
 
 from ..db.engine import session_scope, transaction
-from ..lib import images, magic
+from ..lib import images, magic, previews
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import bad_request, no_such_file, not_found
+from ..lib.errors import bad_request, no_preview, no_such_file, not_found, preview_too_large
 from ..lib.ids import IdParam, looks_like_id, new_id
 from ..lib.rate_limit import consume
 from ..lib.storage import (
@@ -33,6 +33,7 @@ from ..lib.storage import (
     presign_upload,
     public_file_url,
     put_object,
+    stream_object,
 )
 from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import Attachment
@@ -44,21 +45,41 @@ log = logging.getLogger("blob.files")
 
 router = APIRouter(tags=["files"])
 
-#: Extensions we refuse outright — executables and inline-scriptable formats.
-BLOCKED_EXTENSIONS = {
-    "exe",
-    "msi",
-    "bat",
-    "cmd",
-    "com",
-    "scr",
-    "ps1",
-    "sh",
-    "app",
-    "jar",
-    "svg",
-    "html",
-    "htm",
+
+#: The most text the side panel will show. Past this a file is downloaded rather than read
+#: in a panel: its bytes pass through this process, and a document nobody could scroll to
+#: the end of is not a preview.
+TEXT_PREVIEW_MAX_BYTES = 2 * 1024 * 1024
+
+#: Text of every kind — a page included — leaves here as inert plain text. The client
+#: decides whether it is markdown, a table or a page, and a page runs only in the
+#: sandboxed frame (ADR 0014), never as this response: opened directly, it is words.
+_TEXT_PREVIEW_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "private, max-age=300",
+}
+
+#: A web page's policy, in the header where nothing the page contains can reach it.
+#: `sandbox allow-scripts` without `allow-same-origin` makes it an opaque origin however
+#: it is opened — framed by the panel or navigated to directly — so it never runs as this
+#: origin: no cookies, no storage, no request to the workspace as the person. The rest is
+#: ADR 0014's preview policy: draw itself, run its own inline scripts, touch no network,
+#: be framed by this origin alone.
+_PAGE_POLICY = (
+    "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; "
+    "style-src 'unsafe-inline'; img-src data: https:; font-src data:; media-src data:; "
+    "connect-src 'none'; form-action 'none'; frame-src 'none'; base-uri 'none'; "
+    "frame-ancestors 'self'"
+)
+
+_PAGE_HEADERS = {
+    "Content-Security-Policy": _PAGE_POLICY,
+    # Every other response says DENY; the panel frames this one.
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cache-Control": "private, no-store",
 }
 
 
@@ -149,8 +170,8 @@ async def create_upload(
     await consume("upload", user.id)
     await ensure_bucket()
 
-    extension = payload.filename.rsplit(".", 1)[-1].lower() if "." in payload.filename else ""
-    if extension in BLOCKED_EXTENSIONS:
+    extension = magic.blocked_extension(payload.filename)
+    if extension:
         raise bad_request(f".{extension} files can't be shared here.")
     mime = payload.mime
     if payload.kind == "voice":
@@ -171,7 +192,8 @@ async def create_upload(
     async with transaction() as (session, _):
         await file_service.open_ticket(
             session,
-            user,
+            workspace_id=user.workspace_id,
+            uploader_id=user.id,
             attachment_id=attachment_id,
             object_key=object_key,
             filename=payload.filename,
@@ -277,6 +299,98 @@ async def complete_upload(
     if not recorded:
         raise not_found("That upload has expired.")
     return OkOut()
+
+
+@router.get("/api/attachments/{attachment_id}/preview", response_model=None)
+async def preview(attachment_id: IdParam, user: SessionUser = Depends(current_user)) -> Response:
+    """A file as the side panel shows it: its text, or its PDF — nothing else, and
+    nothing that could run.
+
+    One of two routes where a file's bytes pass through this process on their way to a
+    browser (the other is `page`). A download stays a redirect to storage; a preview
+    cannot be one, because its headers are the point — text has to arrive as inert
+    `text/plain` whatever it was uploaded as, and a PDF has to be framable by this origin
+    and no other, which storage cannot be told. Who may look is the download rule,
+    unchanged.
+    """
+    file = await _previewable(user, attachment_id)
+    kind = previews.kind_of(file.filename, file.mime)
+    if kind == "text":
+        return Response(
+            content=await _words(file),
+            media_type="text/plain; charset=utf-8",
+            headers=_TEXT_PREVIEW_HEADERS,
+        )
+    if kind == "pdf":
+        # By its bytes, not its name: a `.pdf` that is not one has nothing to show.
+        if not (await get_object_head(file.object_key, 5)).startswith(b"%PDF-"):
+            raise no_preview()
+        length, chunks = await stream_object(file.object_key)
+        headers = {
+            "Content-Disposition": f"inline; filename*=UTF-8''{quote(file.filename, safe='')}",
+            # Every other response says DENY. The panel frames this one, so this one says
+            # this origin may — and only this origin.
+            "X-Frame-Options": "SAMEORIGIN",
+            "Content-Security-Policy": "frame-ancestors 'self'",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=300",
+        }
+        if length:
+            headers["Content-Length"] = str(length)
+        return StreamingResponse(chunks, media_type="application/pdf", headers=headers)
+    raise no_preview()
+
+
+@router.get("/api/attachments/{attachment_id}/page", response_model=None)
+async def page(attachment_id: IdParam, user: SessionUser = Depends(current_user)) -> Response:
+    """A web page, served as itself for the side panel to frame — in a sandbox, always.
+
+    The panel cannot draw a page's text into a `srcdoc` frame the way it draws a picture:
+    a `srcdoc` document inherits the app's own policy, and `script-src 'self'` refuses
+    every inline script a page has. From here the only policy is `_PAGE_POLICY`, which
+    the page cannot edit because it is a header, and whose `sandbox` holds however the
+    URL is opened.
+    """
+    file = await _previewable(user, attachment_id)
+    if not previews.is_page(file.filename, file.mime):
+        raise no_preview()
+    return Response(
+        content=await _words(file), media_type="text/html; charset=utf-8", headers=_PAGE_HEADERS
+    )
+
+
+async def _previewable(user: SessionUser, attachment_id: str) -> Any:
+    """The attachment, if this person may look at it — the download rule — or 404."""
+    await consume("preview", user.id)
+    async with session_scope() as session:
+        file = await file_service.for_preview(session, user, attachment_id)
+    allowed = (
+        file is not None
+        and file.uploaded_at is not None
+        and (file.channel_member is not None if file.message_id else file.uploader_id == user.id)
+    )
+    if not allowed:
+        raise no_such_file()
+    return file
+
+
+async def _words(file: Any) -> str:
+    """A file's text, if it is short enough to show and is text at all.
+
+    Measured, not trusted. The row's size is what the uploader declared for the ticket,
+    and the presigned PUT does not pin it, so the read asks storage for one byte past the
+    cap and no more: a file that lied about being small costs this process the cap, not
+    whatever was actually uploaded.
+    """
+    if int(file.size_bytes or 0) > TEXT_PREVIEW_MAX_BYTES:
+        raise preview_too_large()
+    body = await get_object_head(file.object_key, TEXT_PREVIEW_MAX_BYTES + 1)
+    if len(body) > TEXT_PREVIEW_MAX_BYTES:
+        raise preview_too_large()
+    try:
+        return body.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise no_preview() from None
 
 
 @router.get("/api/files/{object_key:path}")
