@@ -31,12 +31,17 @@ from .workspace_settings import load as load_settings
 
 log = logging.getLogger("blob.agent_files")
 
-#: Python's own table, without the host's `/etc/mime.types`: the same name must get the
-#: same type on a laptop and in the container.
+#: Python's own table, without the host's `/etc/mime.types`, for everything `_OUR_TYPES`
+#: does not name.
 _TYPES = mimetypes.MimeTypes(filenames=())
 
-#: What that table does not know and agents commonly make.
-_MORE_TYPES = {
+#: Types Blob states itself rather than asking the interpreter. CPython's table changes
+#: between patch releases — 3.12.3 on the CI runner knows no `.md`, 3.12.12 does — and a
+#: document stored as octet-stream is a document the panel will not draw as one. So the
+#: kinds agents commonly make, and the preview depends on, are fixed here and asked first.
+_OUR_TYPES = {
+    "md": "text/markdown",
+    "markdown": "text/markdown",
     "yaml": "application/yaml",
     "yml": "application/yaml",
     "log": "text/plain",
@@ -75,11 +80,11 @@ def type_of(name: str, claimed: str | None) -> str:
     said = magic.claimed_mime(claimed or "")
     if said not in _NO_CLAIM:
         return said
-    guessed, _ = _TYPES.guess_type(name, strict=False)
-    if guessed:
-        return guessed
     extension = name.rsplit(".", 1)[-1].lower() if "." in name else ""
-    return _MORE_TYPES.get(extension, "application/octet-stream")
+    if extension in _OUR_TYPES:
+        return _OUR_TYPES[extension]
+    guessed, _ = _TYPES.guess_type(name, strict=False)
+    return guessed or "application/octet-stream"
 
 
 async def store(*, workspace_id: str, uploader_id: str, files: Sequence[Handed]) -> Stored:
