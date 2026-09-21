@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any
@@ -196,6 +197,33 @@ async def get_object(key: str) -> bytes:
     response = await asyncio.to_thread(_client().get_object, Bucket=settings.S3_BUCKET, Key=key)
     body: bytes = await asyncio.to_thread(response["Body"].read)
     return body
+
+
+#: How much of an object is held at once while it streams through the app.
+STREAM_CHUNK_BYTES = 256 * 1024
+
+
+async def stream_object(key: str) -> tuple[int, AsyncIterator[bytes]]:
+    """An object's length and its bytes, a chunk at a time, for a response the app sends.
+
+    For the one case where the headers are ours to set and the file may be large — a PDF
+    shown in the side panel — so memory stays at one chunk rather than the whole file.
+    """
+    response = await asyncio.to_thread(_client().get_object, Bucket=settings.S3_BUCKET, Key=key)
+    body = response["Body"]
+    length = int(response.get("ContentLength") or 0)
+
+    async def chunks() -> AsyncIterator[bytes]:
+        try:
+            while True:
+                piece: bytes = await asyncio.to_thread(body.read, STREAM_CHUNK_BYTES)
+                if not piece:
+                    return
+                yield piece
+        finally:
+            await asyncio.to_thread(body.close)
+
+    return length, chunks()
 
 
 async def get_object_head(key: str, n: int = 64) -> bytes:

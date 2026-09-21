@@ -164,6 +164,10 @@ class Settings(BaseSettings):
     AGUI_HISTORY_LIMIT: int = 30
     AGUI_MAX_EVENTS: int = 5_000
     AGUI_MAX_BYTES: int = 2 * 1024 * 1024
+    #: What one run may hand over as files (`blob.file.*` events), all of them together.
+    #: Held in the worker until the stream ends, so this is a memory bound as much as a
+    #: size limit; each file must also fit the workspace's own upload limit.
+    AGUI_MAX_FILE_BYTES: int = 25 * 1024 * 1024
     #: The hard wall on one run, idle or not. The idle timeouts above catch an agent
     #: that stopped talking; this catches one that keeps talking forever — and it is
     #: what lets real multi-minute agent work exist at all, where the old shape made

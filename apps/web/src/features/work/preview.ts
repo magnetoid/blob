@@ -1,4 +1,6 @@
-/** The sandbox contract for an agent's HTML preview, as data. See WorkPreview.tsx and ADR 0014. */
+/** The sandbox contract for HTML somebody else wrote, as data. See WorkPreview.tsx and
+ *  ADR 0014 — and FilePreviewPanel.tsx, which shows a shared `.html` or `.svg` in the
+ *  same box. */
 
 /** What the sandboxed document is allowed to do: draw itself, and nothing else. */
 export const PREVIEW_CSP =
@@ -6,17 +8,17 @@ export const PREVIEW_CSP =
   "script-src 'unsafe-inline'; font-src data:; connect-src 'none'; form-action 'none'; " +
   "frame-src 'none'; base-uri 'none'";
 
-/** The page as it will be framed: the agent's HTML with the policy put first. */
+/**
+ * The page as it will be framed: the policy first, then the page.
+ *
+ * First in the document rather than spliced into the page's own `<head>`. A `<meta>`
+ * before `<html>` opens the head the parser implies and lands in it, so the policy
+ * governs everything after it. Finding the page's head with a regex let the page choose
+ * where the policy went — a `<!-- <head> -->` ahead of the real one put it inside a
+ * comment, where it did nothing. The page's own doctype, if it has one, comes after
+ * ours and is ignored; ours keeps the document out of quirks mode.
+ */
 export function framedDocument(body: string): string {
   const meta = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`;
-  const head = /<head[^>]*>/i.exec(body);
-  if (head)
-    return (
-      body.slice(0, head.index + head[0].length) +
-      meta +
-      body.slice(head.index + head[0].length)
-    );
-  if (/<html[^>]*>/i.test(body))
-    return body.replace(/<html[^>]*>/i, (tag) => `${tag}<head>${meta}</head>`);
-  return `<!doctype html><html><head>${meta}</head><body>${body}</body></html>`;
+  return `<!doctype html>${meta}${body}`;
 }

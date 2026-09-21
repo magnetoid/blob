@@ -37,11 +37,28 @@ _AUDIO = {
 #: type that is not audio never gets an upload URL at all.
 AUDIO_MIME = frozenset(_AUDIO)
 
-_DANGEROUS = {
-    "application/x-executable",
-    "text/html",
-    "image/svg+xml",
+_EXECUTABLE = "application/x-executable"
+
+#: Scriptable documents, and the only names each may travel under. An HTML page or an
+#: SVG that says what it is may be shared: storage serves neither inline (see
+#: `lib/storage.presign_download`) and the preview shows them only in the no-network
+#: sandbox. One wearing another type is the disguise this module exists to catch.
+_HONEST = {
+    "text/html": frozenset({"text/html", "application/xhtml+xml"}),
+    "image/svg+xml": frozenset({"image/svg+xml"}),
 }
+
+#: Extensions refused by name, whatever the bytes: programs a double-click would run.
+#: HTML and SVG were here too until something could show them safely.
+BLOCKED_EXTENSIONS = frozenset(
+    {"exe", "msi", "bat", "cmd", "com", "scr", "ps1", "sh", "app", "jar"}
+)
+
+
+def blocked_extension(filename: str) -> str | None:
+    """The extension that rules this file out, or None when its name is acceptable."""
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return extension if extension in BLOCKED_EXTENSIONS else None
 
 
 def sniff(header: bytes) -> str | None:
@@ -90,13 +107,13 @@ def reject_reason(header: bytes, mime: str) -> str | None:
     """Why this upload must not complete, or None when the bytes are acceptable.
 
     Non-images we do not have a signature for (a `.csv`, a `.docx` that is a zip) pass:
-    we are not building a universal classifier. What we will not do is let a file that
-    *is* HTML, SVG or an executable through because it was named `.png`, or let a claimed
-    image through whose bytes are something else.
+    we are not building a universal classifier. What we will not do is let an executable
+    through under any name, let a file that *is* HTML or SVG through under a name other
+    than its own, or let a claimed image through whose bytes are something else.
     """
     sniffed = sniff(header)
     claimed = claimed_mime(mime)
-    if sniffed in _DANGEROUS:
+    if sniffed == _EXECUTABLE:
         return "That file type cannot be shared here."
     if claimed in _IMAGE:
         if sniffed is None or sniffed not in _IMAGE:
@@ -110,4 +127,6 @@ def reject_reason(header: bytes, mime: str) -> str | None:
         # Audio is not scriptable, so the claim only decides the Content-Type we echo.
         if sniffed is None or sniffed not in _AUDIO:
             return "That file is not the audio it says it is."
+    if sniffed in _HONEST and claimed not in _HONEST[sniffed]:
+        return "That file's type is not what it says it is."
     return None

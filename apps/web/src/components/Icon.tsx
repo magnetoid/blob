@@ -161,6 +161,14 @@ export const FileIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const DownloadIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 4v11" />
+    <path d="M7.5 10.5L12 15l4.5-4.5" />
+    <path d="M5 20h14" />
+  </Svg>
+);
+
 export const ClockIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="9" />

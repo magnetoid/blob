@@ -32,7 +32,7 @@ from ..plugins import agui, decisions, run_card
 from ..plugins import events as plugin_events
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub
-from ..services import agent_chains
+from ..services import agent_chains, agent_files
 from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
@@ -161,9 +161,14 @@ async def post_as_bot(
     blocks: list[dict[str, Any]] | None,
     run_id: str | None = None,
     spawn: bool = False,
+    attachment_ids: list[str] | None = None,
 ) -> str | None:
     """One message, the way the bot API posts one. Returns its id, or None if an earlier
     run of this job already posted it.
+
+    `attachment_ids` are files the run handed over, already stored and owned by the bot
+    (`services/agent_files.py`). A repeat of this job posts nothing and binds nothing, so
+    its copies stay unbound and the orphan sweep takes them.
 
     Duplicated rather than shared for now because `jobs/` and `plugins/` may not import
     `routers/`; the tidy-up is for `bot_api` to adopt this, in a commit that is allowed
@@ -187,6 +192,7 @@ async def post_as_bot(
             kind="bot",
             plugin_id=listener.plugin_id,
             blocks=blocks,
+            attachment_ids=attachment_ids,
         )
         if not result.created:
             return None  # Already posted by an earlier run of this job.
@@ -627,6 +633,13 @@ async def run_one(
     # from the depth budget; the job that picks the hop up applies the rest of the rules.
     spawn = agent_chains.can_spawn(chain, max_depth)
     for post in streamed.posts:
+        # What the agent handed over rides on the answer it came with. Stored first,
+        # outside any transaction — it is storage round trips — and anything refused
+        # becomes a line under the answer rather than a file that silently is not there.
+        stored = await agent_files.store(
+            workspace_id=workspace_id, uploader_id=listener.bot_user_id, files=post.files
+        )
+        post.notes.extend(stored.notes)
         await post_as_bot(
             listener,
             workspace_id=workspace_id,
@@ -637,6 +650,7 @@ async def run_one(
             blocks=post.blocks(),
             run_id=run_id,
             spawn=spawn,
+            attachment_ids=stored.attachment_ids,
         )
 
     _status, reason, decision = await _finish(

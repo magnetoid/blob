@@ -25,9 +25,19 @@ export interface RenderOptions {
   customEmoji: readonly CustomEmoji[];
   /** Leftover search words to wrap in <mark>. Omit when not in a search result. */
   highlight?: string;
+  /**
+   * `#` to `######` headings. Documents only — a shared `.md`, a work channel's write-up.
+   * A message has none, as Slack's do not: a `#` at the start of a chat line is a channel
+   * or a number far more often than a title, and a message that grew an `<h1>` would
+   * shout over every row around it.
+   */
+  headings?: boolean;
 }
 
-/** Block-level parse: fenced code, quotes, lists, paragraphs. */
+const HEADING = /^(#{1,6})\s+(.*)$/;
+
+/** Block-level parse: fenced code, quotes, lists, paragraphs — and, for a document,
+ *  headings. */
 export function renderMarkdown(
   source: string,
   options: RenderOptions,
@@ -74,6 +84,20 @@ export function renderMarkdown(
           {renderInline(body.join("\n"), options)}
         </blockquote>,
       );
+      continue;
+    }
+
+    const headingMatch = options.headings ? line.match(HEADING) : null;
+    if (headingMatch) {
+      const Tag = `h${(headingMatch[1] as string).length}` as
+        | "h1"
+        | "h2"
+        | "h3"
+        | "h4"
+        | "h5"
+        | "h6";
+      blocks.push(<Tag key={key++}>{renderInline(headingMatch[2] as string, options)}</Tag>);
+      index += 1;
       continue;
     }
 
@@ -128,7 +152,8 @@ export function renderMarkdown(
         current.startsWith("```") ||
         current.startsWith("> ") ||
         /^[-*+]\s+/.test(current) ||
-        /^\d+\.\s+/.test(current)
+        /^\d+\.\s+/.test(current) ||
+        (options.headings && HEADING.test(current))
       ) {
         break;
       }

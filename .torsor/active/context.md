@@ -229,6 +229,14 @@ Worth knowing before changing the equivalent code:
   all and fails silently — a test pins it. `state`, `tools` and `forwardedProps` are also
   *required* keys in `RunAgentInput`, so omitting them is a 422 from any FastAPI-hosted
   agent, which reads like the agent being down.
+- **A `srcdoc` frame inherits the policy of the page that frames it.** So does a `blob:`
+  or `data:` frame. Under the app's `script-src 'self'`, every inline script in a page
+  drawn with `srcdoc` is refused — in production, where the API sends the policy, and not
+  in `pnpm dev`, where Vite serves `index.html` with none. A `sandbox` attribute and a
+  `<meta>` policy only ever tighten it. A page that has to run is served from its own URL
+  under a header policy (`routers/files.page`: `sandbox allow-scripts`, no network,
+  `frame-ancestors 'self'`). Check anything framed in the built client, not the dev
+  server. The work channel's HTML artifact still uses `srcdoc` and has this bug (ADR 0020).
 - **Coolify's lifecycle verbs are POST; its read verbs are GET.** `stop`, `start` and
   `restart` answer a GET with `405 {"message":"This endpoint has changed to a POST
   request."}`, while `GET /applications/{uuid}` and `.../logs` are correct as GETs. The

@@ -12545,6 +12545,90 @@
         ]
       }
     },
+    "/api/attachments/{attachment_id}/page": {
+      "get": {
+        "description": "A web page, served as itself for the side panel to frame \u2014 in a sandbox, always.\n\nThe panel cannot draw a page's text into a `srcdoc` frame the way it draws a picture:\na `srcdoc` document inherits the app's own policy, and `script-src 'self'` refuses\nevery inline script a page has. From here the only policy is `_PAGE_POLICY`, which\nthe page cannot edit because it is a header, and whose `sandbox` holds however the\nURL is opened.",
+        "operationId": "page_api_attachments__attachment_id__page_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Page",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/api/attachments/{attachment_id}/preview": {
+      "get": {
+        "description": "A file as the side panel shows it: its text, or its PDF \u2014 nothing else, and\nnothing that could run.\n\nOne of two routes where a file's bytes pass through this process on their way to a\nbrowser (the other is `page`). A download stays a redirect to storage; a preview\ncannot be one, because its headers are the point \u2014 text has to arrive as inert\n`text/plain` whatever it was uploaded as, and a PDF has to be framable by this origin\nand no other, which storage cannot be told. Who may look is the download rule,\nunchanged.",
+        "operationId": "preview_api_attachments__attachment_id__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/api/auth/forgot-password": {
       "post": {
         "operationId": "forgot_password_api_auth_forgot_password_post",

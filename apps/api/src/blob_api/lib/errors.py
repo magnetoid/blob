@@ -98,3 +98,17 @@ def no_such_group() -> AppError:
 
 def no_such_file() -> AppError:
     return not_found("No such file.")
+
+
+def no_preview() -> AppError:
+    """The side panel cannot show this kind of file; the client offers the download."""
+    return bad_request(
+        "There's no preview for this kind of file. Download it instead.", code="no_preview"
+    )
+
+
+def preview_too_large() -> AppError:
+    """Text past the panel's cap: the client says so and offers the download."""
+    return bad_request(
+        "That file is too long to preview. Download it instead.", code="preview_too_large"
+    )

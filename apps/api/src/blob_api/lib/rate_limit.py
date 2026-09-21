@@ -31,6 +31,9 @@ LIMITS: dict[str, Limit] = {
     "password_reset": Limit(5, 3600),
     "send_message": Limit(30, 60),
     "upload": Limit(20, 60),
+    # Opening files in the side panel. A preview reads the bytes through this process,
+    # so it is not free, but somebody flicking through a channel's files opens many.
+    "preview": Limit(60, 60),
     "search": Limit(30, 60),
     "webhook": Limit(60, 60),
     "invite": Limit(30, 3600),

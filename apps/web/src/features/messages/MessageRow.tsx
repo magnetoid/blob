@@ -27,9 +27,15 @@ import { formatRelative, formatTime } from "./messageFormatting.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
-import { FileIcon, PinIcon, ReplyIcon } from "../../components/Icon.tsx";
+import { DownloadIcon, FileIcon, PinIcon, ReplyIcon } from "../../components/Icon.tsx";
 import { resolveReaction } from "../../lib/emoji.ts";
 import { formatBytes } from "../../lib/format.ts";
+import {
+  isInlineImage,
+  openFilePreview,
+  previewKindOf,
+  typeLabel,
+} from "../../lib/filePreview.ts";
 
 /** Offered directly in the hover toolbar; the rest come from the picker. */
 const QUICK_REACTIONS = ["👍", "🎉", "👀"];
@@ -359,7 +365,9 @@ export const MessageRow = memo(function MessageRow({
         {message.attachments.length > 0 && (
           <div className="attachments">
             {message.attachments.map((attachment) =>
-              attachment.mime.startsWith("image/") ? (
+              // Only the images storage will serve inline. An SVG is a file here: an
+              // <img> of one would be a broken picture, and the panel shows it safely.
+              isInlineImage(attachment.mime) ? (
                 <a
                   key={attachment.id}
                   href={attachment.url}
@@ -393,27 +401,51 @@ export const MessageRow = memo(function MessageRow({
                   />
                 </a>
               ) : (
-                <a
-                  key={attachment.id}
-                  className="attachment-file"
-                  href={attachment.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <span className="attachment-icon">
-                    <FileIcon size="md" />
-                  </span>
-                  <span>
-                    <span className="attachment-name">
-                      {attachment.filename}
+                <div key={attachment.id} className="attachment-file">
+                  <a
+                    className="attachment-file-open"
+                    href={attachment.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(event) => {
+                      // Opens beside the conversation when there is something to show;
+                      // otherwise the link downloads, as it always did. A modified click
+                      // is somebody asking for a tab, and still gets one.
+                      if (!previewKindOf(attachment)) return;
+                      if (
+                        event.metaKey ||
+                        event.ctrlKey ||
+                        event.shiftKey ||
+                        event.altKey
+                      )
+                        return;
+                      event.preventDefault();
+                      openFilePreview(attachment);
+                    }}
+                  >
+                    <span className="attachment-icon">
+                      <FileIcon size="md" />
                     </span>
-                    <span
-                      className="attachment-size block"
-                    >
-                      {formatBytes(attachment.sizeBytes)}
+                    <span className="attachment-text">
+                      <span className="attachment-name">
+                        {attachment.filename}
+                      </span>
+                      <span className="attachment-size block">
+                        {typeLabel(attachment)} · {formatBytes(attachment.sizeBytes)}
+                      </span>
                     </span>
-                  </span>
-                </a>
+                  </a>
+                  <a
+                    className="icon-btn attachment-download"
+                    href={attachment.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Download ${attachment.filename}`}
+                    title="Download"
+                  >
+                    <DownloadIcon size="md" />
+                  </a>
+                </div>
               ),
             )}
           </div>

@@ -25,6 +25,23 @@ from . import agui, gateway
 from .signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
 
 
+def read_budget() -> int:
+    """How many bytes of one run's stream Blob will read, on either transport.
+
+    The text ceiling was the whole budget until an agent could hand over a file, and a
+    file is bigger than any answer. The files' own budget is added as it travels —
+    base64, four bytes for every three — so a run carrying its full allowance of files
+    still fits, and a run flooding text alone is cut where it always was plus that
+    allowance. The Fold enforces the file budget itself; this is the containment bound.
+    """
+    as_base64 = 4 * -(-settings.AGUI_MAX_FILE_BYTES // 3)
+    return settings.AGUI_MAX_BYTES + as_base64
+
+
+def _fold() -> agui.Fold:
+    return agui.Fold(max_file_bytes=settings.AGUI_MAX_FILE_BYTES)
+
+
 @dataclass(slots=True)
 class Listener:
     plugin_id: str
@@ -69,7 +86,7 @@ async def stream_run(
     if listener.dials_in:
         return await _stream_over_socket(listener, run_input, on_event=on_event)
 
-    fold = agui.Fold()
+    fold = _fold()
     posts: list[agui.Post] = []
     if listener.agui_url is None:
         # Both admission paths — `listeners_for` for a mention, `personal_agent_for` for
@@ -109,7 +126,7 @@ async def stream_run(
                         posts.extend(fold.finish())
                         return fold, posts, "the agent ran past the ceiling"
                     seen_bytes += len(chunk)
-                    if seen_bytes > settings.AGUI_MAX_BYTES:
+                    if seen_bytes > read_budget():
                         posts.extend(fold.finish())
                         return fold, posts, "the agent sent more than we will read"
                     for event in decoder.feed(chunk):
@@ -177,7 +194,7 @@ async def _stream_over_socket(
     POST to its URL. This agent authenticated itself with its bot token when it dialled
     in, and the socket it is holding is the proof — nobody else can write to it.
     """
-    fold = agui.Fold()
+    fold = _fold()
     posts: list[agui.Post] = []
 
     if not await gateway.is_online(listener.plugin_id):
@@ -198,7 +215,7 @@ async def _stream_over_socket(
             # through the worker for one run. Both caps exist because an agent can be
             # wrong in either direction: many tiny events, or few enormous ones.
             seen_bytes += _rough_size(event)
-            if seen_bytes > settings.AGUI_MAX_BYTES:
+            if seen_bytes > read_budget():
                 posts.extend(fold.finish())
                 return fold, posts, "the agent sent more than we will read"
             if on_event is not None:

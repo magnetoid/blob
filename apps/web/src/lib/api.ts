@@ -560,6 +560,30 @@ async function request<T>(
   return payload as T;
 }
 
+/**
+ * A body that is text and must stay text.
+ *
+ * `request` parses anything that looks like JSON, which is right for the API and wrong
+ * for a file: previewing `data.json` would hand back an object, not what is in the file.
+ * Errors are the same `{error: {code, message}}` and become the same `ApiError`.
+ */
+async function requestText(path: string, signal?: AbortSignal): Promise<string> {
+  const res = await fetch(path, { credentials: "same-origin", signal });
+  const text = await res.text();
+  if (res.ok) return text;
+  let error: { code?: string; message?: string } | undefined;
+  try {
+    error = (JSON.parse(text) as { error?: { code?: string; message?: string } }).error;
+  } catch {
+    error = undefined;
+  }
+  throw new ApiError(
+    res.status,
+    error?.code ?? "unknown",
+    error?.message ?? "Something went wrong.",
+  );
+}
+
 const get = <T>(path: string, signal?: AbortSignal) =>
   request<T>("GET", path, undefined, signal);
 const post = <T>(path: string, body?: unknown) =>
@@ -658,6 +682,10 @@ export const api = {
       const suffix = params.size ? `?${params}` : "";
       return get<{ items: FileEntry[]; nextCursor: string | null }>(`/api/attachments${suffix}`);
     },
+    /** A file's words, for the side panel. The server sends every kind of text as inert
+     *  `text/plain`; refuses with `no_preview` or `preview_too_large`. */
+    previewText: (attachmentId: string, signal?: AbortSignal) =>
+      requestText(`/api/attachments/${attachmentId}/preview`, signal),
   },
 
   later: {

@@ -131,6 +131,10 @@ interface State {
   /** The image being looked at full size, or null. Held here so the shell renders it
    *  once rather than every message row rendering a dialog it might need. */
   lightbox: Attachment | null;
+  /** The file open in the right-hand panel, or null. That column holds one thing at a
+   *  time — a thread, a terminal or a file — so opening any of them closes the others
+   *  (`lib/filePreview.ts`). */
+  filePreview: Attachment | null;
   /** Which Catch Me Up is open — one channel, everything, or neither. Lives in the
    * store so the palette (rendered anywhere) can open a panel the shell renders. */
   catchupScope: "channel" | "all" | null;
@@ -416,6 +420,7 @@ export const useStore = create<State>((set, get) => ({
   unreadMarkers: {},
   membershipVersion: {},
   lightbox: null,
+  filePreview: null,
   agentRuns: {},
   activeMeetups: {},
   catchupScope: null,
@@ -471,6 +476,7 @@ export const useStore = create<State>((set, get) => ({
       typing: {},
       activeChannelId: null,
       activeThreadRootId: null,
+      filePreview: null,
       unreadMarkers: {},
       suppressReadFor: null,
     });
@@ -615,6 +621,8 @@ export const useStore = create<State>((set, get) => ({
       // you left unread is exactly when it should be read again.
       suppressReadFor: null,
       activeThreadRootId: null,
+      // A file belongs to the conversation it was opened from, like a thread.
+      filePreview: null,
       // Freeze the unread divider where it was on entry, so it doesn't jump as
       // messages arrive while you're reading.
       unreadMarkers: {
@@ -794,6 +802,7 @@ export const useStore = create<State>((set, get) => ({
           s.activeChannelId === channelId ? null : s.activeChannelId,
         activeThreadRootId:
           s.activeChannelId === channelId ? null : s.activeThreadRootId,
+        filePreview: s.activeChannelId === channelId ? null : s.filePreview,
       };
     });
   },
@@ -862,7 +871,8 @@ export const useStore = create<State>((set, get) => ({
   },
 
   openThread: async (rootId) => {
-    set({ activeThreadRootId: rootId });
+    // Opening a thread takes the column from a file; closing one leaves it alone.
+    set(rootId ? { activeThreadRootId: rootId, filePreview: null } : { activeThreadRootId: null });
     if (!rootId) return;
     let messages: Message[];
     try {
