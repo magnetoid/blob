@@ -356,6 +356,33 @@ def png(width: int = 40, height: int = 30) -> bytes:
     return buffer.getvalue()
 
 
+class TestTheTypeOfAFile:
+    """What a file is stored as must not depend on which Python the server runs.
+
+    CPython's own table learned `.md` partway through 3.12 — 3.12.3 on the CI runner
+    guesses nothing for it, 3.12.12 on a laptop says `text/markdown` — so the types the
+    preview panel depends on are Blob's to state, not the interpreter's.
+    """
+
+    def test_a_document_is_markdown_whatever_python_knows(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from blob_api.services import agent_files
+
+        monkeypatch.setattr(agent_files._TYPES, "guess_type", lambda *_a, **_k: (None, None))
+
+        assert agent_files.type_of("notes.md", None) == "text/markdown"
+        assert agent_files.type_of("README.markdown", None) == "text/markdown"
+        assert agent_files.type_of("compose.yaml", None) == "application/yaml"
+
+    def test_a_claim_wins_and_an_empty_one_is_no_claim(self) -> None:
+        from blob_api.services import agent_files
+
+        assert agent_files.type_of("notes.md", "text/plain; charset=utf-8") == "text/plain"
+        assert agent_files.type_of("notes.md", "application/octet-stream") == "text/markdown"
+        assert agent_files.type_of("mystery", None) == "application/octet-stream"
+
+
 class TestTheJob:
     async def test_the_file_is_attached_to_the_agents_answer(self, team: dict[str, Any]) -> None:
         answer = await run_with(
