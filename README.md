@@ -531,7 +531,7 @@ switches it off with the same two clicks as anything else.
 | `JANUS_API_SERVER_KEY` | unset | Read by the service as `API_SERVER_KEY`, and by the app for one purpose: the Janus page reads and changes what Janus runs on through Janus's own API, bearing this key, at an address composed from `JANUS_AGUI_URL` and never from a request. |
 | `JANUS_AGENT_NAME` | `Janus` | What people type after `@`. The slug is always `janus`. |
 | `JANUS_PROVIDER` / `JANUS_MODEL` | `deepseek` / `deepseek-v4-pro` | Provider and model move together — the same model is named differently by a direct API and by a router. **These reach Janus's CLI paths, not the agent that answers a mention:** its gateway reads `config.yaml` on its own volume, and a fresh volume starts on the image's packaged default. Set the model from the Janus page after the first boot, or a run finishes with no text and the channel sees silence. |
-| `JANUS_VERSION` | `0.17.1` | The image tag, pinned rather than `latest`: an agent that changes under a deploy nobody made cannot be debugged from a chat message. `0.17.0` brought the config API the page needs; `0.17.1` redacts the config file's credentials before the text leaves Janus. |
+| `JANUS_VERSION` | `0.18.0` | The image tag, pinned rather than `latest`: an agent that changes under a deploy nobody made cannot be debugged from a chat message. `0.17.0` brought the config API the page needs; `0.17.1` redacts the config file's credentials before the text leaves Janus; `0.18.0` hands Blob the files a reply names, inside the run (ADR 0020). |
 
 The two secrets are shared with the service and are never stored in Blob. **Agents & apps →
 Janus** is the page: the workspace half (on or off, channels, the everywhere switch, budget,
