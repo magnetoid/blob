@@ -83,6 +83,16 @@ interface State {
   myGroupIds: Set<string>;
   /** The groups you silenced; the notifications screen renders the switch from this. */
   mutedGroupIds: Set<string>;
+  /**
+   * Whom you tagged most recently, newest first, so the `@` picker can offer them before
+   * the alphabet does. Boot brings what the server read off your last messages; your own
+   * `message.new` keeps it current, since those are the only tags boot cannot know about.
+   */
+  recentMentionUserIds: string[];
+  recentMentionGroupIds: string[];
+  /** The newest message of yours that moved those lists — the same guard the tail
+   *  pointer keeps, so an older send answered late cannot jump ahead of it. */
+  recentMentionsAsOf: string | null;
   /** Slash commands this server knows, for the composer's autocomplete. */
   commands: CommandSpec[];
   /**
@@ -147,6 +157,14 @@ interface State {
   unreadMarkers: Record<string, string | null>;
   /** Bumped on member.joined/left so member-list caches know to refetch. */
   membershipVersion: Record<string, number>;
+  /**
+   * Who is in each channel as last fetched, with the membership version it was fetched
+   * at. The channel view fetches it when a channel opens; the `@` list ranks by it, which
+   * is why it lives here rather than in the view — it has to be known before anybody
+   * types `@`, or it lands while the list is open and re-sorts it. DMs carry their
+   * members on the channel itself and are not kept here.
+   */
+  channelMembers: Record<string, { version: number; userIds: string[] }>;
   /** The image being looked at full size, or null. Held here so the shell renders it
    *  once rather than every message row rendering a dialog it might need. */
   lightbox: Attachment | null;
@@ -193,6 +211,9 @@ interface State {
   beginFresh: (messageId: string, at: number) => void;
   /** This message's entrance has played, or never will. */
   settleFresh: (messageId: string) => void;
+  /** Keep a channel's fetched member list, unless one fetched at a later membership
+   *  version is already here — two requests across a join can answer out of order. */
+  setChannelMembers: (channelId: string, version: number, userIds: string[]) => void;
   /** Open your most recent message here for editing. Returns whether there was one. */
   editLastMessage: (channelId: string, threadRootId: string | null) => boolean;
   /**
@@ -292,6 +313,28 @@ function mergeById(page: Message[], arrived: Message[]): Message[] {
 
 function byId(a: Message, b: Message): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** How many recent tags are kept of each kind: the server's `mention_recency.KEEP`. */
+const RECENT_MENTIONS_KEPT = 30;
+
+/**
+ * `ids` at the front of `list`, in the order given, each once, then capped.
+ *
+ * The same array back when nothing moved. Every send is applied twice — as the request's
+ * answer and again as its own socket frame — and the second must not hand every
+ * composer a new list to re-rank.
+ */
+function taggedFirst(list: string[], ids: readonly string[]): string[] {
+  if (ids.length === 0) return list;
+  const next = [...new Set([...ids, ...list])].slice(0, RECENT_MENTIONS_KEPT);
+  return next.length === list.length && next.every((id, i) => id === list[i]) ? list : next;
+}
+
+/** `list` without `ids`, or the same array when none of them was in it. */
+function without(list: string[], ids: readonly string[]): string[] {
+  if (!ids.some((id) => list.includes(id))) return list;
+  return list.filter((id) => !ids.includes(id));
 }
 
 /** The index of `id`, or where it would go: binary search over an id-sorted list. */
@@ -425,6 +468,9 @@ export const useStore = create<State>((set, get) => ({
   groups: {},
   myGroupIds: new Set<string>(),
   mutedGroupIds: new Set<string>(),
+  recentMentionUserIds: [],
+  recentMentionGroupIds: [],
+  recentMentionsAsOf: null,
   serverCommit: null,
   translationEnabled: false,
   commands: [],
@@ -443,6 +489,7 @@ export const useStore = create<State>((set, get) => ({
   activeThreadRootId: null,
   unreadMarkers: {},
   membershipVersion: {},
+  channelMembers: {},
   lightbox: null,
   filePreview: null,
   agentRuns: {},
@@ -463,6 +510,9 @@ export const useStore = create<State>((set, get) => ({
       groups: Object.fromEntries(data.groups.map((g) => [g.id, g])),
       myGroupIds: new Set(data.myGroupIds),
       mutedGroupIds: new Set(data.mutedGroupIds),
+      recentMentionUserIds: data.recentMentionUserIds ?? [],
+      recentMentionGroupIds: data.recentMentionGroupIds ?? [],
+      recentMentionsAsOf: null,
       commands: data.commands,
       serverCommit: data.serverCommit ?? null,
       translationEnabled: data.translationEnabled ?? false,
@@ -487,6 +537,10 @@ export const useStore = create<State>((set, get) => ({
       savedMessageIds: new Set<string>(),
       groups: {},
       myGroupIds: new Set<string>(),
+      recentMentionUserIds: [],
+      recentMentionGroupIds: [],
+      recentMentionsAsOf: null,
+      channelMembers: {},
       commands: [],
       currentUser: null,
       users: {},
@@ -568,6 +622,13 @@ export const useStore = create<State>((set, get) => ({
       const next = new Map(s.freshMessages);
       next.delete(messageId);
       return { freshMessages: next };
+    }),
+
+  setChannelMembers: (channelId, version, userIds) =>
+    set((s) => {
+      const held = s.channelMembers[channelId];
+      if (held && held.version > version) return {};
+      return { channelMembers: { ...s.channelMembers, [channelId]: { version, userIds } } };
     }),
 
   editLastMessage: (channelId, threadRootId) => {
@@ -1305,6 +1366,33 @@ export const useStore = create<State>((set, get) => ({
               },
             };
           }
+
+          // Whom you just tagged goes to the front of the picker, by the rules the
+          // server reads the lists with at boot. Only a new message: it ranks a message
+          // by when it was written, so re-ranking on an edit would be undone by the
+          // next reload. Only what you typed: an incoming webhook posts as the admin
+          // who made it, kind "bot". And only a message newer than the newest one that
+          // already moved the lists, so an older send answered late cannot jump ahead
+          // of it — the tail pointer's rule — and the echo of one already counted
+          // changes nothing.
+          const me = s.currentUser?.id;
+          if (
+            event.t === "message.new" &&
+            me &&
+            message.authorId === me &&
+            message.kind === "user" &&
+            (s.recentMentionsAsOf === null || message.id > s.recentMentionsAsOf)
+          ) {
+            const tagged = message.mentionUserIds.filter((id) => id !== me);
+            if (tagged.length > 0 || message.mentionGroupIds.length > 0) {
+              next.recentMentionUserIds = taggedFirst(s.recentMentionUserIds, tagged);
+              next.recentMentionGroupIds = taggedFirst(
+                s.recentMentionGroupIds,
+                message.mentionGroupIds,
+              );
+              next.recentMentionsAsOf = message.id;
+            }
+          }
           return next;
         });
 
@@ -1326,6 +1414,23 @@ export const useStore = create<State>((set, get) => ({
         set((s) => {
           const existing = s.messages[event.channelId];
           const next: Partial<State> = {};
+
+          // A deleted message tags nobody — the server's rule at the next boot — so a
+          // message of yours takes its tags back out of the picker's lists. Read before
+          // the message leaves the lists below; one that was never loaded here cannot
+          // be read, and waits for the next boot.
+          const gone =
+            existing?.items.find((m) => m.id === event.id) ??
+            (event.threadRootId
+              ? s.threads[event.threadRootId]?.find((m) => m.id === event.id)
+              : undefined);
+          if (gone && gone.authorId === s.currentUser?.id && gone.kind === "user") {
+            next.recentMentionUserIds = without(s.recentMentionUserIds, gone.mentionUserIds);
+            next.recentMentionGroupIds = without(
+              s.recentMentionGroupIds,
+              gone.mentionGroupIds,
+            );
+          }
           const kept = existing
             ? stripPending(existing.items).filter((m) => m.id !== event.id)
             : null;
@@ -1629,23 +1734,20 @@ export const useStore = create<State>((set, get) => ({
         const joined = event.t === "member.joined";
         set((s) => {
           const channel = s.channels[event.channelId];
+          // Only a list the channel actually carries — a DM's. A public or private
+          // channel's is `null` on the wire, meaning "not sent", and reading that as an
+          // empty list turned one join into a channel of one and a leave into none.
+          const members = channel && Array.isArray(channel.memberIds) ? channel.memberIds : null;
           const withMembers =
-            channel?.memberIds !== undefined
+            channel && members
               ? {
                   channels: {
                     ...s.channels,
                     [event.channelId]: {
                       ...channel,
                       memberIds: joined
-                        ? [
-                            ...new Set([
-                              ...(channel.memberIds ?? []),
-                              event.userId,
-                            ]),
-                          ]
-                        : (channel.memberIds ?? []).filter(
-                            (id) => id !== event.userId,
-                          ),
+                        ? [...new Set([...members, event.userId])]
+                        : members.filter((id) => id !== event.userId),
                     },
                   },
                 }

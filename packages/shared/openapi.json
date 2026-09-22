@@ -1438,6 +1438,20 @@
             "title": "Mygroupids",
             "type": "array"
           },
+          "recentMentionGroupIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recentmentiongroupids",
+            "type": "array"
+          },
+          "recentMentionUserIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recentmentionuserids",
+            "type": "array"
+          },
           "savedMessageIds": {
             "items": {
               "type": "string"

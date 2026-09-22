@@ -96,3 +96,66 @@ describe('offering candidates', () => {
     expect(offer(candidates, 'zz')).toEqual([]);
   });
 });
+
+/**
+ * The composer's call with a preference, the shape `useMentionAutocomplete` passes:
+ * a name's place in `preferred`, and everybody else after the list.
+ */
+const offerPreferring = (
+  candidates: Person[],
+  query: string,
+  preferred: string[],
+  limit = 6,
+): string[] =>
+  matchMentions(
+    candidates,
+    query,
+    (p) => [p.displayName, p.fullName],
+    (p) => p.displayName,
+    limit,
+    (p) => {
+      const at = preferred.indexOf(p.displayName);
+      return at === -1 ? preferred.length : at;
+    },
+  ).map((p) => p.displayName);
+
+describe('breaking a tie', () => {
+  it('puts the preferred of two equal matches first, whatever the alphabet says', () => {
+    // Both start "ma". Marko was tagged last, so he is the row Enter takes — the
+    // alphabet would have handed the mention to Maja.
+    expect(offerPreferring(people('Maja Kovac', 'Marko Ilic'), 'ma', ['Marko Ilic'])).toEqual([
+      'Marko Ilic',
+      'Maja Kovac',
+    ]);
+  });
+
+  it('never lets a preference beat a better match', () => {
+    // "ra" starts Radek's name and only Priya's surname. Having tagged Priya last does
+    // not make her the better answer to what was typed.
+    expect(offerPreferring(people('Priya Raman', 'Radek Novak'), 'ra', ['Priya Raman'])).toEqual([
+      'Radek Novak',
+      'Priya Raman',
+    ]);
+  });
+
+  it('orders the preferred by their preference, and the rest by name', () => {
+    const workspace = people('Ana', 'Bruno', 'Cleo', 'Dara');
+    expect(offerPreferring(workspace, '', ['Dara', 'Bruno'])).toEqual([
+      'Dara',
+      'Bruno',
+      'Ana',
+      'Cleo',
+    ]);
+  });
+
+  it('is applied before the cap', () => {
+    // The same sharp edge as ranking before capping: preferring someone the alphabet
+    // puts twentieth must not leave them out of a list with six rows.
+    const workspace = people(...Array.from({ length: 20 }, (_, i) => `Ana ${String(i).padStart(2, '0')}`));
+    expect(offerPreferring(workspace, 'ana', ['Ana 19'])[0]).toBe('Ana 19');
+  });
+
+  it('changes nothing when it is not given', () => {
+    expect(offer(people('Marko Ilic', 'Maja Kovac'), 'ma')).toEqual(['Maja Kovac', 'Marko Ilic']);
+  });
+});

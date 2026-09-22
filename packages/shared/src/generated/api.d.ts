@@ -4098,6 +4098,10 @@ export interface components {
             mutedGroupIds?: string[];
             /** Mygroupids */
             myGroupIds?: string[];
+            /** Recentmentiongroupids */
+            recentMentionGroupIds?: string[];
+            /** Recentmentionuserids */
+            recentMentionUserIds?: string[];
             /** Savedmessageids */
             savedMessageIds?: string[];
             /** Servercommit */

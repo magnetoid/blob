@@ -11,9 +11,16 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
-    "sha": "de837219f2fa37e17ce7aad9e0b65ef7f148646c",
-    "shortSha": "de837219",
-    "subject": "feat: the admin and settings pages use the width, in cards",
+    "sha": "57aebdcb047f083b286689d98fe8ca182b19e84a",
+    "shortSha": "57aebdcb",
+    "subject": "feat: the @ picker puts who you tagged last first; a finished run is a quiet line",
+    "date": "2026-09-22T15:51:06+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "a49257b2ec306d2feb02fc476014ed7fdd7c958c",
+    "shortSha": "a49257b2",
+    "subject": "feat: the admin and settings pages use the width, in cards — 1.5.0",
     "date": "2026-09-22T15:03:49+02:00",
     "author": "Marko Tiosavljevic"
   },
@@ -421,13 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "7540d2e0",
     "subject": "Rebuild the agents console to Meadow 2c, and stop teaching the bridge to Janus",
     "date": "2026-09-14T04:59:31+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "b2edb9153ccd05d762c0a46e984eaf62bb4e524f",
-    "shortSha": "b2edb915",
-    "subject": "Give the agents console the three numbers its table needs",
-    "date": "2026-09-14T04:49:40+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

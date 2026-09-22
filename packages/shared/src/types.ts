@@ -422,6 +422,13 @@ export interface Bootstrap {
   /** Whether the server has a translation provider. Without one the client draws no
    * Translate action and no translation preference. */
   translationEnabled: boolean;
+  /**
+   * Whom you tagged most recently, newest first, each once and never yourself — read off
+   * your own last messages. The `@` picker ranks a tie on how well a name matches by
+   * these, so the person you were just talking to is the row Enter takes.
+   */
+  recentMentionUserIds: string[];
+  recentMentionGroupIds: string[];
 }
 
 /** A named set of people, mentionable as one handle: `@platform-team`. */

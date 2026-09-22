@@ -35,6 +35,7 @@ from ..schemas.requests import UpdateProfileInput
 from . import channels as channel_service
 from . import commands as command_service
 from . import handles as handle_service
+from . import mention_recency as recency_service
 from . import saved as saved_service
 from . import seeded
 from . import themes as theme_service
@@ -92,6 +93,7 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
     groups = await group_service.list_for_workspace(session, user.workspace_id)
     my_group_ids = await group_service.group_ids_for_user(session, user.id)
     muted_group_ids = await group_service.muted_group_ids_for_user(session, user.id)
+    tagged = await recency_service.recent_mentions(session, user.id)
 
     return Bootstrap(
         workspace=to_workspace(workspace),
@@ -146,6 +148,8 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
         # is the whole of what it can usefully be.
         server_commit=served_commit(),
         translation_enabled=translation_service.configured(),
+        recent_mention_user_ids=tagged.user_ids,
+        recent_mention_group_ids=tagged.group_ids,
     )
 
 
