@@ -1,6 +1,6 @@
 /** Channel and DM navigation. */
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { ChannelWithState } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { showError } from '../../lib/toasts.ts';
@@ -28,7 +28,9 @@ import {
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 import { NewMessageDialog } from './NewMessageDialog.tsx';
 import { ChannelMenu } from './ChannelMenu.tsx';
+import { DialogPresence } from '../../components/Dialog.tsx';
 import { byDisplayName } from '../../lib/format.ts';
+import { FALLBACK_MS } from '../../lib/usePresence.ts';
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -57,6 +59,7 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
     }),
     [channels, users],
   );
+  const arrivals = useArrivals([...joined, ...agentDms, ...dms]);
 
   // Split the same way the conversation list is, so the two sections below can never
   // show the same name twice or lose one between them.
@@ -150,7 +153,13 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
         <section className="sidebar-section">
           {!collapsed && <h2 className="section-label">Channels</h2>}
           {joined.map((channel) => (
-            <ChannelRow key={channel.id} channel={channel} collapsed={collapsed} />
+            <ChannelRow
+              key={channel.id}
+              channel={channel}
+              collapsed={collapsed}
+              arriving={arrivals.arriving(channel.id)}
+              onArrived={arrivals.settle}
+            />
           ))}
 
           <SidebarNavButton
@@ -190,6 +199,8 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
                 live={(channel.memberIds ?? []).some((id) =>
                   busyAgents.has(users[id]?.displayName ?? ''),
                 )}
+                arriving={arrivals.arriving(channel.id)}
+                onArrived={arrivals.settle}
               />
             ))}
             {agents
@@ -247,7 +258,13 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
             </button>
           )}
           {dms.map((channel) => (
-            <ChannelRow key={channel.id} channel={channel} collapsed={collapsed} />
+            <ChannelRow
+              key={channel.id}
+              channel={channel}
+              collapsed={collapsed}
+              arriving={arrivals.arriving(channel.id)}
+              onArrived={arrivals.settle}
+            />
           ))}
           {people
             .filter(
@@ -279,10 +296,32 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
         </section>
       </div>
 
-      {creating && <CreateChannelDialog onClose={() => setCreating(false)} />}
-      {composing && <NewMessageDialog onClose={() => setComposing(false)} />}
+      <DialogPresence when={creating}>
+        {() => <CreateChannelDialog onClose={() => setCreating(false)} />}
+      </DialogPresence>
+      <DialogPresence when={composing}>
+        {() => <NewMessageDialog onClose={() => setComposing(false)} />}
+      </DialogPresence>
     </aside>
   );
+}
+
+/**
+ * The conversations that joined the list while it was on screen.
+ *
+ * A row slides in when you create a channel, join one, open a DM or are added somewhere
+ * — and not at start-up, and not when the sidebar mounts again after the console, when
+ * every row would otherwise arrive at once. So whatever the list held on its first
+ * render is simply there, and anything after is an arrival until its entrance ends.
+ */
+function useArrivals(conversations: readonly ChannelWithState[]) {
+  const [known, setKnown] = useState<ReadonlySet<string>>(
+    () => new Set(conversations.map((channel) => channel.id)),
+  );
+  const settle = useCallback((id: string) => {
+    setKnown((current) => (current.has(id) ? current : new Set(current).add(id)));
+  }, []);
+  return { arriving: (id: string) => !known.has(id), settle };
 }
 
 function SidebarNavButton({
@@ -334,11 +373,17 @@ function ChannelRow({
   channel,
   collapsed,
   live = false,
+  arriving = false,
+  onArrived,
 }: {
   channel: ChannelWithState;
   collapsed: boolean;
   /** This row's agent is mid-run. Draws the pulse; means nothing on a person's row. */
   live?: boolean;
+  /** New to the list since it was drawn: slide in, once. */
+  arriving?: boolean;
+  /** The entrance is over — or, on the fallback, never came. */
+  onArrived?: (id: string) => void;
 }) {
   const activeChannelId = useStore((s) => s.activeChannelId);
   const currentUserId = useStore((s) => s.currentUser?.id ?? null);
@@ -357,8 +402,22 @@ function ChannelRow({
   const name = channel.name ?? channelTitle(channel);
   const muted = channel.membership?.notifyLevel === 'none';
 
+  // The floor under the entrance, as `usePresence` has one under an exit: a sidebar in a
+  // background tab plays nothing, and the row must not stay "arriving" until it does.
+  useEffect(() => {
+    if (!arriving) return undefined;
+    const timer = window.setTimeout(() => onArrived?.(channel.id), FALLBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [arriving, onArrived, channel.id]);
+
   return (
-    <div className="channel-row-wrap">
+    <div
+      className="channel-row-wrap"
+      data-arriving={arriving ? 'true' : undefined}
+      onAnimationEnd={(event) => {
+        if (arriving && event.target === event.currentTarget) onArrived?.(channel.id);
+      }}
+    >
       <button
         className="channel-row"
         aria-current={active}

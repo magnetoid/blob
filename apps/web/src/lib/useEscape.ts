@@ -32,6 +32,12 @@ function onKeyDown(event: KeyboardEvent): void {
   const innermost = open[open.length - 1];
   if (!innermost) return;
   event.stopPropagation();
+  // And the browser's own answer to the key, which comes after every handler: a close
+  // request, sent to whichever modal dialog is on top *by then*. A dialog leaving through
+  // `letGo` has already stopped being modal, so that is the one underneath — and one
+  // Escape closed two dialogs and threw away what was typed in the lower one. The key
+  // has been answered here; nothing else should answer it again.
+  event.preventDefault();
   innermost();
 }
 

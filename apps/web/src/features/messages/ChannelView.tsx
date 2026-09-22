@@ -23,6 +23,8 @@ import { PinnedPanel } from "./PinnedPanel.tsx";
 import { CatchUpStrip } from "./CatchUpStrip.tsx";
 import { ChannelMenu } from "../channels/ChannelMenu.tsx";
 import { ChannelDetails } from "../channels/ChannelDetails.tsx";
+import { DialogPresence } from "../../components/Dialog.tsx";
+import { TypingIndicator } from "./TypingIndicator.tsx";
 import { WorkPanel, WorkTabs, type WorkTab } from "../work/WorkPanel.tsx";
 import { useWork } from "../work/useWork.ts";
 import { TYPING_TTL_MS } from "@blob/shared";
@@ -375,13 +377,15 @@ export function ChannelView() {
         </button>
       </header>
 
-      {detailsOpen && !isDm && (
-        <ChannelDetails
-          channel={channel}
-          onClose={() => setDetailsOpen(false)}
-          onMembers={reportMembers}
-        />
-      )}
+      <DialogPresence when={detailsOpen && !isDm}>
+        {() => (
+          <ChannelDetails
+            channel={channel}
+            onClose={() => setDetailsOpen(false)}
+            onMembers={reportMembers}
+          />
+        )}
+      </DialogPresence>
 
       {showDeliveryBanner && connectionText && (
         <div className="connection-banner">{connectionText}</div>
@@ -462,20 +466,9 @@ export function ChannelView() {
           />
 
           <div className="typing-line" aria-live="polite">
-            {typingNames.length > 0 && (
-              <span className="typing-dots">
-                <i />
-                <i />
-                <i />
-                <span className="typing-text">
-                  {typingNames.length === 1
-                    ? `${typingNames[0]} is typing…`
-                    : typingNames.length === 2
-                      ? `${typingNames[0]} and ${typingNames[1]} are typing…`
-                      : "Several people are typing…"}
-                </span>
-              </span>
-            )}
+            {/* Keyed by the channel, so a switch never finishes one room's exit under the
+                next room's messages — the rule the two notices above already keep. */}
+            <TypingIndicator key={activeChannelId} names={typingNames} />
           </div>
 
           {!archived && (

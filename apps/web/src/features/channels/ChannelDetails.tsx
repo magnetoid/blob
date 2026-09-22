@@ -40,7 +40,10 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
   const [savingTopic, setSavingTopic] = useState(false);
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // `refused` when the line is the answer to something done here — a topic, a person,
+  // a setting the server turned down — which settles in; a list that failed to load
+  // only fades in.
+  const [error, setError] = useState<{ text: string; refused: boolean } | null>(null);
 
   const archived = channel.archivedAt !== null;
   const topicChanged = topic.trim() !== (channel.topic ?? '');
@@ -48,7 +51,7 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
   const { data: memberIds, reload: reloadMembers } = useFetch(
     async (): Promise<string[]> => (await api.channels.members(channel.id)).userIds,
     [channel.id, membershipVersion],
-    { onError: () => setError('Could not load who is in here.') },
+    { onError: () => setError({ text: 'Could not load who is in here.', refused: false }) },
   );
   // The header behind this dialog caches a member list, and the moment it is guaranteed
   // to be wrong is when this dialog has just read the true one.
@@ -86,7 +89,10 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
       // header behind this dialog changes without anything here writing to the store.
       await api.channels.update(channel.id, { topic: topic.trim() || null });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'That topic did not save.');
+      setError({
+        text: err instanceof ApiError ? err.message : 'That topic did not save.',
+        refused: true,
+      });
     } finally {
       setSavingTopic(false);
     }
@@ -102,7 +108,10 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
       reloadMembers();
       setQuery('');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not add them.');
+      setError({
+        text: err instanceof ApiError ? err.message : 'Could not add them.',
+        refused: true,
+      });
     } finally {
       setAdding(null);
     }
@@ -116,7 +125,10 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
     try {
       await api.channels.update(channel.id, { nudgeUnanswered: !channel.nudgeUnanswered });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'That setting did not save.');
+      setError({
+        text: err instanceof ApiError ? err.message : 'That setting did not save.',
+        refused: true,
+      });
     } finally {
       setSavingNudge(false);
     }
@@ -228,7 +240,11 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
           ))}
         </div>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && (
+          <p className="error-text" data-refused={error.refused ? 'true' : undefined}>
+            {error.text}
+          </p>
+        )}
 
         <div className="dialog-actions">
           <button className="btn" type="button" onClick={onClose}>

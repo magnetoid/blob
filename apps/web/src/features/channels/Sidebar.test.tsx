@@ -247,3 +247,48 @@ describe('the unread mention badge', () => {
     expect(channelBadge(container)).toBe(before);
   });
 });
+
+/**
+ * A conversation that joins the list while you watch slides in; the list you arrive to
+ * does not. The rows are all "new" to a sidebar that has just mounted — at start-up, and
+ * again coming back from the console — so the rule is what was there on the first render.
+ */
+describe('a conversation joining the list', () => {
+  const RANDOM = {
+    id: 'c2',
+    kind: 'public',
+    name: 'random',
+    membership: { isStarred: false },
+    archivedAt: null,
+    memberIds: ['u1'],
+  };
+
+  const wrapOf = (container: HTMLElement, name: string) =>
+    Array.from(container.querySelectorAll<HTMLElement>('.channel-row-wrap')).find((wrap) =>
+      wrap.textContent?.includes(name),
+    )!;
+
+  it('leaves the rows it was drawn with still', () => {
+    seed();
+    const { container } = render(<Sidebar />);
+    expect(wrapOf(container, 'general').dataset.arriving).toBeUndefined();
+  });
+
+  it('slides in a row that arrives later, once', () => {
+    seed();
+    const { container } = render(<Sidebar />);
+
+    act(() => {
+      useStore.setState((s) => ({ channels: { ...s.channels, c2: RANDOM } }) as never);
+    });
+    const arrived = wrapOf(container, 'random');
+    expect(arrived.dataset.arriving).toBe('true');
+    expect(wrapOf(container, 'general').dataset.arriving).toBeUndefined();
+
+    // Its entrance ends, and it is one of the list from then on.
+    act(() => {
+      arrived.dispatchEvent(new Event('animationend', { bubbles: true }));
+    });
+    expect(wrapOf(container, 'random').dataset.arriving).toBeUndefined();
+  });
+});

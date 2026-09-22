@@ -10,6 +10,7 @@ import { showError } from '../../lib/toasts.ts';
 import { ImageLightbox } from './ImageLightbox.tsx';
 import { useFetch } from '../../lib/useFetch.ts';
 import { EmptyState } from '../../components/EmptyState.tsx';
+import { revealIfCached, revealOnError, revealOnLoad } from '../../lib/imageReveal.ts';
 
 export function FilesView() {
   const [kind, setKind] = useState<'all' | 'image' | 'file'>('all');
@@ -73,7 +74,15 @@ export function FilesView() {
                 aria-label={item.filename}
               >
                 {preview ? (
-                  <img src={preview} alt="" width={item.width ?? undefined} height={item.height ?? undefined} />
+                  <img
+                    src={preview}
+                    alt=""
+                    width={item.width ?? undefined}
+                    height={item.height ?? undefined}
+                    ref={revealIfCached}
+                    onLoad={revealOnLoad}
+                    onError={revealOnError}
+                  />
                 ) : (
                   <span className="files-tile-name">{item.filename}</span>
                 )}

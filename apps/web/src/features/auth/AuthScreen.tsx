@@ -76,6 +76,10 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   const [workspaceName, setWorkspaceName] = useState("");
   const [inviteWorkspace, setInviteWorkspace] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Whether that line is the answer to a submit — "no" to what was just typed, which
+   *  settles into place — rather than something the screen found out on its own, like
+   *  an invitation that has lapsed, which only fades in. */
+  const [refused, setRefused] = useState(false);
   const [sent, setSent] = useState(false);
   /** Whether this server can send email at all — nothing about the address typed. */
   const [mailReachable, setMailReachable] = useState(true);
@@ -91,6 +95,7 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
         if (invite.email) setEmail(invite.email);
       })
       .catch((err: unknown) => {
+        setRefused(false);
         setError(
           err instanceof ApiError
             ? err.message
@@ -152,6 +157,7 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
       if (inviteToken || resetToken) window.history.replaceState(null, "", "/");
       await onSignedIn();
     } catch (err) {
+      setRefused(true);
       setError(
         err instanceof ApiError
           ? err.message
@@ -330,7 +336,11 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
             get announced, because there was no region to change. `.typing-line` in
             ChannelView is the same arrangement and was already right. */}
         <div aria-live="polite">
-          {error && <p className="error-text">{error}</p>}
+          {error && (
+            <p className="error-text" data-refused={refused ? "true" : undefined}>
+              {error}
+            </p>
+          )}
         </div>
 
         <button className="btn btn-primary" type="submit" disabled={busy}>

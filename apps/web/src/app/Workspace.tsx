@@ -56,6 +56,7 @@ import { TopBar } from '../features/shell/TopBar.tsx';
 import { CatchUpPanel } from '../features/messages/CatchUpPanel.tsx';
 import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
 import { ShortcutHelp } from '../components/ShortcutHelp.tsx';
+import { DialogPresence } from '../components/Dialog.tsx';
 import { isTypingTarget, matchShortcut, ownsArrowKeys } from '../lib/shortcuts.ts';
 import { closeThread, showChannel, showMessage } from '../lib/navigation.ts';
 import { updateBadge } from '../lib/badge.ts';
@@ -402,8 +403,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         {paletteOpen && (
           <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
         )}
-        {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
-        {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+        <DialogPresence when={feedbackOpen}>
+          {() => <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
+        </DialogPresence>
+        <DialogPresence when={helpOpen}>
+          {() => <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+        </DialogPresence>
       </>
     );
   }
@@ -421,8 +426,12 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         {paletteOpen && (
           <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
         )}
-        {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
-        {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+        <DialogPresence when={feedbackOpen}>
+          {() => <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
+        </DialogPresence>
+        <DialogPresence when={helpOpen}>
+          {() => <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+        </DialogPresence>
       </>
     );
   }
@@ -542,8 +551,15 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {paletteOpen && (
           <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
         )}
-      {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
-      {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+      {/* The dialogs leave as well as arrive: each mounts on the render that opens it,
+          as `{open && <X/>}` did, and is held through one exit after. The palette and
+          the lightbox keep the plain mount — the palette gets no motion at all. */}
+      <DialogPresence when={feedbackOpen}>
+        {() => <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
+      </DialogPresence>
+      <DialogPresence when={helpOpen}>
+        {() => <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+      </DialogPresence>
       {lightbox && (
         <ImageLightbox
           attachment={lightbox}
@@ -551,12 +567,16 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         />
       )}
 
-      {catchupScope && (
-        <CatchUpPanel
-          channelId={catchupScope === 'channel' ? activeChannelId : null}
-          onClose={() => useStore.setState({ catchupScope: null })}
-        />
-      )}
+      {/* Held with the scope it was opened for, so a panel on its way out does not
+          re-render for "no channel" and ask the server a second question. */}
+      <DialogPresence when={catchupScope}>
+        {(scope) => (
+          <CatchUpPanel
+            channelId={scope === 'channel' ? activeChannelId : null}
+            onClose={() => useStore.setState({ catchupScope: null })}
+          />
+        )}
+      </DialogPresence>
     </div>
   );
 }

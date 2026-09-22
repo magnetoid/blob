@@ -17,6 +17,9 @@ import { ThreadSummaryCard } from "./ThreadSummary.tsx";
 import { ThreadTasksCard } from "./ThreadTasks.tsx";
 import { useThreadTools } from "./threadTools.ts";
 import { CloseIcon } from "../../components/Icon.tsx";
+import { Count } from "../../components/Count.tsx";
+
+const replies = (count: number) => `${count} ${count === 1 ? "reply" : "replies"}`;
 
 /**
  * Follow, or stop following, the thread on screen.
@@ -184,8 +187,20 @@ export function ThreadPanel({
           <h2 className="panel-title">Thread</h2>
           <div className="panel-sub">
             {channelLabel}
-            {replyCount > 0 &&
-              ` · ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`}
+            {replyCount > 0 && (
+              <>
+                {" · "}
+                {/* Keyed by the thread, as the follow toggle beside it is: the panel is
+                    not keyed itself, so opening another thread is the same count seeing
+                    a new number — which is not a reply arriving. */}
+                <Count
+                  key={rootId}
+                  value={replyCount}
+                  className="panel-sub-count"
+                  format={replies}
+                />
+              </>
+            )}
           </div>
         </div>
         <FollowToggle key={rootId} rootId={rootId} />

@@ -83,7 +83,7 @@ export function sortOutbox(
  * and it still sorts after every real id — 'p' is above 'f', so a queued message stays
  * below the conversation rather than being filed into the middle of it.
  */
-function pendingId(entry: LocalOutboxEntry): string {
+export function pendingId(entry: LocalOutboxEntry): string {
   return `pending-${entry.createdAt}-${entry.clientMsgId}`;
 }
 

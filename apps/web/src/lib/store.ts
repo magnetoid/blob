@@ -41,12 +41,14 @@ import {
   isRecoverableSendError,
   loadOutbox,
   materializeOutboxMessage,
+  pendingId,
   persistOutbox,
   sortOutbox,
   type LocalMessageDeliveryStatus,
   type LocalOutboxEntry,
 } from "./outbox.ts";
 import { socket, type SocketStatus } from "./socket.ts";
+import { FALLBACK_MS } from "./usePresence.ts";
 
 interface ChannelMessages {
   items: Message[];
@@ -120,6 +122,23 @@ interface State {
    * calls. So the target is left here and the list picks it up.
    */
   pendingScrollMessageId: string | null;
+  /**
+   * Messages that have only just arrived, each with the moment a row began to show it —
+   * null until one has.
+   *
+   * A row plays its entrance only while its id is here, and settles it when the
+   * entrance ends. It cannot decide for itself: the list is virtualised, so a row mounts
+   * every time it scrolls into view and on every channel switch, and an entrance keyed to
+   * mounting would replay on all of those. Marked for somebody else's message landing
+   * live in the conversation on screen, and for your own the moment you send it — never
+   * for a page of history. Every mark also expires on a timer, so a row that was not on
+   * screen to use one cannot find it waiting when it scrolls in later.
+   *
+   * The start is taken from the row, not the event: a frame's arrival and the render that
+   * draws it can be tens of milliseconds apart, and an entrance timed from the frame would
+   * be partly over before anybody saw it.
+   */
+  freshMessages: ReadonlyMap<string, number | null>;
   presence: Record<string, PresenceState>;
   typing: Record<string, Record<string, number>>;
   activeChannelId: string | null;
@@ -170,6 +189,10 @@ interface State {
   setEditingMessage: (messageId: string | null) => void;
   /** Ask the list to bring a message into view; it clears this once it has. */
   requestScrollToMessage: (messageId: string | null) => void;
+  /** A row has started this message's entrance, at `at` (`performance.now()`). */
+  beginFresh: (messageId: string, at: number) => void;
+  /** This message's entrance has played, or never will. */
+  settleFresh: (messageId: string) => void;
   /** Open your most recent message here for editing. Returns whether there was one. */
   editLastMessage: (channelId: string, threadRootId: string | null) => boolean;
   /**
@@ -413,6 +436,7 @@ export const useStore = create<State>((set, get) => ({
   drafts: {},
   editingMessageId: null,
   pendingScrollMessageId: null,
+  freshMessages: new Map<string, number | null>(),
   presence: {},
   typing: {},
   activeChannelId: null,
@@ -472,6 +496,7 @@ export const useStore = create<State>((set, get) => ({
       outbox: {},
       drafts: {},
       editingMessageId: null,
+      freshMessages: new Map<string, number | null>(),
       presence: {},
       typing: {},
       activeChannelId: null,
@@ -525,6 +550,26 @@ export const useStore = create<State>((set, get) => ({
   requestScrollToMessage: (messageId) =>
     set({ pendingScrollMessageId: messageId }),
 
+  beginFresh: (messageId, at) =>
+    // Only the first row to draw it: the same message can be on screen twice — a reply
+    // also sent to the channel is in the thread and the channel at once — and both
+    // should keep the one start.
+    set((s) =>
+      s.freshMessages.get(messageId) === null
+        ? { freshMessages: new Map(s.freshMessages).set(messageId, at) }
+        : s,
+    ),
+
+  settleFresh: (messageId) =>
+    // The same map back when there is nothing to settle — a row's `animationend` and the
+    // expiry timer both land here, and the second must not re-render every row.
+    set((s) => {
+      if (!s.freshMessages.has(messageId)) return s;
+      const next = new Map(s.freshMessages);
+      next.delete(messageId);
+      return { freshMessages: next };
+    }),
+
   editLastMessage: (channelId, threadRootId) => {
     const state = get();
     const me = state.currentUser?.id;
@@ -554,6 +599,7 @@ export const useStore = create<State>((set, get) => ({
     for (const entry of sortOutbox(get().outbox)) {
       const latest = get().outbox[entry.clientMsgId];
       if (!latest) continue;
+      rememberSent(latest.clientMsgId);
 
       setOutbox(set, get, (outbox) => ({
         ...outbox,
@@ -927,6 +973,11 @@ export const useStore = create<State>((set, get) => ({
       lastError: null,
     };
 
+    // What you just wrote arrives under your hands the way anybody else's message does.
+    // Marked before the row exists, so the render that first draws it already knows.
+    const pending = pendingId(optimisticEntry);
+    rememberSent(clientMsgId);
+    markFresh(set, get, pending, null);
     setOutbox(set, get, (outbox) => ({
       ...outbox,
       [clientMsgId]: optimisticEntry,
@@ -947,6 +998,11 @@ export const useStore = create<State>((set, get) => ({
         delete next[clientMsgId];
         return next;
       });
+      // The server's copy replaces the pending row — a new row under a new key — very
+      // often while that row is still arriving. The mark moves across with its start
+      // time, so the new row picks the entrance up where the old one was, rather than
+      // playing it a second time or snapping to the end of it.
+      moveFresh(set, get, pending, message.id);
       get().applyEvent({ t: "message.new", message });
       // Ordered after the fold deliberately: `applyEvent` has just moved the channel's
       // tail pointer to this message, so "is the window at the tail?" is now exactly
@@ -1148,6 +1204,14 @@ export const useStore = create<State>((set, get) => ({
         const atTailBefore =
           before?.items.filter((m) => !m.id.startsWith("pending-")).at(-1)
             ?.id === get().channels[message.channelId]?.lastMessageId;
+        // New to the conversation on screen, and not one this tab sent: those were marked
+        // as they were sent, and the frame for one is its confirmation, not an arrival.
+        // Your own from another device or tab is an arrival like anybody's.
+        const arriving =
+          event.t === "message.new" &&
+          !(message.clientMsgId && sentHere.has(message.clientMsgId)) &&
+          arrivesInView(get(), message);
+        if (arriving) markFresh(set, get, message.id, null);
         set((s) => {
           const next: Partial<State> = {};
 
@@ -1935,6 +1999,84 @@ function overlayThreadOutbox(
 
 function stripPending(items: Message[]): Message[] {
   return items.filter((message) => !message.id.startsWith("pending-"));
+}
+
+/**
+ * The `clientMsgId`s this tab has sent, so the frame for one is known for the echo of a
+ * send rather than a message arriving. The author cannot answer that — the same person
+ * sends from a phone and a laptop — and the outbox cannot either, because the response
+ * that empties it very often lands before the frame does.
+ *
+ * Kept to the last few hundred: a frame comes a moment after its send, so anything
+ * older than that is long past needing an answer, and a long session should not keep
+ * every id it ever sent.
+ */
+const sentHere = new Set<string>();
+const SENT_HERE_LIMIT = 256;
+
+function rememberSent(clientMsgId: string): void {
+  sentHere.add(clientMsgId);
+  if (sentHere.size > SENT_HERE_LIMIT) {
+    const oldest = sentHere.values().next().value;
+    if (oldest !== undefined) sentHere.delete(oldest);
+  }
+}
+
+/** Whether `id` is already a row in this id-sorted list. */
+function holds(items: Message[], id: string): boolean {
+  return items[positionOf(items, id)]?.id === id;
+}
+
+/**
+ * Whether a live message lands as a new row in the conversation on screen: the open
+ * thread, or the channel you are in once its history has loaded. A copy of a message
+ * that is already there — a replay, the socket repeating what a command's response
+ * already applied — is not an arrival, and marking it would replay the entrance on a row
+ * somebody may be reading.
+ */
+function arrivesInView(state: State, message: Message): boolean {
+  if (message.threadRootId && message.threadRootId === state.activeThreadRootId) {
+    const thread = state.threads[message.threadRootId];
+    if (thread && !holds(thread, message.id)) return true;
+  }
+  if (inChannelHistory(message) && message.channelId === state.activeChannelId) {
+    const list = state.messages[message.channelId];
+    return Boolean(list?.loaded) && !holds(list?.items ?? [], message.id);
+  }
+  return false;
+}
+
+/**
+ * Mark a message as arriving, and forget the mark later whether or not a row used it.
+ *
+ * `FALLBACK_MS` is the floor `usePresence` puts under an exit, and it is the same
+ * promise here: longer than any entrance in the stylesheet, short enough that a mark
+ * cannot outlive the moment it was about. A row that was scrolled out of reach, or a
+ * message that landed in a window the list then replaced, never consumes its mark — and
+ * without the timer, it would play its entrance whenever that row finally mounted.
+ */
+function markFresh(
+  set: Parameters<StateCreator<State>>[0],
+  get: () => State,
+  messageId: string,
+  began: number | null,
+): void {
+  set((s) => ({ freshMessages: new Map(s.freshMessages).set(messageId, began) }));
+  setTimeout(() => get().settleFresh(messageId), FALLBACK_MS);
+}
+
+/** Hand a mark from the pending row to the server's copy of it, start time and all. */
+function moveFresh(
+  set: Parameters<StateCreator<State>>[0],
+  get: () => State,
+  from: string,
+  to: string,
+): void {
+  const fresh = get().freshMessages;
+  if (!fresh.has(from)) return;
+  const began = fresh.get(from) ?? null;
+  get().settleFresh(from);
+  markFresh(set, get, to, began);
 }
 
 /** Wire the socket into the store once, at app start. */

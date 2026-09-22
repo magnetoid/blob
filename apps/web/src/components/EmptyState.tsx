@@ -6,7 +6,8 @@
  * is decoration and that whatever follows the body sits at the same distance from it.
  */
 
-import type { HTMLAttributes, ReactNode } from 'react';
+import { useState, type HTMLAttributes, type ReactNode } from 'react';
+import { onFirstView } from '../lib/firstView.ts';
 
 export function EmptyState({
   mark,
@@ -23,8 +24,15 @@ export function EmptyState({
   action?: ReactNode;
   children?: ReactNode;
 } & Omit<HTMLAttributes<HTMLDivElement>, 'title'>) {
+  // Decided once, as it mounts: an empty state the app opened onto arrives, and one it
+  // was switched to just appears. See `lib/firstView`.
+  const [arriving] = useState(onFirstView);
   return (
-    <div className={className ? `empty-state ${className}` : 'empty-state'} {...rest}>
+    <div
+      className={className ? `empty-state ${className}` : 'empty-state'}
+      data-arriving={arriving ? 'true' : undefined}
+      {...rest}
+    >
       {mark !== undefined && (
         <div className="empty-state-mark" aria-hidden="true">
           {mark}

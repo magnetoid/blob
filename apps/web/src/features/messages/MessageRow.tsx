@@ -5,7 +5,15 @@
  * one avatar and header; the exact time then appears in the gutter on hover.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  memo,
+} from "react";
 import { useEscape } from "../../lib/useEscape.ts";
 import type { CustomEmoji, Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
@@ -26,6 +34,10 @@ import { MessageTranslation } from "./MessageTranslation.tsx";
 import { formatRelative, formatTime } from "./messageFormatting.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { DialogPresence } from "../../components/Dialog.tsx";
+import { Count } from "../../components/Count.tsx";
+import { Confirmation } from "../../components/Confirmation.tsx";
+import { revealIfCached, revealOnError, revealOnLoad } from "../../lib/imageReveal.ts";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import { DownloadIcon, FileIcon, PinIcon, ReplyIcon } from "../../components/Icon.tsx";
 import { resolveReaction } from "../../lib/emoji.ts";
@@ -39,6 +51,8 @@ import {
 
 /** Offered directly in the hover toolbar; the rest come from the picker. */
 const QUICK_REACTIONS = ["👍", "🎉", "👀"];
+
+const replies = (count: number) => `${count} ${count === 1 ? "reply" : "replies"}`;
 
 interface Props {
   message: Message;
@@ -149,6 +163,44 @@ export const MessageRow = memo(function MessageRow({
   const [cardOpen, setCardOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
+  // Whether this row is a message arriving. The store decides, not the row: a row
+  // cannot tell a live arrival from a remount on scroll, and only one of the two should
+  // move. See `freshMessages`.
+  const arrival = useStore((s) => s.freshMessages.get(message.id));
+  const beginFresh = useStore((s) => s.beginFresh);
+  const settleFresh = useStore((s) => s.settleFresh);
+  const rowRef = useRef<HTMLElement>(null);
+  const beganHere = useRef(false);
+  useLayoutEffect(() => {
+    const node = rowRef.current;
+    if (!node || arrival === undefined || beganHere.current) return undefined;
+    if (arrival === null) {
+      // The first row to draw this arrival starts it, now, and says when — so that a
+      // row taking over from this one can carry on from there.
+      beganHere.current = true;
+      beginFresh(message.id, performance.now());
+      return undefined;
+    }
+    // It began before this row existed: this is the server's copy of a message you sent,
+    // standing in for the pending row partway through its entrance. A negative delay
+    // picks the entrance up where that row had got to — set before the first paint, so
+    // no frame shows it from the beginning.
+    node.style.animationDelay = `${Math.min(0, arrival - performance.now())}ms`;
+    return () => {
+      node.style.animationDelay = "";
+    };
+  }, [arrival, beginFresh, message.id]);
+
+  // What this row was first drawn with. A link preview is fetched a second or two after
+  // its message, an agent's files can follow its answer, and a reaction can land while
+  // you watch — those arrive, and move. A row that mounts already holding them, which is
+  // every row scrolled back into view, holds them from the start and keeps still.
+  const [drawnWith] = useState(() => ({
+    preview: Boolean(message.linkPreview?.title),
+    files: new Set(message.attachments.map((attachment) => attachment.id)),
+    reactions: new Set(message.reactions.map((reaction) => reaction.emoji)),
+  }));
+
   const author = message.authorId ? users[message.authorId] : undefined;
   /* An agent's answer is set apart from the conversation around it, the way the design
    * draws it: a card on the message surface with an iris hairline, rather than loose
@@ -240,8 +292,7 @@ export const MessageRow = memo(function MessageRow({
               tabIndex={tab}
               onClick={() => onOpenThread(message.threadRootId ?? message.id)}
             >
-              {message.replyCount}{" "}
-              {message.replyCount === 1 ? "reply" : "replies"}
+              <Count value={message.replyCount} className="thread-summary-count" format={replies} />
             </button>
           )}
         </div>
@@ -276,6 +327,15 @@ export const MessageRow = memo(function MessageRow({
       data-mentions-me={mentionsMe}
       data-pending={pending}
       data-delivery-state={deliveryState ?? undefined}
+      data-fresh={arrival !== undefined ? "true" : undefined}
+      ref={rowRef}
+      onAnimationEnd={(event) => {
+        // Only the row's own entrance. A reaction popping or a count ticking inside it
+        // bubbles here too, and must not settle an arrival that is still playing.
+        if (event.target === event.currentTarget && arrival !== undefined) {
+          settleFresh(message.id);
+        }
+      }}
       onKeyDown={moveFocusBetweenMessages}
     >
       <div className="message-gutter">
@@ -373,6 +433,7 @@ export const MessageRow = memo(function MessageRow({
                   href={attachment.url}
                   target="_blank"
                   rel="noreferrer"
+                  data-arrived={!drawnWith.files.has(attachment.id) ? "true" : undefined}
                   onClick={(event) => {
                     // Plain click opens it here; a modified click is somebody asking
                     // for a tab, and that still works.
@@ -398,10 +459,17 @@ export const MessageRow = memo(function MessageRow({
                     height={attachment.height ?? undefined}
                     loading="lazy"
                     decoding="async"
+                    ref={revealIfCached}
+                    onLoad={revealOnLoad}
+                    onError={revealOnError}
                   />
                 </a>
               ) : (
-                <div key={attachment.id} className="attachment-file">
+                <div
+                  key={attachment.id}
+                  className="attachment-file"
+                  data-arrived={!drawnWith.files.has(attachment.id) ? "true" : undefined}
+                >
                   <a
                     className="attachment-file-open"
                     href={attachment.url}
@@ -457,6 +525,7 @@ export const MessageRow = memo(function MessageRow({
             href={message.linkPreview.url}
             target="_blank"
             rel="noreferrer"
+            data-arrived={!drawnWith.preview ? "true" : undefined}
           >
             <span className="link-preview-title">
               {message.linkPreview.title}
@@ -517,6 +586,9 @@ export const MessageRow = memo(function MessageRow({
                   // know whether they are about to react or take their reaction back.
                   data-mine={mine}
                   aria-pressed={mine}
+                  // Pops only if it appeared after this row was drawn: somebody reacting,
+                  // not somebody scrolling back past a reaction that was always there.
+                  data-arrived={!drawnWith.reactions.has(reaction.emoji) ? "true" : undefined}
                   type="button"
                   onClick={() =>
                     void toggleReaction(message, reaction.emoji).catch(
@@ -530,12 +602,11 @@ export const MessageRow = memo(function MessageRow({
                   <span>
                     <ReactionFace value={reaction.emoji} custom={customEmoji} />
                   </span>
-                  {/* Keyed by its own value: any reaction moves one digit — yours as
-                      much as anybody's, because a key cannot tell whose click it was —
-                      and the re-mount is what makes it tick rather than swap. */}
-                  <span key={reaction.userIds.length} className="reaction-count">
-                    {reaction.userIds.length}
-                  </span>
+                  {/* Keyed by its own value inside `Count`: any reaction moves one digit
+                      — yours as much as anybody's, because a key cannot tell whose click
+                      it was — and the re-mount is what makes it tick rather than swap.
+                      Only a change ticks; the row mounting again does not. */}
+                  <Count value={reaction.userIds.length} className="reaction-count" />
                 </button>
               );
             })}
@@ -557,8 +628,7 @@ export const MessageRow = memo(function MessageRow({
             {message.replyUserIds[0] && (
               <Avatar user={users[message.replyUserIds[0]]} size="sm" />
             )}
-            {message.replyCount}{" "}
-            {message.replyCount === 1 ? "reply" : "replies"}
+            <Count value={message.replyCount} className="thread-summary-count" format={replies} />
             {message.lastReplyAt && (
               <span className="thread-summary-meta">
                 Last reply {formatRelative(message.lastReplyAt)}
@@ -639,11 +709,9 @@ export const MessageRow = memo(function MessageRow({
           >
             <PinIcon size="md" />
           </button>
-          {copied && (
-            <span className="copied-note" role="status">
-              Link copied
-            </span>
-          )}
+          <Confirmation show={copied} className="copied-note" role="status">
+            Link copied
+          </Confirmation>
           <MessageMenu
             message={message}
             mine={mine}
@@ -660,26 +728,30 @@ export const MessageRow = memo(function MessageRow({
       {/* At the article level, not inside the menu: `.message-actions` is
           display:none unless the row is hovered or has focus within, and a dialog
           opened from the keyboard must not depend on where the pointer sits. */}
-      {startingWork && (
-        <StartWorkDialog message={message} onClose={() => setStartingWork(false)} />
-      )}
-      {forwarding && (
-        <ForwardDialog message={message} onClose={() => setForwarding(false)} />
-      )}
+      <DialogPresence when={startingWork}>
+        {() => (
+          <StartWorkDialog message={message} onClose={() => setStartingWork(false)} />
+        )}
+      </DialogPresence>
+      <DialogPresence when={forwarding}>
+        {() => <ForwardDialog message={message} onClose={() => setForwarding(false)} />}
+      </DialogPresence>
 
-      {deleting && (
-        <ConfirmDialog
-          title="Delete this message?"
-          body="It disappears for everyone. There is no undo."
-          confirmLabel="Delete"
-          danger
-          onClose={() => setDeleting(false)}
-          onConfirm={() => {
-            setDeleting(false);
-            void api.messages.remove(message.id).catch(showError);
-          }}
-        />
-      )}
+      <DialogPresence when={deleting}>
+        {() => (
+          <ConfirmDialog
+            title="Delete this message?"
+            body="It disappears for everyone. There is no undo."
+            confirmLabel="Delete"
+            danger
+            onClose={() => setDeleting(false)}
+            onConfirm={() => {
+              setDeleting(false);
+              void api.messages.remove(message.id).catch(showError);
+            }}
+          />
+        )}
+      </DialogPresence>
 
       {/* No clipboard API: a secure context is required, and a self-hosted workspace
           reached over plain http on a LAN does not have one. Showing the link to copy
