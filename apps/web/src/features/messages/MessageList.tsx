@@ -60,7 +60,22 @@ export function MessageList({
   runsByMessageId,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [jumpBarDismissed, setJumpBarDismissed] = useState(false);
+  /**
+   * Where the jump bar stands for the unread block it is about: not yet placed, offered
+   * (the first unread row is off screen), or done — seen, or dismissed with ×.
+   *
+   * Keyed by conversation and marker and reset *during render* when either changes. It
+   * was a flag cleared by a passive effect, which runs after the layout effects below —
+   * so a check made before the first paint that the first unread was already on screen
+   * would have been undone on the same commit, and the bar offered anyway.
+   */
+  const barKey = `${conversationId}:${unreadAfterId ?? ""}`;
+  const [bar, setBar] = useState<{ key: string; state: "unplaced" | "offered" | "done" }>({
+    key: barKey,
+    state: "unplaced",
+  });
+  if (bar.key !== barKey) setBar({ key: barKey, state: "unplaced" });
+  const barOffered = bar.state === "offered";
   /**
    * The one row in the list that is a tab stop.
    *
@@ -105,10 +120,6 @@ export function MessageList({
     tabStopId !== null && messages.some((m) => m.id === tabStopId)
       ? tabStopId
       : (messages[messages.length - 1]?.id ?? null);
-
-  useEffect(() => {
-    setJumpBarDismissed(false);
-  }, [unreadAfterId]);
 
   const wasAtBottom = useRef(true);
   const previousMetrics = useRef({
@@ -203,7 +214,6 @@ export function MessageList({
     virtualizer.measure();
     wasAtBottom.current = true;
     previousMetrics.current = { firstId: null, lastId: null, scrollHeight: 0 };
-    setJumpBarDismissed(false);
     setTabStopId(null);
     // `virtualizer` is a fresh object every render, so it cannot be a dependency —
     // the same reason the effect below says so.
@@ -253,6 +263,28 @@ export function MessageList({
   }, [messages, pendingScrollMessageId]);
 
   /**
+   * Offer the jump bar only while the first unread row is off screen, and be done with it
+   * once that row has been on screen.
+   *
+   * After the scroll effect above and on the same commit, so it measures where the list
+   * has just put you — and before the first paint, so a bar with nothing to jump to is
+   * never drawn at all. Measured from the container and the row's position rather than
+   * the virtualizer's visible range, which only catches up on the scroll event after a
+   * scroll it was told to make: the bar would be drawn for a frame and then fade out.
+   */
+  useLayoutEffect(() => {
+    const node = scrollRef.current;
+    if (!node || bar.state === "done" || firstUnreadIndex === -1) return;
+    if (rowOnScreen(node, virtualizer.measurementsCache[firstUnreadIndex])) {
+      setBar((current) => ({ ...current, state: "done" }));
+    } else if (bar.state === "unplaced") {
+      setBar((current) => ({ ...current, state: "offered" }));
+    }
+    // Same reasoning as the scroll effect: `virtualizer` is not a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bar.key, bar.state, firstUnreadIndex, messages]);
+
+  /**
    * Carry out a pending jump: search results, `/m/<id>` permalinks, saved items.
    *
    * This has to happen here because the row is not in the DOM. `scrollToMessage` looked
@@ -292,13 +324,25 @@ export function MessageList({
       wasAtBottom.current =
         el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
       if (el.scrollTop < 200 && hasMore && !loading) onLoadOlder();
+      // Scrolled the first unread row into view — by hand or with the bar's own jump —
+      // and the bar has done its job. Left up, it offers a jump to what is on screen.
+      if (
+        barOffered &&
+        rowOnScreen(el, virtualizer.measurementsCache[firstUnreadIndex])
+      ) {
+        setBar((current) =>
+          current.state === "offered" ? { ...current, state: "done" } : current,
+        );
+      }
     }
 
     node.addEventListener("scroll", onScroll, { passive: true });
     return () => node.removeEventListener("scroll", onScroll);
-  }, [hasMore, loading, onLoadOlder]);
+    // `virtualizer` is not a dependency, for the reason the scroll effect gives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, loading, onLoadOlder, barOffered, firstUnreadIndex]);
 
-  const jumpBarOpen = unreadCount > 0 && !jumpBarDismissed && !inThread;
+  const jumpBarOpen = unreadCount > 0 && barOffered && !inThread;
 
   if (messages.length === 0) {
     if (error) {
@@ -375,7 +419,7 @@ export function MessageList({
           if (!target) return;
           virtualizer.scrollToIndex(firstUnreadIndex, { align: "center" });
         }}
-        onDismiss={() => setJumpBarDismissed(true)}
+        onDismiss={() => setBar((current) => ({ ...current, state: "done" }))}
       />
       {hasMore && (
         <div style={{ padding: "8px 22px" }}>
@@ -486,6 +530,18 @@ function UnreadJumpBar({
         ×
       </button>
     </div>
+  );
+}
+
+/** Whether a measured row overlaps what the scroll container is showing. */
+function rowOnScreen(
+  node: HTMLElement,
+  row: { start: number; end: number } | undefined,
+): boolean {
+  return (
+    row !== undefined &&
+    row.start < node.scrollTop + node.clientHeight &&
+    row.end > node.scrollTop
   );
 }
 
