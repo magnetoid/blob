@@ -4983,6 +4983,16 @@ select.chip {
   bottom: calc(100% + 6px);
 }
 
+/* Pinned to the trigger's end, for a control against the right edge of a scroller.
+   Centred, the label hangs past that edge: shown, the scroller clips it, and hidden it
+   still counts as overflow — the channel list grew a sideways scrollbar from the "New
+   message" tooltip that nobody could see. */
+[data-tooltip][data-tooltip-align='end']::after {
+  left: auto;
+  right: 0;
+  translate: none;
+}
+
 [data-tooltip]:hover::after,
 [data-tooltip]:focus-visible::after {
   opacity: 1;
@@ -5987,28 +5997,44 @@ a.build-commit-sha:hover {
    The admin console has had its own drawer since R2; this brings the conversation —
    the screen a phone actually opens — up to the same standard. */
 
-/* Two buttons share this class and this spot at the left edge of the bar. On a phone the
-   ≡ opens the channel drawer; at a desk the same ≡ collapses the channel list to a rail
-   of icons and brings it back. CSS shows exactly one per width — `data-when` says which —
-   so each carries the label for the thing it actually does. The list column keeps no
-   header of its own for this: a band holding one chevron read as empty space above it. */
-.topbar-hamburger {
-  display: inline-flex;
-  align-items: center;
+/* The workspace's mark is the control. On a phone it opens the channel drawer; at a desk
+   it folds the channel list to a rail of icons and brings it back. It replaced a ≡ that
+   sat beside it and did the same two things, which left the corner with two controls for
+   one list. Two buttons share this class and this spot; CSS shows exactly one per width —
+   `data-when` says which — so each carries the label for the thing it actually does.
+   The button is the hit area and the mark inside keeps its 24px, which is what lets the
+   coarse-pointer rule grow the target to 44px without growing the square. */
+.topbar-mark-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
   border: 0;
   background: none;
-  color: var(--text-rail);
-  padding: 6px;
-  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin: -3px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
-.topbar-hamburger:hover {
-  background: var(--surface-hover-deep);
-  color: var(--text);
+.topbar-mark-btn .workspace-mark {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-color);
 }
 
-.topbar-hamburger[data-when='narrow'] {
+/* It says it can be pressed the way the other raised things here do — a lift and the
+   first elevation — and gives under the press. Both are tokens, so reduced motion keeps
+   the shadow and drops the movement. */
+.topbar-mark-btn:hover .workspace-mark {
+  transform: translateY(var(--motion-lift));
+  box-shadow: var(--elev-1);
+}
+
+.topbar-mark-btn:active .workspace-mark {
+  transform: scale(var(--motion-press));
+}
+
+.topbar-mark-btn[data-when='narrow'] {
   display: none;
 }
 
@@ -6050,11 +6076,11 @@ a.build-commit-sha:hover {
     display: none;
   }
 
-  .topbar-hamburger[data-when='narrow'] {
-    display: inline-flex;
+  .topbar-mark-btn[data-when='narrow'] {
+    display: inline-grid;
   }
 
-  .topbar-hamburger[data-when='wide'] {
+  .topbar-mark-btn[data-when='wide'] {
     display: none;
   }
 
@@ -6212,8 +6238,9 @@ a.build-commit-sha:hover {
  *
  * Every control in the app is sized for a pointer: 30px icon buttons, 31px channel
  * rows, a 32px send button. A fingertip is about 9mm, which is why WCAG 2.2 asks for
- * 44px, and on a phone all of these were under it — the hamburger and the four bar
- * buttons most of all, since they are the first things anyone taps.
+ * 44px, and on a phone all of these were under it — the workspace mark that opens the
+ * channel drawer and the four bar buttons most of all, since they are the first things
+ * anyone taps.
  *
  * Keyed on `pointer: coarse` rather than a width, because this is about what is doing
  * the pointing: a touchscreen laptop at 1400px needs the bigger targets and a narrow
@@ -6225,7 +6252,7 @@ a.build-commit-sha:hover {
 @media (pointer: coarse) {
   .icon-btn,
   .topbar-nav-btn,
-  .topbar-hamburger,
+  .topbar-mark-btn,
   .send-btn {
     min-width: 44px;
     min-height: 44px;

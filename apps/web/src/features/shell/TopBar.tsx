@@ -6,14 +6,16 @@
  * the menu reachable from the conversation, search, preferences and administration
  * alike — a menu that only existed in one view would be a menu people could lose.
  *
- * The chat shell keeps the bar sparse (team + search + this menu). Preferences and
- * administration keep the view switcher in the same row. The account control is in the
- * corner in both, never down in the channel list.
+ * The chat shell keeps the bar sparse (team + search + this menu). The consoles keep a
+ * two-button switcher back to Messages and Search; preferences and the server's pages are
+ * reached from the account menu alone, which is where they already were — two buttons
+ * repeating two menu rows was the bar's widest part and its least used. The account
+ * control is in the corner in both, never down in the channel list.
  */
 
 import { useState } from 'react';
 import { useStore } from '../../lib/store.ts';
-import { navigate, pathForRoute, pathForView, usePath, type View } from '../../lib/router.ts';
+import { navigate, pathForView, usePath, type View } from '../../lib/router.ts';
 import { Avatar } from '../../components/Avatar.tsx';
 import { Menu } from '../../components/Menu.tsx';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.tsx';
@@ -24,8 +26,6 @@ import {
   MembersIcon,
   MessagesIcon,
   SearchIcon,
-  MenuIcon,
-  SettingsIcon,
 } from '../../components/Icon.tsx';
 import { ITEMS } from './menu.ts';
 import { hasUnseenRelease } from '../../lib/changelog.ts';
@@ -34,9 +34,11 @@ interface Props {
   onFeedback: () => void;
   /** Narrow viewports only (CSS hides it elsewhere): opens the channel drawer. */
   onToggleSidebar?: () => void;
+  /** Whether that drawer is open, so the control can say which way it goes. */
+  sidebarOpen?: boolean;
   /** Wide viewports only (CSS hides it on a phone): collapses the channel list to a rail
-   * of icons and brings it back. Same glyph, same spot as the drawer button, so the ≡
-   * means "the channel list" at every width. */
+   * of icons and brings it back. Both are the workspace's own mark, in the same spot, so
+   * the mark means "the channel list" at every width. */
   onToggleCollapse?: () => void;
   /** Whether that list is collapsed right now, so the control can say which way it goes. */
   sidebarCollapsed?: boolean;
@@ -66,6 +68,7 @@ interface Props {
 export function TopBar({
   onFeedback,
   onToggleSidebar,
+  sidebarOpen = false,
   onToggleCollapse,
   sidebarCollapsed = false,
   view,
@@ -79,39 +82,48 @@ export function TopBar({
   if (!currentUser) return null;
 
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'owner';
+  // The initial on the accent, so a workspace is recognisable before its name is read —
+  // and the only part of identity a narrow bar keeps.
+  const mark = (
+    <span className="workspace-mark" aria-hidden="true">
+      {workspaceName.trim().charAt(0).toUpperCase() || 'B'}
+    </span>
+  );
+  const folds = Boolean(onToggleSidebar || onToggleCollapse);
 
   return (
     <header className={minimal ? 'topbar topbar-minimal' : 'topbar'}>
-      {onToggleSidebar && (
-        <button
-          type="button"
-          className="topbar-hamburger"
-          data-when="narrow"
-          aria-label="Channels"
-          onClick={onToggleSidebar}
-        >
-          <MenuIcon size="lg" />
-        </button>
-      )}
-      {onToggleCollapse && (
-        <button
-          type="button"
-          className="topbar-hamburger"
-          data-when="wide"
-          aria-label={sidebarCollapsed ? 'Show channel list' : 'Hide channel list'}
-          title={sidebarCollapsed ? 'Show channel list' : 'Hide channel list'}
-          onClick={onToggleCollapse}
-        >
-          <MenuIcon size="lg" />
-        </button>
-      )}
       {brand && (
         <div className="topbar-identity">
-          {/* The initial on the accent, so a workspace is recognisable before its name
-              is read — and the only part of identity a narrow bar keeps. */}
-          <span className="workspace-mark" aria-hidden="true">
-            {workspaceName.trim().charAt(0).toUpperCase() || 'B'}
-          </span>
+          {/* Where the list folds, the mark is what folds it: a ≡ beside it was a second
+              control for the one thing in this corner a person can act on. Two buttons,
+              one per width, because each names the thing it actually does — CSS shows
+              exactly one. Where nothing folds (the consoles) it stays plain identity. */}
+          {onToggleSidebar && (
+            <button
+              type="button"
+              className="topbar-mark-btn"
+              data-when="narrow"
+              aria-label={sidebarOpen ? 'Close channel list' : 'Open channel list'}
+              title={sidebarOpen ? 'Close channel list' : 'Open channel list'}
+              onClick={onToggleSidebar}
+            >
+              {mark}
+            </button>
+          )}
+          {onToggleCollapse && (
+            <button
+              type="button"
+              className="topbar-mark-btn"
+              data-when="wide"
+              aria-label={sidebarCollapsed ? 'Show channel list' : 'Hide channel list'}
+              title={sidebarCollapsed ? 'Show channel list' : 'Hide channel list'}
+              onClick={onToggleCollapse}
+            >
+              {mark}
+            </button>
+          )}
+          {!folds && mark}
           <WorkspaceSwitcher name={workspaceName} />
         </div>
       )}
@@ -176,28 +188,6 @@ export function TopBar({
           >
             <SearchIcon size="lg" />
             <span className="topbar-nav-label">Search</span>
-          </button>
-          {isAdmin && (
-            <button
-              className="topbar-nav-btn"
-              aria-pressed={view === 'admin'}
-              onClick={() => navigate(pathForView('admin'))}
-              aria-label="Administration"
-              data-tooltip="Administration"
-            >
-              <MembersIcon size="lg" />
-              <span className="topbar-nav-label">Admin</span>
-            </button>
-          )}
-          <button
-            className="topbar-nav-btn"
-            aria-pressed={view === 'settings'}
-            onClick={() => navigate(pathForRoute({ view: 'settings', section: 'preferences' }))}
-            aria-label="Preferences"
-            data-tooltip="Preferences"
-          >
-            <SettingsIcon size="lg" />
-            <span className="topbar-nav-label">Preferences</span>
           </button>
         </nav>
       )}

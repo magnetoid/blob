@@ -42,6 +42,37 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-22',
+    version: '1.3.0',
+    title: 'Files from agents open beside the conversation',
+    entries: [
+      {
+        kind: 'added',
+        text: 'When an agent makes a file for you, the file arrives attached to its reply, not as a path you cannot open. A file it could not hand over says why under the reply.',
+      },
+      {
+        kind: 'added',
+        text: 'Click any file to open it in a panel beside the conversation: text and code as text, a PDF inline, a web page in a sandbox with no network. Download is one click from there.',
+      },
+      {
+        kind: 'fixed',
+        text: 'The "new messages" bar goes away once the first new message has been on screen, and it no longer appears for messages that arrive while you are reading, your own included.',
+      },
+      {
+        kind: 'changed',
+        text: 'The workspace\'s mark, at the far left of the top bar, now folds the channel list, and opens it on a phone. The separate ☰ button is gone.',
+      },
+      {
+        kind: 'changed',
+        text: 'The top bar on the admin and settings pages keeps Messages and Search. Server settings and Preferences are in your account menu, where they already were.',
+      },
+      {
+        kind: 'fixed',
+        text: 'The channel list no longer scrolls sideways.',
+      },
+    ],
+  },
+  {
     date: '2026-09-18',
     version: '1.2.1',
     title: 'The channel list starts at the top',
