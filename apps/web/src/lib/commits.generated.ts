@@ -11,6 +11,83 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "7f3d74569e47529a4186d8baaadf7ff2da84ff03",
+    "shortSha": "7f3d7456",
+    "subject": "chore: pin Janus 0.18.0, which hands Blob the files a reply names",
+    "date": "2026-09-22T00:03:09+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "178ef4fa9b92e6d3404debbdfb3a6dd13f42258d",
+    "shortSha": "178ef4fa",
+    "subject": "fix: a file's type does not depend on which Python the server runs",
+    "date": "2026-09-21T23:52:16+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "4e20d421c591a56800853d7bfc62219f362fd255",
+    "shortSha": "4e20d421",
+    "subject": "feat: agents hand over files, and a file opens beside the conversation",
+    "date": "2026-09-21T23:41:00+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "7cc58b6ca58a10402234701dca7ef1d904c5af0f",
+    "shortSha": "7cc58b6c",
+    "subject": "feat: harden themes and compositor motion",
+    "date": "2026-09-19T02:53:42+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d45a398802362732eba44fb13a5e60c2fa661157",
+    "shortSha": "d45a3988",
+    "subject": "feat: /search carries the scope it was opened with",
+    "date": "2026-09-18T07:07:37+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "e3f7ae7ce017e10aca2118091d3dce0f6208d661",
+    "shortSha": "e3f7ae7c",
+    "subject": "fix: keep the keyboard up, name the scope control, and pin ⌘K's two requests",
+    "date": "2026-09-18T06:36:28+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "2b4c4cc1bb94f8e01e263be09a4b1a457e5e6c1b",
+    "shortSha": "2b4c4cc1",
+    "subject": "feat: ⌘K in four sections, with Tab to narrow",
+    "date": "2026-09-18T06:17:13+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "f099f7e97feafe7006c280e3b24f1046e79df1a9",
+    "shortSha": "f099f7e9",
+    "subject": "feat: filter the files library by filename",
+    "date": "2026-09-18T05:46:27+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "bb172ae76eba40a491ac21f017a9db1a6529553b",
+    "shortSha": "bb172ae7",
+    "subject": "docs: search scopes in ⌘K — spec and plan",
+    "date": "2026-09-18T05:26:11+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "76698c47624a3c6e34af7c8e91b76ca0848a5713",
+    "shortSha": "76698c47",
+    "subject": "chore: pin Janus 0.17.1, which redacts the config file at the source",
+    "date": "2026-09-18T05:07:04+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "ca24e90a863a6277099c0ed601277bc75885c27f",
+    "shortSha": "ca24e90a",
+    "subject": "feat: the channel list starts at the top — 1.2.1",
+    "date": "2026-09-18T05:05:05+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "58be134b99d172624f971b1c163873040c97a918",
     "shortSha": "58be134b",
     "subject": "fix: keep each stack's Janus on its own network",
@@ -351,83 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "e3670309",
     "subject": "Give the smallest actions something to say back",
     "date": "2026-09-14T03:42:49+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "69afb50b7e9f569967cf2bac09f4dadb1bb31569",
-    "shortSha": "69afb50b",
-    "subject": "Make ⌘K find what was said, not just where to go",
-    "date": "2026-09-14T03:35:40+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "5029c37e7137592e702420335c9b29bdc2739c7e",
-    "shortSha": "5029c37e",
-    "subject": "Put the workspace above the whole app, and give the chrome its space back",
-    "date": "2026-09-14T03:28:38+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "b86ff397a40fd2b5915fc18a1f4fea55763695f2",
-    "shortSha": "b86ff397",
-    "subject": "Stop a deleted message stranding the channel's tail pointer",
-    "date": "2026-09-14T03:28:24+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a6e80f48e693fa373d0283fbfc0fd30b81f6f7d9",
-    "shortSha": "a6e80f48",
-    "subject": "Stop a test measuring the calendar instead of the page",
-    "date": "2026-09-14T03:26:08+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "75dc9a4988b97aa8dae46d25c5e52ae72481a451",
-    "shortSha": "75dc9a49",
-    "subject": "Let ADR 0003's rule be written down in the file it governs",
-    "date": "2026-09-14T00:30:35+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "5e30253f51166fdbc1eb210230cac752ae3bf63e",
-    "shortSha": "5e30253f",
-    "subject": "Map the voice attachment migration and its tests",
-    "date": "2026-09-13T23:53:50+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "56873ca01122a292ef9c779237d0aaac5a799a45",
-    "shortSha": "56873ca0",
-    "subject": "Give the releases version numbers, and this one a name",
-    "date": "2026-09-13T23:51:59+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "8632627d5c1fe816e06c97155b13e709622d35ea",
-    "shortSha": "8632627d",
-    "subject": "Notice a connection that has quietly died",
-    "date": "2026-09-13T23:49:57+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "72c7b417f840ee60f0986bbf1eefd7dbc1a4ebe8",
-    "shortSha": "72c7b417",
-    "subject": "Give an attachment the shape a voice message needs",
-    "date": "2026-09-13T23:47:09+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "17f09f25014e39e7fb05e5d39949442606d84d18",
-    "shortSha": "17f09f25",
-    "subject": "Describe the deploy path that now exists",
-    "date": "2026-09-13T21:31:34+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e42ca5ce15eec0c2afd82c7313ba8b0071583adf",
-    "shortSha": "e42ca5ce",
-    "subject": "Deploy from the gate instead of from the push",
-    "date": "2026-09-13T21:23:27+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

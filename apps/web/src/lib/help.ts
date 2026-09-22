@@ -67,9 +67,9 @@ export const SECTIONS: Section[] = [
         blurb:
           'A bar across the top, a list of conversations down the left, the conversation in the middle, and a panel on the right when a thread is open.',
         body: [
-          'The top bar holds the workspace name, the buttons that switch between Messages, Search and Preferences, a Feedback button, and your avatar at the far right. The avatar is the account menu — this page, your profile, preferences and what has shipped recently all hang off it.',
+          'The top bar holds the workspace’s mark and name, the Messages, Activity, Files and Channels tabs, the search box, and your avatar at the far right. The avatar is the account menu — this page, your profile, preferences, the server’s settings for admins, and what has shipped recently all hang off it.',
           'The left column lists the channels you are in, starred ones first and the rest alphabetically, then your direct messages. Anything with unread messages is bold; a number beside it counts mentions rather than messages, so a busy channel does not shout at you for conversation you were not part of.',
-          'The ☰ button beside the workspace name folds the left column down to a rail of icons and opens it back up. On a narrow screen the same button opens the column as a drawer, and the thread panel takes the whole width instead of splitting it.',
+          'Click the workspace’s mark — the coloured square with its initial, at the far left of the top bar — to fold the left column down to a rail of icons, and again to open it back up. On a narrow screen the same mark opens the column as a drawer, and the thread panel takes the whole width instead of splitting it.',
         ],
         keywords: ['layout', 'sidebar', 'top bar', 'navigation', 'where'],
       },

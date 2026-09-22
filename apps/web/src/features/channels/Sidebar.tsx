@@ -230,6 +230,7 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
                 onClick={() => setComposing(true)}
                 aria-label="New message"
                 data-tooltip="New message"
+                data-tooltip-align="end"
               >
                 <PlusIcon size="sm" />
               </button>

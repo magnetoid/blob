@@ -440,6 +440,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       <TopBar
         onFeedback={() => setFeedbackOpen(true)}
         onToggleSidebar={toggleSidebar}
+        sidebarOpen={sidebarOpen}
         onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
         sidebarCollapsed={sidebarCollapsed}
         view={view}

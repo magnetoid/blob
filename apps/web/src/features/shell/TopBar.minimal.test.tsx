@@ -75,7 +75,10 @@ describe('the minimal top bar', () => {
     const { rerender } = render(
       <TopBar onFeedback={vi.fn()} view="messages" minimal onToggleCollapse={onToggleCollapse} />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Hide channel list' }));
+    const fold = screen.getByRole('button', { name: 'Hide channel list' });
+    // The workspace's own mark is the control — there is no separate ≡ beside it.
+    expect(fold.textContent).toBe('I');
+    fireEvent.click(fold);
     expect(onToggleCollapse).toHaveBeenCalledTimes(1);
 
     rerender(
@@ -91,7 +94,57 @@ describe('the minimal top bar', () => {
     expect(screen.queryByRole('button', { name: 'Hide channel list' })).toBeNull();
   });
 
+  it('opens the drawer from the same mark on a phone, and draws no ≡ at any width', () => {
+    useStore.setState({
+      workspaceName: 'Imba',
+      currentUser: { id: 'u1', displayName: 'Marko', role: 'owner' },
+      status: 'online',
+    } as never);
+    const onToggleSidebar = vi.fn();
+
+    const { container, rerender } = render(
+      <TopBar
+        onFeedback={vi.fn()}
+        view="messages"
+        minimal
+        onToggleSidebar={onToggleSidebar}
+        onToggleCollapse={vi.fn()}
+      />,
+    );
+    const open = screen.getByRole('button', { name: 'Open channel list' });
+    expect(open.textContent).toBe('I');
+    fireEvent.click(open);
+    expect(onToggleSidebar).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('.topbar-hamburger')).toBeNull();
+
+    rerender(
+      <TopBar
+        onFeedback={vi.fn()}
+        view="messages"
+        minimal
+        onToggleSidebar={onToggleSidebar}
+        onToggleCollapse={vi.fn()}
+        sidebarOpen
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Close channel list' })).toBeTruthy();
+  });
+
   it('draws no such control where nothing folds, so the console bar stays as it was', () => {
+    useStore.setState({
+      workspaceName: 'Imba',
+      currentUser: { id: 'u1', displayName: 'Marko', role: 'owner' },
+      status: 'online',
+    } as never);
+
+    const { container } = render(<TopBar onFeedback={vi.fn()} view="admin" />);
+
+    expect(screen.queryByRole('button', { name: /channel list/ })).toBeNull();
+    // Still the mark, just not a button: identity, with nothing to fold.
+    expect(container.querySelector('.workspace-mark')?.textContent).toBe('I');
+  });
+
+  it('keeps the console bar to Messages and Search — the account menu has the rest', () => {
     useStore.setState({
       workspaceName: 'Imba',
       currentUser: { id: 'u1', displayName: 'Marko', role: 'owner' },
@@ -100,6 +153,9 @@ describe('the minimal top bar', () => {
 
     render(<TopBar onFeedback={vi.fn()} view="admin" />);
 
-    expect(screen.queryByRole('button', { name: /channel list/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Messages' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Administration' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Preferences' })).toBeNull();
   });
 });
