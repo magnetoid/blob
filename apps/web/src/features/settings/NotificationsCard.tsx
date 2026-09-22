@@ -19,6 +19,7 @@ import {
 import { useStore } from "../../lib/store.ts";
 import { showError } from "../../lib/toasts.ts";
 import { useFetch } from "../../lib/useFetch.ts";
+import { Card } from "../console/Card.tsx";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -81,7 +82,10 @@ export function NotificationsCard() {
       : null;
 
   return (
-    <>
+    <Card
+      title="Notifications"
+      description="When Blob is allowed to interrupt you, and what counts as urgent."
+    >
       <PushPanel />
 
       <div className="pref-row">
@@ -162,21 +166,13 @@ export function NotificationsCard() {
 
       {dnd.enabled && (
         <div className="pref-block">
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="console-dnd-window">
             <label className="pref-hint" htmlFor="dnd-start">
               Notify me from
             </label>
             <select
               id="dnd-start"
-              className="input"
-              style={{ width: 90 }}
+              className="input console-select-hour"
               value={dnd.startHour}
               onChange={(e) =>
                 void setPrefs({
@@ -195,8 +191,7 @@ export function NotificationsCard() {
             </label>
             <select
               id="dnd-end"
-              className="input"
-              style={{ width: 90 }}
+              className="input console-select-hour"
               value={dnd.endHour}
               onChange={(e) =>
                 void setPrefs({
@@ -211,7 +206,7 @@ export function NotificationsCard() {
               ))}
             </select>
           </div>
-          <div className="chip-row" style={{ marginTop: 10 }}>
+          <div className="chip-row">
             {DAY_LABELS.map((label, day) => {
               const active = dnd.days.includes(day);
               return (
@@ -243,7 +238,7 @@ export function NotificationsCard() {
         <div className="pref-hint">
           Notify me whenever one of these words appears anywhere I can see.
         </div>
-        <div className="chip-row" style={{ marginTop: 10 }}>
+        <div className="chip-row">
           {prefs.keywords.map((keyword) => (
             <button
               key={keyword}
@@ -266,7 +261,7 @@ export function NotificationsCard() {
           ))}
         </div>
         <form
-          style={{ display: "flex", gap: 8, marginTop: 12 }}
+          className="console-inline-form console-note"
           onSubmit={(event) => {
             event.preventDefault();
             const word = keywordDraft.trim();
@@ -284,7 +279,6 @@ export function NotificationsCard() {
             // with nothing else to identify it was the one with no name at all.
             aria-label="Add a keyword to be alerted on"
             placeholder="Add a word"
-            style={{ maxWidth: 240 }}
           />
           <button className="btn" type="submit">
             Add
@@ -300,16 +294,10 @@ export function NotificationsCard() {
             mentions of you. Muting is yours alone — nobody is told.
           </div>
           {myGroups.map((group) => (
-            <div
-              key={group.id}
-              className="pref-row"
-              style={{ padding: "8px 0" }}
-            >
+            <div key={group.id} className="console-subrow">
               <div className="grow">
-                <code>@{group.handle}</code>
-                <span className="pref-hint" style={{ marginLeft: 8 }}>
-                  {group.name}
-                </span>
+                <code>@{group.handle}</code>{" "}
+                <span className="pref-hint">{group.name}</span>
               </div>
               <button
                 className="toggle"
@@ -323,7 +311,7 @@ export function NotificationsCard() {
           ))}
         </div>
       )}
-    </>
+    </Card>
   );
 }
 
@@ -410,7 +398,7 @@ function PushPanel() {
         )}
       </div>
       {needsIosInstall() && state !== "unsupported" && (
-        <div className="pref-row" style={{ alignItems: "flex-start" }}>
+        <div className="pref-row">
           <div className="grow">
             <div className="pref-label">On iPhone and iPad</div>
             <div className="pref-hint">

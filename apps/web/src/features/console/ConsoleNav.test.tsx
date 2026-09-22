@@ -94,6 +94,18 @@ describe('the console nav', () => {
     expect(screen.getByText('Members').closest('button')?.textContent).not.toContain('Owner');
   });
 
+  // Three badges, one element: the same box at the same place on the row, told apart by
+  // kind. They were the account menu's pill and two role pills, each its own size.
+  it('draws soon, owner and new as one kind of badge', () => {
+    renderNav();
+    const kinds = ['Soon', 'Owner', 'New'].map((label) => {
+      const badge = screen.getByText(label);
+      expect(badge.className).toBe('console-nav-badge');
+      return badge.getAttribute('data-kind');
+    });
+    expect(kinds).toEqual(['soon', 'owner', 'new']);
+  });
+
   it('explains a group that is the owner\u2019s alone', () => {
     renderNav();
     expect(screen.getByText('Only you can see these.')).toBeTruthy();

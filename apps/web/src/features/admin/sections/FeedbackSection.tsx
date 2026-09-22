@@ -11,6 +11,7 @@ import type { FeedbackTicket } from "@blob/shared";
 import { api } from "../../../lib/api.ts";
 import { useStore } from "../../../lib/store.ts";
 import { formatRelative } from "../../messages/messageFormatting.ts";
+import { Card, CardNotice } from "../../console/Card.tsx";
 
 type Filter = "open" | "closed" | "all";
 
@@ -73,142 +74,150 @@ export function FeedbackSection({
   }
 
   return (
-    <div>
-      <div className="chip-row" style={{ marginBottom: 16 }}>
-        {(["open", "closed", "all"] as Filter[]).map((value) => (
-          <button
-            key={value}
-            className="chip"
-            aria-pressed={filter === value}
-            onClick={() => {
-              setOpenId(null);
-              setLoading(true);
-              setFilter(value);
-            }}
-          >
-            {value === "open" ? "Open" : value === "closed" ? "Closed" : "All"}
-          </button>
-        ))}
-      </div>
-
-      {loading && <p className="muted">Loading…</p>}
-      {!loading && tickets.length === 0 && (
-        <p className="muted">
-          {filter === "open" ? "Nothing open. " : "Nothing here. "}
-          Anyone can file a ticket from the user menu.
-        </p>
-      )}
-
-      {tickets.map((ticket) => {
-        const expanded = openId === ticket.id;
-        const reporter = ticket.reporterId
-          ? users[ticket.reporterId]
-          : undefined;
-
-        return (
-          <div
-            key={ticket.id}
-            className="admin-row block"
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span className="feedback-kind" data-kind={ticket.kind}>
-                {ticket.kind}
-              </span>
-              <div className="grow min-0">
-                <div className="admin-row-title">{ticket.title}</div>
-                <div className="admin-row-meta">
-                  {reporter?.displayName ?? "Someone who has since left"} ·{" "}
-                  {formatRelative(ticket.createdAt)}
-                  {ticket.status === "closed" && " · closed"}
-                </div>
-              </div>
+    <div className="console-stack">
+      <Card>
+        <div className="console-toolbar">
+          <div className="chip-row">
+            {(["open", "closed", "all"] as Filter[]).map((value) => (
               <button
-                className="btn"
+                key={value}
+                className="chip"
+                aria-pressed={filter === value}
                 onClick={() => {
-                  setShowing(null);
-                  setOpenId(expanded ? null : ticket.id);
+                  setOpenId(null);
+                  setLoading(true);
+                  setFilter(value);
                 }}
               >
-                {expanded ? "Hide" : "Open"}
+                {value === "open" ? "Open" : value === "closed" ? "Closed" : "All"}
               </button>
-            </div>
-
-            {expanded && (
-              <div className="feedback-detail">
-                {ticket.body && <p className="feedback-body">{ticket.body}</p>}
-
-                {Object.keys(ticket.environment).length > 0 && (
-                  <dl className="feedback-env">
-                    {Object.entries(ticket.environment).map(([key, value]) => (
-                      <div key={key}>
-                        <dt>{key}</dt>
-                        <dd>{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-
-                <div className="chip-row">
-                  {ticket.consoleLog && (
-                    <button
-                      className="chip"
-                      aria-pressed={showing === "log"}
-                      onClick={() =>
-                        setShowing(showing === "log" ? null : "log")
-                      }
-                    >
-                      Console log
-                    </button>
-                  )}
-                  {ticket.hasSnapshot && (
-                    <button
-                      className="chip"
-                      aria-pressed={showing === "snapshot"}
-                      onClick={() =>
-                        setShowing(showing === "snapshot" ? null : "snapshot")
-                      }
-                    >
-                      Page snapshot
-                    </button>
-                  )}
-                  <span className="grow" />
-                  <button
-                    className="btn"
-                    onClick={() =>
-                      void setStatus(
-                        ticket,
-                        ticket.status === "open" ? "closed" : "open",
-                      )
-                    }
-                  >
-                    {ticket.status === "open" ? "Close" : "Reopen"}
-                  </button>
-                  <button
-                    className="btn feedback-delete"
-                    aria-label={`Delete "${ticket.title}"`}
-                    onClick={() => void remove(ticket)}
-                  >
-                    Delete
-                  </button>
-                </div>
-
-                {showing === "log" && (
-                  <pre className="feedback-log">{ticket.consoleLog}</pre>
-                )}
-
-                {showing === "snapshot" && (
-                  <iframe
-                    className="feedback-snapshot"
-                    title={`Page snapshot for ${ticket.title}`}
-                    src={api.feedback.snapshotUrl(ticket.id)}
-                    sandbox=""
-                  />
-                )}
-              </div>
-            )}
+            ))}
           </div>
-        );
-      })}
+        </div>
+
+        {loading && <CardNotice>Loading…</CardNotice>}
+        {!loading && tickets.length === 0 && (
+          <CardNotice>
+            {filter === "open" ? "Nothing open. " : "Nothing here. "}
+            Anyone can file a ticket from the user menu.
+          </CardNotice>
+        )}
+
+        {tickets.length > 0 && (
+          <div className="console-list">
+            {tickets.map((ticket) => {
+              const expanded = openId === ticket.id;
+              const reporter = ticket.reporterId
+                ? users[ticket.reporterId]
+                : undefined;
+
+              return (
+                <div key={ticket.id} className="console-list-item">
+                  {/* The row is its own flex box, so Open sits at the row's end. It was
+                      the child of a `.block` that `.admin-row` outranked, and sat
+                      against the title however wide the row was. */}
+                  <div className="admin-row">
+                    <span className="feedback-kind" data-kind={ticket.kind}>
+                      {ticket.kind}
+                    </span>
+                    <div className="grow min-0">
+                      <div className="admin-row-title">{ticket.title}</div>
+                      <div className="admin-row-meta">
+                        {reporter?.displayName ?? "Someone who has since left"} ·{" "}
+                        {formatRelative(ticket.createdAt)}
+                        {ticket.status === "closed" && " · closed"}
+                      </div>
+                    </div>
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        setShowing(null);
+                        setOpenId(expanded ? null : ticket.id);
+                      }}
+                    >
+                      {expanded ? "Hide" : "Open"}
+                    </button>
+                  </div>
+
+                  {expanded && (
+                    <div className="feedback-detail">
+                      {ticket.body && <p className="feedback-body">{ticket.body}</p>}
+
+                      {Object.keys(ticket.environment).length > 0 && (
+                        <dl className="feedback-env">
+                          {Object.entries(ticket.environment).map(([key, value]) => (
+                            <div key={key}>
+                              <dt>{key}</dt>
+                              <dd>{value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+
+                      <div className="chip-row">
+                        {ticket.consoleLog && (
+                          <button
+                            className="chip"
+                            aria-pressed={showing === "log"}
+                            onClick={() =>
+                              setShowing(showing === "log" ? null : "log")
+                            }
+                          >
+                            Console log
+                          </button>
+                        )}
+                        {ticket.hasSnapshot && (
+                          <button
+                            className="chip"
+                            aria-pressed={showing === "snapshot"}
+                            onClick={() =>
+                              setShowing(showing === "snapshot" ? null : "snapshot")
+                            }
+                          >
+                            Page snapshot
+                          </button>
+                        )}
+                        <span className="grow" />
+                        <button
+                          className="btn"
+                          onClick={() =>
+                            void setStatus(
+                              ticket,
+                              ticket.status === "open" ? "closed" : "open",
+                            )
+                          }
+                        >
+                          {ticket.status === "open" ? "Close" : "Reopen"}
+                        </button>
+                        <button
+                          className="btn feedback-delete"
+                          aria-label={`Delete "${ticket.title}"`}
+                          onClick={() => void remove(ticket)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+
+                      {showing === "log" && (
+                        <pre className="feedback-log">{ticket.consoleLog}</pre>
+                      )}
+
+                      {showing === "snapshot" && (
+                        <iframe
+                          className="feedback-snapshot"
+                          title={`Page snapshot for ${ticket.title}`}
+                          src={api.feedback.snapshotUrl(ticket.id)}
+                          sandbox=""
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

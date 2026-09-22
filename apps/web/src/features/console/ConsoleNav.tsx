@@ -57,8 +57,11 @@ export function ConsoleNav({
         </div>
       </div>
 
-      <div className="sidebar-search">
-        <div className="search-field">
+      {/* The same border, corner and focus colour as the inputs on the page it filters,
+          at a height that suits a nav. It borrowed the search view's field, which is
+          taller and darker-edged than anything else here. */}
+      <div className="console-nav-filter">
+        <div className="console-filter">
           <SearchIcon size="sm" />
           <input
             value={filter}
@@ -84,7 +87,9 @@ export function ConsoleNav({
                   type="button"
                 >
                   <span className="channel-name muted">{entry.label}</span>
-                  <span className="user-menu-soon">Soon</span>
+                  <span className="console-nav-badge" data-kind="soon">
+                    Soon
+                  </span>
                 </button>
               ) : (
                 <button
@@ -101,19 +106,23 @@ export function ConsoleNav({
                   {/* On the row, not only on the group: an owner-only page can sit in a
                       group its admins otherwise use, and the owner has no other way to
                       see which pages they cannot reach. */}
-                  {entry.ownerOnly && <span className="role-pill">Owner</span>}
-                  {entry.badge === 'new' && <span className="role-pill">New</span>}
+                  {entry.ownerOnly && (
+                    <span className="console-nav-badge" data-kind="owner">
+                      Owner
+                    </span>
+                  )}
+                  {entry.badge === 'new' && (
+                    <span className="console-nav-badge" data-kind="new">
+                      New
+                    </span>
+                  )}
                 </button>
               ),
             )}
           </section>
         ))}
 
-        {visible.length === 0 && (
-          <p className="muted" style={{ padding: '8px 10px' }}>
-            Nothing matched.
-          </p>
-        )}
+        {visible.length === 0 && <p className="muted console-nav-empty">Nothing matched.</p>}
       </div>
     </nav>
   );

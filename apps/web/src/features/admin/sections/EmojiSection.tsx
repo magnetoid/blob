@@ -12,8 +12,10 @@
 import { useCallback, useRef, useState } from "react";
 import { api, ApiError, type WorkspaceEmoji } from "../../../lib/api.ts";
 import { uploadFile } from "../../../lib/attachments.ts";
+import { Card, CardNotice } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import { DialogPresence } from "../../../components/Dialog.tsx";
 
 /** Mirrors the server's rule, which mirrors what `:name:` in a body can match. */
 const NAME_RE = /^[a-z0-9_+-]{2,32}$/;
@@ -67,112 +69,121 @@ export function EmojiSection({
   }
 
   return (
-    <section style={{ maxWidth: 640 }}>
-      <div className="admin-app-form">
-        <h4>Add an emoji</h4>
-        <p className="muted admin-form-hint">
-          Anyone in the workspace can then type{" "}
-          <code>:{cleaned || "name"}:</code> in a message, or pick it from the
-          reaction toolbar.
-        </p>
-
-        <label className="field" style={{ maxWidth: 280 }}>
-          <span className="field-label">Name</span>
-          <input
-            className="input"
-            value={name}
-            placeholder="party-parrot"
-            onChange={(event) => setName(event.target.value)}
-          />
-          {name && !NAME_RE.test(cleaned) && (
-            <span className="pref-hint">
-              Two to thirty-two characters: lowercase letters, numbers,
-              underscore, plus and hyphen.
-            </span>
-          )}
-        </label>
-
-        <label className="field" style={{ maxWidth: 280 }}>
-          <span className="field-label">Image</span>
-          <input
-            ref={fileRef}
-            className="input"
-            type="file"
-            name="emoji"
-            aria-label="Choose an emoji image"
-            accept="image/*"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          />
-        </label>
-
-        <button
-          className="btn btn-primary"
-          disabled={!usable}
-          onClick={() => void submit()}
-          style={{ marginTop: 12 }}
-        >
-          {busy ? "Adding…" : "Add"}
-        </button>
-      </div>
-
-      <div className="table-wrap" style={{ marginTop: 20 }}>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th style={{ width: 44 }} />
-              <th>Name</th>
-              <th>Added by</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {emoji.map((item: WorkspaceEmoji) => (
-              <tr key={item.name}>
-                <td>
-                  <img src={item.url} alt="" width={24} height={24} />
-                </td>
-                <td>
-                  <code>:{item.name}:</code>
-                </td>
-                <td className="muted">{item.createdByName ?? "—"}</td>
-                <td>
-                  <button
-                    className="btn btn-ghost"
-                    aria-label={`Remove :${item.name}:`}
-                    onClick={() => setRemoving(item.name)}
-                  >
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {emoji.length === 0 && (
-              <tr>
-                <td colSpan={4} className="muted">
-                  None yet.
-                </td>
-              </tr>
+    <div className="console-stack">
+      <Card
+        title="Add an emoji"
+        description={
+          <>
+            Anyone in the workspace can then type{" "}
+            <code>:{cleaned || "name"}:</code> in a message, or pick it from the
+            reaction toolbar.
+          </>
+        }
+        footer={
+          <button
+            className="btn btn-primary"
+            disabled={!usable}
+            onClick={() => void submit()}
+          >
+            {busy ? "Adding…" : "Add"}
+          </button>
+        }
+      >
+        <div className="console-form-grid">
+          <label className="field">
+            <span className="field-label">Name</span>
+            <input
+              className="input"
+              value={name}
+              placeholder="party-parrot"
+              onChange={(event) => setName(event.target.value)}
+            />
+            {name && !NAME_RE.test(cleaned) && (
+              <span className="pref-hint">
+                Two to thirty-two characters: lowercase letters, numbers,
+                underscore, plus and hyphen.
+              </span>
             )}
-          </tbody>
-        </table>
-      </div>
+          </label>
 
-      {removing && (
-        <ConfirmDialog
-          title={`Remove :${removing}:?`}
-          body="Messages that used it will show the text instead. Reactions already given keep it."
-          confirmLabel="Remove"
-          danger
-          onClose={() => setRemoving(null)}
-          onConfirm={() => {
-            const name = removing;
-            setRemoving(null);
-            void act(async () => {
-              await api.admin.removeCustomEmoji(name);
-            });
-          }}
-        />
-      )}
-    </section>
+          <label className="field">
+            <span className="field-label">Image</span>
+            <input
+              ref={fileRef}
+              className="input"
+              type="file"
+              name="emoji"
+              aria-label="Choose an emoji image"
+              accept="image/*"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+        </div>
+      </Card>
+
+      <Card>
+        {emoji.length === 0 ? (
+          <CardNotice>None yet.</CardNotice>
+        ) : (
+          <div className="console-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th scope="col" className="console-cell-emoji">
+                    <span className="sr-only">Image</span>
+                  </th>
+                  <th scope="col">Name</th>
+                  <th scope="col">Added by</th>
+                  <th scope="col">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {emoji.map((item: WorkspaceEmoji) => (
+                  <tr key={item.name}>
+                    <td className="console-cell-emoji">
+                      <img src={item.url} alt="" width={24} height={24} />
+                    </td>
+                    <td>
+                      <code>:{item.name}:</code>
+                    </td>
+                    <td className="muted">{item.createdByName ?? "—"}</td>
+                    <td className="console-cell-actions">
+                      <button
+                        className="btn btn-ghost"
+                        aria-label={`Remove :${item.name}:`}
+                        onClick={() => setRemoving(item.name)}
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <DialogPresence when={removing}>
+        {(removing) => (
+          <ConfirmDialog
+            title={`Remove :${removing}:?`}
+            body="Messages that used it will show the text instead. Reactions already given keep it."
+            confirmLabel="Remove"
+            danger
+            onClose={() => setRemoving(null)}
+            onConfirm={() => {
+              const name = removing;
+              setRemoving(null);
+              void act(async () => {
+                await api.admin.removeCustomEmoji(name);
+              });
+            }}
+          />
+        )}
+      </DialogPresence>
+    </div>
   );
 }

@@ -19,6 +19,7 @@
 import { useState } from 'react';
 import { api, type AssistantToken } from '../../lib/api.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
+import { Card, CardNotice } from '../console/Card.tsx';
 import { useAdminAction, useAdminData } from '../console/hooks.ts';
 
 interface Minted {
@@ -67,16 +68,19 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
   }
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
-      <div>
-        <h3 className="section-label">Connect an assistant</h3>
-        <p className="pref-hint" style={{ marginBottom: 10 }}>
-          Give an assistant you already use — Claude Code, Claude on the web, your editor —
-          a way to read this workspace. It connects <strong>as you</strong>: the same
-          channels, the same private conversations, nothing more. Anything it posts appears
-          under your name.
-        </p>
-        <div style={{ display: 'flex', gap: 8, maxWidth: 480 }}>
+    <div className="console-stack">
+      <Card
+        title="Connect an assistant"
+        description={
+          <>
+            Give an assistant you already use — Claude Code, Claude on the web, your editor —
+            a way to read this workspace. It connects <strong>as you</strong>: the same
+            channels, the same private conversations, nothing more. Anything it posts appears
+            under your name.
+          </>
+        }
+      >
+        <div className="console-inline-form">
           <input
             className="input"
             value={name}
@@ -91,8 +95,8 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
             {busy ? 'Connecting…' : 'Get a token'}
           </button>
         </div>
-        <label className="pref-row" style={{ maxWidth: 480, marginTop: 10 }}>
-          <span className="pref-label">
+        <label className="pref-row">
+          <span className="pref-label grow">
             Let it post
             <span className="pref-hint block">
               Off by default. A message it sends is indistinguishable from one you typed.
@@ -104,23 +108,24 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
             onChange={(event) => setCanWrite(event.target.checked)}
           />
         </label>
-      </div>
+      </Card>
 
       {minted && <AssistantSetup minted={minted} />}
 
-      <div>
-        <h3 className="section-label">Your connections</h3>
-        {loading && tokens.length === 0 && <p className="pref-hint">Loading…</p>}
+      <Card title="Your connections">
+        {loading && tokens.length === 0 && <CardNotice>Loading…</CardNotice>}
         {!loading && tokens.length === 0 && (
-          <p className="pref-hint">None yet. Connect one above and it will appear here.</p>
+          <CardNotice>None yet. Connect one above and it will appear here.</CardNotice>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {tokens.map((token) => (
-            <TokenRow key={token.id} token={token} act={act} />
-          ))}
-        </div>
-      </div>
-    </section>
+        {tokens.length > 0 && (
+          <div className="console-list">
+            {tokens.map((token) => (
+              <TokenRow key={token.id} token={token} act={act} />
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -135,7 +140,7 @@ function TokenRow({
   const writes = token.scopes.includes('write');
 
   return (
-    <div className="admin-plugin-card">
+    <div className="console-list-item">
       <div className="admin-row">
         <div className="grow min-0">
           <div className="admin-row-title">
@@ -196,12 +201,12 @@ function AssistantSetup({ minted }: { minted: Minted }) {
   return (
     <div className="admin-secret-card block">
       <div className="admin-row-title">Point “{minted.name}” at this workspace</div>
-      <div className="admin-row-meta" style={{ marginBottom: 12 }}>
+      <div className="admin-row-meta">
         This token is shown once. Only its fingerprint is stored, so if you lose it, revoke
         this connection and make another.
       </div>
 
-      <p className="pref-hint" style={{ margin: '0 0 6px' }}>
+      <p className="pref-hint m-0">
         <strong>In a terminal</strong>, for Claude Code:
       </p>
       <pre className="admin-command-block">
@@ -211,7 +216,7 @@ function AssistantSetup({ minted }: { minted: Minted }) {
         {copied === 'command' ? 'Copied' : 'Copy the command'}
       </button>
 
-      <p className="pref-hint" style={{ margin: '16px 0 6px' }}>
+      <p className="pref-hint m-0">
         <strong>Anywhere else</strong> that takes a remote MCP server — Claude on the web,
         an editor — give it these two:
       </p>
@@ -233,7 +238,7 @@ function AssistantSetup({ minted }: { minted: Minted }) {
         </button>
       </div>
 
-      <p className="pref-hint" style={{ margin: '14px 0 0' }}>
+      <p className="pref-hint m-0">
         Once it is connected, ask it something like “what happened in #general today?” or
         “find the thread about the deploy”.{' '}
         {minted.canWrite

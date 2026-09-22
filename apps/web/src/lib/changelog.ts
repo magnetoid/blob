@@ -43,6 +43,33 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     date: '2026-09-22',
+    version: '1.5.0',
+    title: 'The admin pages use the width',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'The admin and settings pages use the width of the window. Each page is a set of titled cards, tables run edge to edge with their headings in view, and nothing scrolls sideways on a phone.',
+      },
+      {
+        kind: 'changed',
+        text: 'The list of pages on the left marks the one you are on, and its filter looks like every other search box.',
+      },
+      {
+        kind: 'changed',
+        text: 'Confirmations on the admin pages fade out like the rest of the app\'s dialogs.',
+      },
+      {
+        kind: 'fixed',
+        text: 'A page that could not load says so, instead of showing "Loading…" for ever or an empty list.',
+      },
+      {
+        kind: 'fixed',
+        text: 'The Health chart\'s bars draw at their real height.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-22',
     version: '1.4.0',
     title: 'Small things answer',
     entries: [

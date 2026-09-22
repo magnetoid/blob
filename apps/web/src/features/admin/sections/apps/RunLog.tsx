@@ -7,6 +7,7 @@
 
 import { type AdminAgentRun } from "../../../../lib/api.ts";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
+import { CardNotice } from "../../../console/Card.tsx";
 
 export function RunLog({
   runs,
@@ -15,7 +16,7 @@ export function RunLog({
   runs: AdminAgentRun[];
   emptyLabel?: string;
 }) {
-  if (runs.length === 0) return <p className="muted">{emptyLabel}</p>;
+  if (runs.length === 0) return <CardNotice>{emptyLabel}</CardNotice>;
   return (
     <>
       {runs.map((run) => (

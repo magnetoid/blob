@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type AdminInvite } from "../../../lib/api.ts";
 import { formatRelative } from "../../messages/messageFormatting.ts";
+import { CardNotice } from "../../console/Card.tsx";
 import { useAdminAction } from '../../console/hooks.ts';
 
 export function InvitationsSection({
@@ -30,15 +31,11 @@ export function InvitationsSection({
   }, [load]);
   const act = useAdminAction(onError, load);
 
+  // A fragment: the People page draws the card, and these are its children.
   return (
-    <section>
+    <>
       <form
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "flex-end",
-          marginBottom: 20,
-        }}
+        className="console-inline-form"
         onSubmit={(event) => {
           event.preventDefault();
           void act(async () => {
@@ -52,7 +49,7 @@ export function InvitationsSection({
           });
         }}
       >
-        <label className="field" style={{ flex: 1, maxWidth: 260 }}>
+        <label className="field">
           <span className="field-label">Email (optional)</span>
           <input
             className="input"
@@ -79,24 +76,21 @@ export function InvitationsSection({
       </form>
 
       {link && emailed === false && (
-        <p className="error-text" style={{ marginBottom: 8 }}>
+        <p className="error-text">
           The email did not go out — this server cannot reach a mail server, so the link
           below is the only copy. Send it to them yourself, or set SMTP_HOST and
           MAIL_FROM and try again.
         </p>
       )}
       {link && emailed === true && (
-        <p className="pref-hint" style={{ marginBottom: 8 }}>
+        <p className="pref-hint">
           Emailed. The link is here too, in case it does not arrive.
         </p>
       )}
 
       {link && (
-        <div className="draft-chip" style={{ marginBottom: 18, width: "100%" }}>
-          <span className="grow ellipsis"
-          >
-            {link}
-          </span>
+        <div className="draft-chip console-copy">
+          <span className="grow ellipsis">{link}</span>
           <button
             className="btn btn-ghost"
             onClick={() => void navigator.clipboard.writeText(link)}
@@ -106,7 +100,10 @@ export function InvitationsSection({
         </div>
       )}
 
-      <div className="admin-table">
+      {invites.length === 0 ? (
+        <CardNotice>No invitations yet.</CardNotice>
+      ) : (
+      <div className="console-list">
         {invites.map((invite) => (
           <div
             className="admin-row"
@@ -146,8 +143,8 @@ export function InvitationsSection({
             )}
           </div>
         ))}
-        {invites.length === 0 && <p className="muted">No invitations yet.</p>}
       </div>
-    </section>
+      )}
+    </>
   );
 }

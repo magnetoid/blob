@@ -119,13 +119,13 @@ export function ConsoleShell({
             </div>
           </header>
 
-          {error && (
-            <p className="error-text" style={{ marginTop: 16 }}>
-              {error}
-            </p>
-          )}
+          {error && <p className="error-text console-error">{error}</p>}
 
-          <div className="admin-page-body">{children(setError)}</div>
+          {/* Keyed by the section, so arriving at a page plays its entrance once — and a
+              detail id changing inside one (Apps → one app) does not replay it. */}
+          <div className="admin-page-body" key={section}>
+            {children(setError)}
+          </div>
         </div>
       </main>
     </div>

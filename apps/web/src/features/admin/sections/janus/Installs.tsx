@@ -7,24 +7,23 @@
  */
 
 import type { JanusInstall } from "../../../../lib/api.ts";
+import { Card } from "../../../console/Card.tsx";
 
 export function Installs({ installs }: { installs: JanusInstall[] }) {
   if (installs.length === 0) return null;
   return (
-    <div>
-      <h3 className="section-label">Every workspace on this server</h3>
-      <div className="pref-hint" style={{ marginBottom: 10 }}>
-        The same Janus answers all of them. A workspace missing from this list has not
-        been seeded yet — it is seeded on the next start of the app.
-      </div>
-      <div className="admin-table-scroll">
+    <Card
+      title="Every workspace on this server"
+      description="The same Janus answers all of them. A workspace missing from this list has not been seeded yet — it is seeded on the next start of the app."
+    >
+      <div className="console-table-wrap">
         <table className="admin-table">
           <thead>
             <tr>
               <th scope="col">Workspace</th>
               <th scope="col">Status</th>
-              <th scope="col">Channels</th>
-              <th scope="col">Runs 7d</th>
+              <th scope="col" className="num">Channels</th>
+              <th scope="col" className="num">Runs 7d</th>
             </tr>
           </thead>
           <tbody>
@@ -41,13 +40,13 @@ export function Installs({ installs }: { installs: JanusInstall[] }) {
                     {install.status}
                   </span>
                 </td>
-                <td>{install.channelCount}</td>
-                <td>{install.runsLastWeek}</td>
+                <td className="num">{install.channelCount}</td>
+                <td className="num">{install.runsLastWeek}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
+    </Card>
   );
 }

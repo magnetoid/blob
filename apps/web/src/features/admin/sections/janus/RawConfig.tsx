@@ -18,6 +18,7 @@
  */
 
 import { useState } from "react";
+import { Card } from "../../../console/Card.tsx";
 import { type JanusSave } from "./apply.ts";
 import { Issues } from "./Issues.tsx";
 import type { JanusConfig } from "./config.ts";
@@ -38,27 +39,43 @@ export function RawConfig({
   const dead = disabled || save.saving;
 
   return (
-    <div className="janus-part">
-      <h3 className="section-label">Advanced</h3>
-      <div className="pref-hint">
-        Janus's <code>config.yaml</code>, as it is on disk. Saving replaces the whole file
-        and goes on its own — Janus refuses a file sent alongside any of the forms above,
-        because a merged edit and a whole-file edit cannot both be the truth. It checks
-        that the structure is valid, not that it means anything: a provider that exists
-        with a model that does not will save here and fail at the next run.
+    <Card
+      title="Advanced"
+      description={
+        <>
+          Janus's <code>config.yaml</code>, as it is on disk. Saving replaces the whole file
+          and goes on its own — Janus refuses a file sent alongside any of the forms above,
+          because a merged edit and a whole-file edit cannot both be the truth. It checks
+          that the structure is valid, not that it means anything: a provider that exists
+          with a model that does not will save here and fail at the next run.
+        </>
+      }
+      className="janus-part"
+      footer={
+        <button
+          type="button"
+          className="btn btn-primary"
+          aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
+          disabled={dead || text === config.raw}
+          onClick={() => void save.run({ raw: text })}
+        >
+          Save config.yaml
+        </button>
+      }
+    >
+      <div className="field">
+        <label className="field-label" htmlFor="janus-raw">
+          config.yaml
+        </label>
+        <textarea
+          id="janus-raw"
+          className="input janus-raw"
+          value={text}
+          disabled={dead}
+          spellCheck={false}
+          onChange={(event) => setText(event.target.value)}
+        />
       </div>
-
-      <label className="field-label" htmlFor="janus-raw">
-        config.yaml
-      </label>
-      <textarea
-        id="janus-raw"
-        className="input janus-raw"
-        value={text}
-        disabled={dead}
-        spellCheck={false}
-        onChange={(event) => setText(event.target.value)}
-      />
 
       <p className="pref-hint">
         Keys written into this file are shown as <code>«redacted»</code> — Blob never has
@@ -68,16 +85,6 @@ export function RawConfig({
       </p>
 
       <Issues id={ISSUES_ID} issues={save.issues} />
-
-      <button
-        type="button"
-        className="btn btn-primary"
-        aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
-        disabled={dead || text === config.raw}
-        onClick={() => void save.run({ raw: text })}
-      >
-        Save config.yaml
-      </button>
-    </div>
+    </Card>
   );
 }

@@ -71,7 +71,7 @@ export function Setup({
       <div className="admin-row-title">
         {notConfigured ? "Janus is not running in this stack" : "This workspace has no Janus yet"}
       </div>
-      <div className="admin-row-meta" style={{ marginBottom: 12 }}>
+      <div className="admin-row-meta">
         {notConfigured ? (
           <>
             Blob ships no agent of its own. Janus runs beside it as its own service, and a
@@ -101,7 +101,7 @@ export function Setup({
         ))}
       </pre>
 
-      <p className="pref-hint" style={{ margin: "10px 0 0" }}>
+      <p className="pref-hint m-0">
         {LINES.map((line) => (
           <span key={line.name} className="block">
             <strong>{line.name}</strong> — {line.hint}
@@ -109,7 +109,7 @@ export function Setup({
         ))}
       </p>
 
-      <p className="pref-hint" style={{ margin: "10px 0 0" }}>
+      <p className="pref-hint m-0">
         The two secrets are shared with the <code>janus</code> service and are never
         stored in Blob. Nothing on this page shows one, or ever will.
       </p>

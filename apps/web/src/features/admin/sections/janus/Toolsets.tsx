@@ -9,6 +9,7 @@
  */
 
 import { useState } from "react";
+import { Card, CardNotice } from "../../../console/Card.tsx";
 import { type JanusSave } from "./apply.ts";
 import { Issues } from "./Issues.tsx";
 import type { JanusConfig } from "./config.ts";
@@ -42,14 +43,23 @@ export function Toolsets({
   }
 
   return (
-    <div className="janus-part">
-      <h3 className="section-label">Toolsets</h3>
-      <div className="pref-hint">
-        What Janus can reach during a run, for every workspace on this server. One that
-        needs a key of its own and has not been given one comes back as a warning here
-        when you save.
-      </div>
-
+    <Card
+      title="Toolsets"
+      description="What Janus can reach during a run, for every workspace on this server. One that needs a key of its own and has not been given one comes back as a warning here when you save."
+      className="janus-part"
+      footer={
+        <button
+          type="button"
+          className="btn btn-primary"
+          aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
+          disabled={dead || !changed}
+          // The whole list, always: Janus drops what a `PUT` leaves out.
+          onClick={() => void save.run({ toolsets: enabled })}
+        >
+          Save toolsets
+        </button>
+      }
+    >
       {error && <p className="error-text">{error}</p>}
 
       <div className="admin-check-grid">
@@ -74,21 +84,10 @@ export function Toolsets({
       </div>
 
       {rows.length === 0 && (
-        <p className="muted">Janus listed no toolsets.</p>
+        <CardNotice>Janus listed no toolsets.</CardNotice>
       )}
 
       <Issues id={ISSUES_ID} issues={save.issues} />
-
-      <button
-        type="button"
-        className="btn btn-primary"
-        aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
-        disabled={dead || !changed}
-        // The whole list, always: Janus drops what a `PUT` leaves out.
-        onClick={() => void save.run({ toolsets: enabled })}
-      >
-        Save toolsets
-      </button>
-    </div>
+    </Card>
   );
 }

@@ -3,8 +3,10 @@
 import { useCallback, useState, type FormEvent } from "react";
 import { api, type AdminWebhook } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import { DialogPresence } from "../../../components/Dialog.tsx";
 import { useStore } from "../../../lib/store.ts";
 import { formatRelative } from "../../messages/messageFormatting.ts";
+import { Card, CardNotice } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 export function WebhooksSection({
@@ -19,7 +21,7 @@ export function WebhooksSection({
   const [revoking, setRevoking] = useState<AdminWebhook | null>(null);
 
   const load = useCallback(() => api.admin.webhooks(), []);
-  const { data, reload } = useAdminData(
+  const { data, loading, reload } = useAdminData(
     load,
     [],
     onError,
@@ -45,95 +47,102 @@ export function WebhooksSection({
   }
 
   return (
-    <section>
-      <p className="pref-hint" style={{ marginBottom: 12 }}>
-        Post into a channel from CI or a cron job. The URL is shown once — store
-        it somewhere safe.
-      </p>
-
-      <form
-        style={{ display: "flex", gap: 8, alignItems: "flex-end" }}
-        onSubmit={submit}
+    <div className="console-stack">
+      <Card
+        title="New webhook"
+        description="Post into a channel from CI or a cron job. The URL is shown once — store it somewhere safe."
       >
-        <label className="field">
-          <span className="field-label">Channel</span>
-          <select className="input" name="channel" defaultValue="">
-            <option value="" disabled>
-              Pick one
-            </option>
-            {Object.values(channels)
-              .filter((c) => c.name && !c.archivedAt)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  #{c.name}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label className="field">
-          <span className="field-label">Name</span>
-          <input className="input" name="label" placeholder="CI" />
-        </label>
-        <button className="btn" type="submit">
-          Create
-        </button>
-      </form>
-
-      {created && (
-        <div className="draft-chip" style={{ margin: "16px 0", width: "100%" }}>
-          <span className="grow ellipsis"
-          >
-            {created}
-          </span>
-          <button
-            className="btn btn-ghost"
-            onClick={() => void navigator.clipboard.writeText(created)}
-          >
-            Copy
+        <form className="console-inline-form" onSubmit={submit}>
+          <label className="field">
+            <span className="field-label">Channel</span>
+            <select className="input" name="channel" defaultValue="">
+              <option value="" disabled>
+                Pick one
+              </option>
+              {Object.values(channels)
+                .filter((c) => c.name && !c.archivedAt)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    #{c.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="field-label">Name</span>
+            <input className="input" name="label" placeholder="CI" />
+          </label>
+          <button className="btn" type="submit">
+            Create
           </button>
-          <button className="btn btn-ghost" onClick={() => setCreated(null)}>
-            Done
-          </button>
-        </div>
-      )}
+        </form>
 
-      <div className="admin-table" style={{ marginTop: 16 }}>
-        {webhooks.map((hook) => (
-          <div className="admin-row" key={hook.id}>
-            <div className="grow">
-              <div className="admin-row-title">{hook.name}</div>
-              <div className="admin-row-meta">
-                {hook.lastUsedAt
-                  ? `Last used ${formatRelative(hook.lastUsedAt)}`
-                  : "Never used"}
-              </div>
-            </div>
+        {created && (
+          <div className="draft-chip console-copy">
+            <span className="grow ellipsis">{created}</span>
             <button
-              className="btn"
-              aria-label={`Revoke ${hook.name}`}
-              onClick={() => setRevoking(hook)}
+              className="btn btn-ghost"
+              onClick={() => void navigator.clipboard.writeText(created)}
             >
-              Revoke
+              Copy
+            </button>
+            <button className="btn btn-ghost" onClick={() => setCreated(null)}>
+              Done
             </button>
           </div>
-        ))}
-        {webhooks.length === 0 && <p className="muted">No webhooks yet.</p>}
-      </div>
+        )}
+      </Card>
 
-      {revoking && (
-        <ConfirmDialog
-          title={`Revoke “${revoking.name}”?`}
-          body="Anything posting through it stops working immediately."
-          confirmLabel="Revoke"
-          danger
-          onClose={() => setRevoking(null)}
-          onConfirm={() => {
-            const hook = revoking;
-            setRevoking(null);
-            void act(() => api.admin.revokeWebhook(hook.id));
-          }}
-        />
+      {/* No data and no request in flight means the load failed: the error above says so,
+          and "No webhooks yet" would be a claim about webhooks it never read. */}
+      {(data !== null || loading) && (
+        <Card>
+          {data === null ? (
+            <CardNotice>Loading…</CardNotice>
+          ) : webhooks.length === 0 ? (
+            <CardNotice>No webhooks yet.</CardNotice>
+          ) : (
+            <div className="console-list">
+              {webhooks.map((hook) => (
+                <div className="admin-row" key={hook.id}>
+                  <div className="grow min-0">
+                    <div className="admin-row-title">{hook.name}</div>
+                    <div className="admin-row-meta">
+                      {hook.lastUsedAt
+                        ? `Last used ${formatRelative(hook.lastUsedAt)}`
+                        : "Never used"}
+                    </div>
+                  </div>
+                  <button
+                    className="btn"
+                    aria-label={`Revoke ${hook.name}`}
+                    onClick={() => setRevoking(hook)}
+                  >
+                    Revoke
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       )}
-    </section>
+
+      <DialogPresence when={revoking}>
+        {(revoking) => (
+          <ConfirmDialog
+            title={`Revoke “${revoking.name}”?`}
+            body="Anything posting through it stops working immediately."
+            confirmLabel="Revoke"
+            danger
+            onClose={() => setRevoking(null)}
+            onConfirm={() => {
+              const hook = revoking;
+              setRevoking(null);
+              void act(() => api.admin.revokeWebhook(hook.id));
+            }}
+          />
+        )}
+      </DialogPresence>
+    </div>
   );
 }

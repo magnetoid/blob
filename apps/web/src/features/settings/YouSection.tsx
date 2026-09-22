@@ -4,8 +4,9 @@
  * Notifications — and the split never held. Your display name is a preference by any
  * ordinary reading of the word, "quiet hours" is not a different kind of setting from
  * "density", and the only way to find out which of the three held the control you
- * wanted was to open all three. One page, three parts, in the order somebody sets them
- * up: who you are, how it looks, when it speaks.
+ * wanted was to open all three. One page, in the order somebody sets them up: who you
+ * are, how it looks, when it speaks — each part a card, drawn by the part itself so that
+ * its Save can sit in its own footer.
  */
 
 import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
@@ -20,40 +21,14 @@ export function YouSection(props: ConsoleSectionProps) {
   if (!currentUser) return null;
 
   return (
-    <section className="you-page">
+    <div className="console-stack">
       <p className="pref-hint m-0">
         Signed in as {currentUser.displayName} · {currentUser.email}
       </p>
-
-      <div className="you-part">
-        <h2 className="you-part-title">Profile</h2>
-        <p className="pref-hint m-0">What other people see on your messages.</p>
-        <ProfileCard />
-      </div>
-
-      <div className="you-part">
-        <h2 className="you-part-title">Preferences</h2>
-        <p className="pref-hint m-0">
-          How Blob looks and behaves, on this device and everywhere.
-        </p>
-        <PreferencesCard />
-      </div>
-
-      <div className="you-part">
-        <h2 className="you-part-title">Notifications</h2>
-        <p className="pref-hint m-0">
-          When Blob is allowed to interrupt you, and what counts as urgent.
-        </p>
-        <NotificationsCard />
-      </div>
-
-      <div className="you-part">
-        <h2 className="you-part-title">Account</h2>
-        <p className="pref-hint m-0">
-          The devices you are signed in on, and the way out.
-        </p>
-        <AccountCard {...props} />
-      </div>
-    </section>
+      <ProfileCard />
+      <PreferencesCard />
+      <NotificationsCard />
+      <AccountCard {...props} />
+    </div>
   );
 }

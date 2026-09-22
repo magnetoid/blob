@@ -16,6 +16,7 @@ import {
 import { Avatar } from "../../components/Avatar.tsx";
 import { uploadFile } from "../../lib/attachments.ts";
 import { showError } from "../../lib/toasts.ts";
+import { Card } from "../console/Card.tsx";
 
 export function ProfileCard() {
   const currentUser = useStore((s) => s.currentUser);
@@ -82,7 +83,22 @@ export function ProfileCard() {
   }
 
   return (
-    <div className="profile-page">
+    <Card
+      title="Profile"
+      description="What other people see on your messages."
+      footer={
+        <>
+          {saved && <span className="pref-hint">Saved.</span>}
+          <button
+            className="btn btn-primary"
+            onClick={() => void save()}
+            disabled={!dirty || !displayName.trim() || busy}
+          >
+            {busy ? "Saving…" : "Save"}
+          </button>
+        </>
+      }
+    >
       <div className="profile-preview">
         <Avatar user={currentUser} />
         <div>
@@ -95,7 +111,7 @@ export function ProfileCard() {
               "No status set"}
           </div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+        <div className="profile-preview-actions">
           <input
             ref={avatarInputRef}
             type="file"
@@ -196,10 +212,9 @@ export function ProfileCard() {
 
         <div className="field">
           <span className="field-label">Status</span>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="profile-status">
             <input
-              className="input"
-              style={{ width: 72, textAlign: "center" }}
+              className="input profile-status-emoji"
               value={statusEmoji}
               maxLength={8}
               placeholder="🎧"
@@ -218,7 +233,7 @@ export function ProfileCard() {
           {/* Offered only once there is a status, because "clear after" with nothing
             to clear is a control that cannot do anything. */}
           {(statusEmoji.trim() || statusText.trim()) && (
-            <label className="field" style={{ marginTop: 10 }}>
+            <label className="field profile-clear-after">
               <span className="field-label">Clear after</span>
               <select
                 className="input"
@@ -234,20 +249,9 @@ export function ProfileCard() {
             </label>
           )}
         </div>
-
-        {error && <p className="error-text">{error}</p>}
       </div>
 
-      <div className="dialog-actions profile-actions">
-        <button
-          className="btn btn-primary"
-          onClick={() => void save()}
-          disabled={!dirty || !displayName.trim() || busy}
-        >
-          {busy ? "Saving…" : "Save"}
-        </button>
-        {saved && <span className="pref-hint">Saved.</span>}
-      </div>
-    </div>
+      {error && <p className="error-text">{error}</p>}
+    </Card>
   );
 }

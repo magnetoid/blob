@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import type { JanusConfigChange } from "../../../../lib/api.ts";
+import { Card } from "../../../console/Card.tsx";
 import { type JanusSave } from "./apply.ts";
 import { Issues } from "./Issues.tsx";
 import { withCurrent, type JanusConfig } from "./config.ts";
@@ -65,9 +66,21 @@ export function BehaviourForm({
     Object.keys(changed).length > 0 ? { agent: changed } : {};
 
   return (
-    <div className="janus-part">
-      <h3 className="section-label">Behaviour</h3>
-
+    <Card
+      title="Behaviour"
+      className="janus-part"
+      footer={
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={dead || !change.agent}
+          aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
+          onClick={() => void save.run(change)}
+        >
+          Save behaviour
+        </button>
+      }
+    >
       <div className="janus-form">
         <div className="field">
           <label className="field-label" htmlFor="janus-effort">
@@ -161,17 +174,7 @@ export function BehaviourForm({
       </div>
 
       <Issues id={ISSUES_ID} issues={save.issues} />
-
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={dead || !change.agent}
-        aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
-        onClick={() => void save.run(change)}
-      >
-        Save behaviour
-      </button>
-    </div>
+    </Card>
   );
 }
 

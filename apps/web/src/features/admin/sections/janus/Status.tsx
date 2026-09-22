@@ -10,6 +10,7 @@
  * it.
  */
 
+import { Card } from "../../../console/Card.tsx";
 import type { JanusConfig } from "./config.ts";
 import type { RestartWatch } from "./apply.ts";
 
@@ -33,9 +34,7 @@ export function Status({
   onRetry: () => void;
 }) {
   return (
-    <div className="janus-part">
-      <h3 className="section-label">Janus itself</h3>
-
+    <Card title="Janus itself" className="janus-part">
       {restart.restarting && (
         <div className="janus-banner" role="status">
           Janus is restarting. It finishes the turns it is already running before it goes,
@@ -96,6 +95,6 @@ export function Status({
           </button>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

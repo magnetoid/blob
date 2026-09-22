@@ -15,6 +15,7 @@ import {
   type ServerLogEntry,
 } from "../../../../lib/api.ts";
 import { socket } from "../../../../lib/socket.ts";
+import { Card, CardNotice } from "../../../console/Card.tsx";
 import { navigate, pathForRoute } from "../../../../lib/router.ts";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
 import { ActivityFeed } from "./ActivityFeed.tsx";
@@ -249,7 +250,13 @@ export function HealthSection({
   }
 
   if (!health) {
-    return <p className="muted">Health unavailable.</p>;
+    return (
+      <div className="console-stack">
+        <Card>
+          <CardNotice>Health unavailable.</CardNotice>
+        </Card>
+      </div>
+    );
   }
 
   return (

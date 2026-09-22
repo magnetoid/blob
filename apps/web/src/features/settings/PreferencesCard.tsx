@@ -9,6 +9,7 @@ import { api } from '../../lib/api.ts';
 import { deviceZone, knownZones, timeIn } from './timezones.ts';
 import { useStore } from '../../lib/store.ts';
 import type { Theme } from '@blob/shared';
+import { Card } from '../console/Card.tsx';
 
 const THEMES = [
   { label: 'System', value: 'system' },
@@ -45,67 +46,73 @@ export function PreferencesCard() {
   const prefs = currentUser?.prefs;
   if (!prefs || !currentUser) return null;
 
+  // Two cards, for the two groups this part always had: how Blob looks (with the zone
+  // it reads the clock in), and language and input. What were overlines are the rows'
+  // own labels now, still headings for a screen reader to move by.
   return (
     <>
-      <h2 className="section-label" style={{ marginTop: 0 }}>
-        Theme
-      </h2>
-      <div className="chip-row">
-        {THEMES.map((theme) => (
-          <button
-            key={theme.value}
-            className="chip"
-            aria-pressed={prefs.theme === theme.value}
-            onClick={() => void setPrefs({ theme: theme.value })}
-          >
-            {theme.label}
-          </button>
-        ))}
+    <Card
+      title="Preferences"
+      description="How Blob looks and behaves, on this device and everywhere."
+    >
+      <div className="pref-row">
+        <div className="grow">
+          <h3 className="pref-label">Theme</h3>
+        </div>
+        <div className="chip-row">
+          {THEMES.map((theme) => (
+            <button
+              key={theme.value}
+              className="chip"
+              aria-pressed={prefs.theme === theme.value}
+              onClick={() => void setPrefs({ theme: theme.value })}
+            >
+              {theme.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <h2 className="section-label" style={{ marginTop: 26 }}>
-        Light palette
-      </h2>
-      <PaletteGallery
-        themes={themes.filter((theme) => theme.mode === 'light' && theme.isEnabled)}
-        chosen={prefs.themeLight}
-        onChoose={(slug) => void setPrefs({ themeLight: slug })}
-      />
-
-      <h2 className="section-label" style={{ marginTop: 26 }}>
-        Dark palette
-      </h2>
-      <PaletteGallery
-        themes={themes.filter((theme) => theme.mode === 'dark' && theme.isEnabled)}
-        chosen={prefs.themeDark}
-        onChoose={(slug) => void setPrefs({ themeDark: slug })}
-      />
-
-      <h2 className="section-label" style={{ marginTop: 26 }}>
-        Density
-      </h2>
-      <div className="chip-row">
-        {DENSITIES.map((density) => (
-          <button
-            key={density.value}
-            className="chip"
-            aria-pressed={prefs.density === density.value}
-            onClick={() => void setPrefs({ density: density.value })}
-          >
-            {density.label}
-          </button>
-        ))}
+      <div className="pref-block">
+        <h3 className="pref-label">Light palette</h3>
+        <PaletteGallery
+          themes={themes.filter((theme) => theme.mode === 'light' && theme.isEnabled)}
+          chosen={prefs.themeLight}
+          onChoose={(slug) => void setPrefs({ themeLight: slug })}
+        />
       </div>
 
-      <h2 className="section-label" style={{ marginTop: 26 }}>
-        Time zone
-      </h2>
+      <div className="pref-block">
+        <h3 className="pref-label">Dark palette</h3>
+        <PaletteGallery
+          themes={themes.filter((theme) => theme.mode === 'dark' && theme.isEnabled)}
+          chosen={prefs.themeDark}
+          onChoose={(slug) => void setPrefs({ themeDark: slug })}
+        />
+      </div>
+
+      <div className="pref-row">
+        <div className="grow">
+          <h3 className="pref-label">Density</h3>
+        </div>
+        <div className="chip-row">
+          {DENSITIES.map((density) => (
+            <button
+              key={density.value}
+              className="chip"
+              aria-pressed={prefs.density === density.value}
+              onClick={() => void setPrefs({ density: density.value })}
+            >
+              {density.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <TimeZoneRow />
+    </Card>
 
-      <h2 className="section-label" style={{ marginTop: 26 }}>
-        Language and input
-      </h2>
-
+    <Card title="Language and input">
       {/* Both rows only mean something on a server that can translate. Elsewhere one
           line says why there is nothing to set, rather than a select and a switch whose
           only possible outcome is "not configured". */}
@@ -129,7 +136,6 @@ export function PreferencesCard() {
                   autoTranslate: !!event.target.value && prefs.autoTranslate,
                 })
               }
-              style={{ maxWidth: 220 }}
             >
               {LANGUAGES.map((language) => (
                 <option key={language.value || 'system'} value={language.value}>
@@ -190,7 +196,7 @@ export function PreferencesCard() {
           <span />
         </button>
       </div>
-
+    </Card>
     </>
   );
 }
@@ -213,7 +219,7 @@ function PaletteGallery({
   onChoose: (slug: string) => void;
 }) {
   if (themes.length === 0) {
-    return <p className="pref-hint">This workspace has no palettes for this mode yet.</p>;
+    return <p className="pref-hint console-note">This workspace has no palettes for this mode yet.</p>;
   }
   return (
     <div className="palette-gallery">
@@ -303,35 +309,39 @@ function TimeZoneRow() {
     }
   }
 
+  // A row of the Preferences card: what the zone is for on the left, the picker — and the
+  // offer of this device's zone when it differs — on the right.
   return (
-    <>
-      <p className="pref-hint" style={{ marginTop: 8 }}>
-        Quiet hours and <code>/remind</code> are read in this zone.
-        {clock && ` It is ${clock} there now.`}
-      </p>
-      <select
-        className="input"
-        aria-label="Time zone"
-        style={{ maxWidth: 320, marginTop: 8 }}
-        value={zone}
-        disabled={saving}
-        onChange={(event) => void choose(event.target.value)}
-      >
-        {options.map((name) => (
-          <option key={name} value={name}>
-            {name.replace(/_/g, ' ')}
-          </option>
-        ))}
-      </select>
-      {device && device !== zone && (
-        <div style={{ marginTop: 8 }}>
+    <div className="pref-row">
+      <div className="grow">
+        <h3 className="pref-label">Time zone</h3>
+        <div className="pref-hint">
+          Quiet hours and <code>/remind</code> are read in this zone.
+          {clock && ` It is ${clock} there now.`}
+        </div>
+        {error && <p className="error-text console-note">{error}</p>}
+      </div>
+      <div className="console-row-controls">
+        <select
+          className="input"
+          aria-label="Time zone"
+          value={zone}
+          disabled={saving}
+          onChange={(event) => void choose(event.target.value)}
+        >
+          {options.map((name) => (
+            <option key={name} value={name}>
+              {name.replace(/_/g, ' ')}
+            </option>
+          ))}
+        </select>
+        {device && device !== zone && (
           <button className="btn" disabled={saving} onClick={() => void choose(device)}>
             Use this device’s zone ({device.replace(/_/g, ' ')})
           </button>
-        </div>
-      )}
-      {error && <p className="error-text">{error}</p>}
-    </>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -190,6 +190,24 @@
   --radius-lg: 12px;
   --radius-full: 9999px;
 
+  /* ─── space ────────────────────────────────────────────────────────────── */
+  /* A 4px ladder, spent by the consoles' frame, cards and rows. The chat keeps the
+     values it was tuned with: moving it onto this would re-space every conversation for
+     the sake of a rename. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* The consoles' content column: wide enough for a table and a sidebar of guardrails
+     side by side, narrow enough that a row's label and its control stay one glance. */
+  --console-width: 1120px;
+
   /* ─── motion ───────────────────────────────────────────────────────────── */
   /* Exits are quicker than entrances: arriving is information and leaving is getting
      out of the way. --dur-fast is the 120ms that nineteen rules had each written out. */

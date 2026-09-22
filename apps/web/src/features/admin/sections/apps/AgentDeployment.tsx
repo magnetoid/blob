@@ -105,7 +105,7 @@ export function AgentDeployment({ pluginId, agentName, repo, gitRef, onError }: 
         )}
       </div>
 
-      <div className="chip-row" style={{ marginTop: 10 }}>
+      <div className="chip-row">
         {/* Two halves of setting an agent up, side by side because that is what they
             are: the values it declares it needs, and the session for everything that is
             not a value. Neither replaces the other — a device-code login is not a field,
