@@ -11,12 +11,13 @@
  * do to the box — run code on it, reach its private network — and those are the switches.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import {
   api,
   type WorkspacePolicy,
   type InstanceWorkspace,
 } from "../../../lib/api.ts";
+import { Card } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 interface Capability {
@@ -70,28 +71,45 @@ export function AppPolicySection({
 
   // Defaults to the first workspace so the page is never an empty frame.
   const workspaceId = selected ?? workspaces[0]?.id ?? null;
+  const pickerId = useId();
 
   return (
-    <section style={{ maxWidth: 640 }}>
-      <label className="field" style={{ maxWidth: 320 }}>
-        <span className="field-label">Workspace</span>
-        <select
-          className="input"
-          value={workspaceId ?? ""}
-          onChange={(event) => setSelected(event.target.value)}
-        >
-          {workspaces.map((workspace: InstanceWorkspace) => (
-            <option key={workspace.id} value={workspace.id}>
-              {workspace.name}
-            </option>
-          ))}
-        </select>
-      </label>
+    <div className="console-stack">
+      <Card
+        title="What this workspace may do"
+        footer={
+          <p className="pref-hint">
+            A workspace admin cannot read or change any of this. Blocking a scope
+            here stops it being granted to any app in that workspace, whatever its
+            admins approve.
+          </p>
+        }
+      >
+        <div className="pref-row">
+          <div className="grow">
+            <label className="pref-label" htmlFor={pickerId}>
+              Workspace
+            </label>
+          </div>
+          <select
+            id={pickerId}
+            className="input"
+            value={workspaceId ?? ""}
+            onChange={(event) => setSelected(event.target.value)}
+          >
+            {workspaces.map((workspace: InstanceWorkspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      {workspaceId && (
-        <PolicyEditor workspaceId={workspaceId} onError={onError} />
-      )}
-    </section>
+        {workspaceId && (
+          <PolicyEditor workspaceId={workspaceId} onError={onError} />
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -122,12 +140,9 @@ function PolicyEditor({
     });
   }
 
+  // Rows of the card AppPolicySection draws, under the workspace they apply to.
   return (
     <>
-      <h2 className="section-label" style={{ marginTop: 26 }}>
-        What this workspace may do
-      </h2>
-
       {CAPABILITIES.map((capability) => {
         // A switch that cannot take effect is shown off and disabled, with the reason.
         // Rendering it enabled would be a lie the guards then quietly contradict.
@@ -166,12 +181,11 @@ function PolicyEditor({
           </div>
         </div>
         <input
-          className="input"
+          className="input console-input-number"
           type="number"
           min={0}
           max={1000}
           aria-label="Most apps it may install"
-          style={{ maxWidth: 110 }}
           defaultValue={policy.maxApps ?? ""}
           onBlur={(event) => {
             const raw = event.target.value.trim();
@@ -193,12 +207,11 @@ function PolicyEditor({
           </div>
         </div>
         <input
-          className="input"
+          className="input console-input-number"
           type="number"
           min={0}
           max={16}
           aria-label="Agent-to-agent hops"
-          style={{ maxWidth: 110 }}
           disabled={policy.serverChainMaxDepth === 0}
           defaultValue={policy.agentChainMaxDepth}
           onBlur={(event) => {
@@ -209,12 +222,6 @@ function PolicyEditor({
           }}
         />
       </div>
-
-      <p className="pref-hint" style={{ marginTop: 18 }}>
-        A workspace admin cannot read or change any of this. Blocking a scope
-        here stops it being granted to any app in that workspace, whatever its
-        admins approve.
-      </p>
     </>
   );
 }

@@ -23,6 +23,7 @@
 
 import { useCallback } from "react";
 import type { JanusOverview } from "../../../../lib/api.ts";
+import { Card, CardNotice } from "../../../console/Card.tsx";
 import { useJanusSave, useRestartWatch } from "./apply.ts";
 import { BehaviourForm } from "./BehaviourForm.tsx";
 import { ModelForm } from "./ModelForm.tsx";
@@ -71,9 +72,9 @@ export function ThisServer({
   // one. The silence this replaced was the state a plain workspace admin actually got.
   if (!isOwner || code === "forbidden") {
     return (
-      <p className="pref-hint">
-        Only the server's admin can change what Janus runs on.
-      </p>
+      <Card>
+        <CardNotice>Only the server's admin can change what Janus runs on.</CardNotice>
+      </Card>
     );
   }
   // `Setup` is the whole page in that state, and says more than this half could.
@@ -82,12 +83,14 @@ export function ThisServer({
   // still comes back as a 200 with the reason in each part. Worth a button.
   if (!overview) {
     return (
-      <div className="admin-row janus-retry">
-        <span className="pref-hint grow">What Janus runs on could not be read just now.</span>
-        <button type="button" className="btn" onClick={retry}>
-          Retry
-        </button>
-      </div>
+      <Card>
+        <div className="admin-row janus-retry">
+          <span className="pref-hint grow">What Janus runs on could not be read just now.</span>
+          <button type="button" className="btn" onClick={retry}>
+            Retry
+          </button>
+        </div>
+      </Card>
     );
   }
 

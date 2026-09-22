@@ -23,7 +23,9 @@ import { useStore } from "../../../lib/store.ts";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { byDisplayName } from "../../../lib/format.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import { DialogPresence } from "../../../components/Dialog.tsx";
 import { showError } from "../../../lib/toasts.ts";
+import { Card, CardNotice } from "../../console/Card.tsx";
 import { AppChannelList } from "./apps/AppChannelList.tsx";
 import { PluginCard } from "./apps/PluginCard.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
@@ -117,9 +119,8 @@ export function AppSettings({ pluginId, onError }: Props) {
   );
   const act = useAdminAction(onError, reload);
 
-  if (loading && !plugin) return <p className="pref-hint">Loading…</p>;
-  if (!plugin)
-    return <p className="pref-hint">That app is not installed here.</p>;
+  if (loading && !plugin) return <NoApp>Loading…</NoApp>;
+  if (!plugin) return <NoApp>That app is not installed here.</NoApp>;
 
   const endpoint = plugin.aguiUrl ?? plugin.requestUrl;
   // Bots cannot own an agent — the server refuses one, and offering it here would be a
@@ -136,90 +137,87 @@ export function AppSettings({ pluginId, onError }: Props) {
     .sort(byDisplayName);
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 26 }}>
-      <div>
-        <button
-          className="btn btn-ghost"
-          onClick={() => navigate("/admin/apps")}
-        >
-          ← All apps
-        </button>
-      </div>
+    <div className="console-stack">
+      <button
+        className="btn btn-ghost console-back"
+        onClick={() => navigate("/admin/apps")}
+      >
+        ← All apps
+      </button>
 
-      <div>
-        <h2
-          style={{
-            margin: "0 0 4px",
-            fontSize: "var(--text-lg)",
-            fontWeight: 600,
-          }}
-        >
-          {plugin.name}
-        </h2>
-        <div className="pref-hint">
-          {plugin.slug} · v{plugin.version} · {plugin.status}
-          {plugin.aguiUrl ? " · answers over AG-UI" : ""}
+      {/* What it is, where it points, whose it is and what it may do: the four answers
+          that were four headings down the page, as rows of the app's own card. */}
+      <Card
+        title={plugin.name}
+        description={
+          <>
+            {plugin.slug} · v{plugin.version} · {plugin.status}
+            {plugin.aguiUrl ? " · answers over AG-UI" : ""}
+          </>
+        }
+      >
+        {plugin.lastError && (
+          <div className="connection-banner">
+            Last failure: {plugin.lastError}
+          </div>
+        )}
+
+        <div className="pref-row">
+          <div className="grow">
+            <h3 className="pref-label">Endpoint</h3>
+            <div className="pref-hint console-break">
+              {endpoint ?? "None — this app is not reachable over the network."}
+            </div>
+          </div>
         </div>
-      </div>
 
-      {plugin.lastError && (
-        <div className="connection-banner">
-          Last failure: {plugin.lastError}
+        <div className="pref-row">
+          <div className="grow">
+            <h3 className="pref-label">Owner</h3>
+            <div className="pref-hint">
+              {plugin.ownerUserId
+                ? `Only ${owner?.displayName ?? "its owner"} can command this agent, plus anyone they lend it to with /allow. Mentioning it does nothing for everybody else.`
+                : "Nobody owns this agent, so anyone can mention it and get an answer — which is what the assistant a workspace shares should do."}
+            </div>
+          </div>
+          <select
+            className="input"
+            aria-label={`Owner of ${plugin.name}`}
+            value={plugin.ownerUserId ?? ""}
+            onChange={(event) =>
+              void act(() =>
+                api.admin.setPluginOwner(pluginId, event.target.value || null),
+              )
+            }
+          >
+            <option value="">The workspace — anyone can use it</option>
+            {plugin.ownerUserId && !owner && (
+              <option value={plugin.ownerUserId}>Someone no longer here</option>
+            )}
+            {people.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.displayName}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
 
-      <div>
-        <h3 className="section-label">Endpoint</h3>
-        <div className="pref-hint" style={{ wordBreak: "break-all" }}>
-          {endpoint ?? "None — this app is not reachable over the network."}
+        <div className="pref-row">
+          <div className="grow">
+            <h3 className="pref-label">Permissions</h3>
+            <div className="pref-hint">
+              {plugin.scopes.length ? plugin.scopes.join(", ") : "None granted."}
+            </div>
+          </div>
         </div>
-      </div>
+      </Card>
 
-      <div>
-        <h3 className="section-label">Channels</h3>
+      <Card title="Channels">
         <AppChannelList pluginId={pluginId} channels={channels} act={act} />
-      </div>
-
-      <div>
-        <h3 className="section-label">Owner</h3>
-        <div className="pref-hint" style={{ marginBottom: 10 }}>
-          {plugin.ownerUserId
-            ? `Only ${owner?.displayName ?? "its owner"} can command this agent, plus anyone they lend it to with /allow. Mentioning it does nothing for everybody else.`
-            : "Nobody owns this agent, so anyone can mention it and get an answer — which is what the assistant a workspace shares should do."}
-        </div>
-        <select
-          className="input"
-          style={{ maxWidth: 280 }}
-          aria-label={`Owner of ${plugin.name}`}
-          value={plugin.ownerUserId ?? ""}
-          onChange={(event) =>
-            void act(() =>
-              api.admin.setPluginOwner(pluginId, event.target.value || null),
-            )
-          }
-        >
-          <option value="">The workspace — anyone can use it</option>
-          {plugin.ownerUserId && !owner && (
-            <option value={plugin.ownerUserId}>Someone no longer here</option>
-          )}
-          {people.map((person) => (
-            <option key={person.id} value={person.id}>
-              {person.displayName}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <h3 className="section-label">Permissions</h3>
-        <div className="pref-hint">
-          {plugin.scopes.length ? plugin.scopes.join(", ") : "None granted."}
-        </div>
-      </div>
+      </Card>
 
       {secretNotice?.botToken && (
-        <div>
-          <h3 className="section-label">New credentials</h3>
+        <Card title="New credentials">
           <div className="admin-secret-card">
             <div className="min-0">
               <div className="admin-row-title">{secretNotice.pluginName}</div>
@@ -238,24 +236,23 @@ export function AppSettings({ pluginId, onError }: Props) {
               <code>{secretNotice.botToken}</code>
             </div>
           </div>
-          {plugin.runtime === "socket" && (
-            <>
-              <JanusSetup agentName={plugin.name} botToken={secretNotice.botToken} />
-              <details style={{ marginTop: 10 }}>
-                <summary className="pref-hint">Not Janus? Connect another agent with the bridge</summary>
-                <DesktopAgentSetup
-                  agentName={plugin.name}
-                  botToken={secretNotice.botToken}
-                  signingSecret={secretNotice.signingSecret ?? null}
-                />
-              </details>
-            </>
-          )}
-        </div>
+        </Card>
+      )}
+      {secretNotice?.botToken && plugin.runtime === "socket" && (
+        <>
+          <JanusSetup agentName={plugin.name} botToken={secretNotice.botToken} />
+          <details className="console-details">
+            <summary className="pref-hint">Not Janus? Connect another agent with the bridge</summary>
+            <DesktopAgentSetup
+              agentName={plugin.name}
+              botToken={secretNotice.botToken}
+              signingSecret={secretNotice.signingSecret ?? null}
+            />
+          </details>
+        </>
       )}
 
-      <div>
-        <h3 className="section-label">Budget, credentials and activity</h3>
+      <Card title="Budget, credentials and activity">
         <PluginCard
           plugin={plugin}
           expanded
@@ -278,24 +275,37 @@ export function AppSettings({ pluginId, onError }: Props) {
           }
           onUninstall={() => setUninstalling(true)}
         />
-      </div>
+      </Card>
 
-      {uninstalling && (
-        <ConfirmDialog
-          title={`Uninstall ${plugin.name}?`}
-          body="Its tokens stop working and it stops receiving events. Messages it posted stay."
-          confirmLabel="Uninstall"
-          danger
-          onClose={() => setUninstalling(false)}
-          onConfirm={() => {
-            setUninstalling(false);
-            void act(async () => {
-              await api.admin.uninstallPlugin(pluginId);
-              navigate("/admin/apps");
-            });
-          }}
-        />
-      )}
-    </section>
+      <DialogPresence when={uninstalling}>
+        {() => (
+          <ConfirmDialog
+            title={`Uninstall ${plugin.name}?`}
+            body="Its tokens stop working and it stops receiving events. Messages it posted stay."
+            confirmLabel="Uninstall"
+            danger
+            onClose={() => setUninstalling(false)}
+            onConfirm={() => {
+              setUninstalling(false);
+              void act(async () => {
+                await api.admin.uninstallPlugin(pluginId);
+                navigate("/admin/apps");
+              });
+            }}
+          />
+        )}
+      </DialogPresence>
+    </div>
+  );
+}
+
+/** Where the app page would be, while it loads or when the id names nothing here. */
+function NoApp({ children }: { children: string }) {
+  return (
+    <div className="console-stack">
+      <Card>
+        <CardNotice>{children}</CardNotice>
+      </Card>
+    </div>
   );
 }

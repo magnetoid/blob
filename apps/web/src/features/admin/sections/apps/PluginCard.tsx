@@ -10,6 +10,7 @@ import {
 } from "../../../../lib/api.ts";
 import { useStore } from "../../../../lib/store.ts";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
+import { CardHeading } from "../../../console/Card.tsx";
 import { AgentDeployment } from './AgentDeployment.tsx';
 import { BudgetRow } from './BudgetRow.tsx';
 import { RunLog } from './RunLog.tsx';
@@ -73,7 +74,7 @@ export function PluginCard({
               ` · ${plugin.aguiUrl ?? plugin.requestUrl}`}
             {plugin.botUserId && ` · bot user ${plugin.botUserId}`}
           </div>
-          <div className="chip-row" style={{ marginTop: 10 }}>
+          <div className="chip-row">
             {/* Only ever shown for an agent that dials in, where it is the
                 difference between "set up wrong" and "the laptop is asleep".
                 Until this existed the only way to find out was to mention the
@@ -194,12 +195,7 @@ export function PluginCard({
           )}
 
           {plugin.lastError && (
-            <p
-              className="error-text"
-              style={{ margin: "10px 0 0" }}
-            >
-              {plugin.lastError}
-            </p>
+            <p className="error-text admin-plugin-error">{plugin.lastError}</p>
           )}
         </div>
 
@@ -300,12 +296,14 @@ export function PluginCard({
 
       {expanded && (
         <div className="admin-plugin-deliveries">
-          <h5 className="section-label">Recent runs</h5>
+          {/* Headings of the card this is drawn in, a level under its title: they were
+              h5s, which left the page two levels short between that title and these. */}
+          <CardHeading>Recent runs</CardHeading>
           <RunLog runs={runs} />
 
-          <h5 className="section-label" style={{ marginTop: 14 }}>
+          <CardHeading className="section-label admin-plugin-deliveries-label">
             Deliveries
-          </h5>
+          </CardHeading>
           {deliveries.length > 0 ? (
             deliveries.map((delivery) => {
               const open = expandedDeliveryId === delivery.id;
@@ -315,7 +313,7 @@ export function PluginCard({
                   <div className="grow min-0">
                     <button
                       type="button"
-                      style={{ width: "100%", textAlign: "left" }}
+                      className="console-row-toggle"
                       onClick={() => onToggleDelivery(delivery.id)}
                       aria-expanded={open}
                     >
@@ -341,7 +339,7 @@ export function PluginCard({
                     </button>
                     {open &&
                       (detail ? (
-                        <div style={{ padding: "4px 0 14px" }}>
+                        <div className="console-row-more">
                           <div className="admin-row-meta">
                             {detail.attempts} attempts
                             {detail.lastError &&
@@ -354,7 +352,6 @@ export function PluginCard({
                             <button
                               className="btn"
                               type="button"
-                              style={{ margin: "8px 0" }}
                               onClick={() => onReplay(delivery.id)}
                             >
                               Replay

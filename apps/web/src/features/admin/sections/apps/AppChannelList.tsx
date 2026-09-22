@@ -21,39 +21,39 @@ export function AppChannelList({
   subject?: string;
 }) {
   const joined = channels.filter((channel) => channel.joined);
+  // A fragment: the rows are the enclosing card's own, so they take its rules between
+  // rows rather than a column of their own.
   return (
     <>
-      <div className="pref-hint" style={{ marginBottom: 10 }}>
+      <div className="pref-hint">
         {joined.length === 0
           ? `${subject} is not in any channel yet, so nobody can reach it. Add it to one.`
           : `Mentioning it in ${
               joined.length === 1 ? "this channel" : "these channels"
             } will reach it.`}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {channels.length === 0 && (
-          <div className="pref-hint">There are no public channels to add it to.</div>
-        )}
-        {channels.map((channel) => (
-          <div className="pref-row" key={channel.id}>
-            <div>
-              <div className="pref-label">#{channel.name ?? channel.id}</div>
-            </div>
-            <button
-              className={channel.joined ? "btn btn-ghost" : "btn"}
-              onClick={() =>
-                void act(() =>
-                  channel.joined
-                    ? api.admin.appLeaveChannel(pluginId, channel.id)
-                    : api.admin.appJoinChannel(pluginId, channel.id),
-                )
-              }
-            >
-              {channel.joined ? "Remove" : "Add"}
-            </button>
+      {channels.length === 0 && (
+        <div className="pref-hint">There are no public channels to add it to.</div>
+      )}
+      {channels.map((channel) => (
+        <div className="pref-row" key={channel.id}>
+          <div className="grow min-0">
+            <div className="pref-label">#{channel.name ?? channel.id}</div>
           </div>
-        ))}
-      </div>
+          <button
+            className={channel.joined ? "btn btn-ghost" : "btn"}
+            onClick={() =>
+              void act(() =>
+                channel.joined
+                  ? api.admin.appLeaveChannel(pluginId, channel.id)
+                  : api.admin.appJoinChannel(pluginId, channel.id),
+              )
+            }
+          >
+            {channel.joined ? "Remove" : "Add"}
+          </button>
+        </div>
+      ))}
     </>
   );
 }

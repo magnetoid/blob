@@ -10,17 +10,19 @@ import { api, type AuthSession } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import { useFetch } from "../../lib/useFetch.ts";
 import { showError } from "../../lib/toasts.ts";
+import { Card, CardNotice } from "../console/Card.tsx";
 import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
 
 export function AccountCard({ onSignedOut }: ConsoleSectionProps) {
   const reset = useStore((s) => s.reset);
 
+  // The way out is the card's footer: the one control on these pages that ends the
+  // session, apart from the settings above it rather than in their run.
   return (
-    <>
-      <h2 className="section-label m-0">Where you’re signed in</h2>
-      <DevicesPanel />
-
-      <div className="account-actions">
+    <Card
+      title="Account"
+      description="The devices you are signed in on, and the way out."
+      footer={
         <button
           className="btn"
           onClick={async () => {
@@ -31,8 +33,11 @@ export function AccountCard({ onSignedOut }: ConsoleSectionProps) {
         >
           Sign out
         </button>
-      </div>
-    </>
+      }
+    >
+      <h3 className="section-label">Where you’re signed in</h3>
+      <DevicesPanel />
+    </Card>
   );
 }
 
@@ -44,13 +49,14 @@ function DevicesPanel() {
   );
 
   if (error) return <p className="error-text">Could not load your sessions.</p>;
-  if (sessions === null) return <p className="pref-hint">Loading…</p>;
+  if (sessions === null) return <CardNotice>Loading…</CardNotice>;
 
   const others = sessions.filter((s) => !s.current);
+  // A fragment: each session is a row of the Account card, ruled like the rows above.
   return (
-    <div style={{ marginTop: 12 }}>
+    <>
       {sessions.map((session) => (
-        <div key={session.id} className="pref-row" style={{ padding: '10px 0' }}>
+        <div key={session.id} className="pref-row">
           <div className="grow min-0">
             <div className="pref-label">
               {describeAgent(session.userAgent)}
@@ -64,24 +70,26 @@ function DevicesPanel() {
         </div>
       ))}
       {others.length > 0 && (
-        <button
-          className="btn"
-          disabled={revoking}
-          onClick={async () => {
-            setRevoking(true);
-            try {
-              await api.auth.logoutOthers();
-            } catch (err) {
-              showError(err);
-            } finally {
-              setRevoking(false);
-            }
-          }}
-        >
-          Sign out everywhere else
-        </button>
+        <div className="console-form-actions">
+          <button
+            className="btn"
+            disabled={revoking}
+            onClick={async () => {
+              setRevoking(true);
+              try {
+                await api.auth.logoutOthers();
+              } catch (err) {
+                showError(err);
+              } finally {
+                setRevoking(false);
+              }
+            }}
+          >
+            Sign out everywhere else
+          </button>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 

@@ -7,49 +7,60 @@
  * are addressed as a team (groups), and the owner's view across the whole server
  * (accounts), which stays the owner's alone.
  *
+ * Each part is a card, and the card is drawn here rather than by the part: the parts are
+ * also reached alone by their old URLs, where AdminConsole frames them the same way.
+ *
  * A detail id means one member's page — `/admin/members/:id` — and only Members gets
  * it: a member's id is not a group's, and handing it to every part would open three
  * wrong things. Groups keep their own detail route at `/admin/groups/:id`.
  */
 
 import type { ConsoleSectionProps } from "../../console/ConsoleShell.tsx";
+import { Card } from "../../console/Card.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
 import { GroupsSection } from "./GroupsSection.tsx";
 import { InvitationsSection } from "./InvitationsSection.tsx";
 import { AccountsSection } from "./AccountsSection.tsx";
 
 export function PeopleHub(props: ConsoleSectionProps) {
-  if (props.detailId) return <PeopleSection {...props} />;
+  if (props.detailId) {
+    return (
+      <div className="console-stack">
+        <Card>
+          <PeopleSection {...props} />
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <section className="you-page">
-      <div className="you-part">
-        <h2 className="you-part-title">Members</h2>
-        <p className="pref-hint m-0">Everyone here, and what they can do.</p>
+    <div className="console-stack">
+      <Card title="Members" description="Everyone here, and what they can do.">
         <PeopleSection {...props} />
-      </div>
+      </Card>
 
-      <div className="you-part">
-        <h2 className="you-part-title">User groups</h2>
-        <p className="pref-hint m-0">
-          Teams that can be mentioned as one name, like @platform-team.
-        </p>
+      <Card
+        title="User groups"
+        description="Teams that can be mentioned as one name, like @platform-team."
+      >
         <GroupsSection {...props} />
-      </div>
+      </Card>
 
-      <div className="you-part">
-        <h2 className="you-part-title">Invitations</h2>
-        <p className="pref-hint m-0">Who has been invited, and who has not arrived yet.</p>
+      <Card
+        title="Invitations"
+        description="Who has been invited, and who has not arrived yet."
+      >
         <InvitationsSection {...props} />
-      </div>
+      </Card>
 
       {props.isOwner && (
-        <div className="you-part">
-          <h2 className="you-part-title">Accounts</h2>
-          <p className="pref-hint m-0">Every account on this server — the owner's view.</p>
+        <Card
+          title="Accounts"
+          description="Every account on this server — the owner's view."
+        >
           <AccountsSection {...props} />
-        </div>
+        </Card>
       )}
-    </section>
+    </div>
   );
 }

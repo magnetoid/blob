@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Theme } from "@blob/shared";
 import { api, ApiError } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import { DialogPresence } from "../../../components/Dialog.tsx";
 import { useStore } from "../../../lib/store.ts";
 import {
   applyTheme,
@@ -18,6 +19,7 @@ import {
   themeChoices,
 } from "../../../lib/theme.ts";
 import { themeContrastIssues } from "../../../lib/themeContrast.ts";
+import { Card } from "../../console/Card.tsx";
 
 /** <input type="color"> only accepts #rrggbb, so rgb()/short hex is converted. */
 function normalizeColor(value: string): string {
@@ -158,71 +160,68 @@ export function ThemesSection({
 
   if (editing) {
     return (
-      <section>
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            alignItems: "flex-end",
-            marginBottom: 6,
-          }}
+      <div className="console-stack">
+        <Card
+          description={
+            <>
+              Changes preview on this window as you make them. Nothing is stored
+              until you save. Note that <code>--accent-hover</code> darkens in light
+              themes and lightens in dark ones, so it is set explicitly rather than
+              derived.
+            </>
+          }
         >
-          <label className="field" style={{ maxWidth: 240, flex: 1 }}>
-            <span className="field-label">Theme name</span>
-            <input
-              className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Mode</span>
-            <select
-              className="input"
-              value={mode}
-              onChange={(e) => {
-                const next = e.target.value as "light" | "dark";
-                setMode(next);
-                previewEditor(next, tokens, true);
-              }}
+          <div className="console-inline-form">
+            <label className="field">
+              <span className="field-label">Theme name</span>
+              <input
+                className="input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Mode</span>
+              <select
+                className="input"
+                value={mode}
+                onChange={(e) => {
+                  const next = e.target.value as "light" | "dark";
+                  setMode(next);
+                  previewEditor(next, tokens, true);
+                }}
+              >
+                <option value="light">light</option>
+                <option value="dark">dark</option>
+              </select>
+            </label>
+            <button
+              className="btn btn-primary"
+              onClick={() => void save()}
+              disabled={saving || contrastIssues.length > 0}
             >
-              <option value="light">light</option>
-              <option value="dark">dark</option>
-            </select>
-          </label>
-          <button
-            className="btn btn-primary"
-            onClick={() => void save()}
-            disabled={saving || contrastIssues.length > 0}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button className="btn" onClick={stopEdit}>
-            Cancel
-          </button>
-        </div>
-        <p className="pref-hint" style={{ marginBottom: 18 }}>
-          Changes preview on this window as you make them. Nothing is stored
-          until you save. Note that <code>--accent-hover</code> darkens in light
-          themes and lightens in dark ones, so it is set explicitly rather than
-          derived.
-        </p>
-        {contrastIssues.length > 0 && (
-          <div className="theme-contrast-warning" role="alert">
-            <strong>
-              Contrast needs attention before this theme can be saved.
-            </strong>
-            <ul>
-              {contrastIssues.map((issue) => (
-                <li key={issue}>{issue}</li>
-              ))}
-            </ul>
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button className="btn" onClick={stopEdit}>
+              Cancel
+            </button>
           </div>
-        )}
+          {contrastIssues.length > 0 && (
+            <div className="theme-contrast-warning" role="alert">
+              <strong>
+                Contrast needs attention before this theme can be saved.
+              </strong>
+              <ul>
+                {contrastIssues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
 
         {editableGroups.map(([group, groupTokens]) => (
-          <div key={group} style={{ marginTop: 18 }}>
-            <h3 className="section-label">{group}</h3>
+          <Card key={group} title={group}>
             <div className="token-grid">
               {groupTokens.map((token) => {
                 const inputId = `theme-${token.slice(2)}`;
@@ -263,109 +262,107 @@ export function ThemesSection({
                 );
               })}
             </div>
-          </div>
+          </Card>
         ))}
-      </section>
+      </div>
     );
   }
 
   return (
-    <section>
-      <p className="pref-hint" style={{ marginBottom: 16 }}>
-        Presets ship with the app and cannot be edited — duplicate one to start
-        from it. People choose their own light and dark palettes in Preferences.
-      </p>
-
-      <div className="admin-table">
-        {themes.map((theme) => (
-          <div className="admin-row" key={theme.id}>
-            <span
-              className="swatch"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                background: theme.tokens["--accent"] ?? "var(--accent)",
-              }}
-            />
-            <div className="grow min-0">
-              <div className="admin-row-title">
-                {theme.name}
-                <span
-                  className="role-pill"
-                  data-muted={theme.mode === "light" ? undefined : true}
-                >
-                  {theme.mode}
-                </span>
-                {theme.isPreset && (
-                  <span className="role-pill" data-muted>
-                    preset
+    <div className="console-stack">
+      <Card
+        title="Themes"
+        description="Presets ship with the app and cannot be edited — duplicate one to start from it. People choose their own light and dark palettes in Preferences."
+      >
+        <div className="console-list">
+          {themes.map((theme) => (
+            <div className="admin-row" key={theme.id}>
+              {/* The one inline style left: the colour is the theme's own data. */}
+              <span
+                className="theme-swatch"
+                style={{ background: theme.tokens["--accent"] ?? "var(--accent)" }}
+              />
+              <div className="grow min-0">
+                <div className="admin-row-title">
+                  {theme.name}
+                  <span
+                    className="role-pill"
+                    data-muted={theme.mode === "light" ? undefined : true}
+                  >
+                    {theme.mode}
                   </span>
+                  {theme.isPreset && (
+                    <span className="role-pill" data-muted>
+                      preset
+                    </span>
+                  )}
+                </div>
+                <div className="admin-row-meta">
+                  {Object.keys(theme.tokens).length === 0
+                    ? "The built-in palette, unchanged"
+                    : `${Object.keys(theme.tokens).length} tokens overridden`}
+                </div>
+              </div>
+              <div className="admin-row-actions">
+                <button
+                  className="btn btn-ghost"
+                  aria-label={`Duplicate ${theme.name}`}
+                  onClick={() => startEdit(theme, true)}
+                >
+                  Duplicate
+                </button>
+                {!theme.isPreset && (
+                  <>
+                    <button
+                      className="btn"
+                      aria-label={`Edit ${theme.name}`}
+                      onClick={() => startEdit(theme, false)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="btn"
+                      aria-label={`Delete ${theme.name}`}
+                      onClick={() => setDeleting(theme)}
+                    >
+                      Delete
+                    </button>
+                  </>
                 )}
               </div>
-              <div className="admin-row-meta">
-                {Object.keys(theme.tokens).length === 0
-                  ? "The built-in palette, unchanged"
-                  : `${Object.keys(theme.tokens).length} tokens overridden`}
-              </div>
             </div>
-            <div className="admin-row-actions">
-              <button
-                className="btn btn-ghost"
-                aria-label={`Duplicate ${theme.name}`}
-                onClick={() => startEdit(theme, true)}
-              >
-                Duplicate
-              </button>
-              {!theme.isPreset && (
-                <>
-                  <button
-                    className="btn"
-                    aria-label={`Edit ${theme.name}`}
-                    onClick={() => startEdit(theme, false)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="btn"
-                    aria-label={`Delete ${theme.name}`}
-                    onClick={() => setDeleting(theme)}
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </Card>
 
-      {deleting && (
-        <ConfirmDialog
-          title={`Delete “${deleting.name}”?`}
-          body="Anyone using it falls back to the workspace default."
-          confirmLabel="Delete"
-          danger
-          onClose={() => setDeleting(null)}
-          onConfirm={() => {
-            const theme = deleting;
-            setDeleting(null);
-            void (async () => {
-              try {
-                await api.themes.remove(theme.id);
-                const listed = await api.themes.list();
-                useStore.setState({ themes: listed.themes });
-              } catch (err) {
-                onError(
-                  err instanceof ApiError
-                    ? err.message
-                    : "Could not delete it.",
-                );
-              }
-            })();
-          }}
-        />
-      )}
-    </section>
+      <DialogPresence when={deleting}>
+        {(deleting) => (
+          <ConfirmDialog
+            title={`Delete “${deleting.name}”?`}
+            body="Anyone using it falls back to the workspace default."
+            confirmLabel="Delete"
+            danger
+            onClose={() => setDeleting(null)}
+            onConfirm={() => {
+              const theme = deleting;
+              setDeleting(null);
+              void (async () => {
+                try {
+                  await api.themes.remove(theme.id);
+                  const listed = await api.themes.list();
+                  useStore.setState({ themes: listed.themes });
+                } catch (err) {
+                  onError(
+                    err instanceof ApiError
+                      ? err.message
+                      : "Could not delete it.",
+                  );
+                }
+              })();
+            }}
+          />
+        )}
+      </DialogPresence>
+    </div>
   );
 }

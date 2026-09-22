@@ -12,6 +12,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { api, type InstanceUser } from "../../../lib/api.ts";
+import { CardNotice } from "../../console/Card.tsx";
 import { useAdminData } from '../../console/hooks.ts';
 
 export function AccountsSection({
@@ -38,34 +39,37 @@ export function AccountsSection({
 
   const humans = users.filter((u) => u.kind === "human").length;
 
+  // A fragment: whoever frames this — the People page, or AdminConsole for the old
+  // /admin/users URL — draws the card, and these are its children.
   return (
-    <section>
-      <p className="muted" style={{ marginBottom: 12 }}>
-        {users.length} {users.length === 1 ? "account" : "accounts"} — {humans}{" "}
-        human, {users.length - humans} bot.
-      </p>
-
-      <div className="search-field" style={{ marginBottom: 12, maxWidth: 320 }}>
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Find an account"
-          aria-label="Find an account"
-        />
+    <>
+      <div className="console-toolbar">
+        <div className="console-filter">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Find an account"
+            aria-label="Find an account"
+          />
+        </div>
+        <p className="console-toolbar-note">
+          {users.length} {users.length === 1 ? "account" : "accounts"} — {humans}{" "}
+          human, {users.length - humans} bot.
+        </p>
       </div>
 
       {shown.length === 0 ? (
-        <p className="muted">Nothing matched.</p>
+        <CardNotice>Nothing matched.</CardNotice>
       ) : (
-        <div className="table-wrap">
+        <div className="console-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Workspace</th>
-                <th>Role</th>
-                <th>State</th>
+                <th scope="col">Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Workspace</th>
+                <th scope="col">Role</th>
+                <th scope="col">State</th>
               </tr>
             </thead>
             <tbody>
@@ -74,7 +78,10 @@ export function AccountsSection({
                   <td>
                     {user.displayName}
                     {user.kind === "bot" && (
-                      <span className="role-pill">App</span>
+                      <>
+                        {" "}
+                        <span className="role-pill">App</span>
+                      </>
                     )}
                   </td>
                   <td className="muted">{user.email}</td>
@@ -89,6 +96,6 @@ export function AccountsSection({
           </table>
         </div>
       )}
-    </section>
+    </>
   );
 }

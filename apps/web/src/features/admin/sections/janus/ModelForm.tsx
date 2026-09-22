@@ -22,6 +22,7 @@
 
 import { useState } from "react";
 import type { JanusConfigChange } from "../../../../lib/api.ts";
+import { Card } from "../../../console/Card.tsx";
 import { type JanusSave } from "./apply.ts";
 import { Issues } from "./Issues.tsx";
 import { withCurrent, type JanusConfig } from "./config.ts";
@@ -74,9 +75,21 @@ export function ModelForm({
   }
 
   return (
-    <div className="janus-part">
-      <h3 className="section-label">Model and provider</h3>
-
+    <Card
+      title="Model and provider"
+      className="janus-part"
+      footer={
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={dead || !hasChange}
+          aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
+          onClick={() => void onSave()}
+        >
+          Save model
+        </button>
+      }
+    >
       <div className="janus-form">
         <div className="field">
           <label className="field-label" htmlFor="janus-provider">
@@ -197,17 +210,7 @@ export function ModelForm({
       </p>
 
       <Issues id={ISSUES_ID} issues={save.issues} />
-
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={dead || !hasChange}
-        aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
-        onClick={() => void onSave()}
-      >
-        Save model
-      </button>
-    </div>
+    </Card>
   );
 }
 

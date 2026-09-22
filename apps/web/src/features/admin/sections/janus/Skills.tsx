@@ -6,23 +6,22 @@
  * agent's machine, which is the line ADR 0007 draws.
  */
 
+import { Card, CardNotice } from "../../../console/Card.tsx";
 import type { JanusSkill } from "./config.ts";
 
 export function Skills({ skills, error }: { skills: JanusSkill[]; error: string | null }) {
   return (
-    <div className="janus-part">
-      <h3 className="section-label">Skills</h3>
-      <div className="pref-hint">
-        Installed on Janus itself, and the same for every workspace here. Adding or
-        removing one is done where Janus runs.
-      </div>
-
+    <Card
+      title="Skills"
+      description="Installed on Janus itself, and the same for every workspace here. Adding or removing one is done where Janus runs."
+      className="janus-part"
+    >
       {error && <p className="error-text">{error}</p>}
 
       {skills.length === 0 ? (
-        !error && <p className="muted">Janus has no skills installed.</p>
+        !error && <CardNotice>Janus has no skills installed.</CardNotice>
       ) : (
-        <div className="admin-table-scroll">
+        <div className="console-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
@@ -46,6 +45,6 @@ export function Skills({ skills, error }: { skills: JanusSkill[]; error: string 
           </table>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

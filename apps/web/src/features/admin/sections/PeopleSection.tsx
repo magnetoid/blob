@@ -5,8 +5,10 @@ import { api, type AdminUser } from "../../../lib/api.ts";
 import { useStore } from "../../../lib/store.ts";
 import { Avatar } from "../../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import { DialogPresence } from "../../../components/Dialog.tsx";
 import { SearchIcon } from "../../../components/Icon.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
+import { CardNotice } from "../../console/Card.tsx";
 import { useAdminAction } from '../../console/hooks.ts';
 
 export function PeopleSection({
@@ -42,22 +44,28 @@ export function PeopleSection({
 
   const act = useAdminAction(onError, load);
 
+  // A fragment: the People page draws the card this sits in, so the search and the rows
+  // are the card's own children and take its rhythm and its flush list.
   return (
-    <section>
-      <div className="search-field" style={{ maxWidth: 320, marginBottom: 18 }}>
-        <SearchIcon size="md" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name or email"
-          aria-label="Search people"
-        />
+    <>
+      <div className="console-toolbar">
+        <div className="console-filter">
+          <SearchIcon size="sm" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name or email"
+            aria-label="Search people"
+          />
+        </div>
       </div>
 
       {loading && users.length === 0 ? (
-        <p className="muted">Loading…</p>
+        <CardNotice>Loading…</CardNotice>
+      ) : users.length === 0 ? (
+        <CardNotice>Nobody matched “{query}”.</CardNotice>
       ) : (
-        <div className="admin-table" role="table">
+        <div className="console-list" role="table">
           {users.map((user) => (
             <div
               className="admin-row"
@@ -164,14 +172,11 @@ export function PeopleSection({
               </div>
             </div>
           ))}
-          {users.length === 0 && (
-            <p className="muted">Nobody matched “{query}”.</p>
-          )}
         </div>
       )}
 
       {resetLink && (
-        <div className="draft-chip" style={{ margin: "12px 0", width: "100%" }}>
+        <div className="draft-chip console-copy">
           <span className="grow ellipsis">
             For {resetLink.name}, good for an hour: {resetLink.url}
           </span>
@@ -187,20 +192,22 @@ export function PeopleSection({
         </div>
       )}
 
-      {deactivating && (
-        <ConfirmDialog
-          title={`Deactivate ${deactivating.displayName}?`}
-          body="They are signed out everywhere and cannot sign back in. What they wrote stays."
-          confirmLabel="Deactivate"
-          danger
-          onClose={() => setDeactivating(null)}
-          onConfirm={() => {
-            const user = deactivating;
-            setDeactivating(null);
-            void act(() => api.admin.deactivate(user.id));
-          }}
-        />
-      )}
-    </section>
+      <DialogPresence when={deactivating}>
+        {(deactivating) => (
+          <ConfirmDialog
+            title={`Deactivate ${deactivating.displayName}?`}
+            body="They are signed out everywhere and cannot sign back in. What they wrote stays."
+            confirmLabel="Deactivate"
+            danger
+            onClose={() => setDeactivating(null)}
+            onConfirm={() => {
+              const user = deactivating;
+              setDeactivating(null);
+              void act(() => api.admin.deactivate(user.id));
+            }}
+          />
+        )}
+      </DialogPresence>
+    </>
   );
 }

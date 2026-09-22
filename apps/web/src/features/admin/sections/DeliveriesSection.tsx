@@ -6,6 +6,7 @@ import {
   type AdminWorkspaceDelivery,
 } from '../../../lib/api.ts';
 import { formatRelative } from '../../messages/messageFormatting.ts';
+import { Card, CardNotice } from '../../console/Card.tsx';
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 export function DeliveriesSection({
@@ -14,7 +15,7 @@ export function DeliveriesSection({
   onError: (message: string | null) => void;
 }) {
   const load = useCallback(() => api.admin.workspaceDeliveries(), []);
-  const { data, reload } = useAdminData(
+  const { data, loading, reload } = useAdminData(
     load,
     [],
     onError,
@@ -24,35 +25,44 @@ export function DeliveriesSection({
   const [openId, setOpenId] = useState<string | null>(null);
   const deliveries = data?.deliveries ?? [];
 
+  // No data and no request in flight means the load failed. The error above says so, and
+  // there is no card to draw: "No delivery attempts recorded yet" would be a claim about
+  // deliveries it never read.
+  if (data === null && !loading) return null;
+
   return (
-    <section>
-      {deliveries.length === 0 ? (
-        <p className="muted">No delivery attempts recorded yet.</p>
-      ) : (
-        <div className="admin-table">
-          {deliveries.map((delivery) => (
-            <DeliveryRow
-              key={delivery.id}
-              delivery={delivery}
-              open={openId === delivery.id}
-              onToggle={() =>
-                setOpenId((current) =>
-                  current === delivery.id ? null : delivery.id,
-                )
-              }
-              onReplay={() =>
-                void act(() =>
-                  api.admin.replayPluginDelivery(
-                    delivery.pluginId,
-                    delivery.id,
-                  ),
-                )
-              }
-            />
-          ))}
-        </div>
-      )}
-    </section>
+    <div className="console-stack">
+      <Card>
+        {data === null ? (
+          <CardNotice>Loading…</CardNotice>
+        ) : deliveries.length === 0 ? (
+          <CardNotice>No delivery attempts recorded yet.</CardNotice>
+        ) : (
+          <div className="console-list">
+            {deliveries.map((delivery) => (
+              <DeliveryRow
+                key={delivery.id}
+                delivery={delivery}
+                open={openId === delivery.id}
+                onToggle={() =>
+                  setOpenId((current) =>
+                    current === delivery.id ? null : delivery.id,
+                  )
+                }
+                onReplay={() =>
+                  void act(() =>
+                    api.admin.replayPluginDelivery(
+                      delivery.pluginId,
+                      delivery.id,
+                    ),
+                  )
+                }
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -74,7 +84,7 @@ function DeliveryRow({
       <div className="grow min-0">
         <button
           type="button"
-          style={{ width: '100%', textAlign: 'left' }}
+          className="console-row-toggle"
           onClick={onToggle}
           aria-expanded={open}
         >
@@ -100,7 +110,7 @@ function DeliveryRow({
           </div>
         </button>
         {open && canReplay && (
-          <div style={{ padding: '8px 0 4px' }}>
+          <div className="console-row-more">
             <button className="btn" type="button" onClick={onReplay}>
               Replay
             </button>

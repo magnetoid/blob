@@ -15,6 +15,7 @@ import type { ComponentType } from 'react';
 import { MenuIcon } from '../../components/Icon.tsx';
 import { useStore } from '../../lib/store.ts';
 import type { AdminSection } from '../../lib/router.ts';
+import { Card } from '../console/Card.tsx';
 import { ConsoleShell, type ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import { ADMIN_NAV, sectionEntry } from '../console/registry.ts';
 import { AppPolicySection } from './sections/AppPolicySection.tsx';
@@ -37,6 +38,31 @@ import { WebhooksSection } from './sections/WebhooksSection.tsx';
 
 const NAV_ID = 'admin-console-nav';
 
+/**
+ * A part of the People page reached by its old URL, in the card the People page gives
+ * it. The parts draw their contents and leave the card to whoever shows them, so that
+ * the hub can title each one.
+ *
+ * Groups alone has a page under it — one group's members, `/admin/groups/:id` — and
+ * draws that page's cards itself, so only there does a detail id mean "not framed".
+ * `/admin/users/:id` is a real route too, but Accounts has no detail page: it shows the
+ * list, and the list needs its card like anywhere else.
+ */
+function framed(
+  Part: ComponentType<ConsoleSectionProps>,
+  { drawsItsDetailPage = false }: { drawsItsDetailPage?: boolean } = {},
+): ComponentType<ConsoleSectionProps> {
+  return function Framed(props: ConsoleSectionProps) {
+    if (drawsItsDetailPage && props.detailId) return <Part {...props} />;
+    return (
+      <div className="console-stack">
+        <Card>
+          <Part {...props} />
+        </Card>
+      </div>
+    );
+  };
+}
 
 /**
  * Every route needs a screen. Typed as a total record, so adding a section to
@@ -46,15 +72,15 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   general: GeneralSection,
   appearance: ThemesSection,
   members: PeopleHub,
-  groups: GroupsSection,
-  invitations: InvitationsSection,
+  groups: framed(GroupsSection, { drawsItsDetailPage: true }),
+  invitations: framed(InvitationsSection),
   channels: ChannelsSection,
   emoji: EmojiSection,
   apps: AppsSection,
   janus: JanusSection,
   webhooks: WebhooksSection,
   deliveries: DeliveriesSection,
-  users: AccountsSection,
+  users: framed(AccountsSection),
   'app-policy': AppPolicySection,
   feedback: FeedbackSection,
   audit: AuditSection,

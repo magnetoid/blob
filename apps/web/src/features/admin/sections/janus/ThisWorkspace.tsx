@@ -20,6 +20,7 @@ import {
 } from "../../../../lib/api.ts";
 import { useStore } from "../../../../lib/store.ts";
 import { showChannel } from "../../../../lib/navigation.ts";
+import { Card, CardNotice } from "../../../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../../../console/hooks.ts";
 import { AppChannelList } from "../apps/AppChannelList.tsx";
 import { BudgetRow } from "../apps/BudgetRow.tsx";
@@ -106,45 +107,48 @@ export function ThisWorkspace({
 
   return (
     <>
-      <div className="admin-row">
-        <div className="grow min-0">
-          <div className="admin-row-title">
+      <Card
+        title={
+          <>
             {plugin.name}
             <span className="role-pill" data-status={plugin.status}>
               {enabled ? "enabled" : plugin.status}
             </span>
-          </div>
-          <div className="admin-row-meta">
+          </>
+        }
+        description={
+          <>
             {plugin.slug} · v{plugin.version}
             {plugin.aguiUrl ? " · answers over AG-UI" : ""}
             {` · ${plugin.runsLastWeek} run${plugin.runsLastWeek === 1 ? "" : "s"} this week`}
-          </div>
-        </div>
-        <div className="admin-row-actions">
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => void act(() => api.admin.setPluginEnabled(plugin.id, !enabled))}
-          >
-            {enabled ? "Disable" : "Enable"}
-          </button>
-          <button
-            type="button"
-            className="btn"
-            disabled={!plugin.botUserId || !enabled}
-            onClick={() => void sayHello()}
-          >
-            Say hello
-          </button>
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => void act(() => api.admin.setPluginEnabled(plugin.id, !enabled))}
+            >
+              {enabled ? "Disable" : "Enable"}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={!plugin.botUserId || !enabled}
+              onClick={() => void sayHello()}
+            >
+              Say hello
+            </button>
+          </>
+        }
+      >
+        {plugin.lastError && (
+          <div className="connection-banner">Last failure: {plugin.lastError}</div>
+        )}
+      </Card>
 
-      {plugin.lastError && (
-        <div className="connection-banner">Last failure: {plugin.lastError}</div>
-      )}
-
-      <div>
-        <h3 className="section-label">Channels</h3>
+      <Card title="Channels">
         {/* Not before the answer is in. "Janus is not in any channel yet, so nobody can
             reach it" is a diagnosis, and for the first moment of every visit it was one
             the page had no evidence for. */}
@@ -156,9 +160,9 @@ export function ThisWorkspace({
             subject={plugin.name}
           />
         ) : (
-          <p className="pref-hint">
+          <CardNotice>
             {loading ? "Loading…" : "The channels it is in could not be read."}
-          </p>
+          </CardNotice>
         )}
         <div className="pref-row">
           <div className="grow">
@@ -185,42 +189,40 @@ export function ThisWorkspace({
             <span />
           </button>
         </div>
-      </div>
+      </Card>
 
-      <div>
-        <h3 className="section-label">Budget</h3>
-        <div className="pref-hint" style={{ marginBottom: 10 }}>
-          What this workspace may spend on it in a day. Reaching a cap stops the next run
-          and nothing else.
-        </div>
+      <Card
+        title="Budget"
+        description="What this workspace may spend on it in a day. Reaching a cap stops the next run and nothing else."
+      >
         <BudgetRow
           key={`${plugin.budgetRunsPerDay ?? "-"}:${plugin.budgetSecondsPerDay ?? "-"}`}
           plugin={plugin}
           act={act}
         />
-      </div>
+      </Card>
 
-      <div>
-        <h3 className="section-label">Instructions</h3>
-        <Instructions
-          key={plugin.instructions ?? ""}
-          plugin={plugin}
-          act={act}
-          seeded={seeded}
-          inertReason={inertReason}
-        />
-      </div>
+      <Instructions
+        key={plugin.instructions ?? ""}
+        plugin={plugin}
+        act={act}
+        seeded={seeded}
+        inertReason={inertReason}
+      />
 
-      <div>
-        <h3 className="section-label">Recent runs</h3>
-        {data ? (
+      <Card title="Recent runs">
+        {!data ? (
+          <CardNotice>
+            {loading ? "Loading…" : "The recent runs could not be read."}
+          </CardNotice>
+        ) : data.runs.length === 0 ? (
           <RunLog runs={data.runs} emptyLabel="Nobody here has asked Janus anything yet." />
         ) : (
-          <p className="pref-hint">
-            {loading ? "Loading…" : "The recent runs could not be read."}
-          </p>
+          <div className="console-list">
+            <RunLog runs={data.runs} />
+          </div>
         )}
-      </div>
+      </Card>
     </>
   );
 }
@@ -250,9 +252,34 @@ function Instructions({
   const [text, setText] = useState(saved);
   const trimmed = text.trim();
 
+  // Its own card, so the count and the Save share the card's footer: the count is what
+  // decides whether Save will be refused, and it now sits beside it.
   return (
-    <>
-      <div className="pref-hint" id={INSTRUCTIONS_HINT} style={{ marginBottom: 10 }}>
+    <Card
+      title="Instructions"
+      footer={
+        <>
+          <span className="pref-hint" id={INSTRUCTIONS_COUNT}>
+            {text.length} / {INSTRUCTIONS_MAX}
+          </span>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!seeded || trimmed === saved}
+            onClick={() =>
+              // Empty means "nothing to say", sent as an explicit null rather than "" so
+              // the wire says the same thing the screen does.
+              void act(() =>
+                api.admin.setPluginInstructions(plugin.id, trimmed === "" ? null : trimmed),
+              )
+            }
+          >
+            Save instructions
+          </button>
+        </>
+      }
+    >
+      <div className="pref-hint" id={INSTRUCTIONS_HINT}>
         {seeded
           ? "Sent with every run as a standing instruction — how to answer here, what this team calls things, what to leave alone. It is not a message: nobody in the conversation sees it, and the agent keeps no copy between runs."
           : inertReason}
@@ -269,28 +296,6 @@ function Instructions({
         maxLength={INSTRUCTIONS_MAX}
         onChange={(event) => setText(event.target.value)}
       />
-      <div
-        className="admin-row"
-        style={{ alignItems: "center", gap: 10, marginTop: 8 }}
-      >
-        <span className="pref-hint grow" id={INSTRUCTIONS_COUNT}>
-          {text.length} / {INSTRUCTIONS_MAX}
-        </span>
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={!seeded || trimmed === saved}
-          onClick={() =>
-            // Empty means "nothing to say", sent as an explicit null rather than "" so
-            // the wire says the same thing the screen does.
-            void act(() =>
-              api.admin.setPluginInstructions(plugin.id, trimmed === "" ? null : trimmed),
-            )
-          }
-        >
-          Save instructions
-        </button>
-      </div>
-    </>
+    </Card>
   );
 }

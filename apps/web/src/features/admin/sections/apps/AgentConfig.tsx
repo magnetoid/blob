@@ -173,7 +173,7 @@ export function AgentConfig({ pluginId, onError }: Props) {
         />
       </div>
 
-      <div className="chip-row" style={{ marginTop: 12 }}>
+      <div className="chip-row">
         <button className="btn" disabled={busy || !pending} onClick={() => void save(true)}>
           Save and restart
         </button>
@@ -187,7 +187,7 @@ export function AgentConfig({ pluginId, onError }: Props) {
         {saved && <span className="copied-note">Saved</span>}
       </div>
 
-      <p className="pref-hint" style={{ margin: '10px 0 0' }}>
+      <p className="pref-hint console-note">
         {/* Said plainly because the alternative is an operator staring at a value the
             agent does not have and concluding the save did not work. */}
         Configuration only reaches the container when it starts, so a change is not live

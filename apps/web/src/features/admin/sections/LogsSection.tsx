@@ -13,8 +13,10 @@
 
 import { useCallback, useState } from "react";
 import { api, type ServerLogEntry } from "../../../lib/api.ts";
+import { Card, CardNotice } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import { DialogPresence } from "../../../components/Dialog.tsx";
 
 const LEVELS = [
   { label: "Everything", value: "" },
@@ -35,7 +37,7 @@ export function LogsSection({
     () => api.admin.serverLogs({ level: level || undefined }),
     [level],
   );
-  const { data, reload } = useAdminData(
+  const { data, loading, reload } = useAdminData(
     load,
     [level],
     onError,
@@ -46,103 +48,113 @@ export function LogsSection({
   const entries = data?.entries ?? [];
 
   return (
-    <section>
-      <div className="log-toolbar">
-        <div className="chip-row">
-          {LEVELS.map((option) => (
-            <button
-              key={option.value}
-              className="chip"
-              aria-pressed={level === option.value}
-              onClick={() => setLevel(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
+    <div className="console-stack">
+      <Card
+        description={
+          <>
+            The most recent {data?.capacity ?? 500} warnings and errors from every
+            process on this server, newest first. Older ones fall off the end — this
+            is a buffer for noticing something, not a record to keep.
+          </>
+        }
+      >
+        <div className="console-toolbar">
+          <div className="chip-row">
+            {LEVELS.map((option) => (
+              <button
+                key={option.value}
+                className="chip"
+                aria-pressed={level === option.value}
+                onClick={() => setLevel(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <button className="btn btn-ghost" onClick={reload}>
+            Refresh
+          </button>
+          <button
+            className="btn btn-ghost"
+            onClick={() => setClearing(true)}
+            disabled={entries.length === 0}
+          >
+            Clear
+          </button>
         </div>
-        <button className="btn btn-ghost" onClick={reload}>
-          Refresh
-        </button>
-        <button
-          className="btn btn-ghost"
-          onClick={() => setClearing(true)}
-          disabled={entries.length === 0}
-        >
-          Clear
-        </button>
-      </div>
 
-      <p className="muted">
-        The most recent {data?.capacity ?? 500} warnings and errors from every
-        process on this server, newest first. Older ones fall off the end — this
-        is a buffer for noticing something, not a record to keep.
-      </p>
+        {/* No data and no request in flight means the load failed: the error above says
+            so, and "Nothing has gone wrong recently" under it would contradict it. */}
+        {data === null ? (
+          loading && <CardNotice>Loading…</CardNotice>
+        ) : entries.length === 0 ? (
+          <CardNotice>
+            Nothing has gone wrong recently. {level && "Try widening the filter."}
+          </CardNotice>
+        ) : (
+          <div className="console-list">
+            {entries.map((entry: ServerLogEntry, index: number) => {
+              // The buffer has no ids — it is a Redis list, and two identical records a
+              // millisecond apart are genuinely indistinguishable. Position is the identity.
+              const key = `${entry.at}-${index}`;
+              const open = expanded === key;
+              return (
+                <div
+                  key={key}
+                  className="console-list-item log-entry"
+                  data-level={entry.level.toLowerCase()}
+                >
+                  <div className="log-head">
+                    <span className="log-level">{entry.level}</span>
+                    <time className="log-at" dateTime={entry.at}>
+                      {new Date(entry.at).toLocaleString()}
+                    </time>
+                    <span className="log-logger">{entry.logger}</span>
+                    {entry.path && (
+                      <span className="log-route">
+                        {entry.method} {entry.path}
+                      </span>
+                    )}
+                  </div>
 
-      {entries.length === 0 && (
-        <p className="muted" style={{ marginTop: 16 }}>
-          Nothing has gone wrong recently. {level && "Try widening the filter."}
-        </p>
-      )}
+                  <div className="log-message">{entry.message}</div>
 
-      <div className="log-list">
-        {entries.map((entry: ServerLogEntry, index: number) => {
-          // The buffer has no ids — it is a Redis list, and two identical records a
-          // millisecond apart are genuinely indistinguishable. Position is the identity.
-          const key = `${entry.at}-${index}`;
-          const open = expanded === key;
-          return (
-            <div
-              key={key}
-              className="log-entry"
-              data-level={entry.level.toLowerCase()}
-            >
-              <div className="log-head">
-                <span className="log-level">{entry.level}</span>
-                <time className="log-at" dateTime={entry.at}>
-                  {new Date(entry.at).toLocaleString()}
-                </time>
-                <span className="log-logger">{entry.logger}</span>
-                {entry.path && (
-                  <span className="log-route">
-                    {entry.method} {entry.path}
-                  </span>
-                )}
-              </div>
+                  {entry.detail && (
+                    <>
+                      <button
+                        className="btn btn-ghost log-toggle"
+                        onClick={() => setExpanded(open ? null : key)}
+                        aria-expanded={open}
+                      >
+                        {open ? "Hide traceback" : "Show traceback"}
+                      </button>
+                      {open && <pre className="log-detail">{entry.detail}</pre>}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
-              <div className="log-message">{entry.message}</div>
-
-              {entry.detail && (
-                <>
-                  <button
-                    className="btn btn-ghost log-toggle"
-                    onClick={() => setExpanded(open ? null : key)}
-                    aria-expanded={open}
-                  >
-                    {open ? "Hide traceback" : "Show traceback"}
-                  </button>
-                  {open && <pre className="log-detail">{entry.detail}</pre>}
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {clearing && (
-        <ConfirmDialog
-          title="Clear the log?"
-          body="These are the only copy this console has. Anything still in the container's own output is unaffected."
-          confirmLabel="Clear"
-          danger
-          onClose={() => setClearing(false)}
-          onConfirm={() => {
-            setClearing(false);
-            void act(async () => {
-              await api.admin.clearServerLogs();
-            });
-          }}
-        />
-      )}
-    </section>
+      <DialogPresence when={clearing}>
+        {() => (
+          <ConfirmDialog
+            title="Clear the log?"
+            body="These are the only copy this console has. Anything still in the container's own output is unaffected."
+            confirmLabel="Clear"
+            danger
+            onClose={() => setClearing(false)}
+            onConfirm={() => {
+              setClearing(false);
+              void act(async () => {
+                await api.admin.clearServerLogs();
+              });
+            }}
+          />
+        )}
+      </DialogPresence>
+    </div>
   );
 }

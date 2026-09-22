@@ -11,9 +11,16 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
-    "sha": "a2568a499e7c250b0ff78418500df0d1c889f21e",
-    "shortSha": "a2568a49",
-    "subject": "feat: small things answer — dialogs leave, arrivals rise, presses give",
+    "sha": "de837219f2fa37e17ce7aad9e0b65ef7f148646c",
+    "shortSha": "de837219",
+    "subject": "feat: the admin and settings pages use the width, in cards",
+    "date": "2026-09-22T15:03:49+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "9abb2ae8ff68618ff4ae14229ebcb94b8759ebae",
+    "shortSha": "9abb2ae8",
+    "subject": "feat: small things answer — dialogs leave, arrivals rise, presses give — 1.4.0",
     "date": "2026-09-22T14:43:18+02:00",
     "author": "Marko Tiosavljevic"
   },
@@ -421,13 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "b2edb915",
     "subject": "Give the agents console the three numbers its table needs",
     "date": "2026-09-14T04:49:40+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "ac126a69339a0b9d468d7984852744ea0b1c6ac5",
-    "shortSha": "ac126a69",
-    "subject": "Let the gate accept the readiness body it now serves",
-    "date": "2026-09-14T04:42:10+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

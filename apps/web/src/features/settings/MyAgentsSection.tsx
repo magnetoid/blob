@@ -16,6 +16,7 @@ import { useState } from "react";
 import { api, type AppChannel, type MyAgent } from "../../lib/api.ts";
 import { DesktopAgentSetup } from '../agentic/DesktopAgentSetup.tsx';
 import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
+import { Card, CardNotice } from "../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../console/hooks.ts";
 
 interface Minted {
@@ -63,15 +64,18 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
   }
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 26 }}>
-      <div>
-        <h3 className="section-label">Connect an agent</h3>
-        <p className="pref-hint" style={{ marginBottom: 10 }}>
-          For an agent running on your laptop or a private network. It dials
-          Blob, so it needs no public address, and it answers only you — lend it
-          to somebody in a channel with <code>/allow</code>.
-        </p>
-        <div style={{ display: "flex", gap: 8, maxWidth: 480 }}>
+    <div className="console-stack">
+      <Card
+        title="Connect an agent"
+        description={
+          <>
+            For an agent running on your laptop or a private network. It dials
+            Blob, so it needs no public address, and it answers only you — lend it
+            to somebody in a channel with <code>/allow</code>.
+          </>
+        }
+      >
+        <div className="console-inline-form">
           <input
             className="input"
             value={name}
@@ -90,7 +94,7 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
             {busy ? "Registering…" : "Get a token"}
           </button>
         </div>
-      </div>
+      </Card>
 
       {minted && (
         <DesktopAgentSetup
@@ -101,29 +105,26 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
         />
       )}
 
-      <div>
-        <h3 className="section-label">Your agents</h3>
-        {loading && agents.length === 0 && (
-          <p className="pref-hint">Loading…</p>
-        )}
+      <Card title="Your agents">
+        {loading && agents.length === 0 && <CardNotice>Loading…</CardNotice>}
         {!loading && agents.length === 0 && (
-          <p className="pref-hint">
-            None yet. Connect one above and it will appear here.
-          </p>
+          <CardNotice>None yet. Connect one above and it will appear here.</CardNotice>
         )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {agents.map((agent) => (
-            <AgentRow
-              key={agent.id}
-              agent={agent}
-              onError={onError}
-              onRemoved={reload}
-              act={act}
-            />
-          ))}
-        </div>
-      </div>
-    </section>
+        {agents.length > 0 && (
+          <div className="console-list">
+            {agents.map((agent) => (
+              <AgentRow
+                key={agent.id}
+                agent={agent}
+                onError={onError}
+                onRemoved={reload}
+                act={act}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -149,8 +150,9 @@ function AgentRow({
   );
   const channelAct = useAdminAction(onError, channels.reload);
 
+  // A row of the "Your agents" list, with its channels opening under it.
   return (
-    <div className="admin-plugin-card">
+    <div className="console-list-item">
       <div className="admin-row">
         <div className="grow min-0">
           <div className="admin-row-title">
@@ -213,35 +215,33 @@ function AgentRow({
       </div>
 
       {open && (
-        <div style={{ marginTop: 10 }}>
-          <div className="pref-hint" style={{ marginBottom: 8 }}>
+        <div className="console-row-more">
+          <div className="pref-hint">
             Mentioning {agent.name} reaches it only in channels it has been
             added to. Only channels you are in are offered.
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {(channels.data?.channels ?? []).map((channel: AppChannel) => (
-              <div className="pref-row" key={channel.id}>
-                <div className="pref-label">#{channel.name ?? channel.id}</div>
-                <button
-                  className={channel.joined ? "btn btn-ghost" : "btn"}
-                  onClick={() =>
-                    void channelAct(() =>
-                      channel.joined
-                        ? api.agents.leaveChannel(agent.id, channel.id)
-                        : api.agents.joinChannel(agent.id, channel.id),
-                    )
-                  }
-                >
-                  {channel.joined ? "Remove" : "Add"}
-                </button>
-              </div>
-            ))}
-            {channels.data && channels.data.channels.length === 0 && (
-              <div className="pref-hint">
-                You are not in any channel it could join.
-              </div>
-            )}
-          </div>
+          {(channels.data?.channels ?? []).map((channel: AppChannel) => (
+            <div className="console-subrow" key={channel.id}>
+              <div className="pref-label grow">#{channel.name ?? channel.id}</div>
+              <button
+                className={channel.joined ? "btn btn-ghost" : "btn"}
+                onClick={() =>
+                  void channelAct(() =>
+                    channel.joined
+                      ? api.agents.leaveChannel(agent.id, channel.id)
+                      : api.agents.joinChannel(agent.id, channel.id),
+                  )
+                }
+              >
+                {channel.joined ? "Remove" : "Add"}
+              </button>
+            </div>
+          ))}
+          {channels.data && channels.data.channels.length === 0 && (
+            <div className="pref-hint">
+              You are not in any channel it could join.
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -328,8 +328,8 @@ spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
   are no popovers it stays modal through the exit instead — the page inert and focus
   on `<body>` for those 150 ms, handed back on unmount — which is the trade the swap
   exists to avoid. Reopened mid-exit, it mounts a fresh dialog. The lightbox stays
-  enter-only, the console's confirmations are still plain mounts, and the palette gets
-  no motion at all.
+  enter-only and the palette gets no motion at all; the console's confirmations and its
+  install dialog leave like every other dialog.
 * **Motion in the message list is keyed to arriving, never to mounting.** The list is
   virtualised, so a row mounts on every scroll and every channel switch, and anything
   that animates on mount replays on all of them. A message's entrance plays only while

@@ -9,12 +9,13 @@ import {
 } from "../../../lib/api.ts";
 import { navigate } from "../../../lib/router.ts";
 import { useStore } from "../../../lib/store.ts";
-import { Dialog } from "../../../components/Dialog.tsx";
+import { Dialog, DialogPresence } from "../../../components/Dialog.tsx";
 import { EmptyState } from "../../../components/EmptyState.tsx";
 import { ConnectAgentForm } from "./apps/ConnectAgentForm.tsx";
 import { InstallAppForm } from "./apps/InstallAppForm.tsx";
 import { DesktopAgentSetup } from "../../agentic/DesktopAgentSetup.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
+import { Card, CardNotice } from "../../console/Card.tsx";
 import { useAdminAction } from "../../console/hooks.ts";
 import { AppSettings } from "./AppSettings.tsx";
 import { isSeededJanus } from "./janus/seeded.ts";
@@ -132,120 +133,119 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
   );
 
   return (
-    <section>
-      <div className="admin-apps-shell">
-        <div className="admin-apps-intro">
+    <div className="console-stack">
+      {/* Credentials first: they are shown once, and the page opens here straight after
+          the install dialog closes. */}
+      {secretNotice && (
+        <div className="admin-secret-card">
           <div className="min-0">
-            <h2 className="admin-apps-title">Agents</h2>
-            <p className="admin-summary muted" aria-live="polite">
-              {installed} installed · {runningNow} running now · {runsThisWeek}{" "}
-              runs this week
-            </p>
-          </div>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setInstalling("janus")}
-          >
-            + Install agent
-          </button>
-        </div>
-
-        <div className="pref-row">
-          <div className="grow">
-            <div className="pref-label">Agents may run</div>
-            <div className="pref-hint">
-              When off, mentions of agents are refused and nothing is
-              dispatched. Apps still receive webhook deliveries.
+            <div className="admin-row-title">{secretNotice.pluginName}</div>
+            <div className="admin-row-meta">
+              These credentials are shown once. Rotate them later if you lose
+              them.
             </div>
           </div>
-          <button
-            className="toggle"
-            aria-pressed={agentsEnabled}
-            aria-label="Agents may run"
-            onClick={() =>
-              void act(async () => {
-                const updated = await api.admin.updateSettings({
-                  settings: { agentsEnabled: !agentsEnabled },
-                });
-                setAgentsEnabled(updated.settings.agentsEnabled !== false);
-              })
+          {secretNotice.signingSecret && (
+            <div className="draft-chip admin-secret-chip">
+              <span className="admin-secret-label">Signing secret</span>
+              <code>{secretNotice.signingSecret}</code>
+              <button
+                className="btn btn-ghost"
+                onClick={() => void copySecret(secretNotice.signingSecret!)}
+              >
+                Copy
+              </button>
+            </div>
+          )}
+          {secretNotice.botToken && (
+            <div className="draft-chip admin-secret-chip">
+              <span className="admin-secret-label">Bot token</span>
+              <code>{secretNotice.botToken}</code>
+              <button
+                className="btn btn-ghost"
+                onClick={() => void copySecret(secretNotice.botToken!)}
+              >
+                Copy
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {secretNotice?.setup === "janus" && secretNotice.botToken && (
+        <JanusSetup
+          agentName={secretNotice.pluginName}
+          botToken={secretNotice.botToken}
+        />
+      )}
+      {secretNotice?.setup === "bridge" && secretNotice.botToken && (
+        <DesktopAgentSetup
+          agentName={secretNotice.pluginName}
+          botToken={secretNotice.botToken}
+          signingSecret={secretNotice.signingSecret ?? null}
+        />
+      )}
+
+      <div className="admin-console-grid">
+        <div className="console-stack min-0">
+          <Card
+            title="Agents"
+            description={
+              <span className="admin-summary" aria-live="polite">
+                {installed} installed · {runningNow} running now · {runsThisWeek}{" "}
+                runs this week
+              </span>
+            }
+            actions={
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setInstalling("janus")}
+              >
+                + Install agent
+              </button>
             }
           >
-            <span />
-          </button>
-        </div>
-
-        {secretNotice && (
-          <div className="admin-secret-card">
-            <div className="min-0">
-              <div className="admin-row-title">{secretNotice.pluginName}</div>
-              <div className="admin-row-meta">
-                These credentials are shown once. Rotate them later if you lose
-                them.
+            <div className="pref-row">
+              <div className="grow">
+                <div className="pref-label">Agents may run</div>
+                <div className="pref-hint">
+                  When off, mentions of agents are refused and nothing is
+                  dispatched. Apps still receive webhook deliveries.
+                </div>
               </div>
-            </div>
-            {secretNotice.signingSecret && (
-              <div className="draft-chip admin-secret-chip">
-                <span className="admin-secret-label">Signing secret</span>
-                <code>{secretNotice.signingSecret}</code>
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => void copySecret(secretNotice.signingSecret!)}
-                >
-                  Copy
-                </button>
-              </div>
-            )}
-            {secretNotice.botToken && (
-              <div className="draft-chip admin-secret-chip">
-                <span className="admin-secret-label">Bot token</span>
-                <code>{secretNotice.botToken}</code>
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => void copySecret(secretNotice.botToken!)}
-                >
-                  Copy
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {secretNotice?.setup === "janus" && secretNotice.botToken && (
-          <JanusSetup
-            agentName={secretNotice.pluginName}
-            botToken={secretNotice.botToken}
-          />
-        )}
-        {secretNotice?.setup === "bridge" && secretNotice.botToken && (
-          <DesktopAgentSetup
-            agentName={secretNotice.pluginName}
-            botToken={secretNotice.botToken}
-            signingSecret={secretNotice.signingSecret ?? null}
-          />
-        )}
-
-        <div className="admin-console-grid">
-          <div className="min-0">
-            {loading && plugins.length === 0 ? (
-              <p className="muted">Loading agents…</p>
-            ) : plugins.length === 0 ? (
-              <EmptyState
-                title="No agents yet"
-                style={{ margin: "32px auto 0" }}
+              <button
+                className="toggle"
+                aria-pressed={agentsEnabled}
+                aria-label="Agents may run"
+                onClick={() =>
+                  void act(async () => {
+                    const updated = await api.admin.updateSettings({
+                      settings: { agentsEnabled: !agentsEnabled },
+                    });
+                    setAgentsEnabled(updated.settings.agentsEnabled !== false);
+                  })
+                }
               >
+                <span />
+              </button>
+            </div>
+
+            {loading && plugins.length === 0 ? (
+              <CardNotice>Loading agents…</CardNotice>
+            ) : plugins.length === 0 ? (
+              <EmptyState title="No agents yet">
                 Install Janus, connect an agent from your machine, or register
                 an app by its URL.
               </EmptyState>
             ) : (
-              <div className="admin-table-scroll">
+              <div className="console-table-wrap">
                 <table className="admin-table admin-agents">
                   <thead>
                     <tr>
                       <th scope="col">Agent</th>
                       <th scope="col">Access</th>
-                      <th scope="col">Runs 7d</th>
+                      <th scope="col" className="num">Runs 7d</th>
                       <th scope="col">Status</th>
                       <th scope="col">
                         <span className="sr-only">Configure</span>
@@ -260,80 +260,82 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
                 </table>
               </div>
             )}
+          </Card>
 
-            {activity.length > 0 && <RunsThisWeek days={activity} />}
-          </div>
-
-          <Guardrails policy={policy} />
+          {activity.length > 0 && <RunsThisWeek days={activity} />}
         </div>
+
+        <Guardrails policy={policy} />
       </div>
 
-      {installing && (
-        <Dialog label="Install an agent" onClose={() => setInstalling(null)}>
-          <div className="admin-install">
-            <div className="chip-row" aria-label="How the agent joins">
-              {(
-                [
-                  ["janus", "Janus"],
-                  ["bridge", "Another agent on this machine"],
-                  ["app", "An app by URL"],
-                ] as const
-              ).map(([path, label]) => (
-                <button
-                  key={path}
-                  type="button"
-                  className="chip"
-                  aria-pressed={installing === path}
-                  onClick={() => setInstalling(path)}
-                >
-                  {label}
-                </button>
-              ))}
+      <DialogPresence when={installing}>
+        {(installing) => (
+          <Dialog label="Install an agent" onClose={() => setInstalling(null)}>
+            <div className="admin-install">
+              <div className="chip-row" aria-label="How the agent joins">
+                {(
+                  [
+                    ["janus", "Janus"],
+                    ["bridge", "Another agent on this machine"],
+                    ["app", "An app by URL"],
+                  ] as const
+                ).map(([path, label]) => (
+                  <button
+                    key={path}
+                    type="button"
+                    className="chip"
+                    aria-pressed={installing === path}
+                    onClick={() => setInstalling(path)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {installing === "janus" && (
+                <p className="pref-hint">
+                  Janus dials Blob itself — no bridge, no public address. Register
+                  it here, then give it the two values this page prints.
+                </p>
+              )}
+              {installing === "bridge" && (
+                <p className="pref-hint">
+                  Any other AG-UI agent, with the bridge holding Blob's socket
+                  beside it.
+                </p>
+              )}
+
+              {installing === "app" ? (
+                <InstallAppForm
+                  catalog={catalog}
+                  onError={onError}
+                  onInstalled={(notice) => {
+                    setSecretNotice(notice);
+                    setInstalling(null);
+                    load();
+                  }}
+                />
+              ) : (
+                <ConnectAgentForm
+                  scopeCatalog={catalog?.scopes ?? {}}
+                  onError={onError}
+                  onConnected={(pluginName, botToken, signingSecret) => {
+                    setSecretNotice({
+                      pluginName,
+                      botToken,
+                      signingSecret,
+                      setup: installing === "janus" ? "janus" : "bridge",
+                    });
+                    setInstalling(null);
+                    load();
+                  }}
+                />
+              )}
             </div>
-
-            {installing === "janus" && (
-              <p className="pref-hint">
-                Janus dials Blob itself — no bridge, no public address. Register
-                it here, then give it the two values this page prints.
-              </p>
-            )}
-            {installing === "bridge" && (
-              <p className="pref-hint">
-                Any other AG-UI agent, with the bridge holding Blob's socket
-                beside it.
-              </p>
-            )}
-
-            {installing === "app" ? (
-              <InstallAppForm
-                catalog={catalog}
-                onError={onError}
-                onInstalled={(notice) => {
-                  setSecretNotice(notice);
-                  setInstalling(null);
-                  load();
-                }}
-              />
-            ) : (
-              <ConnectAgentForm
-                scopeCatalog={catalog?.scopes ?? {}}
-                onError={onError}
-                onConnected={(pluginName, botToken, signingSecret) => {
-                  setSecretNotice({
-                    pluginName,
-                    botToken,
-                    signingSecret,
-                    setup: installing === "janus" ? "janus" : "bridge",
-                  });
-                  setInstalling(null);
-                  load();
-                }}
-              />
-            )}
-          </div>
-        </Dialog>
-      )}
-    </section>
+          </Dialog>
+        )}
+      </DialogPresence>
+    </div>
   );
 }
 
@@ -367,13 +369,11 @@ function AgentRow({
         <div className="admin-row-title">{plugin.name}</div>
         <div className="admin-row-meta">
           {plugin.description || plugin.slug}
-          <span className="role-pill" style={{ marginLeft: 8 }}>
-            {plugin.runtime}
-          </span>
+          <span className="role-pill">{plugin.runtime}</span>
         </div>
       </td>
       <td className="admin-row-meta">{accessOf(plugin)}</td>
-      <td>
+      <td className="num">
         <span>{plugin.runsLastWeek ?? 0}</span>
         {live > 0 && (
           <span className="admin-live" aria-label={`${live} running now`}>
@@ -386,16 +386,12 @@ function AgentRow({
           {STATUS_LABEL[plugin.status] ?? plugin.status}
         </span>
         {plugin.runtime === "socket" && plugin.online != null && (
-          <span
-            className="role-pill"
-            data-online={plugin.online}
-            style={{ marginLeft: 6 }}
-          >
+          <span className="role-pill" data-online={plugin.online}>
             {plugin.online ? "online" : "offline"}
           </span>
         )}
       </td>
-      <td className="admin-row-actions">
+      <td className="console-cell-actions">
         <button
           type="button"
           className="btn btn-ghost"
@@ -433,11 +429,17 @@ function AgentRow({
  * and a tick that does nothing is worse than no tick.
  */
 function Guardrails({ policy }: { policy: WorkspacePolicy | null }) {
+  // A card, drawn by hand rather than with <Card>: it stays an <aside> named by its
+  // heading, which is what it was to a screen reader before it was a card.
   return (
-    <aside className="admin-guardrails" aria-labelledby="guardrails-title">
-      <h3 id="guardrails-title" className="section-label">
-        Guardrails
-      </h3>
+    <aside className="console-card admin-guardrails" aria-labelledby="guardrails-title">
+      <header className="console-card-header">
+        <div className="console-card-heading">
+          <h2 id="guardrails-title" className="console-card-title">
+            Guardrails
+          </h2>
+        </div>
+      </header>
       <ul className="admin-guardrail-list">
         <li>Agents act with the asker's permissions</li>
         {policy && (
@@ -466,10 +468,14 @@ function Guardrails({ policy }: { policy: WorkspacePolicy | null }) {
 function RunsThisWeek({ days }: { days: { date: string; runs: number }[] }) {
   const max = Math.max(1, ...days.map((d) => d.runs));
   return (
-    <section className="admin-chart" aria-labelledby="runs-week-title">
-      <h3 id="runs-week-title" className="section-label">
-        Runs this week
-      </h3>
+    <section className="console-card admin-chart" aria-labelledby="runs-week-title">
+      <header className="console-card-header">
+        <div className="console-card-heading">
+          <h2 id="runs-week-title" className="console-card-title">
+            Runs this week
+          </h2>
+        </div>
+      </header>
       <div
         className="admin-chart-bars"
         role="img"

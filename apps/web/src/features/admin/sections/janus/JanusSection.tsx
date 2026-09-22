@@ -21,6 +21,7 @@ import { api, ApiError, type JanusOverview } from "../../../../lib/api.ts";
 import { navigate } from "../../../../lib/router.ts";
 import { useFetch } from "../../../../lib/useFetch.ts";
 import type { ConsoleSectionProps } from "../../../console/ConsoleShell.tsx";
+import { Card, CardNotice } from "../../../console/Card.tsx";
 import { useAdminData } from "../../../console/hooks.ts";
 import { Installs } from "./Installs.tsx";
 import { Setup } from "./Setup.tsx";
@@ -69,11 +70,15 @@ export function JanusSection({ onError, isOwner }: ConsoleSectionProps) {
 
   if (!listed) {
     return (
-      <p className="pref-hint">
-        {listing
-          ? "Loading…"
-          : "The agents installed here could not be read, so there is nothing on this page yet."}
-      </p>
+      <div className="console-stack">
+        <Card>
+          <CardNotice>
+            {listing
+              ? "Loading…"
+              : "The agents installed here could not be read, so there is nothing on this page yet."}
+          </CardNotice>
+        </Card>
+      </div>
     );
   }
 
@@ -96,15 +101,16 @@ export function JanusSection({ onError, isOwner }: ConsoleSectionProps) {
   const overviewPending = !overview && reading;
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+    <div className="console-stack">
       {/* The same way back an app's own page has. The row in the nav is one click away,
           but somebody who arrived here from the Apps list's Configure is in the middle of
           that list's job and should not have to find their way back to it. */}
-      <div>
-        <button className="btn btn-ghost" onClick={() => navigate("/admin/apps")}>
-          ← All apps
-        </button>
-      </div>
+      <button
+        className="btn btn-ghost console-back"
+        onClick={() => navigate("/admin/apps")}
+      >
+        ← All apps
+      </button>
 
       {/* Above the workspace half rather than instead of it: a row can outlive the
           settings that put it there, and an admin looking at an agent that has stopped
@@ -122,7 +128,11 @@ export function JanusSection({ onError, isOwner }: ConsoleSectionProps) {
           above is the whole page in that state. Every state it draws is a reading, so
           until the first one has arrived there is a line saying so and no more. */}
       {overviewPending ? (
-        isOwner && <p className="pref-hint">Reading what Janus runs on…</p>
+        isOwner && (
+          <Card>
+            <CardNotice>Reading what Janus runs on…</CardNotice>
+          </Card>
+        )
       ) : (
         <ThisServer
           overview={overview?.data ?? null}
@@ -134,6 +144,6 @@ export function JanusSection({ onError, isOwner }: ConsoleSectionProps) {
       )}
 
       <Installs installs={overview?.data?.installs ?? []} />
-    </section>
+    </div>
   );
 }
