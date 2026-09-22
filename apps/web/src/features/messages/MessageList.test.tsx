@@ -42,6 +42,14 @@ beforeAll(() => {
     configurable: true,
     get: () => 600,
   });
+  // What the list reads to know which rows are on screen. happy-dom keeps a scrollTop
+  // that `scrollTo` sets, but reports every clientHeight as zero.
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+    configurable: true,
+    get(this: HTMLElement) {
+      return this.classList.contains("message-list") ? VIEWPORT_PX : ROW_PX;
+    },
+  });
   HTMLElement.prototype.getBoundingClientRect = function () {
     const height = this.classList.contains("message-list") ? VIEWPORT_PX : ROW_PX;
     return {
@@ -255,6 +263,35 @@ describe("MessageList", () => {
   });
 
   describe("the unread jump bar", () => {
+    /**
+     * Say where the list is scrolled to, as a browser would report it.
+     *
+     * Whether the bar is offered depends on what is on screen, and happy-dom cannot say:
+     * it does not clamp scrollTop, and the virtualizer's corrections for rows that measured
+     * smaller than estimated leave it at -800 or at 0 depending on which tests ran first.
+     * A test about what is on screen therefore states where the screen is. The list's own
+     * writes are ignored, the way a browser keeps a scroll the content cannot support.
+     */
+    function pinScroll(top: number) {
+      let current = top;
+      Object.defineProperty(HTMLElement.prototype, "scrollTop", {
+        configurable: true,
+        get(this: HTMLElement) {
+          return this.classList.contains("message-list") ? current : 0;
+        },
+        set() {},
+      });
+      return {
+        to(next: number) {
+          current = next;
+        },
+      };
+    }
+
+    afterEach(() => {
+      delete (HTMLElement.prototype as { scrollTop?: number }).scrollTop;
+    });
+
     function renderWithUnread() {
       const messages = makeMessages(500);
       // 99 of them are after the cursor.
@@ -293,6 +330,49 @@ describe("MessageList", () => {
       });
 
       expect(container.querySelector(".unread-jump-bar")).toBeNull();
+    });
+
+    it("goes away once the first new message has been on screen", () => {
+      // What the bar is for is getting you to the first thing you have not read. Once
+      // that has been in view it has done its job, and a bar still offering to jump
+      // there — over the messages it names — reads as the app not noticing.
+      // 30 rows, the first unread the sixth; the screen is the bottom 800px.
+      const scroll = pinScroll(800);
+      const messages = makeMessages(30);
+      const { container } = renderList({ messages, unreadAfterId: messages[4]!.id });
+      const list = container.querySelector(".message-list") as HTMLElement;
+      expect(container.querySelector(".unread-jump-bar")?.getAttribute("data-state")).toBe(
+        "open",
+      );
+
+      vi.useFakeTimers();
+      act(() => {
+        // Up to the top, where the first unread row sits; happy-dom sends no scroll
+        // event of its own for a changed scrollTop.
+        scroll.to(0);
+        list.dispatchEvent(new Event("scroll"));
+      });
+
+      expect(container.querySelector(".unread-jump-bar")?.getAttribute("data-state")).toBe(
+        "closed",
+      );
+      act(() => {
+        vi.advanceTimersByTime(EXIT_SETTLED_MS);
+      });
+      expect(container.querySelector(".unread-jump-bar")).toBeNull();
+    });
+
+    it("never appears when the first new message is already on screen", () => {
+      // Opened at the bottom with the unread tail in view: there is nothing to jump to,
+      // and a bar that entered only to fade out again would be noise.
+      pinScroll(800);
+      const messages = makeMessages(30);
+      const { container } = renderList({ messages, unreadAfterId: messages[26]!.id });
+
+      expect(container.querySelector(".unread-jump-bar")).toBeNull();
+      // The divider is still drawn: it marks where you left off, which is a different
+      // job from offering to take you there.
+      expect(container.querySelector(".unread-divider")).toBeTruthy();
     });
 
     it("does not follow you into the next conversation", () => {

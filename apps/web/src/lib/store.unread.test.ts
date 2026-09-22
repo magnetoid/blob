@@ -19,6 +19,9 @@ const markUnread = vi.fn(async () => ({
 }));
 const markRead = vi.fn(async () => ({}));
 const history = vi.fn(async () => ({ messages: [], hasMore: false }));
+// `openChannel` asks for the channel's run cards too. Nothing here is about them, and
+// left real the request reaches for a server that is not there and logs the failure.
+const forChannel = vi.fn(async () => ({ runs: [] }));
 
 vi.mock('./api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api.ts')>();
@@ -28,6 +31,7 @@ vi.mock('./api.ts', async (importOriginal) => {
       ...actual.api,
       channels: { ...actual.api.channels, markUnread, markRead },
       messages: { ...actual.api.messages, history },
+      agentRuns: { ...actual.api.agentRuns, forChannel },
     },
   };
 });
@@ -124,5 +128,37 @@ describe('coming back', () => {
     await useStore.getState().openChannel('c1');
 
     expect(history).toHaveBeenCalledWith('c1', { around: 'm4', limit: 50 });
+  });
+});
+
+describe('the New divider', () => {
+  // Frozen when you open a channel, so it does not jump while you read. Frozen at your
+  // cursor even when nothing was unread, it drew "New" over whatever arrived while you
+  // were looking — an agent's answer, your own message — and the "N new messages — jump"
+  // bar with it, pointing at messages already on the screen.
+  it('marks where you left off when the channel had something unread', async () => {
+    useStore.setState((s) => ({
+      channels: {
+        ...s.channels,
+        c1: { ...s.channels['c1'], hasUnread: true, lastReadMessageId: 'm4' },
+      } as never,
+    }));
+
+    await useStore.getState().openChannel('c1').catch(() => undefined);
+
+    expect(useStore.getState().unreadMarkers['c1']).toBe('m4');
+  });
+
+  it('marks nothing when you had read it all, so what arrives while you watch is not new', async () => {
+    useStore.setState((s) => ({
+      channels: {
+        ...s.channels,
+        c1: { ...s.channels['c1'], hasUnread: false, lastReadMessageId: 'm5' },
+      } as never,
+    }));
+
+    await useStore.getState().openChannel('c1').catch(() => undefined);
+
+    expect(useStore.getState().unreadMarkers['c1']).toBeNull();
   });
 });

@@ -624,10 +624,16 @@ export const useStore = create<State>((set, get) => ({
       // A file belongs to the conversation it was opened from, like a thread.
       filePreview: null,
       // Freeze the unread divider where it was on entry, so it doesn't jump as
-      // messages arrive while you're reading.
+      // messages arrive while you're reading — and only when there was something
+      // unread. Frozen at the cursor of a channel you had read to the end, it drew "New"
+      // over whatever arrived while you watched, your own messages included, and hung
+      // "N new messages — jump" over messages already on the screen. `hasUnread` is the
+      // sidebar's own dot, so the divider appears exactly when the dot said it would.
       unreadMarkers: {
         ...state.unreadMarkers,
-        [channelId]: state.channels[channelId]?.lastReadMessageId ?? null,
+        [channelId]: state.channels[channelId]?.hasUnread
+          ? (state.channels[channelId]?.lastReadMessageId ?? null)
+          : null,
       },
     });
 
