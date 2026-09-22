@@ -43,6 +43,37 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     date: '2026-09-22',
+    version: '1.4.0',
+    title: 'Small things answer',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Things answer when you use them: buttons give under a press, switches slide, and a message you save or a thread you follow pops when you turn it on.',
+      },
+      {
+        kind: 'added',
+        text: 'Dialogs fade out instead of vanishing, and the button that opened one has keyboard focus again as soon as it starts to close.',
+      },
+      {
+        kind: 'added',
+        text: 'A message rises into the conversation as it arrives, and only then. Nothing moves when you scroll back or switch channels.',
+      },
+      {
+        kind: 'changed',
+        text: 'Counts tick when they change, pictures and link previews fade in as they load, and the "is typing" line comes and goes.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Escape with one dialog open over another closes only the top one. What you typed in the one below is kept.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Reactions no longer pop again every time you scroll past them.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-22',
     version: '1.3.0',
     title: 'Files from agents open beside the conversation',
     entries: [

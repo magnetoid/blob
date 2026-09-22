@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { leftFirstView } from './firstView.ts';
 
 /**
  * Everything an admin configures on this server.
@@ -299,7 +300,11 @@ function currentPath(): string {
 export function navigate(path: string, options: { replace?: boolean } = {}): void {
   if (path === currentPath()) return;
   if (options.replace) window.history.replaceState(null, '', path);
-  else window.history.pushState(null, '', path);
+  else {
+    // Somewhere else, on purpose: what shows from here on was switched to (`firstView`).
+    leftFirstView();
+    window.history.pushState(null, '', path);
+  }
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 

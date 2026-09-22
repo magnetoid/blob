@@ -111,7 +111,12 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
           </span>
         </div>
 
-        {error && <p className="error-text">{error}</p>}
+        {/* Only ever set by submitting, so it is always a refusal, and settles in. */}
+        {error && (
+          <p className="error-text" data-refused="true">
+            {error}
+          </p>
+        )}
 
         <div className="dialog-actions">
           <button className="btn" type="button" onClick={onClose}>

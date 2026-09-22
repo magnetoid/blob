@@ -15,6 +15,7 @@ import { useState } from 'react';
 import type { MessageBlock } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { renderMarkdown, type RenderOptions } from '../../lib/markdown.tsx';
+import { revealIfCached, revealOnError, revealOnLoad } from '../../lib/imageReveal.ts';
 
 interface Props {
   messageId: string;
@@ -84,6 +85,9 @@ export function BlockRenderer({ messageId, blocks, options }: Props) {
                 src={block.url}
                 alt={block.alt ?? ''}
                 loading="lazy"
+                ref={revealIfCached}
+                onLoad={revealOnLoad}
+                onError={revealOnError}
               />
             );
 

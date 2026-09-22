@@ -1,6 +1,7 @@
 /** Initials avatar with optional presence dot. */
 
 import type { PresenceState, User, UserKind } from "@blob/shared";
+import { revealIfCached, revealOnLoad } from "../lib/imageReveal.ts";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
@@ -23,7 +24,25 @@ export function Avatar({ user, size = "md" }: Props) {
   const name = user?.displayName ?? "?";
   return (
     <span className="avatar" data-size={size} data-kind={user?.kind} title={name}>
-      {user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : initials(name)}
+      {user?.avatarUrl ? (
+        // The photo over the initials rather than instead of them: they are what shows
+        // while it loads, and what stays if it never does — a broken photo used to leave
+        // an empty square. Keyed by the address, so a new photo fades in as a new image.
+        <>
+          <img
+            key={user.avatarUrl}
+            src={user.avatarUrl}
+            alt=""
+            ref={revealIfCached}
+            onLoad={revealOnLoad}
+          />
+          <span className="avatar-initials" aria-hidden="true">
+            {initials(name)}
+          </span>
+        </>
+      ) : (
+        initials(name)
+      )}
     </span>
   );
 }

@@ -32,6 +32,25 @@ describe('a dialog’s Escape', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('cancels the browser’s own answer to the key once it has answered it', () => {
+    // After every handler, the browser turns an Escape into a close request for whichever
+    // modal dialog is on top at that moment. A dialog that has just started leaving is no
+    // longer modal, so that request went to the dialog *under* it: one Escape over Help
+    // closed Feedback too, and the draft in it. happy-dom has no close requests, so what
+    // can be held here is the flag the browser reads.
+    render(<Dialog onClose={vi.fn()} />);
+
+    const handled = fireEvent.keyDown(window, { key: 'Escape' });
+
+    // `fireEvent` returns false for an event whose default was prevented.
+    expect(handled).toBe(false);
+  });
+
+  it('leaves the browser’s answer alone when nothing here took the key', () => {
+    const handled = fireEvent.keyDown(window, { key: 'Escape' });
+    expect(handled).toBe(true);
+  });
+
   it('does not reach a shell handler registered before it', () => {
     // The ordering the app actually has: Workspace mounts first and listens on window,
     // so a bubble-phase listener in the dialog would run *second* and the shell would

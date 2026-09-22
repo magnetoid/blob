@@ -11,6 +11,27 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "a2568a499e7c250b0ff78418500df0d1c889f21e",
+    "shortSha": "a2568a49",
+    "subject": "feat: small things answer — dialogs leave, arrivals rise, presses give",
+    "date": "2026-09-22T14:43:18+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d0db9ae55276d28cb499ac8495032f091de4c785",
+    "shortSha": "d0db9ae5",
+    "subject": "feat: the workspace mark folds the channel list — 1.3.0",
+    "date": "2026-09-22T04:17:07+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "b99e85b8004f4a90a0cdacfee96ab0edcfa4523a",
+    "shortSha": "b99e85b8",
+    "subject": "fix: the new-messages bar leaves once the new messages have been seen",
+    "date": "2026-09-22T04:16:50+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "7f3d74569e47529a4186d8baaadf7ff2da84ff03",
     "shortSha": "7f3d7456",
     "subject": "chore: pin Janus 0.18.0, which hands Blob the files a reply names",
@@ -407,27 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "ac126a69",
     "subject": "Let the gate accept the readiness body it now serves",
     "date": "2026-09-14T04:42:10+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "c173f327bcac26b3a74f3e452a225ad19c5d1c78",
-    "shortSha": "c173f327",
-    "subject": "Make the deploy job read what shipped instead of trusting its own 200",
-    "date": "2026-09-14T04:29:24+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "0955008dc535d65bafee3b986f3b8353ae2ee82a",
-    "shortSha": "0955008d",
-    "subject": "Say that Blob organises work, and enforce the rule that was only prose",
-    "date": "2026-09-14T03:48:18+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e36703097d0e78bdc0abb63c72e34a0750de4816",
-    "shortSha": "e3670309",
-    "subject": "Give the smallest actions something to say back",
-    "date": "2026-09-14T03:42:49+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

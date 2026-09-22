@@ -17,6 +17,7 @@ import type { ChannelWithState, NotifyLevel } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
+import { DialogPresence } from '../../components/Dialog.tsx';
 import { Menu } from '../../components/Menu.tsx';
 
 interface Props {
@@ -141,43 +142,47 @@ export function ChannelMenu({ channel, onClose, onOpenDetails }: Props) {
         )}
       </Menu>
 
-      {confirming === 'leave' && (
-        <ConfirmDialog
-          title={`Leave #${channel.name}?`}
-          body={
-            channel.kind === 'private'
-              ? 'This channel is private, so you will not be able to find it again unless somebody adds you back.'
-              : 'You can rejoin whenever you like. Nothing is deleted.'
-          }
-          confirmLabel="Leave"
-          danger
-          onClose={() => setConfirming(null)}
-          onConfirm={() => {
-            setConfirming(null);
-            onClose();
-            void leaveChannel(channel.id).catch(() =>
-              setError('Could not leave that channel.'),
-            );
-          }}
-        />
-      )}
+      <DialogPresence when={confirming === 'leave'}>
+        {() => (
+          <ConfirmDialog
+            title={`Leave #${channel.name}?`}
+            body={
+              channel.kind === 'private'
+                ? 'This channel is private, so you will not be able to find it again unless somebody adds you back.'
+                : 'You can rejoin whenever you like. Nothing is deleted.'
+            }
+            confirmLabel="Leave"
+            danger
+            onClose={() => setConfirming(null)}
+            onConfirm={() => {
+              setConfirming(null);
+              onClose();
+              void leaveChannel(channel.id).catch(() =>
+                setError('Could not leave that channel.'),
+              );
+            }}
+          />
+        )}
+      </DialogPresence>
 
-      {confirming === 'archive' && (
-        <ConfirmDialog
-          title={`Archive #${channel.name}?`}
-          body="It becomes read-only for everybody. Its history stays searchable."
-          confirmLabel="Archive"
-          danger
-          onClose={() => setConfirming(null)}
-          onConfirm={() => {
-            setConfirming(null);
-            onClose();
-            void api.channels
-              .archive(channel.id)
-              .catch(() => setError('Could not archive that channel.'));
-          }}
-        />
-      )}
+      <DialogPresence when={confirming === 'archive'}>
+        {() => (
+          <ConfirmDialog
+            title={`Archive #${channel.name}?`}
+            body="It becomes read-only for everybody. Its history stays searchable."
+            confirmLabel="Archive"
+            danger
+            onClose={() => setConfirming(null)}
+            onConfirm={() => {
+              setConfirming(null);
+              onClose();
+              void api.channels
+                .archive(channel.id)
+                .catch(() => setError('Could not archive that channel.'));
+            }}
+          />
+        )}
+      </DialogPresence>
     </>
   );
 }

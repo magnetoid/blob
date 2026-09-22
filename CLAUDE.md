@@ -295,7 +295,7 @@ still sit with the subject it belongs to instead of in a bucket named after a pe
 **The design layer.** `styles/tokens.css` is the whole vocabulary and `styles/app.css`
 spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
 (`--radius-xs..full`), motion (`--dur-*`, `--ease-*`, `--motion-*`) and a stacking ladder
-(`--z-raised` … `--z-toast`). Three rules the file will not tell you on its own:
+(`--z-raised` … `--z-toast`). Four rules the file will not tell you on its own:
 
 * **The 44 colour names are a contract with the server.** `services/themes.py` allowlists
   them by string and slices that tuple *by index* to group the theme editor, so renaming
@@ -305,17 +305,42 @@ spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
 * **Elevation carries its own border.** Every `--elev-*` opens with a `0 0 0 1px` ring, so
   an elevated surface sets `box-shadow` and no `border`. Setting both is how four
   different popover treatments drifted apart before.
-* **Overlays enter; menus, toasts, the thread panel and the two conversation notices
-  also leave.** Each of those is held through a 150 ms exit by `lib/usePresence.ts`
-  (`{present, state}`; `animationend` on the node itself, or the exported `FALLBACK_MS`),
-  with `data-state="closed"` and `inert` on the leaving node — the thread panel through
-  `ThreadPanelSlot`, which also keeps the shell's third column until the panel is gone,
-  and only inside a conversation. A notice belongs to the channel it was for: the
-  catch-up strip and the unread jump bar are keyed by conversation so a switch never
-  fades out the previous channel's count. The dialogs are `{open && <X/>}` in their
-  parents and run a focus trap, an autofocus and (CatchUpPanel) a request on mount, so
-  rendering them always — which is what an exit animation needs — would fire all of that
-  at start-up; they enter only, the lightbox included. The palette gets no motion at all.
+* **Overlays enter and leave — menus, toasts, the thread panel, the two conversation
+  notices, the typing line and the dialogs.** Each is held through a 150 ms exit by
+  `lib/usePresence.ts` (`{present, state}`; `animationend` on the node itself, or the
+  exported `FALLBACK_MS`), with `data-state="closed"` and `inert` on the leaving node —
+  the thread panel through `ThreadPanelSlot`, which also keeps the shell's third column
+  until the panel is gone, and only inside a conversation. A notice belongs to the
+  channel it was for: the catch-up strip, the unread jump bar and the typing line are
+  keyed by conversation so a switch never fades out the previous channel's. A dialog
+  leaves through `DialogPresence` (`components/Dialog.tsx`), which still mounts it on the
+  render that opens it, so its focus trap, autofocus and (CatchUpPanel) request fire
+  exactly when `{open && <X/>}` fired them. That was the reason dialogs used to be
+  enter-only — rendering them *always* would fire all of it at start-up — and a wrapper
+  that mounts on open and only unmounts late does not render them always. As the exit
+  begins, `letGo` closes the `<dialog>` and puts it straight back in the top layer as a
+  manual popover in the same task, so no frame is drawn outside it and no `overlay`
+  property is needed: focus is back on the opener at once and the page takes keys and
+  clicks while the dialog fades over it, `inert` and off the Escape stack. That is also
+  why `useEscape` default-prevents the Escape it answers: the browser's own close request
+  runs after the handlers and goes to whichever dialog is modal *by then* — the one
+  underneath, once the top one has let go — so one Escape closed two. Where there
+  are no popovers it stays modal through the exit instead — the page inert and focus
+  on `<body>` for those 150 ms, handed back on unmount — which is the trade the swap
+  exists to avoid. Reopened mid-exit, it mounts a fresh dialog. The lightbox stays
+  enter-only, the console's confirmations are still plain mounts, and the palette gets
+  no motion at all.
+* **Motion in the message list is keyed to arriving, never to mounting.** The list is
+  virtualised, so a row mounts on every scroll and every channel switch, and anything
+  that animates on mount replays on all of them. A message's entrance plays only while
+  `freshMessages` in the store marks it — somebody else's landing live in the
+  conversation on screen, or yours when you send it — and the row settles the mark on its
+  own `animationend`; every mark also expires after `FALLBACK_MS`. What turns up on a row
+  later — a link preview, a file, a reaction chip, a changed count (`components/Count.tsx`)
+  — is compared with what the row was first drawn with. The same idea keeps views still:
+  an empty state arrives only on the view the app opened onto, before anything on it is
+  pressed or typed (`lib/firstView.ts`), since every empty state after that was switched
+  to — another view, or a tab or filter inside one — and a switch stays instant.
 
 Reduced motion is a token policy, not a blanket clamp: distances and scale go to zero and
 fades keep their duration. Anything sized for a pointer gets a 44px minimum under

@@ -65,11 +65,32 @@ button {
 
 :focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  /* Where the ring rests. A control whose ring sits elsewhere — inside its own edge, like
+     an emoji cell — sets `--focus-ring-offset` rather than `outline-offset`, so the
+     entrance below starts from *its* resting place and not from this one. It is a knob
+     on this rule, not a token, and so has no home in tokens.css. */
+  outline-offset: var(--focus-ring-offset, 2px);
   /* Follow the element rather than impose a corner on it: this rule reaches buttons,
      pills and cards whose own radii span 4px to 12px, and a fixed value drew a
      differently-cornered ring around each of them. */
   border-radius: inherit;
+  /* The ring lands rather than appears — keyboard focus only, since this is the one
+     pseudo-class that knows. An animation, not a transition, so an element's own
+     `transition` list is left alone while it is focused; and declared this early so
+     that any element with an entrance of its own (a dialog's panel, an arriving
+     message) outranks it and keeps that. */
+  animation: focus-ring-in var(--dur-fast) var(--ease-out);
+}
+
+/* From a little further out, and from nothing. `outline-offset` is the one property here
+   that is not a composite: it moves a painted ring and never a box — outlines take no
+   part in layout — so it repaints the ring and reflows nothing. Under reduced motion the
+   distance is 0, the ring starts where it rests, and it only fades in. */
+@keyframes focus-ring-in {
+  from {
+    outline-color: transparent;
+    outline-offset: calc(var(--focus-ring-offset, 2px) + var(--motion-slide));
+  }
 }
 
 /* The policy is *reduce*, not remove. What makes people ill is movement — things
@@ -128,7 +149,8 @@ button {
   transition:
     border-color var(--dur-fast) var(--ease-color),
     color var(--dur-fast) var(--ease-color),
-    background var(--dur-fast) var(--ease-color);
+    background var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
 }
 
 .btn:hover:not(:disabled) {
@@ -218,9 +240,12 @@ button {
   height: 30px;
   border-radius: var(--radius-sm);
   color: var(--text-3);
+  /* Transform too, so the press below gives and returns rather than snapping to 97%
+     and back — the same easing the sidebar's rows already press with. */
   transition:
     background var(--dur-fast) var(--ease-color),
-    color var(--dur-fast) var(--ease-color);
+    color var(--dur-fast) var(--ease-color),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .icon-btn:hover {
@@ -237,6 +262,8 @@ button {
   font-size: var(--text-base);
   color: var(--text);
   outline: none;
+  /* A field's focus ring is its border, and it now arrives the way the composer's does. */
+  transition: border-color var(--dur-fast) var(--ease-color);
 }
 
 .input:focus {
@@ -258,6 +285,19 @@ button {
 .error-text {
   color: var(--danger);
   font-size: var(--text-ui);
+  /* Every error line mounts when there is something to say, so it fades in when it does
+     — and again after a retry wherever the form clears the line before it asks, as the
+     sign-in form does. */
+  animation: fade-in var(--dur-open) var(--ease-out);
+}
+
+/* The answer to a submit — "no" to what was just typed — also settles into place, rising
+   the small distance once, one way, and stopping there. Only where the submit handler
+   said so: a line that reports a state (no model configured, a list that did not load)
+   is not a refusal, and one that moved at every opening of its dialog would be scolding
+   somebody who had done nothing. */
+.error-text[data-refused='true'] {
+  animation: arrive var(--dur-open) var(--ease-out);
 }
 
 .muted {
@@ -425,6 +465,9 @@ button {
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
+  /* Once, when the screen appears. Switching between sign-in and sign-up keeps the
+     same form and so keeps still. */
+  animation: arrive var(--dur-open) var(--ease-out);
 }
 
 .auth-mark {
@@ -875,6 +918,14 @@ button {
   align-items: center;
 }
 
+/* A conversation that joined the list while it was on screen — created, joined, opened,
+   or somebody added you. From the side the rows already lean towards on hover. The
+   sidebar decides which rows these are (`useArrivals`), so the list at start-up and
+   after the console stays still. */
+.channel-row-wrap[data-arriving='true'] {
+  animation: row-arrive var(--dur-open) var(--ease-out);
+}
+
 .channel-row-wrap .channel-row {
   flex: 1;
   min-width: 0;
@@ -1041,12 +1092,40 @@ button {
   font-weight: 600;
   letter-spacing: 0.01em;
   overflow: hidden;
+  position: relative;
 }
 
+/* The photo sits over the initials and fades in once it has loaded, and the initials
+   fade out under it — one crossfade rather than a letter swapped for a picture. One
+   already in the browser's cache is marked `cached` before the first paint and shown at
+   once: the message list remounts its rows as they scroll back into view, and a face
+   fading in on every one of them would be the flicker this replaces. A photo that never
+   loads leaves the initials, where it used to leave an empty square. */
 .avatar img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--dur-open) var(--ease-out);
+}
+
+.avatar-initials {
+  transition: opacity var(--dur-open) var(--ease-out);
+}
+
+.avatar img[data-loaded] {
+  opacity: 1;
+}
+
+.avatar img[data-loaded] + .avatar-initials {
+  opacity: 0;
+}
+
+.avatar img[data-loaded='cached'],
+.avatar img[data-loaded='cached'] + .avatar-initials {
+  transition: none;
 }
 
 .avatar[data-size='sm'] {
@@ -1314,6 +1393,15 @@ button {
   opacity: 0.55;
 }
 
+/* A message arriving: somebody else's landing live in the conversation on screen, or
+   yours the moment you send it. Keyed to the store's mark rather than to mounting — the
+   list is virtualised, so a row mounts on every scroll and every channel switch, and an
+   entrance keyed to that would play on all of them. The row settles the mark when this
+   ends. No `to`, so a pending row rises to its own dimmed opacity rather than to 1. */
+.message[data-fresh='true'] {
+  animation: arrive var(--dur-open) var(--ease-out);
+}
+
 .message-gutter {
   width: 36px;
   flex: none;
@@ -1521,6 +1609,14 @@ button {
   background: var(--surface-hover);
 }
 
+/* Save for later, the moment it is turned on: the icon is worth one more glance. It
+   starts because the animation's name goes from none to `badge-pop` when
+   `aria-pressed` flips, so turning it off again is still. A row that mounts already
+   saved plays it too, inside a toolbar nobody can see until they hover. */
+.message-action[aria-pressed='true'] svg {
+  animation: badge-pop var(--dur-fast) var(--ease-out);
+}
+
 .message-action[data-emoji='true'] {
   font-size: var(--text-title);
   line-height: 1;
@@ -1553,10 +1649,16 @@ button {
   background: var(--surface);
   transition:
     border-color var(--dur-fast) var(--ease-color),
-    background var(--dur-fast) var(--ease-color);
-  /* Keyed by emoji, so a new one mounts and plays this while the others sit still.
-     Reacting is the smallest thing you can do to a message and the only feedback was
-     the chip being there a frame later. */
+    background var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
+}
+
+/* Keyed by emoji, so a new one mounts and plays this while the others sit still.
+   Reacting is the smallest thing you can do to a message and the only feedback was the
+   chip being there a frame later. Only a chip that appeared after its row was drawn: a
+   row mounts again on every scroll and channel switch, and every chip on it used to pop
+   each time. */
+.reaction[data-arrived='true'] {
   animation: reaction-pop var(--dur-fast) var(--ease-out);
 }
 
@@ -1586,9 +1688,18 @@ button {
    The two motions divide by *what changed*, not by who did it. The chip's own
    reaction-pop plays when a chip appears, because `.reaction` is keyed by its emoji and
    only a new emoji mounts one — joining a chip somebody else started moves no chip. This
-   plays whenever the number changes, yours or anybody's. */
-.reaction-count {
+   plays whenever the number changes, yours or anybody's — and, through `Count`, only
+   then: not when the row it is on mounts. The reply counts tick by the same rule. */
+.reaction-count[data-changed='true'],
+.thread-summary-count[data-changed='true'],
+.panel-sub-count[data-changed='true'] {
   animation: count-tick var(--dur-fast) var(--ease-out);
+}
+
+/* A transform does nothing to an inline box, and the thread panel's count is one. */
+.thread-summary-count,
+.panel-sub-count {
+  display: inline-block;
 }
 
 .reaction:hover {
@@ -1632,6 +1743,14 @@ button {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 9px;
+}
+
+/* A link preview, or a file, that arrived after its message — the unfurl a second or
+   two later, an agent's file following its answer. Marked by the row against what it
+   was first drawn with, so a row that mounts already holding them keeps still. */
+.link-preview[data-arrived='true'],
+.attachments > [data-arrived='true'] {
+  animation: arrive var(--dur-open) var(--ease-out);
 }
 
 .files-grid {
@@ -1868,6 +1987,18 @@ dialog.lightbox-host::backdrop {
   color: var(--text-5);
 }
 
+/* Somebody starts typing: the line rises in from where the conversation continues. It
+   leaves through `usePresence` like the notices do, keeping its sentence while it goes;
+   the closed rule is written out, as theirs are, so the exit does not depend on which of
+   this and the shared `[data-state="closed"]` happens to come later in the file. */
+.typing-dots {
+  animation: arrive var(--dur-open) var(--ease-out);
+}
+
+.typing-dots[data-state='closed'] {
+  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+}
+
 @keyframes typing-dot {
   0%,
   80%,
@@ -1954,9 +2085,13 @@ dialog.lightbox-host::backdrop {
   border-radius: var(--radius-md);
   background: var(--disabled-bg);
   color: var(--disabled-fg);
+  /* Arming — the first character typed — already fades it to the accent; this adds the
+     give when it is pressed. No pop on arming: the composer mounts again on every channel
+     switch, and a draft waiting in the next one would pop it on the way in. */
   transition:
     background var(--dur-fast) var(--ease-color),
-    color var(--dur-fast) var(--ease-color);
+    color var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
 }
 
 .send-btn[data-ready='true'] {
@@ -2568,6 +2703,19 @@ dialog.palette-host {
   margin-right: 14px;
 }
 
+/* The palette gets no motion, and this is the one `.chip` in it: no give when it is
+   pressed, no fade when it changes, and a focus ring that is simply there. Written with
+   the press's own selector, which would otherwise outrank a plain `.palette-scope`. */
+.chip.palette-scope,
+.chip.palette-scope:active:not(:disabled) {
+  scale: none;
+  transition: none;
+}
+
+.chip.palette-scope:focus-visible {
+  animation: none;
+}
+
 .palette-input {
   /* Gives up the width the scope chip needs; `min-width: 0` is what lets a flex child
      shrink below its content at all. */
@@ -2743,7 +2891,9 @@ dialog.dialog-host::backdrop {
   /* A switch track is a stadium, not a rounded rectangle. */
   border-radius: var(--radius-full);
   background: var(--track-off);
-  transition: background var(--dur-fast) var(--ease-color);
+  transition:
+    background var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
 }
 
 .toggle:disabled {
@@ -2764,8 +2914,10 @@ dialog.dialog-host::backdrop {
   box-shadow: var(--shadow-knob);
   /* The knob used to be positioned by flipping justify-content from start to end,
      which is a discrete property: it teleported while the track colour faded under
-     it. 40px wide, less 2px padding either side and a 19px knob, is 17px of travel. */
-  transition: transform var(--dur-fast) var(--ease-standard);
+     it. 40px wide, less 2px padding either side and a 19px knob, is 17px of travel —
+     thrown on `--ease-out`, so it leaves at once and settles, the way everything else
+     here that answers a click does. */
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
 .toggle[aria-pressed='true'] span {
@@ -2837,12 +2989,96 @@ dialog.dialog-host::backdrop {
   transform: scale(var(--motion-press));
 }
 
+/* The rest of the controls give too — every button, chip and switch, and the small
+   dismiss and add buttons that had no press at all. Through `scale` rather than
+   `transform`: the individual property composes with whatever transform an element
+   already carries (a lift on hover, a knob's offset) where `transform: scale()` would
+   replace it and make the control jump. Each of these transitions `scale`, below or on
+   its own rule, so the give eases in and back instead of snapping. Nothing here is in
+   the list above, or it would be pressed twice. */
+.btn:active:not(:disabled),
+.chip:active:not(:disabled),
+.toggle:active:not(:disabled),
+.send-btn:active:not(:disabled),
+.reaction:active,
+.thread-summary:active,
+.sidebar-add:active,
+.sidebar-inline-add:active,
+.channel-kebab:active,
+.new-message-person:active:not(:disabled),
+.emoji-cell:active,
+.emoji-tone:active,
+.attachment-chip-remove:active,
+.toast-dismiss:active,
+.unread-jump-dismiss:active,
+.catchup-strip-dismiss:active,
+.ephemeral-dismiss:active {
+  scale: var(--motion-press);
+}
+
+/* Hover answers in colour everywhere, not only where somebody remembered to write a
+   transition: each of these changed its ground, border, colour or opacity on hover in a
+   single frame. The same 120ms the buttons and the sidebar's rows already take;
+   transform and scale for the presses. Not a keyboard highlight — the autocomplete's
+   and the emoji grid's move under hands that are typing, and a highlight a beat behind
+   the key reads as lag; the emoji cell is handled beside its own rules. */
+.channel-kebab,
+.sidebar-add,
+.sidebar-inline-add,
+.message-action,
+.menu-item,
+.thread-summary,
+.attachment-file,
+.link-preview,
+.attachment-chip-remove,
+.chip,
+.summary-cite,
+.emoji-tone,
+.ephemeral-dismiss,
+.pinned-item,
+.browse-row,
+button.member-row,
+.new-message-person,
+.shortcut-help-more,
+.help-ref-link,
+.toast-dismiss,
+.unread-jump-dismiss,
+.catchup-strip-dismiss {
+  transition:
+    background-color var(--dur-fast) var(--ease-color),
+    border-color var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color),
+    opacity var(--dur-fast) var(--ease-color),
+    transform var(--dur-fast) var(--ease-out),
+    scale var(--dur-fast) var(--ease-out);
+}
+
 /* ─── empty states ───────────────────────────────────────────────────────── */
 .empty-state {
   max-width: 520px;
   margin: 60px auto;
   padding: 0 24px;
   text-align: center;
+}
+
+/* Only on the view the app opened onto, before anything on it has been touched
+   (`lib/firstView`): the first thing on the screen is worth a beat. Every view after
+   that is one somebody switched to — Threads, Later, Activity, Scheduled, Tasks, Files, a
+   console section, or a tab or a filter inside one — and switching stays instant, so an
+   empty state there simply appears. */
+.empty-state[data-arriving='true'] {
+  animation: arrive var(--dur-open) var(--ease-out);
+}
+
+/* And never in a conversation, a search or the channel browser, even on that first view:
+   the first is a channel switch away from playing on every switch, and the other two
+   flip between results and nothing as a filter is typed or toggled. The search is told
+   apart by its head — `.search-results` alone is also the list in Saved, Activity,
+   Threads and Tasks. */
+.message-list .empty-state,
+.search-head ~ .search-results .empty-state,
+.browse-body .empty-state {
+  animation: none;
 }
 
 .empty-state-mark {
@@ -2887,6 +3123,8 @@ dialog.dialog-host::backdrop {
   border-bottom: 1px solid var(--hairline-soft);
   font-size: var(--text-meta);
   color: var(--text-3);
+  /* News about the connection, so it arrives rather than cuts in over the conversation. */
+  animation: arrive var(--dur-open) var(--ease-out);
 }
 
 .message-delivery {
@@ -4582,19 +4820,29 @@ select.chip {
 }
 
 .emoji-cell:hover {
-  background: var(--surface-hover);
+  background-color: var(--surface-hover);
 }
 
 /* The keyboard cursor. Distinct from :hover so that arrowing through the list
-   reads as a selection rather than as a stray pointer. */
+   reads as a selection rather than as a stray pointer. Painted as an image layer over
+   the cell's ground rather than as the ground itself, because the ground is what the
+   pointer's highlight fades — and a transition cannot tell which of the two changed it,
+   so a cursor painted there faded out of every cell the arrow keys left. A layer that
+   nothing transitions moves with the key, on and off. */
 .emoji-cell[data-active='true'] {
-  background: var(--accent-wash);
+  background-image: linear-gradient(var(--accent-wash), var(--accent-wash));
   box-shadow: inset 0 0 0 1px var(--accent-border);
 }
 
-.emoji-cell:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+/* Inside its own edge: the cells touch, so a ring outside one would be drawn over its
+   neighbours. Through the ring's knob, so its entrance starts from here too. The
+   pointer's highlight fades in and out, like any other hover here, and the press eases
+   like every other press. */
+.emoji-cell {
+  --focus-ring-offset: -2px;
+  transition:
+    background-color var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
 }
 
 .emoji-empty {
@@ -4656,6 +4904,8 @@ select.chip {
   border-left: 3px solid var(--accent-border);
   border-radius: var(--radius-md);
   background: var(--surface);
+  /* A slash command's answer, for your eyes: it arrives above the composer that asked. */
+  animation: arrive var(--dur-open) var(--ease-out);
 }
 
 .ephemeral-body {
@@ -5008,18 +5258,21 @@ select.chip {
 }
 
 /* ─── overlay motion ─────────────────────────────────────────────────────────
-   Menus, toasts, the thread panel and the two conversation notices enter and leave;
-   the dialogs only enter. The difference is not taste, it is mount semantics: each of
-   the first group is held in the document through its exit by usePresence, while the
-   dialogs are `{open && <X/>}` in their parents and run real work on mount — a focus
-   trap, an autofocus, and in CatchUpPanel's case a request. Rendering them always so
-   they could animate out would fire all of that at start-up, so they keep the
-   conditional and lose the exit. An enter that is right is most of the benefit;
-   a missing exit reads as "fast", where a missing enter reads as "cheap".
+   Menus, toasts, the thread panel, the two conversation notices, the typing line and
+   the dialogs enter and leave. Each is held in the document through its exit by
+   usePresence. The dialogs were enter-only until DialogPresence, for a reason of mount
+   semantics rather than taste: they run real work on mount — a focus trap, an
+   autofocus, and in CatchUpPanel's case a request — and rendering them always so they
+   could animate out would have fired all of that at start-up. The wrapper still mounts
+   a dialog on the render that opens it and only unmounts it late, so none of that moved.
+   As its exit begins it stops being modal but not visible — closed, and back in the top
+   layer as a popover in the same task — so focus goes home and the page takes keys again
+   at once, its backdrop still fades with it, and nothing here needs the `overlay`
+   property. Without popovers it stays modal, and `inert`, until the exit ends.
 
-   The palette is the exception that gets nothing: it is opened dozens of times a
-   day from the keyboard, and a launcher that makes you wait is a launcher you
-   stop reaching for. */
+   The lightbox is left enter-only, and the palette is the exception that gets nothing:
+   it is opened dozens of times a day from the keyboard, and a launcher that makes you
+   wait is a launcher you stop reaching for. */
 
 @keyframes overlay-in {
   from {
@@ -5029,9 +5282,36 @@ select.chip {
   }
 }
 
-@keyframes backdrop-in {
+/* A fade and nothing else, for what should not move: a backdrop, an error line. */
+@keyframes fade-in {
   from {
     opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Played by whatever has just arrived: a message landing in the conversation, a link
+   preview or a file that came after it, the typing line, a refusal under a form, an
+   empty state on first load, the sign-in card. From below, like the toast, but by the
+   small distance: these are in the flow of the page rather than floating over it. One
+   way, and it never passes where it rests. No `to`, so each settles on its own opacity. */
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-slide));
+  }
+}
+
+/* A conversation joining the sidebar, from the side its rows lean towards on hover. */
+@keyframes row-arrive {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--motion-slide)));
   }
 }
 
@@ -5068,8 +5348,9 @@ select.chip {
 }
 
 /* Played by .badge — the sidebar's mention and saved counts — on every re-mount, which
-   is every change of the number it carries. Never all the way from transparent: the
-   badge is still there, it is only worth one more glance. */
+   is every change of the number it carries; and by Save for later and Follow when they
+   are turned on. Never all the way from transparent: the thing is still there, it is
+   only worth one more glance. */
 @keyframes badge-pop {
   from {
     transform: scale(var(--motion-scale-in));
@@ -5081,11 +5362,12 @@ select.chip {
   }
 }
 
-/* Played by .reaction-count whenever the number changes, whoever changed it. A rise
-   rather than a pop, because the chip around it is not moving. No opacity: a brand new
-   chip fades in as a whole with `reaction-pop`, and a digit fading inside a surface that
-   is itself fading is two ramps over the same 120ms — which is what your own first
-   reaction looked like. The tick is the rise, at full opacity. */
+/* Played by .reaction-count, and by the reply counts, whenever the number changes,
+   whoever changed it. A rise rather than a pop, because the chip around it is not
+   moving. No opacity: a brand new chip fades in as a whole with `reaction-pop`, and a
+   digit fading inside a surface that is itself fading is two ramps over the same
+   120ms — which is what your own first reaction looked like. The tick is the rise, at
+   full opacity. */
 @keyframes count-tick {
   from {
     transform: translateY(var(--motion-slide));
@@ -5129,11 +5411,29 @@ select.chip {
 }
 
 dialog.dialog-host::backdrop {
-  animation: backdrop-in var(--dur-open) var(--ease-out);
+  animation: fade-in var(--dur-open) var(--ease-out);
 }
 
 .dialog {
   animation: overlay-in var(--dur-modal) var(--ease-out);
+}
+
+/* A dialog on its way out. The element itself takes the shared closed rule above — it is
+   the panel's own box, so it shrinks and fades as the panel came in — and its backdrop
+   fades with it. It is no longer modal by now: `letGo` in Dialog.tsx closed it and put
+   it straight back in the top layer as a popover, so the page behind is live again while
+   this plays, and there is still a backdrop to fade. */
+dialog.dialog-host[data-state='closed']::backdrop {
+  animation: fade-out var(--dur-exit) var(--ease-in) forwards;
+}
+
+/* For the instant between closing it and showing it again, a dialog is `display: none`,
+   and an element that is not displayed loses its animations — the exit would restart, or
+   be cut. The popover attribute is set only while that swap is under way or done, so it
+   is exactly what keeps the dialog drawn. Where it sits does not move: a popover and a
+   modal are both fixed to the viewport and centred by the same margins. */
+dialog.dialog-host[data-state='closed'][popover] {
+  display: block;
 }
 
 /* The lightbox is a dialog too, and the one whose picture still cut in: its panel is
@@ -5141,10 +5441,10 @@ dialog.dialog-host::backdrop {
    never cut — `components/Dialog.tsx` renders `dialog-host` and `lightbox-host` on the
    same element, so the rule above already fades it over --dur-open. It is restated here
    on --dur-modal only so the picture and the dark behind it move on one token rather
-   than on two that are identical today. Enter only: `{open && <Dialog/>}` leaves
-   nothing mounted to animate out, so the close stays a cut like the rest of the dialogs. */
+   than on two that are identical today. Enter only: it is mounted the plain way, with
+   no `DialogPresence` to hold it, so its close stays a cut. */
 dialog.lightbox-host::backdrop {
-  animation: backdrop-in var(--dur-modal) var(--ease-out);
+  animation: fade-in var(--dur-modal) var(--ease-out);
 }
 
 .lightbox {
@@ -5193,6 +5493,40 @@ dialog.lightbox-host::backdrop {
 .unread-jump-bar[data-state='closed'],
 .catchup-strip[data-state='closed'] {
   animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+}
+
+/* "Link copied": a word of confirmation (`components/Confirmation.tsx`), in the way an
+   attachment chip arrives and out the way a menu leaves. Same trap again. */
+.confirmation {
+  animation: chip-in var(--dur-fast) var(--ease-out);
+}
+
+.confirmation[data-state='closed'] {
+  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+}
+
+/* A picture that had to be fetched fades in when it has loaded; one already in the
+   cache is marked before the first paint and shown at once, so scrolling back past a
+   screenshot never fades it twice (`lib/imageReveal.ts`). A failure is shown too — the
+   browser's broken image and alt text say which file did not load. The avatar's own
+   version of this sits with the avatar. */
+.attachment-image,
+.files-tile img,
+.block-image {
+  opacity: 0;
+  transition: opacity var(--dur-open) var(--ease-out);
+}
+
+.attachment-image[data-loaded],
+.files-tile img[data-loaded],
+.block-image[data-loaded] {
+  opacity: 1;
+}
+
+.attachment-image[data-loaded='cached'],
+.files-tile img[data-loaded='cached'],
+.block-image[data-loaded='cached'] {
+  transition: none;
 }
 
 @keyframes message-flash {
@@ -6208,6 +6542,9 @@ a.build-commit-sha:hover {
     padding: 0;
     background: var(--backdrop);
     cursor: default;
+    /* The drawer slides in over --dur-panel; the dark behind it used to cut in on the
+       first frame. It fades in with the drawer now. */
+    animation: fade-in var(--dur-panel) var(--ease-out);
   }
 
   /* The thread panel becomes the pane rather than a sibling of it. */
@@ -7443,6 +7780,10 @@ button.person-trigger:hover {
 
 .thread-follow[aria-pressed='true'] {
   color: var(--accent);
+  /* Following, the moment it is turned on — `badge-pop`, as Save for later does. The
+     button is only drawn once the panel knows the answer, so a thread you already follow
+     shows it once as it appears, which is the same news. */
+  animation: badge-pop var(--dur-fast) var(--ease-out);
 }
 
 .thread-new {
@@ -7471,7 +7812,8 @@ button.person-trigger:hover {
 .work-tabs .chip {
   transition:
     background var(--dur-fast) var(--ease-color),
-    color var(--dur-fast) var(--ease-color);
+    color var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
 }
 
 .work-panel {

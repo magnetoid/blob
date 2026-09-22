@@ -184,6 +184,47 @@ describe('the thread itself', () => {
     expect(screen.getByText(/2 replies/)).toBeTruthy();
     expect(screen.getByPlaceholderText('Reply in thread')).toBeTruthy();
   });
+
+  /**
+   * The count in the header ticks for a reply arriving, and for nothing else. The panel
+   * is not keyed by its thread — it keeps its DOM across a switch — so opening another
+   * thread is the same count component being handed a different number, which is not a
+   * reply arriving and must not tick like one.
+   */
+  it('ticks the reply count when a reply lands, and not when another thread opens', async () => {
+    getThreadSummary.mockResolvedValue({ summary: null });
+    useStore.setState((s) => ({
+      threads: {
+        ...s.threads,
+        m9: [
+          msg('m9', 'another root', { replyCount: 1 }),
+          msg('m10', 'its only reply', { threadRootId: 'm9' }),
+        ] as never,
+      },
+    }));
+    const { rerender } = render(<ThreadPanel rootId="m1" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const count = () => document.querySelector<HTMLElement>('.panel-sub-count')!;
+    expect(count().textContent).toBe('2 replies');
+    expect(count().dataset.changed).toBeUndefined();
+
+    rerender(<ThreadPanel rootId="m9" />);
+    expect(count().textContent).toBe('1 reply');
+    expect(count().dataset.changed).toBeUndefined();
+
+    act(() => {
+      useStore.setState((s) => ({
+        threads: {
+          ...s.threads,
+          m9: [...(s.threads.m9 ?? []), msg('m11', 'a new reply', { threadRootId: 'm9' })] as never,
+        },
+      }));
+    });
+    expect(count().textContent).toBe('2 replies');
+    expect(count().dataset.changed).toBe('true');
+  });
 });
 
 describe('the summary card', () => {
