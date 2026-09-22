@@ -44,7 +44,12 @@ export function useEmojiAutocomplete(
     });
   }
 
-  const list = useAutocomplete(candidates, apply, () => setQuery(null));
+  const list = useAutocomplete(
+    candidates,
+    (emoji) => `${emoji.kind}-${emoji.name}`,
+    apply,
+    () => setQuery(null),
+  );
 
   function track(before: string) {
     const colon = before.match(TRAILING_SHORTCODE);

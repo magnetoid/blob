@@ -4,16 +4,45 @@
  * activity line, a collapsed reasoning tail — with a Stop button while the run is
  * going. Slack ships exactly this shape (plan blocks, task states, a native stop);
  * the point is that "the agent is working" stops being two minutes of empty room.
+ *
+ * In a conversation, a run that ended well becomes a line instead: once the answer is
+ * there, the answer is what to read, and a framed card after every one of them was the
+ * loudest thing on the screen. Everything that still wants a person — a run going, one
+ * that failed or was refused, one waiting for an answer — keeps the card.
  */
 
 import { useState } from 'react';
-import type { AgentRunView } from '@blob/shared';
+import type { AgentRunCard as RunCard, AgentRunView } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { showError } from '../../lib/toasts.ts';
+import { ChevronDownIcon } from '../../components/Icon.tsx';
 
-export function AgentRunCard({ run }: { run: AgentRunView }) {
+interface Props {
+  run: AgentRunView;
+  /**
+   * Draw a run that finished or was stopped as a quiet line rather than a card.
+   *
+   * The conversation's list asks for it; Home and the work panel do not, because there
+   * the runs are the content rather than a footnote to an answer above them.
+   */
+  compact?: boolean;
+  /**
+   * Whether the row above is the list's tab stop. The line's one control follows it,
+   * like the row's own actions, or every finished run would cost a press of Tab.
+   */
+  isTabStop?: boolean;
+}
+
+export function AgentRunCard({ run, compact = false, isTabStop = true }: Props) {
+  return compact && (run.status === 'succeeded' || run.status === 'cancelled') ? (
+    <RunLine run={run} isTabStop={isTabStop} />
+  ) : (
+    <FullCard run={run} />
+  );
+}
+
+function FullCard({ run }: { run: AgentRunView }) {
   const [stopping, setStopping] = useState(false);
-  const [reasoningOpen, setReasoningOpen] = useState(false);
 
   const running = run.status === 'running';
   const card = run.card;
@@ -28,10 +57,7 @@ export function AgentRunCard({ run }: { run: AgentRunView }) {
           // Whose question this is. A card under an agent's message reads as that
           // agent talking to itself unless it says which agent asked — and how far
           // from the person the chain has travelled.
-          <span className="agent-run-lineage">
-            asked by {run.askedBy}
-            {run.depth > 1 ? ` · hop ${run.depth}` : ''}
-          </span>
+          <span className="agent-run-lineage">{lineage(run)}</span>
         )}
         <span className="agent-run-state">
           {running
@@ -66,7 +92,63 @@ export function AgentRunCard({ run }: { run: AgentRunView }) {
           from the reader — the head above already says "running" in words. */}
       {running && <div className="agent-run-progress" aria-hidden />}
 
-      {card && card.steps.length > 0 && (
+      {card && <RunWork card={card} />}
+    </div>
+  );
+}
+
+/**
+ * A finished run as one line of meta under the message that asked: who, and how it
+ * ended. What it did along the way is still there, behind a single "details", and
+ * unframed when opened — the line never grows back into the card it replaced.
+ */
+function RunLine({ run, isTabStop }: { run: AgentRunView; isTabStop: boolean }) {
+  const [open, setOpen] = useState(false);
+  const card = run.card;
+  const hasWork = Boolean(
+    card && (card.steps.length > 0 || card.tools.length > 0 || card.reasoning),
+  );
+  const said = [run.askedBy ? lineage(run) : '', statusLabel(run)].filter(Boolean);
+
+  return (
+    // Off, inside a list that announces what is added: this line arrives in place of a
+    // card whose status settled without a word, and should arrive the same way.
+    <div className="agent-run-line" data-status={run.status} aria-live="off">
+      <span className="agent-run-line-text">
+        <span className="agent-run-line-name">{run.agentName}</span>
+        {said.map((part) => ` · ${part}`).join('')}
+      </span>
+      {hasWork && (
+        <button
+          type="button"
+          className="agent-run-line-toggle"
+          aria-expanded={open}
+          // A name that stands alone, for anybody who meets it in a list of buttons;
+          // it starts with the word on screen, so saying "details" still finds it.
+          aria-label={`Details of ${run.agentName}'s run`}
+          tabIndex={isTabStop ? 0 : -1}
+          onClick={() => setOpen((value) => !value)}
+        >
+          details
+          <ChevronDownIcon size="sm" />
+        </button>
+      )}
+      {open && card && (
+        <div className="agent-run-line-work">
+          <RunWork card={card} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** What a run did: its plan, its tool calls and, behind a toggle, its reasoning. */
+function RunWork({ card }: { card: RunCard }) {
+  const [reasoningOpen, setReasoningOpen] = useState(false);
+
+  return (
+    <>
+      {card.steps.length > 0 && (
         <ol className="agent-run-steps">
           {card.steps.map((step) => (
             <li key={step.name} data-status={step.status}>
@@ -79,7 +161,7 @@ export function AgentRunCard({ run }: { run: AgentRunView }) {
         </ol>
       )}
 
-      {card && card.tools.length > 0 && (
+      {card.tools.length > 0 && (
         <div className="agent-run-tools">
           {card.tools.map((tool, index) => (
             <details key={index} className="agent-run-tool" data-status={tool.status}>
@@ -96,7 +178,7 @@ export function AgentRunCard({ run }: { run: AgentRunView }) {
         </div>
       )}
 
-      {card?.reasoning && (
+      {card.reasoning && (
         <div className="agent-run-reasoning">
           <button
             type="button"
@@ -109,8 +191,12 @@ export function AgentRunCard({ run }: { run: AgentRunView }) {
           {reasoningOpen && <pre className="agent-run-io">{card.reasoning}</pre>}
         </div>
       )}
-    </div>
+    </>
   );
+}
+
+function lineage(run: AgentRunView): string {
+  return `asked by ${run.askedBy}${run.depth > 1 ? ` · hop ${run.depth}` : ''}`;
 }
 
 function statusLabel(run: AgentRunView): string {

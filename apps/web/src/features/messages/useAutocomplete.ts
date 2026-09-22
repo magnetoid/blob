@@ -9,6 +9,8 @@ import { useState, type KeyboardEvent } from "react";
 
 export function useAutocomplete<T>(
   candidates: T[],
+  /** What a row is, independent of where it sits. */
+  keyOf: (candidate: T) => string,
   onPick: (chosen: T) => void,
   onDismiss?: () => void,
 ): {
@@ -16,19 +18,32 @@ export function useAutocomplete<T>(
   reset: () => void;
   handleKey: (event: KeyboardEvent<HTMLTextAreaElement>) => boolean;
 } {
-  const [index, setIndex] = useState(0);
-  const reset = () => setIndex(0);
+  // The highlight is held by what it is on, not by where that is. A list can change
+  // while it is open without a keystroke — the `@` list re-ranks when a conversation's
+  // members or a tag of yours arrive — and a remembered position then sits on another
+  // name, which Enter takes while `aria-activedescendant` has not moved. Back to the
+  // top only when the highlighted row is gone.
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const found =
+    activeKey === null ? -1 : candidates.findIndex((c) => keyOf(c) === activeKey);
+  const index = found === -1 ? 0 : found;
+  const reset = () => setActiveKey(null);
+
+  function highlight(next: number) {
+    const candidate = candidates[next];
+    if (candidate !== undefined) setActiveKey(keyOf(candidate));
+  }
 
   function handleKey(event: KeyboardEvent<HTMLTextAreaElement>): boolean {
     if (candidates.length === 0) return false;
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setIndex((i) => (i + 1) % candidates.length);
+      highlight((index + 1) % candidates.length);
       return true;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      setIndex((i) => (i - 1 + candidates.length) % candidates.length);
+      highlight((index - 1 + candidates.length) % candidates.length);
       return true;
     }
     if (event.key === "Enter" || event.key === "Tab") {

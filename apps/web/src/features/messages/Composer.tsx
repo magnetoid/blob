@@ -93,7 +93,7 @@ export function Composer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastTypingRef = useRef(0);
 
-  const mentions = useMentionAutocomplete(draft, setDraft, textareaRef);
+  const mentions = useMentionAutocomplete(draft, setDraft, textareaRef, channelId);
   const emoji = useEmojiAutocomplete(draft, setDraft, textareaRef);
   const slash = useSlashCommands(
     channelId,

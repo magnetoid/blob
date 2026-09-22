@@ -1,6 +1,6 @@
 /** The centre pane: channel header, messages, composer. */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentRunView } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
 import { showError } from "../../lib/toasts.ts";
@@ -101,9 +101,6 @@ export function ChannelView() {
     requestScrollToMessage(messageId);
   }
 
-  // The ids rather than their count: the header names people and agents separately, and
-  // which of the two a member is can only be answered by looking each one up.
-  const [memberIds, setMemberIds] = useState<Record<string, string[]>>({});
   const [dismissedCatchUp, setDismissedCatchUp] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -127,22 +124,31 @@ export function ChannelView() {
   const membershipVersion = useStore((s) =>
     s.activeChannelId ? (s.membershipVersion[s.activeChannelId] ?? 0) : 0,
   );
-  const memberCountKey = activeChannelId
-    ? `${activeChannelId}:${membershipVersion}`
-    : null;
+  // The ids rather than their count: the header names people and agents separately, and
+  // which of the two a member is can only be answered by looking each one up. Kept in the
+  // store, because the `@` list ranks by the same list and needs it before anybody types.
+  const fetchedMembers = useStore((s) =>
+    s.activeChannelId ? s.channelMembers[s.activeChannelId] : undefined,
+  );
+  const setChannelMembers = useStore((s) => s.setChannelMembers);
+  const membersKey = activeChannelId ? `${activeChannelId}:${membershipVersion}` : null;
+  const requestedMembers = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!activeChannelId || !memberCountKey || memberIds[memberCountKey] !== undefined)
-      return;
+    if (!activeChannelId || !membersKey) return;
+    if (fetchedMembers?.version === membershipVersion) return;
+    // Once per channel and membership version: an older answer landing late moves
+    // `fetchedMembers` and runs this again, and must not ask twice for one in flight.
+    if (requestedMembers.current === membersKey) return;
+    requestedMembers.current = membersKey;
+    const version = membershipVersion;
     void api.channels
       .members(activeChannelId)
-      .then((r) =>
-        setMemberIds((current) =>
-          current[memberCountKey] ? current : { ...current, [memberCountKey]: r.userIds },
-        ),
-      )
-      .catch(() => {});
-  }, [activeChannelId, memberCountKey, memberIds]);
+      .then((r) => setChannelMembers(activeChannelId, version, r.userIds))
+      .catch(() => {
+        if (requestedMembers.current === membersKey) requestedMembers.current = null;
+      });
+  }, [activeChannelId, membersKey, membershipVersion, fetchedMembers?.version, setChannelMembers]);
 
   // Defined here, above the early return, because hooks have to be — and memoised
   // because `MessageRow` is wrapped in `memo` and these reach it as props. An arrow
@@ -165,10 +171,9 @@ export function ChannelView() {
   // fetching the member list on a loop.
   const reportMembers = useCallback(
     (userIds: string[]) => {
-      if (!memberCountKey) return;
-      setMemberIds((current) => ({ ...current, [memberCountKey]: userIds }));
+      if (activeChannelId) setChannelMembers(activeChannelId, membershipVersion, userIds);
     },
-    [memberCountKey],
+    [activeChannelId, membershipVersion, setChannelMembers],
   );
 
   const activeMeetup = useStore((s) => 
@@ -225,7 +230,10 @@ export function ChannelView() {
   const workTab: WorkTab = channel.workId
     ? (workTabs[activeChannelId] ?? "conversation")
     : "conversation";
-  const members = memberCountKey ? (memberIds[memberCountKey] ?? null) : null;
+  // The header counts only a list fetched for the membership as it is now; the `@` list
+  // will rank by one a join behind, but a count must not be one out.
+  const members =
+    fetchedMembers?.version === membershipVersion ? fetchedMembers.userIds : null;
   const memberCount = members?.length ?? null;
   const agentCount = members?.filter((id) => users[id]?.kind === "bot").length ?? 0;
   const queuedCount = Object.values(outbox).filter(

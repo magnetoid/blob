@@ -469,7 +469,12 @@ export function MessageList({
                 onFocusRow={setTabStopId}
               />
               {runsByMessageId?.[message.id]?.map((run) => (
-                <AgentRunCard key={run.id} run={run} />
+                <AgentRunCard
+                  key={run.id}
+                  run={run}
+                  compact
+                  isTabStop={message.id === effectiveTabStopId}
+                />
               ))}
             </div>
           );

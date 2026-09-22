@@ -43,6 +43,29 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     date: '2026-09-22',
+    version: '1.6.0',
+    title: 'The @ list knows who you mean',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'Typing @ lists the people you tagged most recently first, among the people in the conversation. @channel and @here come last, so Enter on a bare @ never notifies everyone.',
+      },
+      {
+        kind: 'changed',
+        text: 'A finished agent run is a quiet line under the message, like "Janus · 7s", instead of a framed card, with its steps one click away. A run that is still working, failed, or needs you keeps the card.',
+      },
+      {
+        kind: 'fixed',
+        text: 'The highlighted name in the @ list stays on the person you picked while the list updates, so Enter tags who you meant.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Someone joining or leaving a channel no longer throws off who the @ list treats as members.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-22',
     version: '1.5.0',
     title: 'The admin pages use the width',
     entries: [

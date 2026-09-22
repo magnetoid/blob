@@ -399,6 +399,11 @@ class Bootstrap(CamelModel):
     #: Translate action and no translation preference at all, rather than controls whose
     #: only possible answer is "not configured".
     translation_enabled: bool = False
+    #: Whom you tagged most recently, newest first — the `@` picker ranks a tie on how
+    #: well a name matches by these. Ids only, and yours alone: see
+    #: `services/mention_recency.py`.
+    recent_mention_user_ids: list[str] = Field(default_factory=list)
+    recent_mention_group_ids: list[str] = Field(default_factory=list)
 
 
 class ReadStateOut(CamelModel):

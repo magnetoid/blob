@@ -15,6 +15,11 @@
  * **Rank before the cap.** The old code capped the store's own order, so in a workspace
  * larger than the cap the person being typed could be missing from a list with room for
  * them. Ranking first means the cap only ever drops worse matches.
+ *
+ * **What you typed first, then what you meant.** Between two names that answer the query
+ * equally well, the caller may prefer one — somebody in this conversation, then the
+ * person tagged last — before the alphabet decides. A preference never outranks a better
+ * match: "@ra" is still Radek before Priya Raman, however recently Priya was tagged.
  */
 
 /** A whole-name prefix beats a prefix of a later word: "Ana Petrov" over "Priya Raman". */
@@ -70,9 +75,10 @@ function rankAliases(
 /**
  * The matching candidates, best first, then capped.
  *
- * `sortKey` breaks ties so the order is a property of the names rather than of whatever
- * order the store happened to be filled in: two people who match equally well appear in
- * the same order every time, on every client.
+ * `prefer` breaks a tie in how well two candidates match — lower first — and `sortKey`
+ * breaks whatever is left, so the order is a property of the names rather than of
+ * whatever order the store happened to be filled in: two people who match equally well
+ * and are preferred equally appear in the same order every time, on every client.
  */
 export function matchMentions<T>(
   items: readonly T[],
@@ -80,13 +86,21 @@ export function matchMentions<T>(
   aliases: (item: T) => readonly (string | null | undefined)[],
   sortKey: (item: T) => string,
   limit: number,
+  prefer?: (item: T) => number,
 ): T[] {
-  const scored: { item: T; rank: number; key: string }[] = [];
+  const scored: { item: T; rank: number; preference: number; key: string }[] = [];
   for (const item of items) {
     const rank = rankAliases(aliases(item), query);
     if (rank === null) continue;
-    scored.push({ item, rank, key: sortKey(item).toLowerCase() });
+    scored.push({
+      item,
+      rank,
+      preference: prefer?.(item) ?? 0,
+      key: sortKey(item).toLowerCase(),
+    });
   }
-  scored.sort((a, b) => a.rank - b.rank || a.key.localeCompare(b.key));
+  scored.sort(
+    (a, b) => a.rank - b.rank || a.preference - b.preference || a.key.localeCompare(b.key),
+  );
   return scored.slice(0, limit).map((entry) => entry.item);
 }

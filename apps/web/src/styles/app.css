@@ -7810,6 +7810,72 @@ a.build-commit-sha:hover {
   padding: 2px 6px;
 }
 
+/* A finished run in a conversation: one line of meta under the message that asked, and
+   none of the card — no rail, no ground, no border. By the time a run has ended well its
+   answer is on screen, and the answer is the thing to read; the card stays for the states
+   that want somebody (running, failed, refused, waiting).
+
+   The left edge is the message text's: the pane gutter, the 36px avatar gutter and the
+   row's 12px gap, so it moves with the density setting as the messages do. No negative
+   margin to tuck it closer: it would slide under the row's hover and mention grounds,
+   which then cut through the line. The row's bottom padding is the gap. */
+.agent-run-line {
+  margin: 0 var(--pane-gutter) 2px calc(var(--pane-gutter) + 48px);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--text-4);
+}
+
+.agent-run-line-name {
+  font-weight: 600;
+}
+
+/* Inline, not a flex item: the details it opens are a block and so land underneath.
+   As flex siblings they sat beside the line — a capped width let them fit on it. */
+.agent-run-line-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 6px;
+  padding: 0 2px;
+  border-radius: var(--radius-xs);
+  font-size: inherit;
+  line-height: inherit;
+  transition: color var(--dur-fast) var(--ease-color);
+}
+
+.agent-run-line-toggle:hover {
+  color: var(--text-2);
+}
+
+.agent-run-line-toggle svg {
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.agent-run-line-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+/* What the run did, where the line is — the same steps, tools and reasoning the card
+   draws, at the card's size, and still without a card around them. */
+.agent-run-line-work {
+  max-width: 560px;
+  padding-bottom: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+/* The 44px target, without the 44px line: an inline box's margins count toward the line
+   it sits on, so a negative block margin of the difference keeps the line text-high and
+   under the message while the button's box still reaches 14px above and below it. */
+@media (pointer: coarse) {
+  .agent-run-line-toggle {
+    min-height: 44px;
+    margin-block: -14px;
+    padding: 0 8px;
+  }
+}
+
 /* ─── later ──────────────────────────────────────────────────────────────── */
 
 .later-tabs {

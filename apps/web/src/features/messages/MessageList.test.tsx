@@ -13,7 +13,7 @@
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
-import type { Message } from "@blob/shared";
+import type { AgentRunView, Message } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
 import { FALLBACK_MS } from "../../lib/usePresence.ts";
 
@@ -396,6 +396,50 @@ describe("MessageList", () => {
       // Not "closed", not present at all: there is nothing here that was ever open.
       expect(container.querySelector(".unread-jump-bar")).toBeNull();
       expect(container.textContent).not.toContain("99 new messages");
+    });
+  });
+
+  describe("a run under the message that asked for it", () => {
+    function runUnder(messageId: string, status: AgentRunView["status"]): AgentRunView {
+      return {
+        id: `run-${status}`,
+        pluginId: "p1",
+        agentName: "Janus",
+        channelId: "c1",
+        threadRootId: null,
+        triggerMessageId: messageId,
+        status,
+        error: null,
+        postCount: 1,
+        startedAt: "2026-08-20T10:00:00.000Z",
+        finishedAt: status === "running" ? null : "2026-08-20T10:00:07.000Z",
+        card: null,
+        chainId: messageId,
+        parentRunId: null,
+        depth: 0,
+        askedBy: null,
+        answeredAt: null,
+        expiresAt: null,
+      };
+    }
+
+    it("is a line once it has finished, and a card while it runs", () => {
+      const messages = makeMessages(3);
+      const [first, , last] = messages as [Message, Message, Message];
+      const { container } = renderList({
+        messages,
+        runsByMessageId: {
+          [first.id]: [runUnder(first.id, "succeeded")],
+          [last.id]: [runUnder(last.id, "running")],
+        },
+      });
+
+      const lines = container.querySelectorAll(".agent-run-line");
+      const cards = container.querySelectorAll(".agent-run-card");
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.textContent).toBe("Janus · 7s");
+      expect(cards).toHaveLength(1);
+      expect(cards[0]?.getAttribute("data-status")).toBe("running");
     });
   });
 });

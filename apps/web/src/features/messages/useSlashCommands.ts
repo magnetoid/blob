@@ -70,7 +70,11 @@ export function useSlashCommands(
     });
   }
 
-  const list = useAutocomplete(matches, (chosen) => apply(chosen.name));
+  const list = useAutocomplete(
+    matches,
+    (command) => command.name,
+    (chosen) => apply(chosen.name),
+  );
   return {
     matches,
     index: list.index,
