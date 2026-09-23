@@ -50,6 +50,8 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("POST", "/api/mcp"),
     ("GET", "/api/mcp"),
     ("DELETE", "/api/mcp"),
+    # LiveKit's webhooks: signed with our LiveKit key and verified by the route itself.
+    ("POST", "/api/calls/livekit"),
 }
 
 #: Prefixes whose whole subtree is public (invite previews, incoming webhooks).
@@ -270,6 +272,7 @@ def create_app() -> FastAPI:
     from .realtime.ws import router as ws_router
     from .routers.activity import router as activity_router
     from .routers.admin import router as admin_router
+    from .routers.admin_calls import router as admin_calls_router
     from .routers.admin_emoji import router as admin_emoji_router
     from .routers.admin_instance import router as admin_instance_router
     from .routers.admin_janus import router as admin_janus_router
@@ -278,6 +281,7 @@ def create_app() -> FastAPI:
     from .routers.agentic import router as agentic_router
     from .routers.auth import router as auth_router
     from .routers.bot_api import router as bot_api_router
+    from .routers.calls import router as calls_router
     from .routers.channels import router as channel_router
     from .routers.commands import router as command_router
     from .routers.feedback import router as feedback_router
@@ -287,7 +291,6 @@ def create_app() -> FastAPI:
     from .routers.interactions import router as interaction_router
     from .routers.mcp import router as mcp_router
     from .routers.mcp import tokens_router as mcp_tokens_router
-    from .routers.meetups import router as meetup_router
     from .routers.messages import router as message_router
     from .routers.my_agents import router as my_agents_router
     from .routers.plugin_hosting import router as plugin_hosting_router
@@ -312,10 +315,11 @@ def create_app() -> FastAPI:
     app.include_router(file_router)
     app.include_router(feedback_router)
     app.include_router(interaction_router)
-    app.include_router(meetup_router)
+    app.include_router(calls_router)
     app.include_router(admin_router)
     app.include_router(admin_instance_router)
     app.include_router(admin_janus_router)
+    app.include_router(admin_calls_router)
     app.include_router(admin_emoji_router)
     app.include_router(group_router)
     app.include_router(group_member_router)

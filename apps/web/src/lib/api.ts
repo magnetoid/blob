@@ -27,9 +27,15 @@ import type {
   UserPrefs,
   Work,
   WorkArtifact,
-  Meetup,
-  MeetupToken,
+  Call,
+  CallKind,
+  CallSettings,
+  CallsState,
+  CallToken,
+  MediaServerStatus,
 } from "@blob/shared";
+
+export type { Call, CallKind, CallSettings, CallsState, CallToken, MediaServerStatus };
 
 /** What Activity is narrowed to. */
 export type ActivityKind = "all" | "mention" | "reaction";
@@ -826,10 +832,17 @@ export const api = {
       post<{ channel: ChannelWithState }>("/api/dms", { userIds }),
   },
 
-  meetups: {
-    create: (input: { name: string; channelId?: string | null }) =>
-      post<Meetup>("/api/meetups", input),
-    getToken: (id: string) => post<MeetupToken>(`/api/meetups/${id}/token`),
+  calls: {
+    state: () => get<CallsState>("/api/calls"),
+    start: (channelId: string, kind: CallKind) =>
+      post<Call>("/api/calls", { channelId, kind }),
+    token: (id: string) => post<CallToken>(`/api/calls/${id}/token`),
+    // Unused today — not dead code. The client only ever leaves a call for itself
+    // (`lib/calls.ts`'s `leaveCall`, a local disconnect that LiveKit's own webhook
+    // reports back); this mirrors the real `POST /api/calls/:id/end`, which ends it for
+    // everyone and is the starter's call to make, or an admin's, for whenever a control
+    // for that exists.
+    end: (id: string) => post<Call>(`/api/calls/${id}/end`),
   },
 
   messages: {
@@ -1152,6 +1165,16 @@ export const api = {
     updateJanus: (change: JanusConfigChange) =>
       put<JanusApplied>("/api/admin/janus/config", change),
     restartJanus: () => post<JanusApplied>("/api/admin/janus/restart"),
+
+    // Unused today — not dead code. `useCallSettings.ts` reads the workspace's call
+    // settings live from the store instead, kept current by every `calls.settings`
+    // broadcast (R37): a GET here could still answer with what an earlier save already
+    // overwrote. Mirrors the real `GET /api/admin/calls`.
+    callSettings: () => get<CallSettings>("/api/admin/calls"),
+    setCallSettings: (settings: CallSettings) =>
+      put<CallSettings>("/api/admin/calls", settings),
+    /** The instance admin's view of LiveKit. 403 for anybody else. */
+    mediaServer: () => get<MediaServerStatus>("/api/admin/calls/server"),
 
     webhooks: () => get<{ webhooks: AdminWebhook[] }>("/api/admin/webhooks"),
     createWebhook: (channelId: string, name: string) =>

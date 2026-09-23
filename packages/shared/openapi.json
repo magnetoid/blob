@@ -1626,6 +1626,148 @@
         "title": "BudgetInput",
         "type": "object"
       },
+      "Call": {
+        "properties": {
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "title": "Createdby",
+            "type": "string"
+          },
+          "endedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endedat"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "huddle",
+              "meetup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "participantIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Participantids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "ended"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "channelId",
+          "kind",
+          "createdBy",
+          "status",
+          "createdAt"
+        ],
+        "title": "Call",
+        "type": "object"
+      },
+      "CallSettings": {
+        "properties": {
+          "huddles": {
+            "$ref": "#/components/schemas/HuddleSettings"
+          },
+          "meetups": {
+            "$ref": "#/components/schemas/MeetupSettings"
+          }
+        },
+        "title": "CallSettings",
+        "type": "object"
+      },
+      "CallStart": {
+        "properties": {
+          "channelId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+            "title": "Channelid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "huddle",
+              "meetup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channelId",
+          "kind"
+        ],
+        "title": "CallStart",
+        "type": "object"
+      },
+      "CallToken": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "url"
+        ],
+        "title": "CallToken",
+        "type": "object"
+      },
+      "CallsState": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "calls": {
+            "items": {
+              "$ref": "#/components/schemas/Call"
+            },
+            "title": "Calls",
+            "type": "array"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/CallSettings"
+          }
+        },
+        "required": [
+          "available",
+          "settings",
+          "calls"
+        ],
+        "title": "CallsState",
+        "type": "object"
+      },
       "CatalogOut": {
         "description": "What an app may ask for. Drives the consent screen.",
         "properties": {
@@ -3480,6 +3622,34 @@
         "title": "HistoryOut",
         "type": "object"
       },
+      "HuddleSettings": {
+        "properties": {
+          "cameras": {
+            "default": true,
+            "title": "Cameras",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "maxParticipants": {
+            "default": 50,
+            "maximum": 100.0,
+            "minimum": 2.0,
+            "title": "Maxparticipants",
+            "type": "integer"
+          },
+          "screenShare": {
+            "default": true,
+            "title": "Screenshare",
+            "type": "boolean"
+          }
+        },
+        "title": "HuddleSettings",
+        "type": "object"
+      },
       "InstalledOut": {
         "properties": {
           "botToken": {
@@ -4347,36 +4517,13 @@
         "title": "MarkUnreadInput",
         "type": "object"
       },
-      "MeetupCreate": {
+      "MediaServerStatus": {
         "properties": {
-          "channelId": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Channelid"
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
           },
-          "name": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "MeetupCreate",
-        "type": "object"
-      },
-      "MeetupOut": {
-        "properties": {
-          "channelId": {
+          "error": {
             "anyOf": [
               {
                 "type": "string"
@@ -4385,17 +4532,9 @@
                 "type": "null"
               }
             ],
-            "title": "Channelid"
+            "title": "Error"
           },
-          "createdAt": {
-            "title": "Createdat",
-            "type": "string"
-          },
-          "createdBy": {
-            "title": "Createdby",
-            "type": "string"
-          },
-          "endedAt": {
+          "lastEventAt": {
             "anyOf": [
               {
                 "type": "string"
@@ -4404,54 +4543,85 @@
                 "type": "null"
               }
             ],
-            "title": "Endedat"
+            "title": "Lasteventat"
           },
-          "id": {
-            "title": "Id",
-            "type": "string"
+          "latencyMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latencyms"
           },
-          "name": {
-            "title": "Name",
-            "type": "string"
+          "openRooms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openrooms"
           },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "workspaceId": {
-            "title": "Workspaceid",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "workspaceId",
-          "channelId",
-          "createdBy",
-          "name",
-          "status",
-          "createdAt",
-          "endedAt"
-        ],
-        "title": "MeetupOut",
-        "type": "object"
-      },
-      "MeetupTokenOut": {
-        "properties": {
-          "token": {
-            "title": "Token",
-            "type": "string"
+          "reachable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reachable"
           },
           "url": {
-            "title": "Url",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "webhookUrl": {
+            "title": "Webhookurl",
             "type": "string"
           }
         },
         "required": [
-          "token",
-          "url"
+          "configured",
+          "webhookUrl"
         ],
-        "title": "MeetupTokenOut",
+        "title": "MediaServerStatus",
+        "type": "object"
+      },
+      "MeetupSettings": {
+        "properties": {
+          "camerasOnJoin": {
+            "default": true,
+            "title": "Camerasonjoin",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "maxParticipants": {
+            "default": 50,
+            "maximum": 100.0,
+            "minimum": 2.0,
+            "title": "Maxparticipants",
+            "type": "integer"
+          }
+        },
+        "title": "MeetupSettings",
         "type": "object"
       },
       "MembersOut": {
@@ -8824,6 +8994,87 @@
         ]
       }
     },
+    "/api/admin/calls": {
+      "get": {
+        "operationId": "get_call_settings_api_admin_calls_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Call Settings",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "put_call_settings_api_admin_calls_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Call Settings",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/calls/server": {
+      "get": {
+        "operationId": "media_server_api_admin_calls_server_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaServerStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Media Server",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/channels": {
       "get": {
         "description": "Every channel, including private ones the admin is not a member of.",
@@ -12914,6 +13165,152 @@
         ]
       }
     },
+    "/api/calls": {
+      "get": {
+        "operationId": "calls_state_api_calls_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallsState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Calls State",
+        "tags": [
+          "calls"
+        ]
+      },
+      "post": {
+        "operationId": "start_call_api_calls_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Call"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Call",
+        "tags": [
+          "calls"
+        ]
+      }
+    },
+    "/api/calls/{call_id}/end": {
+      "post": {
+        "operationId": "end_call_api_calls__call_id__end_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "call_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Call Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Call"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Call",
+        "tags": [
+          "calls"
+        ]
+      }
+    },
+    "/api/calls/{call_id}/token": {
+      "post": {
+        "operationId": "call_token_api_calls__call_id__token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "call_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Call Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallToken"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Call Token",
+        "tags": [
+          "calls"
+        ]
+      }
+    },
     "/api/catchup": {
       "post": {
         "description": "Summarise what you haven't read \u2014 one channel, or the busiest few.\n\nEphemeral by construction: the response is the whole artifact. Nothing is stored,\nnothing is broadcast, and posting a summary into the channel is the client\nsending it as you, through the ordinary idempotent send.",
@@ -14800,176 +15197,6 @@
         "summary": "Push Test",
         "tags": [
           "users"
-        ]
-      }
-    },
-    "/api/meetups": {
-      "post": {
-        "operationId": "create_meetup_api_meetups_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MeetupCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetupOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Meetup",
-        "tags": [
-          "meetups"
-        ]
-      }
-    },
-    "/api/meetups/{meetup_id}": {
-      "get": {
-        "operationId": "get_meetup_api_meetups__meetup_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "meetup_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-              "title": "Meetup Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetupOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Meetup",
-        "tags": [
-          "meetups"
-        ]
-      }
-    },
-    "/api/meetups/{meetup_id}/end": {
-      "post": {
-        "operationId": "end_meetup_api_meetups__meetup_id__end_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "meetup_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-              "title": "Meetup Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetupOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "End Meetup",
-        "tags": [
-          "meetups"
-        ]
-      }
-    },
-    "/api/meetups/{meetup_id}/token": {
-      "post": {
-        "operationId": "get_meetup_token_api_meetups__meetup_id__token_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "meetup_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-              "title": "Meetup Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetupTokenOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Meetup Token",
-        "tags": [
-          "meetups"
         ]
       }
     },

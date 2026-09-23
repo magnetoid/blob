@@ -141,8 +141,11 @@ document a key nobody bound or a command your server does not answer.
   timeout and a 512 KB ceiling.
 - **Translation** — per-message, or automatic for everything arriving in another language.
   Needs a preferred language and a configured provider (DeepL or LibreTranslate).
-- **Meetups** — an audio and video room on any channel, carried by LiveKit and inheriting
-  the channel's access. Opt-in; see [Meetups](#meetups) under Configuration.
+- **Calls** — a huddle or a video meetup, in any channel or DM, carried by LiveKit and
+  inheriting the conversation's access: one live call of each kind per conversation,
+  presence kept from LiveKit's webhooks plus a once-a-minute sweep, and no attendance
+  history. Meetups are full screen and shipped; huddles arrive in a later release. Opt-in;
+  see [Calls](#calls) under Configuration.
 
 ### Attention
 
@@ -304,13 +307,11 @@ Eighteen built-ins, and whatever the apps installed here have added:
 Named because they are coming, and because a README that implies otherwise wastes your
 afternoon:
 
-- **Meetups, inside the call.** The button in the channel header is live, the server issues
-  LiveKit tokens, a meetup inherits its channel's access, and `docker compose up -d` runs a
-  LiveKit beside everything else in dev. Inside the call, LiveKit's own conference UI
-  carries the camera, microphone, screen share and participant list; Blob adds nothing of
-  its own there yet. It is the one feature that needs a service Blob does not ship in its
-  own image, so without `LIVEKIT_*` set every meetup answers `livekit_not_configured` and
-  the rest of the workspace is untouched.
+- **Huddles.** The audio-first counterpart to a video meetup — same call, same access
+  rules, but the camera never comes on just from joining; someone in one turns theirs on
+  by hand. The button is in the top bar and disabled today; it arrives in a later
+  release. (Video meetups, the other kind of call, are built — see [Calls](#calls) under
+  Configuration for what that needs.)
 - **Voice messages.** The server already accepts a voice note as its own kind of attachment,
   with a duration and a waveform, and plays it inline. The recorder, the player and the
   transcript are the next slices.
@@ -465,17 +466,37 @@ rather than assumed.
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | `npx web-push generate-vapid-keys`. Without them the Notifications page says so and draws no switch; notifications stay in-app. |
 | `VAPID_SUBJECT` | `mailto:` address, default `mailto:admin@example.com`. |
 
-### Meetups
+### Calls
 
-Blob issues the token, LiveKit carries the media. `docker compose up -d` runs one locally
-with LiveKit's placeholder pair. In production it is off unless you ask for it: set
-`COMPOSE_PROFILES=meetups` alongside the values below. Leave these empty and meetups answer
-`livekit_not_configured` while everything else carries on.
+A huddle and a video meetup are one primitive — a LiveKit room that belongs to a
+conversation — in two kinds. Blob issues the token; LiveKit carries the media and tells
+Blob who joined, who left and when a room closed by webhook, backed by a sweep that asks
+LiveKit directly once a minute for anything a webhook missed. `docker compose up -d` runs
+LiveKit locally with its placeholder pair. In production it is off unless you ask for it:
+set `COMPOSE_PROFILES=meetups` alongside the values below. Leave these empty and a call
+answers `livekit_not_configured` while everything else carries on.
+
+Per-workspace controls — on or off, cameras on join, the participant cap — and whether
+LiveKit is actually reachable live in the console at **Admin → Calls → Video meetups**
+(`/admin/meetups`; a Huddles row sits beside it, marked "Soon" until the next release).
 
 | Variable | Notes |
 |---|---|
 | `LIVEKIT_URL` | What the **browser** dials, so the public `wss://` address, never the container name. `ws://localhost:7880` in dev. |
 | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | `docker run --rm livekit/livekit-server generate-keys`. Dev mode mints `devkey` / `secret`, which are not secrets. |
+| `LIVEKIT_API_URL` | Optional: where **Blob itself** reaches LiveKit's API, when that differs from `LIVEKIT_URL` — the stack's own network, `http://livekit:7880`, in the production compose. |
+
+LiveKit's webhook has to reach Blob at `<PUBLIC_URL>/api/calls/livekit`, and both compose
+files already point it there rather than at a Docker service name: `host.docker.internal`
+in dev, since the API runs on the host, and Blob's own public address in production —
+never the `app` service's own name, which two stacks sharing a Coolify host can both
+answer to. Running LiveKit as a plain binary instead of in Docker needs the same webhook
+config, given inline:
+
+```bash
+brew install livekit
+livekit-server --dev --config-body 'webhook: {api_key: devkey, urls: ["http://localhost:3000/api/calls/livekit"]}'
+```
 
 Signalling is an ordinary WebSocket and a reverse proxy carries it. Media is not: WebRTC is
 UDP and a proxy only speaks TCP, so the stack publishes **7882/udp** straight onto the host
@@ -651,13 +672,13 @@ development there is a third — Vite on :5173, proxying `/api` and `/ws` to :30
 |---|---|
 | Web | React 19 + Vite, zustand, a hand-rolled router |
 | API | FastAPI on Python 3.12, REST for every write |
-| Data | SQLAlchemy 2.0 async + asyncpg, Alembic (43 migrations) |
+| Data | SQLAlchemy 2.0 async + asyncpg, Alembic (45 migrations) |
 | Realtime | FastAPI WebSockets, one event hub, Redis pub/sub between processes |
 | Database | Postgres 16 — messages, full-text search, everything |
 | Ephemera | Redis 7 — presence, typing, rate limits, the job queue |
 | Jobs | arq — notifications, unfurls, scheduled sends, plugin delivery |
 | Files | S3-compatible (MinIO in dev) with presigned uploads |
-| Media | LiveKit, optional, for meetups |
+| Media | LiveKit, optional, for calls |
 | The agent | Janus, optional, a service on the internal network |
 
 **The write path.** `routers/` shape and authorize; `services/` hold the logic and the

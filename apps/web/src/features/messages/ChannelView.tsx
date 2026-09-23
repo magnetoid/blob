@@ -3,22 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentRunView } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
-import { showError } from "../../lib/toasts.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { typingKey } from "../../lib/typing.ts";
 import { scrollToMessage } from "../../lib/navigation.ts";
 import { api } from "../../lib/api.ts";
 import { showThread } from "../../lib/navigation.ts";
-import { navigate } from "../../lib/router.ts";
 import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
 import {
   ChevronDownIcon,
-  HuddleIcon,
   MembersIcon,
   PinIcon,
   SparkIcon,
 } from "../../components/Icon.tsx";
+import { CallButton } from "../calls/CallButton.tsx";
 import { PinnedPanel } from "./PinnedPanel.tsx";
 import { CatchUpStrip } from "./CatchUpStrip.tsx";
 import { ChannelMenu } from "../channels/ChannelMenu.tsx";
@@ -176,34 +174,16 @@ export function ChannelView() {
     [activeChannelId, membershipVersion, setChannelMembers],
   );
 
-  const activeMeetup = useStore((s) => 
-    activeChannelId ? Object.values(s.activeMeetups).find(m => m.channelId === activeChannelId) : undefined
+  const callsAvailable = useStore((s) => s.callsAvailable);
+  const meetupsOn = useStore((s) => s.callSettings.meetups.enabled);
+  // `start` refuses a new meetup in an archived channel (`require_writable`) the same
+  // way it refuses a message, so the button is gated like the composer below — except a
+  // meetup already live there stays reachable, because joining one still works.
+  const meetupLive = useStore((s) =>
+    Object.values(s.activeCalls).some(
+      (call) => call.channelId === activeChannelId && call.kind === "meetup",
+    ),
   );
-
-  const handleStartMeetup = useCallback(async () => {
-    const state = useStore.getState();
-    const activeChannelId = state.activeChannelId;
-    const channel = activeChannelId ? state.channels[activeChannelId] : undefined;
-    if (!activeChannelId || !channel) return;
-
-    const activeMeetup = Object.values(state.activeMeetups).find(
-      (m) => m.channelId === activeChannelId,
-    );
-    if (activeMeetup) {
-      navigate(`/meetup/${activeMeetup.id}`);
-      return;
-    }
-    try {
-      const title = channel.name ?? useStore.getState().channelTitle(channel);
-      const meetup = await api.meetups.create({
-        name: `Meetup in ${title}`,
-        channelId: activeChannelId,
-      });
-      navigate(`/meetup/${meetup.id}`);
-    } catch (err: unknown) {
-      showError(err);
-    }
-  }, []);
 
   if (!activeChannelId || !channel) {
     return (
@@ -324,17 +304,9 @@ export function ChannelView() {
 
         <div className="pane-spacer" />
 
-        <button
-          className="btn pane-action-huddle"
-          title={activeMeetup ? "Join active meetup" : "Start a meetup"}
-          data-active={activeMeetup ? "true" : "false"}
-          onClick={handleStartMeetup}
-        >
-          <HuddleIcon size="md" />
-          <span className="pane-action-label">
-            {activeMeetup ? "Join Meetup" : "Meetup"}
-          </span>
-        </button>
+        {callsAvailable && meetupsOn && (!archived || meetupLive) && (
+          <CallButton channelId={channel.id} kind="meetup" />
+        )}
         <button
           className="btn btn-ghost"
           title="Summarise what you haven't read here"

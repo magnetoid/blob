@@ -75,6 +75,9 @@ services:
       - LIVEKIT_URL=${LIVEKIT_URL:-}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
+      # Where Blob reaches LiveKit's API: on the stack's own network, not out through the
+      # proxy. Browsers still dial LIVEKIT_URL.
+      - LIVEKIT_API_URL=${LIVEKIT_API_URL:-http://livekit:7880}
       # A model for Catch-up and thread summaries — not an agent; the agent is Janus,
       # configured on its own service below. Set LLM_PROVIDER and LLM_API_KEY and this
       # server can summarise; leave them and both features say so instead of guessing.
@@ -194,6 +197,14 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
+      # The sweep that reconciles calls against LiveKit (services/calls.py:reconcile)
+      # runs here, once a minute, so this process needs its own LiveKit credentials —
+      # exactly like the app's, below. Without them the sweep silently does nothing, and
+      # presence for a call never recovers from a webhook LiveKit failed to deliver.
+      - LIVEKIT_URL=${LIVEKIT_URL:-}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
+      - LIVEKIT_API_URL=${LIVEKIT_API_URL:-http://livekit:7880}
       # Not read here today — Catch-up and thread summaries run in the app — but kept
       # identical to the app's so the two services see one environment.
       - LLM_PROVIDER=${LLM_PROVIDER:-disabled}
@@ -324,6 +335,17 @@ services:
       # `docker run --rm livekit/livekit-server generate-keys` when you enable meetups —
       # the same two values configure this server and the app that mints tokens for it.
       - "LIVEKIT_KEYS=${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}"
+      # LiveKit's webhooks — who joined, who left, which room closed — go to Blob's
+      # public address, not to `app`: Coolify puts services from both stacks on one
+      # network, and on 2026-09-18 two stacks' same-named services answered for each
+      # other. Signed with the same key, and verified by POST /api/calls/livekit.
+      #
+      # No `:-${SERVICE_FQDN_APP}` fallback here, unlike PUBLIC_URL above: a deployment
+      # with no PUBLIC_URL is already broken for sign-in, so that fallback's bare host —
+      # which parses to an empty one, per the warnings above — could only buy a webhook
+      # LiveKit can never reach, degrading presence to the once-a-minute sweep with no
+      # signal at all. Missing PUBLIC_URL should fail loudly, not quietly here too.
+      - 'LIVEKIT_CONFIG=webhook: {api_key: "${LIVEKIT_API_KEY:-devkey}", urls: ["${PUBLIC_URL}/api/calls/livekit"]}'
     ports:
       # Media, and the TCP fallback for clients whose network blocks UDP outright.
       # `LIVEKIT_TCP_PORT` moves only the host side: LiveKit still advertises 7881, so

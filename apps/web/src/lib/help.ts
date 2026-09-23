@@ -397,6 +397,17 @@ export const SECTIONS: Section[] = [
         commands: ['mute'],
         keywords: ['notify', 'mute', 'notifications', 'quiet', 'all', 'mentions'],
       },
+      {
+        id: 'meetups',
+        title: 'Video meetups',
+        blurb:
+          'The Meetup button in the channel header starts a call, full screen, that anyone there can join. It is the one that works today — the Huddle button in the top bar is there but disabled.',
+        body: [
+          'Going back to the conversation does not hang up: it puts you back in the channel with a bar at the foot of the channel list, showing who is in the call and letting you return to it full screen or leave.',
+          'Leaving takes only you out — the call carries on for whoever is left, and it ends itself once everyone has left it.',
+        ],
+        keywords: ['meetup', 'video', 'call', 'camera', 'screen', 'join'],
+      },
     ],
   },
 
@@ -1052,11 +1063,11 @@ export const SECTIONS: Section[] = [
         blurb:
           'A few things a Slack habit reaches for are not built, and they say so rather than pretending.',
         body: [
-          'The Huddle button at the top of a channel is there and disabled: huddles arrive in a later release. Canvases and workflows do not exist at all.',
-          'There is no Activity inbox collecting your mentions in one place, and no Unreads screen — stepping through unread conversations with the keyboard is what Blob has instead. Nothing emails you about a message.',
+          'The Huddle button in the top bar is there and disabled: huddles arrive in a later release. Canvases and workflows do not exist at all.',
+          'There is no Unreads screen — stepping through unread conversations with the keyboard is what Blob has instead. Nothing emails you about a message.',
           'In the consoles, the rows marked “Soon” are honest: Moderation, Deliveries, Approvals, Storage and Import / export are named because they are coming, and they do nothing today.',
         ],
-        keywords: ['huddle', 'canvas', 'workflow', 'missing', 'coming', 'soon', 'roadmap', 'activity'],
+        keywords: ['huddle', 'canvas', 'workflow', 'missing', 'coming', 'soon', 'roadmap'],
       },
       {
         id: 'stale',

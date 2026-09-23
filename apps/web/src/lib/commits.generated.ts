@@ -11,9 +11,9 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
-    "sha": "57aebdcb047f083b286689d98fe8ca182b19e84a",
-    "shortSha": "57aebdcb",
-    "subject": "feat: the @ picker puts who you tagged last first; a finished run is a quiet line",
+    "sha": "e19bf9b807dc5c5723a54be81797a9f10c1e3b2a",
+    "shortSha": "e19bf9b8",
+    "subject": "feat: the @ picker puts who you tagged last first; a finished run is a quiet line — 1.6.0",
     "date": "2026-09-22T15:51:06+02:00",
     "author": "Marko Tiosavljevic"
   },

@@ -21,7 +21,7 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-twenty ADRs; the principles below are their summary, not a substitute. 0013–0020 are
+twenty-one ADRs; the principles below are their summary, not a substitute. 0013–0020 are
 the agentic surface — chains, work channels, summaries and nudges, the MCP caller, whose
 an agent is, that Blob ships no agent of its own (0017, what a shared agent may read,
 is superseded by 0019), and how an agent hands over a file (0020) — and are the ones this
@@ -253,28 +253,50 @@ the ADR is the place to look before changing them.
   credential for it would mean a long-lived secret that opens a root shell.
   `services/agent_shell.py` decides who may open one; the router decides nothing.
 
-**Meetups** (`services/meetups.py`, `features/meetups/`) sit apart from all of that and are
-the newest and least settled thing here. Blob mints a LiveKit token; LiveKit carries the
-media. Two things to know before touching it: a meetup **inherits its channel's access** — create, token and
-end all pass `assert_channel_access(require_member=True)`, so a private channel's call
-answers 404 to an outsider exactly as the channel does, and `tests/test_meetups.py` pins
-that (the first version checked only the workspace, and the client dialled a URL the
-router did not serve); and it is the only feature with an external dependency that can
-be absent — with no `LIVEKIT_*` settings every endpoint answers `livekit_not_configured`
-in every environment, and nothing else in the workspace notices, which is the "fail
-toward the workspace staying up" rule holding. `docker compose up -d` runs a LiveKit
-in dev on 7880 with LiveKit's own placeholder credentials. In production it is **opt-in**:
-the service carries `profiles: ["meetups"]`, so a deployment that has not set
-`COMPOSE_PROFILES=meetups` never starts it. That is the same rule again, learned the hard
-way on 2026-09-11 — two Blob stacks share one host, the second one's bind of 7882/udp
-failed because the first already held it, and a port clash in the media server stopped
-`docker compose up` before the app and worker ever started. An unconfigured dependency
-must not be able to keep chat down. Signalling goes through Traefik like anything else,
-but media is UDP and a reverse proxy only carries TCP, so `LIVEKIT_UDP_PORT` (7882) is
-published straight onto the host and has to be open in the firewall — miss it and a call
-connects, shows both participants and carries no sound. LiveKit advertises the port it was
-told to bind, which is why that one value appears three times in the compose file and why
-a second instance on the same host needs its own.
+**Calls** (`services/calls.py`, `lib/livekit.py`, `features/calls/`, ADR 0021) are a
+LiveKit room that belongs to one conversation, in two kinds — a huddle and a video
+meetup — and sit apart from the six above: LiveKit carries the media, not AG-UI, and none
+of the plugin/agent machinery applies. Meetups ship in this release; huddles are wired the
+same way underneath, but the button that starts one is still disabled. Four things to know
+before touching it. A call **inherits its conversation's access** — `start`, `token` and
+`end` all pass `assert_channel_access(require_member=True)`, so a private channel's call
+answers 404 to an outsider exactly as the channel does (`tests/test_calls.py` pins it);
+`start` alone also asks for `require_writable`, so an archived channel's call can still be
+joined and ended but no new one begins there,
+and there is one live call *of each kind* per conversation — a partial unique index
+settles two people clicking start at once, and starting one that is already live joins it
+rather than erroring. Who is in a call is kept only while they are: LiveKit's webhooks say
+who joined, who left and when a room closed, signed with the LiveKit key and verified by
+the route itself (`POST /api/calls/livekit`, an exact pair in `PUBLIC_ROUTES` next to
+`/api/mcp`, public because LiveKit holds no session), and a worker sweep asks LiveKit
+directly once a minute for anything a webhook missed. `call_participants` rows go when
+someone leaves and when the call ends, so Blob keeps no attendance history. On the client
+the connection itself is one `Room`, held outside React in `features/calls/engine.ts`:
+more than one surface can show the same call — the bar and full screen today — and each
+mounts and unmounts as you move around, so a Room owned by any one of them used to hang up
+the call the moment that surface unmounted. `CallView`, `CallDock` and `CallAudio` are
+lazy imports from `Workspace.tsx`, for the same reason `livekit-client` and
+`@livekit/components-react` must never reach the main chunk: opening a channel that merely
+shows a Meetup button should not cost everyone the media SDK before anybody has started or
+joined a call.
+
+It is also the only feature with an external dependency that can be absent — with no
+`LIVEKIT_*` settings every endpoint answers `livekit_not_configured` in every environment,
+and nothing else in the workspace notices, which is the "fail toward the workspace
+staying up" rule holding. `docker compose up -d` runs a LiveKit in dev on 7880 with
+LiveKit's own placeholder credentials. In production it is **opt-in**: the compose service
+still carries `profiles: ["meetups"]` — that flag is the deploy switch, not the feature
+name, and it did not change when meetups became one kind of call — so a deployment that
+has not set `COMPOSE_PROFILES=meetups` never starts it. That is the same rule again,
+learned the hard way on 2026-09-11 — two Blob stacks share one host, the second one's bind
+of 7882/udp failed because the first already held it, and a port clash in the media server
+stopped `docker compose up` before the app and worker ever started. An unconfigured
+dependency must not be able to keep chat down. Signalling goes through Traefik like
+anything else, but media is UDP and a reverse proxy only carries TCP, so
+`LIVEKIT_UDP_PORT` (7882) is published straight onto the host and has to be open in the
+firewall — miss it and a call connects, shows everyone present and carries no sound.
+LiveKit advertises the port it was told to bind, which is why that one value appears three
+times in the compose file and why a second instance on the same host needs its own.
 
 **Client.** `features/` by domain, `lib/` for the plumbing: a zustand store keeping
 messages per channel in ascending id order (UUIDv7 sorts chronologically, so a live
@@ -373,8 +395,8 @@ fades keep their duration. Anything sized for a pointer gets a 44px minimum unde
   write in the backend is `text()` with bound parameters, and chat history is
   keyset-paginated, never `OFFSET`. A grep for `session.add(` or `select(` under
   `services/` and `routers/` returns nothing, and a hit is new drift —
-  `services/meetups.py` was the one exception until 2026-09-12, when it went onto
-  `text()` like the rest.
+  the old `services/meetups.py` was the one exception until 2026-09-12, when it went onto
+  `text()` like the rest, and `services/calls.py` inherited that when it replaced it.
 - **Ids are UUIDv7.** Chronological sort order is load-bearing: unread state is a string
   comparison, not a count or a timestamp join. This is the one schema decision that
   cannot be retrofitted cheaply.

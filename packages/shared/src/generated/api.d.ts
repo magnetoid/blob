@@ -41,6 +41,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Call Settings */
+        get: operations["get_call_settings_api_admin_calls_get"];
+        /** Put Call Settings */
+        put: operations["put_call_settings_api_admin_calls_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/calls/server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Media Server */
+        get: operations["media_server_api_admin_calls_server_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/channels": {
         parameters: {
             query?: never;
@@ -1789,6 +1824,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Calls State */
+        get: operations["calls_state_api_calls_get"];
+        put?: never;
+        /** Start Call */
+        post: operations["start_call_api_calls_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calls/{call_id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End Call */
+        post: operations["end_call_api_calls__call_id__end_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calls/{call_id}/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Call Token */
+        post: operations["call_token_api_calls__call_id__token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catchup": {
         parameters: {
             query?: never;
@@ -2507,74 +2594,6 @@ export interface paths {
          *     broken. A test the person can trigger is the only way to verify the whole chain.
          */
         post: operations["push_test_api_me_push_test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/meetups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Meetup */
-        post: operations["create_meetup_api_meetups_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/meetups/{meetup_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Meetup */
-        get: operations["get_meetup_api_meetups__meetup_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/meetups/{meetup_id}/end": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** End Meetup */
-        post: operations["end_meetup_api_meetups__meetup_id__end_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/meetups/{meetup_id}/token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Get Meetup Token */
-        post: operations["get_meetup_token_api_meetups__meetup_id__token_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4160,6 +4179,61 @@ export interface components {
             /** Secondsperday */
             secondsPerDay?: number | null;
         };
+        /** Call */
+        Call: {
+            /** Channelid */
+            channelId: string;
+            /** Createdat */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string;
+            /** Endedat */
+            endedAt?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "huddle" | "meetup";
+            /** Participantids */
+            participantIds?: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "ended";
+        };
+        /** CallSettings */
+        CallSettings: {
+            huddles?: components["schemas"]["HuddleSettings"];
+            meetups?: components["schemas"]["MeetupSettings"];
+        };
+        /** CallsState */
+        CallsState: {
+            /** Available */
+            available: boolean;
+            /** Calls */
+            calls: components["schemas"]["Call"][];
+            settings: components["schemas"]["CallSettings"];
+        };
+        /** CallStart */
+        CallStart: {
+            /** Channelid */
+            channelId: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "huddle" | "meetup";
+        };
+        /** CallToken */
+        CallToken: {
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
+        };
         /**
          * CatalogOut
          * @description What an app may ask for. Drives the consent screen.
@@ -4850,6 +4924,29 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HuddleSettings */
+        HuddleSettings: {
+            /**
+             * Cameras
+             * @default true
+             */
+            cameras: boolean;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Maxparticipants
+             * @default 50
+             */
+            maxParticipants: number;
+            /**
+             * Screenshare
+             * @default true
+             */
+            screenShare: boolean;
+        };
         /** InstalledOut */
         InstalledOut: {
             /** Bottoken */
@@ -5148,38 +5245,42 @@ export interface components {
             /** Messageid */
             messageId: string;
         };
-        /** MeetupCreate */
-        MeetupCreate: {
-            /** Channelid */
-            channelId?: string | null;
-            /** Name */
-            name: string;
-        };
-        /** MeetupOut */
-        MeetupOut: {
-            /** Channelid */
-            channelId: string | null;
-            /** Createdat */
-            createdAt: string;
-            /** Createdby */
-            createdBy: string;
-            /** Endedat */
-            endedAt: string | null;
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Status */
-            status: string;
-            /** Workspaceid */
-            workspaceId: string;
-        };
-        /** MeetupTokenOut */
-        MeetupTokenOut: {
-            /** Token */
-            token: string;
+        /** MediaServerStatus */
+        MediaServerStatus: {
+            /** Configured */
+            configured: boolean;
+            /** Error */
+            error?: string | null;
+            /** Lasteventat */
+            lastEventAt?: string | null;
+            /** Latencyms */
+            latencyMs?: number | null;
+            /** Openrooms */
+            openRooms?: number | null;
+            /** Reachable */
+            reachable?: boolean | null;
             /** Url */
-            url: string;
+            url?: string | null;
+            /** Webhookurl */
+            webhookUrl: string;
+        };
+        /** MeetupSettings */
+        MeetupSettings: {
+            /**
+             * Camerasonjoin
+             * @default true
+             */
+            camerasOnJoin: boolean;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Maxparticipants
+             * @default 50
+             */
+            maxParticipants: number;
         };
         /** Membership */
         Membership: {
@@ -6588,6 +6689,11 @@ export type Bootstrap = components['schemas']['Bootstrap'];
 export type BrowsableChannel = components['schemas']['BrowsableChannel'];
 export type BrowseOut = components['schemas']['BrowseOut'];
 export type BudgetInput = components['schemas']['BudgetInput'];
+export type Call = components['schemas']['Call'];
+export type CallSettings = components['schemas']['CallSettings'];
+export type CallsState = components['schemas']['CallsState'];
+export type CallStart = components['schemas']['CallStart'];
+export type CallToken = components['schemas']['CallToken'];
 export type CatalogOut = components['schemas']['CatalogOut'];
 export type CatchupInput = components['schemas']['CatchupInput'];
 export type CatchupOut = components['schemas']['CatchupOut'];
@@ -6635,6 +6741,7 @@ export type GroupsOut = components['schemas']['GroupsOut'];
 export type HealthOut = components['schemas']['HealthOut'];
 export type HistoryOut = components['schemas']['HistoryOut'];
 export type HTTPValidationError = components['schemas']['HTTPValidationError'];
+export type HuddleSettings = components['schemas']['HuddleSettings'];
 export type InstalledOut = components['schemas']['InstalledOut'];
 export type InstanceUser = components['schemas']['InstanceUser'];
 export type InstanceUsersOut = components['schemas']['InstanceUsersOut'];
@@ -6659,9 +6766,8 @@ export type LogsOut = components['schemas']['LogsOut'];
 export type Manifest = components['schemas']['Manifest'];
 export type MarkReadInput = components['schemas']['MarkReadInput'];
 export type MarkUnreadInput = components['schemas']['MarkUnreadInput'];
-export type MeetupCreate = components['schemas']['MeetupCreate'];
-export type MeetupOut = components['schemas']['MeetupOut'];
-export type MeetupTokenOut = components['schemas']['MeetupTokenOut'];
+export type MediaServerStatus = components['schemas']['MediaServerStatus'];
+export type MeetupSettings = components['schemas']['MeetupSettings'];
 export type Membership = components['schemas']['Membership'];
 export type MembershipUpdateInput = components['schemas']['MembershipUpdateInput'];
 export type MembersOut = components['schemas']['MembersOut'];
@@ -6823,6 +6929,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_call_settings_api_admin_calls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallSettings"];
+                };
+            };
+        };
+    };
+    put_call_settings_api_admin_calls_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    media_server_api_admin_calls_server_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaServerStatus"];
                 };
             };
         };
@@ -9755,6 +9934,121 @@ export interface operations {
             };
         };
     };
+    calls_state_api_calls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallsState"];
+                };
+            };
+        };
+    };
+    start_call_api_calls_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Call"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_call_api_calls__call_id__end_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Call"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    call_token_api_calls__call_id__token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallToken"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     catch_me_up_api_catchup_post: {
         parameters: {
             query?: never;
@@ -11112,132 +11406,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PushTestOut"];
-                };
-            };
-        };
-    };
-    create_meetup_api_meetups_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MeetupCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MeetupOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_meetup_api_meetups__meetup_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                meetup_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MeetupOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    end_meetup_api_meetups__meetup_id__end_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                meetup_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MeetupOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_meetup_token_api_meetups__meetup_id__token_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                meetup_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MeetupTokenOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

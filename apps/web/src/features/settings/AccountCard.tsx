@@ -10,6 +10,7 @@ import { api, type AuthSession } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import { useFetch } from "../../lib/useFetch.ts";
 import { showError } from "../../lib/toasts.ts";
+import { leaveCall } from "../../lib/calls.ts";
 import { Card, CardNotice } from "../console/Card.tsx";
 import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
 
@@ -26,6 +27,11 @@ export function AccountCard({ onSignedOut }: ConsoleSectionProps) {
         <button
           className="btn"
           onClick={async () => {
+            // Hangs up before anything else: `reset()` only forgets the call session,
+            // it does not disconnect the room, and this switches away from the app
+            // with no reload — a lingering room would keep the microphone live with no
+            // screen left to leave it from.
+            await leaveCall();
             await api.auth.logout();
             reset();
             onSignedOut?.();

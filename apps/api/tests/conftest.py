@@ -73,10 +73,12 @@ import pytest_asyncio
 from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory, close_engine
+from blob_api.lib import livekit
 from blob_api.lib.logbuf import close_log_buffer
 from blob_api.lib.redis import close_redis, redis
 from blob_api.realtime import hub
 
+from .fake_livekit import FakeRooms
 from .helpers import Client, build_client, migrate_test_db
 
 #: `instance_admins` is keyed on an email rather than on a user, so it is the one table
@@ -116,6 +118,15 @@ async def _clean_state() -> None:
     # runs — a previous run's signup attempts would exhaust this run's budget.
     await redis.flushdb()
     hub.reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
+def fake_livekit(monkeypatch: pytest.MonkeyPatch) -> FakeRooms:
+    """No test reaches a real LiveKit, whatever the developer's .env says. A test that
+    wants to look at the rooms asks for this fixture by name."""
+    fake = FakeRooms()
+    monkeypatch.setattr(livekit, "rooms", fake)
+    return fake
 
 
 @pytest_asyncio.fixture

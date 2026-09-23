@@ -27,6 +27,7 @@ export const ADMIN_SECTIONS = [
   'invitations',
   'channels',
   'emoji',
+  'meetups',
   'apps',
   'janus',
   'webhooks',
@@ -85,8 +86,8 @@ export type Route =
   | { view: 'changelog' }
   /** The guide: what everything on this screen is, and how to use it. */
   | { view: 'help' }
-  /** A video call. /meetup/:meetupId */
-  | { view: 'meetup'; meetupId: string }
+  /** A call, full screen. /call/:callId — /meetup/:id still opens, for old links. */
+  | { view: 'call'; callId: string }
   /** A permalink to one message. Resolved, then replaced by the conversation. */
   | { view: 'permalink'; messageId: string }
   | { view: 'search'; query?: string; scope?: SearchScope }
@@ -146,8 +147,8 @@ export function parseRoute(path: string): Route {
   if (clean === '/scheduled') return { view: 'scheduled' };
   if (clean === '/whats-new') return { view: 'changelog' };
   if (clean === '/help') return { view: 'help' };
-  const meetup = clean.match(/^\/meetup\/([^/]+)$/);
-  if (meetup) return { view: 'meetup', meetupId: meetup[1] as string };
+  const call = clean.match(/^\/(?:call|meetup)\/([^/]+)$/);
+  if (call) return { view: 'call', callId: call[1] as string };
   const permalink = clean.match(/^\/m\/([^/]+)$/);
   if (permalink) return { view: 'permalink', messageId: permalink[1] as string };
   if (clean === '/search') {
@@ -245,8 +246,8 @@ export function pathForRoute(route: Route): string {
       return '/whats-new';
     case 'help':
       return '/help';
-    case 'meetup':
-      return `/meetup/${route.meetupId}`;
+    case 'call':
+      return `/call/${route.callId}`;
     case 'permalink':
       return `/m/${route.messageId}`;
     // A hand-built string rather than URLSearchParams, which writes a space as `+`:
@@ -273,7 +274,7 @@ export function pathForRoute(route: Route): string {
  * A permalink carries a message id and is replaced by the conversation as soon as it is
  * followed, so there is no "go to the permalink view" for a button to mean.
  */
-type StableView = Exclude<View, 'permalink' | 'channel' | 'meetup'>;
+type StableView = Exclude<View, 'permalink' | 'channel' | 'call'>;
 
 /** The address of a conversation — what the sidebar, results and push payloads link. */
 export function pathForChannel(channelId: string, threadRootId?: string): string {

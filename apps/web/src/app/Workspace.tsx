@@ -1,6 +1,6 @@
 /** The signed-in shell: top bar, sidebar, main view, optional thread panel. */
 
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useStore } from '../lib/store.ts';
 import { showError } from '../lib/toasts.ts';
 import { socket } from '../lib/socket.ts';
@@ -45,22 +45,28 @@ const SettingsConsole = lazy(() =>
 const HelpView = lazy(() =>
   import('../features/help/HelpView.tsx').then((m) => ({ default: m.HelpView })),
 );
-// Lazy because it is the heaviest thing in the client by far — the LiveKit client and
-// its React components were over half the main chunk on their own — and meetups are an
-// opt-in feature most deployments never turn on. Nobody should download a video stack to
-// read a channel.
-const MeetupView = lazy(() =>
-  import('../features/meetups/MeetupView.tsx').then((m) => ({ default: m.MeetupView })),
+// Lazy for the W2 ratchet: LiveKit is most of a megabyte, and neither belongs in the
+// main chunk that everyone who never joins a call still pays for.
+const CallView = lazy(() =>
+  import('../features/calls/CallView.tsx').then((m) => ({ default: m.CallView })),
+);
+const CallDock = lazy(() =>
+  import('../features/calls/CallDock.tsx').then((m) => ({ default: m.CallDock })),
+);
+const CallAudio = lazy(() =>
+  import('../features/calls/CallAudio.tsx').then((m) => ({ default: m.CallAudio })),
 );
 import { TopBar } from '../features/shell/TopBar.tsx';
 import { CatchUpPanel } from '../features/messages/CatchUpPanel.tsx';
 import { FeedbackDialog } from '../features/feedback/FeedbackDialog.tsx';
 import { ShortcutHelp } from '../components/ShortcutHelp.tsx';
+import { ConfirmDialog } from '../components/ConfirmDialog.tsx';
 import { DialogPresence } from '../components/Dialog.tsx';
 import { isTypingTarget, matchShortcut, ownsArrowKeys } from '../lib/shortcuts.ts';
 import { closeThread, showChannel, showMessage } from '../lib/navigation.ts';
 import { updateBadge } from '../lib/badge.ts';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { cancelCallSwitch, confirmCallSwitch, isFullScreenFor } from '../lib/calls.ts';
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
@@ -74,6 +80,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const filePreview = useStore((s) => s.filePreview);
   const openChannel = useStore((s) => s.openChannel);
   const openThread = useStore((s) => s.openThread);
+  const callEngineLoaded = useStore((s) => s.callEngineLoaded);
+  const callSession = useStore((s) => s.callSession);
+  const pendingCallSwitch = useStore((s) => s.pendingCallSwitch);
 
   const path = usePath();
   const route = parseRoute(path);
@@ -93,6 +102,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [helpOpen, setHelpOpen] = useState(false);
   /** Whether the thread panel is in the document at all — open, or still leaving. */
   const [threadPanelPresent, setThreadPanelPresent] = useState(false);
+  /** Whether the call bar is in the document at all — open, or still leaving. */
+  const [callBarPresent, setCallBarPresent] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -117,6 +128,13 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       // Private browsing and hardened environments can refuse storage.
     }
   }, [sidebarCollapsed]);
+
+  // Live calls in conversations you are in — the bar and the header marks read from
+  // this. Once, on mount: `loadCalls` merges any frame heard during its own request, so
+  // it is safe alongside a reconnect's resync.
+  useEffect(() => {
+    void useStore.getState().loadCalls();
+  }, []);
 
   const toggleSidebar = useCallback(() => {
     setSidebarDrawer((current) =>
@@ -384,14 +402,49 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // is an effect: it would land a commit late and paint one frame of an empty column.
   const panelPresent = panelOpen || (inConversation && threadPanelPresent);
 
+  // In every branch: the bar, floating in the consoles because there is no channel list
+  // to stand in there, and the "leave this one?" question. The room's own audio is
+  // `CallAudio`, mounted once below, outside every branch rather than inside each of
+  // them — see its own comment (R31).
+  const callLayer = (floating: boolean) => (
+    <>
+      {callEngineLoaded && (
+        <Suspense fallback={null}>
+          <CallDock
+            fullScreen={isFullScreenFor(route, callSession)}
+            floating={floating}
+            onPresence={setCallBarPresent}
+          />
+        </Suspense>
+      )}
+      <DialogPresence when={pendingCallSwitch}>
+        {() => (
+          <ConfirmDialog
+            title="Leave your current call?"
+            body="You can be in one call at a time."
+            confirmLabel="Leave and join"
+            onConfirm={() => void confirmCallSwitch()}
+            onClose={cancelCallSwitch}
+          />
+        )}
+      </DialogPresence>
+    </>
+  );
+
   // Administration takes the whole window. The rail and channel list are navigation for
   // a conversation, and none of it helps someone reading an audit log. What does stay is
   // everything that belongs to the person rather than the view: the top bar with the
   // account menu, ⌘K, and the feedback dialog — which matters most here, because the
   // report attaches a snapshot of the screen you are on, and leaving the console to file
   // one would attach a channel instead of the page that went wrong.
+  //
+  // Assigned rather than returned from each branch, so `callAudio` below — mounted once,
+  // outside all three — can sit beside whichever of them rendered, in one fragment that
+  // never itself changes shape across a route change (R31). Each branch's own JSX is
+  // exactly what it was when it was still a `return`.
+  let body: ReactNode;
   if (route.view === 'settings') {
-    return (
+    body = (
       <>
         <Suspense fallback={<div className="auth"><p className="muted">Loading…</p></div>}>
           <SettingsConsole
@@ -409,12 +462,11 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         <DialogPresence when={helpOpen}>
           {() => <ShortcutHelp onClose={() => setHelpOpen(false)} />}
         </DialogPresence>
+        {callLayer(true)}
       </>
     );
-  }
-
-  if (route.view === 'admin' && isAdmin) {
-    return (
+  } else if (route.view === 'admin' && isAdmin) {
+    body = (
       <>
         <Suspense fallback={<div className="auth"><p className="muted">Loading…</p></div>}>
           <AdminConsole
@@ -432,151 +484,172 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         <DialogPresence when={helpOpen}>
           {() => <ShortcutHelp onClose={() => setHelpOpen(false)} />}
         </DialogPresence>
+        {callLayer(true)}
       </>
+    );
+  } else {
+    body = (
+      <div
+        className="shell"
+        data-panel={panelPresent ? 'open' : 'closed'}
+        // A file wants more of the width than a thread does: a page or a PDF in a thread's
+        // 380px is a page nobody can read.
+        data-panel-kind={panelOpen && filePreview ? 'file' : undefined}
+        data-sidebar={sidebarOpen ? 'open' : 'closed'}
+        data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
+        data-in-call={callBarPresent ? 'true' : undefined}
+      >
+        <TopBar
+          onFeedback={() => setFeedbackOpen(true)}
+          onToggleSidebar={toggleSidebar}
+          sidebarOpen={sidebarOpen}
+          onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
+          sidebarCollapsed={sidebarCollapsed}
+          view={view}
+          minimal
+          onSearch={() => {
+            setPaletteOnly(undefined);
+            setPaletteOpen(true);
+          }}
+        />
+        <Sidebar collapsed={sidebarCollapsed} />
+        {sidebarOpen && (
+          <button
+            type="button"
+            className="drawer-scrim"
+            aria-label="Close channel list"
+            onClick={closeSidebar}
+          />
+        )}
+
+        {view === 'permalink' && (
+          <main className="pane">
+            <EmptyState
+              title={permalinkFailure ? 'That link did not open' : 'Finding that message…'}
+              action={
+                permalinkFailure && (
+                  <button className="btn" onClick={() => navigate('/')}>
+                    Back home
+                  </button>
+                )
+              }
+            >
+              {permalinkFailure}
+            </EmptyState>
+          </main>
+        )}
+        {view === 'home' && <HomeView />}
+        {(view === 'messages' || view === 'channel') && <ChannelView />}
+        {view === 'threads' && <ThreadsView />}
+        {view === 'activity' && (
+          <ActivityView
+            key={route.kind ?? 'all'}
+            initialKind={route.kind ?? 'all'}
+          />
+        )}
+        {view === 'tasks' && <TasksView />}
+        {view === 'saved' && <SavedView />}
+        {view === 'browse' && <BrowseChannels />}
+        {view === 'files' && <FilesView />}
+        {view === 'scheduled' && <ScheduledView />}
+        {view === 'changelog' && <WhatsNewView />}
+        {view === 'help' && (
+          <Suspense fallback={<main className="pane" />}>
+            <HelpView />
+          </Suspense>
+        )}
+        {view === 'search' && (
+          <SearchView
+            initialQuery={route.view === 'search' ? (route.query ?? '') : ''}
+            initialScope={route.view === 'search' ? route.scope : undefined}
+          />
+        )}
+        {view === 'call' && route.view === 'call' && (
+          <Suspense fallback={<main className="pane" />}>
+            <CallView callId={route.callId} />
+          </Suspense>
+        )}
+
+        {panelOpen && filePreview ? (
+          // Keyed by file, so opening another is a new panel with its own fetch rather
+          // than this one briefly showing the last file's text under the new name.
+          <FilePreviewPanel
+            key={filePreview.id}
+            attachment={filePreview}
+            onClose={closeFilePreview}
+          />
+        ) : panelOpen && terminalTarget ? (
+          <AgentTerminalPanel
+            pluginId={terminalTarget.pluginId}
+            agentName={terminalTarget.agentName}
+          />
+        ) : (
+          // Always rendered *while the conversation is on screen*, because a slot taken
+          // out of the tree the moment the thread closes is the thing this replaces. It
+          // draws nothing until there is a thread, and keeps drawing for one exit after
+          // there is not.
+          //
+          // Leaving the conversation is the one close that is not worth an exit, and the
+          // slot has to go with it rather than hold: the column it stands in is gone on
+          // the same render (`panelPresent` above), so a held panel would auto-place into
+          // an implicit third grid row and take 414px of height off the view that just
+          // arrived — the reflow this used to do sideways, done downwards. Safe to drop
+          // here only because `panelPresent` is derived, not reported: the shell is
+          // already two columns on this very render, so there is no frame of empty column
+          // waiting on the slot's unmount effect to say it has gone.
+          inConversation && (
+            <ThreadPanelSlot rootId={activeThreadRootId} onPresence={setThreadPanelPresent} />
+          )
+        )}
+        {paletteOpen && (
+            <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
+          )}
+        {/* The dialogs leave as well as arrive: each mounts on the render that opens it,
+            as `{open && <X/>}` did, and is held through one exit after. The palette and
+            the lightbox keep the plain mount — the palette gets no motion at all. */}
+        <DialogPresence when={feedbackOpen}>
+          {() => <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
+        </DialogPresence>
+        <DialogPresence when={helpOpen}>
+          {() => <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+        </DialogPresence>
+        {lightbox && (
+          <ImageLightbox
+            attachment={lightbox}
+            onClose={() => useStore.setState({ lightbox: null })}
+          />
+        )}
+
+        {/* Held with the scope it was opened for, so a panel on its way out does not
+            re-render for "no channel" and ask the server a second question. */}
+        <DialogPresence when={catchupScope}>
+          {(scope) => (
+            <CatchUpPanel
+              channelId={scope === 'channel' ? activeChannelId : null}
+              onClose={() => useStore.setState({ catchupScope: null })}
+            />
+          )}
+        </DialogPresence>
+        {callLayer(false)}
+      </div>
     );
   }
 
+  // Outside `body`, in a fragment that wraps every branch alike, so it holds one stable
+  // position across a route change instead of being rebuilt inside whichever branch
+  // happens to be on screen — which is what let crossing the shell/console boundary
+  // mid-call remount it, cutting the call's sound for the length of the change (R31).
+  // `callLayer` above still mounts its own `CallDock` per branch; only the audio moved.
+  const callAudio = callEngineLoaded && (
+    <Suspense fallback={null}>
+      <CallAudio />
+    </Suspense>
+  );
+
   return (
-    <div
-      className="shell"
-      data-panel={panelPresent ? 'open' : 'closed'}
-      // A file wants more of the width than a thread does: a page or a PDF in a thread's
-      // 380px is a page nobody can read.
-      data-panel-kind={panelOpen && filePreview ? 'file' : undefined}
-      data-sidebar={sidebarOpen ? 'open' : 'closed'}
-      data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
-    >
-      <TopBar
-        onFeedback={() => setFeedbackOpen(true)}
-        onToggleSidebar={toggleSidebar}
-        sidebarOpen={sidebarOpen}
-        onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
-        sidebarCollapsed={sidebarCollapsed}
-        view={view}
-        minimal
-        onSearch={() => {
-          setPaletteOnly(undefined);
-          setPaletteOpen(true);
-        }}
-      />
-      <Sidebar collapsed={sidebarCollapsed} />
-      {sidebarOpen && (
-        <button
-          type="button"
-          className="drawer-scrim"
-          aria-label="Close channel list"
-          onClick={closeSidebar}
-        />
-      )}
-
-      {view === 'permalink' && (
-        <main className="pane">
-          <EmptyState
-            title={permalinkFailure ? 'That link did not open' : 'Finding that message…'}
-            action={
-              permalinkFailure && (
-                <button className="btn" onClick={() => navigate('/')}>
-                  Back home
-                </button>
-              )
-            }
-          >
-            {permalinkFailure}
-          </EmptyState>
-        </main>
-      )}
-      {view === 'home' && <HomeView />}
-      {(view === 'messages' || view === 'channel') && <ChannelView />}
-      {view === 'threads' && <ThreadsView />}
-      {view === 'activity' && (
-        <ActivityView
-          key={route.kind ?? 'all'}
-          initialKind={route.kind ?? 'all'}
-        />
-      )}
-      {view === 'tasks' && <TasksView />}
-      {view === 'saved' && <SavedView />}
-      {view === 'browse' && <BrowseChannels />}
-      {view === 'files' && <FilesView />}
-      {view === 'scheduled' && <ScheduledView />}
-      {view === 'changelog' && <WhatsNewView />}
-      {view === 'help' && (
-        <Suspense fallback={<main className="pane" />}>
-          <HelpView />
-        </Suspense>
-      )}
-      {view === 'search' && (
-        <SearchView
-          initialQuery={route.view === 'search' ? (route.query ?? '') : ''}
-          initialScope={route.view === 'search' ? route.scope : undefined}
-        />
-      )}
-      {view === 'meetup' && (
-        <Suspense fallback={<main className="pane" />}>
-          <MeetupView meetupId={route.meetupId} />
-        </Suspense>
-      )}
-
-      {panelOpen && filePreview ? (
-        // Keyed by file, so opening another is a new panel with its own fetch rather
-        // than this one briefly showing the last file's text under the new name.
-        <FilePreviewPanel
-          key={filePreview.id}
-          attachment={filePreview}
-          onClose={closeFilePreview}
-        />
-      ) : panelOpen && terminalTarget ? (
-        <AgentTerminalPanel
-          pluginId={terminalTarget.pluginId}
-          agentName={terminalTarget.agentName}
-        />
-      ) : (
-        // Always rendered *while the conversation is on screen*, because a slot taken
-        // out of the tree the moment the thread closes is the thing this replaces. It
-        // draws nothing until there is a thread, and keeps drawing for one exit after
-        // there is not.
-        //
-        // Leaving the conversation is the one close that is not worth an exit, and the
-        // slot has to go with it rather than hold: the column it stands in is gone on
-        // the same render (`panelPresent` above), so a held panel would auto-place into
-        // an implicit third grid row and take 414px of height off the view that just
-        // arrived — the reflow this used to do sideways, done downwards. Safe to drop
-        // here only because `panelPresent` is derived, not reported: the shell is
-        // already two columns on this very render, so there is no frame of empty column
-        // waiting on the slot's unmount effect to say it has gone.
-        inConversation && (
-          <ThreadPanelSlot rootId={activeThreadRootId} onPresence={setThreadPanelPresent} />
-        )
-      )}
-      {paletteOpen && (
-          <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
-        )}
-      {/* The dialogs leave as well as arrive: each mounts on the render that opens it,
-          as `{open && <X/>}` did, and is held through one exit after. The palette and
-          the lightbox keep the plain mount — the palette gets no motion at all. */}
-      <DialogPresence when={feedbackOpen}>
-        {() => <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
-      </DialogPresence>
-      <DialogPresence when={helpOpen}>
-        {() => <ShortcutHelp onClose={() => setHelpOpen(false)} />}
-      </DialogPresence>
-      {lightbox && (
-        <ImageLightbox
-          attachment={lightbox}
-          onClose={() => useStore.setState({ lightbox: null })}
-        />
-      )}
-
-      {/* Held with the scope it was opened for, so a panel on its way out does not
-          re-render for "no channel" and ask the server a second question. */}
-      <DialogPresence when={catchupScope}>
-        {(scope) => (
-          <CatchUpPanel
-            channelId={scope === 'channel' ? activeChannelId : null}
-            onClose={() => useStore.setState({ catchupScope: null })}
-          />
-        )}
-      </DialogPresence>
-    </div>
+    <>
+      {body}
+      {callAudio}
+    </>
   );
 }

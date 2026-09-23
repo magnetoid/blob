@@ -204,6 +204,14 @@ describe('a search carries its query', () => {
   });
 });
 
+describe('a call route', () => {
+  it('opens a call at /call/:id, and an old /meetup/:id link at the same place', () => {
+    expect(parseRoute('/call/abc')).toEqual({ view: 'call', callId: 'abc' });
+    expect(parseRoute('/meetup/abc')).toEqual({ view: 'call', callId: 'abc' });
+    expect(pathForRoute({ view: 'call', callId: 'abc' })).toBe('/call/abc');
+  });
+});
+
 describe('a search carries its scope', () => {
   it('reads the scope out of the URL', () => {
     expect(parseRoute('/search?q=deploy&scope=files')).toEqual({

@@ -21,6 +21,7 @@ from ..lib.storage import delete_object
 from ..plugins import delivery as plugin_delivery
 from ..realtime import hub
 from ..services import agent_runs as agent_run_service
+from ..services.calls import reconcile as reconcile_calls
 from .agui import expire_agent_decisions as expire_decisions
 from .agui import handle_agui_run
 from .deployments import sync_hosted_agents
@@ -142,6 +143,14 @@ async def deliver_plugin_events(_ctx: dict[str, Any]) -> None:
         log.info("attempted %d plugin deliveries", delivered)
 
 
+async def sweep_calls(_ctx: dict[str, Any]) -> None:
+    """Calls agree with LiveKit: rooms that closed end their call, and who is in a call is
+    what LiveKit says. The webhooks do this as it happens; this catches what they missed."""
+    changed = await reconcile_calls()
+    if changed:
+        log.info("call sweep changed %d call(s)", changed)
+
+
 async def startup(_ctx: dict[str, Any]) -> None:
     # The worker broadcasts too (read-state updates from notify), so it needs the bridge.
     await hub.start_redis_bridge()
@@ -212,6 +221,9 @@ class WorkerSettings:
         # So is a scheduled message. Offset from the reminder sweep so the two are not
         # contending for the same connections on the same second.
         cron(send_scheduled, second=15),  # type: ignore[arg-type]
+        # :45, so it does not share a second with the outbox (:00), reminders (:30) or
+        # scheduled sends (:15).
+        cron(sweep_calls, second=45),  # type: ignore[arg-type]
         # At startup because a fresh deploy is exactly when the stored callback URL is
         # most likely stale, then on a slow cycle so a domain change heals unwatched.
         cron(

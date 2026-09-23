@@ -67,6 +67,10 @@ services:
     image: livekit/livekit-server:latest
     command: --dev --bind 0.0.0.0 --udp-port 7882
     ports: ['7880:7880', '7881:7881', '7882:7882/udp']
+    environment:
+      - 'LIVEKIT_CONFIG=webhook: {api_key: devkey, urls: ["http://host.docker.internal:3000/api/calls/livekit"]}'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Catches all outgoing mail in dev. UI at http://localhost:8025
   mailhog:

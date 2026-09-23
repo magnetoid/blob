@@ -34,6 +34,15 @@ LIMITS: dict[str, Limit] = {
     # Opening files in the side panel. A preview reads the bytes through this process,
     # so it is not free, but somebody flicking through a channel's files opens many.
     "preview": Limit(60, 60),
+    # Starting a call is also how you join one that's already live, so ten a minute
+    # has to be generous enough for a channel's members to join in quick succession —
+    # a tighter limit would throttle joins, not loops. Nothing here rings anybody;
+    # it only ever gates the caller's own next request.
+    "start_call": Limit(10, 60),
+    # `/token` is the route that actually joins a call, and it is more frequent than
+    # starting one — a reload re-joins. A shared bucket with `start_call` would make a
+    # reload storm look like abuse; this one is generous enough that it never does.
+    "call_token": Limit(30, 60),
     "search": Limit(30, 60),
     "webhook": Limit(60, 60),
     "invite": Limit(30, 3600),
