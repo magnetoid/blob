@@ -523,18 +523,58 @@ export interface LaterItem {
   note: string | null;
 }
 
-export interface Meetup {
+/** A huddle or a meetup: a LiveKit room that belongs to one conversation. */
+export type CallKind = 'huddle' | 'meetup';
+
+export interface Call {
   id: string;
-  workspaceId: string;
-  channelId: string | null;
+  channelId: string;
+  kind: CallKind;
   createdBy: string;
-  name: string;
   status: 'active' | 'ended';
   createdAt: string;
   endedAt: string | null;
+  /** Who is connected right now, in the order they arrived. */
+  participantIds: string[];
 }
 
-export interface MeetupToken {
+export interface CallToken {
   token: string;
   url: string;
+}
+
+export interface HuddleSettings {
+  enabled: boolean;
+  cameras: boolean;
+  screenShare: boolean;
+  maxParticipants: number;
+}
+
+export interface MeetupSettings {
+  enabled: boolean;
+  camerasOnJoin: boolean;
+  maxParticipants: number;
+}
+
+export interface CallSettings {
+  huddles: HuddleSettings;
+  meetups: MeetupSettings;
+}
+
+export interface CallsState {
+  /** Whether this server has a media server at all. */
+  available: boolean;
+  settings: CallSettings;
+  calls: Call[];
+}
+
+export interface MediaServerStatus {
+  configured: boolean;
+  url: string | null;
+  reachable: boolean | null;
+  latencyMs: number | null;
+  error: string | null;
+  openRooms: number | null;
+  lastEventAt: string | null;
+  webhookUrl: string;
 }

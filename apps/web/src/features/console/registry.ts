@@ -186,6 +186,21 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
     ],
   },
   {
+    id: 'calls',
+    label: 'Calls',
+    sections: [
+      {
+        id: 'meetups',
+        label: 'Video meetups',
+        description:
+          'Full-screen video calls in a channel: whether people can start them, and how many can join.',
+        keywords: ['video', 'meeting', 'meetup', 'call', 'camera', 'livekit', 'conference', 'zoom', 'meet'],
+      },
+      // The audio-first call, in any channel or DM. Built in the next release.
+      { id: 'huddles', label: 'Huddles', planned: true },
+    ],
+  },
+  {
     id: 'integrations',
     label: 'Agents & apps',
     sections: [

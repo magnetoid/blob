@@ -20,13 +20,17 @@ import type {
   PresenceState,
   ServerEvent,
   Theme,
-  Meetup,
+  Call,
+  CallKind,
+  CallSettings,
   User,
   UserGroup,
   UserPrefs,
 } from "@blob/shared";
 import { api } from "./api.ts";
 import { showError, useToasts } from "./toasts.ts";
+import { DEFAULT_CALL_SETTINGS } from "./callDefaults.ts";
+import type { CallSession } from "./calls.ts";
 import {
   draftKey,
   flushDrafts,
@@ -182,8 +186,22 @@ interface State {
   /** Live and recent agent runs, keyed by run id. Fed by socket events and the
    * per-channel fetch on open; the card under a trigger message renders from this. */
   agentRuns: Record<string, AgentRunView>;
-  /** Active meetups in the current workspace, keyed by meetup id. */
-  activeMeetups: Record<string, Meetup>;
+  /** Live calls in conversations you are in, keyed by call id. */
+  activeCalls: Record<string, Call>;
+  /** Whether this server has LiveKit at all; false draws no call buttons. */
+  callsAvailable: boolean;
+  /** `loadCalls` has answered at least once, so "no call" means none rather than unknown. */
+  callsLoaded: boolean;
+  callSettings: CallSettings;
+  /** The call you are in, if any. The connection itself is `features/calls/engine.ts`. */
+  callSession: CallSession | null;
+  /** The engine chunk has been loaded, so the call dock stays mounted from here on. */
+  callEngineLoaded: boolean;
+  /** You are in one call and asked for another: the "leave this one?" question. */
+  pendingCallSwitch: { channelId: string; kind: CallKind } | null;
+  /** `retriesLeft` is this call's own, internal — every real caller (mount, `resync`,
+   *  and a scheduled retry itself) calls this with no argument. */
+  loadCalls: (retriesLeft?: number) => Promise<void>;
   /**
    * A channel where you deliberately left something unread.
    *
@@ -265,6 +283,77 @@ function scheduleResyncRetry(run: () => void): void {
     resyncRetryTimer = null;
     run();
   }, 5000);
+}
+
+/** The `call.started | call.updated | call.ended` members of the server event union —
+ *  what `reduceCalls` and a `loadCalls` replay both fold over. */
+type CallFrame = Extract<ServerEvent, { t: "call.started" | "call.updated" | "call.ended" }>;
+type CallsSettingsFrame = Extract<ServerEvent, { t: "calls.settings" }>;
+
+/**
+ * One call frame folded over the live list. Pure, and the same object back when nothing
+ * changed — an update or an end for a call this client never heard start is not invented
+ * into one — which is what lets `applyEvent` skip a re-render for it.
+ */
+function reduceCalls(calls: Record<string, Call>, frame: CallFrame): Record<string, Call> {
+  switch (frame.t) {
+    case "call.started":
+      return { ...calls, [frame.call.id]: frame.call };
+    case "call.updated": {
+      const call = calls[frame.callId];
+      if (!call) return calls;
+      return {
+        ...calls,
+        [frame.callId]: { ...call, participantIds: frame.participantIds },
+      };
+    }
+    case "call.ended": {
+      if (!calls[frame.callId]) return calls;
+      const next = { ...calls };
+      delete next[frame.callId];
+      return next;
+    }
+  }
+}
+
+/**
+ * Every `loadCalls` in flight, each as the list of call frames it has heard since it
+ * started. Its own request answers with a snapshot that can be older than a frame the
+ * socket delivered while the snapshot was on its way — an ended call must not come back,
+ * a started one must not vanish — so `applyEvent` records every frame here before applying
+ * it, and `loadCalls` replays its own list over the snapshot it got back. A set because a
+ * mount and a resync can each have a `loadCalls` outstanding at once, and each needs its
+ * own replay.
+ */
+const callLoads = new Set<Array<CallFrame | CallsSettingsFrame>>();
+
+/**
+ * `heard`'s replay only protects a `loadCalls` against frames that arrived *during* it —
+ * two outstanding loads (a mount racing a resync's reconnect, say) can still answer out
+ * of order, and the older one's snapshot-plus-replay is itself stale once that happens.
+ * Every load is numbered by when it *started*; a load whose number is below
+ * `answeredSeq` when it answers is superseded — a newer load already applied a newer
+ * snapshot, replayed over the very same gap this one would have filled — so it applies
+ * nothing, and a load that does apply raises `answeredSeq` to its own number.
+ */
+let loadSeq = 0;
+let answeredSeq = 0;
+
+/**
+ * A failed `loadCalls` used to leave `callsAvailable` false until happenstance of a
+ * socket *reconnect* called it again — silent, and possibly never for a session that
+ * never drops its socket. Retried here instead, twice, on its own short timers: a
+ * couple of seconds, then several, then quiet — calls are one feature, not a reason to
+ * keep trying forever the way `scheduleResyncRetry` does for the message catch-up.
+ * Module state, the same as `resyncRetryTimer` above, so `reset()` can cancel a pending
+ * one and none ever fires after a sign-out.
+ */
+let callsRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearCallsRetry(): void {
+  if (callsRetryTimer === null) return;
+  clearTimeout(callsRetryTimer);
+  callsRetryTimer = null;
 }
 
 /**
@@ -493,7 +582,13 @@ export const useStore = create<State>((set, get) => ({
   lightbox: null,
   filePreview: null,
   agentRuns: {},
-  activeMeetups: {},
+  activeCalls: {},
+  callsAvailable: false,
+  callsLoaded: false,
+  callSettings: DEFAULT_CALL_SETTINGS,
+  callSession: null,
+  callEngineLoaded: false,
+  pendingCallSwitch: null,
   catchupScope: null,
   terminalTarget: null,
   suppressReadFor: null,
@@ -527,6 +622,12 @@ export const useStore = create<State>((set, get) => ({
     // first, or a write scheduled a moment ago lands after the wipe and restores them.
     flushDrafts();
     persistDrafts({});
+    // A `loadCalls` retry still pending must not fire after this — nothing here should
+    // outlive the session that scheduled it.
+    clearCallsRetry();
+    // Does not hang up a call: forgetting the session here is not the same thing as
+    // disconnecting the room, so the caller leaves the call first — `AccountCard.tsx`'s
+    // Sign out does, before it gets here.
     set({
       ready: false,
       workspaceName: "",
@@ -558,6 +659,15 @@ export const useStore = create<State>((set, get) => ({
       filePreview: null,
       unreadMarkers: {},
       suppressReadFor: null,
+      activeCalls: {},
+      callsAvailable: false,
+      callsLoaded: false,
+      callSettings: DEFAULT_CALL_SETTINGS,
+      callSession: null,
+      // Not `callEngineLoaded`: it describes what this page has loaded, not who is
+      // signed in. Staying true is what lets the call dock mount again after a
+      // sign-out and back in, rather than only ever once per page load.
+      pendingCallSwitch: null,
     });
   },
 
@@ -1763,18 +1873,19 @@ export const useStore = create<State>((set, get) => ({
         });
         break;
       }
-      case "meetup.started":
-        set((s) => ({
-          activeMeetups: { ...s.activeMeetups, [event.meetup.id]: event.meetup },
-        }));
+      case "call.started":
+      case "call.updated":
+      case "call.ended":
+        for (const heard of callLoads) heard.push(event);
+        set((s) => {
+          const activeCalls = reduceCalls(s.activeCalls, event);
+          return activeCalls === s.activeCalls ? {} : { activeCalls };
+        });
         break;
 
-      case "meetup.ended":
-        set((s) => {
-          const activeMeetups = { ...s.activeMeetups };
-          delete activeMeetups[event.meetupId];
-          return { activeMeetups };
-        });
+      case "calls.settings":
+        for (const heard of callLoads) heard.push(event);
+        set({ callSettings: event.settings });
         break;
 
       case "hello":
@@ -1884,6 +1995,57 @@ export const useStore = create<State>((set, get) => ({
     if (active && !get().messages[active]?.loaded)
       await get().openChannel(active);
     await get().flushOutbox();
+    // A call that started or ended while the socket was down is in no frame this
+    // client will ever get.
+    void get().loadCalls();
+  },
+
+  loadCalls: async (retriesLeft = 2) => {
+    // Any fresh attempt — a mount, a resync, or this retry itself — supersedes an older
+    // one's own pending retry rather than letting both eventually fire.
+    clearCallsRetry();
+    const seq = ++loadSeq;
+    const heard: Array<CallFrame | CallsSettingsFrame> = [];
+    callLoads.add(heard);
+    try {
+      const state = await api.calls.state();
+      // A newer load already answered — its own snapshot, replayed over its own gap,
+      // already covers what this one would have said, and applying this one now would
+      // only walk the live list back to how it looked before that newer answer.
+      if (seq < answeredSeq) return;
+      answeredSeq = seq;
+      let activeCalls: Record<string, Call> = Object.fromEntries(
+        state.calls.map((call) => [call.id, call]),
+      );
+      let callSettings = state.settings;
+      // Replay what arrived while the request was out, in the order it arrived, so a
+      // call the snapshot missed is not lost and one it still lists as live is not
+      // resurrected after this client was told it ended.
+      for (const frame of heard) {
+        if (frame.t === "calls.settings") callSettings = frame.settings;
+        else activeCalls = reduceCalls(activeCalls, frame);
+      }
+      set({
+        activeCalls,
+        callsAvailable: state.available,
+        callSettings,
+        callsLoaded: true,
+      });
+    } catch {
+      // Calls are one feature. A failed read keeps what the frames have said so far.
+      // Two tries of its own, then quiet — a couple of seconds, then several — rather
+      // than leaving `callsAvailable` false until happenstance of a socket reconnect
+      // calls this again.
+      if (retriesLeft > 0) {
+        const delayMs = retriesLeft === 2 ? 2_000 : 6_000;
+        callsRetryTimer = setTimeout(() => {
+          callsRetryTimer = null;
+          void get().loadCalls(retriesLeft - 1);
+        }, delayMs);
+      }
+    } finally {
+      callLoads.delete(heard);
+    }
   },
 
   setPrefs: async (prefs) => {

@@ -42,6 +42,33 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-09-23',
+    version: '1.7.0',
+    title: 'Video meetups',
+    entries: [
+      {
+        kind: 'added',
+        text: 'A Meetup button in every channel and DM starts a full-screen video call. Everyone else sees it go live where they already are — the button becomes Join, and the channel gets a mark in the sidebar — with nothing to reload.',
+      },
+      {
+        kind: 'added',
+        text: 'Going back to the conversation keeps you in the call: a bar at the foot of the channel list holds your microphone, camera, screen share and the way back, and the call stays audible while you read, search, or open the console.',
+      },
+      {
+        kind: 'added',
+        text: 'A call ends itself once the last person leaves, so nobody has to remember to hang up, and who is in one comes from the media server rather than from guesswork.',
+      },
+      {
+        kind: 'added',
+        text: 'Admin → Calls → Video meetups: turn meetups off, decide whether cameras come on when people join, and cap how many can be in one. The switch reaches every open client at once. The page also says whether the media server is answering, how fast, how many calls are open, and when it last reported.',
+      },
+      {
+        kind: 'changed',
+        text: 'Meetups are now one half of one feature — huddles are the other, and arrive in the next release. An old /meetup link still opens the call.',
+      },
+    ],
+  },
+  {
     date: '2026-09-22',
     version: '1.6.0',
     title: 'The @ list knows who you mean',

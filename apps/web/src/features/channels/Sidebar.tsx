@@ -19,11 +19,13 @@ import {
   ClockIcon,
   FileIcon,
   HomeIcon,
+  HuddleIcon,
   MentionIcon,
   PinIcon,
   PlusIcon,
   ReplyIcon,
   SearchIcon,
+  VideoIcon,
 } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 import { NewMessageDialog } from './NewMessageDialog.tsx';
@@ -393,6 +395,17 @@ function ChannelRow({
   const channelTitle = useStore((s) => s.channelTitle);
   const [menu, setMenu] = useState(false);
 
+  // A primitive, not the calls themselves, so this row re-renders only when its own
+  // marks change — a call starting or ending elsewhere in the workspace touches no
+  // row but its own.
+  const liveKinds = useStore((s) => {
+    let kinds = '';
+    for (const call of Object.values(s.activeCalls)) {
+      if (call.channelId === channel.id) kinds += call.kind === 'meetup' ? 'm' : 'h';
+    }
+    return kinds;
+  });
+
   const active = channel.id === activeChannelId;
   const isDm = channel.kind === 'dm' || channel.kind === 'group_dm';
   const otherId =
@@ -439,6 +452,16 @@ function ChannelRow({
         {!collapsed && !active && channelHasDraft(drafts, channel.id) && (
           <span className="channel-draft" title="You have an unsent draft here">
             draft
+          </span>
+        )}
+        {liveKinds && (
+          <span
+            className="channel-call-mark"
+            role="img"
+            aria-label={liveKinds.includes('m') ? 'A meetup is on' : 'A huddle is on'}
+            title={liveKinds.includes('m') ? 'A meetup is on' : 'A huddle is on'}
+          >
+            {liveKinds.includes('m') ? <VideoIcon size="sm" /> : <HuddleIcon size="sm" />}
           </span>
         )}
         {channel.mentionCount > 0 && (

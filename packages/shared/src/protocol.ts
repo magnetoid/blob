@@ -10,9 +10,10 @@ import type {
   AgentRunCard,
   AgentRunStatus,
   AgentRunView,
+  Call,
+  CallSettings,
   Channel,
   ChannelWithState,
-  Meetup,
   Message,
   NotifyLevel,
   PresenceState,
@@ -95,8 +96,10 @@ export type ServerEvent =
       error: string | null;
       postCount: number;
     }
-  | { t: 'meetup.started'; meetup: Meetup }
-  | { t: 'meetup.ended'; meetupId: string }
+  | { t: 'call.started'; call: Call }
+  | { t: 'call.updated'; callId: string; participantIds: string[] }
+  | { t: 'call.ended'; callId: string }
+  | { t: 'calls.settings'; settings: CallSettings }
   | { t: 'error'; code: string; message: string };
 
 /** Frames the client sends. */

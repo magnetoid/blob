@@ -118,4 +118,15 @@ describe('the types the client is written against are the ones the server descri
     expectTypeOf<ServerMessage>().toMatchTypeOf<ClientMessage>();
     expectTypeOf<ClientMessage>().toMatchTypeOf<ServerMessage>();
   });
+
+  it('agrees about calls', () => {
+    expectTypeOf<Norm<Gen.Call>>().toMatchTypeOf<Norm<Hand.Call>>();
+    expectTypeOf<Norm<Hand.Call>>().toMatchTypeOf<Norm<Gen.Call>>();
+    expectTypeOf<Norm<Gen.CallSettings>>().toMatchTypeOf<Norm<Hand.CallSettings>>();
+    expectTypeOf<Norm<Hand.CallSettings>>().toMatchTypeOf<Norm<Gen.CallSettings>>();
+    expectTypeOf<Norm<Gen.CallsState>>().toMatchTypeOf<Norm<Hand.CallsState>>();
+    expectTypeOf<Norm<Hand.CallsState>>().toMatchTypeOf<Norm<Gen.CallsState>>();
+    expectTypeOf<Norm<Gen.MediaServerStatus>>().toMatchTypeOf<Norm<Hand.MediaServerStatus>>();
+    expectTypeOf<Norm<Hand.MediaServerStatus>>().toMatchTypeOf<Norm<Gen.MediaServerStatus>>();
+  });
 });

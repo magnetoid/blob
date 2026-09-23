@@ -223,3 +223,63 @@ export const FeedbackIcon = (p: IconProps) => (
     <path d="M5.7 5.7l3.8 3.8M14.5 14.5l3.8 3.8M18.3 5.7l-3.8 3.8M9.5 14.5l-3.8 3.8" />
   </Svg>
 );
+
+export const VideoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2.5" y="6" width="13" height="12" rx="2" />
+    <path d="M15.5 10.5l5.2-3a.6.6 0 0 1 .9.5v8a.6.6 0 0 1-.9.5l-5.2-3" />
+  </Svg>
+);
+
+export const VideoOffIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M10.7 6h2.8a2 2 0 0 1 2 2v2.5l5.2-3a.6.6 0 0 1 .9.5v8" />
+    <path d="M15.5 16a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h1.5" />
+    <path d="M3 3l18 18" />
+  </Svg>
+);
+
+export const MicIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+    <path d="M12 17.5V21" />
+  </Svg>
+);
+
+export const MicOffIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M15 10V6a3 3 0 0 0-5.7-1.3" />
+    <path d="M9 9v2a3 3 0 0 0 4.9 2.3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 10.6 5" />
+    <path d="M18.4 12.6a6.5 6.5 0 0 0 .1-1.6" />
+    <path d="M12 17.5V21" />
+    <path d="M3 3l18 18" />
+  </Svg>
+);
+
+export const ScreenShareIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2.5" y="4" width="19" height="13" rx="2" />
+    <path d="M8 21h8M12 17v4" />
+    <path d="M9 10.5l3-3 3 3M12 7.5v6" />
+  </Svg>
+);
+
+export const LeaveCallIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3.2 14.8c5-4.6 12.6-4.6 17.6 0l-2 2.2-3.3-1.4v-2.4a9 9 0 0 0-7 0v2.4l-3.3 1.4z" />
+  </Svg>
+);
+
+export const ExpandIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M15 3.5h5.5V9M9 20.5H3.5V15M20.5 3.5l-7 7M3.5 20.5l7-7" />
+  </Svg>
+);
+
+export const CollapseIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+  </Svg>
+);

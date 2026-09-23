@@ -11,9 +11,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from pydantic import ValidationError
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import session_scope
+from ..schemas.calls import CallSettings, HuddleSettings, MeetupSettings
 
 SignupPolicy = Literal["invite", "open"]
 
@@ -81,3 +84,32 @@ async def load_retention_days() -> int:
     if not rows:
         return DEFAULT_RETENTION_DAYS
     return min(parse(row.settings).retention_days for row in rows)
+
+
+def parse_calls(raw: dict[str, Any] | None) -> CallSettings:
+    """The `calls` key, typed. A kind whose stored value no longer validates falls back to
+    that kind's defaults rather than taking the other kind down with it."""
+    data = (raw or {}).get("calls")
+    if not isinstance(data, dict):
+        return CallSettings()
+    try:
+        huddles = HuddleSettings.model_validate(data.get("huddles") or {})
+    except ValidationError:
+        huddles = HuddleSettings()
+    try:
+        meetups = MeetupSettings.model_validate(data.get("meetups") or {})
+    except ValidationError:
+        meetups = MeetupSettings()
+    return CallSettings(huddles=huddles, meetups=meetups)
+
+
+async def load_calls(session: AsyncSession, workspace_id: str) -> CallSettings:
+    """Inside the caller's transaction, unlike `load`: a start reads the settings it is
+    about to act on in the same snapshot."""
+    row = (
+        await session.execute(
+            text("SELECT settings FROM workspace_settings WHERE workspace_id = :ws"),
+            {"ws": workspace_id},
+        )
+    ).fetchone()
+    return parse_calls(row.settings if row else None)

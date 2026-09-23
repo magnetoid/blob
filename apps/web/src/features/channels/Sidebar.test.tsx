@@ -292,3 +292,23 @@ describe('a conversation joining the list', () => {
     expect(wrapOf(container, 'random').dataset.arriving).toBeUndefined();
   });
 });
+
+/**
+ * A call live in a conversation is a fact about that row, the same as an unread mention
+ * or an unsent draft — worth seeing without opening it.
+ */
+describe('a live call marks its conversation', () => {
+  it('marks a conversation with a live call', () => {
+    seed();
+    useStore.setState({
+      activeCalls: {
+        c1: {
+          id: 'c1', channelId: 'c1', kind: 'huddle', createdBy: 'u1', status: 'active',
+          createdAt: '', endedAt: null, participantIds: ['u1'],
+        },
+      },
+    });
+    render(<Sidebar collapsed={false} />);
+    expect(screen.getByRole('img', { name: 'A huddle is on' })).toBeTruthy();
+  });
+});

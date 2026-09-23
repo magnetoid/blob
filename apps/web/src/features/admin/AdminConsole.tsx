@@ -32,6 +32,7 @@ import { GeneralSection } from './sections/GeneralSection.tsx';
 import { GroupsSection } from './sections/GroupsSection.tsx';
 import { InvitationsSection } from './sections/InvitationsSection.tsx';
 import { JanusSection } from './sections/janus/JanusSection.tsx';
+import { MeetupsSection } from './sections/calls/MeetupsSection.tsx';
 import { PeopleHub } from './sections/PeopleHub.tsx';
 import { ThemesSection } from './sections/ThemesSection.tsx';
 import { WebhooksSection } from './sections/WebhooksSection.tsx';
@@ -76,6 +77,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   invitations: framed(InvitationsSection),
   channels: ChannelsSection,
   emoji: EmojiSection,
+  meetups: MeetupsSection,
   apps: AppsSection,
   janus: JanusSection,
   webhooks: WebhooksSection,

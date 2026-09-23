@@ -93,6 +93,18 @@ class Response:
     headers: dict[str, str] = field(default_factory=dict)
 
 
+def _wrap(response: httpx.Response) -> Response:
+    try:
+        payload = response.json() if response.content else None
+    except ValueError:
+        payload = response.text
+    return Response(
+        status=response.status_code,
+        body=payload,
+        headers={k.lower(): v for k, v in response.headers.items()},
+    )
+
+
 class Client:
     """A thin wrapper so tests read like the TypeScript suite they were ported from."""
 
@@ -103,15 +115,12 @@ class Client:
 
     async def request(self, method: str, url: str, body: Any = None) -> Response:
         response = await self._http.request(method, url, json=body if body is not None else None)
-        try:
-            payload = response.json() if response.content else None
-        except ValueError:
-            payload = response.text
-        return Response(
-            status=response.status_code,
-            body=payload,
-            headers={k.lower(): v for k, v in response.headers.items()},
-        )
+        return _wrap(response)
+
+    async def post_raw(self, url: str, content: str, headers: dict[str, str]) -> Response:
+        """A body sent exactly as given, for callers that sign the bytes — LiveKit's
+        webhooks sign a hash of the body, so re-serialising it would break the signature."""
+        return _wrap(await self._http.post(url, content=content, headers=headers))
 
     async def get(self, url: str) -> Response:
         return await self.request("GET", url)

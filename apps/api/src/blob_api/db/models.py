@@ -1198,12 +1198,24 @@ class PushSubscription(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
-class Meetup(Base):
-    __tablename__ = "meetups"
+class Call(Base):
+    """A LiveKit room that belongs to one conversation — a huddle or a meetup.
+    See services/calls.py and migration 0045."""
+
+    __tablename__ = "calls"
     __table_args__ = (
-        CheckConstraint("status IN ('active', 'ended')", name="meetups_status_check"),
-        Index("meetups_workspace_recent", "workspace_id", text("created_at DESC")),
-        Index("meetups_channel", "channel_id", postgresql_where=text("channel_id IS NOT NULL")),
+        CheckConstraint("status IN ('active', 'ended')", name="calls_status_check"),
+        CheckConstraint("kind IN ('huddle', 'meetup')", name="calls_kind_check"),
+        Index("calls_workspace_recent", "workspace_id", text("created_at DESC")),
+        Index("calls_channel", "channel_id", postgresql_where=text("channel_id IS NOT NULL")),
+        # One live call of each kind per conversation: starting one that is live joins it.
+        Index(
+            "calls_one_live",
+            "channel_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
@@ -1218,8 +1230,24 @@ class Meetup(Base):
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'meetup'"))
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     ended_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
+class CallParticipant(Base):
+    """Somebody connected to a call right now. Deleted when they leave, and with the call."""
+
+    __tablename__ = "call_participants"
+
+    call_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("calls.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    sid: Mapped[str] = mapped_column(Text, nullable=False)
+    joined_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
 class Webhook(Base):
@@ -1610,12 +1638,13 @@ __all__ = [
     "AuditEvent",
     "Base",
     "BotToken",
+    "Call",
+    "CallParticipant",
     "Channel",
     "ChannelMember",
     "CustomEmoji",
     "FeedbackTicket",
     "Invite",
-    "Meetup",
     "Message",
     "PasswordReset",
     "Plugin",

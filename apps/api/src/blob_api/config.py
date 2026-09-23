@@ -204,6 +204,12 @@ class Settings(BaseSettings):
     LIVEKIT_API_KEY: str | None = None
     LIVEKIT_API_SECRET: str | None = None
 
+    #: Where *this process* reaches LiveKit's API, when that is not where browsers do.
+    #: `LIVEKIT_URL` is the public `wss://` address; inside the stack the server is
+    #: `http://livekit:7880`, which needs no DNS, no TLS and no trip out through the proxy.
+    #: Empty means the same place the browser goes.
+    LIVEKIT_API_URL: str | None = None
+
     #: Janus, when it is running as a service in this stack (`COMPOSE_PROFILES=janus`).
     #:
     #: The URL is internal on purpose — `http://janus:8642/v1/agui` on the `blob-agents`
