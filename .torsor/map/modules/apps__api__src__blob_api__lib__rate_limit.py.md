@@ -4,8 +4,8 @@ status: derived
 tags:
 - map
 links: []
-created: '2026-09-12T14:23:46'
-updated: '2026-09-12T14:23:46'
+created: '2026-09-23T03:37:20'
+updated: '2026-09-23T03:37:20'
 ---
 
 # apps/api/src/blob_api/lib/rate_limit.py
@@ -13,4 +13,4 @@ updated: '2026-09-12T14:23:46'
 Symbols in `apps/api/src/blob_api/lib/rate_limit.py`.
 
 - L21 `Limit` (class)
-- L66 `consume(name: str, subject: str)` (function) — Raise 429 when the subject has exhausted the window.
+- L78 `consume(name: str, subject: str)` (function) — Raise 429 when the subject has exhausted the window.

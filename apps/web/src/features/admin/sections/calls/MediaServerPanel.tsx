@@ -64,11 +64,11 @@ export function MediaServerPanel({
     return (
       <Card title="Media server">
         <p className="pref-hint">
-          Calls run on LiveKit, an open-source media server this stack can start for you. To
-          turn them on, set <code>COMPOSE_PROFILES=meetups</code> and <code>LIVEKIT_URL</code>,{' '}
-          <code>LIVEKIT_API_KEY</code>, <code>LIVEKIT_API_SECRET</code> on the server, give
-          LiveKit a domain, and open its UDP port in the firewall. Point its webhook at{' '}
-          <code>{data.webhookUrl}</code>.
+          Calls run on LiveKit, an open-source media server this stack starts for you — so
+          this message means the server is running without one. Set <code>LIVEKIT_URL</code>{' '}
+          (the public <code>wss://</code> address a browser dials, never a container name),{' '}
+          <code>LIVEKIT_API_KEY</code> and <code>LIVEKIT_API_SECRET</code>, and point
+          LiveKit&rsquo;s webhook at <code>{data.webhookUrl}</code>.
         </p>
       </Card>
     );
@@ -113,6 +113,18 @@ export function MediaServerPanel({
               : `LiveKit has not reported yet. Its webhook should point at ${data.webhookUrl}; until it does, who is in a call updates once a minute.`}
           </dd>
         </dl>
+        {/* The one failure nothing above can see. Signalling is a WebSocket and reaches
+            LiveKit through the proxy, so this panel reads perfectly healthy while media —
+            which is UDP, straight to the host — never arrives: the call connects, shows
+            everyone, and is silent. It looks like a bug in Blob, and it is a firewall.
+            Said here because this is the page somebody opens when it happens. */}
+        {data.reachable && (
+          <p className="pref-hint">
+            A call that connects but carries no sound is almost always the firewall: media
+            is UDP straight to this host, not through the proxy, so LiveKit&rsquo;s UDP port
+            has to be open. Everything on this card can look healthy while that one is shut.
+          </p>
+        )}
       </div>
     </Card>
   );

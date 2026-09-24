@@ -115,6 +115,19 @@ jobs:
           SERVICE_FQDN_APP: http://localhost:3000
           SERVICE_PASSWORD_POSTGRES: ciPostgresPassword
           SERVICE_BASE64_64_SESSION: ci-session-secret-at-least-32-characters-long
+          # LiveKit starts with the stack now, so this job boots it too — which is the
+          # point: a media server that cannot start is a stack that cannot start, and
+          # that is exactly the failure this step exists to catch before a deploy does.
+          # Coolify mints these two; here they are set by hand for the same reason the
+          # Postgres password above is. The secret is over 32 characters deliberately —
+          # under that, LiveKit logs an error and starts anyway, which would make this a
+          # green job proving nothing.
+          SERVICE_FQDN_LIVEKIT: localhost:7880
+          SERVICE_BASE64_64_LIVEKIT: ci-livekit-secret-at-least-32-characters-long
+          # The livekit service interpolates PUBLIC_URL for its webhook target. That is a
+          # stack-level variable in Coolify, not one the app service exports, so here it
+          # has to be set or the webhook URL would render as a bare path.
+          PUBLIC_URL: http://localhost:3000
         run: docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240
 
       - name: The app is live and its dependencies are reachable

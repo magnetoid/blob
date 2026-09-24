@@ -96,7 +96,24 @@ describe('Admin → Video meetups', () => {
       openRooms: null, lastEventAt: null, webhookUrl: 'https://chat.example.com/api/calls/livekit',
     });
     render(<MeetupsSection onError={vi.fn()} isOwner />);
-    expect(await screen.findByText(/COMPOSE_PROFILES=meetups/)).toBeTruthy();
+    // The three settings, and the webhook. Not a compose profile: LiveKit starts with
+    // the stack now, so a reader who follows `COMPOSE_PROFILES=meetups` would set a
+    // variable that does nothing and still have no media server.
+    expect(await screen.findByText(/LIVEKIT_URL/)).toBeTruthy();
+    expect(screen.queryByText(/COMPOSE_PROFILES/)).toBeNull();
+  });
+
+  it('names the firewall where a silent call is diagnosed, not in a comment', async () => {
+    // The one failure the server cannot see: signalling answers over TCP through the
+    // proxy while media never arrives, so the panel reads healthy and every call is
+    // silent. This is the page somebody opens when that happens.
+    mediaServer.mockResolvedValue({
+      configured: true, url: 'wss://lk.example.com', reachable: true, latencyMs: 7,
+      error: null, openRooms: 0, lastEventAt: '2026-09-24T10:00:00Z',
+      webhookUrl: 'https://chat.example.com/api/calls/livekit',
+    });
+    render(<MeetupsSection onError={vi.fn()} isOwner />);
+    expect(await screen.findByText(/UDP/)).toBeTruthy();
   });
 
   describe('the participant cap (R43)', () => {
