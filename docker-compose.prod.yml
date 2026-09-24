@@ -68,13 +68,23 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
-      # Meetups. Empty is a supported state: the endpoints answer
-      # `livekit_not_configured` and the rest of the workspace is untouched. LIVEKIT_URL
-      # is what the browser dials, so it is the wss:// public address of the livekit
-      # service below and never its container name.
-      - LIVEKIT_URL=${LIVEKIT_URL:-}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
+      # Calls. The livekit service below starts with the stack and Coolify generates its
+      # domain and its secret, so this is configured without anybody typing anything.
+      # LIVEKIT_URL is what the *browser* dials, so it is the wss:// public address of
+      # that service and never its container name — hence SERVICE_FQDN_LIVEKIT, which the
+      # livekit service asks Coolify to mint, and not `http://livekit:7880`.
+      #
+      # Setting any of the three by hand still wins, which is how a deployment points at a
+      # LiveKit it runs somewhere else. Empty is also still a supported state: with no URL
+      # or no secret every call endpoint answers `livekit_not_configured` and the rest of
+      # the workspace is untouched.
+      - LIVEKIT_URL=${LIVEKIT_URL:-wss://${SERVICE_FQDN_LIVEKIT}}
+      # Not a secret — the key is the `iss` of every token Blob mints and travels to the
+      # browser in plain sight. It is a fixed, readable name on purpose: one less
+      # generated value to correlate across three services when a call will not connect.
+      # The secret beside it is the credential, and that one is generated.
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-blob}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-${SERVICE_BASE64_64_LIVEKIT}}
       # Where Blob reaches LiveKit's API: on the stack's own network, not out through the
       # proxy. Browsers still dial LIVEKIT_URL.
       - LIVEKIT_API_URL=${LIVEKIT_API_URL:-http://livekit:7880}
@@ -199,11 +209,12 @@ services:
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
       # The sweep that reconciles calls against LiveKit (services/calls.py:reconcile)
       # runs here, once a minute, so this process needs its own LiveKit credentials —
-      # exactly like the app's, below. Without them the sweep silently does nothing, and
-      # presence for a call never recovers from a webhook LiveKit failed to deliver.
-      - LIVEKIT_URL=${LIVEKIT_URL:-}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
+      # exactly like the app's, above, and composed the same way. Without them the sweep
+      # silently does nothing, and presence for a call never recovers from a webhook
+      # LiveKit failed to deliver.
+      - LIVEKIT_URL=${LIVEKIT_URL:-wss://${SERVICE_FQDN_LIVEKIT}}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-blob}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-${SERVICE_BASE64_64_LIVEKIT}}
       - LIVEKIT_API_URL=${LIVEKIT_API_URL:-http://livekit:7880}
       # Not read here today — Catch-up and thread summaries run in the app — but kept
       # identical to the app's so the two services see one environment.
@@ -287,22 +298,32 @@ services:
   #
   # To use a managed S3 instead, delete this service and set S3_ENDPOINT, S3_BUCKET,
   # S3_ACCESS_KEY, S3_SECRET_KEY and S3_FORCE_PATH_STYLE=false.
-  # WebRTC for meetups. Two halves that reach the browser by different routes, which is
+  # WebRTC for calls. Two halves that reach the browser by different routes, which is
   # the whole difficulty of putting this behind a reverse proxy.
   #
-  # **No domain is generated for this on purpose.** It boots with LiveKit's placeholder
-  # credentials so an unconfigured stack still comes up, and a public address plus known
-  # credentials is an open relay for anyone who finds it. Enabling meetups is therefore
-  # deliberate in three steps: give this service a domain in Coolify, set LIVEKIT_API_KEY
-  # and LIVEKIT_API_SECRET to a generated pair, and set LIVEKIT_URL on the app to the
-  # wss:// form of that domain. Until then the app issues no tokens and meetups answer
-  # `livekit_not_configured`.
+  # **On by default.** This used to sit behind `COMPOSE_PROFILES=meetups` with LiveKit's
+  # own placeholder credentials and no domain, so turning calls on meant four deliberate
+  # steps. Both reasons for that are now answered rather than deferred: Coolify generates
+  # the domain (`SERVICE_FQDN_LIVEKIT_7880`) and the secret (`SERVICE_BASE64_64_LIVEKIT`)
+  # exactly as it already does for Postgres, MinIO and the session secret, so a stack
+  # comes up with calls working and nothing to type. There is no placeholder left to
+  # leak, because there is no placeholder.
   #
-  # Signalling is an ordinary WebSocket, so once it has a domain Traefik terminates TLS
-  # and forwards to 7880 with nothing special needed. Media is not. WebRTC is UDP
-  # and a reverse proxy only speaks TCP, so 7882/udp is published straight onto the host
-  # and **must be open in the firewall**. Miss that and a call connects, shows both
-  # participants, and carries no sound — the failure looks like a bug in the app.
+  # ⚠ **A second stack on this host must set `LIVEKIT_UDP_PORT` and `LIVEKIT_TCP_PORT`.**
+  # A host port binds once. On 2026-09-11 two Blob stacks shared this host, the second
+  # one's bind of 7882/udp failed, `docker compose up` gave up, and the app and worker
+  # were left created-but-never-started — chat was down for a media server nobody had
+  # configured. That was the argument for the profile, and it is the price of this
+  # service starting by default; these two variables are how you pay it. Both are also
+  # in `.env.example`. `docker run --rm livekit/livekit-server ports` prints every port a
+  # given config will use.
+  #
+  # ⚠ **UDP must be open in the firewall.** Signalling is an ordinary WebSocket, so
+  # Traefik terminates TLS and forwards to 7880 with nothing special needed. Media is
+  # not: WebRTC is UDP and a reverse proxy only speaks TCP, so the UDP port is published
+  # straight onto the host. Miss it and a call connects, shows everyone, and carries no
+  # sound — the failure looks like a bug in the app. `Admin → Calls → Video meetups`
+  # names this on the page so nobody has to guess.
   #
   # One UDP port rather than LiveKit's 50000-60000 default. A ten thousand port range on a
   # shared box is a firewall argument nobody wants to have twice; one port costs a little
@@ -310,31 +331,61 @@ services:
   livekit:
     image: livekit/livekit-server:latest
     restart: unless-stopped
-    # Off unless asked for. Meetups are the one feature with an external dependency
-    # that may simply be absent, and with no `LIVEKIT_*` settings every meetup endpoint
-    # already answers `livekit_not_configured` while the rest of the workspace carries
-    # on. A media server that nobody has configured should not also be able to stop
-    # chat from starting, which is exactly what it did on 2026-09-11: two Blob stacks
-    # share this host, the second one's bind of 7882/udp failed, `docker compose up`
-    # gave up, and the app and worker were left created-but-never-started. Turn it on
-    # with `COMPOSE_PROFILES=meetups` alongside the three `LIVEKIT_*` values.
-    profiles: ["meetups"]
-    # The UDP port is named three times on purpose — LiveKit advertises the port it was
-    # told to bind, so the flag and both halves of the mapping have to agree. A second
-    # instance on the same host needs its own `LIVEKIT_UDP_PORT`.
+    # `--udp-port` is a flag rather than an environment variable because `rtc.udp_port`
+    # is a `PortRange` struct, and LiveKit only generates `LIVEKIT_*` env vars for scalar
+    # config keys — the TCP port below is a `uint32` and does get one. The UDP port is
+    # named three times on purpose: LiveKit advertises the port it was told to bind, so
+    # the flag and both halves of the mapping have to agree.
     command: --bind 0.0.0.0 --udp-port ${LIVEKIT_UDP_PORT:-7882}
     environment:
+      # Asks Coolify for the domain browsers dial and routes it to 7880. The app and the
+      # worker compose `LIVEKIT_URL` from the same `SERVICE_FQDN_LIVEKIT` it mints —
+      # the MinIO service does this a few lines down for the same reason.
+      - SERVICE_FQDN_LIVEKIT_7880
       # `key: secret`, LiveKit's own format, and it **must be quoted**. Unquoted, the
       # `: ` in the middle is YAML's key-value separator, so Compose reads the whole
       # entry as a mapping and refuses the file with "unexpected type
       # map[string]interface {}" — which fails the boot before any container starts.
       #
-      # The defaults are LiveKit's own placeholders and are not secrets. They exist so
-      # the stack boots unconfigured; they are safe only because nothing routes to this
-      # service until you give it a domain. Set the real pair from
-      # `docker run --rm livekit/livekit-server generate-keys` when you enable meetups —
-      # the same two values configure this server and the app that mints tokens for it.
-      - "LIVEKIT_KEYS=${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}"
+      # The `devkey: secret` fallback that used to be here is gone. This service now gets
+      # a domain by default, and a known credential on a public address is an open relay
+      # for whoever finds it. Nor would it fail loudly: outside `--dev`, LiveKit only
+      # *logs* that a secret under 32 characters is too short and starts anyway. So there
+      # is no default — an unset secret is a refusal here, the same way
+      # `SERVICE_PASSWORD_POSTGRES` and `SERVICE_BASE64_64_SESSION` above have no
+      # fallback either. Outside Coolify, set `LIVEKIT_API_SECRET` yourself; the same
+      # value configures this server and the app that mints tokens for it.
+      - "LIVEKIT_KEYS=${LIVEKIT_API_KEY:-blob}: ${LIVEKIT_API_SECRET:-${SERVICE_BASE64_64_LIVEKIT}}"
+      # On a cloud VM this container sees only its bridge address, so its ICE candidates
+      # would carry a 172.x nobody can route to. With this on, LiveKit discovers the
+      # public address over STUN at startup — its deployment guide calls that the right
+      # setting "for most cloud environments where the host has a public IP address, but
+      # is not exposed to the process".
+      #
+      # ⚠ That discovery is **fatal if it fails**: `RTCConfig.Validate` returns the error
+      # and the server does not start. It needs outbound UDP to a STUN server
+      # (`stun.l.google.com:19302` and friends), which any ordinary cloud VM has and a
+      # locked-down egress firewall may not. A host like that sets the two variables
+      # below instead — `use_external_ip` takes precedence over `node_ip`, so turning it
+      # off is what makes the explicit address take effect.
+      # `NODE_IP` carries no `LIVEKIT_` prefix and is not a typo: `rtc.node_ip` is a
+      # struct, and LiveKit generates env vars only for scalar config keys, so this one
+      # keeps its own legacy flag. Empty is the ordinary case and means "discover it".
+      - LIVEKIT_RTC_USE_EXTERNAL_IP=${LIVEKIT_USE_EXTERNAL_IP:-true}
+      - NODE_IP=${LIVEKIT_NODE_IP:-}
+      # …and then it checks that address by sending itself a UDP packet through it.
+      # Docker's NAT does not hairpin, so the check fails, the server logs "could not
+      # validate external IP", and it falls back to the address nobody can reach — a
+      # silent call, the same symptom as a closed firewall from a different cause.
+      # LiveKit's own answer is this flag: "enable this when SFU is behind NAT that does
+      # not allow self-ping. only works when use_external_ip is set to true."
+      - LIVEKIT_RTC_SKIP_EXTERNAL_IP_VALIDATION=true
+      # ICE/TCP — the fallback for a client whose network blocks UDP outright, and the
+      # reason a call still works from inside a corporate network. This is the
+      # *advertised* port and the host mapping below must agree with it: LiveKit hands
+      # out the number it was told, so moving only the host side (which is all this
+      # variable used to do) left a second stack advertising a port that was not its own.
+      - LIVEKIT_RTC_TCP_PORT=${LIVEKIT_TCP_PORT:-7881}
       # LiveKit's webhooks — who joined, who left, which room closed — go to Blob's
       # public address, not to `app`: Coolify puts services from both stacks on one
       # network, and on 2026-09-18 two stacks' same-named services answered for each
@@ -345,13 +396,16 @@ services:
       # which parses to an empty one, per the warnings above — could only buy a webhook
       # LiveKit can never reach, degrading presence to the once-a-minute sweep with no
       # signal at all. Missing PUBLIC_URL should fail loudly, not quietly here too.
-      - 'LIVEKIT_CONFIG=webhook: {api_key: "${LIVEKIT_API_KEY:-devkey}", urls: ["${PUBLIC_URL}/api/calls/livekit"]}'
+      #
+      # This is the whole config body; the `LIVEKIT_RTC_*` variables above are applied
+      # after it and win where they overlap (`NewConfig`: defaults, then this, then the
+      # generated flags, and an unset flag is skipped rather than zeroing the field).
+      - 'LIVEKIT_CONFIG=webhook: {api_key: "${LIVEKIT_API_KEY:-blob}", urls: ["${PUBLIC_URL}/api/calls/livekit"]}'
     ports:
-      # Media, and the TCP fallback for clients whose network blocks UDP outright.
-      # `LIVEKIT_TCP_PORT` moves only the host side: LiveKit still advertises 7881, so
-      # a host port that differs from it also needs `rtc.tcp_port` in a LiveKit config.
+      # Media, and the TCP fallback for clients whose network blocks UDP outright. Both
+      # mappings are symmetric because both numbers are advertised to the browser.
       - '${LIVEKIT_UDP_PORT:-7882}:${LIVEKIT_UDP_PORT:-7882}/udp'
-      - '${LIVEKIT_TCP_PORT:-7881}:7881'
+      - '${LIVEKIT_TCP_PORT:-7881}:${LIVEKIT_TCP_PORT:-7881}'
 
   # Janus, when this deployment wants it. Off unless COMPOSE_PROFILES=janus, for the same
   # reason LiveKit is: on 2026-09-11 an optional service that could not start stopped the

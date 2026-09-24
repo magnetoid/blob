@@ -284,19 +284,39 @@ It is also the only feature with an external dependency that can be absent — w
 `LIVEKIT_*` settings every endpoint answers `livekit_not_configured` in every environment,
 and nothing else in the workspace notices, which is the "fail toward the workspace
 staying up" rule holding. `docker compose up -d` runs a LiveKit in dev on 7880 with
-LiveKit's own placeholder credentials. In production it is **opt-in**: the compose service
-still carries `profiles: ["meetups"]` — that flag is the deploy switch, not the feature
-name, and it did not change when meetups became one kind of call — so a deployment that
-has not set `COMPOSE_PROFILES=meetups` never starts it. That is the same rule again,
-learned the hard way on 2026-09-11 — two Blob stacks share one host, the second one's bind
-of 7882/udp failed because the first already held it, and a port clash in the media server
-stopped `docker compose up` before the app and worker ever started. An unconfigured
-dependency must not be able to keep chat down. Signalling goes through Traefik like
-anything else, but media is UDP and a reverse proxy only carries TCP, so
-`LIVEKIT_UDP_PORT` (7882) is published straight onto the host and has to be open in the
-firewall — miss it and a call connects, shows everyone present and carries no sound.
-LiveKit advertises the port it was told to bind, which is why that one value appears three
-times in the compose file and why a second instance on the same host needs its own.
+LiveKit's own placeholder credentials. In production it **starts with the stack** and
+configures itself: Coolify mints the domain (`SERVICE_FQDN_LIVEKIT_7880`) and the secret
+(`SERVICE_BASE64_64_LIVEKIT`) exactly as it already does for Postgres and the session
+secret, and the app composes `LIVEKIT_URL` from the same variable. The key is a fixed
+`blob` because it is not a secret — it is the `iss` of every token. The old
+`profiles: ["meetups"]` and the `devkey`/`secret` placeholders are both gone, and they
+went together: the placeholder was only ever safe because nothing routed to the service,
+so generating a domain by default meant generating credentials by default too.
+
+That profile existed for a reason, and removing it moved a cost rather than deleting one.
+On 2026-09-11 two Blob stacks shared one host, the second one's bind of 7882/udp failed
+because the first already held it, and a port clash in the media server stopped
+`docker compose up` before the app and worker ever started. **A second stack on this host
+must set `LIVEKIT_UDP_PORT` and `LIVEKIT_TCP_PORT`** — both are advertised to the browser,
+so both halves of each mapping move together, which is why the UDP number appears three
+times in the compose file. There is a second way this service can now stop a stack:
+`rtc.use_external_ip` discovers the host's public address over STUN at boot and
+`RTCConfig.Validate` **returns the error rather than continuing**, so a host with no
+outbound UDP needs `LIVEKIT_USE_EXTERNAL_IP=false` and an explicit `LIVEKIT_NODE_IP`.
+It is also why `rtc.skip_external_ip_validation` is on: LiveKit verifies that discovered
+address by sending itself a UDP packet through it, and Docker's NAT does not hairpin.
+
+Signalling goes through Traefik like anything else, but media is UDP and a reverse proxy
+only carries TCP, so the UDP port is published straight onto the host and has to be open
+in the firewall — miss it and a call connects, shows everyone present and carries no
+sound, which reads as a bug in Blob. `Admin → Calls → Video meetups` says so on the page,
+in the reachable state, because that is where somebody debugging a silent call will be.
+One more shape worth knowing before editing that service: `LIVEKIT_CONFIG` is the whole
+YAML body and the generated `LIVEKIT_*` env vars are applied *after* it and win, but only
+where set (`NewConfig` → `updateFromCLI` skips a flag that is not set). Only **scalar**
+config keys get a generated variable, which is why `rtc.tcp_port` is `LIVEKIT_RTC_TCP_PORT`
+while `rtc.udp_port` (a `PortRange`) and `rtc.node_ip` (a struct) keep the older
+`--udp-port` flag and the unprefixed `NODE_IP`.
 
 **Client.** `features/` by domain, `lib/` for the plumbing: a zustand store keeping
 messages per channel in ascending id order (UUIDv7 sorts chronologically, so a live

@@ -108,6 +108,24 @@ a thinner client SDK ecosystem than LiveKit's React components.
 
 ## Consequences
 
+- **The media server starts with the stack** (amended after 1.7.0 shipped). It first went
+  out behind `COMPOSE_PROFILES=meetups` with LiveKit's placeholder credentials, so calls
+  were dark until an admin gave the service a domain, generated a key pair and set three
+  variables. That made the feature opt-in in the weakest sense: shipped, and off. It is
+  now on by default, with Coolify generating the domain and the secret the way it already
+  does for Postgres — the placeholder and the profile were removed together, because a
+  known credential is only safe while nothing routes to it.
+
+  The profile was not superstition, and dropping it moved a cost rather than removing
+  one. A host port binds once, and on 2026-09-11 a second stack's failed bind of 7882/udp
+  stopped `docker compose up` before the app and worker started — chat down for a media
+  server nobody had configured. So a second stack on one host must now set
+  `LIVEKIT_UDP_PORT` and `LIVEKIT_TCP_PORT`, and forgetting to is a stack that does not
+  come up. That trade was made deliberately: the common case is one stack per host, where
+  the old default was four manual steps and a feature that looked broken until all four
+  were done. The fallback position, if this proves wrong, is a separate LiveKit beside the
+  stacks rather than a profile inside them — one media server both Blobs point at, which
+  cannot clash by construction.
 - A LiveKit that cannot reach Blob's webhook — a firewall rule not opened, a URL
   misconfigured — degrades presence to the sweep's own cadence: the participant list and
   a call's end both catch up within a minute instead of immediately, rather than going

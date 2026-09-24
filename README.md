@@ -472,9 +472,23 @@ A huddle and a video meetup are one primitive — a LiveKit room that belongs to
 conversation — in two kinds. Blob issues the token; LiveKit carries the media and tells
 Blob who joined, who left and when a room closed by webhook, backed by a sweep that asks
 LiveKit directly once a minute for anything a webhook missed. `docker compose up -d` runs
-LiveKit locally with its placeholder pair. In production it is off unless you ask for it:
-set `COMPOSE_PROFILES=meetups` alongside the values below. Leave these empty and a call
-answers `livekit_not_configured` while everything else carries on.
+LiveKit locally with its placeholder pair.
+
+**In production it starts with the stack and configures itself.** Coolify generates
+LiveKit's domain and its secret the same way it already does for Postgres and the session
+secret, so calls work on a fresh deployment with nothing to type. Two things it cannot do
+for you:
+
+- **Open the firewall.** Signalling is a WebSocket and goes through the proxy; media is
+  UDP straight to the host. If `LIVEKIT_UDP_PORT` (7882) is shut, a call connects, shows
+  everyone, and carries no sound — the failure looks like a bug in Blob.
+- **Pick ports for a second stack on the same host.** A host port binds once. A second
+  Blob must set `LIVEKIT_UDP_PORT` and `LIVEKIT_TCP_PORT` to free numbers, or its LiveKit
+  will not start. This is the one cost of the service being on by default, and it is why
+  it used to be behind a compose profile.
+
+Set the three values below by hand to point at a LiveKit you run elsewhere; leave them
+empty and a call answers `livekit_not_configured` while everything else carries on.
 
 Per-workspace controls — on or off, cameras on join, the participant cap — and whether
 LiveKit is actually reachable live in the console at **Admin → Calls → Video meetups**
@@ -482,9 +496,11 @@ LiveKit is actually reachable live in the console at **Admin → Calls → Video
 
 | Variable | Notes |
 |---|---|
-| `LIVEKIT_URL` | What the **browser** dials, so the public `wss://` address, never the container name. `ws://localhost:7880` in dev. |
-| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | `docker run --rm livekit/livekit-server generate-keys`. Dev mode mints `devkey` / `secret`, which are not secrets. |
+| `LIVEKIT_URL` | What the **browser** dials, so the public `wss://` address, never the container name. `ws://localhost:7880` in dev; composed from the generated domain in production. |
+| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | The key is not a secret — it is the `iss` of every token and defaults to `blob`. The secret is, and Coolify generates it. Outside Coolify, `docker run --rm livekit/livekit-server generate-keys`. Dev mode mints `devkey` / `secret`, which are not secrets either. |
 | `LIVEKIT_API_URL` | Optional: where **Blob itself** reaches LiveKit's API, when that differs from `LIVEKIT_URL` — the stack's own network, `http://livekit:7880`, in the production compose. |
+| `LIVEKIT_UDP_PORT`, `LIVEKIT_TCP_PORT` | `7882` and `7881`. Both are *advertised* to the browser, so both halves of each mapping move together. **A second stack on the same host must set both.** |
+| `LIVEKIT_USE_EXTERNAL_IP`, `LIVEKIT_NODE_IP` | `true` and unset. LiveKit finds the host's public address over STUN at boot, and **refuses to start if it cannot** — a host with no outbound UDP sets `LIVEKIT_USE_EXTERNAL_IP=false` and `LIVEKIT_NODE_IP` to its own address instead. |
 
 LiveKit's webhook has to reach Blob at `<PUBLIC_URL>/api/calls/livekit`, and both compose
 files already point it there rather than at a Docker service name: `host.docker.internal`
@@ -546,7 +562,7 @@ switches it off with the same two clicks as anything else.
 
 | Variable | Default | |
 |---|---|---|
-| `COMPOSE_PROFILES` | unset | Set to `janus` to start the service (`janus,meetups` for both). |
+| `COMPOSE_PROFILES` | unset | Set to `janus` to start the service. (LiveKit no longer has a profile — it starts with the stack.) |
 | `JANUS_AGUI_URL` | unset | `http://janus:8642/v1/agui` — internal, on the stack's own network. Never the shared `blob-agents` one: a second Blob on the same host answers to the same name there, and its Janus refuses the other stack's signature. |
 | `JANUS_SIGNING_SECRET` | unset | Shared: Blob signs every run with it, the service reads it as `BLOB_SIGNING_SECRET`. A mismatch is a 401 that looks exactly like the agent being down. |
 | `JANUS_API_SERVER_KEY` | unset | Read by the service as `API_SERVER_KEY`, and by the app for one purpose: the Janus page reads and changes what Janus runs on through Janus's own API, bearing this key, at an address composed from `JANUS_AGUI_URL` and never from a request. |
