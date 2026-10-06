@@ -32,7 +32,11 @@ for them, lent out through `agent_delegations`); an assistant holding an `mcp_to
 neither, because it is the person (0016, 0018).
 
 `docs/` carries the three integrator guides (`apps.md`, `agent-socket.md`,
-`agent-terminal.md`) alongside planning history; the guides are current, the rest is not.
+`agent-terminal.md`), the backup-and-restore runbook (`backup.md`) and the six-month plan
+(`roadmap.md`); those five are current, and the rest (`superpowers/`, the audits) is
+planning history. The README's "What isn't built yet" list is the other thing to read
+before building on a feature: huddles and voice messages are scaffolded server-side but
+not shipped, so a column or a disabled button is not evidence the feature exists.
 
 ## Commands
 
@@ -59,7 +63,7 @@ is not a green CI.
 Backend, from `apps/api/`:
 
 ```bash
-uv run pytest -q -n 4                              # ~1,430 tests; needs Postgres + Redis
+uv run pytest -q -n 4                              # ~1,650 tests; needs Postgres + Redis
 uv run pytest -q                                   # the same, serially — slower, one database
 uv run pytest tests/test_messages.py -q            # one file
 uv run pytest tests/test_messages.py::test_sending_is_idempotent_for_a_repeated_client_msg_id -q
@@ -73,7 +77,7 @@ uv run alembic upgrade head
 Frontend, from `apps/web/`:
 
 ```bash
-pnpm exec vitest run                               # 75 files, happy-dom, no browser needed
+pnpm exec vitest run                               # ~130 files, happy-dom, no browser needed
 pnpm exec vitest run src/lib/outbox.test.ts        # one file
 pnpm exec vitest run -t "stores and reloads queued entries"   # by name
 pnpm typecheck                                     # tsc --noEmit
@@ -168,7 +172,8 @@ SQL verbatim, so an existing database is adopted rather than rebuilt. `alembic c
 runs in CI — if the models drift, the next autogenerate proposes dropping the generated
 column and the partial indexes.
 
-The chain is sequential, `0001` … `0035`, so the highest number is the head. That is a
+The chain is sequential, `0001` … `0045` at 1.7.0, so the highest number is the head
+(`ls db/migrations/versions | tail -1` is the current answer; this digest lags). That is a
 convention the files keep, not one Alembic enforces: `alembic revision` names a migration
 by hash, and one arrived that way, chained from `0031` while main had reached `0034`. Two
 heads, and `alembic upgrade head` refuses to pick a side — which does not fail one test, it
