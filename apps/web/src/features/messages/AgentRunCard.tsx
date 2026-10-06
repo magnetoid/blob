@@ -13,7 +13,8 @@
 
 import { useState } from 'react';
 import type { AgentRunCard as RunCard, AgentRunView } from '@blob/shared';
-import { api } from '../../lib/api.ts';
+import { api, ApiError } from '../../lib/api.ts';
+import { useStore } from '../../lib/store.ts';
 import { showError } from '../../lib/toasts.ts';
 import { ChevronDownIcon } from '../../components/Icon.tsx';
 
@@ -43,6 +44,7 @@ export function AgentRunCard({ run, compact = false, isTabStop = true }: Props) 
 
 function FullCard({ run }: { run: AgentRunView }) {
   const [stopping, setStopping] = useState(false);
+  const yours = useStore((s) => s.currentUser?.id === run.initiatedByUserId);
 
   const running = run.status === 'running';
   const card = run.card;
@@ -65,7 +67,7 @@ function FullCard({ run }: { run: AgentRunView }) {
               (card && card.steps.length > 0
                 ? `${doneSteps} of ${card.steps.length}`
                 : 'working…')
-            : statusLabel(run)}
+            : statusLabel(run, yours)}
         </span>
         {running && (
           <button
@@ -77,8 +79,15 @@ function FullCard({ run }: { run: AgentRunView }) {
               try {
                 await api.agentRuns.cancel(run.id);
               } catch (err) {
-                showError(err);
                 setStopping(false);
+                if (err instanceof ApiError && err.status === 404) {
+                  // It ended before the press landed — the card just had not heard.
+                  // Asking what it is doing now settles the card; an error saying "not
+                  // running" about a card that says running would be the bug, twice.
+                  void useStore.getState().reloadRuns();
+                  return;
+                }
+                showError(err);
               }
             }}
           >
@@ -108,7 +117,7 @@ function RunLine({ run, isTabStop }: { run: AgentRunView; isTabStop: boolean }) 
   const hasWork = Boolean(
     card && (card.steps.length > 0 || card.tools.length > 0 || card.reasoning),
   );
-  const said = [run.askedBy ? lineage(run) : '', statusLabel(run)].filter(Boolean);
+  const said = [run.askedBy ? lineage(run) : '', statusLabel(run, false)].filter(Boolean);
 
   return (
     // Off, inside a list that announces what is added: this line arrives in place of a
@@ -199,7 +208,7 @@ function lineage(run: AgentRunView): string {
   return `asked by ${run.askedBy}${run.depth > 1 ? ` · hop ${run.depth}` : ''}`;
 }
 
-function statusLabel(run: AgentRunView): string {
+function statusLabel(run: AgentRunView, yours: boolean): string {
   switch (run.status) {
     case 'succeeded':
       return run.postCount > 0 ? durationLabel(run) : `answered silently · ${durationLabel(run)}`;
@@ -213,7 +222,11 @@ function statusLabel(run: AgentRunView): string {
       // Not "see below": this card also renders on Home, in the one section people
       // are meant to check for exactly this, where there is nothing below it — the
       // question is in a channel and the row above the card is the way there.
-      return run.answeredAt ? 'answered' : 'waiting for your answer';
+      // And only "your" answer to the one person who may give it: the card is the
+      // whole channel's, and everybody else reading "your answer" was being told to
+      // decide something they cannot.
+      if (run.answeredAt) return 'answered';
+      return yours ? 'waiting for your answer' : 'waiting for an answer';
     case 'expired':
       return 'nobody answered in time';
     default:

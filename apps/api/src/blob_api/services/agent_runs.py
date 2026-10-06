@@ -63,8 +63,8 @@ async def start(
     initiated_by_user_id: str | None,
     parent_run_id: str | None = None,
     depth: int = 0,
-) -> str:
-    """Record that a run began, before the agent is called.
+) -> str | None:
+    """Record that a run began, before the agent is called — or None if it already did.
 
     Written first on purpose: a run that never returns — a process killed mid-call, an
     agent that hangs past every timeout — is exactly the case with nothing to show for
@@ -73,7 +73,43 @@ async def start(
     The lineage columns are what make a chain a chain (ADR 0013): every run knows the
     person's message that rooted it, the run whose reply caused it, how many hops it is
     from the person, and whose authority it runs on.
+
+    **This row is the run ledger.** One trigger asks one agent once, for one parent: a
+    job delivered twice — an enqueue repeated, a retry — finds the row the first one
+    wrote and stops before the agent is called, rather than asking again and posting a
+    second answer under keys the agent minted afresh. The check and the insert sit under
+    a transaction-scoped advisory lock on that triple, so two jobs racing for it cannot
+    both pass. Refusals do not count: a refused mention never ran. The lookup rides the
+    chain index, which a run's own chain always narrows to a handful of rows.
     """
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"agent_run:{trigger_message_id}:{plugin_id}:{parent_run_id or '-'}"},
+    )
+    ran = (
+        await session.execute(
+            text(
+                """
+                SELECT 1 FROM agent_runs
+                 WHERE chain_id = cast(:chain_id AS uuid)
+                   AND trigger_message_id = cast(:trigger_message_id AS uuid)
+                   AND plugin_id = :plugin_id
+                   AND parent_run_id IS NOT DISTINCT FROM cast(:parent_run_id AS uuid)
+                   AND status <> 'refused'
+                 LIMIT 1
+                """
+            ),
+            {
+                "chain_id": chain_id,
+                "trigger_message_id": trigger_message_id,
+                "plugin_id": plugin_id,
+                "parent_run_id": parent_run_id,
+            },
+        )
+    ).first()
+    if ran is not None:
+        return None
+
     run_id = new_id()
     await session.execute(
         text(
@@ -353,6 +389,33 @@ async def finish(
     )
 
 
+async def abandon(session: AsyncSession, run_id: str, *, reason: str, post_count: int) -> bool:
+    """Close a run that will not reach `finish`, and say whether it was still open.
+
+    For the two ways a run can stop without an outcome: the worker cancelled under it —
+    a deploy stopping the process, arq's own ceiling — or an exception inside Blob after
+    the row was written. Either used to leave the row `running` until the nightly sweep,
+    with its card under the person's message still spinning and its seconds still
+    counted against the agent's budget. Guarded on `running`, so a run that did finish
+    is never rewritten.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                UPDATE agent_runs
+                   SET status = 'failed', error = :reason, post_count = :post_count,
+                       finished_at = now()
+                 WHERE id = :id AND status = 'running'
+                RETURNING id
+                """
+            ),
+            {"id": run_id, "reason": reason, "post_count": post_count},
+        )
+    ).fetchone()
+    return row is not None
+
+
 async def set_decision_message(session: AsyncSession, run_id: str, message_id: str) -> None:
     """Remember which message carries the buttons, so answering can settle it."""
     await session.execute(
@@ -518,7 +581,7 @@ _VIEW_SELECT = """
            r.thread_root_id, r.trigger_message_id, r.status, r.error,
            r.post_count, r.started_at, r.finished_at, r.card,
            r.chain_id, r.parent_run_id, r.depth, r.answered_at, r.expires_at,
-           pp.name AS asked_by
+           r.initiated_by_user_id, pp.name AS asked_by
       FROM agent_runs r
       JOIN plugins p ON p.id = r.plugin_id
       LEFT JOIN agent_runs parent ON parent.id = r.parent_run_id
@@ -544,6 +607,7 @@ def _view(row: Any) -> dict[str, Any]:
         "parentRunId": str(row.parent_run_id) if row.parent_run_id else None,
         "depth": row.depth,
         "askedBy": row.asked_by if row.depth > 0 else None,
+        "initiatedByUserId": (str(row.initiated_by_user_id) if row.initiated_by_user_id else None),
         "answeredAt": require_iso(row.answered_at) if row.answered_at else None,
         "expiresAt": require_iso(row.expires_at) if row.expires_at else None,
     }

@@ -1438,11 +1438,12 @@ export interface paths {
         };
         /**
          * List Available
-         * @description The agents this person may bring into a piece of work: the workspace's, and theirs.
+         * @description The agents this person may bring into a piece of work: the workspace's, theirs,
+         *     and any lent to them everywhere.
          *
-         *     Somebody else's owned agent is not listed. Not out of secrecy — its bot is a member
-         *     people can see — but because offering it would produce a refusal, and a list that
-         *     refuses half its entries is worse than a shorter list.
+         *     Somebody else's owned agent is not listed otherwise. Not out of secrecy — its bot is
+         *     a member people can see — but because offering it would produce a refusal, and a list
+         *     that refuses half its entries is worse than a shorter list.
          */
         get: operations["list_available_api_agents_get"];
         put?: never;

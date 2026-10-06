@@ -27,7 +27,7 @@ from ..schemas.base import CamelModel, OkOut
 from ..services import agents as agent_service
 from ..services import policies as policy_service
 from ..services.audit import actor_for
-from .plugins import InstalledOut, _assert_within_policy, _to_plugin
+from .plugins import InstalledOut, _to_plugin
 
 router = APIRouter(tags=["admin"], prefix="/api/admin/plugins")
 
@@ -129,7 +129,11 @@ async def install_from_repo(
         policy = await policy_service.stored_for(session, admin.workspace_id)
         if not policy.may_host_agents:
             raise policy_service.refuse_hosting()
-        await _assert_within_policy(session, admin.workspace_id, policy, [])
+        # The app limit now, before the repository is fetched. The scopes cannot be
+        # asked until its manifest is read, so `install_from_repo` asks them then — this
+        # used to pass an empty list and nothing asked again, which let a repository
+        # install any scope the workspace's policy denies.
+        await policy_service.assert_within_policy(session, admin.workspace_id, policy, [])
 
     installed, _source = await agent_service.install_from_repo(
         actor_for(request, admin),
@@ -137,6 +141,7 @@ async def install_from_repo(
         payload.ref,
         settings.PUBLIC_URL,
         env=validate_env(payload.env),
+        policy=policy,
     )
     async with session_scope() as session:
         row = await registry.by_id(session, installed.plugin_id, admin.workspace_id)

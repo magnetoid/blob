@@ -1306,8 +1306,13 @@ export const api = {
     ) => put<AgentEnv>(`/api/admin/plugins/${pluginId}/env`, input),
   },
 
-  interact: (input: { messageId: string; actionId: string; value: string }) =>
-    post<{ ok: true }>("/api/interactions", input),
+  interact: (input: {
+    messageId: string;
+    actionId: string;
+    value: string;
+    /** The press's own id, so the same press arriving twice is one interaction. */
+    clientActionId?: string;
+  }) => post<{ ok: true }>("/api/interactions", input),
 
   activity: {
     list: (kind: ActivityKind = "all", cursor?: string) =>

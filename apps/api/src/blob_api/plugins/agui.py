@@ -124,16 +124,20 @@ class Post:
     #: Blob's own lines about files that did not make it, shown under the message. Never
     #: the agent's words: an absence is the failure nobody in a channel can diagnose.
     notes: list[str] = field(default_factory=list)
+    #: This post's place among the run's posts, from 1. What its client id is made of.
+    ordinal: int = 1
 
     def client_msg_id(self, run_id: str) -> str:
-        """Deterministic, so re-running a job cannot post the answer twice.
+        """The post's idempotency key: the run it belongs to, and its place in that run.
 
-        This is the whole idempotency story: `messages_client_idem` already covers
-        `(channel_id, author_id, client_msg_id)`, so the existing unique index is the run
-        ledger and no new table is needed to hold one.
+        `run_id` is the `agent_runs` row, which is the run ledger: the job writes at most
+        one row per trigger, agent and parent (`agent_runs.start`), so a redelivered job
+        never streams a second time and never reaches here. Within one run the ordinal is
+        what keeps posts apart. It used to be the agent's own `messageId`, which an agent
+        may reuse — and a second message under a reused id met the unique index on
+        `(channel_id, author_id, client_msg_id)` and was dropped without a word.
         """
-        tail = "" if self.part == 1 else f"#{self.part}"
-        return f"agui:{run_id}:{self.agui_message_id}{tail}"
+        return f"agui:{run_id}:{self.ordinal}"
 
     def blocks(self) -> list[dict[str, Any]] | None:
         """Context lines under the answer — the tools it used, the files that did not
@@ -175,10 +179,18 @@ class Fold:
     """
 
     def __init__(
-        self, *, max_body_chars: int = MAX_BODY_CHARS, max_file_bytes: int = FILE_MAX_BYTES
+        self,
+        *,
+        max_body_chars: int = MAX_BODY_CHARS,
+        max_file_bytes: int = FILE_MAX_BYTES,
+        state: Any = None,
     ) -> None:
         self._max_body = max_body_chars
         self._open: dict[str, list[str]] = {}
+        #: Messages the agent opened under somebody else's role — quoting the person back,
+        #: or a system line. Their text is not the agent's answer, so every delta for them
+        #: is dropped until they end.
+        self._ignored: set[str] = set()
         self._part: dict[str, int] = {}
         self._tools: list[str] = []
         self._calls: dict[str, str] = {}
@@ -203,9 +215,13 @@ class Fold:
         #: answers. None unless the run ended in an interrupt.
         self.interrupts: list[dict[str, Any]] | None = None
         #: Shared state, folded from STATE_SNAPSHOT and STATE_DELTA. Handed back as
-        #: `state` when the run resumes, which is the whole reason to keep it.
-        self.state: Any = None
+        #: `state` when the run resumes, which is the whole reason to keep it. It starts
+        #: as the state the run was sent, because that is what a `STATE_DELTA` patches.
+        self.state: Any = state
         self.state_dropped = False
+        #: Whether the agent said anything about state this run. One that did not leaves
+        #: the remembered state alone rather than writing back what it was given.
+        self.state_touched = False
         #: `CUSTOM` events named `blob.artifact`: what the agent made, for a work channel.
         #: Kept here as data; the job decides whether there is a work channel to put
         #: them in. Anywhere else they are inert.
@@ -222,21 +238,41 @@ class Fold:
             return []
 
         if kind == "TEXT_MESSAGE_START":
-            role = event.get("role", "assistant")
-            if role in _TEXT_ROLES and role != "assistant":
-                # The agent is quoting somebody back at us; not its own answer.
+            message_id = _message_id(event)
+            if _quoting(event):
+                # The agent is quoting somebody back at us; not its own answer. Its
+                # deltas have to be refused too, or the first one reopens the message
+                # through `_append` and the quote is posted as the bot's own words.
+                self._ignored.add(message_id)
                 return []
-            self._open.setdefault(_message_id(event), [])
+            self._ignored.discard(message_id)
+            self._open.setdefault(message_id, [])
             return []
 
         if kind in ("TEXT_MESSAGE_CONTENT", "TEXT_MESSAGE_CHUNK"):
+            message_id = _message_id(event)
+            if kind == "TEXT_MESSAGE_CHUNK" and "role" in event:
+                # The compact form carries its role on the chunk itself, so a chunk can
+                # start a quote or say the agent is speaking again.
+                if _quoting(event):
+                    self._ignored.add(message_id)
+                else:
+                    self._ignored.discard(message_id)
+            if message_id in self._ignored:
+                return []
             delta = event.get("delta")
             if not isinstance(delta, str) or not delta:
                 return []  # An empty delta is legal and carries no text.
-            return self._append(_message_id(event), delta)
+            return self._append(message_id, delta)
 
         if kind == "TEXT_MESSAGE_END":
-            return self._seal(_message_id(event))
+            message_id = _message_id(event)
+            if message_id in self._ignored:
+                # Over. Forgotten, so an id the agent reuses for its own words later —
+                # the "default" fallback above all — is not refused for the rest of the run.
+                self._ignored.discard(message_id)
+                return []
+            return self._seal(message_id)
 
         if kind in ("TOOL_CALL_START", "TOOL_CALL_CHUNK"):
             name = event.get("toolCallName")
@@ -391,6 +427,7 @@ class Fold:
 
     def _take_state(self, state: Any) -> None:
         """Keep the state if it fits; drop it for the rest of the run if it does not."""
+        self.state_touched = True
         try:
             size = len(json.dumps(state, separators=(",", ":"), default=str))
         except (TypeError, ValueError):
@@ -430,6 +467,7 @@ class Fold:
                     tools=tools,
                     files=self._ready,
                     notes=self._notes,
+                    ordinal=self._posted,
                 )
                 posts.append(self._last)
             self._ready, self._notes = [], []
@@ -471,6 +509,7 @@ class Fold:
             tools=tools,
             files=files,
             notes=notes,
+            ordinal=self._posted,
         )
         return self._last
 
@@ -495,6 +534,16 @@ def display_name(raw: str) -> str:
 
 def _too_large(name: str) -> str:
     return f"Couldn't attach `{name}`: it's more than an agent may hand over in one run."
+
+
+def _quoting(event: Mapping[str, Any]) -> bool:
+    """Whether a text event carries a role that is not the agent's own.
+
+    `role` is optional and defaults to the assistant; only a role AG-UI defines for text
+    counts, so a value nobody has defined yet is read as the agent talking.
+    """
+    role = event.get("role", "assistant")
+    return role in _TEXT_ROLES and role != "assistant"
 
 
 def _message_id(event: Mapping[str, Any]) -> str:

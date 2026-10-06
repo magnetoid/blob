@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..lib.auth import SessionUser
 from ..lib.errors import bad_request, not_found
 from ..plugins.registry import MENTIONABLE_AGENT
+from . import agent_access, seeded
 
 #: What a member's own agent looks like, from the plugin row and its bot.
 OWNED_AGENT_COLUMNS = (
@@ -26,11 +27,14 @@ OWNED_AGENT_COLUMNS = (
 
 
 async def available(session: AsyncSession, user: SessionUser) -> list[Any]:
-    """The agents this person may bring into a piece of work: the workspace's, and theirs.
+    """The agents this person may bring into a piece of work: the workspace's, theirs,
+    and any lent to them everywhere.
 
-    Somebody else's owned agent is not listed. Not out of secrecy — its bot is a member
-    people can see — but because offering it would produce a refusal, and a list that
-    refuses half its entries is worse than a shorter list.
+    Asked as `agent_access.MAY_COMMAND` for a channel that does not exist yet, which is
+    what a work channel is when it is offered — so the list is exactly what `work.start`
+    will accept. Somebody else's owned agent is not listed otherwise. Not out of secrecy —
+    its bot is a member people can see — but because offering it would produce a refusal,
+    and a list that refuses half its entries is worse than a shorter list.
     """
     return list(
         (
@@ -42,11 +46,11 @@ async def available(session: AsyncSession, user: SessionUser) -> list[Any]:
                      WHERE p.workspace_id = :ws AND p.status = 'enabled'
                        AND u.deactivated_at IS NULL
                        AND {MENTIONABLE_AGENT}
-                       AND (p.owner_user_id IS NULL OR p.owner_user_id = :me)
+                       AND {agent_access.MAY_COMMAND}
                      ORDER BY p.owner_user_id IS NOT NULL, lower(p.name)
                     """
                 ),
-                {"ws": user.workspace_id, "me": user.id},
+                {"ws": user.workspace_id, "actor_id": user.id, "channel_id": None},
             )
         ).fetchall()
     )
@@ -93,7 +97,12 @@ async def owned(session: AsyncSession, user: SessionUser, agent_id: str) -> Any:
 
 
 async def free_slug(session: AsyncSession, workspace_id: str, base: str) -> str:
-    """`base`, or the first `base-N` nobody holds. Slugs are per workspace and permanent."""
+    """`base`, or the first `base-N` nobody holds. Slugs are per workspace and permanent.
+
+    The seeded agent's slug is never free, held or not. A member who named their own
+    agent "Janus" before the seeder reached the workspace took `janus`, and the seeder —
+    which refuses to adopt a row that is somebody's — skipped that workspace for good.
+    """
     taken = {
         str(r.slug)
         for r in (
@@ -103,6 +112,7 @@ async def free_slug(session: AsyncSession, workspace_id: str, base: str) -> str:
             )
         ).fetchall()
     }
+    taken.add(seeded.AGENT_SLUG)
     if base not in taken:
         return base
     for n in range(2, 100):

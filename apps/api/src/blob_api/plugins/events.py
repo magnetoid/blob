@@ -24,6 +24,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.ids import new_id
+from .manifest import EVENT_SCOPES
 
 log = logging.getLogger("blob.plugins")
 
@@ -90,6 +91,12 @@ async def emit(
             "or every app would hear it regardless of who can see the channel."
         )
 
+    # The scope behind the event, asked at delivery and not only when the app subscribed.
+    # Declining an update's widened scopes removes the grant while the subscription made
+    # under it stayed — so an app refused `messages:read` went on being handed every
+    # message. An event with no scope here is a programming error, and fails the send.
+    required_scope = EVENT_SCOPES[event]
+
     subscribers = (
         await session.execute(
             text(
@@ -102,6 +109,9 @@ async def emit(
                    -- filtering on 'external' alone would deliver it nothing.
                    AND p.runtime IN ('external', 'container')
                    AND :event = ANY(p.events)
+                   AND EXISTS (
+                     SELECT 1 FROM plugin_grants g
+                      WHERE g.plugin_id = p.id AND g.scope = :scope)
                    AND (cast(:exclude AS uuid) IS NULL OR p.id <> cast(:exclude AS uuid))
                    AND (cast(:only AS uuid) IS NULL OR p.id = cast(:only AS uuid))
                    -- The same test `assert_channel_access` applies to a person, against
@@ -131,6 +141,7 @@ async def emit(
             {
                 "ws": workspace_id,
                 "event": event,
+                "scope": required_scope,
                 "channel": channel_id,
                 "exclude": exclude_plugin_id,
                 "only": only_plugin_id,

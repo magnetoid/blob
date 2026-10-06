@@ -337,7 +337,9 @@ async def install_plugin(
         )
     async with session_scope() as session:
         policy = await policy_service.effective_for(session, admin.workspace_id)
-        await _assert_within_policy(session, admin.workspace_id, policy, manifest.scopes)
+        await policy_service.assert_within_policy(
+            session, admin.workspace_id, policy, manifest.scopes
+        )
     if manifest.runtime == "socket" and not policy.may_connect_socket_agents:
         raise policy_service.refuse_socket_agent()
 
@@ -422,25 +424,6 @@ async def _assert_reachable(url: str | None, policy: policy_service.Policy) -> N
         raise policy_service.refuse_private_endpoint()
 
 
-def _assert_scopes_allowed(policy: policy_service.Policy, scopes: list[str]) -> None:
-    blocked = sorted(set(scopes) & policy.denied_scopes)
-    if blocked:
-        raise policy_service.refuse_scopes(blocked)
-
-
-async def _assert_within_policy(
-    session: Any,
-    workspace_id: str,
-    policy: policy_service.Policy,
-    scopes: list[str],
-) -> None:
-    """Everything an install has to satisfy that is not about the manifest being valid."""
-    _assert_scopes_allowed(policy, scopes)
-    if policy.max_apps is not None:
-        if await policy_service.app_count(session, workspace_id) >= policy.max_apps:
-            raise policy_service.refuse_app_limit(policy.max_apps)
-
-
 class AgentOwnerInput(CamelModel):
     #: Whose agent this is, or null to hand it back to the workspace.
     user_id: str | None = None
@@ -487,7 +470,7 @@ async def update_plugin(
         policy = await policy_service.effective_for(session, admin.workspace_id)
         # Not the app count: an update does not add one, and refusing to *edit* an app
         # because the workspace is at its limit would strand it at whatever it was.
-        _assert_scopes_allowed(policy, manifest.scopes)
+        policy_service.assert_scopes_allowed(policy, manifest.scopes)
         existing = await registry.by_id(session, plugin_id, admin.workspace_id)
 
     # The same two guards `install_plugin` applies, which this route did not. `runtime` is

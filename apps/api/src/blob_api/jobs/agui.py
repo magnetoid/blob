@@ -5,10 +5,12 @@ surrounding conversation to the app's AG-UI endpoint as a standard `RunAgentInpu
 reads the event stream back, and writes whatever the agent said as ordinary messages
 from that bot, in the place it was addressed.
 
-It never raises. An arq retry would re-run the agent — new tokens, new latency, possibly
-a different answer — so every failure is caught, recorded on the plugin, and told to the
-person who asked. The same reasoning as `plugins/delivery.py`: an app that misbehaves
-degrades itself and nothing else.
+It never raises, apart from letting its own cancellation through. A retry would re-run
+the agent — new tokens, new latency, possibly a different answer — so every failure is
+caught, recorded on the run, and shown to the person who asked, and the job is registered
+with one try. A run cancelled under it (a restart, arq's ceiling) closes its own row on
+the way out. The same reasoning as `plugins/delivery.py`: an app that misbehaves degrades
+itself and nothing else.
 
 No transaction is ever open across the HTTP call. The session that reads the history is
 closed before the agent is contacted, and each message the agent produces commits on its
@@ -46,11 +48,12 @@ log = logging.getLogger("blob.jobs.agui")
 
 
 async def _claim(message_id: str) -> bool:
-    """Best-effort lease so a duplicate enqueue does not pay for the same run twice.
+    """Best-effort lease so a duplicate enqueue does not even read the trigger twice.
 
-    The unique index on `client_msg_id` is what actually prevents duplicate rows. This
-    only saves tokens, so failing open is correct: if Redis is unavailable the run
-    still happens and still cannot double-post.
+    The run row is what actually prevents a second run: `agent_runs.start` writes at most
+    one per trigger, agent and parent, and refuses the rest. This only saves the reads
+    before that, so failing open is correct: if Redis is unavailable the job still runs
+    and still cannot run the same agent twice.
     """
     try:
         claimed = await redis.set(f"agui:run:{message_id}", "1", nx=True, ex=300)
@@ -64,7 +67,8 @@ async def handle_agui_run(message_id: str, parent_run_id: str | None = None) -> 
     try:
         await _run(message_id, parent_run_id)
     except Exception:
-        # Nothing above this catches, and an arq retry would re-run the agent.
+        # Nothing above this catches. The job is registered with one try, so arq would
+        # not re-run the agent either way; this keeps the failure in our log.
         log.warning("agui run failed for %s", message_id, exc_info=True)
 
 
@@ -211,7 +215,13 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
 
         policy = await policy_service.effective_for(session, trigger.workspace_id)
         max_depth = policy.agent_chain_max_depth
-        if chain.depth > 0:
+        # A hop spends the chain's budget; a resume does not. It is the person answering
+        # the agent that asked, so it adds no hop — and the budget's rules would refuse
+        # it: `admit` drops the agent whose reply caused a hop ("mentioned itself"), which
+        # for a resume is the one agent being resumed, and a person may take far longer
+        # than the chain's quarter hour to answer a question that waits a day. So a
+        # decision raised anywhere past the root could never be answered at all.
+        if chain.depth > 0 and chain.resume is None:
             admitted = await agent_chains.admit(
                 session,
                 chain,
@@ -267,9 +277,10 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
 
     # Concurrent, not sequential: with a 120-second ceiling per run, a message that
     # mentions three agents used to answer in worst-case six minutes, and one hung
-    # agent delayed every other agent's reply to the same message. `_run_one` already
-    # contains each failure — an exception there posts the apology and returns.
-    await asyncio.gather(
+    # agent delayed every other agent's reply to the same message. `run_one` closes its
+    # own run on any failure after the row is written; what it raises before that is
+    # logged here rather than discarded, which is what `return_exceptions` alone did.
+    outcomes = await asyncio.gather(
         *(
             run_one(
                 listener,
@@ -288,6 +299,16 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
         ),
         return_exceptions=True,
     )
+    for listener, outcome in zip(listeners, outcomes, strict=True):
+        if isinstance(outcome, asyncio.CancelledError):
+            raise outcome
+        if isinstance(outcome, BaseException):
+            log.error(
+                "agui: the run for %s on %s failed",
+                listener.plugin_id,
+                trigger.id,
+                exc_info=outcome,
+            )
 
 
 __all__ = ["Listener", "expire_agent_decisions", "handle_agui_run", "listeners_for", "stream_run"]

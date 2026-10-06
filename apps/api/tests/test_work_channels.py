@@ -21,6 +21,7 @@ from sqlalchemy import text
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
 from blob_api.plugins import streams
+from blob_api.services import agent_access
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up, workspace_id_of
 from .test_agui import (
@@ -231,6 +232,80 @@ class TestStarting:
         )
         started = await start(team, team["marko"], agentPluginIds=[planner["plugin"]["id"]])
         assert started["work"]["status"] == "open"
+
+    async def test_an_agent_lent_to_the_starter_everywhere_can_be_brought(self, team: dict) -> None:
+        # The picker and work start each wrote out their own "is it yours" and ignored
+        # loans altogether, while the run job honoured them — so an agent its owner had
+        # lent somebody everywhere was missing from their list and refused at the door.
+        planner_id = await self._marko_owns_planner(team)
+        await self._lend(team, planner_id, channel_id=None)
+
+        offered = (await team["ana"].get("/api/agents")).body["agents"]
+        assert planner_id in [agent["id"] for agent in offered]
+        started = await start(team, team["ana"], agentPluginIds=[planner_id])
+        assert started["work"]["status"] == "open"
+
+    async def test_a_loan_for_one_channel_does_not_reach_a_new_one(self, team: dict) -> None:
+        # A work channel is new, so only a loan that covers everywhere will apply in it —
+        # which is exactly what the run job would decide at the kickoff's mention.
+        planner_id = await self._marko_owns_planner(team)
+        await self._lend(team, planner_id, channel_id=team["general"])
+
+        offered = (await team["ana"].get("/api/agents")).body["agents"]
+        assert planner_id not in [agent["id"] for agent in offered]
+        refused = await team["ana"].post(
+            "/api/work",
+            {
+                "rootMessageId": team["root_id"],
+                "title": "Borrowing",
+                "agentPluginIds": [planner_id],
+            },
+        )
+        assert refused.status == 403, refused.body
+
+    async def test_an_agent_nobody_can_ask_anything_cannot_be_brought(self, team: dict) -> None:
+        # A webhook-only app has no AG-UI address and no socket: its kickoff mention would
+        # start nothing. The picker never offered one; the route now agrees with it.
+        hooks = await install(
+            team["owner"],
+            slug="hooks",
+            name="Hooks",
+            aguiUrl=None,
+            requestUrl="https://apps.example.com/hooks",
+            events=["message.created"],
+        )
+        refused = await team["owner"].post(
+            "/api/work",
+            {
+                "rootMessageId": team["root_id"],
+                "title": "Quiet room",
+                "agentPluginIds": [hooks["plugin"]["id"]],
+            },
+        )
+        assert refused.status == 400, refused.body
+        assert "cannot be asked anything" in refused.body["error"]["message"]
+
+    @staticmethod
+    async def _marko_owns_planner(team: dict) -> str:
+        planner = await install(team["owner"], **PLANNER)
+        gave = await team["owner"].put(
+            f"/api/admin/plugins/{planner['plugin']['id']}/owner", {"userId": team["marko"].user_id}
+        )
+        assert gave.status == 200, gave.body
+        return str(planner["plugin"]["id"])
+
+    @staticmethod
+    async def _lend(team: dict, plugin_id: str, *, channel_id: str | None) -> None:
+        async with SessionFactory() as session:
+            async with session.begin():
+                await agent_access.grant(
+                    session,
+                    workspace_id=team["workspace_id"],
+                    plugin_id=plugin_id,
+                    grantee_user_id=team["ana"].user_id,
+                    granted_by=team["marko"].user_id,
+                    channel_id=channel_id,
+                )
 
 
 class TestArtifacts:

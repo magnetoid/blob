@@ -33,7 +33,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import AppError, forbidden, not_found
+from ..lib.errors import AppError, bad_request, forbidden, not_found
 from ..lib.ids import new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..plugins import agui, decisions
@@ -288,8 +288,16 @@ async def answer(
     action_id: str | None,
     value: str,
     client_action_id: str | None,
+    message_id: str | None = None,
 ) -> Answered:
     """The person who asked answers; the run that asked resumes.
+
+    `message_id` is the message whose button or box was used, when the answer came that
+    way, and it has to be the one Blob posted for this run. The action id names the run,
+    and `/api/interactions` only checks that the id is on *some* message the person can
+    see — so without this, any message carrying a lookalike button could answer another
+    agent's pending decision with a choice the person never saw. The REST route passes
+    None: it names the run outright, and only the asker may use it.
 
     Everything happens in the caller's transaction and drains past COMMIT through
     `after`: the answer is posted as the person's own message (so the channel sees the
@@ -316,6 +324,10 @@ async def answer(
     ).fetchone()
     if row is None or row.status not in ("interrupted", "expired"):
         raise not_found("That run is not waiting on a decision.")
+    if message_id is not None and str(row.decision_message_id or "") != message_id:
+        # The same words `/api/interactions` uses for an action id that is not on the
+        # message: whether this one belongs to a real decision is not worth a distinction.
+        raise bad_request("That action is not available.", code="unknown_action")
     channel_id = str(row.channel_id)
     stored = row.interrupt if isinstance(row.interrupt, dict) else {}
 

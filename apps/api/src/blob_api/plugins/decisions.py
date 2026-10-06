@@ -24,7 +24,7 @@ from ..lib.errors import bad_request
 from . import blocks
 from .agui import Decision
 
-ACTION_PREFIX = "agent_answer:"
+ACTION_PREFIX = blocks.AGENT_ANSWER_PREFIX
 TEXT_MARKER = "text"
 
 #: A TextSpan carries at most this much; an agent's prompt is cut to fit rather than
@@ -61,7 +61,7 @@ def decision_blocks(run_id: str, decision: Decision) -> list[dict[str, Any]]:
                 ],
             }
         )
-    return blocks.validate_blocks(raw) or []
+    return blocks.validate_blocks(raw, minted_by_blob=True) or []
 
 
 def settled_blocks(decision: Decision, *, answered_by: str, answer: str) -> list[dict[str, Any]]:
@@ -71,7 +71,8 @@ def settled_blocks(decision: Decision, *, answered_by: str, answer: str) -> list
             [
                 _prompt_block(decision),
                 _context(f"{answered_by} answered: {_clip(answer, 2000)}"),
-            ]
+            ],
+            minted_by_blob=True,
         )
         or []
     )
@@ -79,7 +80,10 @@ def settled_blocks(decision: Decision, *, answered_by: str, answer: str) -> list
 
 def expired_blocks(decision: Decision) -> list[dict[str, Any]]:
     return (
-        blocks.validate_blocks([_prompt_block(decision), _context("Nobody answered within a day.")])
+        blocks.validate_blocks(
+            [_prompt_block(decision), _context("Nobody answered within a day.")],
+            minted_by_blob=True,
+        )
         or []
     )
 

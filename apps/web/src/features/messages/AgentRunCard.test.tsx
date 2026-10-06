@@ -10,12 +10,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { AgentRunCard as RunCard, AgentRunView } from '@blob/shared';
+import { api, ApiError } from '../../lib/api.ts';
+import { useStore } from '../../lib/store.ts';
+import { useToasts } from '../../lib/toasts.ts';
 import { AgentRunCard } from './AgentRunCard.tsx';
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  useStore.setState({ currentUser: null } as never);
 });
+
+/** Reading as the person the run is on behalf of. */
+function asTheAsker(): void {
+  useStore.setState({
+    currentUser: { id: 'u-asker', kind: 'human', displayName: 'Ana', role: 'member', deactivated: false },
+  } as never);
+}
 
 function run(overrides: Partial<AgentRunView> = {}): AgentRunView {
   return {
@@ -35,6 +46,7 @@ function run(overrides: Partial<AgentRunView> = {}): AgentRunView {
     parentRunId: null,
     depth: 0,
     askedBy: null,
+    initiatedByUserId: 'u-asker',
     answeredAt: null,
     expiresAt: null,
     ...overrides,
@@ -62,6 +74,7 @@ describe('lineage', () => {
 
 describe('waiting on a decision', () => {
   it('says the run is waiting, and offers no Stop', () => {
+    asTheAsker();
     render(
       <AgentRunCard run={run({ status: 'interrupted', finishedAt: '2026-09-05T10:00:05.000Z' })} />,
     );
@@ -69,6 +82,19 @@ describe('waiting on a decision', () => {
     expect(screen.queryByRole('button', { name: /stop/i })).toBeNull();
     // Never "see below": the same card renders on Home, where nothing is below it.
     expect(screen.queryByText(/see below/)).toBeNull();
+  });
+
+  it('says "your answer" only to the person who may give it', () => {
+    // The card is the whole channel's. Everybody else reading "your answer" was being
+    // told to decide something they cannot.
+    useStore.setState({
+      currentUser: { id: 'u-bo', kind: 'human', displayName: 'Bo', role: 'member', deactivated: false },
+    } as never);
+    render(
+      <AgentRunCard run={run({ status: 'interrupted', finishedAt: '2026-09-05T10:00:05.000Z' })} />,
+    );
+    expect(screen.getByText(/waiting for an answer/)).toBeTruthy();
+    expect(screen.queryByText(/your answer/)).toBeNull();
   });
 
   it('reads as answered once it has been', () => {
@@ -245,3 +271,25 @@ describe('a finished run in a conversation', () => {
     expect(container.querySelector('.agent-run-line')).toBeNull();
   });
 });
+
+describe('Stop', () => {
+  it('settles the card when the run had already ended, instead of an error', async () => {
+    // The card had not heard the run finish — a frame missed in a reconnect — and the
+    // server answers 404 to a Stop for a run that is not running.
+    const reloadRuns = vi.fn(async () => undefined);
+    useStore.setState({ reloadRuns } as never);
+    vi.spyOn(api.agentRuns, 'cancel').mockRejectedValue(
+      new ApiError(404, 'not_found', 'That run is not running.'),
+    );
+    render(<AgentRunCard run={run()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+
+    await vi.waitFor(() => expect(reloadRuns).toHaveBeenCalledTimes(1));
+    expect(useToastMessages()).toEqual([]);
+  });
+});
+
+function useToastMessages(): string[] {
+  return useToasts.getState().toasts.map((toast) => toast.text);
+}

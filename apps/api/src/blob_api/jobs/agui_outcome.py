@@ -46,10 +46,29 @@ from .agui_stream import CardBroadcaster, wait_for_cancel
 log = logging.getLogger("blob.jobs.agui")
 
 
+#: How much of a thread an agent is shown when it is asked inside one: the root, and
+#: this many of the newest replies. The ceiling `messages.thread` has always had, now
+#: keeping the end of a long thread — where the question is — rather than its start.
+THREAD_HISTORY_LIMIT = 1000
+
+#: On the card when the worker stopped under a run — a deploy restarting it, or arq's
+#: own ceiling. Not the agent's fault, so it is not written to the agent's `last_error`.
+STOPPED_MID_RUN = "Blob restarted while the agent was answering. Ask again."
+#: On the card when something inside Blob failed after the run began.
+FAILED_INSIDE_BLOB = "Blob could not finish writing this run's answer."
+
+
 def now_iso() -> str:
     from ..schemas.base import require_iso
 
     return require_iso(datetime.now(UTC))
+
+
+def _being_cancelled() -> bool:
+    """Whether the task running this is itself being cancelled, as opposed to a task it
+    was awaiting having been cancelled by somebody else (the Stop button)."""
+    current = asyncio.current_task()
+    return current is not None and current.cancelling() > 0
 
 
 def refused_view(
@@ -59,6 +78,7 @@ def refused_view(
     channel_id: str,
     thread_root_id: str | None,
     trigger_id: str,
+    trigger_user_id: str | None,
     reason: str,
 ) -> dict[str, Any]:
     """A run that was over before it began, as the client draws it.
@@ -85,6 +105,7 @@ def refused_view(
         "parentRunId": None,
         "depth": 0,
         "askedBy": None,
+        "initiatedByUserId": trigger_user_id,
         "answeredAt": None,
         "expiresAt": None,
     }
@@ -120,6 +141,7 @@ async def refuse(
         channel_id=channel_id,
         thread_root_id=thread_root_id,
         trigger_id=trigger_id,
+        trigger_user_id=trigger_user_id,
         reason=reason,
     )
     after.add(lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": view}))
@@ -140,6 +162,9 @@ class Gathered:
     #: answers 404 precisely so that its existence is not disclosed, and an app
     #: announcing "I can't read this" would disclose it.
     silent: bool = False
+    #: Whether this run reads and writes what the agent remembers here; see
+    #: `Listener.remembers_for`.
+    remembers: bool = True
 
 
 @dataclass(slots=True)
@@ -264,7 +289,9 @@ async def _gather(
         if refusal is not None:
             history = []
         elif thread_root_id:
-            history = await message_service.thread(session, thread_root_id)
+            history = await message_service.thread_tail(
+                session, thread_root_id, limit=THREAD_HISTORY_LIMIT
+            )
         else:
             # `history` already returns oldest-first; it sorts the keyset page back
             # into ascending order before returning it.
@@ -297,12 +324,13 @@ async def _gather(
         # stopped, which is newer than anything saved, so it wins; otherwise the last
         # state the agent left in this conversation is where it picks up.
         state = chain.state
-        if state is None and refusal is None:
+        remembers = listener.remembers_for(chain.initiated_by_user_id)
+        if state is None and refusal is None and remembers:
             state = await agent_state_service.load(
                 session, plugin_id=listener.plugin_id, thread_key=thread_key
             )
 
-    return Gathered(history, names, participants, state, thread_key, refusal)
+    return Gathered(history, names, participants, state, thread_key, refusal, remembers=remembers)
 
 
 async def _start(
@@ -314,8 +342,9 @@ async def _start(
     trigger_id: str,
     trigger_user_id: str | None,
     chain: agent_chains.Chain,
-) -> str:
-    """The `running` row, written before the call and not after.
+) -> str | None:
+    """The `running` row, written before the call and not after — or None when this
+    trigger already ran this agent, which is the ledger saying a job came twice.
 
     A run that never returns — a process killed mid-call, an agent that hangs past every
     timeout — is exactly the case with nothing to show for it, and the row is what says
@@ -336,6 +365,8 @@ async def _start(
             parent_run_id=chain.parent_run_id,
             depth=chain.depth,
         )
+        if run_id is None:
+            return None
         run_view: dict[str, Any] = {
             "id": run_id,
             "pluginId": listener.plugin_id,
@@ -353,6 +384,7 @@ async def _start(
             "parentRunId": chain.parent_run_id,
             "depth": chain.depth,
             "askedBy": chain.asked_by,
+            "initiatedByUserId": chain.initiated_by_user_id,
             "answeredAt": None,
             "expiresAt": None,
         }
@@ -405,7 +437,18 @@ async def _stream(
                 if subscribed:
                     cancel_task = asyncio.create_task(wait_for_cancel(pubsub))
                     waiters.add(cancel_task)
-                done, _pending = await asyncio.wait(waiters, return_when=asyncio.FIRST_COMPLETED)
+                try:
+                    done, _pending = await asyncio.wait(
+                        waiters, return_when=asyncio.FIRST_COMPLETED
+                    )
+                except BaseException:
+                    # This job is being cancelled itself — a restart, arq's ceiling.
+                    # `asyncio.wait` does not cancel what it waits on, so without this
+                    # the stream kept talking to the agent for nobody, and the Stop
+                    # watcher polled a closed pubsub once a second for ever.
+                    for task in waiters:
+                        task.cancel()
+                    raise
                 if cancel_task is not None and cancel_task in done and stream_task not in done:
                     stream_task.cancel()
                     cancelled = True
@@ -416,6 +459,9 @@ async def _stream(
                 try:
                     fold, posts, transport_error = await stream_task
                 except asyncio.CancelledError:
+                    if _being_cancelled():
+                        # Not the Stop button: the job itself is going away. Let it.
+                        raise
                     fold, posts, transport_error = agui.Fold(), [], None
                 if cancelled:
                     # Sealed-but-unposted answers die with the run: the person asked
@@ -441,6 +487,7 @@ async def _finish(
     thread_key: str,
     card: run_card.CardFold,
     post_count: int,
+    remembers: bool,
 ) -> tuple[agent_run_service.RunStatus, str | None, agui.Decision | None]:
     """How the run ended, on the row and on the channel.
 
@@ -486,10 +533,17 @@ async def _finish(
             state_json=shared_state if status == "interrupted" else None,
             expires_at=expires_at,
         )
-        if shared_state is not None and status in ("succeeded", "interrupted"):
+        if (
+            remembers
+            and fold.state_touched
+            and shared_state is not None
+            and status in ("succeeded", "interrupted")
+        ):
             # Kept past the run, per conversation: the next run here starts from it. A
             # failed or stopped run leaves the memory as it was — what it had folded
-            # was never the agent's considered state.
+            # was never the agent's considered state — and so does a run that said
+            # nothing about state: the fold starts from what it was given, and writing
+            # that back would only be a second copy of it.
             await agent_state_service.save(
                 session,
                 workspace_id=workspace_id,
@@ -617,7 +671,103 @@ async def run_one(
         trigger_user_id=trigger_user_id,
         chain=chain,
     )
-    card = run_card.CardFold()
+    if run_id is None:
+        # This trigger already ran this agent: the job was delivered twice. The run row
+        # is the ledger (`agent_runs.start`), so the agent is not asked again.
+        log.info(
+            "agui: %s already answered %s; not running it twice", listener.plugin_id, trigger_id
+        )
+        return
+
+    # From here a row says `running`, and something has to close it. `_finish` does for
+    # every run that gets that far; the two ways a run can stop short of it are caught
+    # here — this job being cancelled under the run (a deploy restarting the worker, arq's
+    # own ceiling) and an exception inside Blob — and either used to leave the card under
+    # the person's message spinning until the nightly sweep. `asyncio.gather` in
+    # `jobs/agui.py` would have swallowed the exception besides, so it was not even logged.
+    progress = _Progress()
+    try:
+        await _drive(
+            listener,
+            run_input,
+            progress,
+            run_id=run_id,
+            workspace_id=workspace_id,
+            channel_id=channel_id,
+            thread_root_id=thread_root_id,
+            thread_key=gathered.thread_key,
+            remembers=gathered.remembers,
+            chain=chain,
+            max_depth=max_depth,
+        )
+    except asyncio.CancelledError:
+        if not progress.finished:
+            with suppress(Exception):
+                await asyncio.shield(
+                    _abandon(
+                        run_id,
+                        channel_id=channel_id,
+                        reason=STOPPED_MID_RUN,
+                        post_count=progress.posted,
+                    )
+                )
+        raise
+    except Exception:
+        log.exception("agui: run %s for %s failed inside Blob", run_id, listener.plugin_id)
+        if not progress.finished:
+            with suppress(Exception):
+                await _abandon(
+                    run_id,
+                    channel_id=channel_id,
+                    reason=FAILED_INSIDE_BLOB,
+                    post_count=progress.posted,
+                )
+
+
+@dataclass(slots=True)
+class _Progress:
+    """How far a run got, for the handler that closes one which stopped short."""
+
+    #: Answers posted so far.
+    posted: int = 0
+    #: `_finish` has written the run's outcome; nothing left for a handler to close.
+    finished: bool = False
+
+
+async def _abandon(run_id: str, *, channel_id: str, reason: str, post_count: int) -> None:
+    """Close a run that will not reach `_finish`, and tell the channel it ended."""
+    async with transaction() as (session, after):
+        closed = await agent_run_service.abandon(
+            session, run_id, reason=reason, post_count=post_count
+        )
+        if closed:
+            finished_event = {
+                "t": "agent_run.finished",
+                "runId": run_id,
+                "channelId": channel_id,
+                "status": "failed",
+                "error": reason,
+                "postCount": post_count,
+            }
+            after.add(lambda: hub.to_channel(channel_id, finished_event))
+
+
+async def _drive(
+    listener: Listener,
+    run_input: dict[str, Any],
+    progress: _Progress,
+    *,
+    run_id: str,
+    workspace_id: str,
+    channel_id: str,
+    thread_root_id: str | None,
+    thread_key: str,
+    remembers: bool,
+    chain: agent_chains.Chain,
+    max_depth: int,
+) -> None:
+    """A started run: stream it, post what it said, record how it ended."""
+    card = run_card.CardFold(show_reasoning=listener.shows_reasoning)
     streamed = await _stream(
         listener,
         run_input,
@@ -646,12 +796,13 @@ async def run_one(
             channel_id=channel_id,
             thread_root_id=thread_root_id,
             body=post.body,
-            client_msg_id=post.client_msg_id(trigger_id),
+            client_msg_id=post.client_msg_id(run_id),
             blocks=post.blocks(),
             run_id=run_id,
             spawn=spawn,
             attachment_ids=stored.attachment_ids,
         )
+        progress.posted += 1
 
     _status, reason, decision = await _finish(
         listener,
@@ -660,10 +811,12 @@ async def run_one(
         workspace_id=workspace_id,
         channel_id=channel_id,
         thread_root_id=thread_root_id,
-        thread_key=gathered.thread_key,
+        thread_key=thread_key,
         card=card,
         post_count=len(streamed.posts),
+        remembers=remembers,
     )
+    progress.finished = True
     if streamed.cancelled:
         return  # Stopped on request; no apology, nothing posted.
 
@@ -681,7 +834,7 @@ async def run_one(
             channel_id=channel_id,
             thread_root_id=thread_root_id,
             body=f"Needs a decision: {decision.prompt}",
-            client_msg_id=f"agui:{trigger_id}:interrupt",
+            client_msg_id=f"agui:{run_id}:interrupt",
             blocks=decisions.decision_blocks(run_id, decision),
         )
         if decision_message_id is not None:

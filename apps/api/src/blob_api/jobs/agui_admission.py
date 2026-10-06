@@ -42,7 +42,7 @@ async def listeners_for(
             text(
                 f"""
                 SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
-                       p.runtime, s.signing_secret,
+                       p.runtime, s.signing_secret, p.owner_user_id,
                        -- Whose text this is, asked here rather than trusted from the
                        -- column: the routes only ever write it onto the seeded agent, but
                        -- a row can hold text those routes never wrote — a backup taken
@@ -79,6 +79,7 @@ async def listeners_for(
             signing_secret=row.signing_secret,
             runtime=row.runtime,
             instructions=row.instructions,
+            owner_user_id=str(row.owner_user_id) if row.owner_user_id else None,
         )
         for row in rows
     ]
@@ -114,7 +115,7 @@ async def personal_agent_for(
             text(
                 f"""
                 SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
-                       p.runtime, s.signing_secret,
+                       p.runtime, s.signing_secret, p.owner_user_id,
                        -- Whose text this is, asked here rather than trusted from the
                        -- column: the routes only ever write it onto the seeded agent, but
                        -- a row can hold text those routes never wrote — a backup taken
@@ -172,6 +173,7 @@ async def personal_agent_for(
         signing_secret=row.signing_secret,
         runtime=row.runtime,
         instructions=row.instructions,
+        owner_user_id=str(row.owner_user_id) if row.owner_user_id else None,
     )
 
 

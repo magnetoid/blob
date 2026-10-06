@@ -368,3 +368,35 @@ class TestPresenceRegistry:
 
         await presence.untrack_connection(owner.user_id, "conn-b")
         assert await presence.focused_channels(owner.user_id) == set()
+
+
+async def test_a_socket_opened_from_another_origin_is_signed_out(team: dict) -> None:
+    # SameSite=Lax keeps a cookie off a cross-site request, but not off a *same-site*
+    # one — a sibling subdomain, where a hosted agent lives — and a socket handshake is
+    # a GET, which the HTTP origin check never looked at. One of the cookie sockets is a
+    # root terminal, so a foreign origin is treated as nobody signed in.
+    from httpx_ws import WebSocketDisconnect
+
+    cookies = team["owner"]._http.cookies
+    async with AsyncClient(
+        transport=ASGIWebSocketTransport(app=app), base_url="http://test", cookies=cookies
+    ) as http:
+        refused = False
+        try:
+            async with aconnect_ws(
+                "/ws", http, headers={"origin": "https://agent.example.com"}
+            ) as ws:
+                await ws.receive_text()
+        except BaseException as error:  # anyio wraps the disconnect in a group
+            leaves = error.exceptions if isinstance(error, BaseExceptionGroup) else [error]
+            refused = any(isinstance(leaf, WebSocketDisconnect) for leaf in leaves) or isinstance(
+                error, WebSocketDisconnect
+            )
+            if not refused:
+                raise
+        assert refused
+
+        # The app's own origin is still the app.
+        async with aconnect_ws("/ws", http, headers={"origin": "http://localhost:5173"}) as ws:
+            hello = await receive_until(ws, "hello")
+            assert hello["userId"] == team["owner"].user_id

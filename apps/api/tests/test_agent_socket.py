@@ -340,6 +340,59 @@ class TestRunRouting:
         assert runs[0]["status"] == "failed"
         assert "not connected" in (runs[0]["error"] or "")
 
+    async def test_a_holder_that_died_inside_the_presence_ttl_is_not_waited_for(
+        self, team: dict
+    ) -> None:
+        # The presence key outlives a crashed holder by up to its TTL. A run published
+        # in that gap reached nobody, and the job waited out the whole idle window — two
+        # and a half minutes of silence — before saying the agent did not answer.
+        body = await install(team["owner"])
+        await join_channel(team["owner"], body, team["general"])
+        from blob_api.lib.redis import redis
+
+        await redis.set(gateway.conn_key(body["plugin"]["id"]), "1", ex=gateway.CONN_TTL_SEC)
+
+        sent = await send_message(team["owner"], team["general"], "@Desktop are you there?")
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        await agui_job.handle_agui_run(sent.body["message"]["id"])
+
+        assert loop.time() - started < 5.0
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body["runs"]
+        assert runs[0]["status"] == "failed"
+        assert "not connected" in (runs[0]["error"] or "")
+
+    async def test_a_run_cut_off_mid_answer_is_a_failure_not_an_answer(
+        self, team: dict, monkeypatch: Any
+    ) -> None:
+        # The socket's idle and wall exits were silent, so half an answer was recorded
+        # as a run that succeeded. The HTTP path already called the same thing a failure.
+        monkeypatch.setattr(gateway, "run_timeout_sec", lambda: 0.5)
+        body = await install(team["owner"])
+        await join_channel(team["owner"], body, team["general"])
+
+        async with agent_socket(body["botToken"]) as ws:
+            await receive_until(ws, "ready")
+            sent = await send_message(team["owner"], team["general"], "@Desktop write it up")
+            job = asyncio.create_task(agui_job.handle_agui_run(sent.body["message"]["id"]))
+
+            run = await receive_until(ws, "run")
+            for event in (
+                agui_event(type="TEXT_MESSAGE_START", messageId="m1"),
+                agui_event(type="TEXT_MESSAGE_CONTENT", messageId="m1", delta="The first half"),
+            ):
+                await ws.send_text(
+                    json.dumps({"t": "event", "runId": run["runId"], "event": event})
+                )
+            # …and then nothing: no end, no RUN_FINISHED, no `done`.
+            await asyncio.wait_for(job, timeout=10.0)
+
+        runs = (await team["owner"].get(f"/api/channels/{team['general']}/agent-runs")).body["runs"]
+        assert runs[0]["status"] == "failed"
+        assert runs[0]["error"] == "the agent stopped answering"
+        # What did arrive is posted, under a card that says the run did not finish.
+        assert "The first half" in await messages_in(team["general"])
+
     async def test_a_run_reaching_two_holders_is_answered_once(self, team: dict) -> None:
         """Pub/sub is fan-out, and an agent can be connected twice mid-reconnect.
 

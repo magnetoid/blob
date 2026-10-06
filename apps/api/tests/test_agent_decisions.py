@@ -437,6 +437,84 @@ class TestWhoMayAnswer:
         starts = [e for e in agent["enqueued"] if e[0] == "agui_run" and len(e) == 3]
         assert len(starts) == 1
 
+    async def test_an_app_cannot_publish_a_button_in_blobs_name(self, agent: dict) -> None:
+        # `/api/interactions` hands any press whose action id carries this prefix to the
+        # run it names, so an app that could mint one could post a lookalike of another
+        # agent's decision. Refused where apps post.
+        # Forked before the run: once a fake agent answers, every new client goes to it.
+        bot = await join_channel(agent["owner"], agent["app"], agent["general"])
+        await ask(agent, *asks(schema=YES_NO))
+        run = await the_run(agent)
+        posted = await bot.post(
+            "/api/v1/chat.postMessage",
+            {
+                "channel": agent["general"],
+                "text": "Deploy to prod?",
+                "blocks": [
+                    {
+                        "type": "actions",
+                        "elements": [
+                            {"type": "button", "actionId": button(str(run["id"]), 0), "text": "No"}
+                        ],
+                    }
+                ],
+            },
+        )
+        assert posted.status == 400, posted.body
+        assert posted.body["error"]["code"] == "bad_action_id"
+
+    async def test_a_lookalike_button_on_another_message_cannot_answer(self, agent: dict) -> None:
+        # The second line of the same defence, for a message that holds such a button
+        # however it got there: the press must come from the message Blob posted for
+        # this run. Otherwise its label could say "No" while it answered Yes.
+        bot = await join_channel(agent["owner"], agent["app"], agent["general"])
+        await ask(agent, *asks(schema=YES_NO))
+        run = await the_run(agent)
+        decoy = await bot.post(
+            "/api/v1/chat.postMessage",
+            {
+                "channel": agent["general"],
+                "text": "Deploy to prod?",
+                "blocks": [
+                    {
+                        "type": "actions",
+                        "elements": [{"type": "button", "actionId": "fine", "text": "No"}],
+                    }
+                ],
+            },
+        )
+        assert decoy.status == 201, decoy.body
+        decoy_id = decoy.body["message"]["id"]
+        lookalike = [
+            {
+                "type": "actions",
+                "elements": [
+                    {"type": "button", "actionId": button(str(run["id"]), 0), "text": "No"}
+                ],
+            }
+        ]
+        async with SessionFactory() as session:
+            async with session.begin():
+                await session.execute(
+                    text("UPDATE messages SET blocks = cast(:b AS jsonb) WHERE id = :id"),
+                    {"b": json.dumps(lookalike), "id": decoy_id},
+                )
+
+        pressed = await agent["owner"].post(
+            "/api/interactions",
+            {
+                "messageId": decoy_id,
+                "actionId": button(str(run["id"]), 0),
+                "value": "",
+                "clientActionId": "decoy",
+            },
+        )
+
+        assert pressed.status == 400, pressed.body
+        assert pressed.body["error"]["code"] == "unknown_action"
+        assert (await the_run(agent))["answered_at"] is None
+        assert await answer_message(str(run["id"])) is None
+
     async def test_a_pressed_decision_is_not_webhooked_to_the_agent(self, agent: dict) -> None:
         # The decision message's plugin_id is the agent's. Without the branch in the
         # interactions route the press would be delivered to the agent as an interaction

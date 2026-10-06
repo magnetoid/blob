@@ -212,6 +212,26 @@ class TestLendingIt:
 
 
 class TestOwnership:
+    async def test_handing_an_agent_to_somebody_new_ends_the_old_owners_loans(
+        self, team: dict
+    ) -> None:
+        # The loans were the previous owner's to make. They survived the handover, so the
+        # agent went on answering whoever Marko had lent it to after it became Other's.
+        await give_to(team, team["marko"])
+        await run(team["marko"], team["general"], "/allow @Assistant @Owner")
+        assert await may(team, team["owner"]) is True
+
+        await give_to(team, team["other"])
+
+        assert await may(team, team["owner"]) is False
+        assert await may(team, team["other"]) is True
+
+    async def test_saying_the_same_owner_again_keeps_the_loans(self, team: dict) -> None:
+        await give_to(team, team["marko"])
+        await run(team["marko"], team["general"], "/allow @Assistant @Owner")
+        await give_to(team, team["marko"])
+        assert await may(team, team["owner"]) is True
+
     async def test_only_an_admin_assigns_an_owner(self, team: dict) -> None:
         refused = await team["marko"].put(
             f"/api/admin/plugins/{team['plugin_id']}/owner", {"userId": team["marko"].user_id}

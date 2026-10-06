@@ -664,6 +664,43 @@ async def test_declining_keeps_the_app_running_on_its_old_permissions(team: dict
     assert (await app.get("/api/v1/auth.test")).status == 200
 
 
+async def test_declining_a_scope_stops_the_events_that_stood_on_it(team: dict) -> None:
+    # The update asked for `messages:read` and a subscription to `message.created`. The
+    # decline removed the grant and kept the subscription, and delivery only checked
+    # the subscription — so an app refused `messages:read` was handed every message.
+    quiet = {"events": [], "scopes": ["messages:write", "channels:read", "channels:join"]}
+    body = await install(team["owner"], **quiet)
+    plugin_id = body["plugin"]["id"]
+    await team["owner"].put(
+        f"/api/admin/plugins/{plugin_id}",
+        {
+            **APP,
+            "version": "2.0.0",
+            "events": ["message.created"],
+            "scopes": [*quiet["scopes"], "messages:read"],
+        },
+    )
+    declined = await team["owner"].post(f"/api/admin/plugins/{plugin_id}/decline")
+    assert declined.status == 200, declined.body
+    assert "message.created" not in declined.body["events"]
+
+    await send_message(team["owner"], team["general"], "nothing for that app")
+    assert await queued(plugin_id) == []
+
+
+async def test_a_grant_withdrawn_behind_a_subscription_stops_delivery(team: dict) -> None:
+    # The same rule from the other side: whatever removed the grant, delivery asks for it.
+    body = await install(team["owner"])
+    async with SessionFactory() as session:
+        async with session.begin():
+            await session.execute(
+                text("DELETE FROM plugin_grants WHERE plugin_id = :id AND scope = 'messages:read'"),
+                {"id": body["plugin"]["id"]},
+            )
+    await send_message(team["owner"], team["general"], "still nothing")
+    assert await queued(body["plugin"]["id"]) == []
+
+
 async def test_declining_with_nothing_pending_is_refused(team: dict) -> None:
     body = await install(team["owner"])
     response = await team["owner"].post(f"/api/admin/plugins/{body['plugin']['id']}/decline")

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
+import type { AgentRunView } from '@blob/shared';
 
 vi.mock('../../lib/api.ts', () => ({
   api: {
@@ -66,5 +67,44 @@ describe('HomeView', () => {
     } as never);
     render(<HomeView />);
     expect(screen.getByPlaceholderText('Ask @Janus…')).toBeTruthy();
+  });
+});
+
+function waitingOn(id: string, asker: string): AgentRunView {
+  return {
+    id,
+    pluginId: 'p1',
+    agentName: 'Janus',
+    channelId: 'c1',
+    threadRootId: null,
+    triggerMessageId: `m-${id}`,
+    status: 'interrupted',
+    error: null,
+    postCount: 0,
+    startedAt: '2026-10-06T10:00:00.000Z',
+    finishedAt: '2026-10-06T10:00:05.000Z',
+    card: null,
+    chainId: `m-${id}`,
+    parentRunId: null,
+    depth: 0,
+    askedBy: null,
+    initiatedByUserId: asker,
+    answeredAt: null,
+    expiresAt: null,
+  };
+}
+
+describe('Needs a decision', () => {
+  it('lists the decisions that are yours to make, and not somebody else\'s', () => {
+    // Only the person a run is on behalf of may answer it. Every waiting run in every
+    // room used to land here, and in the "Needs you" count, for everybody.
+    useStore.setState({
+      agentRuns: { mine: waitingOn('mine', 'u1'), theirs: waitingOn('theirs', 'u2') },
+    } as never);
+    render(<HomeView />);
+
+    const section = screen.getByRole('heading', { name: 'Needs a decision' }).parentElement!;
+    expect(within(section).getAllByText(/waiting for your answer/)).toHaveLength(1);
+    expect(within(section).queryByText(/waiting for an answer/)).toBeNull();
   });
 });

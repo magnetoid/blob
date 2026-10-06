@@ -1310,3 +1310,89 @@ The Janus service is on `default` only now — the stack's own network, where th
 cannot collide. Anything added to `docker-compose.prod.yml` that a second stack would also
 run under the same service name needs the same care: the shared network is for reaching
 agents *outside* the stack, never for a service the stack itself owns.
+
+## Traps from the agentic review (2026-10-06): a run that did not end
+
+The review behind `docs/superpowers/specs/2026-10-05-agentic-review.md` found the run path
+able to leave a row `running` for hours, three different ways, and a decision that could
+never be answered. Each is fixed and pinned; the shapes are worth knowing because each one
+reads as correct in isolation.
+
+* **arq's worker-wide `job_timeout` applied to agent runs, and sat below their wall.**
+  300 seconds against `AGUI_MAX_RUN_SEC=600`: arq cancelled every run past five minutes
+  with its answer unposted. `agui_run` is registered through `arq.func` with its own
+  ceiling (`agui_run_timeout_sec`, the wall plus slack) and `max_tries=1` — arq *retries*
+  a job it cancelled, which for a run means asking the agent again. Any job whose own
+  clock is a setting needs its arq ceiling derived from that setting, not shared.
+* **`asyncio.wait` does not cancel what it waits on.** Cancelling the job left the stream
+  task talking to the agent for nobody and the Stop watcher polling a closed pubsub once a
+  second for the life of the process. `_stream` cancels both on the way out. And
+  `await task` raising `CancelledError` is ambiguous — the awaited task was cancelled (the
+  Stop button) or *this* one is being cancelled; `Task.cancelling()` tells them apart, and
+  swallowing the second kind un-cancels a job arq is trying to stop.
+* **A Redis claim that doubles as an ownership check must outlive what it guards.** The
+  socket's run claim is the `SET NX` de-duplication *and* what `owns_run` reads on every
+  event frame. It expired at a fixed 300s, so a long socket run's later events were
+  dropped in silence. `gateway.claim_ttl_sec()` follows `AGUI_MAX_RUN_SEC`.
+* **Silent exits from a stream read as success.** The socket's idle and wall exits just
+  returned, so half an answer was recorded `succeeded`; a publish that reached nobody
+  waited out 150 seconds. `stream_events` now raises `RunTimedOutError` and
+  `AgentNotConnectedError` (the publish's receiver count is the tell). A generator that
+  can end for different reasons has to say which.
+* **A row written before the work needs something that always closes it.** `run_one` had
+  no exception boundary after `_start`, and `gather(return_exceptions=True)` discarded
+  what escaped unlogged. `_drive` runs inside a handler that marks the row `failed`
+  (`STOPPED_MID_RUN` on cancellation, under `asyncio.shield`; `FAILED_INSIDE_BLOB`
+  otherwise) unless `_finish` already did.
+* **The run row is the ledger, not the agent's message ids.** Posts were keyed on the
+  agent's own `messageId`, which most frameworks mint afresh per run, so a second delivery
+  of the job posted the answer twice — and an agent reusing an id had its second message
+  dropped by the unique index. `agent_runs.start` refuses a second run for the same
+  trigger, agent and parent under a transaction advisory lock; posts are keyed
+  `agui:{run_id}:{ordinal}`.
+* **A resume is not a hop.** It keeps the depth of the run that asked, and at depth > 0
+  `admit` ran: it drops the agent whose reply caused a hop as "mentioned itself" — which
+  for a resume is the one agent being resumed — and the chain's quarter-hour clock refused
+  an answer that took longer. Resumes skip `admit`.
+* **Refusing a message's start must refuse its deltas.** `Fold` ignored a
+  `TEXT_MESSAGE_START` under a `user`/`system` role, and the first `CONTENT` reopened it
+  through the tolerant `setdefault`, posting the quote as the bot's words. Tolerance and
+  refusal in the same reducer need an explicit ignore set.
+* **A state fold that patches must start from the state it was sent.** `STATE_DELTA`
+  patches what the agent was given; a fold starting at `None` failed the first patch and
+  lost the memory. And a run that says nothing about state must not write back what it
+  was given (`Fold.state_touched`).
+* **An action-id prefix that routes must be reserved where apps write.** `/api/interactions`
+  hands any press whose id starts `agent_answer:` to the run it names, and only checked
+  that the id was on *some* visible message. An app could post a lookalike of another
+  agent's decision. `validate_blocks` refuses the prefix from apps, and `answer` requires
+  the pressed message to be the run's `decision_message_id`.
+* **`pnpm openapi` empties `packages/shared/openapi.json` when the dump fails.** The shell
+  redirect truncates the file before Python starts, and the dump needs `DATABASE_URL` and
+  `SESSION_SECRET` — absent on a checkout with no `.env`. `git checkout` the file, then
+  run it with both set (any values do; nothing connects).
+
+Four smaller holes the review reported, fixed with them:
+
+* **Delivery checked the subscription, never the grant.** `decline_scopes` removed the
+  grant and kept `plugins.events`, so an app refused `messages:read` went on receiving
+  `message.created`. `events.emit` now requires the event's scope (`EVENT_SCOPES`) in
+  `plugin_grants`, and declining prunes the subscriptions that stood on the scope.
+* **An agent's loans outlived its owner.** `set_owner` changed the owner and left
+  `agent_delegations` live, so the agent kept answering whoever the *previous* owner had
+  lent it to. A real change of owner revokes them.
+* **The seeded slug could be squatted.** A member naming their own agent "Janus" before
+  the seeder reached the workspace took `janus`, and the seeder — which will not adopt a
+  row that is somebody's — skipped that workspace for good. `my_agents.free_slug` treats
+  `seeded.AGENT_SLUG` as always taken.
+* **A WebSocket handshake is a GET, so the HTTP origin check never saw it.** `SameSite=Lax`
+  keeps the cookie off a cross-site socket but not off a same-site one — a sibling
+  subdomain, which is where hosted agents live — and one of the cookie sockets is a root
+  terminal. `SessionMiddleware` treats a socket from a foreign origin as signed out.
+
+On the client, the same review found run state that only moved forward on the server:
+a fetched list merged over live frames could put a finished run back to `running`, and a
+reconnect never refetched runs. `lib/agentRuns.ts` folds by progress (a view never
+replaces one further along), and `resync` calls `reloadRuns`, which may settle only runs
+it held as running *before* the request — one that starts while it is out is absent for a
+different reason.

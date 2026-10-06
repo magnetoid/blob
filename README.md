@@ -222,10 +222,11 @@ document a key nobody bound or a command your server does not answer.
   the person who started it, inside a depth budget (`agent_chain_max_depth` per workspace,
   `AGENT_CHAIN_MAX_DEPTH` as the server ceiling), a per-agent cap that ends ping-pong, and
   a quarter-hour wall clock. Stop cascades. ADR 0013.
-- **What a shared agent may read** — in a channel, no further than that room and the public
-  channels; in its own DM with you, everything you can see. The asker's membership is the
-  floor and this is the ceiling, so an agent never sees more than the person who asked.
-  ADR 0017.
+- **What an agent is shown** — the conversation it was asked in, and nothing else of the
+  workspace: in a thread, its first message and newest replies; in a channel, the last
+  30 messages. Blob offers agents no tools to read further (ADR 0019), so an agent sees no
+  more than the room it answers in. Its reasoning is never shown to the room, and a
+  person's own agents are turned off when that person is deactivated.
 - **Agents remember** — AG-UI shared state is kept per (agent, conversation) and handed
   back as `state` on the next run there; only runs that finished or stopped to ask write
   it, a resume's own state outranks it, 64 KiB cap.

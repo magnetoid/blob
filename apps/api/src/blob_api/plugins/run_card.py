@@ -32,9 +32,18 @@ MAX_NAME_CHARS = 80
 
 
 class CardFold:
-    """Folds lifecycle events into the live card. `feed` returns whether it changed."""
+    """Folds lifecycle events into the live card. `feed` returns whether it changed.
 
-    def __init__(self) -> None:
+    Reasoning is kept only when the run is told to show it (`show_reasoning`). The card
+    goes to everyone in the channel, and an agent's working-out is where it narrates what
+    it read — including from tools and memory of its own that reach past the room. Kept by
+    default, it was shown to the room while the integrator guide told authors it was
+    ignored; hidden by default, the two agree. Showing it is meant to be a per-agent
+    switch (`Listener.shows_reasoning`), and until the console has one, nothing sets it.
+    """
+
+    def __init__(self, *, show_reasoning: bool = False) -> None:
+        self._show_reasoning = show_reasoning
         self._steps: list[dict[str, Any]] = []
         self._tools: list[dict[str, Any]] = []
         self._tool_index: dict[str, dict[str, Any]] = {}
@@ -64,6 +73,8 @@ class CardFold:
             return self._activity_line(event)
 
         if kind.startswith(("REASONING", "THINKING")):
+            if not self._show_reasoning:
+                return False
             delta = event.get("delta")
             if isinstance(delta, str) and delta:
                 self._reasoning = (self._reasoning + delta)[-MAX_REASONING_CHARS:]

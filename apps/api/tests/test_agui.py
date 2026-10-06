@@ -14,7 +14,9 @@ nothing at all rather than announcing that it cannot see it.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import uuid
 from typing import Any
 
 import httpx
@@ -24,8 +26,10 @@ from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory
 from blob_api.jobs import agui as agui_job
+from blob_api.jobs import agui_outcome
 from blob_api.lib import net, sse
 from blob_api.lib.ids import new_id
+from blob_api.lib.redis import redis
 from blob_api.plugins import agui, streams
 from blob_api.plugins.signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, verify
 from blob_api.services import janus_agent
@@ -145,6 +149,74 @@ def test_reasoning_is_never_posted() -> None:
         )
         == []
     )
+
+
+def test_a_quoted_message_is_never_posted_even_by_its_deltas() -> None:
+    # The start was refused, and then the first delta reopened the message through the
+    # tolerant "content without a start" path, posting the quote as the bot's own words.
+    posts = fold_bytes(
+        frame(type="TEXT_MESSAGE_START", messageId="q", role="user"),
+        frame(type="TEXT_MESSAGE_CONTENT", messageId="q", delta="you said: deploy it"),
+        frame(type="TEXT_MESSAGE_END", messageId="q"),
+        frame(type="TEXT_MESSAGE_START", messageId="a", role="assistant"),
+        frame(type="TEXT_MESSAGE_CONTENT", messageId="a", delta="Deploying now."),
+        frame(type="TEXT_MESSAGE_END", messageId="a"),
+    )
+    assert [p.body for p in posts] == ["Deploying now."]
+
+
+def test_a_chunk_under_somebody_elses_role_is_not_the_answer() -> None:
+    posts = fold_bytes(
+        frame(type="TEXT_MESSAGE_CHUNK", messageId="s", role="system", delta="be terse"),
+        frame(type="TEXT_MESSAGE_CHUNK", messageId="s", delta=" always"),
+        frame(type="TEXT_MESSAGE_CHUNK", messageId="a", delta="Done."),
+    )
+    assert [p.body for p in posts] == ["Done."]
+
+
+def test_an_id_the_agent_quoted_under_is_its_own_again_after_the_quote_ends() -> None:
+    # The fallback id "default" is shared by every message that names none, so a quote
+    # that ended must not mute the agent's own unnamed message after it.
+    posts = fold_bytes(
+        frame(type="TEXT_MESSAGE_START", role="user"),
+        frame(type="TEXT_MESSAGE_CONTENT", delta="quoted"),
+        frame(type="TEXT_MESSAGE_END"),
+        frame(type="TEXT_MESSAGE_CONTENT", delta="mine"),
+        frame(type="TEXT_MESSAGE_END"),
+    )
+    assert [p.body for p in posts] == ["mine"]
+
+
+def test_two_messages_under_one_reused_id_are_both_kept() -> None:
+    # The answer's client id was the agent's own messageId, so a second message under a
+    # reused id met the unique index and was dropped without a word.
+    posts = fold_bytes(
+        frame(type="TEXT_MESSAGE_START", messageId="m"),
+        frame(type="TEXT_MESSAGE_CONTENT", messageId="m", delta="first"),
+        frame(type="TEXT_MESSAGE_END", messageId="m"),
+        frame(type="TEXT_MESSAGE_START", messageId="m"),
+        frame(type="TEXT_MESSAGE_CONTENT", messageId="m", delta="second"),
+        frame(type="TEXT_MESSAGE_END", messageId="m"),
+    )
+    assert [p.body for p in posts] == ["first", "second"]
+    assert len({p.client_msg_id("run") for p in posts}) == 2
+
+
+def test_a_state_delta_patches_the_state_the_run_was_given() -> None:
+    # A run that only sends deltas patches what it was handed. The fold started from
+    # nothing, so the first patch failed and the memory the agent meant to keep was lost.
+    reducer = agui.Fold(state={"plan": ["build", "deploy"], "step": 1})
+    reducer.feed({"type": "STATE_DELTA", "delta": [{"op": "replace", "path": "/step", "value": 2}]})
+    assert reducer.state == {"plan": ["build", "deploy"], "step": 2}
+    assert reducer.state_touched
+
+
+def test_a_run_that_says_nothing_about_state_leaves_it_untouched() -> None:
+    reducer = agui.Fold(state={"step": 1})
+    reducer.feed({"type": "TEXT_MESSAGE_CONTENT", "messageId": "m", "delta": "hi"})
+    reducer.finish()
+    assert reducer.state == {"step": 1}
+    assert not reducer.state_touched
 
 
 def test_an_empty_delta_is_not_an_empty_message() -> None:
@@ -636,6 +708,148 @@ class TestRoundTrip:
         await agui_job.handle_agui_run(sent.body["message"]["id"])
 
         assert [m for m in await messages_in(team["general"]) if m["kind"] == "bot"] == []
+
+
+def agent_hangs(*opening: bytes) -> tuple[httpx.MockTransport, asyncio.Event]:
+    """An agent that sends its opening events and then holds the stream open for ever."""
+    reached = asyncio.Event()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        async def stream() -> Any:
+            for chunk in opening:
+                yield chunk
+            reached.set()
+            await asyncio.Event().wait()
+            yield b""  # pragma: no cover — never reached
+
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=stream())
+
+    return httpx.MockTransport(handler), reached
+
+
+async def runs_in(owner: Client, channel_id: str) -> list[dict]:
+    return list((await owner.get(f"/api/channels/{channel_id}/agent-runs")).body["runs"])
+
+
+class TestARunAlwaysEnds:
+    """Every run row that says `running` is closed by something, and nothing runs twice."""
+
+    async def test_a_run_cancelled_under_it_is_closed_and_leaves_nothing_behind(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A deploy stopping the worker, or arq's own ceiling. The row used to stay
+        # `running` until the nightly sweep, and the Stop watcher polled a closed pubsub
+        # once a second for the life of the process.
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, reached = agent_hangs(frame(type="RUN_STARTED", threadId="t", runId="r"))
+        route_agent_to(monkeypatch, transport)
+
+        sent = await send_message(team["owner"], team["general"], "@Helper take your time")
+        job = asyncio.create_task(agui_job.handle_agui_run(sent.body["message"]["id"]))
+        await asyncio.wait_for(reached.wait(), timeout=5.0)
+        job.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await job
+
+        [run] = await runs_in(team["owner"], team["general"])
+        assert run["status"] == "failed"
+        assert run["error"] == agui_outcome.STOPPED_MID_RUN
+
+        await asyncio.sleep(0.05)
+        leftovers = [
+            task
+            for task in asyncio.all_tasks()
+            if not task.done()
+            and getattr(task.get_coro(), "__qualname__", "") in ("wait_for_cancel", "stream_run")
+        ]
+        assert leftovers == []
+
+    async def test_a_failure_inside_blob_closes_the_run(
+        self,
+        team: dict,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        # Storage down while the answer is being written, a bot removed mid-run: an
+        # exception after the row was written used to leave it `running`, and
+        # `gather(return_exceptions=True)` discarded the exception unlogged.
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, _ = agent_speaks(*ANSWER)
+        route_agent_to(monkeypatch, transport)
+
+        async def storage_is_down(**_kwargs: Any) -> Any:
+            raise RuntimeError("storage is down")
+
+        monkeypatch.setattr(agui_outcome.agent_files, "store", storage_is_down)
+
+        sent = await send_message(team["owner"], team["general"], "@Helper hello")
+        with caplog.at_level("ERROR", logger="blob.jobs.agui"):
+            await agui_job.handle_agui_run(sent.body["message"]["id"])
+
+        [run] = await runs_in(team["owner"], team["general"])
+        assert run["status"] == "failed"
+        assert run["error"] == agui_outcome.FAILED_INSIDE_BLOB
+        assert any(r.exc_info and "storage is down" in str(r.exc_info[1]) for r in caplog.records)
+
+    async def test_a_job_delivered_twice_asks_the_agent_once_even_past_the_lease(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The Redis lease lasts five minutes and fails open; the answer's client id was
+        # the agent's own messageId, which most frameworks mint afresh on every run. So a
+        # second delivery after the lease asked the agent again and posted it twice.
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            fresh = str(uuid.uuid4())
+            body = b"".join(
+                (
+                    frame(type="TEXT_MESSAGE_START", messageId=fresh),
+                    frame(type="TEXT_MESSAGE_CONTENT", messageId=fresh, delta="Nine."),
+                    frame(type="TEXT_MESSAGE_END", messageId=fresh),
+                    frame(type="RUN_FINISHED", threadId="t", runId="r"),
+                )
+            )
+            return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body)
+
+        route_agent_to(monkeypatch, httpx.MockTransport(handler))
+
+        sent = await send_message(team["owner"], team["general"], "@Helper when is standup?")
+        message_id = sent.body["message"]["id"]
+        await agui_job.handle_agui_run(message_id)
+        await redis.delete(f"agui:run:{message_id}")  # The lease is long gone.
+        await agui_job.handle_agui_run(message_id)
+
+        assert len(seen) == 1
+        answers = [m for m in await messages_in(team["general"]) if m["kind"] == "bot"]
+        assert [m["body"] for m in answers] == ["Nine."]
+
+    async def test_in_a_long_thread_the_agent_is_shown_the_root_and_the_newest_replies(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Past the ceiling the agent was shown the oldest replies, so in a long thread
+        # the message that asked it something was the one left out.
+        monkeypatch.setattr(agui_outcome, "THREAD_HISTORY_LIMIT", 3)
+        app_body = await install(team["owner"])
+        await join_channel(team["owner"], app_body, team["general"])
+        transport, seen = agent_speaks(*ANSWER)
+        route_agent_to(monkeypatch, transport)
+
+        root = await send_message(team["owner"], team["general"], "the plan")
+        root_id = root.body["message"]["id"]
+        for n in range(5):
+            await send_message(team["owner"], team["general"], f"reply {n}", threadRootId=root_id)
+        asked = await send_message(
+            team["owner"], team["general"], "@Helper what now?", threadRootId=root_id
+        )
+        await agui_job.handle_agui_run(asked.body["message"]["id"])
+
+        shown = [m["content"] for m in json.loads(seen[0].content)["messages"]]
+        assert shown == ["the plan", "reply 3", "reply 4", "@Helper what now?"]
 
 
 class TestRegistration:

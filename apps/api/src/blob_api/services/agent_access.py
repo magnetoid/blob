@@ -18,6 +18,44 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.ids import new_id
 
+#: Whether the person bound as `:actor_id` may set going the agent whose `plugins` row is
+#: aliased `p`, in the channel bound as `:channel_id`: the agent is the workspace's, it is
+#: theirs, or its owner lent it to them — in that channel, or everywhere. `:channel_id`
+#: may be NULL for a channel that does not exist yet (a work channel being started), and
+#: then only a loan that covers everywhere counts, which is exactly what will apply once
+#: it does exist.
+#:
+#: The one statement of the rule (ADR 0018). It was written out in four places — the run
+#: job, the composer's command list, the work picker and work start — and they had
+#: drifted: the picker and work start ignored loans altogether. Every query that asks it
+#: interpolates this, so there is nothing left to drift.
+MAY_COMMAND = """(
+    p.owner_user_id IS NULL
+    OR p.owner_user_id = :actor_id
+    OR EXISTS (
+         SELECT 1 FROM agent_delegations d
+          WHERE d.plugin_id = p.id
+            AND d.grantee_user_id = :actor_id
+            AND d.revoked_at IS NULL
+            AND (d.channel_id IS NULL OR d.channel_id = cast(:channel_id AS uuid))
+       )
+)"""
+
+#: The same rule asked of the whole workspace rather than of one channel: a loan made
+#: anywhere counts. For a list that says what is worth knowing about — the composer's
+#: app commands — where the channel is decided later, by the dispatch, under
+#: `MAY_COMMAND`.
+MAY_COMMAND_SOMEWHERE = """(
+    p.owner_user_id IS NULL
+    OR p.owner_user_id = :actor_id
+    OR EXISTS (
+         SELECT 1 FROM agent_delegations d
+          WHERE d.plugin_id = p.id
+            AND d.grantee_user_id = :actor_id
+            AND d.revoked_at IS NULL
+       )
+)"""
+
 
 async def commandable_by(
     session: AsyncSession,
@@ -43,21 +81,13 @@ async def commandable_by(
     rows = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT u.id AS bot_user_id
                   FROM users u
                   JOIN plugins p ON p.id = u.bot_plugin_id
                  WHERE u.id = ANY(cast(:bot_ids AS uuid[]))
                    AND u.workspace_id = :ws
-                   AND (p.owner_user_id IS NULL
-                        OR p.owner_user_id = :actor_id
-                        OR EXISTS (
-                             SELECT 1 FROM agent_delegations d
-                              WHERE d.plugin_id = p.id
-                                AND d.grantee_user_id = :actor_id
-                                AND d.revoked_at IS NULL
-                                AND (d.channel_id IS NULL OR d.channel_id = :channel_id)
-                           ))
+                   AND {MAY_COMMAND}
                 """
             ),
             {

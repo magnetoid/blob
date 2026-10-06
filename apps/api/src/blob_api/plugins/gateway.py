@@ -56,9 +56,30 @@ log = logging.getLogger("blob.agents.gateway")
 CONN_TTL_SEC = 45
 CONN_REFRESH_SEC = 15
 
-#: How long a claimed run id stays claimed. Long enough that a slow run cannot be picked
-#: up a second time, short enough that the keys drain on their own.
-CLAIM_TTL_SEC = 300
+#: How long a claim outlives the longest run Blob will wait for. The claim is more than a
+#: de-duplication key: `owns_run` reads it on every event the agent sends back, so a claim
+#: that lapses mid-run drops the rest of that run in silence. It was a fixed 300 seconds
+#: against a 600-second `AGUI_MAX_RUN_SEC`, and every socket run past five minutes lost
+#: its answer that way. The slack covers the gap between the claim and the worker's clock.
+CLAIM_SLACK_SEC = 60
+
+
+def claim_ttl_sec() -> int:
+    """How long a claimed run id stays claimed: the run's wall, and a minute past it."""
+    return int(settings.AGUI_MAX_RUN_SEC) + CLAIM_SLACK_SEC
+
+
+class AgentNotConnectedError(Exception):
+    """A run was published and no process holding this agent's socket received it."""
+
+
+class RunTimedOutError(Exception):
+    """The agent went quiet for the idle window, or the run reached its wall."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
 
 #: What the agent may send in one frame. A socket has no Content-Length to check up
 #: front, so the ceiling is per frame and the running total is the caller's business.
@@ -102,16 +123,26 @@ async def stream_events(
     Yields raw AG-UI event mappings — the same shape `SseDecoder` produces on the HTTP
     path, so `Fold` cannot tell the two transports apart and there is one implementation
     of what an event *means*.
+
+    It ends one of three ways, and they are told apart because they mean different
+    things to the person who asked. The agent says `done`: the generator simply stops,
+    as an HTTP stream that closes does. Nobody received the run: `AgentNotConnectedError`,
+    at once — the presence key outlives a crashed holder by up to its TTL, and waiting
+    out the idle window for an agent that is not there cost 150 seconds of silence. The
+    agent went quiet, or the run reached its wall: `RunTimedOutError`, so a run cut off
+    mid-answer is reported as cut off rather than as an answer that happened to end.
     """
     run_id = new_id()
     saw_end = False
     pubsub = redis_sub.pubsub()
     try:
         await pubsub.subscribe(event_channel(run_id))
-        await redis.publish(
+        receivers = await redis.publish(
             run_channel(plugin_id),
             json.dumps({"runId": run_id, "input": run_input}),
         )
+        if not receivers:
+            raise AgentNotConnectedError(plugin_id)
 
         # Idle deadline, reset by every event: an agent that is visibly working —
         # step events, tool calls, streamed text all count — stays alive, and one that
@@ -119,21 +150,22 @@ async def stream_events(
         # wall, so long agent runs are bounded by "still talking", not by 150 seconds.
         loop = asyncio.get_running_loop()
         started = loop.time()
+        wall = started + settings.AGUI_MAX_RUN_SEC
         idle_deadline = started + timeout_sec
         while True:
             now = loop.time()
-            if now - started >= settings.AGUI_MAX_RUN_SEC:
-                return
-            remaining = min(idle_deadline, started + settings.AGUI_MAX_RUN_SEC) - now
+            if now >= wall:
+                raise RunTimedOutError("the agent ran past the ceiling")
+            remaining = min(idle_deadline, wall) - now
             if remaining <= 0:
-                return
+                raise RunTimedOutError("the agent stopped answering")
             try:
                 message = await asyncio.wait_for(
                     pubsub.get_message(ignore_subscribe_messages=True, timeout=remaining),
                     timeout=remaining,
                 )
             except TimeoutError:
-                return
+                continue  # The checks at the top say which clock ran out.
             if message is None:
                 continue
             try:
@@ -180,8 +212,8 @@ class AgentConnection:
 
     Owns nothing durable. When this object goes away the agent is offline, the TTL key
     lapses, and a run published for it finds no listener — which `stream_events` reports
-    as the agent not answering, because from the far side of Redis those are the same
-    thing.
+    as `AgentNotConnectedError` the moment the publish reaches nobody, without waiting for the
+    key to expire.
     """
 
     # `__weakref__` is listed because `__slots__` otherwise omits it, and `_live` is a
@@ -269,7 +301,7 @@ class AgentConnection:
                     # that is what makes the return path checkable: `relay_event` reads it
                     # back to confirm the agent sending events is the one that was asked.
                     if not await redis.set(
-                        claim_key(run_id), self.plugin_id, nx=True, ex=CLAIM_TTL_SEC
+                        claim_key(run_id), self.plugin_id, nx=True, ex=claim_ttl_sec()
                     ):
                         continue
                     await self._send({"t": "run", "runId": run_id, "input": run_input})
@@ -335,6 +367,9 @@ def run_timeout_sec() -> float:
 __all__ = [
     "MAX_FRAME_BYTES",
     "AgentConnection",
+    "AgentNotConnectedError",
+    "RunTimedOutError",
+    "claim_ttl_sec",
     "conn_key",
     "event_channel",
     "is_online",

@@ -236,3 +236,60 @@ class TestWhereItGoes:
 
         # 404, because the channel's existence is the private part.
         assert refused.status == 404, refused.body
+
+
+class TestTheSeededName:
+    async def test_a_member_cannot_take_the_seeded_agents_slug(self, team: dict) -> None:
+        # The seeder refuses to adopt a row that is somebody's, so a personal agent that
+        # took `janus` before the seeder reached the workspace kept it from ever having
+        # the agent every workspace gets.
+        await allow_policy(team["workspace_id"])
+        attached = await attach(team["marko"], "Janus")
+        row = await plugin_row(attached["agent"]["id"])
+        assert row["slug"] != "janus"
+        assert row["slug"].startswith("janus-")
+
+
+class TestWhenTheOwnerLeaves:
+    async def test_deactivating_a_person_turns_their_agents_off(self, team: dict) -> None:
+        # Left on, a departed member's assistant kept its token, its socket and its
+        # events from every room its bot is in — and whoever it was lent to could still
+        # set it going. Disabled, every path that reaches an agent refuses it.
+        await allow_policy(team["workspace_id"])
+        mine = await attach(team["marko"])
+        theirs = await attach(team["ana"], "Ana's helper")
+
+        deactivated = await team["owner"].post(
+            f"/api/admin/users/{team['marko'].user_id}/deactivate"
+        )
+        assert deactivated.status == 200, deactivated.body
+
+        assert (await plugin_row(mine["agent"]["id"]))["status"] == "disabled"
+        # Only theirs: somebody else's agent is untouched.
+        assert (await plugin_row(theirs["agent"]["id"]))["status"] == "enabled"
+
+        bot = team["owner"].fork()
+        bot._http.headers["authorization"] = f"Bearer {mine['botToken']}"
+        bot._http.cookies.clear()
+        assert (await bot.get("/api/v1/auth.test")).status == 403
+
+        async with SessionFactory() as session:
+            why = (
+                await session.execute(
+                    text("SELECT last_error FROM plugins WHERE id = :id"),
+                    {"id": mine["agent"]["id"]},
+                )
+            ).scalar_one()
+            audited = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT metadata FROM audit_events
+                         WHERE action = 'plugin.disabled' AND target_id = :id
+                        """
+                    ),
+                    {"id": mine["agent"]["id"]},
+                )
+            ).scalar_one()
+        assert why == "Turned off because its owner was deactivated."
+        assert audited["reason"] == "owner_deactivated"

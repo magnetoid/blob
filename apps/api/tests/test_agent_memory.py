@@ -165,3 +165,40 @@ class TestWhatIsNot:
         # And an interrupted run is a considered state too, so it is what is remembered.
         await ask(agent, *ANSWER)
         assert last_request_state(agent) == {"plan": ["build", "deploy"], "step": 2}
+
+
+class TestWhoseMemoryItIs:
+    async def test_an_agent_lent_to_somebody_does_not_hand_them_its_owners_memory(
+        self, agent: dict
+    ) -> None:
+        # Memory was keyed by agent and conversation alone, so a lent agent was handed
+        # whatever it remembered of its owner's work there — and the borrower's run
+        # wrote over it. A loan lends the agent, not what it knows.
+        from blob_api.services import agent_access
+
+        gave = await agent["owner"].put(
+            f"/api/admin/plugins/{agent['plugin_id']}/owner", {"userId": agent["owner"].user_id}
+        )
+        assert gave.status == 200, gave.body
+        async with SessionFactory() as session:
+            async with session.begin():
+                await agent_access.grant(
+                    session,
+                    workspace_id=agent["workspace_id"],
+                    plugin_id=agent["plugin_id"],
+                    grantee_user_id=agent["member"].user_id,
+                    granted_by=agent["owner"].user_id,
+                    channel_id=agent["general"],
+                )
+
+        await ask(agent, *remembers({"owners": "plan"}))
+
+        transport, seen = streamed(*remembers({"borrowers": "notes"}))
+        agent["slot"]["transport"] = transport
+        borrowed = await send_message(agent["member"], agent["general"], "@Helper help me")
+        await agui_job.handle_agui_run(str(borrowed.body["message"]["id"]))
+
+        assert len(seen) == 1, "the borrower may still command it"
+        assert json.loads(seen[0].content)["state"] is None
+        await ask(agent, *ANSWER)
+        assert last_request_state(agent) == {"owners": "plan"}

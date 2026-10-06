@@ -445,3 +445,101 @@ class TestAnAgentOnASchedule:
         [run] = await runs(room)
         assert run["depth"] == 0
         assert str(run["initiated_by_user_id"]) == room["owner"].user_id
+
+
+PLANNER_STOPS_TO_ASK = (
+    frame(type="RUN_STARTED", threadId="t", runId="r"),
+    frame(type="STATE_SNAPSHOT", snapshot={"outline": ["scope", "risks"]}),
+    frame(
+        type="RUN_FINISHED",
+        outcome={
+            "type": "interrupt",
+            "interrupts": [
+                {"id": "i1", "message": "Include the risks?", "responseSchema": {"type": "boolean"}}
+            ],
+        },
+    ),
+)
+
+
+class TestADecisionInsideAChain:
+    async def test_a_question_asked_at_a_hop_can_be_answered_after_the_chains_quarter_hour(
+        self, room: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A resume keeps the depth of the run that asked, and at depth > 0 the hop budget
+        # was applied to it: `admit` dropped the asking agent as "mentioned itself", and
+        # the chain's quarter-hour clock refused it anyway once the person took their
+        # time. So a decision raised anywhere past the root could never be answered.
+        monkeypatch.setattr(agent_chains, "enqueue", lambda *_args: _nothing())
+        speak(room, helper=HELPER_ASKS_PLANNER, planner=PLANNER_STOPS_TO_ASK)
+        await root_run(room, room["owner"])
+        [(hop_message, parent_run)] = spawned(room)
+        await agui_job.handle_agui_run(hop_message, parent_run)
+
+        planner = next(run for run in await runs(room) if run["slug"] == "planner")
+        assert planner["status"] == "interrupted" and planner["depth"] == 1
+        async with SessionFactory() as session:
+            decision_message_id = (
+                await session.execute(
+                    text("SELECT decision_message_id FROM agent_runs WHERE id = :id"),
+                    {"id": planner["id"]},
+                )
+            ).scalar_one()
+
+        pressed = await room["owner"].post(
+            "/api/interactions",
+            {
+                "messageId": str(decision_message_id),
+                "actionId": f"agent_answer:{planner['id']}:0",
+                "value": "",
+                "clientActionId": "yes-1",
+            },
+        )
+        assert pressed.status == 200, pressed.body
+
+        # The person answered well past the chain's clock, and after the workspace
+        # turned agent-to-agent off — neither is a reason to refuse a person's answer.
+        await set_depth(room, 0)
+        async with SessionFactory() as session:
+            async with session.begin():
+                await session.execute(
+                    text("UPDATE agent_runs SET started_at = now() - make_interval(secs => :s)"),
+                    {"s": agent_chains.CHAIN_MAX_SEC + 60},
+                )
+                answer_id = (
+                    await session.execute(
+                        text("SELECT id FROM messages WHERE client_msg_id LIKE :prefix"),
+                        {"prefix": f"agent-answer:{planner['id']}:%"},
+                    )
+                ).scalar_one()
+
+        seen = speak(room)
+        await agui_job.handle_agui_run(str(answer_id), str(planner["id"]))
+
+        assert len(seen["/planner"]) == 1
+        resumed = json.loads(seen["/planner"][0].content)
+        assert resumed["resume"] == [{"interruptId": "i1", "status": "resolved", "payload": True}]
+        assert resumed["state"] == {"outline": ["scope", "risks"]}
+        assert seen["/agui"] == []  # Only the agent that asked.
+
+
+class TestTheSwitchCoversEveryRun:
+    async def test_a_hop_already_on_its_way_is_refused_once_agents_are_turned_off(
+        self, room: dict
+    ) -> None:
+        # The console says "When off, mentions of agents are refused and nothing is
+        # dispatched" — and a hop is dispatched too. Turned off between the reply and the
+        # hop, the hop must not call the next agent.
+        seen = speak(room, helper=HELPER_ASKS_PLANNER)
+        await root_run(room, room["owner"])
+        [(hop_message, parent_run)] = spawned(room)
+
+        switched = await room["owner"].patch(
+            "/api/admin/settings", {"settings": {"agentsEnabled": False}}
+        )
+        assert switched.status == 200, switched.body
+        await agui_job.handle_agui_run(hop_message, parent_run)
+
+        assert seen["/planner"] == []
+        planner = [run for run in await runs(room) if run["slug"] == "planner"]
+        assert [run["status"] for run in planner] == ["refused"]

@@ -38,17 +38,13 @@ export function HomeView() {
       (await api.agentic.listTasks(currentUser ? { assignee: currentUser.id } : {})).tasks,
     [currentUser?.id],
   );
-  // Your runs, folded into the store the cards below read from. Nothing renders the
-  // value itself; the fetch is for the side effect, and a failure changes nothing.
+  // Your runs, folded into the store the cards below read from — through the store's
+  // fold, so a list fetched before a run finished cannot put it back to running.
+  // Nothing renders the value itself; a failure changes nothing.
   useFetch(
     async () => {
       const { runs } = await api.agentRuns.mine();
-      useStore.setState((s) => ({
-        agentRuns: {
-          ...s.agentRuns,
-          ...Object.fromEntries(runs.map((run) => [run.id, run])),
-        },
-      }));
+      useStore.getState().foldRuns(runs);
       return runs;
     },
     [currentUser?.id],
@@ -64,7 +60,15 @@ export function HomeView() {
 
   const runs = useMemo(() => Object.values(agentRuns), [agentRuns]);
   const running = runs.filter((r) => r.status === 'running');
-  const waiting = runs.filter((r) => r.status === 'interrupted' && !r.answeredAt);
+  // Yours to decide: only the person a run is on behalf of may answer it, so somebody
+  // else's question is not something that needs you, however visible its card is.
+  const waiting = runs.filter(
+    (r) =>
+      r.status === 'interrupted' &&
+      !r.answeredAt &&
+      currentUser !== null &&
+      r.initiatedByUserId === currentUser.id,
+  );
   const doneToday = runs.filter((r) => r.status === 'succeeded' && r.finishedAt);
   const openTasks = (tasks ?? []).filter((t) => t.status !== 'done' && t.status !== 'cancelled');
 

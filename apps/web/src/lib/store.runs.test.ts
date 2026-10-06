@@ -41,6 +41,7 @@ function run(overrides: Partial<AgentRunView> = {}): AgentRunView {
     parentRunId: null,
     depth: 0,
     askedBy: null,
+    initiatedByUserId: 'u-asker',
     answeredAt: null,
     expiresAt: null,
     ...overrides,
@@ -109,6 +110,43 @@ describe('agent run events', () => {
     const settled = useStore.getState().agentRuns['r1'];
     expect(settled?.status).toBe('cancelled');
     expect(settled?.finishedAt).not.toBeNull();
+  });
+});
+
+describe('after a reconnect', () => {
+  it('asks what the runs are doing now, and settles what the socket missed', async () => {
+    // A run that finished while the socket was down kept its spinner and its Stop, and
+    // the Stop answered 404; one that ended long enough ago is gone from the server's
+    // list of live runs, which names every running one.
+    const { api } = await import('./api.ts');
+    useStore.setState({
+      agentRuns: { r1: run(), r2: run({ id: 'r2', triggerMessageId: 'm2' }) },
+    });
+    const mine = vi
+      .spyOn(api.agentRuns, 'mine')
+      .mockResolvedValue({ runs: [run({ status: 'succeeded', finishedAt: '2026-10-06T10:01:00Z' })] });
+
+    await useStore.getState().reloadRuns();
+
+    expect(mine).toHaveBeenCalledTimes(1);
+    expect(useStore.getState().agentRuns['r1']?.status).toBe('succeeded');
+    expect(useStore.getState().agentRuns['r2']).toBeUndefined();
+  });
+
+  it('a list fetched before a run finished does not put it back to running', () => {
+    useStore.getState().applyEvent({ t: 'agent_run.started', run: run() });
+    useStore.getState().applyEvent({
+      t: 'agent_run.finished',
+      runId: 'r1',
+      channelId: 'c1',
+      status: 'succeeded',
+      error: null,
+      postCount: 1,
+    });
+
+    useStore.getState().foldRuns([run()]);
+
+    expect(useStore.getState().agentRuns['r1']?.status).toBe('succeeded');
   });
 });
 

@@ -38,7 +38,8 @@ Installing returns two secrets, **once**:
 | `botToken` | Authenticating your calls back into Blob |
 
 Neither is retrievable afterwards — Blob stores a hash of the token and shows the secret
-only at install. If you lose one, rotate it; that is the recovery path.
+only at install. If you lose one, replace it: an admin rotates the signing secret, or
+mints a new bot token and revokes the old ones, from the app's page in the console.
 
 `requestUrl` must be `https://` and must resolve to a public address. A URL pointing at a
 private range is refused, because otherwise registering an app would be a way to make the
@@ -86,7 +87,9 @@ can arrive twice.
 ### Retries
 
 Any non-2xx response, or no response, is retried after 1s, 5s, 30s, 5m and 30m. After
-that the delivery is marked failed and an admin can see it in the delivery log.
+that the delivery is marked failed and an admin can see it in the delivery log. Five
+deliveries in a row that fail for good park the app as `failed`: its events wait instead
+of burning through the retries, and an admin re-enables it once the endpoint is back.
 
 **Return `410 Gone` to stop permanently.** It is the one status that means "this app is
 finished" — use it when your side has been uninstalled, instead of refusing deliveries
@@ -146,6 +149,8 @@ curl -X POST https://chat.example.com/api/v1/chat.postMessage \
 | `GET /api/v1/conversations.list` | `channels:read` | What the bot can see |
 | `POST /api/v1/conversations.join` | `channels:join` | Required before posting |
 | `GET /api/v1/users.list` | `users:read` | Email is never included |
+| `POST /api/v1/threads.summarize` | `summaries:write` | A thread's decisions, open questions and action items |
+| `POST /api/v1/tasks.create` · `tasks.update` · `GET tasks.list` | `tasks:write` · `tasks:read` | Shared human and agent work items |
 
 **Your bot must join a channel before posting to it.** Its access is its own, checked
 exactly as a person's is — so a private channel it was not invited to returns 404, not
@@ -163,7 +168,9 @@ nothing new and returns the same message:
 Scopes are granted as a set at install. An update that asks for **more** than it was
 granted puts the app into `needs_review` and stops it doing anything at all until an
 admin approves — an app cannot widen its own permissions by shipping a new version.
-Narrowing takes effect immediately.
+Narrowing takes effect immediately. An admin who declines the new scopes leaves the app
+running on what it had, and with it go any subscriptions that needed them: an event is
+delivered only while the scope it requires is granted.
 
 Missing a scope returns 403 with `{"error":{"code":"missing_scope"}}`.
 
@@ -224,6 +231,10 @@ engine inside a chat message is a rendering surface nobody can review.
 `input`. Anything else is refused, and keys the schema does not declare are dropped
 before storage rather than kept and passed to the renderer.
 
+Action ids beginning `agent_answer:` are Blob's own — they are the buttons under a
+question an agent stopped to ask — and a block that uses one is refused with
+`bad_action_id`.
+
 **`text` is not optional.** It stays the plain-text fallback and remains the only thing
 the search index reads, so it should say what the blocks say. A client that cannot render
 blocks still shows something true.
@@ -278,7 +289,14 @@ A `blob-app.json` at its root:
 
 `build` is optional. The default, `nixpacks`, reads the repository and works out how to
 build it, which covers an ordinary Python or Node project with nothing added. Use
-`dockerfile` if the repository ships one and you would rather it were used.
+`dockerfile` if the repository ships one and you would rather it were used, or
+`dockercompose` with `composePath` naming the compose file when the agent is several
+services.
+
+An agent that speaks AG-UI declares `aguiPath` — the path its endpoint is served at,
+such as `/v1/agui` — and `port` if it listens on something other than 3000. The hostname
+is not known until the runner assigns one, which is why the manifest carries a path and
+not a URL.
 
 There is no `runtime` or `requestUrl` field to set. The runtime is always `container`
 here — a repository does not get to declare that it runs in-process — and the URL is not
@@ -286,7 +304,7 @@ known until the runner has assigned the container a hostname.
 
 ### What the agent is given
 
-Four environment variables, set before its first boot so it never starts without them:
+Five environment variables, set before its first boot so it never starts without them:
 
 | Variable | What it is |
 |---|---|
@@ -294,11 +312,13 @@ Four environment variables, set before its first boot so it never starts without
 | `BLOB_BOT_TOKEN` | Its own credentials, scoped to what was approved |
 | `BLOB_SIGNING_SECRET` | For verifying the deliveries it receives |
 | `BLOB_PLUGIN_SLUG` | Its own slug |
+| `PORT` | The port the runner routes to — bind this rather than guessing |
 
 An AI agent brings its own model: whatever key or endpoint it needs is configured on the
-agent, not on Blob. Blob has no LLM dependency and no model credentials of its own, which
-is what keeps a self-hosted deployment genuinely self-contained — an agent pointed at a
-local Ollama is as valid as one pointed at a hosted API.
+agent, not on Blob. Blob's own optional model settings (`LLM_*`) serve two features of its
+own — the unread recap and thread summaries — and never an agent, which is what keeps a
+self-hosted deployment genuinely self-contained: an agent pointed at a local Ollama is as
+valid as one pointed at a hosted API.
 
 ### Turning it on
 
@@ -337,10 +357,15 @@ AWS Strands and the Claude Agent SDK. If your framework already exposes an AG-UI
 that endpoint is the whole integration.
 
 **Blob is the client.** When a person @-mentions your app's bot in a channel the bot has
-joined, Blob POSTs a standard `RunAgentInput` — the thread, or the last 30 messages of the
-channel — and reads back your `text/event-stream`. The request is signed with the same
-`X-Blob-Signature` scheme as a webhook delivery, so if you already verify those you
-already verify this.
+joined, Blob POSTs a standard `RunAgentInput` — in a thread, its first message and its
+newest replies (up to a thousand); in a channel, its last 30 messages
+(`AGUI_HISTORY_LIMIT`) — and reads back your `text/event-stream`. The request is signed
+with the same `X-Blob-Signature` scheme as a webhook delivery, so if you already verify
+those you already verify this.
+
+Your agent is asked once per message. A job that is delivered twice finds the run it
+already started and stops, so an answer is never posted twice — whatever ids your
+agent gives its messages.
 
 What Blob does with the stream:
 
@@ -353,16 +378,22 @@ What Blob does with the stream:
 | `STATE_SNAPSHOT` / `STATE_DELTA` | Folded (deltas are RFC 6902) and **remembered per conversation**: the next run in the same channel or thread receives it as `state`. A resume receives the state the run had when it stopped. 64 KiB cap. |
 | `CUSTOM` with `name: "blob.artifact"` | In a work channel, publishes an artifact — see below. Elsewhere, ignored. |
 | `CUSTOM` named `blob.file.start` / `chunk` / `end` | Hands over a file, attached to your answer — see [Handing over a file](#handing-over-a-file). |
-| `RUN_ERROR` | A short message saying it could not finish, and `lastError` on the app |
-| everything else | Ignored, including all reasoning events — an agent's working-out is not its answer |
+| `RUN_ERROR` | The card under the mention says the run failed, with your `message`; `lastError` on the app records it. Nothing is posted in the channel |
+| `STEP_*`, `TOOL_CALL_*`, `ACTIVITY_*` | Drawn live on the card under the mention — the plan, the tool calls with their arguments, the latest activity — while the run goes |
+| `TEXT_MESSAGE_START` with a role other than `assistant` | Not posted, and neither are its deltas: an agent quoting the person back is not answering |
+| reasoning events | Never posted, and not shown on the card: an agent's working-out is not its answer, and the card is the whole channel's |
+| everything else | Ignored. An event Blob does not know is never fatal |
 
 Three things are worth knowing before you build against it.
 
-**A slow agent is silent until it is done.** An answer is buffered and written once, when
-the message ends — it does not appear token by token. This is deliberate: a row that is
-edited forty times is marked "(edited)" for ever and broadcast forty times. If your agent
-takes a while, say so in its first message. After `AGUI_TIMEOUT_SEC` (120s by default) the
-person is told it could not finish.
+**An answer appears when it is finished.** It is buffered and written once, when the
+message ends — it does not appear token by token. This is deliberate: a row that is
+edited forty times is marked "(edited)" for ever and broadcast forty times. The card under
+the mention shows the run working meanwhile, from your step, tool and activity events. A
+run may take as long as it keeps talking: Blob gives up after 30 seconds with nothing
+from your stream (`AGUI_READ_TIMEOUT_SEC`), or at ten minutes whatever happens
+(`AGUI_MAX_RUN_SEC`). Either way the card says the run did not finish, and whatever you
+had already finished saying is posted under it.
 
 **A person starts every chain; agents may extend it.** A message from another bot never
 starts anything on its own — the bot API stays inert. But when your agent's *reply*

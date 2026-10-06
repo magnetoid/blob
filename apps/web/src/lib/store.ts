@@ -27,6 +27,7 @@ import type {
   UserGroup,
   UserPrefs,
 } from "@blob/shared";
+import { foldFetchedRuns, MINE_LIMIT, runningIds } from "./agentRuns.ts";
 import { api } from "./api.ts";
 import { showError, useToasts } from "./toasts.ts";
 import { DEFAULT_CALL_SETTINGS } from "./callDefaults.ts";
@@ -183,8 +184,10 @@ interface State {
    *  Same reason as `catchupScope`: `/cli` is handled in the composer, and the panel
    *  that answers it is rendered by the shell. */
   terminalTarget: { pluginId: string; agentName: string } | null;
-  /** Live and recent agent runs, keyed by run id. Fed by socket events and the
-   * per-channel fetch on open; the card under a trigger message renders from this. */
+  /** Live and recent agent runs, keyed by run id. Fed by socket events and by fetches
+   * — a channel's list on open, Home's, and the refetch after a reconnect — folded so
+   * a fetch never walks a run backwards (`lib/agentRuns.ts`). The card under a trigger
+   * message renders from this. */
   agentRuns: Record<string, AgentRunView>;
   /** Live calls in conversations you are in, keyed by call id. */
   activeCalls: Record<string, Call>;
@@ -261,6 +264,11 @@ interface State {
   markAllRead: () => Promise<void>;
   applyEvent: (event: ServerEvent) => void;
   resync: () => Promise<void>;
+  /** Fold fetched runs into `agentRuns` without walking any of them backwards. */
+  foldRuns: (runs: AgentRunView[], options?: { settle?: ReadonlySet<string> }) => void;
+  /** Ask the server what every run this person can see is doing now, and fold it in —
+   *  after a reconnect, and when a Stop finds its run already over. */
+  reloadRuns: () => Promise<void>;
   setPrefs: (prefs: Partial<UserPrefs>) => Promise<void>;
   displayNameOf: (userId: string | null) => string;
   channelTitle: (channel: ChannelWithState) => string;
@@ -859,14 +867,7 @@ export const useStore = create<State>((set, get) => ({
     // conversation.
     void api.agentRuns
       .forChannel(channelId)
-      .then(({ runs }) =>
-        set((s) => ({
-          agentRuns: {
-            ...s.agentRuns,
-            ...Object.fromEntries(runs.map((run) => [run.id, run])),
-          },
-        })),
-      )
+      .then(({ runs }) => get().foldRuns(runs))
       .catch(() => undefined);
 
     // A permalink names a specific message, which is very often not on the newest page.
@@ -1998,6 +1999,34 @@ export const useStore = create<State>((set, get) => ({
     // A call that started or ended while the socket was down is in no frame this
     // client will ever get.
     void get().loadCalls();
+    // Nor is a run that started, finished or stopped to ask in the gap. Without this a
+    // run that ended while the socket was down kept its spinner and its Stop button,
+    // and the Stop answered 404.
+    void get().reloadRuns();
+    // An artifact published in the gap: the work panel refetches on its version.
+    set((s) => ({
+      workVersions: Object.fromEntries(
+        Object.entries(s.workVersions).map(([id, version]) => [id, version + 1]),
+      ),
+    }));
+  },
+
+  foldRuns: (runs, options) => {
+    set((s) => ({ agentRuns: foldFetchedRuns(s.agentRuns, runs, options) }));
+  },
+
+  reloadRuns: async () => {
+    // Taken before the request: a run that starts while it is out is not in its answer,
+    // and must not be read as one that ended.
+    const before = runningIds(get().agentRuns);
+    try {
+      const { runs } = await api.agentRuns.mine();
+      // The list puts every running run first, so one shorter than its limit names all
+      // of them, and a run held as running that it leaves out has ended.
+      get().foldRuns(runs, runs.length < MINE_LIMIT ? { settle: before } : undefined);
+    } catch {
+      // Run cards are one feature; the next reconnect or reload asks again.
+    }
   },
 
   loadCalls: async (retriesLeft = 2) => {

@@ -32,6 +32,13 @@ MAX_FIELDS = 10
 
 _ACTION_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,80}$")
 
+#: The prefix of the action ids Blob mints for itself — the buttons under a question an
+#: agent stopped to ask (`plugins/decisions.py`). `/api/interactions` hands a press with
+#: this prefix to the run it names instead of to the app that posted the message, so an
+#: app able to publish one could post a lookalike of another agent's decision and have a
+#: person answer it by mistake. Refused from apps at the door.
+AGENT_ANSWER_PREFIX = "agent_answer:"
+
 
 class TextSpan(CamelModel):
     """Text inside a block.
@@ -143,11 +150,16 @@ Block = Annotated[
 ]
 
 
-def validate_blocks(raw: list[dict[str, object]] | None) -> list[dict[str, object]] | None:
+def validate_blocks(
+    raw: list[dict[str, object]] | None, *, minted_by_blob: bool = False
+) -> list[dict[str, object]] | None:
     """Parse and re-serialize, so what is stored is what the schema allows.
 
     Storing the caller's dictionary verbatim would keep whatever extra keys it sent, and
     those keys would reach the renderer. Round-tripping through the models drops them.
+
+    `minted_by_blob` is for the blocks Blob writes itself, which alone may carry an
+    action id under `AGENT_ANSWER_PREFIX`.
     """
     if raw is None:
         return None
@@ -169,6 +181,11 @@ def validate_blocks(raw: list[dict[str, object]] | None) -> list[dict[str, objec
             raise bad_request(
                 "An action id is up to 80 characters of letters, numbers, dot, colon, "
                 "underscore or hyphen.",
+                code="bad_action_id",
+            )
+        if not minted_by_blob and action_id.startswith(AGENT_ANSWER_PREFIX):
+            raise bad_request(
+                f"Action ids starting with `{AGENT_ANSWER_PREFIX}` are Blob's own.",
                 code="bad_action_id",
             )
 
@@ -239,6 +256,7 @@ def _action_ids_from_raw(raw: list[dict[str, object]]) -> set[str]:
 
 
 __all__ = [
+    "AGENT_ANSWER_PREFIX",
     "MAX_BLOCKS",
     "Block",
     "action_ids_of",

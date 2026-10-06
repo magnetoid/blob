@@ -38,8 +38,18 @@ def read_budget() -> int:
     return settings.AGUI_MAX_BYTES + as_base64
 
 
-def _fold() -> agui.Fold:
-    return agui.Fold(max_file_bytes=settings.AGUI_MAX_FILE_BYTES)
+#: What the card says when a socket agent is not there to take the run.
+NOT_CONNECTED = "that agent is not connected right now"
+
+
+def _fold(run_input: Mapping[str, Any]) -> agui.Fold:
+    """A fold that starts from the state the run was sent.
+
+    AG-UI's `STATE_DELTA` patches the state the agent was *given*. Starting from nothing
+    made every delta-only run fail to apply its first patch, and the memory it meant to
+    leave was lost.
+    """
+    return agui.Fold(max_file_bytes=settings.AGUI_MAX_FILE_BYTES, state=run_input.get("state"))
 
 
 @dataclass(slots=True)
@@ -56,6 +66,22 @@ class Listener:
     #: `forwardedProps.instructions`. None when the workspace has nothing to say —
     #: `plugins.instructions`, read by both admission paths.
     instructions: str | None = None
+    #: Whether the live card keeps a tail of the agent's reasoning. Off unless the
+    #: agent's row turns it on; see `run_card.CardFold`.
+    shows_reasoning: bool = False
+    #: Whose agent this is: None for the workspace's, a person's id for theirs (ADR 0018).
+    #: Decides whose runs may read and write what it remembers.
+    owner_user_id: str | None = None
+
+    def remembers_for(self, person_id: str) -> bool:
+        """Whether a run on this person's behalf reads and writes the agent's memory.
+
+        A workspace agent's memory is the conversation's, and anyone's run uses it. An
+        owned agent's memory is its owner's: lent to somebody, the agent works for them
+        without being handed what it remembers of its owner's work, and without writing
+        over it. A memory of the grantee's own is for when memory is keyed by person.
+        """
+        return self.owner_user_id is None or self.owner_user_id == person_id
 
     @property
     def dials_in(self) -> bool:
@@ -86,7 +112,7 @@ async def stream_run(
     if listener.dials_in:
         return await _stream_over_socket(listener, run_input, on_event=on_event)
 
-    fold = _fold()
+    fold = _fold(run_input)
     posts: list[agui.Post] = []
     if listener.agui_url is None:
         # Both admission paths — `listeners_for` for a mention, `personal_agent_for` for
@@ -194,11 +220,11 @@ async def _stream_over_socket(
     POST to its URL. This agent authenticated itself with its bot token when it dialled
     in, and the socket it is holding is the proof — nobody else can write to it.
     """
-    fold = _fold()
+    fold = _fold(run_input)
     posts: list[agui.Post] = []
 
     if not await gateway.is_online(listener.plugin_id):
-        return fold, posts, "that agent is not connected right now"
+        return fold, posts, NOT_CONNECTED
 
     seen_events = 0
     seen_bytes = 0
@@ -223,15 +249,26 @@ async def _stream_over_socket(
             posts.extend(fold.feed(event))
             if fold.finished:
                 return fold, posts, None
+    except gateway.AgentNotConnectedError:
+        # The presence key said yes and the publish reached nobody: the holder died
+        # inside the key's TTL. Said now rather than after the idle window.
+        return fold, posts, NOT_CONNECTED
+    except gateway.RunTimedOutError as timed_out:
+        # Cut off, which is a failure even with text in hand — the same answer the HTTP
+        # path gives a read that timed out. What did arrive is still posted, with the
+        # card saying the run did not finish, rather than passed off as a whole answer.
+        posts.extend(fold.finish())
+        if seen_events == 0:
+            # Nothing at all came back. "It never woke up" and "it stopped mid-answer"
+            # want different words on the card.
+            return fold, posts, "the agent did not answer in time"
+        return fold, posts, timed_out.reason
     except Exception as error:
         posts.extend(fold.finish())
         return fold, posts, f"the agent could not be reached: {error}"
 
-    if not fold.finished and not posts:
-        # Nothing at all came back inside the window. Distinguished from a short answer
-        # because "it said nothing" and "it never woke up" want different apologies.
-        posts.extend(fold.finish())
-        return fold, posts, "the agent did not answer in time"
-
+    # The agent said `done`. Without RUN_FINISHED that is still the end of the run, as an
+    # HTTP stream that closes cleanly is — and a run that said nothing before it posts
+    # nothing, which is a legitimate answer on both transports.
     posts.extend(fold.finish())
     return fold, posts, None

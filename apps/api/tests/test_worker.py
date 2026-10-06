@@ -7,7 +7,34 @@ from typing import Any
 
 import pytest
 
+from blob_api.config import settings
 from blob_api.jobs.worker import WorkerSettings, after_job_end
+from blob_api.plugins import gateway
+
+
+def _agent_run_function() -> Any:
+    found = [f for f in WorkerSettings.functions if getattr(f, "name", None) == "agui_run"]
+    assert len(found) == 1, "agui_run is registered with its own limits, through arq.func"
+    return found[0]
+
+
+def test_an_agent_run_outlasts_its_own_wall_and_is_never_retried() -> None:
+    # The worker-wide 300 used to apply here while AGUI_MAX_RUN_SEC promised 600, so
+    # arq cancelled every run past five minutes with its answer unposted. The run's
+    # own clocks are the policy; arq's ceiling only has to sit above them.
+    run = _agent_run_function()
+    assert run.timeout_s is not None and run.timeout_s > settings.AGUI_MAX_RUN_SEC
+    # One try: a retry of a cancelled run asks the agent again and posts a second answer.
+    assert run.max_tries == 1
+
+
+def test_a_socket_runs_claim_outlives_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The claim is also the ownership check on every event the agent sends back. It
+    # expired at 300s and was never refreshed, so a socket run past five minutes had
+    # every later event dropped in silence.
+    assert gateway.claim_ttl_sec() > settings.AGUI_MAX_RUN_SEC
+    monkeypatch.setattr(settings, "AGUI_MAX_RUN_SEC", 1800.0)
+    assert gateway.claim_ttl_sec() > 1800.0
 
 
 def test_the_worker_does_not_wait_forever_or_retry_forever() -> None:

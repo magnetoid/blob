@@ -25,6 +25,7 @@ from ..plugins import registry
 from ..plugins.runner import AGENT_PORT, Deployment, EnvVar, current_runner, normalize_fqdn
 from ..plugins.source import RepoSource, read_manifest
 from ..services import audit as audit_service
+from ..services import policies as policy_service
 from ..services.audit import Actor
 from . import commands as command_service
 
@@ -43,7 +44,13 @@ async def preview(repo_url: str, ref: str) -> RepoSource:
 
 
 async def install_from_repo(
-    actor: Actor, repo_url: str, ref: str, public_url: str, env: dict[str, str] | None = None
+    actor: Actor,
+    repo_url: str,
+    ref: str,
+    public_url: str,
+    env: dict[str, str] | None = None,
+    *,
+    policy: policy_service.Policy,
 ) -> tuple[registry.Installed, RepoSource]:
     # Hosting first. Reading the manifest is a network call, and making it before
     # discovering there is nowhere to run the result wastes it and reports the wrong
@@ -52,6 +59,12 @@ async def install_from_repo(
     source = await read_manifest(repo_url, ref)
 
     async with transaction() as (session, _):
+        # The scopes the repository asks for, against what this workspace's policy
+        # denies — asked here because the manifest did not exist until the line above.
+        # Required rather than optional so no caller can install without asking.
+        await policy_service.assert_within_policy(
+            session, actor.workspace_id, policy, source.manifest.scopes
+        )
         installed = await registry.install(
             session,
             workspace_id=actor.workspace_id,

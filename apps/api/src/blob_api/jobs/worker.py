@@ -11,9 +11,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from arq import cron
+from arq import cron, func
 from sqlalchemy import text
 
+from ..config import settings
 from ..db.engine import close_engine, session_scope, transaction
 from ..lib.queue import close_queue, redis_settings
 from ..lib.redis import close_redis
@@ -36,6 +37,23 @@ log = logging.getLogger("blob.worker")
 
 #: Unattached uploads are swept after this long.
 ORPHAN_AGE_HOURS = 24
+
+#: What an agent run may take past its own wall (`AGUI_MAX_RUN_SEC`): reading the
+#: history before the call, and storing files and posting answers after it. The run's
+#: own clocks end the stream; this only has to outlast them, so arq's ceiling is a
+#: backstop that a healthy run never meets.
+RUN_JOB_SLACK_SEC = 120.0
+
+
+def agui_run_timeout_sec() -> float:
+    """arq's ceiling on one agent run, which must sit above the run's own wall.
+
+    It sat below it — the worker-wide `job_timeout` of 300 against a 600-second
+    `AGUI_MAX_RUN_SEC` — so every run past five minutes was cancelled by arq with its
+    answer unposted and its row still `running` until the nightly sweep. The run's
+    clocks are the policy; this number only has to be out of their way.
+    """
+    return settings.AGUI_MAX_RUN_SEC + RUN_JOB_SLACK_SEC
 
 
 async def notify(_ctx: dict[str, Any], message_id: str) -> None:
@@ -195,7 +213,12 @@ class WorkerSettings:
     functions = [
         notify,
         unfurl,
-        agui_run,
+        # Its own ceiling, above the run's wall, and one try. arq retries a job it
+        # cancelled — a deploy stopping the worker mid-run is the usual case — and a
+        # retry would ask the agent again: new tokens, a different answer, posted beside
+        # whatever the first try managed to say. The run marks itself failed on the way
+        # out instead (`agui_outcome.run_one`), and the person can ask again.
+        func(agui_run, timeout=agui_run_timeout_sec(), max_tries=1),  # type: ignore[arg-type]
         sweep_orphans,
         sweep_expired,
         sweep_agent_runs,
@@ -236,10 +259,10 @@ class WorkerSettings:
     on_shutdown = shutdown
     redis_settings = redis_settings()
     max_jobs = 8
-    # Explicit, not "whatever arq ships". A hung unfurl or a stuck SSH session in an
-    # agent run used to sit on a worker slot until the process was killed: webpush now
-    # times out at 10s, but the job itself still needs a ceiling. Five minutes is long
-    # enough for an AG-UI turn and short enough that a wedged job is visible.
+    # Explicit, not "whatever arq ships". A hung unfurl used to sit on a worker slot
+    # until the process was killed: webpush now times out at 10s, but the job itself
+    # still needs a ceiling. Five minutes is short enough that a wedged job is visible.
+    # An agent run is the exception and carries its own, above (`agui_run_timeout_sec`).
     job_timeout = 300
     # Three, not arq's five. A notify that failed because Redis blinked should retry;
     # a notify that failed because the payload is poison should not occupy the queue

@@ -76,6 +76,7 @@ async def interact(payload: InteractionInput, user: SessionUser = Depends(curren
                 action_id=payload.action_id,
                 value=payload.value,
                 client_action_id=payload.client_action_id,
+                message_id=payload.message_id,
             )
             return OkOut()
 

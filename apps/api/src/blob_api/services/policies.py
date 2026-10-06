@@ -181,6 +181,27 @@ async def app_count(session: AsyncSession, workspace_id: str) -> int:
     return int(row.n if row else 0)
 
 
+def assert_scopes_allowed(policy: Policy, scopes: list[str]) -> None:
+    """Refuse a manifest that asks for a scope this workspace's policy denies."""
+    blocked = sorted(set(scopes) & policy.denied_scopes)
+    if blocked:
+        raise refuse_scopes(blocked)
+
+
+async def assert_within_policy(
+    session: AsyncSession, workspace_id: str, policy: Policy, scopes: list[str]
+) -> None:
+    """Everything an install has to satisfy that is not about the manifest being valid.
+
+    Here rather than in a router because every way an app arrives has to ask it — by
+    manifest, from a repository — and the repository path asked it with an empty scope
+    list, before it had read the manifest, so `denied_scopes` never applied to it.
+    """
+    assert_scopes_allowed(policy, scopes)
+    if policy.max_apps is not None and await app_count(session, workspace_id) >= policy.max_apps:
+        raise refuse_app_limit(policy.max_apps)
+
+
 # ─── the refusals, worded once ────────────────────────────────────────────────
 
 

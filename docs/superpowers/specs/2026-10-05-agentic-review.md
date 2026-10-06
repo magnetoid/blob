@@ -352,3 +352,34 @@ assigns itself; a task handed to Janus comes back answered without a mention.
    per-agent trust.
 4. **Memory key:** per person for owned agents (recommended), or shared per conversation
    as now.
+
+---
+
+## Phase 0 — done (2026-10-07, branch `agentic-phase-0`)
+
+Every row of §2 and §3's verified list is fixed with a test that fails without the fix
+(the chain resume and the decision-spoofing tests were checked by reverting the fix).
+Where the work departed from the plan:
+
+- **A4 was not a hole.** Every way a run starts — root, hop, resume, a scheduled
+  message, a DM — passes the same switch, and the console's own words say what it
+  covers ("mentions of agents are refused and nothing is dispatched; apps still receive
+  webhook deliveries"). A test now pins that a hop already on its way is refused.
+- **A6 is half of the plan's answer.** Memory rows are keyed by a `uuid` column, so a
+  per-person key needs the migration Phase 5 already plans. Until then a borrowed agent
+  runs without its owner's memory and does not write to it; the owner's own runs are
+  unchanged.
+- **Four of §3's reported items were real and cheap, and are fixed:** delivery now asks
+  for the event's scope at send time (declining scopes left subscriptions live); a change
+  of owner ends the old owner's loans; personal agents can no longer take the `janus`
+  slug; a cookie WebSocket from a foreign origin is treated as signed out (the agent
+  terminal is a root shell).
+- **Left for later:** task rules that differ between the person's and the bot's routes
+  (§3), and everything in §7 beyond the ownership predicate.
+
+**A Phase 1 constraint found on the way:** AG-UI's Python SDK forbade unknown input
+fields until somewhere after 0.1.9 (0.1.22 allows them), so sending `protocolVersion` to
+every agent would 422 the older ones. The 1.0 spec's own answer is that an agent states
+its version in `RUN_STARTED.protocolVersion` and a client omits the field for a peer it
+knows predates it — so Phase 1 learns each agent's version from its runs and sends 1.0
+fields only to agents that have said they speak it.

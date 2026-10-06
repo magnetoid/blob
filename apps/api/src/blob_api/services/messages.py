@@ -408,6 +408,35 @@ async def history(
     return messages, has_more
 
 
+async def thread_tail(session: AsyncSession, root_id: str, *, limit: int) -> list[Message]:
+    """A thread's root and its newest `limit` replies, oldest first.
+
+    What an agent is shown when it is asked inside a thread. `thread()` keeps the oldest
+    replies under its ceiling, which is right for reading a thread from the top and wrong
+    here: past the ceiling, the newest messages — the one that asked included — were the
+    ones left out, and the agent answered a conversation that ended before the question.
+    The root is kept whatever its age, because it says what the thread is about.
+    """
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                SELECT * FROM (
+                    SELECT {MESSAGE_SELECT} FROM messages m
+                     WHERE m.thread_root_id = :root_id
+                     ORDER BY m.id DESC
+                     LIMIT :limit
+                ) newest
+                UNION ALL
+                SELECT {MESSAGE_SELECT} FROM messages m WHERE m.id = :root_id
+                """
+            ),
+            {"root_id": root_id, "limit": limit},
+        )
+    ).fetchall()
+    return sorted((to_message(row) for row in rows), key=lambda m: m.id)
+
+
 async def thread(session: AsyncSession, root_id: str) -> list[Message]:
     """A thread: its root plus every reply, oldest first.
 

@@ -35,7 +35,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request, conflict, forbidden, message_gone, not_found
 from ..lib.ids import new_id
+from ..plugins.registry import MENTIONABLE_AGENT
 from ..schemas.base import CamelModel, require_iso
+from . import agent_access
 from . import channels as channel_service
 from . import messages as message_service
 
@@ -388,27 +390,34 @@ async def finish(
 async def _bots_for(
     session: AsyncSession, workspace_id: str, user_id: str, plugin_ids: list[str]
 ) -> list[dict[str, str]]:
-    """The agents to bring, as (plugin, bot user, name). Refuses one the starter may not command.
+    """The agents to bring, as (plugin, bot user, name). Refuses one the starter may not
+    command, or one that cannot be asked anything at all.
 
-    Unowned agents are everybody's; an owned one comes only if it is the starter's. That is
-    the rule a hop follows ([[0013]]), applied at the moment the channel is made — the
-    alternative, letting anyone put anyone's agent into a room and then having every
-    mention of it refused silently, would be a channel that looks staffed and is not.
+    Whether the starter may command it is `agent_access.MAY_COMMAND`, asked for a channel
+    that does not exist yet — the rule a hop follows ([[0013]]), applied at the moment the
+    channel is made, with a loan that covers everywhere counting as it will once the
+    channel exists. The alternative, letting anyone put anyone's agent into a room and
+    then having every mention of it refused silently, would be a channel that looks
+    staffed and is not — and an agent with no way to be reached (no AG-UI address, no
+    socket) is the same room by another route, so it is refused here too, as the picker
+    already leaves it out.
     """
     if not plugin_ids:
         return []
     rows = (
         await session.execute(
             text(
-                """
-                SELECT p.id, p.owner_user_id, u.id AS bot_user_id, u.display_name
+                f"""
+                SELECT p.id, u.id AS bot_user_id, u.display_name,
+                       {agent_access.MAY_COMMAND} AS may_command,
+                       {MENTIONABLE_AGENT} AS reachable
                   FROM plugins p JOIN users u ON u.bot_plugin_id = p.id
                  WHERE p.workspace_id = :ws AND p.status = 'enabled'
                    AND p.id = ANY(cast(:ids AS uuid[]))
                    AND u.deactivated_at IS NULL
                 """
             ),
-            {"ws": workspace_id, "ids": plugin_ids},
+            {"ws": workspace_id, "ids": plugin_ids, "actor_id": user_id, "channel_id": None},
         )
     ).fetchall()
     found = {str(row.id): row for row in rows}
@@ -418,8 +427,10 @@ async def _bots_for(
     bots: list[dict[str, str]] = []
     for pid in plugin_ids:
         row = found[pid]
-        if row.owner_user_id is not None and str(row.owner_user_id) != user_id:
+        if not row.may_command:
             raise forbidden(f"{row.display_name} is not yours to bring.")
+        if not row.reachable:
+            raise bad_request(f"{row.display_name} cannot be asked anything here.")
         bots.append(
             {"plugin_id": pid, "bot_user_id": str(row.bot_user_id), "name": row.display_name}
         )

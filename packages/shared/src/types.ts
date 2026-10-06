@@ -507,6 +507,11 @@ export interface AgentRunView {
   depth: number;
   /** The agent whose reply asked this one, when depth > 0. */
   askedBy: string | null;
+  /**
+   * The person the run is on behalf of: whoever rooted its chain. The one person who may
+   * answer a decision it stops to ask, so "needs you" is a comparison with this.
+   */
+  initiatedByUserId: string | null;
   /** Set once the decision an interrupted run was waiting on has been made. */
   answeredAt: string | null;
   /** When a waiting decision stops waiting. */

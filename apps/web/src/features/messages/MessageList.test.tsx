@@ -418,6 +418,7 @@ describe("MessageList", () => {
         parentRunId: null,
         depth: 0,
         askedBy: null,
+        initiatedByUserId: "u-asker",
         answeredAt: null,
         expiresAt: null,
       };

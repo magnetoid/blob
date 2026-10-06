@@ -25,6 +25,7 @@ from ..lib.errors import bad_request, conflict, not_found, unique_violation
 from ..lib.ids import new_id, new_token
 from ..services import handles as handle_service
 from .manifest import (
+    EVENT_SCOPES,
     VERSION_RE,
     CommandDecl,
     Manifest,
@@ -478,6 +479,14 @@ async def decline_scopes(session: AsyncSession, plugin_id: str, workspace_id: st
         await session.execute(
             text("DELETE FROM plugin_commands WHERE plugin_id = :id"), {"id": plugin_id}
         )
+    # And the subscriptions that stood on those scopes. Delivery asks for the grant
+    # anyway (`events.emit`); this keeps the row saying what the app actually hears.
+    kept_events = [e for e in (plugin.events or []) if EVENT_SCOPES.get(e) not in declined]
+    if kept_events != list(plugin.events or []):
+        await session.execute(
+            text("UPDATE plugins SET events = cast(:events AS text[]) WHERE id = :id"),
+            {"id": plugin_id, "events": kept_events},
+        )
     await session.execute(
         text("UPDATE plugins SET pending_scopes = '{}', updated_at = now() WHERE id = :id"),
         {"id": plugin_id},
@@ -750,10 +759,32 @@ async def set_owner(
         ).fetchone()
         if member is None:
             raise bad_request("That person is not in this workspace.")
-    await session.execute(
-        text("UPDATE plugins SET owner_user_id = :owner WHERE id = :id AND workspace_id = :ws"),
-        {"owner": user_id, "id": plugin_id, "ws": workspace_id},
-    )
+    changed = (
+        await session.execute(
+            text(
+                """
+                UPDATE plugins SET owner_user_id = :owner
+                 WHERE id = :id AND workspace_id = :ws
+                   AND owner_user_id IS DISTINCT FROM cast(:owner AS uuid)
+                RETURNING id
+                """
+            ),
+            {"owner": user_id, "id": plugin_id, "ws": workspace_id},
+        )
+    ).fetchone()
+    if changed is not None:
+        # The loans were the old owner's to make. Handed to somebody new — or back to
+        # the workspace, where loans mean nothing — the agent must not go on answering
+        # whoever the previous owner had lent it to.
+        await session.execute(
+            text(
+                """
+                UPDATE agent_delegations SET revoked_at = now()
+                 WHERE plugin_id = :id AND revoked_at IS NULL
+                """
+            ),
+            {"id": plugin_id},
+        )
 
 
 async def revoke_tokens(session: AsyncSession, plugin_id: str) -> None:

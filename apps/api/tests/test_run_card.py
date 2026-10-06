@@ -61,12 +61,21 @@ def test_activity_keeps_only_the_latest_line() -> None:
     assert card.snapshot()["activity"] == "running tests"
 
 
-def test_reasoning_keeps_a_bounded_tail() -> None:
-    card = CardFold()
+def test_reasoning_keeps_a_bounded_tail_when_the_agent_shows_it() -> None:
+    card = CardFold(show_reasoning=True)
     for _ in range(100):
         card.feed({"type": "REASONING_CONTENT", "delta": "x" * 100})
     reasoning = card.snapshot()["reasoning"]
     assert reasoning is not None and len(reasoning) == MAX_REASONING_CHARS
+
+
+def test_reasoning_is_not_kept_by_default() -> None:
+    # The card goes to the whole channel, and the integrator guide tells authors their
+    # agent's working-out is not shown. Both THINKING_* (0.x) and REASONING_* (1.0).
+    card = CardFold()
+    assert not card.feed({"type": "REASONING_MESSAGE_CONTENT", "delta": "the key is 42"})
+    assert not card.feed({"type": "THINKING_TEXT_MESSAGE_CONTENT", "delta": "the key is 42"})
+    assert card.snapshot()["reasoning"] is None
 
 
 def test_the_card_cannot_grow_without_limit() -> None:

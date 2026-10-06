@@ -113,6 +113,17 @@ class SessionMiddleware:
         scope.setdefault("state", {})["user"] = user
 
         if scope["type"] == "websocket":
+            # A browser sends Origin on every socket handshake, and `SameSite=Lax` does
+            # not stop a *same-site* page — a sibling subdomain, which is where hosted
+            # agents live — from opening one with the person's cookie attached. Two of
+            # the sockets authenticate by that cookie, one of them a root terminal, so a
+            # socket from an origin that is not this app is treated as signed out: the
+            # same rule the state-changing HTTP requests below get. The agent socket
+            # authenticates by its bot token and never reads the session, so it is
+            # unaffected; so is any client that sends no Origin at all.
+            origin = connection.headers.get("origin")
+            if user is not None and origin and not is_allowed_origin(origin):
+                scope["state"]["user"] = None
             await self.app(scope, receive, send)
             return
 

@@ -11,9 +11,9 @@
  * slightly less is better than one showing an error.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { MessageBlock } from '@blob/shared';
-import { api } from '../../lib/api.ts';
+import { api, ApiError } from '../../lib/api.ts';
 import { renderMarkdown, type RenderOptions } from '../../lib/markdown.tsx';
 import { revealIfCached, revealOnError, revealOnLoad } from '../../lib/imageReveal.ts';
 
@@ -29,15 +29,31 @@ export function BlockRenderer({ messageId, blocks, options }: Props) {
   const [pending, setPending] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [inputs, setInputs] = useState<Record<string, string>>({});
+  // The id a press travels under, kept across a retry only when the last try got no
+  // answer at all — it may have landed, and the server recognises the same id as the
+  // same press. After an answer, success or refusal, the next press is a new one: the
+  // server has already recorded that id, and would take a retry under it as a repeat.
+  const unanswered = useRef<Record<string, string>>({});
 
   async function trigger(actionId: string, value: string) {
     if (pending) return;
     setPending(actionId);
     setFailed(null);
+    const clientActionId = unanswered.current[actionId] ?? crypto.randomUUID();
+    unanswered.current[actionId] = clientActionId;
     try {
-      await api.interact({ messageId, actionId, value });
-    } catch {
-      setFailed(actionId);
+      await api.interact({ messageId, actionId, value, clientActionId });
+      delete unanswered.current[actionId];
+    } catch (err) {
+      if (err instanceof ApiError) {
+        delete unanswered.current[actionId];
+        // The server's own reason — "only the person who asked can answer this", "that
+        // decision was already made" — rather than an invitation to retry what cannot
+        // succeed.
+        setFailed(err.message);
+      } else {
+        setFailed('That did not go through. Try again.');
+      }
     } finally {
       setPending(null);
     }
@@ -154,7 +170,7 @@ export function BlockRenderer({ messageId, blocks, options }: Props) {
         }
       })}
 
-      {failed && <p className="error-text">That did not go through. Try again.</p>}
+      {failed && <p className="error-text">{failed}</p>}
     </div>
   );
 }

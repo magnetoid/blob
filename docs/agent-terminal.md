@@ -15,7 +15,7 @@ an operator who can fix a thing and one who can only turn it off and on again.
 
 ## Blob does not hold the Docker socket
 
-[ADR 0010](../.torsor/architecture/decisions/0010-blob-does-not-hold-the-docker-socket.md)
+[ADR 0010](../.torsor/architecture/decisions/0010-agents-deploy-as-containers.md)
 said it never should, on the grounds that a compromise of the chat app must not become a
 compromise of the box. That decision was **overruled deliberately** — an operator needs a
 shell in their own agent — and the reasoning is honoured rather than discarded.

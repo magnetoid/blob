@@ -119,11 +119,12 @@ class WorkspaceAgentsOut(CamelModel):
 
 @router.get("", response_model=WorkspaceAgentsOut)
 async def list_available(user: SessionUser = Depends(current_user)) -> WorkspaceAgentsOut:
-    """The agents this person may bring into a piece of work: the workspace's, and theirs.
+    """The agents this person may bring into a piece of work: the workspace's, theirs,
+    and any lent to them everywhere.
 
-    Somebody else's owned agent is not listed. Not out of secrecy — its bot is a member
-    people can see — but because offering it would produce a refusal, and a list that
-    refuses half its entries is worse than a shorter list.
+    Somebody else's owned agent is not listed otherwise. Not out of secrecy — its bot is
+    a member people can see — but because offering it would produce a refusal, and a list
+    that refuses half its entries is worse than a shorter list.
     """
     async with session_scope() as session:
         rows = await agent_service.available(session, user)

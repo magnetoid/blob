@@ -206,7 +206,46 @@ async def deactivate(session: AsyncSession, admin: Actor, user_id: str) -> User 
     await audit_service.record(
         session, admin, "user.deactivated", target_type="user", target_id=user_id
     )
+    await _turn_off_their_agents(session, admin, user_id)
     return await _user_row(session, user_id)
+
+
+#: What the console says on an agent turned off this way, so nobody wonders why.
+OWNER_DEACTIVATED = "Turned off because its owner was deactivated."
+
+
+async def _turn_off_their_agents(session: AsyncSession, admin: Actor, user_id: str) -> None:
+    """A person's own agents leave with them (ADR 0018).
+
+    Left on, a departed member's assistant kept receiving every event from the rooms its
+    bot is in, its token kept answering the bot API and its socket kept connecting, and
+    whoever it had been lent to could still set it going — an assistant working for
+    somebody who is no longer here. Disabled rather than uninstalled: what it said stays,
+    its owner may be reactivated, and every path that reaches an agent already refuses a
+    disabled one. Turning it back on is an admin's call, made in the console.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                UPDATE plugins
+                   SET status = 'disabled', last_error = :why, updated_at = now()
+                 WHERE owner_user_id = :id AND workspace_id = :ws AND status = 'enabled'
+                RETURNING id, slug
+                """
+            ),
+            {"id": user_id, "ws": admin.workspace_id, "why": OWNER_DEACTIVATED},
+        )
+    ).fetchall()
+    for row in rows:
+        await audit_service.record(
+            session,
+            admin,
+            "plugin.disabled",
+            target_type="plugin",
+            target_id=str(row.id),
+            metadata={"slug": row.slug, "reason": "owner_deactivated"},
+        )
 
 
 async def reactivate(session: AsyncSession, admin: Actor, user_id: str) -> User | None:

@@ -818,19 +818,12 @@ async def app_specs(
     rows = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT pc.name, pc.usage, pc.summary
                   FROM plugin_commands pc
                   JOIN plugins p ON p.id = pc.plugin_id
                  WHERE pc.workspace_id = :ws AND p.status = 'enabled'
-                   AND (p.owner_user_id IS NULL
-                        OR p.owner_user_id = :actor_id
-                        OR EXISTS (
-                             SELECT 1 FROM agent_delegations d
-                              WHERE d.plugin_id = p.id
-                                AND d.grantee_user_id = :actor_id
-                                AND d.revoked_at IS NULL
-                           ))
+                   AND {agent_access.MAY_COMMAND_SOMEWHERE}
                  ORDER BY pc.name
                 """
             ),

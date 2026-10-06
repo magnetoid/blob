@@ -36,10 +36,11 @@ supports and the first thing every reverse proxy writes to an access log.
 |---|---|
 | Time allowed to authenticate | 10s (`AUTH_DEADLINE_SEC`) |
 | Close code, unauthenticated | **1008** |
-| Close code, unparseable frame | 1003 |
+| Close code, unparseable frame before authentication | 1003 — afterwards the server answers `{"t":"error"}` and keeps the socket |
 | Maximum frame | 512 KiB (`MAX_FRAME_BYTES`) |
 | Idle ceiling | `AGUI_TIMEOUT_SEC + AGUI_READ_TIMEOUT_SEC` of silence — 150s by default; any event resets it |
 | Hard ceiling | `AGUI_MAX_RUN_SEC` — 600s by default, idle or not |
+| How long a run stays claimed | `AGUI_MAX_RUN_SEC` and a minute — the claim is what lets your events through |
 
 Comparison is constant-time and the failure is uniform: "unknown token", "revoked" and
 "app disabled" all close the same way, because which one it was is not the caller's
@@ -60,11 +61,14 @@ next month's addition into a dead agent.
 {"t": "run",   "runId": "…", "input": { /* AG-UI RunAgentInput */ }}
 {"t": "pong"}
 {"t": "hello_ok"}
+{"t": "cancel", "runId": "…"}
 {"t": "error", "message": "That frame is not JSON."}
 ```
 
 `ready` arrives immediately after successful authentication and is the signal to start
-working. `input` is a standard AG-UI `RunAgentInput`: `threadId`, `runId`, `state`,
+working. `cancel` means Blob has stopped listening to that run — somebody pressed Stop,
+or a limit ran out — so anything more you send for it is dropped; stop spending tokens on
+it. `input` is a standard AG-UI `RunAgentInput`: `threadId`, `runId`, `state`,
 `messages`, `tools`, `context`, `forwardedProps`.
 
 Two optional keys appear only when the run **resumes** one that stopped to ask a question
@@ -141,7 +145,10 @@ What holds today:
 What does **not** hold, stated plainly rather than implied:
 
 - **A run is not persisted while it is in flight.** If the socket drops mid-run, that run
-  is lost — the person sees the agent say nothing. It is not requeued.
+  is lost and not requeued. The person is not left guessing: once the idle window passes
+  with nothing from you, the card says the run stopped answering, and whatever you had
+  finished saying is posted under it. If your process died and no connection is held at
+  all, the run fails at once with "not connected" rather than waiting out the window.
 - **There is no `chat.ack`.** Blob does not wait for the agent to acknowledge a run before
   considering it delivered.
 
@@ -163,6 +170,9 @@ export BLOB_BOT_TOKEN=blob-bot-…            # shown once, when you add the app
 export AGENT_AGUI_URL=http://127.0.0.1:8642/v1/agui
 export BLOB_SIGNING_SECRET=…                # the secret the local agent verifies with
 export AGENT_NAME=Janus                     # optional, sent in `hello`
+export AGENT_DESCRIPTION="…"                # optional, sent in `hello`
+export AGENT_VERSION=1.2.0                  # optional, sent in `hello`
+export AGENT_TIMEOUT_SEC=140                # optional: how long one run may take locally
 
 python -m blob_api.tools.agent_bridge
 ```

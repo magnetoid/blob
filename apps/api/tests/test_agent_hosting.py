@@ -382,3 +382,37 @@ class TestTheWorkerKeepsLooking:
 
         # No exception escapes into the cron, and the count says nothing synced.
         assert await sync_hosted_agents({}) == 0
+
+
+class TestThePolicyAppliesToARepository:
+    async def test_a_repository_cannot_install_a_scope_the_workspace_denies(
+        self, hosted: Runner, client: Client
+    ) -> None:
+        # The repository path asked the policy with an empty scope list, before it had
+        # read the manifest, and nothing asked again — so `denied_scopes` bound every way
+        # an app arrives except the one that ends with its code running on the host.
+        owner = await owner_who_may_host(client)
+        async with SessionFactory() as session:
+            async with session.begin():
+                await session.execute(
+                    text(
+                        """
+                        UPDATE workspace_policies
+                           SET denied_scopes = ARRAY['messages:write']
+                         WHERE workspace_id = :ws
+                        """
+                    ),
+                    {"ws": await workspace_id_of(owner)},
+                )
+
+        refused = await owner.post("/api/admin/plugins/from-repo", {"repoUrl": REPO, "ref": "main"})
+
+        assert refused.status == 403, refused.body
+        assert refused.body["error"]["code"] == "policy_forbidden"
+        assert "messages:write" in refused.body["error"]["message"]
+        assert hosted.deployed is None
+        async with SessionFactory() as session:
+            installed = (
+                await session.execute(text("SELECT count(*) FROM plugins WHERE slug = 'janus'"))
+            ).scalar_one()
+        assert installed == 0
