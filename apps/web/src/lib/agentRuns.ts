@@ -11,7 +11,53 @@
  * over — so the rule is to take whichever view is further along.
  */
 
-import type { AgentRunView } from '@blob/shared';
+import type { AgentRunView, ServerEvent } from '@blob/shared';
+
+/** The three frames a run sends about itself. */
+export type RunEvent = Extract<
+  ServerEvent,
+  { t: 'agent_run.started' | 'agent_run.updated' | 'agent_run.finished' }
+>;
+
+/**
+ * A run's frame applied to the runs held — the socket half of the run cards, which the
+ * store's event switch did inline. The same object back when the frame changes nothing,
+ * so a subscriber comparing by reference stays still.
+ *
+ * `started` is an upsert of the whole view, because the server re-sends it when a run
+ * starts waiting (for `expiresAt`) and when it is answered (for `answeredAt`) — the
+ * finished frame has no room for either. `updated` and `finished` touch only a run
+ * already held: one this client never saw start belongs to a conversation it is not
+ * showing, and its next fetch brings it whole.
+ */
+export function applyRunEvent(
+  held: Record<string, AgentRunView>,
+  event: RunEvent,
+): Record<string, AgentRunView> {
+  switch (event.t) {
+    case 'agent_run.started':
+      return { ...held, [event.run.id]: event.run };
+    case 'agent_run.updated': {
+      const run = held[event.runId];
+      if (!run) return held;
+      return { ...held, [event.runId]: { ...run, card: event.card } };
+    }
+    case 'agent_run.finished': {
+      const run = held[event.runId];
+      if (!run) return held;
+      return {
+        ...held,
+        [event.runId]: {
+          ...run,
+          status: event.status,
+          error: event.error,
+          postCount: event.postCount,
+          finishedAt: new Date().toISOString(),
+        },
+      };
+    }
+  }
+}
 
 /** How far along a run is. A view never replaces one that is further along. */
 export function runProgress(run: AgentRunView): number {

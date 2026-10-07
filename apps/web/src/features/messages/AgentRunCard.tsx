@@ -11,11 +11,18 @@
  * that failed or was refused, one waiting for an answer — keeps the card.
  */
 
-import { useState } from 'react';
-import type { AgentRunCard as RunCard, AgentRunView } from '@blob/shared';
+import { memo, useEffect, useState, type FormEvent } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import type {
+  AgentRunCard as RunCard,
+  AgentRunDecision,
+  AgentRunSeen,
+  AgentRunView,
+} from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
 import { formatTokens } from '../../lib/format.ts';
 import { useStore } from '../../lib/store.ts';
+import { useRun } from '../../lib/useRuns.ts';
 import { showError } from '../../lib/toasts.ts';
 import { ChevronDownIcon } from '../../components/Icon.tsx';
 
@@ -35,13 +42,35 @@ interface Props {
   isTabStop?: boolean;
 }
 
-export function AgentRunCard({ run, compact = false, isTabStop = true }: Props) {
+/**
+ * Memoised: a running card's snapshots replace its run object four times a second, and
+ * a list of cards should redraw the one whose run moved, not all of them.
+ */
+export const AgentRunCard = memo(function AgentRunCard({
+  run,
+  compact = false,
+  isTabStop = true,
+}: Props) {
   return compact && (run.status === 'succeeded' || run.status === 'cancelled') ? (
     <RunLine run={run} isTabStop={isTabStop} />
   ) : (
     <FullCard run={run} />
   );
-}
+});
+
+/**
+ * A card that subscribes to its own run — for a list that holds only which runs hang
+ * under which message (`useRunIdsByMessage`), so a snapshot redraws this card and not
+ * the conversation around it.
+ */
+export const AgentRunCardById = memo(function AgentRunCardById({
+  runId,
+  compact = false,
+  isTabStop = true,
+}: Omit<Props, 'run'> & { runId: string }) {
+  const run = useRun(runId);
+  return run ? <AgentRunCard run={run} compact={compact} isTabStop={isTabStop} /> : null;
+});
 
 function FullCard({ run }: { run: AgentRunView }) {
   const [stopping, setStopping] = useState(false);
@@ -50,6 +79,10 @@ function FullCard({ run }: { run: AgentRunView }) {
   const running = run.status === 'running';
   const card = run.card;
   const doneSteps = card?.steps.filter((s) => s.status === 'done').length ?? 0;
+  // Asking: stopped on a question nobody has answered. Waiting: asking, with a deadline.
+  const asking = run.status === 'interrupted' && !run.answeredAt;
+  const waiting = asking && run.expiresAt !== null;
+  const now = useMinute(waiting);
 
   return (
     <div className="agent-run-card" data-status={run.status}>
@@ -69,6 +102,11 @@ function FullCard({ run }: { run: AgentRunView }) {
                 ? `${doneSteps} of ${card.steps.length}`
                 : 'working…')
             : statusLabel(run, yours)}
+          {waiting && run.expiresAt && (
+            // How long the question stays open — it expires with the day, and a person
+            // who only learns that by finding it expired has been told too late.
+            <span className="agent-run-deadline">{` · ${timeLeft(run.expiresAt, now)}`}</span>
+          )}
         </span>
         {running && (
           <button
@@ -102,7 +140,26 @@ function FullCard({ run }: { run: AgentRunView }) {
           from the reader — the head above already says "running" in words. */}
       {running && <div className="agent-run-progress" aria-hidden />}
 
+      {asking && yours && run.decision && (
+        <DecisionAnswer key={run.id} run={run} decision={run.decision} />
+      )}
+
+      <ChainLine run={run} />
+
       {card && <RunWork card={card} />}
+      {!running && run.seen && <SeenLine seen={run.seen} />}
+
+      {/* What it is writing, as it writes it. A draft, set apart from the answer it will
+          become: the message is posted once, finished, and this goes when it is. Plain
+          text, because half a table or half a code fence through the markdown renderer
+          reads as broken. Silent to a screen reader — announcing every few words of a
+          sentence still being written would bury the conversation — and the answer
+          itself arrives in the list, which does announce. */}
+      {running && card?.textTail && (
+        <div className="agent-run-draft" aria-live="off">
+          <p className="agent-run-draft-text">{card.textTail}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -115,13 +172,14 @@ function FullCard({ run }: { run: AgentRunView }) {
 function RunLine({ run, isTabStop }: { run: AgentRunView; isTabStop: boolean }) {
   const [open, setOpen] = useState(false);
   const card = run.card;
-  const hasWork = Boolean(
-    card &&
-      (card.steps.length > 0 ||
-        card.tools.length > 0 ||
-        (card.subagents?.length ?? 0) > 0 ||
-        card.reasoning),
-  );
+  const hasWork =
+    Boolean(
+      card &&
+        (card.steps.length > 0 ||
+          card.tools.length > 0 ||
+          (card.subagents?.length ?? 0) > 0 ||
+          card.reasoning),
+    ) || Boolean(run.seen);
   const said = [run.askedBy ? lineage(run) : '', statusLabel(run, false)].filter(Boolean);
 
   return (
@@ -147,17 +205,183 @@ function RunLine({ run, isTabStop }: { run: AgentRunView; isTabStop: boolean }) 
           <ChevronDownIcon size="sm" />
         </button>
       )}
-      {open && card && (
+      {open && (
         <div className="agent-run-line-work">
-          <RunWork card={card} />
+          <ChainLine run={run} />
+          {card && <RunWork card={card} />}
+          {run.seen && <SeenLine seen={run.seen} />}
         </div>
       )}
     </div>
   );
 }
 
+/**
+ * The question a run is waiting on, answerable where the run is shown — the card under
+ * the mention, and Home — by the one person who may answer it. The same answer the
+ * buttons under the question post, through the same service: the person's own message,
+ * then the agent carries on.
+ */
+function DecisionAnswer({ run, decision }: { run: AgentRunView; decision: AgentRunDecision }) {
+  const [busy, setBusy] = useState(false);
+  const [words, setWords] = useState('');
+  // One id for this card's answer, so a press retried after a dropped response is the
+  // same decision rather than a second one.
+  const [clientActionId] = useState(() => `card-${crypto.randomUUID()}`);
+
+  async function answer(given: { choice: number } | { value: string }) {
+    setBusy(true);
+    try {
+      await api.agentRuns.answer(run.id, given, clientActionId);
+    } catch (err) {
+      showError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = words.trim();
+    if (value) void answer({ value });
+  }
+
+  return (
+    <div className="agent-run-decision">
+      <p className="agent-run-decision-prompt">{decision.prompt}</p>
+      {decision.choices.length > 0 ? (
+        <div className="agent-run-decision-choices" role="group" aria-label="Answer">
+          {decision.choices.map((choice, index) => (
+            <button
+              key={`${index}-${choice.label}`}
+              type="button"
+              className="btn btn-agent"
+              disabled={busy}
+              onClick={() => void answer({ choice: index })}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <form className="agent-run-decision-words" onSubmit={submit}>
+          <input
+            className="input"
+            aria-label={`Answer ${run.agentName}`}
+            value={words}
+            maxLength={2000}
+            disabled={busy}
+            onChange={(event) => setWords(event.target.value)}
+          />
+          <button className="btn btn-primary" type="submit" disabled={busy || !words.trim()}>
+            Answer
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What the run was shown, in one line: how much of the conversation, and what went with
+ * it. The question every surprising answer raises — "what did it actually see?" —
+ * answered without reading the job's code.
+ */
+export function SeenLine({ seen }: { seen: AgentRunSeen }) {
+  const parts = [
+    `Saw ${seen.messages} ${seen.messages === 1 ? 'message' : 'messages'} of this ${seen.window}`,
+    seen.files > 0 ? `${seen.files} ${seen.files === 1 ? 'file' : 'files'}` : '',
+    seen.instructions ? "the workspace's instructions" : '',
+    seen.memory ? 'its memory here' : '',
+    seen.task ? 'a task' : '',
+    seen.tools.length > 0 ? `tools: ${seen.tools.join(', ')}` : '',
+  ].filter(Boolean);
+  return <div className="agent-run-seen">{parts.join(' · ')}</div>;
+}
+
+/** One link of a chain as the store holds it, flattened so a selector can compare it. */
+function linkKey(run: AgentRunView): string {
+  return [run.id, run.agentName, run.status, run.depth, run.startedAt].join('\u0000');
+}
+
+/**
+ * The runs on this run's chain — the person's message at its root, and every agent a
+ * reply set going from there (ADR 0013) — as one line, in order: who, and where this run
+ * sits in it. Nothing for a run alone on its chain, which is nearly every run.
+ *
+ * Read from the runs the client holds, so a chain that reached another conversation shows
+ * the part of it here. Selected as flat strings so a card's live snapshots, which replace
+ * the run objects four times a second, do not redraw every card on the chain.
+ */
+function ChainLine({ run }: { run: AgentRunView }) {
+  const links = useStore(
+    useShallow((s) =>
+      Object.values(s.agentRuns)
+        .filter((other) => other.chainId === run.chainId)
+        .map(linkKey),
+    ),
+  );
+  if (links.length < 2) return null;
+
+  const parsed = links
+    .map((key) => {
+      const [id = '', name = '', status = '', depth = '0', startedAt = ''] = key.split('\u0000');
+      return { id, name, status, depth: Number(depth), startedAt };
+    })
+    .sort((a, b) => a.depth - b.depth || a.startedAt.localeCompare(b.startedAt));
+  const hops = new Map<number, typeof parsed>();
+  for (const link of parsed) hops.set(link.depth, [...(hops.get(link.depth) ?? []), link]);
+
+  return (
+    <div className="agent-run-chain">
+      <span className="agent-run-chain-label">Chain</span>{' '}
+      {[...hops.values()].map((same, index) => (
+        <span key={same[0]?.id}>
+          {index > 0 && ' → '}
+          {same.map((link, at) => (
+            <span key={link.id}>
+              {at > 0 && ', '}
+              {link.id === run.id ? (
+                <strong aria-current="true">{link.name}</strong>
+              ) : (
+                <span data-status={link.status}>{link.name}</span>
+              )}
+            </span>
+          ))}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** The time now, refreshed once a minute while `on` — for a deadline shown as time left. */
+function useMinute(on: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return;
+    // At once as well as every minute: a card that started waiting long after it was
+    // first drawn would otherwise count down from the moment it mounted.
+    const first = setTimeout(() => setNow(Date.now()), 0);
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [on]);
+  return now;
+}
+
+function timeLeft(expiresAt: string, now: number): string {
+  const ms = new Date(expiresAt).getTime() - now;
+  if (!Number.isFinite(ms)) return '';
+  if (ms <= 60_000) return 'closing now';
+  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m left to answer`;
+  if (ms < 48 * 3_600_000) return `${Math.floor(ms / 3_600_000)}h left to answer`;
+  return `${Math.floor(ms / 86_400_000)}d left to answer`;
+}
+
 /** What a run did: its plan, its tool calls and, behind a toggle, its reasoning. */
-function RunWork({ card }: { card: RunCard }) {
+export function RunWork({ card }: { card: RunCard }) {
   const [reasoningOpen, setReasoningOpen] = useState(false);
 
   return (

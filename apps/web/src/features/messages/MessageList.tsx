@@ -8,10 +8,10 @@
  */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { AgentRunView, Message } from "@blob/shared";
+import type { Message } from "@blob/shared";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { MessageRow } from "./MessageRow.tsx";
-import { AgentRunCard } from "./AgentRunCard.tsx";
+import { AgentRunCardById } from "./AgentRunCard.tsx";
 import { flashMessage } from "../../lib/navigation.ts";
 import { useStore } from "../../lib/store.ts";
 import { usePresence } from "../../lib/usePresence.ts";
@@ -38,8 +38,11 @@ interface Props {
   /** The last fetch failed; offer a retry instead of claiming the channel is new. */
   error?: boolean;
   onRetry?: () => void;
-  /** Agent runs keyed by their trigger message, rendered under that message. */
-  runsByMessageId?: Record<string, AgentRunView[]>;
+  /**
+   * The runs under each message, as ids (`useRunIdsByMessage`). Ids rather than runs, so
+   * a running card's snapshots redraw that card and not the list.
+   */
+  runIdsByMessageId?: Record<string, string[]>;
 }
 
 /** Within this many pixels of the bottom counts as "at the bottom". */
@@ -57,7 +60,7 @@ export function MessageList({
   inThread = false,
   error = false,
   onRetry,
-  runsByMessageId,
+  runIdsByMessageId,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   /**
@@ -468,10 +471,10 @@ export function MessageList({
                 isTabStop={message.id === effectiveTabStopId}
                 onFocusRow={setTabStopId}
               />
-              {runsByMessageId?.[message.id]?.map((run) => (
-                <AgentRunCard
-                  key={run.id}
-                  run={run}
+              {runIdsByMessageId?.[message.id]?.map((runId) => (
+                <AgentRunCardById
+                  key={runId}
+                  runId={runId}
                   compact
                   isTabStop={message.id === effectiveTabStopId}
                 />

@@ -736,6 +736,10 @@ class AgentRun(Base):
         Index("agent_runs_workspace_recent", "workspace_id", text("started_at DESC")),
         # A chain's runs, oldest first — what admission counts and what a Stop cascades over.
         Index("agent_runs_chain", "chain_id", "started_at"),
+        # A conversation's runs and an agent's, paged back by id (UUIDv7: the order they
+        # began) — the run history a member reads (migration 0049).
+        Index("agent_runs_channel_history", "channel_id", "id"),
+        Index("agent_runs_plugin_history", "plugin_id", "id"),
         # The expiry sweep's whole working set: decisions still waiting on a person.
         Index(
             "agent_runs_waiting",
@@ -809,6 +813,10 @@ class AgentRun(Base):
     #: Token usage the agent reported for this run, as AG-UI 1.0 shapes it: one entry
     #: per provider and model. NULL when it reported none.
     usage: Mapped[Any | None] = mapped_column(JSONB)
+    #: What the run was shown — messages and their window, files, whether instructions,
+    #: memory and a task went with them, the tools offered, the protocol spoken. Counts
+    #: and names, never content (migration 0049).
+    seen: Mapped[Any | None] = mapped_column(JSONB)
 
 
 class AgentState(Base):

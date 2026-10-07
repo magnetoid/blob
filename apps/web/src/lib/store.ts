@@ -27,7 +27,7 @@ import type {
   UserGroup,
   UserPrefs,
 } from "@blob/shared";
-import { foldFetchedRuns, MINE_LIMIT, runningIds } from "./agentRuns.ts";
+import { applyRunEvent, foldFetchedRuns, MINE_LIMIT, runningIds } from "./agentRuns.ts";
 import { api } from "./api.ts";
 import { showError, useToasts } from "./toasts.ts";
 import { DEFAULT_CALL_SETTINGS } from "./callDefaults.ts";
@@ -1800,10 +1800,15 @@ export const useStore = create<State>((set, get) => ({
           );
         break;
 
+      // A run's own frames: folded by `lib/agentRuns.ts`, which keeps the same object
+      // when a frame changes nothing, so nothing redraws for it.
       case "agent_run.started":
-        set((s) => ({
-          agentRuns: { ...s.agentRuns, [event.run.id]: event.run },
-        }));
+      case "agent_run.updated":
+      case "agent_run.finished":
+        set((s) => {
+          const agentRuns = applyRunEvent(s.agentRuns, event);
+          return agentRuns === s.agentRuns ? s : { agentRuns };
+        });
         break;
 
       case "work.updated":
@@ -1826,37 +1831,6 @@ export const useStore = create<State>((set, get) => ({
         break;
       }
 
-      case "agent_run.updated":
-        set((s) => {
-          const run = s.agentRuns[event.runId];
-          if (!run) return s;
-          return {
-            agentRuns: {
-              ...s.agentRuns,
-              [event.runId]: { ...run, card: event.card },
-            },
-          };
-        });
-        break;
-
-      case "agent_run.finished":
-        set((s) => {
-          const run = s.agentRuns[event.runId];
-          if (!run) return s;
-          return {
-            agentRuns: {
-              ...s.agentRuns,
-              [event.runId]: {
-                ...run,
-                status: event.status,
-                error: event.error,
-                postCount: event.postCount,
-                finishedAt: new Date().toISOString(),
-              },
-            },
-          };
-        });
-        break;
 
       case "member.joined":
       case "member.left": {

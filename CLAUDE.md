@@ -323,6 +323,10 @@ messages per channel in ascending id order (UUIDv7 sorts chronologically, so a l
 insert is a sorted-position insert and "unread?" is a string comparison — the same trick
 the server uses), a typed `api.ts`, a localStorage outbox for offline replay, and a
 hand-rolled `router.ts` because there are no nested layouts or loaders to justify more.
+A running agent card replaces its run in `agentRuns` up to four times a second, so no
+view selects that map whole: lists take ids from `lib/useRuns.ts` and each card
+subscribes to its own run (`AgentRunCardById`). Five views redrew on every snapshot
+before that.
 
 **The two consoles.** `/admin` is this server and `/settings` is you, and they are the
 same page with different catalogues: `features/console/` holds what they share — the

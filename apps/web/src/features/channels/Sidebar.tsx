@@ -6,6 +6,7 @@ import { api } from '../../lib/api.ts';
 import { showError } from '../../lib/toasts.ts';
 import { navigate, parseRoute, usePath } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
+import { useBusyAgentNames } from '../../lib/useRuns.ts';
 import { showChannel } from '../../lib/navigation.ts';
 import { channelHasDraft } from '../../lib/drafts.ts';
 import {
@@ -45,7 +46,11 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
   const currentUser = useStore((s) => s.currentUser);
   const activeView = parseRoute(usePath()).view;
   const savedCount = useStore((s) => s.savedMessageIds.size);
-  const agentRuns = useStore((s) => s.agentRuns);
+  // Which agents are working right now, by display name — that is what a run carries.
+  // Only used to draw a pulse, so a name collision costs a dot on the wrong row and
+  // nothing else. Selected as names, so a running card's snapshots do not redraw the
+  // sidebar four times a second.
+  const busyAgents = useBusyAgentNames();
 
   const [creating, setCreating] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -78,17 +83,6 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
       agents: active.filter((u) => u.kind === 'bot' && agentIsAvailable(u)),
     };
   }, [users, currentUser]);
-
-  // Which agents are working right now, by display name — that is what a run carries.
-  // Only used to draw a pulse, so a name collision costs a dot on the wrong row and
-  // nothing else.
-  const busyAgents = useMemo(() => {
-    const names = new Set<string>();
-    for (const run of Object.values(agentRuns)) {
-      if (run.status === 'running') names.add(run.agentName);
-    }
-    return names;
-  }, [agentRuns]);
 
   async function openDm(userId: string) {
     try {

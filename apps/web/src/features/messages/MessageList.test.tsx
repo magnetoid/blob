@@ -427,12 +427,13 @@ describe("MessageList", () => {
     it("is a line once it has finished, and a card while it runs", () => {
       const messages = makeMessages(3);
       const [first, , last] = messages as [Message, Message, Message];
+      // The list holds ids; each card reads its own run from the store.
+      const done = runUnder(first.id, "succeeded");
+      const going = runUnder(last.id, "running");
+      useStore.setState({ agentRuns: { [done.id]: done, [going.id]: going } } as never);
       const { container } = renderList({
         messages,
-        runsByMessageId: {
-          [first.id]: [runUnder(first.id, "succeeded")],
-          [last.id]: [runUnder(last.id, "running")],
-        },
+        runIdsByMessageId: { [first.id]: [done.id], [last.id]: [going.id] },
       });
 
       const lines = container.querySelectorAll(".agent-run-line");

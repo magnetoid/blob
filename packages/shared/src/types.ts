@@ -491,6 +491,12 @@ export interface AgentRunCard {
   subagents?: Array<{ name: string; status: 'running' | 'done' | 'failed' }>;
   reasoning: string | null;
   textChars: number;
+  /**
+   * The tail of the answer being written — at most 2,000 characters — while the run goes.
+   * A draft, not the answer: the message is still posted once, when it is finished, and
+   * this is gone from the card when it is. Absent on a card stored before it existed.
+   */
+  textTail?: string | null;
   dropped: number;
 }
 
@@ -529,6 +535,45 @@ export interface AgentRunView {
   answeredAt: string | null;
   /** When a waiting decision stops waiting. */
   expiresAt: string | null;
+  /**
+   * What the run was shown, once it has ended. Absent on a view from before it was kept,
+   * and null for a run Blob could not finish recording.
+   */
+  seen?: AgentRunSeen | null;
+  /**
+   * The question a waiting run is asking, while nobody has answered it: what the card
+   * offers its asker. Null otherwise; absent on a view from before it was sent.
+   */
+  decision?: AgentRunDecision | null;
+}
+
+/** What an agent was shown for one run — counts and names, never content. */
+export interface AgentRunSeen {
+  /** Messages of the conversation it was handed. */
+  messages: number;
+  /** Where they came from: the thread it was asked in, or the channel. */
+  window: 'thread' | 'channel';
+  /** Files handed over with them (agents that speak AG-UI 1.0 only). */
+  files: number;
+  /** Whether the workspace's instructions went with the run. */
+  instructions: boolean;
+  /** Whether it started from what it remembered here. */
+  memory: boolean;
+  /** Whether it was handed a task (ADR 0023). */
+  task: boolean;
+  /** Blob's tools it was offered (ADR 0022), by name. */
+  tools: string[];
+  /** The AG-UI it was spoken to in, when it declared one. */
+  protocol: string | null;
+}
+
+/** A waiting run's question, as the card offers it. */
+export interface AgentRunDecision {
+  prompt: string;
+  /** The choices the agent declared, by label — answered by their place in this list. */
+  choices: Array<{ label: string }>;
+  /** True when the question takes words rather than a choice. */
+  freeText: boolean;
 }
 
 export type LaterState = 'in_progress' | 'archived' | 'done';

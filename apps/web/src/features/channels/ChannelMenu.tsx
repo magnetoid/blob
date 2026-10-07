@@ -24,6 +24,11 @@ interface Props {
   channel: ChannelWithState;
   onClose: () => void;
   onOpenDetails: () => void;
+  /** Open the agent runs here — or, in an agent's own DM, everything it has done that
+   *  you can see. Absent where there is nothing to show. */
+  onOpenRuns?: () => void;
+  /** What that item says: "Agent runs", or the agent's own runs in its DM. */
+  runsLabel?: string;
 }
 
 const LEVELS: { value: NotifyLevel; label: string; hint: string }[] = [
@@ -32,7 +37,13 @@ const LEVELS: { value: NotifyLevel; label: string; hint: string }[] = [
   { value: 'none', label: 'Nothing', hint: 'Muted — it stays unread, it never notifies' },
 ];
 
-export function ChannelMenu({ channel, onClose, onOpenDetails }: Props) {
+export function ChannelMenu({
+  channel,
+  onClose,
+  onOpenDetails,
+  onOpenRuns,
+  runsLabel = 'Agent runs',
+}: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const leaveChannel = useStore((s) => s.leaveChannel);
   const [confirming, setConfirming] = useState<'leave' | 'archive' | null>(null);
@@ -108,6 +119,20 @@ export function ChannelMenu({ channel, onClose, onOpenDetails }: Props) {
           >
             <span className="menu-check" aria-hidden="true" />
             Channel details
+          </button>
+        )}
+
+        {onOpenRuns && (
+          <button
+            className="menu-item"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              onOpenRuns();
+            }}
+          >
+            <span className="menu-check" aria-hidden="true" />
+            {runsLabel}
           </button>
         )}
 

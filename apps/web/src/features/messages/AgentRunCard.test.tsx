@@ -18,7 +18,8 @@ import { AgentRunCard } from './AgentRunCard.tsx';
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  useStore.setState({ currentUser: null } as never);
+  vi.useRealTimers();
+  useStore.setState({ currentUser: null, agentRuns: {} } as never);
 });
 
 /** Reading as the person the run is on behalf of. */
@@ -118,6 +119,132 @@ describe('waiting on a decision', () => {
   });
 });
 
+describe('a chain', () => {
+  it('shows the runs a person set going, in order, with this one marked', () => {
+    // Janus answered Ana and its reply asked Planner and Writer: one chain, three runs.
+    const root = run({ id: 'r1', agentName: 'Janus', status: 'succeeded', depth: 0 });
+    const planner = run({ id: 'r2', agentName: 'Planner', depth: 1, askedBy: 'Janus' });
+    const writer = run({
+      id: 'r3',
+      agentName: 'Writer',
+      depth: 1,
+      askedBy: 'Janus',
+      status: 'failed',
+      startedAt: '2026-09-05T10:00:01.000Z',
+    });
+    useStore.setState({ agentRuns: { r1: root, r2: planner, r3: writer } } as never);
+
+    const { container } = render(<AgentRunCard run={planner} />);
+    const chain = container.querySelector('.agent-run-chain');
+    expect(chain?.textContent).toBe('Chain Janus → Planner, Writer');
+    expect(chain?.querySelector('[aria-current="true"]')?.textContent).toBe('Planner');
+    expect(chain?.querySelector('[data-status="failed"]')?.textContent).toBe('Writer');
+  });
+
+  it('says nothing for a run alone on its chain', () => {
+    const alone = run();
+    useStore.setState({ agentRuns: { r1: alone } } as never);
+    const { container } = render(<AgentRunCard run={alone} />);
+    expect(container.querySelector('.agent-run-chain')).toBeNull();
+  });
+});
+
+describe('answering on the card', () => {
+  const choosing = {
+    prompt: 'Which release?',
+    choices: [{ label: 'Release A' }, { label: 'Release B' }],
+    freeText: false,
+  };
+
+  it('offers the asker the choices, and answers with the place of the one pressed', () => {
+    asTheAsker();
+    const answer = vi.spyOn(api.agentRuns, 'answer').mockResolvedValue({ ok: true });
+    render(<AgentRunCard run={run({ status: 'interrupted', decision: choosing })} />);
+
+    expect(screen.getByText('Which release?')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Release B' }));
+    // The place, not the label: the server hands the agent the value it declared.
+    expect(answer).toHaveBeenCalledWith('r1', { choice: 1 }, expect.stringMatching(/^card-/));
+  });
+
+  it('offers nobody else anything to press', () => {
+    useStore.setState({
+      currentUser: { id: 'u-other', kind: 'human', displayName: 'Bo', role: 'member' },
+    } as never);
+    render(<AgentRunCard run={run({ status: 'interrupted', decision: choosing })} />);
+    expect(screen.queryByRole('button', { name: 'Release A' })).toBeNull();
+  });
+
+  it('takes words when the question asked for words', () => {
+    asTheAsker();
+    const answer = vi.spyOn(api.agentRuns, 'answer').mockResolvedValue({ ok: true });
+    render(
+      <AgentRunCard
+        run={run({
+          status: 'interrupted',
+          decision: { prompt: 'When should it ship?', choices: [], freeText: true },
+        })}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Answer Planner'), { target: { value: ' Tuesday ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+    expect(answer).toHaveBeenCalledWith('r1', { value: 'Tuesday' }, expect.any(String));
+  });
+
+  it('offers nothing once the question has been answered', () => {
+    asTheAsker();
+    render(
+      <AgentRunCard
+        run={run({
+          status: 'interrupted',
+          answeredAt: '2026-09-05T10:05:00.000Z',
+          decision: choosing,
+        })}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Release A' })).toBeNull();
+  });
+});
+
+describe('what a run was shown', () => {
+  const seen = {
+    messages: 12,
+    window: 'thread' as const,
+    files: 1,
+    instructions: true,
+    memory: false,
+    task: true,
+    tools: ['read_thread'],
+    protocol: '1.0',
+  };
+
+  it('says it in one line, behind the details of a finished run', () => {
+    render(<AgentRunCard run={finished({ seen })} compact />);
+    fireEvent.click(screen.getByRole('button', { name: /Details of Janus/ }));
+    expect(document.querySelector('.agent-run-seen')?.textContent).toBe(
+      "Saw 12 messages of this thread · 1 file · the workspace's instructions · a task · tools: read_thread",
+    );
+  });
+
+  it('says it on the card of a run that did not end well', () => {
+    render(<AgentRunCard run={run({ status: 'failed', error: 'boom', seen })} />);
+    expect(document.querySelector('.agent-run-seen')).toBeTruthy();
+  });
+});
+
+describe('a question waiting on a person', () => {
+  it('says how long is left to answer it', () => {
+    vi.useFakeTimers({ now: new Date('2026-09-05T10:00:00.000Z') });
+    asTheAsker();
+    render(
+      <AgentRunCard
+        run={run({ status: 'interrupted', expiresAt: '2026-09-06T08:30:00.000Z' })}
+      />,
+    );
+    expect(screen.getByText(/22h left to answer/)).toBeTruthy();
+  });
+});
+
 describe('a run in progress', () => {
   /* The design calls this a "live plan": a run that is still going says so with a bar
      rather than a number, because there is no number to give — the model decides how
@@ -129,6 +256,27 @@ describe('a run in progress', () => {
     cleanup();
     const done = render(<AgentRunCard run={run({ status: 'succeeded' })} />);
     expect(done.container.querySelector('.agent-run-progress')).toBeNull();
+  });
+
+  it('shows the answer being written as a draft, and never once the run is over', () => {
+    const writing = { steps: [], tools: [], activity: null, reasoning: null, textChars: 11, dropped: 0 };
+    const { container } = render(
+      <AgentRunCard run={run({ card: { ...writing, textTail: 'hello world' } })} />,
+    );
+    const draft = container.querySelector('.agent-run-draft');
+    expect(draft?.textContent).toBe('hello world');
+    // Every few words of a sentence still being written is not news to announce.
+    expect(draft?.getAttribute('aria-live')).toBe('off');
+
+    cleanup();
+    // A card that still holds a tail — a snapshot from just before the end — says
+    // nothing once the run is over: the answer is posted, or never was the answer.
+    const over = render(
+      <AgentRunCard
+        run={run({ status: 'failed', error: 'boom', card: { ...writing, textTail: 'half a' } })}
+      />,
+    );
+    expect(over.container.querySelector('.agent-run-draft')).toBeNull();
   });
 });
 

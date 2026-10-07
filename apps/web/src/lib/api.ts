@@ -6,6 +6,8 @@ import type {
   ScheduleRepeat,
   LaterItem,
   LaterState,
+  AgentRunCard,
+  AgentRunSeen,
   AgentRunView,
   AgentTask,
   AgentTaskPriority,
@@ -485,6 +487,10 @@ export interface AdminAgentRun {
   askedBy: string | null;
   /** Tokens the agent reported for the run, or null if it reported none. */
   tokens: number | null;
+  /** What it did — the card it left — for opening one run in the log. */
+  card: AgentRunCard | null;
+  /** What it was shown. Null for a run from before it was kept. */
+  seen: AgentRunSeen | null;
 }
 
 export interface AdminPluginDelivery {
@@ -743,12 +749,41 @@ export const api = {
     mine: () => get<{ runs: AgentRunView[] }>("/api/agent-runs"),
     cancel: (runId: string) =>
       post<{ ok: true }>(`/api/agent-runs/${runId}/cancel`),
-    /** Answer the decision an interrupted run is waiting on. Only its asker may. */
-    answer: (runId: string, value: string, clientActionId?: string) =>
+    /**
+     * Answer the decision an interrupted run is waiting on — with the place of one of
+     * the choices its view offers, or with words when it asked for words. Only its asker
+     * may.
+     */
+    answer: (
+      runId: string,
+      answer: { choice: number } | { value: string },
+      clientActionId?: string,
+    ) =>
       post<{ ok: true }>(`/api/agent-runs/${runId}/answer`, {
-        value,
+        ...answer,
         clientActionId,
       }),
+    /**
+     * A conversation's runs or an agent's, newest first, a page at a time — an agent
+     * named by its app or by the member it is.
+     */
+    history: (scope: {
+      channelId?: string;
+      pluginId?: string;
+      agentUserId?: string;
+      before?: string | null;
+      limit?: number;
+    }) => {
+      const search = new URLSearchParams();
+      if (scope.channelId) search.set("channelId", scope.channelId);
+      if (scope.pluginId) search.set("pluginId", scope.pluginId);
+      if (scope.agentUserId) search.set("agentUserId", scope.agentUserId);
+      if (scope.before) search.set("before", scope.before);
+      if (scope.limit) search.set("limit", String(scope.limit));
+      return get<{ runs: AgentRunView[]; nextBefore: string | null }>(
+        `/api/agent-runs/history?${search}`,
+      );
+    },
   },
 
   groups: {

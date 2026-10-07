@@ -363,6 +363,13 @@ newest replies (up to a thousand); in a channel, its last 30 messages
 with the same `X-Blob-Signature` scheme as a webhook delivery, so if you already verify
 those you already verify this.
 
+**What a person can see of your runs.** Every run keeps what it was shown — how many
+messages of which thread or channel, how many files, whether the workspace's
+instructions, its memory and a task went with them, which of Blob's tools it was offered,
+and the AG-UI it was spoken to in. Counts and names, never content. Members read it on the
+card's details and page back through a conversation's runs, or one agent's anywhere they
+can see, from the conversation's menu; admins open any run in the agent's log.
+
 Your agent is asked once per message. A job that is delivered twice finds the run it
 already started and stops, so an answer is never posted twice — whatever ids your
 agent gives its messages.
@@ -393,7 +400,7 @@ What Blob does with the stream:
 | `RUN_STARTED` with `protocolVersion` | Remembered, and spoken back to you from the next run |
 | `RUN_FINISHED` with `usage` | The tokens you report are kept on the run, shown on the card under the mention and on the console's daily meter. Shown, never capped: they are your provider's count, not Blob's |
 | `RUN_FINISHED` with a `cancelled` outcome | The card says the run was stopped — neither an answer nor a failure |
-| `RUN_FINISHED` with an `interrupt` outcome | The question is posted **with buttons or a text box**, minted from your `interrupts[].responseSchema` (an `enum`, a `oneOf` with `const`/`title`, or a boolean) — or from `metadata.options`. Only the person the run is on behalf of can answer. Their answer is posted as their own message and your agent is called again with `resume: [{interruptId, status: "resolved", payload}]`, `parentRunId` (the `runId` of the run that asked) and `state` (below). If you raise several interrupts at once, the first is asked; the resume answers it and marks the others `cancelled`, and you ask again for any you still need. A question nobody answers within a day expires. |
+| `RUN_FINISHED` with an `interrupt` outcome | The question is posted **with buttons or a text box**, minted from your `interrupts[].responseSchema` (an `enum`, a `oneOf` with `const`/`title`, or a boolean) — or from `metadata.options` — and addressed to the person the run is on behalf of, by name and as a mention, so it reaches them. Only they can answer: under the question, or on the run's card and their Home. Their answer is posted as their own message and your agent is called again with `resume: [{interruptId, status: "resolved", payload}]`, `parentRunId` (the `runId` of the run that asked) and `state` (below) — `payload` is the value you declared for the choice, never its label, and a question with choices takes only one of them. If you raise several interrupts at once, the first is asked; the resume answers it and marks the others `cancelled`, and you ask again for any you still need. A question nobody answers within a day expires. |
 | `STATE_SNAPSHOT` / `STATE_DELTA` | Folded (deltas are RFC 6902) and **remembered per conversation**: the next run in the same channel or thread receives it as `state`. A resume receives the state the run had when it stopped. 64 KiB cap. |
 | `CUSTOM` with `name: "blob.artifact"` | In a work channel, publishes an artifact — see below. Elsewhere, ignored. |
 | `CUSTOM` named `blob.file.start` / `chunk` / `end` | Hands over a file, attached to your answer — see [Handing over a file](#handing-over-a-file). |
@@ -408,7 +415,10 @@ Three things are worth knowing before you build against it.
 **An answer appears when it is finished.** It is buffered and written once, when the
 message ends — it does not appear token by token. This is deliberate: a row that is
 edited forty times is marked "(edited)" for ever and broadcast forty times. The card under
-the mention shows the run working meanwhile, from your step, tool and activity events. A
+the mention shows the run working meanwhile, from your step, tool and activity events, and
+the last 2,000 characters of what you are writing as a draft — plain text, set apart, gone
+from the card when the message is posted and never kept on the run. A quote of the person
+(`role` other than `assistant`) is never drafted, as it is never posted. A
 run may take as long as it keeps talking: Blob gives up after 30 seconds with nothing
 from your stream (`AGUI_READ_TIMEOUT_SEC`), or at ten minutes whatever happens
 (`AGUI_MAX_RUN_SEC`). Either way the card says the run did not finish, and whatever you

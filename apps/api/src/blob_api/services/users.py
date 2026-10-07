@@ -340,6 +340,18 @@ async def list_users(
     return [to_user(row) for row in rows]
 
 
+async def bot_plugin_of(session: AsyncSession, workspace_id: str, user_id: str) -> str | None:
+    """The app behind this member, if the member is an app's bot — None for a person or
+    for nobody. How a client that knows an agent as the member it talks to names it."""
+    row = (
+        await session.execute(
+            text("SELECT bot_plugin_id FROM users WHERE id = :id AND workspace_id = :ws"),
+            {"id": user_id, "ws": workspace_id},
+        )
+    ).fetchone()
+    return str(row.bot_plugin_id) if row is not None and row.bot_plugin_id else None
+
+
 async def is_agent(session: AsyncSession, workspace_id: str, user_id: str) -> bool:
     """Whether this member is an app's bot rather than a person."""
     row = (

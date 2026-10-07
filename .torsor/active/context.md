@@ -1483,3 +1483,27 @@ from there on. Things to know before changing it:
 * **The card sends only what was touched** (`ThreadTasks.tsx`, `taskEdits`). It used to
   freeze every field the moment one was edited, and a save sent the frozen status back:
   an agent finished, a priority change reopened the task and set the agent going again.
+
+## Watching a run (agentic phase 4, 2026-10-07): what bites
+
+* **Never select `s.agentRuns` whole in a view.** A running card's snapshot replaces its
+  run object up to four times a second. Lists take ids (`lib/useRuns.ts` —
+  `useRunIdsByMessage`, `useRunIds`, `useBusyAgentNames`, all `useShallow` over flat
+  strings) and cards subscribe by id (`AgentRunCardById`). The run frames themselves fold
+  in `lib/agentRuns.ts:applyRunEvent`, which returns the same object when nothing changed.
+* **The card's `textTail` is a draft, never a record.** `CardFold.snapshot(final=True)` is
+  what the row keeps, without it; `posted()` clears it after a round's answers are posted,
+  and the job sends the card once more because the stream that would have has ended. A
+  quoted message (a non-assistant `role`) is never drafted — the same rule `agui.Fold`
+  applies to what is posted.
+* **The run view selects `interrupt -> 'items'`, never `interrupt`.** A tool approval keeps
+  the whole exchange beside the question (up to 200 KB); forty runs on Home would carry
+  forty of them.
+* **A choice is answered by its place, and the agent gets the declared value.** The run
+  view sends labels only; `POST /api/agent-runs/{id}/answer` takes `choice` (an index) or
+  `value` (words), exactly one, and refuses words for a question that offered choices.
+* **The decision prompt mentions its asker by id** (`post_as_bot(mention_user_ids=…)`), so
+  it notifies them; the body names them too, for the room.
+* **Run history is keyset on the run id** (UUIDv7) with migration 0049's
+  `(channel_id, id)` and `(plugin_id, id)` indexes. There was no index on a run's channel
+  before; the conversation's load read through the workspace's.

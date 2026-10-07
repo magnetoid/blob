@@ -21,7 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.ids import new_id
-from ..plugins.agui import total_tokens
+from ..plugins.agui import decision_of, total_tokens
 from ..schemas.base import require_iso
 
 RunStatus = Literal[
@@ -51,6 +51,11 @@ class Run:
     #: Tokens the agent reported for the run, all providers together; None if it
     #: reported none.
     tokens: int | None = None
+    #: The card the run left — its plan, tool calls and activity — for the console to
+    #: open a run and see what it did.
+    card: dict[str, Any] | None = None
+    #: What the run was shown (migration 0049): counts and names, never content.
+    seen: dict[str, Any] | None = None
 
 
 #: One run's reported tokens, in SQL: each usage entry's total, or its input and output.
@@ -385,13 +390,15 @@ async def finish(
     expires_at: Any | None = None,
     usage: list[dict[str, Any]] | None = None,
     interrupt_extra: dict[str, Any] | None = None,
+    seen: dict[str, Any] | None = None,
 ) -> None:
     """Close the row. For an interrupted run, also keep what a resume will need.
 
     `interrupt` is stored as `{"items": [...]}` so the answer can be written beside it
     later without a second column. `state_json` is already serialised by the caller —
     `None` means the agent shared no state (or too much), which is distinct from a state
-    that happens to be JSON null.
+    that happens to be JSON null. `seen` is what the run was shown; None leaves it as it
+    was.
     """
     await session.execute(
         text(
@@ -403,7 +410,8 @@ async def finish(
                    interrupt = cast(:interrupt AS jsonb),
                    state = cast(:state AS jsonb),
                    expires_at = cast(:expires_at AS timestamptz),
-                   usage = cast(:usage AS jsonb)
+                   usage = cast(:usage AS jsonb),
+                   seen = COALESCE(cast(:seen AS jsonb), seen)
              WHERE id = :id
             """
         ),
@@ -412,6 +420,7 @@ async def finish(
             "status": status,
             "error": error,
             "post_count": post_count,
+            "seen": json.dumps(seen) if seen is not None else None,
             "card": json.dumps(card) if card is not None else None,
             "interrupt": (
                 json.dumps({"items": interrupt, **(interrupt_extra or {})}, default=str)
@@ -573,7 +582,7 @@ async def list_for_plugin(
                        r.thread_root_id, r.trigger_message_id,
                        u.display_name AS trigger_user_name,
                        r.transport, r.status, r.error, r.post_count,
-                       r.started_at, r.finished_at, r.depth,
+                       r.started_at, r.finished_at, r.depth, r.card, r.seen,
                        pp.name AS asked_by, {_RUN_TOKENS} AS tokens
                   FROM agent_runs r
                   LEFT JOIN channels c ON c.id = r.channel_id
@@ -606,6 +615,8 @@ async def list_for_plugin(
             depth=row.depth,
             asked_by=row.asked_by if row.depth > 0 else None,
             tokens=int(row.tokens) if row.tokens is not None else None,
+            card=row.card if isinstance(row.card, dict) else None,
+            seen=row.seen if isinstance(row.seen, dict) else None,
         )
         for row in rows
     ]
@@ -651,7 +662,12 @@ _VIEW_SELECT = """
            r.thread_root_id, r.trigger_message_id, r.status, r.error,
            r.post_count, r.started_at, r.finished_at, r.card,
            r.chain_id, r.parent_run_id, r.depth, r.answered_at, r.expires_at,
-           r.initiated_by_user_id, r.usage, pp.name AS asked_by
+           r.initiated_by_user_id, r.usage, r.seen,
+           -- The question only, never the rest of what a waiting run keeps: a tool
+           -- approval stores the whole exchange beside it, and a list of forty runs
+           -- would carry every one of them.
+           r.interrupt -> 'items' AS interrupt_items,
+           pp.name AS asked_by
       FROM agent_runs r
       JOIN plugins p ON p.id = r.plugin_id
       LEFT JOIN agent_runs parent ON parent.id = r.parent_run_id
@@ -681,7 +697,86 @@ def _view(row: Any) -> dict[str, Any]:
         "tokens": total_tokens(row.usage if isinstance(row.usage, list) else None),
         "answeredAt": require_iso(row.answered_at) if row.answered_at else None,
         "expiresAt": require_iso(row.expires_at) if row.expires_at else None,
+        "seen": row.seen if isinstance(row.seen, dict) else None,
+        "decision": _decision_view(row),
     }
+
+
+def _decision_view(row: Any) -> dict[str, Any] | None:
+    """The question a waiting run is asking, as the card offers it: the prompt, and the
+    labels of the choices the agent declared.
+
+    Labels only. The card answers with a choice's place in the list, and Blob hands the
+    agent the value it declared for it (`decisions.payload_for`) — the value never needs
+    to travel, and a value the client sent back could not be trusted anyway. The room
+    sees this as it sees the card; the question is posted in the channel regardless. Who
+    may answer is the private part, and the answer route keeps it.
+    """
+    if row.status != "interrupted" or row.answered_at is not None:
+        return None
+    items = row.interrupt_items if isinstance(row.interrupt_items, list) else []
+    if not items:
+        return None
+    decision = decision_of(items)
+    return {
+        "prompt": decision.prompt,
+        "choices": [{"label": choice.label} for choice in decision.choices],
+        "freeText": decision.free_text,
+    }
+
+
+async def history(
+    session: AsyncSession,
+    *,
+    workspace_id: str,
+    user_id: str,
+    channel_id: str | None,
+    plugin_id: str | None,
+    before: str | None,
+    limit: int,
+) -> list[dict[str, Any]]:
+    """A conversation's runs, or an agent's, newest first, a page at a time.
+
+    Only in conversations this person can see — public ones and ones they belong to,
+    inside the statement, the predicate Home's list and the task list use — so an agent's
+    history never shows a private room to somebody outside it, and a foreign row is
+    omitted rather than failing the page. Keyset on the id, which is a UUIDv7 and so the
+    order the runs began; never OFFSET.
+    """
+    rows = (
+        await session.execute(
+            text(
+                _VIEW_SELECT
+                + """
+                  JOIN channels c ON c.id = r.channel_id
+                 WHERE r.workspace_id = :ws
+                   AND (
+                     c.kind = 'public'
+                     OR EXISTS (
+                       SELECT 1 FROM channel_members cm
+                        WHERE cm.channel_id = c.id AND cm.user_id = :user_id
+                     )
+                   )
+                   AND (cast(:channel_id AS uuid) IS NULL
+                        OR r.channel_id = cast(:channel_id AS uuid))
+                   AND (cast(:plugin_id AS uuid) IS NULL
+                        OR r.plugin_id = cast(:plugin_id AS uuid))
+                   AND (cast(:before AS uuid) IS NULL OR r.id < cast(:before AS uuid))
+                 ORDER BY r.id DESC
+                 LIMIT :limit
+                """
+            ),
+            {
+                "ws": workspace_id,
+                "user_id": user_id,
+                "channel_id": channel_id,
+                "plugin_id": plugin_id,
+                "before": before,
+                "limit": limit,
+            },
+        )
+    ).fetchall()
+    return [_view(row) for row in rows]
 
 
 async def views_for_channel(

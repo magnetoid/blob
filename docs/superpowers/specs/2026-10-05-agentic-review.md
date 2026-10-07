@@ -430,3 +430,29 @@ writes always ask, and a borrowed agent runs without its owner's memory until Ph
   and the task card froze every field once one was edited, so a priority change saved
   after the agent finished reopened the task and ran the agent again (the card now sends
   only what was touched, and a retry no longer starts from done or cancelled).
+
+## Phase 4 — done (2026-10-07, branch `agentic-phase-4`)
+
+- **The card carries a draft of the answer** — the last 2,000 characters while the run
+  writes it, plain text, never kept on the row and gone the moment the answer is posted.
+  ADR 0011 stands: the message is still written once.
+- **A run keeps what it was shown** (`agent_runs.seen`, migration 0049): message count and
+  window, files, whether instructions, memory and a task went with them, the tools it was
+  offered, the protocol spoken. Counts and names, never content. It is on the card's
+  details, in the new run history, and on the console's log, whose rows now open onto the
+  run's work.
+- **Run history for members:** `GET /api/agent-runs/history`, keyset on the run id, by
+  conversation or by agent (named by its app or by the member it is), only in rooms the
+  person can see; reached from the conversation's menu, and in an agent's DM it is that
+  agent's everywhere.
+- **Chains, answers and deadlines on the card:** the chain a run sits on as one line, the
+  question with its choices answerable by its asker on the card and on Home (answered by
+  the choice's place; the agent receives the declared value; words are refused for a
+  question that offered choices), and the time left to answer.
+- **"A push when a decision is yours" is a mention, not a new channel.** The decision
+  message names its asker and mentions them, so it reaches them through the ordinary
+  notification path — badge, push, Activity — with no second mechanism to keep in step.
+- **"The runs slice out of `store.ts`" is a module, not a zustand slice.** The run frames
+  fold in `lib/agentRuns.ts:applyRunEvent`; the selectors live in `lib/useRuns.ts`; lists
+  hold ids and cards subscribe to their own run. Five views redrew on every card snapshot
+  before; now one card does.

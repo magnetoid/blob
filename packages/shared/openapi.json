@@ -620,6 +620,34 @@
         "title": "AgentOwnerInput",
         "type": "object"
       },
+      "AgentRunHistoryOut": {
+        "properties": {
+          "nextBefore": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextbefore"
+          },
+          "runs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "AgentRunHistoryOut",
+        "type": "object"
+      },
       "AgentRunOut": {
         "properties": {
           "askedBy": {
@@ -632,6 +660,18 @@
               }
             ],
             "title": "Askedby"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card"
           },
           "channelId": {
             "title": "Channelid",
@@ -693,6 +733,18 @@
           "postCount": {
             "title": "Postcount",
             "type": "integer"
+          },
+          "seen": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen"
           },
           "startedAt": {
             "title": "Startedat",
@@ -936,8 +988,21 @@
         "type": "object"
       },
       "AnswerInput": {
-        "description": "A free-text answer to the decision a run is waiting on.\n\nThe buttons go through `/api/interactions` like every other block; this is the same\nentrance for a client that has the run rather than the message \u2014 and for text, which\nthe input block also submits through interactions. One service behind both.",
+        "description": "An answer to the decision a run is waiting on, from a client that has the run\nrather than the message \u2014 the card, and Home.\n\n`choice` is the place of one of the choices the run's view offers (`decision.choices`),\nand Blob hands the agent the value the agent declared for it; `value` is words, for a\nquestion that asked for words. Exactly one. The buttons on the message itself go\nthrough `/api/interactions` like every other block; one service is behind both.",
         "properties": {
+          "choice": {
+            "anyOf": [
+              {
+                "maximum": 99.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choice"
+          },
           "clientActionId": {
             "anyOf": [
               {
@@ -951,15 +1016,19 @@
             "title": "Clientactionid"
           },
           "value": {
-            "maxLength": 2000,
-            "minLength": 1,
-            "title": "Value",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
           }
         },
-        "required": [
-          "value"
-        ],
         "title": "AnswerInput",
         "type": "object"
       },
@@ -12447,6 +12516,120 @@
           }
         },
         "summary": "Workspace Agent Runs",
+        "tags": [
+          "agentic"
+        ]
+      }
+    },
+    "/api/agent-runs/history": {
+      "get": {
+        "description": "A conversation's runs, or one agent's, newest first and a page at a time.\n\nThe conversation's own list (`/api/channels/{id}/agent-runs`) is what a view folds in\non load \u2014 the live cards and the last hour. This is the history behind it, for a\nmember asking what an agent has been doing here, or anywhere they can see. A private\nconversation they are not in answers 404, as it does everywhere; an agent's history\nsimply leaves such rooms out. An agent is named by its app (`pluginId`) or by the\nmember it is (`agentUserId`), which is how a client that talks to it knows it.",
+        "operationId": "agent_run_history_api_agent_runs_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "channelId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Channelid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pluginId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pluginid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "agentUserId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agentuserid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRunHistoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Run History",
         "tags": [
           "agentic"
         ]

@@ -6,9 +6,10 @@
  */
 
 import { useMemo, useState, type FormEvent } from 'react';
-import type { AgentTask } from '@blob/shared';
+import type { AgentRunView, AgentTask } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
+import { useRun, useRunIds } from '../../lib/useRuns.ts';
 import { agentIsAvailable } from '../../lib/conversations.ts';
 import { showChannel, showThread } from '../../lib/navigation.ts';
 import { showError } from '../../lib/toasts.ts';
@@ -23,13 +24,7 @@ export function HomeView() {
   const presence = useStore((s) => s.presence);
   const currentUser = useStore((s) => s.currentUser);
   const workspaceName = useStore((s) => s.workspaceName);
-  const agentRuns = useStore((s) => s.agentRuns);
   const channelTitle = useStore((s) => s.channelTitle);
-
-  function placeName(channelId: string): string {
-    const channel = channels[channelId];
-    return channel ? channelTitle(channel) : 'channel';
-  }
 
   const [ask, setAsk] = useState('');
   const [sending, setSending] = useState(false);
@@ -58,18 +53,17 @@ export function HomeView() {
     [channels],
   );
 
-  const runs = useMemo(() => Object.values(agentRuns), [agentRuns]);
-  const running = runs.filter((r) => r.status === 'running');
+  // Which runs are on the board, as ids: the board redraws when one joins or leaves a
+  // list, and each row redraws itself as its run moves (`lib/useRuns.ts`).
+  const me = currentUser?.id ?? null;
+  const running = useRunIds((r) => r.status === 'running', oldestFirst);
   // Yours to decide: only the person a run is on behalf of may answer it, so somebody
   // else's question is not something that needs you, however visible its card is.
-  const waiting = runs.filter(
-    (r) =>
-      r.status === 'interrupted' &&
-      !r.answeredAt &&
-      currentUser !== null &&
-      r.initiatedByUserId === currentUser.id,
+  const waiting = useRunIds(
+    (r) => r.status === 'interrupted' && !r.answeredAt && me !== null && r.initiatedByUserId === me,
+    oldestFirst,
   );
-  const doneToday = runs.filter((r) => r.status === 'succeeded' && r.finishedAt);
+  const doneToday = useRunIds((r) => r.status === 'succeeded' && r.finishedAt !== null, newestFinished);
   const openTasks = (tasks ?? []).filter((t) => t.status !== 'done' && t.status !== 'cancelled');
 
   const peopleHere = useMemo(
@@ -174,45 +168,16 @@ export function HomeView() {
           <section className="home-card">
             <h2>Needs a decision</h2>
             {waiting.length === 0 && <p className="muted">Nothing waiting.</p>}
-            {waiting.map((run) => (
-              <div key={run.id} className="home-run">
-                {/* The question itself is a message in the channel, with the buttons
-                    or the box to answer it. This row is the way there, and says so —
-                    a card that only reported the wait left people looking for a
-                    control that lives one screen away. */}
-                <button
-                  type="button"
-                  className="home-row"
-                  onClick={() =>
-                    void (run.threadRootId
-                      ? showThread(run.channelId, run.threadRootId)
-                      : showChannel(run.channelId))
-                  }
-                >
-                  <strong>{run.agentName}</strong>
-                  <span className="muted">{placeName(run.channelId)}</span>
-                  <span className="home-run-go">Answer →</span>
-                </button>
-                <AgentRunCard run={run} />
-              </div>
+            {waiting.map((runId) => (
+              <HomeRun key={runId} runId={runId} answer />
             ))}
           </section>
 
           <section className="home-card">
             <h2>Agents live</h2>
             {running.length === 0 && <p className="muted">No agent is working right now.</p>}
-            {running.map((run) => (
-              <div key={run.id} className="home-run">
-                <button
-                  type="button"
-                  className="home-row"
-                  onClick={() => void (run.threadRootId ? showThread(run.channelId, run.threadRootId) : showChannel(run.channelId))}
-                >
-                  <strong>{run.agentName}</strong>
-                  <span className="muted">{placeName(run.channelId)}</span>
-                </button>
-                <AgentRunCard run={run} />
-              </div>
+            {running.map((runId) => (
+              <HomeRun key={runId} runId={runId} />
             ))}
           </section>
 
@@ -256,15 +221,59 @@ export function HomeView() {
                 {peopleHere.map((p) => p.displayName).join(', ')}
               </p>
             )}
-            {doneToday.slice(0, 5).map((run) => (
-              <p key={run.id} className="muted">
-                {run.agentName} finished {formatRelative(run.finishedAt ?? run.startedAt)}
-              </p>
+            {doneToday.slice(0, 5).map((runId) => (
+              <DoneLine key={runId} runId={runId} />
             ))}
           </section>
         )}
       </div>
     </main>
+  );
+}
+
+const oldestFirst = (a: AgentRunView, b: AgentRunView) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+const newestFinished = (a: AgentRunView, b: AgentRunView) =>
+  (b.finishedAt ?? '').localeCompare(a.finishedAt ?? '');
+
+/**
+ * One run on the board: the way to its conversation, and its card. It subscribes to its
+ * own run, so a live snapshot redraws this row and nothing else on Home.
+ */
+function HomeRun({ runId, answer = false }: { runId: string; answer?: boolean }) {
+  const run = useRun(runId);
+  const channel = useStore((s) => (run ? s.channels[run.channelId] : undefined));
+  const channelTitle = useStore((s) => s.channelTitle);
+  if (!run) return null;
+  return (
+    <div className="home-run">
+      {/* The question itself is a message in the channel, with the buttons or the box to
+          answer it. This row is the way there, and says so — a card that only reported
+          the wait left people looking for a control that lives one screen away. */}
+      <button
+        type="button"
+        className="home-row"
+        onClick={() =>
+          void (run.threadRootId
+            ? showThread(run.channelId, run.threadRootId)
+            : showChannel(run.channelId))
+        }
+      >
+        <strong>{run.agentName}</strong>
+        <span className="muted">{channel ? channelTitle(channel) : 'channel'}</span>
+        {answer && <span className="home-run-go">Answer →</span>}
+      </button>
+      <AgentRunCard run={run} />
+    </div>
+  );
+}
+
+function DoneLine({ runId }: { runId: string }) {
+  const run = useRun(runId);
+  if (!run) return null;
+  return (
+    <p className="muted">
+      {run.agentName} finished {formatRelative(run.finishedAt ?? run.startedAt)}
+    </p>
   );
 }
 

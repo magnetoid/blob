@@ -1,8 +1,8 @@
 /** The centre pane: channel header, messages, composer. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AgentRunView } from "@blob/shared";
 import { useStore } from "../../lib/store.ts";
+import { useRunIdsByMessage } from "../../lib/useRuns.ts";
 import { draftKey } from "../../lib/drafts.ts";
 import { typingKey } from "../../lib/typing.ts";
 import { scrollToMessage } from "../../lib/navigation.ts";
@@ -21,6 +21,7 @@ import { PinnedPanel } from "./PinnedPanel.tsx";
 import { CatchUpStrip } from "./CatchUpStrip.tsx";
 import { ChannelMenu } from "../channels/ChannelMenu.tsx";
 import { ChannelDetails } from "../channels/ChannelDetails.tsx";
+import { RunHistoryDialog } from "./RunHistoryDialog.tsx";
 import { DialogPresence } from "../../components/Dialog.tsx";
 import { TypingIndicator } from "./TypingIndicator.tsx";
 import { WorkPanel, WorkTabs, type WorkTab } from "../work/WorkPanel.tsx";
@@ -48,7 +49,6 @@ export function ChannelView() {
   const loadOlder = useStore((s) => s.loadOlder);
   const openChannel = useStore((s) => s.openChannel);
   const requestScrollToMessage = useStore((s) => s.requestScrollToMessage);
-  const agentRuns = useStore((s) => s.agentRuns);
   // The work behind this channel, if it is a work channel (ADR 0014). A hook, so it
   // sits above the early returns like every other one here.
   const { work, artifacts } = useWork(
@@ -56,28 +56,16 @@ export function ChannelView() {
     channel?.workId ?? null,
   );
 
-  // Runs anchored under their trigger. Thread replies carry threadRootId and anchor in
-  // the thread panel instead — the trigger row is not in channel history there.
-  const runsByMessageId = useMemo(() => {
-    if (!activeChannelId) return undefined;
-    const map: Record<string, AgentRunView[]> = {};
-    for (const run of Object.values(agentRuns)) {
-      if (
-        run.channelId !== activeChannelId ||
-        run.threadRootId ||
-        !run.triggerMessageId
-      ) {
-        continue;
-      }
-      (map[run.triggerMessageId] ??= []).push(run);
-    }
-    return map;
-  }, [agentRuns, activeChannelId]);
+  // Runs anchored under their trigger, as ids: a running card's snapshots redraw that
+  // card, not this view. Thread replies carry threadRootId and anchor in the thread
+  // panel instead — the trigger row is not in channel history there.
+  const runIdsByMessageId = useRunIdsByMessage(activeChannelId ?? null, null);
   const channelTitle = useStore((s) => s.channelTitle);
 
   const [pinsOpen, setPinsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [runsOpen, setRunsOpen] = useState(false);
   // Which tab each work channel is on, keyed by channel so switching channels never
   // shows one channel's Changes over another's conversation. No effect needed to reset.
   const [workTabs, setWorkTabs] = useState<Record<string, WorkTab>>({});
@@ -298,6 +286,8 @@ export function ChannelView() {
               channel={channel}
               onClose={() => setMenuOpen(false)}
               onOpenDetails={() => setDetailsOpen(true)}
+              onOpenRuns={() => setRunsOpen(true)}
+              runsLabel={agent ? `What ${agent.displayName} has done` : "Agent runs"}
             />
           )}
         </div>
@@ -356,6 +346,22 @@ export function ChannelView() {
           </span>
         </button>
       </header>
+
+      {/* In an agent's own DM, everything it has done that you can see — the DM is how
+          you know it, so this is where you ask about it. Anywhere else, the runs here. */}
+      <DialogPresence when={runsOpen}>
+        {() => (
+          <RunHistoryDialog
+            scope={agent ? { agentUserId: agent.id } : { channelId: channel.id }}
+            title={
+              agent
+                ? `What ${agent.displayName} has done`
+                : `Agent runs in ${isDm ? channelTitle(channel) : `#${channel.name}`}`
+            }
+            onClose={() => setRunsOpen(false)}
+          />
+        )}
+      </DialogPresence>
 
       <DialogPresence when={detailsOpen && !isDm}>
         {() => (
@@ -431,7 +437,7 @@ export function ChannelView() {
             onLoadOlder={handleLoadOlder}
             onOpenThread={handleOpenThread}
             unreadAfterId={unreadMarkers[activeChannelId] ?? null}
-            runsByMessageId={runsByMessageId}
+            runIdsByMessageId={runIdsByMessageId}
             error={messages?.error ?? false}
             onRetry={() => void openChannel(activeChannelId)}
             emptyState={

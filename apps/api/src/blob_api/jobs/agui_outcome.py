@@ -205,6 +205,7 @@ async def post_as_bot(
     run_id: str | None = None,
     spawn: bool = False,
     attachment_ids: list[str] | None = None,
+    mention_user_ids: list[str] | None = None,
 ) -> str | None:
     """One message, the way the bot API posts one. Returns its id, or None if an earlier
     run of this job already posted it.
@@ -222,6 +223,9 @@ async def post_as_bot(
     run as the parent — the job decides whether the mentioned agent may actually go.
     Never for the apology or the decision prompt: those are Blob's words, and an agent
     must not be able to start a hop by failing.
+
+    `mention_user_ids` sets the message's mentions outright, for Blob's own words — the
+    decision prompt mentions the person it waits on, whatever its text says.
     """
     async with transaction() as (session, after):
         result = await message_service.send(
@@ -236,6 +240,7 @@ async def post_as_bot(
             plugin_id=listener.plugin_id,
             blocks=blocks,
             attachment_ids=attachment_ids,
+            mention_user_ids=mention_user_ids,
         )
         if not result.created:
             return None  # Already posted by an earlier run of this job.
@@ -533,6 +538,7 @@ async def _finish(
     exchange: list[dict[str, Any]] | None = None,
     chain_id: str | None = None,
     answer: str | None = None,
+    seen: dict[str, Any] | None = None,
 ) -> tuple[agent_run_service.RunStatus, str | None, agui.Decision | None]:
     """How the run ended, on the row and on the channel.
 
@@ -547,7 +553,7 @@ async def _finish(
     a limit of the tool loop that ended it.
 
     A run handed a task (ADR 0023) moves that task in the same transaction, by `answer` —
-    everything it said, across every round.
+    everything it said, across every round. `seen` is what the run was shown, kept on it.
     """
     fold, cancelled = streamed.fold, streamed.cancelled
     reason = streamed.transport_error or fold.error or bound_error
@@ -567,7 +573,9 @@ async def _finish(
         if fold.cancelled
         else "succeeded"
     )
-    final_card = card.snapshot() if card.has_content else None
+    # The row keeps no draft: what was finished is posted, and what was not never was the
+    # agent's answer.
+    final_card = card.snapshot(final=True) if card.has_content else None
 
     decision: agui.Decision | None = None
     expires_at: datetime | None = None
@@ -603,6 +611,7 @@ async def _finish(
             state_json=shared_state if status == "interrupted" else None,
             expires_at=expires_at,
             usage=fold.usage if usage is None else (usage or None),
+            seen=seen,
         )
         if chain_id is not None:
             await task_dispatch.settle(
@@ -882,8 +891,9 @@ class _Asked:
 
 async def _base_messages(
     listener: Listener, gathered: Gathered
-) -> tuple[list[dict[str, Any]], bool]:
-    """The conversation as the run is shown it, and whether it is written in AG-UI 1.0.
+) -> tuple[list[dict[str, Any]], bool, int]:
+    """The conversation as the run is shown it, whether it is written in AG-UI 1.0, and
+    how many files went with it.
 
     Read once per run, after the run row exists: the files are storage round trips, and
     a job delivered twice should stop at the ledger before doing them — and a failure
@@ -902,7 +912,8 @@ async def _base_messages(
     messages = agui.to_agui_messages(
         gathered.history, bot_user_id=listener.bot_user_id, names=gathered.names, parts=parts
     )
-    return messages, speaks_1_0
+    files = sum(len(given) for given in parts.values()) if parts else 0
+    return messages, speaks_1_0, files
 
 
 def _run_body(
@@ -1016,8 +1027,19 @@ async def _drive(
     answers without calling one, stops to ask, has a write to wait on, or a bound ends it —
     `MAX_TOOL_ROUNDS`, or the run's wall clock, which covers every round.
     """
-    messages, sent_1_0 = await _base_messages(listener, gathered)
+    messages, sent_1_0, files = await _base_messages(listener, gathered)
     tools = await _tools_for(listener, chain, channel_id=channel_id, workspace_id=workspace_id)
+    # What this run is shown, kept on it when it ends: counts and names, never content.
+    seen: dict[str, Any] = {
+        "messages": len(gathered.history),
+        "window": "thread" if thread_root_id else "channel",
+        "files": files,
+        "instructions": bool(listener.instructions),
+        "memory": gathered.state is not None,
+        "task": gathered.task is not None,
+        "tools": sorted(tools.names),
+        "protocol": agui.PROTOCOL_VERSION if sent_1_0 else None,
+    }
     deadline = time.monotonic() + settings.AGUI_MAX_RUN_SEC
     card = run_card.CardFold(show_reasoning=listener.shows_reasoning)
     # Whether a reply from this run may carry the chain a hop further. Decided once, here,
@@ -1092,6 +1114,18 @@ async def _drive(
             spawn=spawn,
         )
         said_in_all.extend(post.body for post in streamed.posts if post.body)
+        if card.posted():
+            # What the agent wrote is in the channel now, so its draft leaves the card —
+            # sent once more, because the stream that would have carried it has ended.
+            hub.to_channel(
+                channel_id,
+                {
+                    "t": "agent_run.updated",
+                    "runId": run_id,
+                    "channelId": channel_id,
+                    "card": card.snapshot(),
+                },
+            )
         fold = streamed.fold
         usage.extend(fold.usage or [])
         touched = touched or fold.state_touched
@@ -1154,6 +1188,7 @@ async def _drive(
         exchange=[*carried, *exchange],
         chain_id=chain.chain_id,
         answer="\n\n".join(said_in_all) or None,
+        seen=seen,
     )
     progress.finished = True
     if streamed.cancelled:
@@ -1167,14 +1202,19 @@ async def _drive(
         # `last_error` still records it, which is what the console shows.
         await record_error(listener.plugin_id, reason)
     elif decision is not None:
+        # Addressed to the person it waits on, by name and as a mention, so it reaches
+        # them as one: a question asked in a busy channel used to sit there until they
+        # happened to look, and expire with the day.
+        decider = asked.on_behalf_of or asked.asker
         decision_message_id = await post_as_bot(
             listener,
             workspace_id=workspace_id,
             channel_id=channel_id,
             thread_root_id=thread_root_id,
-            body=f"Needs a decision: {decision.prompt}",
+            body=f"Needs a decision from @{decider}: {decision.prompt}",
             client_msg_id=f"agui:{run_id}:interrupt",
             blocks=decisions.decision_blocks(run_id, decision),
+            mention_user_ids=[chain.initiated_by_user_id],
         )
         if decision_message_id is not None:
             async with transaction() as (session, _after):

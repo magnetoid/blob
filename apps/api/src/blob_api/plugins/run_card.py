@@ -2,9 +2,16 @@
 
 `agui.Fold` answers "what messages should be posted"; this answers "what is the agent
 doing right now" — the plan steps, the tool calls with their arguments and results,
-the latest activity line, and a bounded tail of its reasoning. The card is a plain
-dict (camelCase keys, wire- and JSONB-ready) that the client renders live and the
-`agent_runs` row keeps afterwards, so a reload shows the same card the stream drew.
+the latest activity line, a bounded tail of its reasoning, and the tail of the answer it
+is writing. The card is a plain dict (camelCase keys, wire- and JSONB-ready) that the
+client renders live and the `agent_runs` row keeps afterwards, so a reload shows the same
+card the stream drew.
+
+The answer's tail is a draft, not the answer. ADR 0011 stands: the message is written
+once, when it is finished — a row edited forty times is "(edited)" for ever and broadcast
+forty times. What the card carries is a preview of it, for the minute or two it takes,
+and it is gone from the card the moment the message is posted (`posted`) and from the
+card the row keeps (`snapshot(final=True)`).
 
 Pure by construction, like `agui.py`: bytes of events in, a dict out, no I/O — which
 is what lets every transport share it and lets the tests feed it a list.
@@ -20,6 +27,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..lib import jsonpatch
+from . import agui
 
 #: Wire values are SCREAMING_SNAKE — verified against ag-ui-protocol/ag-ui, and worth
 #: restating because the docs' section headers confidently suggest otherwise.
@@ -32,6 +40,9 @@ MAX_ACTIVITY_CHARS = 200
 MAX_REASONING_CHARS = 2000
 MAX_NAME_CHARS = 80
 MAX_SUBAGENTS = 10
+#: How much of the answer being written the card carries: its tail, the part a person is
+#: reading as it arrives. Two kilobytes, snapshots four times a second at most.
+MAX_TEXT_TAIL_CHARS = 2000
 
 #: The keys of an AG-UI 1.0 activity's `content` read for the card's one line, in order.
 #: The content's shape belongs to its `activityType`, so the card looks for the plain
@@ -63,6 +74,12 @@ class CardFold:
         self._subagent_index: dict[str, dict[str, Any]] = {}
         self._reasoning = ""
         self._text_chars = 0
+        #: The tail of the message the agent is writing, and which message that is.
+        self._text_tail = ""
+        self._text_message: str | None = None
+        #: Messages opened under somebody else's role — quoting the person back. Not the
+        #: agent's words, so never its draft either: the rule `agui.Fold` applies.
+        self._quoted: set[str] = set()
         self._dropped = 0
 
     def feed(self, event: Mapping[str, Any]) -> bool:
@@ -97,15 +114,61 @@ class CardFold:
                 return True
             return False
 
-        if kind == "TEXT_MESSAGE_CONTENT":
-            delta = event.get("delta")
-            if isinstance(delta, str):
-                self._text_chars += len(delta)
-                return True
+        if kind == "TEXT_MESSAGE_START":
+            return self._text_start(event)
+        if kind in ("TEXT_MESSAGE_CONTENT", "TEXT_MESSAGE_CHUNK"):
+            return self._text_delta(event, kind)
+        if kind == "TEXT_MESSAGE_END":
+            self._quoted.discard(agui._message_id(event))
             return False
 
         # RUN_*, STATE_*, MESSAGES_SNAPSHOT, CUSTOM, RAW — the card has nothing to say.
         return False
+
+    def _text_start(self, event: Mapping[str, Any]) -> bool:
+        message_id = agui._message_id(event)
+        if agui._quoting(event):
+            self._quoted.add(message_id)
+            return False
+        self._quoted.discard(message_id)
+        return self._draft_of(message_id)
+
+    def _text_delta(self, event: Mapping[str, Any], kind: str) -> bool:
+        message_id = agui._message_id(event)
+        if kind == "TEXT_MESSAGE_CHUNK" and "role" in event:
+            # The compact form carries its role on each chunk, as `agui.Fold` reads it.
+            if agui._quoting(event):
+                self._quoted.add(message_id)
+            else:
+                self._quoted.discard(message_id)
+        if message_id in self._quoted:
+            return False
+        delta = event.get("delta")
+        if not isinstance(delta, str) or not delta:
+            return False
+        self._text_chars += len(delta)
+        self._draft_of(message_id)
+        self._text_tail = (self._text_tail + delta)[-MAX_TEXT_TAIL_CHARS:]
+        return True
+
+    def _draft_of(self, message_id: str) -> bool:
+        """Make `message_id` the one the draft shows. A new message starts it empty."""
+        if self._text_message == message_id:
+            return False
+        self._text_message = message_id
+        had = bool(self._text_tail)
+        self._text_tail = ""
+        return had
+
+    def posted(self) -> bool:
+        """What the agent wrote is in the channel now, so the draft of it goes. Returns
+        whether the card changed, for the caller to send it once more."""
+        if not self._text_tail and self._text_message is None:
+            return False
+        had = bool(self._text_tail)
+        self._text_tail = ""
+        self._text_message = None
+        return had
 
     def _step(self, event: Mapping[str, Any], *, running: bool) -> bool:
         name = _text(event.get("stepName"), MAX_NAME_CHARS) or "step"
@@ -242,9 +305,13 @@ class CardFold:
         known["status"] = status
         return True
 
-    def snapshot(self) -> dict[str, Any]:
+    def snapshot(self, *, final: bool = False) -> dict[str, Any]:
         """The card as the wire and the row carry it. Snapshots, not deltas: a client
-        that reconnects mid-run renders the next one whole, with no state to replay."""
+        that reconnects mid-run renders the next one whole, with no state to replay.
+
+        `final` is the card the row keeps once the run is over, which has no draft: what
+        was finished is posted, and what was not was never the agent's answer.
+        """
         return {
             "steps": [dict(step) for step in self._steps],
             "tools": [dict(tool) for tool in self._tools],
@@ -252,6 +319,7 @@ class CardFold:
             "subagents": [dict(entry) for entry in self._subagents],
             "reasoning": self._reasoning or None,
             "textChars": self._text_chars,
+            "textTail": None if final else self._text_tail or None,
             "dropped": self._dropped,
         }
 

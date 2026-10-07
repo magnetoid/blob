@@ -5967,6 +5967,33 @@ select.chip {
 }
 
 /* ─── forwarding ─────────────────────────────────────────────────────────── */
+/* An agent's runs, a page at a time: each the card it left, under when and where. Tall
+   enough to read several, scrolling inside the dialog rather than the page. */
+/* One run in the console's log, opened: what it did and what it was shown. */
+.run-log-detail {
+  margin-top: 6px;
+  font-size: var(--text-sm);
+}
+.run-log-detail > summary {
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.run-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(60vh, 520px);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.run-history-when {
+  font-size: var(--text-xs);
+  color: var(--text-4);
+}
+
 .forward-list {
   display: flex;
   flex-direction: column;
@@ -7740,6 +7767,64 @@ a.build-commit-sha:hover {
   white-space: nowrap;
 }
 
+/* The chain a run sits on, as one line under the head: who set whom going, this run in
+   bold. A link that failed says so in the signal colour, so a chain that broke shows
+   where. */
+.agent-run-chain {
+  margin-top: 6px;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.agent-run-chain-label {
+  color: var(--text-4);
+}
+.agent-run-chain strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.agent-run-chain [data-status="failed"],
+.agent-run-chain [data-status="refused"] {
+  color: var(--danger);
+}
+
+/* How long a question stays open, beside "waiting for your answer". */
+.agent-run-deadline {
+  color: var(--text-4);
+}
+
+/* The question a run waits on, answerable on the card by the person it waits on. */
+.agent-run-decision {
+  margin-top: 8px;
+}
+.agent-run-decision-prompt {
+  margin: 0 0 6px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.agent-run-decision-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.agent-run-decision-words {
+  display: flex;
+  gap: 6px;
+}
+.agent-run-decision-words .input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* What the run was shown: one quiet line under what it did. */
+.agent-run-seen {
+  margin-top: 6px;
+  font-size: var(--text-xs);
+  color: var(--text-4);
+  overflow-wrap: anywhere;
+}
+
 .agent-run-stop {
   flex: none;
 }
@@ -7823,6 +7908,28 @@ a.build-commit-sha:hover {
 
 .agent-run-reasoning {
   margin-top: 6px;
+}
+
+/* The answer as it is written: a draft, so quieter than the answer it becomes, and only
+   its newest lines — the box is pinned to the bottom, and the top fades rather than cuts
+   so it reads as text continuing above, not text missing. */
+.agent-run-draft {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-height: 7.5em;
+  margin-top: 8px;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-3);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 2.5em);
+  mask-image: linear-gradient(to bottom, transparent, #000 2.5em);
+}
+.agent-run-draft-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .agent-run-reasoning-toggle {

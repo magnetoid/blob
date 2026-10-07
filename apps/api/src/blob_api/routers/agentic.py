@@ -12,10 +12,11 @@ from pydantic import Field
 from ..db.engine import session_scope, transaction
 from ..lib import llm
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import forbidden, not_found, thread_gone
+from ..lib.errors import bad_request, forbidden, not_found, thread_gone
 from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
 from ..lib.redis import redis
+from ..plugins import decisions
 from ..plugins import events as plugin_events
 from ..realtime import hub
 from ..schemas.base import CamelModel, OkOut
@@ -28,6 +29,7 @@ from ..services import audit as audit_service
 from ..services import catchup as catchup_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
+from ..services import users as user_service
 from ..services.audit import actor_for
 from ..services.serialize import task_event
 
@@ -400,6 +402,53 @@ async def workspace_agent_runs(user: SessionUser = Depends(current_user)) -> Age
     return AgentRunsOut(runs=runs)
 
 
+class AgentRunHistoryOut(CamelModel):
+    runs: list[dict[str, Any]]
+    #: The id to pass as `before` for the page after this one; None at the oldest.
+    next_before: str | None = None
+
+
+@router.get("/api/agent-runs/history", response_model=AgentRunHistoryOut)
+async def agent_run_history(
+    channel_id: Annotated[IdParam | None, Query(alias="channelId")] = None,
+    plugin_id: Annotated[IdParam | None, Query(alias="pluginId")] = None,
+    agent_user_id: Annotated[IdParam | None, Query(alias="agentUserId")] = None,
+    before: IdParam | None = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 30,
+    user: SessionUser = Depends(current_user),
+) -> AgentRunHistoryOut:
+    """A conversation's runs, or one agent's, newest first and a page at a time.
+
+    The conversation's own list (`/api/channels/{id}/agent-runs`) is what a view folds in
+    on load — the live cards and the last hour. This is the history behind it, for a
+    member asking what an agent has been doing here, or anywhere they can see. A private
+    conversation they are not in answers 404, as it does everywhere; an agent's history
+    simply leaves such rooms out. An agent is named by its app (`pluginId`) or by the
+    member it is (`agentUserId`), which is how a client that talks to it knows it.
+    """
+    if channel_id is None and plugin_id is None and agent_user_id is None:
+        raise bad_request("Say which conversation or which agent.", code="invalid_input")
+    async with session_scope() as session:
+        if channel_id is not None:
+            await channel_service.assert_channel_access(session, user.id, channel_id)
+        if agent_user_id is not None:
+            plugin_id = await user_service.bot_plugin_of(session, user.workspace_id, agent_user_id)
+            if plugin_id is None:
+                raise not_found("There is no agent by that id.")
+        runs = await agent_run_service.history(
+            session,
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            channel_id=channel_id,
+            plugin_id=plugin_id,
+            before=before,
+            limit=limit + 1,
+        )
+    more = len(runs) > limit
+    page = runs[:limit]
+    return AgentRunHistoryOut(runs=page, next_before=page[-1]["id"] if more and page else None)
+
+
 @router.post("/api/agent-runs/{run_id}/cancel", response_model=OkOut)
 async def cancel_agent_run(
     run_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
@@ -451,14 +500,17 @@ async def cancel_agent_run(
 
 
 class AnswerInput(CamelModel):
-    """A free-text answer to the decision a run is waiting on.
+    """An answer to the decision a run is waiting on, from a client that has the run
+    rather than the message — the card, and Home.
 
-    The buttons go through `/api/interactions` like every other block; this is the same
-    entrance for a client that has the run rather than the message — and for text, which
-    the input block also submits through interactions. One service behind both.
+    `choice` is the place of one of the choices the run's view offers (`decision.choices`),
+    and Blob hands the agent the value the agent declared for it; `value` is words, for a
+    question that asked for words. Exactly one. The buttons on the message itself go
+    through `/api/interactions` like every other block; one service is behind both.
     """
 
-    value: str = Field(min_length=1, max_length=2000)
+    value: str | None = Field(default=None, min_length=1, max_length=2000)
+    choice: int | None = Field(default=None, ge=0, le=99)
     client_action_id: str | None = Field(default=None, max_length=64)
 
 
@@ -475,6 +527,8 @@ async def answer_agent_run(
     theirs. The answer is posted as their own message so the channel sees it as a
     decision, and the agent resumes with it. See `services/agent_chains.answer`.
     """
+    if (payload.value is None) == (payload.choice is None):
+        raise bad_request("Answer with a choice or with words.", code="invalid_input")
     await consume("send_message", user.id)
     async with transaction() as (session, after):
         answered = await agent_chains.answer(
@@ -484,8 +538,14 @@ async def answer_agent_run(
             run_id=run_id,
             user_id=user.id,
             user_name=user.display_name,
-            action_id=None,
-            value=payload.value,
+            # A choice is answered as its button would be: by its place among the
+            # choices the agent declared, which `payload_for` reads back to its value.
+            action_id=(
+                f"{decisions.ACTION_PREFIX}{run_id}:{payload.choice}"
+                if payload.choice is not None
+                else None
+            ),
+            value=payload.value or "",
             client_action_id=payload.client_action_id,
         )
         await audit_service.record(

@@ -924,6 +924,9 @@ class AgentRunOut(CamelModel):
     asked_by: str | None = None
     #: Tokens the agent reported for the run, or None if it reported none.
     tokens: int | None = None
+    #: What it did — the card it left — and what it was shown, for opening one run.
+    card: dict[str, Any] | None = None
+    seen: dict[str, Any] | None = None
 
 
 class AgentRunsOut(CamelModel):
@@ -964,6 +967,8 @@ async def list_runs(
                 depth=run.depth,
                 asked_by=run.asked_by,
                 tokens=run.tokens,
+                card=run.card,
+                seen=run.seen,
                 started_at=require_iso(run.started_at),
                 finished_at=iso(run.finished_at),
                 duration_ms=(

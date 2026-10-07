@@ -8,8 +8,9 @@ import {
   useState,
   type RefObject,
 } from "react";
-import type { AgentRunView, AgentTask } from "@blob/shared";
+import type { AgentTask } from "@blob/shared";
 import { api, type WorkspaceAgent } from "../../lib/api.ts";
+import { useRunIdsByMessage } from "../../lib/useRuns.ts";
 import { useStore } from "../../lib/store.ts";
 import { showError } from "../../lib/toasts.ts";
 import { draftKey } from "../../lib/drafts.ts";
@@ -121,16 +122,10 @@ export function ThreadPanel({
   });
 
   const [alsoSend, setAlsoSend] = useState(false);
+  // The runs under the replies here, as ids: a running card redraws itself, not the
+  // thread. The root's own runs anchor in the channel, where the root is.
+  const runIdsByMessageId = useRunIdsByMessage(null, rootId);
   // The send wrapper below runs outside render and needs the current checkbox value.
-  const agentRuns = useStore((s) => s.agentRuns);
-  const runsByMessageId = useMemo(() => {
-    const map: Record<string, AgentRunView[]> = {};
-    for (const run of Object.values(agentRuns)) {
-      if (run.threadRootId !== rootId || !run.triggerMessageId) continue;
-      (map[run.triggerMessageId] ??= []).push(run);
-    }
-    return map;
-  }, [agentRuns, rootId]);
 
   const alsoSendRef = useRef(alsoSend);
   useEffect(() => {
@@ -289,7 +284,7 @@ export function ThreadPanel({
       <MessageList
         conversationId={rootId}
         messages={thread ?? []}
-        runsByMessageId={runsByMessageId}
+        runIdsByMessageId={runIdsByMessageId}
         hasMore={false}
         loading={!thread}
         onLoadOlder={() => {}}

@@ -106,6 +106,10 @@ def payload_for(decision: Decision, action_id: str | None, value: str) -> tuple[
     the declared value is what the agent receives, and the two differ when a schema says
     `{"const": true, "title": "Yes"}`. Free text answers with itself.
     """
+    if action_id is None and decision.choices:
+        # The run route's words, to a question that offered choices: the agent declared
+        # what it can take — a boolean, one of an enum — and a sentence is none of them.
+        raise bad_request("Pick one of the choices offered.", code="choice_required")
     if action_id is None or action_id.endswith(f":{TEXT_MARKER}"):
         answer = value.strip()
         if not answer:

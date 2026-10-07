@@ -1478,6 +1478,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent-runs/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agent Run History
+         * @description A conversation's runs, or one agent's, newest first and a page at a time.
+         *
+         *     The conversation's own list (`/api/channels/{id}/agent-runs`) is what a view folds in
+         *     on load — the live cards and the last hour. This is the history behind it, for a
+         *     member asking what an agent has been doing here, or anywhere they can see. A private
+         *     conversation they are not in answers 404, as it does everywhere; an agent's history
+         *     simply leaves such rooms out. An agent is named by its app (`pluginId`) or by the
+         *     member it is (`agentUserId`), which is how a client that talks to it knows it.
+         */
+        get: operations["agent_run_history_api_agent_runs_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents": {
         parameters: {
             query?: never;
@@ -3776,10 +3803,23 @@ export interface components {
             /** Userid */
             userId?: string | null;
         };
+        /** AgentRunHistoryOut */
+        AgentRunHistoryOut: {
+            /** Nextbefore */
+            nextBefore?: string | null;
+            /** Runs */
+            runs: {
+                [key: string]: unknown;
+            }[];
+        };
         /** AgentRunOut */
         AgentRunOut: {
             /** Askedby */
             askedBy?: string | null;
+            /** Card */
+            card?: {
+                [key: string]: unknown;
+            } | null;
             /** Channelid */
             channelId: string;
             /** Channelname */
@@ -3799,6 +3839,10 @@ export interface components {
             id: string;
             /** Postcount */
             postCount: number;
+            /** Seen */
+            seen?: {
+                [key: string]: unknown;
+            } | null;
             /** Startedat */
             startedAt: string;
             /** Status */
@@ -3868,17 +3912,21 @@ export interface components {
         };
         /**
          * AnswerInput
-         * @description A free-text answer to the decision a run is waiting on.
+         * @description An answer to the decision a run is waiting on, from a client that has the run
+         *     rather than the message — the card, and Home.
          *
-         *     The buttons go through `/api/interactions` like every other block; this is the same
-         *     entrance for a client that has the run rather than the message — and for text, which
-         *     the input block also submits through interactions. One service behind both.
+         *     `choice` is the place of one of the choices the run's view offers (`decision.choices`),
+         *     and Blob hands the agent the value the agent declared for it; `value` is words, for a
+         *     question that asked for words. Exactly one. The buttons on the message itself go
+         *     through `/api/interactions` like every other block; one service is behind both.
          */
         AnswerInput: {
+            /** Choice */
+            choice?: number | null;
             /** Clientactionid */
             clientActionId?: string | null;
             /** Value */
-            value: string;
+            value?: string | null;
         };
         /** AppChannel */
         AppChannel: {
@@ -6735,6 +6783,7 @@ export type AdminUsersOut = components['schemas']['AdminUsersOut'];
 export type AgentChannel = components['schemas']['AgentChannel'];
 export type AgentChannelsOut = components['schemas']['AgentChannelsOut'];
 export type AgentOwnerInput = components['schemas']['AgentOwnerInput'];
+export type AgentRunHistoryOut = components['schemas']['AgentRunHistoryOut'];
 export type AgentRunOut = components['schemas']['AgentRunOut'];
 export type AgentTask = components['schemas']['AgentTask'];
 export type AnswerInput = components['schemas']['AnswerInput'];
@@ -9496,6 +9545,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_run_history_api_agent_runs_history_get: {
+        parameters: {
+            query?: {
+                agentUserId?: string | null;
+                before?: string | null;
+                channelId?: string | null;
+                limit?: number;
+                pluginId?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunHistoryOut"];
                 };
             };
             /** @description Validation Error */

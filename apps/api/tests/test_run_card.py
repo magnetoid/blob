@@ -10,6 +10,7 @@ from blob_api.plugins.run_card import (
     MAX_ARG_CHARS,
     MAX_REASONING_CHARS,
     MAX_STEPS,
+    MAX_TEXT_TAIL_CHARS,
     MAX_TOOLS,
     CardFold,
 )
@@ -102,12 +103,49 @@ def test_unknown_events_are_inert() -> None:
     assert not card.has_content
 
 
-def test_text_progress_is_counted_not_kept() -> None:
+def test_the_answer_being_written_is_a_bounded_draft_on_the_card() -> None:
     card = CardFold()
-    card.feed({"type": "TEXT_MESSAGE_CONTENT", "delta": "hello "})
-    card.feed({"type": "TEXT_MESSAGE_CONTENT", "delta": "world"})
+    # Nothing to show yet, so nothing to send.
+    assert not card.feed({"type": "TEXT_MESSAGE_START", "messageId": "m1", "role": "assistant"})
+    assert card.feed({"type": "TEXT_MESSAGE_CONTENT", "messageId": "m1", "delta": "hello "})
+    assert card.feed({"type": "TEXT_MESSAGE_CONTENT", "messageId": "m1", "delta": "world"})
     snapshot = card.snapshot()
     assert snapshot["textChars"] == 11
+    assert snapshot["textTail"] == "hello world"
+
+    card.feed({"type": "TEXT_MESSAGE_CONTENT", "messageId": "m1", "delta": "x" * 5000})
+    assert len(card.snapshot()["textTail"]) == MAX_TEXT_TAIL_CHARS
+
+
+def test_a_new_message_starts_the_draft_again() -> None:
+    card = CardFold()
+    card.feed({"type": "TEXT_MESSAGE_CHUNK", "messageId": "m1", "delta": "first"})
+    card.feed({"type": "TEXT_MESSAGE_END", "messageId": "m1"})
+    assert card.snapshot()["textTail"] == "first"
+    assert card.feed({"type": "TEXT_MESSAGE_START", "messageId": "m2"})
+    card.feed({"type": "TEXT_MESSAGE_CONTENT", "messageId": "m2", "delta": "second"})
+    assert card.snapshot()["textTail"] == "second"
+
+
+def test_a_quote_of_the_person_is_never_the_agents_draft() -> None:
+    # The rule `agui.Fold` applies to what is posted, applied to what is previewed.
+    card = CardFold()
+    assert not card.feed({"type": "TEXT_MESSAGE_START", "messageId": "q", "role": "user"})
+    assert not card.feed({"type": "TEXT_MESSAGE_CONTENT", "messageId": "q", "delta": "you said"})
+    assert not card.feed(
+        {"type": "TEXT_MESSAGE_CHUNK", "messageId": "c", "role": "user", "delta": "x"}
+    )
+    assert card.snapshot()["textTail"] is None
+    assert card.snapshot()["textChars"] == 0
+
+
+def test_the_draft_goes_once_it_is_posted_and_is_never_kept_on_the_row() -> None:
+    card = CardFold()
+    card.feed({"type": "TEXT_MESSAGE_CONTENT", "messageId": "m1", "delta": "done"})
+    assert card.snapshot(final=True)["textTail"] is None
+    assert card.posted()
+    assert card.snapshot()["textTail"] is None
+    assert not card.posted()
 
 
 def test_an_activity_in_the_1_0_shape_is_read_from_its_content() -> None:

@@ -58,8 +58,11 @@ async def _nothing() -> None:
     """What a recorded `enqueue` hands to `fire_and_forget`."""
 
 
-@pytest_asyncio.fixture
-async def desk(client: Client, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+@pytest_asyncio.fixture(name="desk")
+async def desk_fixture(client: Client, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """Owner, member, #general, an AG-UI agent in it answering from scripts, and every
+    job enqueue and socket frame recorded. Named apart from the parameter it fills so a
+    module importing it (`test_run_transparency.py`) does not shadow it."""
     owner = await sign_up(client, "Owner")
     member = await invite_and_sign_up(owner, "Member")
     general = (await owner.get("/api/channels")).body["channels"][0]["id"]

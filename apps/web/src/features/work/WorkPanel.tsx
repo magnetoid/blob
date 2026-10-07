@@ -9,10 +9,11 @@
  * published, with a viewer. Preview is every page and document, each run on request.
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { AgentRunView, Work, WorkArtifact } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
+import { useRun, useRunIds } from "../../lib/useRuns.ts";
 import { showError } from "../../lib/toasts.ts";
 import { AgentRunCard } from "../messages/AgentRunCard.tsx";
 import { diffStats, parseDiff } from "./diff.ts";
@@ -77,6 +78,16 @@ export function WorkPanel({
   return <PreviewTab artifacts={artifacts.filter((a) => a.kind !== "diff")} />;
 }
 
+/** One run on the plan tab, subscribed to its own run. */
+function PlanRun({ runId }: { runId: string }) {
+  const run = useRun(runId);
+  return run ? (
+    <div>
+      <AgentRunCard run={run} />
+    </div>
+  ) : null;
+}
+
 function PlanTab({
   channelId,
   work,
@@ -84,16 +95,14 @@ function PlanTab({
   channelId: string;
   work: Work | null;
 }) {
-  const runs = useStore((s) => s.agentRuns);
   const currentUser = useStore((s) => s.currentUser);
   const displayNameOf = useStore((s) => s.displayNameOf);
   const [finishing, setFinishing] = useState(false);
-  const here = useMemo(
-    () =>
-      Object.values(runs)
-        .filter((run: AgentRunView) => run.channelId === channelId)
-        .sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1)),
-    [runs, channelId],
+  // The plan is every run here, newest first, as ids: the tab redraws when a run joins,
+  // and each card as its own run moves.
+  const here = useRunIds(
+    (run: AgentRunView) => run.channelId === channelId,
+    (a, b) => (a.startedAt < b.startedAt ? 1 : -1),
   );
   const mayFinish =
     work?.status === "open" &&
@@ -139,10 +148,8 @@ function PlanTab({
         </p>
       ) : (
         <div className="work-runs">
-          {here.map((run) => (
-            <div key={run.id}>
-              <AgentRunCard run={run} />
-            </div>
+          {here.map((runId) => (
+            <PlanRun key={runId} runId={runId} />
           ))}
         </div>
       )}
