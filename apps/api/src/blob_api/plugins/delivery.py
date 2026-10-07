@@ -24,7 +24,6 @@ import asyncio
 import json
 import logging
 import random
-import time
 from typing import Any
 
 import httpx
@@ -32,8 +31,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import transaction
+from ..lib.errors import bad_request, not_found
 from . import recent_errors
-from .signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
+from .signing import signed_headers
 
 log = logging.getLogger("blob.plugins.delivery")
 
@@ -129,11 +129,8 @@ async def lease_due(limit: int = BATCH) -> list[Any]:
 async def post(url: str, secret: str, payload: dict[str, Any], delivery_id: str) -> tuple[int, str]:
     """POST one signed delivery. Returns (status code, error text); 0 means no response."""
     body = json.dumps(payload, separators=(",", ":")).encode()
-    timestamp = int(time.time())
     headers = {
-        "content-type": "application/json",
-        TIMESTAMP_HEADER: str(timestamp),
-        SIGNATURE_HEADER: sign(secret, timestamp, body),
+        **signed_headers(secret, body),
         # Apps dedupe on this: a retry after a timeout carries the same id as the
         # attempt that may in fact have succeeded.
         "x-blob-delivery-id": delivery_id,
@@ -321,3 +318,85 @@ async def drain(max_passes: int = 5) -> int:
         if handled < BATCH:
             break
     return total
+
+
+# --------------------------------------------------------------------------------------
+# The delivery log, as the console reads it (`routers/plugin_logs.py`): the outbox above
+# is what it lists, and a replay puts a row back in it. Moved here from
+# `plugins/registry.py` in phase 8 of the agentic review.
+# --------------------------------------------------------------------------------------
+
+
+DELIVERY_COLUMNS = (
+    "id, event, status, attempts, last_status_code, last_error,"
+    " created_at, delivered_at, next_attempt_at"
+)
+
+
+async def deliveries(session: AsyncSession, plugin_id: str, *, limit: int) -> list[Any]:
+    """The delivery log — the first place to look when an app says it heard nothing."""
+    return list(
+        (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT {DELIVERY_COLUMNS}
+                      FROM plugin_deliveries
+                     WHERE plugin_id = :id
+                     ORDER BY id DESC
+                     LIMIT :limit
+                    """
+                ),
+                {"id": plugin_id, "limit": limit},
+            )
+        ).fetchall()
+    )
+
+
+async def delivery(session: AsyncSession, plugin_id: str, delivery_id: str) -> Any:
+    """One delivery in full, including the payload the app was sent."""
+    row = (
+        await session.execute(
+            text(
+                f"""
+                SELECT {DELIVERY_COLUMNS}, payload
+                  FROM plugin_deliveries
+                 WHERE id = :id AND plugin_id = :plugin_id
+                """
+            ),
+            {"id": delivery_id, "plugin_id": plugin_id},
+        )
+    ).fetchone()
+    if row is None:
+        raise not_found("That delivery is not in this app's log.")
+    return row
+
+
+async def replay_delivery(session: AsyncSession, plugin_id: str, delivery_id: str) -> Any:
+    """Put a failed or dead delivery back in the queue, as if it had never been tried."""
+    row = (
+        await session.execute(
+            text(
+                f"""
+                UPDATE plugin_deliveries
+                   SET status = 'pending', attempts = 0, next_attempt_at = now(),
+                       last_error = NULL, last_status_code = NULL, delivered_at = NULL
+                 WHERE id = :id AND plugin_id = :plugin_id
+                   AND status IN ('failed', 'dead')
+                RETURNING {DELIVERY_COLUMNS}
+                """
+            ),
+            {"id": delivery_id, "plugin_id": plugin_id},
+        )
+    ).fetchone()
+    if row is not None:
+        return row
+    existing = (
+        await session.execute(
+            text("SELECT id FROM plugin_deliveries WHERE id = :id AND plugin_id = :plugin_id"),
+            {"id": delivery_id, "plugin_id": plugin_id},
+        )
+    ).fetchone()
+    if existing is None:
+        raise not_found("That delivery is not in this app's log.")
+    raise bad_request("Only a failed or dead delivery can be replayed.", code="not_replayable")

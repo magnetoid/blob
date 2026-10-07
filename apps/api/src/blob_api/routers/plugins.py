@@ -7,23 +7,25 @@ deliberate rather than incidental:
 install call and never again — only their hash, or nothing at all, is stored. Rotating is
 the recovery path, not retrieval.
 
-**Local plugins cannot be installed through this API.** Installing one is equivalent to
-deploying server code: it runs in this process, with this process's database credentials
-and environment. Making that a filesystem-plus-restart operation means it goes through
-whatever review a deploy goes through, instead of being something an admin session can do
-to the server. This endpoint registers external apps only.
+**Every app runs outside this process.** There is no in-process runtime to install
+(ADR 0009, superseded): an app is at an address, in a container Blob hosts, or dialling
+in, and holds exactly the scopes an admin approved.
+
+What an app *is* lives here — installing, approving, switching on and off, credentials,
+channels, uninstalling. What an agent is told and may do is `routers/plugin_controls.py`,
+and what it did — runs, their events, its memory, its deliveries — is
+`routers/plugin_logs.py`. All three share this prefix and `PluginOut`.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import PlainTextResponse
-from pydantic import Field, field_validator
 
 from ..db.engine import session_scope, transaction
 from ..lib import net
@@ -32,14 +34,11 @@ from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam
 from ..plugins import gateway, recent_errors, registry
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
-from ..schemas.base import CamelModel, OkOut, iso, require_iso
-from ..schemas.models import AgentMemory
+from ..schemas.base import CamelModel, OkOut, iso
 from ..services import agent_runs as agent_run_service
-from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import commands as command_service
-from ..services import janus_agent
 from ..services import policies as policy_service
 from ..services.audit import actor_for
 from ..tools import agent_bridge
@@ -77,6 +76,10 @@ class PluginOut(CamelModel):
     #: The newest ten errors with their times, newest first. Switching the app back on
     #: clears `last_error` and not these: they are its history (migration 0052).
     recent_errors: list[RecentErrorOut] = []
+    #: When its signing secret was last rotated, and when any live bot token of its was
+    #: last used — what an admin wants to know before rotating or revoking either.
+    secret_rotated_at: str | None = None
+    token_last_used_at: str | None = None
     created_at: str
     updated_at: str
     #: Queued and failed counts, so a broken app is visible without reading logs.
@@ -156,58 +159,12 @@ class InstalledOut(CamelModel):
     bot_token: str
 
 
-class DeliveryOut(CamelModel):
-    id: str
-    event: str
-    status: str
-    attempts: int
-    last_status_code: int | None = None
-    last_error: str | None = None
-    created_at: str
-    delivered_at: str | None = None
-    #: Only meaningful while a delivery is still pending. On a delivered or dead row the
-    #: column holds whatever the last lease stamped, which reads as a retry that is never
-    #: going to happen.
-    next_attempt_at: str | None = None
-
-
-class DeliveriesOut(CamelModel):
-    deliveries: list[DeliveryOut]
-
-
-class DeliveryDetailOut(DeliveryOut):
-    """One delivery, with the body the app was sent.
-
-    Kept off the list on purpose: 200 payloads is a lot of JSON to send someone who is
-    looking for which delivery failed, and the answer to "what did it actually receive"
-    is only ever asked about one row at a time.
-    """
-
-    payload: dict[str, Any]
-
-
 class TokenOut(CamelModel):
     bot_token: str
 
 
 class SecretOut(CamelModel):
     signing_secret: str
-
-
-def _to_delivery(row: Any) -> DeliveryOut:
-    return DeliveryOut(
-        id=row.id,
-        event=row.event,
-        status=row.status,
-        attempts=row.attempts,
-        last_status_code=row.last_status_code,
-        last_error=row.last_error,
-        created_at=iso(row.created_at),
-        delivered_at=iso(row.delivered_at) if row.delivered_at else None,
-        next_attempt_at=(
-            iso(row.next_attempt_at) if row.status == "pending" and row.next_attempt_at else None
-        ),
-    )
 
 
 async def _to_plugin(session: Any, row: Any) -> PluginOut:
@@ -222,6 +179,7 @@ async def _to_plugins(session: Any, rows: Sequence[Any]) -> list[PluginOut]:
     scopes_by, counts_by, bots_by, channels_by = await registry.listing_details(session, ids)
     usage_by = await agent_run_service.usage_by_plugin(session, ids)
     activity_by = await agent_run_service.activity_by_plugin(session, ids)
+    credentials_by = await registry.credential_times(session, ids)
 
     return [
         await _build_plugin(
@@ -232,6 +190,7 @@ async def _to_plugins(session: Any, rows: Sequence[Any]) -> list[PluginOut]:
             usage=usage_by.get(str(row.id)),
             activity=activity_by.get(str(row.id)),
             channel_count=channels_by.get(str(row.id), 0),
+            credentials=credentials_by.get(str(row.id)),
         )
         for row in rows
     ]
@@ -246,6 +205,7 @@ async def _build_plugin(
     usage: tuple[int, int, int] | None = None,
     activity: tuple[int, int] | None = None,
     channel_count: int = 0,
+    credentials: Any = None,
 ) -> PluginOut:
     return PluginOut(
         id=row.id,
@@ -291,6 +251,12 @@ async def _build_plugin(
         channel_count=channel_count,
         in_every_public_channel=bool(getattr(row, "in_every_public_channel", False)),
         instructions=getattr(row, "instructions", None),
+        secret_rotated_at=iso(credentials.rotated_at) if credentials else None,
+        token_last_used_at=(
+            iso(credentials.token_used_at)
+            if credentials is not None and credentials.token_used_at
+            else None
+        ),
     )
 
 
@@ -358,12 +324,7 @@ async def install_plugin(
             "not a manifest — POST /api/admin/plugins/from-repo.",
             code="use_from_repo",
         )
-    if manifest.runtime == "local":
-        raise bad_request(
-            "Local plugins are installed on the filesystem and loaded at boot, not "
-            "through the console — installing one is equivalent to deploying code.",
-            code="local_not_installable",
-        )
+
     async with session_scope() as session:
         policy = await policy_service.effective_for(session, admin.workspace_id)
         await policy_service.assert_within_policy(
@@ -613,258 +574,6 @@ async def set_enabled(
         return await _to_plugin(session, row)
 
 
-class BudgetInput(CamelModel):
-    """Daily caps. None lifts one; both None means unlimited, which is the default."""
-
-    runs_per_day: int | None = None
-    seconds_per_day: int | None = None
-
-
-@router.post("/{plugin_id}/budget", response_model=PluginOut)
-async def set_budget(
-    plugin_id: IdParam,
-    payload: BudgetInput,
-    request: Request,
-    admin: SessionUser = Depends(require_admin),
-) -> PluginOut:
-    """Cap what an agent may spend in a trailing day — runs begun and seconds occupied.
-
-    Measured in what Blob observes rather than tokens, which belong to the agent's own
-    provider. A capped agent's next mention gets a refused run card in the channel, not
-    silence, so hitting the ceiling is visible where the mention happened.
-    """
-    for name, value in (
-        ("runsPerDay", payload.runs_per_day),
-        ("secondsPerDay", payload.seconds_per_day),
-    ):
-        if value is not None and not 1 <= value <= 1_000_000:
-            raise bad_request(
-                f"{name} must be between 1 and 1000000, or null.", code="invalid_input"
-            )
-    async with transaction() as (session, _after):
-        await registry.set_budget(
-            session,
-            plugin_id,
-            admin.workspace_id,
-            runs_per_day=payload.runs_per_day,
-            seconds_per_day=payload.seconds_per_day,
-        )
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "plugin.budget_set",
-            target_type="plugin",
-            target_id=plugin_id,
-            metadata={
-                "runsPerDay": payload.runs_per_day,
-                "secondsPerDay": payload.seconds_per_day,
-            },
-        )
-        row = await registry.by_id(session, plugin_id, admin.workspace_id)
-        return await _to_plugin(session, row)
-
-
-def _assert_the_workspace_may_direct(row: Any, *, owned: str, not_seeded: str) -> None:
-    """Both controls below are the workspace's word about **the agent Blob seeded**.
-
-    Two refusals rather than one, because they call for different answers. An agent with
-    an owner answers that person and whoever they lent it to (ADR 0018), so the
-    workspace's word would be spoken through somebody's private assistant — that is
-    `agent_is_owned`, and it is checked first because it is the case an admin can undo.
-
-    Anything else holding neither identity is an app somebody registered: it never
-    declared a field for a workspace prompt, and seating it in every public channel
-    founded from now on widens how far its `messages:write` reaches without an admin ever
-    seeing themselves widen it. The property the migration claims is held here, not on the
-    page that hides the field — the page is a courtesy; this is the lock.
-    """
-    if getattr(row, "owner_user_id", None) is not None:
-        raise bad_request(owned, code="agent_is_owned")
-    if not janus_agent.is_seeded_row(row):
-        raise bad_request(not_seeded, code="agent_not_seeded")
-
-
-class InstructionsInput(CamelModel):
-    """What the workspace tells its agent. Empty, blank or an explicit null clears it.
-
-    `text` is required, with no default: `extra="ignore"` is the wire's rule, so a body
-    with the key misspelt or missing would otherwise arrive as "clear it" and wipe the
-    workspace's prompt with nothing on screen to say why.
-
-    4000 characters is Janus's ceiling for `forwardedProps.instructions`; a longer text
-    would be refused at the far end after the admin had been told it was saved.
-    """
-
-    text: str | None = Field(max_length=4000)
-
-    @field_validator("text", mode="before")
-    @classmethod
-    def _trim_before_measuring(cls, value: Any) -> Any:
-        """Trimmed before the length check, not after it.
-
-        A textarea hands back what was typed plus the newline the person ended on, and
-        measuring first refused a 4000-character instruction over a character that is
-        never stored.
-        """
-        return value.strip() if isinstance(value, str) else value
-
-
-@router.post("/{plugin_id}/instructions", response_model=PluginOut)
-async def set_instructions(
-    plugin_id: IdParam,
-    payload: InstructionsInput,
-    request: Request,
-    admin: SessionUser = Depends(require_admin),
-) -> PluginOut:
-    """Set (or clear) the standing instruction this workspace sends with every run.
-
-    It travels as `forwardedProps.instructions` on the run input, which the agent reads
-    as an ephemeral system prompt for that run — Blob keeps no copy in the conversation
-    and the agent keeps none between runs. Per workspace rather than in the agent's own
-    configuration because one Janus container serves every workspace on the instance.
-    """
-    async with transaction() as (session, _after):
-        existing = await registry.by_id(session, plugin_id, admin.workspace_id)
-        _assert_the_workspace_may_direct(
-            existing,
-            owned="A person's own agent is not the workspace's to instruct.",
-            not_seeded="Only the agent Blob seeds takes workspace instructions.",
-        )
-        stored = await registry.set_instructions(
-            session, plugin_id, admin.workspace_id, payload.text
-        )
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "plugin.instructions_set",
-            target_type="plugin",
-            target_id=plugin_id,
-            # The length, never the text: the log is read by people who are not entitled
-            # to the workspace's prompt, and "somebody changed it, by this much" is the
-            # forensic fact.
-            metadata={"pluginId": plugin_id, "length": len(stored or "")},
-        )
-        row = await registry.by_id(session, plugin_id, admin.workspace_id)
-        return await _to_plugin(session, row)
-
-
-class EverywhereInput(CamelModel):
-    #: Required, for the reason `InstructionsInput.text` is: an absent key must not read
-    #: as "off" and quietly stand the agent down from every room founded afterwards.
-    enabled: bool
-
-
-@router.post("/{plugin_id}/everywhere", response_model=PluginOut)
-async def set_everywhere(
-    plugin_id: IdParam,
-    payload: EverywhereInput,
-    request: Request,
-    admin: SessionUser = Depends(require_admin),
-) -> PluginOut:
-    """Whether this agent joins public channels founded from now on.
-
-    Where the bot goes next, and nothing else. No channel that already exists gains the
-    bot or loses it — today's rooms are the channels list's business, one join at a time
-    and visible as itself — and the boot-time backfill in `services/janus_agent.ensure`
-    reads the same switch, so turning it off still means it after the next deploy.
-
-    What it deliberately does *not* decide is whether this is the workspace's resident
-    agent: that is the agent's identity (`services/janus_agent.SEEDED_AGENT`), read by
-    `services/users.list_users` for the home view. It used to be this flag, so choosing
-    invitation-only also stopped the home view addressing the agent at all.
-    """
-    async with transaction() as (session, _after):
-        existing = await registry.by_id(session, plugin_id, admin.workspace_id)
-        _assert_the_workspace_may_direct(
-            existing,
-            owned="A person's own agent is not the workspace's to place.",
-            not_seeded="Only the agent Blob seeds is placed in every public channel.",
-        )
-        await registry.set_in_every_public_channel(
-            session, plugin_id, admin.workspace_id, payload.enabled
-        )
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "plugin.everywhere_set",
-            target_type="plugin",
-            target_id=plugin_id,
-            metadata={"pluginId": plugin_id, "enabled": payload.enabled},
-        )
-        row = await registry.by_id(session, plugin_id, admin.workspace_id)
-        return await _to_plugin(session, row)
-
-
-class ToolsInput(CamelModel):
-    #: Required: an absent key must not read as "none" and quietly take an agent's tools.
-    access: Literal["none", "read", "write"]
-
-
-@router.post("/{plugin_id}/tools", response_model=PluginOut)
-async def set_tool_access(
-    plugin_id: IdParam,
-    payload: ToolsInput,
-    request: Request,
-    admin: SessionUser = Depends(require_admin),
-) -> PluginOut:
-    """What this agent may do in the workspace with Blob's tools (ADR 0022).
-
-    `read`: it may list, read and search channels and list people — as the person who
-    asked it something, and only inside the room it was asked in (public channels and
-    that room; the person's whole reach only in its own DM with them). `write`: also post,
-    as itself, and every post waits for that person to approve it. `none` is the default.
-    """
-    async with transaction() as (session, _after):
-        existing = await registry.by_id(session, plugin_id, admin.workspace_id)
-        if payload.access != "none" and not (existing.agui_url or existing.runtime == "socket"):
-            raise bad_request(
-                "Only an agent that answers over AG-UI can be offered Blob's tools.",
-                code="not_an_agent",
-            )
-        await registry.set_tool_access(session, plugin_id, admin.workspace_id, payload.access)
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "plugin.tools_set",
-            target_type="plugin",
-            target_id=plugin_id,
-            metadata={"pluginId": plugin_id, "access": payload.access},
-        )
-        row = await registry.by_id(session, plugin_id, admin.workspace_id)
-        return await _to_plugin(session, row)
-
-
-class ReasoningInput(CamelModel):
-    shown: bool
-
-
-@router.post("/{plugin_id}/reasoning", response_model=PluginOut)
-async def set_reasoning_shown(
-    plugin_id: IdParam,
-    payload: ReasoningInput,
-    request: Request,
-    admin: SessionUser = Depends(require_admin),
-) -> PluginOut:
-    """Whether this agent's run cards show its reasoning to the channel.
-
-    Off by default: the card is the whole channel's, and an agent's working-out is where
-    it narrates what it read — from tools and memory of its own that reach past the room.
-    Turned on for an agent whose reasoning is worth reading and safe to share.
-    """
-    async with transaction() as (session, _after):
-        await registry.set_shows_reasoning(session, plugin_id, admin.workspace_id, payload.shown)
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "plugin.reasoning_set",
-            target_type="plugin",
-            target_id=plugin_id,
-            metadata={"pluginId": plugin_id, "shown": payload.shown},
-        )
-        row = await registry.by_id(session, plugin_id, admin.workspace_id)
-        return await _to_plugin(session, row)
-
-
 @router.post("/{plugin_id}/secret", response_model=SecretOut)
 async def rotate_secret(
     plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
@@ -914,256 +623,6 @@ async def revoke_tokens(
             target_id=plugin_id,
         )
     return OkOut()
-
-
-class AgentRunOut(CamelModel):
-    id: str
-    channel_id: str
-    channel_name: str | None = None
-    thread_root_id: IdParam | None = None
-    trigger_message_id: IdParam | None = None
-    trigger_user_name: str | None = None
-    transport: str
-    status: str
-    error: str | None = None
-    post_count: int
-    started_at: str
-    finished_at: str | None = None
-    #: Milliseconds, computed here so the console does not do date arithmetic to show
-    #: the one number that says whether an agent is slow.
-    duration_ms: int | None = None
-    #: Hops from the person who rooted the chain; 0 when they mentioned it themselves.
-    depth: int = 0
-    #: The agent whose reply asked this one, when depth > 0. ADR 0013.
-    asked_by: str | None = None
-    #: Tokens the agent reported for the run, or None if it reported none.
-    tokens: int | None = None
-    #: What it did — the card it left — and what it was shown, for opening one run.
-    card: dict[str, Any] | None = None
-    seen: dict[str, Any] | None = None
-
-
-class AgentRunsOut(CamelModel):
-    runs: list[AgentRunOut]
-
-
-class RunEventOut(CamelModel):
-    #: Milliseconds from the start of the run.
-    ms: int
-    #: Which round of a run that used Blob's tools it arrived in, from 0.
-    round: int
-    #: The AG-UI event, cut down (`plugins/run_trail.py`).
-    event: dict[str, Any]
-
-
-class RunEventsOut(CamelModel):
-    """What one run streamed: the newest 200 of `total` events."""
-
-    #: The run was in a room the viewer cannot see, so its events are kept from them.
-    hidden: bool
-    total: int
-    events: list[RunEventOut]
-    #: When the nightly sweep empties them; the run itself stays for its thirty days.
-    kept_until: str
-
-
-class AgentMemoriesOut(CamelModel):
-    memories: list[AgentMemory]
-
-
-@router.get("/{plugin_id}/memory", response_model=AgentMemoriesOut)
-async def agent_memory(
-    plugin_id: IdParam, admin: SessionUser = Depends(require_admin)
-) -> AgentMemoriesOut:
-    """What this agent remembers of conversations — the memories nobody owns — in the
-    conversations you can see.
-
-    A memory is made of what was said in the room, so a private room you are not in keeps
-    its agent's memory out of your sight as it keeps its messages. A person's own memory
-    with an agent they own or borrow is theirs, in their Settings, and never listed here.
-    """
-    async with session_scope() as session:
-        await registry.by_id(session, plugin_id, admin.workspace_id)
-        memories = await agent_state_service.for_conversations(
-            session, workspace_id=admin.workspace_id, plugin_id=plugin_id, viewer_id=admin.id
-        )
-    return AgentMemoriesOut(memories=memories)
-
-
-async def _forget_conversations(
-    request: Request, admin: SessionUser, plugin_id: str, memory_id: str | None
-) -> None:
-    async with transaction() as (session, _after):
-        await registry.by_id(session, plugin_id, admin.workspace_id)
-        forgotten = await agent_state_service.forget_conversations(
-            session, workspace_id=admin.workspace_id, plugin_id=plugin_id, memory_id=memory_id
-        )
-        if memory_id is not None and not forgotten:
-            raise not_found("That memory is already gone.")
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "agent.memory_forgotten",
-            target_type="plugin",
-            target_id=plugin_id,
-            metadata={"memoryId": memory_id, "count": forgotten},
-        )
-
-
-@router.delete("/{plugin_id}/memory/{memory_id}", response_model=OkOut)
-async def forget_agent_memory(
-    plugin_id: IdParam,
-    memory_id: IdParam,
-    request: Request,
-    admin: SessionUser = Depends(require_admin),
-) -> OkOut:
-    """Clear one conversation's memory of this agent — an agent that learned something
-    wrong there starts it fresh."""
-    await _forget_conversations(request, admin, plugin_id, memory_id)
-    return OkOut()
-
-
-@router.delete("/{plugin_id}/memory", response_model=OkOut)
-async def forget_all_agent_memory(
-    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
-) -> OkOut:
-    """Clear every conversation's memory of this agent, including rooms you are not in —
-    clearing reveals nothing of them. People's own memories with it are untouched."""
-    await _forget_conversations(request, admin, plugin_id, None)
-    return OkOut()
-
-
-@router.get("/{plugin_id}/runs", response_model=AgentRunsOut)
-async def list_runs(
-    plugin_id: IdParam,
-    limit: Annotated[int, Query(ge=1, le=100)] = 30,
-    admin: SessionUser = Depends(require_admin),
-) -> AgentRunsOut:
-    """What happened the last few times this agent was asked something.
-
-    The delivery log answers "did the app hear us"; this answers "did it manage to
-    reply, and if not why". Before it existed the only record was `plugins.last_error`,
-    which the next failure overwrote — so a run that failed, one that finished quietly
-    and said nothing, and one that never started were indistinguishable.
-    """
-    async with session_scope() as session:
-        await registry.by_id(session, plugin_id, admin.workspace_id)
-        runs = await agent_run_service.list_for_plugin(
-            session, admin.workspace_id, plugin_id, admin.id, limit=limit
-        )
-    return AgentRunsOut(
-        runs=[
-            AgentRunOut(
-                id=run.id,
-                channel_id=run.channel_id,
-                channel_name=run.channel_name,
-                thread_root_id=run.thread_root_id,
-                trigger_message_id=run.trigger_message_id,
-                trigger_user_name=run.trigger_user_name,
-                transport=run.transport,
-                status=run.status,
-                error=run.error,
-                post_count=run.post_count,
-                depth=run.depth,
-                asked_by=run.asked_by,
-                tokens=run.tokens,
-                card=run.card,
-                seen=run.seen,
-                started_at=require_iso(run.started_at),
-                finished_at=iso(run.finished_at),
-                duration_ms=(
-                    int((run.finished_at - run.started_at).total_seconds() * 1000)
-                    if run.finished_at
-                    else None
-                ),
-            )
-            for run in runs
-        ]
-    )
-
-
-@router.get("/{plugin_id}/runs/{run_id}/events", response_model=RunEventsOut)
-async def run_events(
-    plugin_id: IdParam, run_id: IdParam, admin: SessionUser = Depends(require_admin)
-) -> RunEventsOut:
-    """What the agent streamed in one run — for when the card and the error do not say
-    why it went the way it did. Only where you can see the room it ran in."""
-    async with session_scope() as session:
-        await registry.by_id(session, plugin_id, admin.workspace_id)
-        found = await agent_run_service.events_of(
-            session,
-            workspace_id=admin.workspace_id,
-            plugin_id=plugin_id,
-            run_id=run_id,
-            viewer_id=admin.id,
-        )
-    if found is None:
-        raise not_found("There is no run with that id.")
-    events: list[RunEventOut] = []
-    for entry in found["events"]:
-        if (
-            isinstance(entry, dict)
-            and isinstance(entry.get("ms"), int)
-            and isinstance(entry.get("round"), int)
-            and isinstance(entry.get("event"), dict)
-        ):
-            events.append(RunEventOut(ms=entry["ms"], round=entry["round"], event=entry["event"]))
-    return RunEventsOut(
-        hidden=found["hidden"], total=found["total"], events=events, kept_until=found["keptUntil"]
-    )
-
-
-@router.get("/{plugin_id}/deliveries", response_model=DeliveriesOut)
-async def list_deliveries(
-    plugin_id: IdParam,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    admin: SessionUser = Depends(require_admin),
-) -> DeliveriesOut:
-    """The delivery log — the first place to look when an app says it heard nothing."""
-    async with session_scope() as session:
-        await registry.by_id(session, plugin_id, admin.workspace_id)
-        rows = await registry.deliveries(session, plugin_id, limit=limit)
-    return DeliveriesOut(deliveries=[_to_delivery(row) for row in rows])
-
-
-@router.get("/{plugin_id}/deliveries/{delivery_id}", response_model=DeliveryDetailOut)
-async def read_delivery(
-    plugin_id: IdParam,
-    delivery_id: IdParam,
-    admin: SessionUser = Depends(require_admin),
-) -> DeliveryDetailOut:
-    """One delivery in full, including the payload the app was sent."""
-    async with session_scope() as session:
-        await registry.by_id(session, plugin_id, admin.workspace_id)
-        row = await registry.delivery(session, plugin_id, delivery_id)
-    return DeliveryDetailOut(**_to_delivery(row).model_dump(), payload=row.payload)
-
-
-@router.post("/{plugin_id}/deliveries/{delivery_id}/replay", response_model=DeliveryOut)
-async def replay_delivery(
-    plugin_id: IdParam,
-    delivery_id: IdParam,
-    request: Request,
-    admin: SessionUser = Depends(require_admin),
-) -> DeliveryOut:
-    """Queue a failed or dead delivery to be sent again.
-
-    Pending rows are already in the drain; delivered ones already arrived. Replaying
-    those would either no-op or double-send. Failed and dead are the ones an operator
-    can usefully push — after a fix on the app side, or after the circuit is closed.
-    """
-    async with transaction() as (session, _after):
-        await registry.by_id(session, plugin_id, admin.workspace_id)
-        row = await registry.replay_delivery(session, plugin_id, delivery_id)
-        await audit_service.record(
-            session,
-            actor_for(request, admin),
-            "plugin.delivery_replayed",
-            target_type="plugin",
-            target_id=plugin_id,
-            metadata={"deliveryId": delivery_id},
-        )
-    return _to_delivery(row)
 
 
 @router.get("/{plugin_id}/channels", response_model=AppChannelsOut)

@@ -30,7 +30,7 @@ from typing import Any, Literal
 import httpx
 
 from ..config import settings
-from .signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
+from .signing import signed_headers
 
 #: How long an app has to answer before Blob tells the person it is still working.
 #: Slack allows three seconds and every app author has already been told that number.
@@ -151,13 +151,7 @@ async def ask(
     answer to `/deploy`.
     """
     body = json.dumps(payload, separators=(",", ":")).encode()
-    timestamp = int(time.time())
-    headers = {
-        "content-type": "application/json",
-        TIMESTAMP_HEADER: str(timestamp),
-        SIGNATURE_HEADER: sign(secret, timestamp, body),
-        "user-agent": "blob-plugins/1.0",
-    }
+    headers = {**signed_headers(secret, body), "user-agent": "blob-plugins/1.0"}
 
     try:
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SEC, follow_redirects=False) as client:

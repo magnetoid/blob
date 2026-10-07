@@ -495,114 +495,6 @@ async def decline_scopes(session: AsyncSession, plugin_id: str, workspace_id: st
     return declined
 
 
-async def set_budget(
-    session: AsyncSession,
-    plugin_id: str,
-    workspace_id: str,
-    *,
-    runs_per_day: int | None,
-    seconds_per_day: int | None,
-) -> None:
-    """Cap what this agent may spend in a trailing day. NULL lifts the cap.
-
-    Admin-set only, and deliberately not a manifest field — an app that could budget
-    itself by shipping an update would make the cap decorative.
-    """
-    await by_id(session, plugin_id, workspace_id)
-    await session.execute(
-        text(
-            """
-            UPDATE plugins
-               SET budget_runs_per_day = :runs, budget_seconds_per_day = :seconds,
-                   updated_at = now()
-             WHERE id = :id
-            """
-        ),
-        {"id": plugin_id, "runs": runs_per_day, "seconds": seconds_per_day},
-    )
-
-
-async def set_instructions(
-    session: AsyncSession, plugin_id: str, workspace_id: str, instructions: str | None
-) -> str | None:
-    """What this workspace tells its agent, carried with every run. Returns what is now
-    stored, so a caller can audit the length without re-reading the row.
-
-    Blank is nothing to say: empty, whitespace-only and absent all store NULL, because a
-    run must then send no `instructions` key rather than an empty string an agent would
-    prepend to its prompt. Surrounding whitespace is trimmed for the same reason a name
-    is — a trailing newline from a textarea is not part of what was meant.
-
-    Admin-set only, like the budget above and for the same reason: an agent that could
-    write its own standing instruction by shipping an update would make the field
-    decorative.
-    """
-    await by_id(session, plugin_id, workspace_id)
-    stored = (instructions or "").strip() or None
-    await session.execute(
-        text("UPDATE plugins SET instructions = :instructions, updated_at = now() WHERE id = :id"),
-        {"id": plugin_id, "instructions": stored},
-    )
-    return stored
-
-
-async def set_in_every_public_channel(
-    session: AsyncSession, plugin_id: str, workspace_id: str, enabled: bool
-) -> None:
-    """Whether this agent's bot joins public channels founded from now on.
-
-    The flag alone: `services/channels.create_channel` reads it at founding and
-    `services/janus_agent.ensure` re-reads it at boot, and nothing here walks into rooms
-    that already exist or out of them. Today's channels are changed one at a time through
-    the channels routes, where each join is visible as itself.
-
-    Not residency. Whether the home view addresses this agent is decided by which agent it
-    *is*, not by where it sits — `services/users.list_users`.
-    """
-    await by_id(session, plugin_id, workspace_id)
-    await session.execute(
-        text(
-            """
-            UPDATE plugins
-               SET in_every_public_channel = :enabled, updated_at = now()
-             WHERE id = :id
-            """
-        ),
-        {"id": plugin_id, "enabled": enabled},
-    )
-
-
-async def set_shows_reasoning(
-    session: AsyncSession, plugin_id: str, workspace_id: str, shown: bool
-) -> None:
-    """Whether this agent's run cards show the channel a tail of its reasoning.
-
-    A display choice about one agent, made by an admin. The card goes to everyone in the
-    channel, so the default is off (migration 0046); an agent whose working-out is worth
-    reading — and safe to show — is switched on here.
-    """
-    await by_id(session, plugin_id, workspace_id)
-    await session.execute(
-        text("UPDATE plugins SET shows_reasoning = :shown, updated_at = now() WHERE id = :id"),
-        {"id": plugin_id, "shown": shown},
-    )
-
-
-async def set_tool_access(
-    session: AsyncSession, plugin_id: str, workspace_id: str, access: str
-) -> None:
-    """What this agent may do with Blob's tools (ADR 0022): `none`, `read`, or `write`.
-
-    The caller checks the value; the table's CHECK is the second line. Every write an
-    agent asks for still waits for the person it is working for, whatever this says.
-    """
-    await by_id(session, plugin_id, workspace_id)
-    await session.execute(
-        text("UPDATE plugins SET tool_access = :access, updated_at = now() WHERE id = :id"),
-        {"id": plugin_id, "access": access},
-    )
-
-
 async def set_status(
     session: AsyncSession, plugin_id: str, workspace_id: str, status: Status
 ) -> None:
@@ -695,6 +587,34 @@ async def list_for_workspace(session: AsyncSession, workspace_id: str) -> list[A
             )
         ).fetchall()
     )
+
+
+async def credential_times(session: AsyncSession, plugin_ids: list[str]) -> dict[str, Any]:
+    """When each app's signing secret was last rotated, and when any of its live bot
+    tokens was last used — one query for a page of apps.
+
+    Both columns were written and never read (the 2026-10-05 review): rotating a secret
+    stamped `rotated_at`, and every call on the bot API stamps its token's `last_used_at`,
+    and the console asked neither. They answer the two questions an admin has before
+    pressing Rotate or Revoke — how old is this secret, and is anything still using this
+    app's token.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT s.plugin_id, s.rotated_at,
+                       (SELECT max(t.last_used_at) FROM bot_tokens t
+                         WHERE t.plugin_id = s.plugin_id AND t.revoked_at IS NULL)
+                         AS token_used_at
+                  FROM plugin_secrets s
+                 WHERE s.plugin_id = ANY(cast(:ids AS uuid[]))
+                """
+            ),
+            {"ids": plugin_ids},
+        )
+    ).fetchall()
+    return {str(row.plugin_id): row for row in rows}
 
 
 async def listing_details(
@@ -828,81 +748,6 @@ async def revoke_tokens(session: AsyncSession, plugin_id: str) -> None:
         ),
         {"id": plugin_id},
     )
-
-
-DELIVERY_COLUMNS = (
-    "id, event, status, attempts, last_status_code, last_error,"
-    " created_at, delivered_at, next_attempt_at"
-)
-
-
-async def deliveries(session: AsyncSession, plugin_id: str, *, limit: int) -> list[Any]:
-    """The delivery log — the first place to look when an app says it heard nothing."""
-    return list(
-        (
-            await session.execute(
-                text(
-                    f"""
-                    SELECT {DELIVERY_COLUMNS}
-                      FROM plugin_deliveries
-                     WHERE plugin_id = :id
-                     ORDER BY id DESC
-                     LIMIT :limit
-                    """
-                ),
-                {"id": plugin_id, "limit": limit},
-            )
-        ).fetchall()
-    )
-
-
-async def delivery(session: AsyncSession, plugin_id: str, delivery_id: str) -> Any:
-    """One delivery in full, including the payload the app was sent."""
-    row = (
-        await session.execute(
-            text(
-                f"""
-                SELECT {DELIVERY_COLUMNS}, payload
-                  FROM plugin_deliveries
-                 WHERE id = :id AND plugin_id = :plugin_id
-                """
-            ),
-            {"id": delivery_id, "plugin_id": plugin_id},
-        )
-    ).fetchone()
-    if row is None:
-        raise not_found("That delivery is not in this app's log.")
-    return row
-
-
-async def replay_delivery(session: AsyncSession, plugin_id: str, delivery_id: str) -> Any:
-    """Put a failed or dead delivery back in the queue, as if it had never been tried."""
-    row = (
-        await session.execute(
-            text(
-                f"""
-                UPDATE plugin_deliveries
-                   SET status = 'pending', attempts = 0, next_attempt_at = now(),
-                       last_error = NULL, last_status_code = NULL, delivered_at = NULL
-                 WHERE id = :id AND plugin_id = :plugin_id
-                   AND status IN ('failed', 'dead')
-                RETURNING {DELIVERY_COLUMNS}
-                """
-            ),
-            {"id": delivery_id, "plugin_id": plugin_id},
-        )
-    ).fetchone()
-    if row is not None:
-        return row
-    existing = (
-        await session.execute(
-            text("SELECT id FROM plugin_deliveries WHERE id = :id AND plugin_id = :plugin_id"),
-            {"id": delivery_id, "plugin_id": plugin_id},
-        )
-    ).fetchone()
-    if existing is None:
-        raise not_found("That delivery is not in this app's log.")
-    raise bad_request("Only a failed or dead delivery can be replayed.", code="not_replayable")
 
 
 async def public_channels_for_bot(

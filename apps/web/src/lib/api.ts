@@ -340,6 +340,10 @@ export interface AdminPlugin {
    * `lastError` and leaves these.
    */
   recentErrors: AppRecentError[];
+  /** When its signing secret was last rotated. */
+  secretRotatedAt: string | null;
+  /** When any of its live bot tokens was last used; null if none ever has been. */
+  tokenLastUsedAt: string | null;
   createdAt: string;
   updatedAt: string;
   pendingDeliveries: number;

@@ -350,13 +350,7 @@ async def publish_artifact(
             target_id=work.id,
             metadata={"artifactId": artifact.id, "kind": artifact.kind, "channelId": channel_id},
         )
-        event = {
-            "t": "work.updated",
-            "workId": updated.id,
-            "channelId": channel_id,
-            "status": updated.status,
-            "artifactCount": updated.artifact_count,
-        }
+        event = work_service.work_event(updated)
         after.add(lambda: hub.to_channel(channel_id, event))
     return ArtifactOut(artifact=artifact)
 

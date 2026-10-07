@@ -810,7 +810,7 @@ The twenty-five ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture
 | 0006 | A transactional outbox for plugin delivery |
 | 0007 | User content is data, never code |
 | 0008 | One image, one origin |
-| 0009 | Local plugins are a deploy |
+| 0009 | Local plugins are a deploy — superseded: the runtime was never built and is gone |
 | 0010 | Agents deploy as containers |
 | 0011 | AG-UI is an inbound transport |
 | 0012 | Agents may dial in |

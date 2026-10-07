@@ -194,6 +194,16 @@ export function PluginCard({
             />
           )}
 
+          {/* What an admin wants to know before pressing Rotate or Revoke below. */}
+          <p className="admin-row-meta">
+            Signing secret rotated{" "}
+            {plugin.secretRotatedAt ? formatRelative(plugin.secretRotatedAt) : "never"}
+            {" · "}
+            {plugin.tokenLastUsedAt
+              ? `a bot token last used ${formatRelative(plugin.tokenLastUsedAt)}`
+              : "no bot token used yet"}
+          </p>
+
           {plugin.lastError && (
             <p className="error-text admin-plugin-error">{plugin.lastError}</p>
           )}

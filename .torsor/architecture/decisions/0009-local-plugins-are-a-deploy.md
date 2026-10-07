@@ -1,12 +1,22 @@
 ---
 type: decision
-status: accepted
+status: superseded
 tags: [adr, plugins, security]
 links: []
 rules: []
 ---
 
 # ADR 0009: Local plugins are installed by deploying, not from the console
+
+> **Superseded on 2026-10-08: there is no local runtime.** The loader this ADR describes
+> was never built. The install route refused `runtime: "local"`, nothing else could
+> create one, and the docs said "not built yet" — a capability promised in the manifest,
+> the schema and the console's error codes, and present nowhere else. Phase 8 of the
+> agentic review dropped it: migration 0053 takes `local` out of
+> `plugins_runtime_check`, and a manifest naming it is refused as invalid input. Every
+> app now runs outside the server process — at an address, in a container Blob hosts
+> (0010), or dialling in (0012) — so a scope is a real boundary for every one of them.
+> The reasoning below is why the runtime should not come back as a console install.
 
 ## Context
 The plugin system supports two runtimes from one manifest. It would be natural to let an

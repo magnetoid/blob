@@ -13,6 +13,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,67 +27,75 @@ from ..services import seeded
 log = logging.getLogger("blob.jobs.agui")
 
 
+#: What a run needs to know about an agent, read the same way whichever way it was
+#: addressed — a mention or the room — so the two cannot drift.
+_LISTENER_SELECT = f"""
+    SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
+           p.runtime, s.signing_secret, p.owner_user_id,
+           p.agui_version, p.shows_reasoning, p.tool_access,
+           -- Whose text this is, asked here rather than trusted from the column: the
+           -- routes only ever write it onto the seeded agent, but a row can hold text
+           -- those routes never wrote — a backup taken before the rule, a psql prompt.
+           -- Forwarding it would hand a third-party app's endpoint a prompt its author
+           -- never declared a field for, so the run path decides for itself.
+           CASE WHEN {seeded.SEEDED_AGENT} THEN p.instructions END AS instructions
+      FROM plugins p
+      JOIN users u ON u.bot_plugin_id = p.id
+      JOIN plugin_secrets s ON s.plugin_id = p.id
+"""
+
+#: What makes an agent able to answer at all. The enabled-and-scoped filter is the same
+#: one the bot API and the delivery drain apply: an app that was disabled or had
+#: `messages:write` revoked must not keep answering because a message reached a queue
+#: first. And it must be reachable — an address, or a connection it opened itself: a
+#: socket agent has no `agui_url`, so the URL test alone would filter out every one.
+_ANSWERS = f"""
+    p.workspace_id = :ws
+    AND p.status = 'enabled'
+    AND {MENTIONABLE_AGENT}
+    AND u.deactivated_at IS NULL
+    AND EXISTS (
+      SELECT 1 FROM plugin_grants g
+       WHERE g.plugin_id = p.id AND g.scope = 'messages:write')
+"""
+
+
+def _listener(row: Any) -> Listener:
+    return Listener(
+        plugin_id=row.id,
+        slug=row.slug,
+        name=row.name,
+        bot_user_id=row.bot_user_id,
+        agui_url=row.agui_url,
+        signing_secret=row.signing_secret,
+        runtime=row.runtime,
+        instructions=row.instructions,
+        owner_user_id=str(row.owner_user_id) if row.owner_user_id else None,
+        agui_version=row.agui_version,
+        shows_reasoning=bool(row.shows_reasoning),
+        tool_access=row.tool_access,
+    )
+
+
 async def listeners_for(
     session: AsyncSession, *, workspace_id: str, mention_user_ids: list[str]
 ) -> list[Listener]:
-    """Mentioned bots whose app speaks AG-UI, is enabled, and may post.
-
-    The enabled-and-scoped filter is the same one the bot API and the delivery drain
-    apply. An app that was disabled or had `messages:write` revoked must not keep
-    answering because a mention reached a queue first.
-    """
+    """Mentioned bots whose app speaks AG-UI, is enabled, and may post."""
     if not mention_user_ids:
         return []
     rows = (
         await session.execute(
             text(
                 f"""
-                SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
-                       p.runtime, s.signing_secret, p.owner_user_id,
-                       p.agui_version, p.shows_reasoning, p.tool_access,
-                       -- Whose text this is, asked here rather than trusted from the
-                       -- column: the routes only ever write it onto the seeded agent, but
-                       -- a row can hold text those routes never wrote — a backup taken
-                       -- before the rule, a psql prompt. Forwarding it would hand a
-                       -- third-party app's endpoint a prompt its author never declared a
-                       -- field for, so the run path decides for itself.
-                       CASE WHEN {seeded.SEEDED_AGENT} THEN p.instructions END
-                         AS instructions
-                  FROM plugins p
-                  JOIN users u ON u.bot_plugin_id = p.id
-                  JOIN plugin_secrets s ON s.plugin_id = p.id
-                 WHERE p.workspace_id = :ws
-                   AND p.status = 'enabled'
-                   -- An address, or a connection it opened itself. A socket agent has no
-                   -- agui_url, so the URL test alone would filter out every one of them.
-                   AND {MENTIONABLE_AGENT}
+                {_LISTENER_SELECT}
+                 WHERE {_ANSWERS}
                    AND u.id = ANY(cast(:ids AS uuid[]))
-                   AND u.deactivated_at IS NULL
-                   AND EXISTS (
-                     SELECT 1 FROM plugin_grants g
-                      WHERE g.plugin_id = p.id AND g.scope = 'messages:write')
                 """
             ),
             {"ws": workspace_id, "ids": mention_user_ids},
         )
     ).fetchall()
-    return [
-        Listener(
-            plugin_id=row.id,
-            slug=row.slug,
-            name=row.name,
-            bot_user_id=row.bot_user_id,
-            agui_url=row.agui_url,
-            signing_secret=row.signing_secret,
-            runtime=row.runtime,
-            instructions=row.instructions,
-            owner_user_id=str(row.owner_user_id) if row.owner_user_id else None,
-            agui_version=row.agui_version,
-            shows_reasoning=bool(row.shows_reasoning),
-            tool_access=row.tool_access,
-        )
-        for row in rows
-    ]
+    return [_listener(row) for row in rows]
 
 
 async def personal_agent_for(
@@ -113,25 +122,17 @@ async def personal_agent_for(
     (`plugins.answers_dm_without_mention`, set only by the seeder), and the person's own
     agent (`plugins.owner_user_id` is the one person in the room — ADR 0018, "your
     agent answers you").
+
+    That it can be reached at all (`_ANSWERS`) matters here as much as for a mention:
+    `set_owner` will hand *any* installed app to a person, so without it a
+    request_url-only app given to somebody makes their DM with it answer, every plain
+    line, with "that agent has no endpoint to call" — see `plugins/streams`.
     """
     row = (
         await session.execute(
             text(
                 f"""
-                SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
-                       p.runtime, s.signing_secret, p.owner_user_id,
-                       p.agui_version, p.shows_reasoning, p.tool_access,
-                       -- Whose text this is, asked here rather than trusted from the
-                       -- column: the routes only ever write it onto the seeded agent, but
-                       -- a row can hold text those routes never wrote — a backup taken
-                       -- before the rule, a psql prompt. Forwarding it would hand a
-                       -- third-party app's endpoint a prompt its author never declared a
-                       -- field for, so the run path decides for itself.
-                       CASE WHEN {seeded.SEEDED_AGENT} THEN p.instructions END
-                         AS instructions
-                  FROM plugins p
-                  JOIN users u ON u.bot_plugin_id = p.id
-                  JOIN plugin_secrets s ON s.plugin_id = p.id
+                {_LISTENER_SELECT}
                   JOIN channels c ON c.id = :channel_id
                                  AND c.workspace_id = p.workspace_id
                                  AND c.kind = 'dm'
@@ -144,21 +145,10 @@ async def personal_agent_for(
                   JOIN users other ON other.id = other_m.user_id
                                   AND other.kind = 'human'
                                   AND other.deactivated_at IS NULL
-                 WHERE p.workspace_id = :ws
-                   AND p.status = 'enabled'
-                   -- It can be reached at all. Neither flag below implies it:
-                   -- `set_owner` will hand *any* installed app to a person, so without
-                   -- this a request_url-only app given to somebody makes their DM with
-                   -- it answer, every plain line, with "that agent has no endpoint to
-                   -- call" — see `plugins/streams`.
-                   AND {MENTIONABLE_AGENT}
+                 WHERE {_ANSWERS}
                    -- The room is the address for a resident agent, and for the
                    -- person's own agent. Never for an app installed by hand.
                    AND (p.answers_dm_without_mention OR p.owner_user_id = other.id)
-                   AND u.deactivated_at IS NULL
-                   AND EXISTS (
-                     SELECT 1 FROM plugin_grants g
-                      WHERE g.plugin_id = p.id AND g.scope = 'messages:write')
                    -- Two members and no more. `kind` cannot be trusted for this.
                    AND (SELECT count(*) FROM channel_members m
                          WHERE m.channel_id = c.id) = 2
@@ -167,22 +157,7 @@ async def personal_agent_for(
             {"ws": workspace_id, "channel_id": channel_id},
         )
     ).fetchone()
-    if row is None:
-        return None
-    return Listener(
-        plugin_id=row.id,
-        slug=row.slug,
-        name=row.name,
-        bot_user_id=row.bot_user_id,
-        agui_url=row.agui_url,
-        signing_secret=row.signing_secret,
-        runtime=row.runtime,
-        instructions=row.instructions,
-        owner_user_id=str(row.owner_user_id) if row.owner_user_id else None,
-        agui_version=row.agui_version,
-        shows_reasoning=bool(row.shows_reasoning),
-        tool_access=row.tool_access,
-    )
+    return _listener(row) if row is not None else None
 
 
 @asynccontextmanager

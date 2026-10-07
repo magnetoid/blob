@@ -1584,3 +1584,40 @@ from there on. Things to know before changing it:
   because a broken run is the one an operator most wants to read.
 * **`recent_errors.read` caps what it returns at ten**, and that hid a writer that kept
   everything. The test reads `jsonb_array_length` off the column itself.
+
+## Ratchets (agentic review phase 8, 2026-10-08): what moved and why
+
+* **A foreign key with no index makes every delete of its target a table scan.** The
+  nightly sweep deletes month-old runs, and each one made Postgres look for runs naming it
+  as `parent_run_id` and artifacts naming it as `run_id`. With 40,000 runs, removing 8,000
+  took 56 seconds inside one transaction; with `agent_runs_parent` and
+  `work_artifacts_run` (migration 0053) it takes 0.3. A new nullable FK into a table
+  that gets swept needs its index in the same migration. Messages are never hard-deleted
+  by the app, so the FKs *into* `messages` from `agent_runs` were measured as not worth it.
+* **The two listener queries are one select and one filter** (`jobs/agui_admission.py`:
+  `_LISTENER_SELECT`, `_ANSWERS`, `_listener`). A rule about which agent may answer goes
+  in `_ANSWERS`, so a mention and a DM cannot disagree about it again.
+* **Every signed request takes its headers from `signing.signed_headers`** — webhook
+  deliveries, slash commands and AG-UI runs. `tools/agent_bridge.py` keeps its own copy on
+  purpose: the console serves that file as a standalone script.
+* **A run's `agent_run.started` frame is the service's view** (`agent_runs.view_of`),
+  read inside the transaction that wrote the row — a refused run and a starting one alike.
+  The hand-built dicts it replaced had already drifted: no `tokens`, `seen` or `decision`.
+* **`routers/plugins.py` is three routers on one prefix**: what an app is
+  (`plugins.py`), what an agent is told and may do (`plugin_controls.py`), and what it did
+  (`plugin_logs.py`). `plugins.py` is included first because it declares the literal
+  paths (`/bridge`, `/catalog`, `/activity`) that a `/{plugin_id}` route would swallow.
+  `plugins/registry.py` split the same way: the setters behind the controls are
+  `plugins/agent_settings.py`, and the delivery log's reads are in `plugins/delivery.py`
+  beside the outbox they list.
+* **There is no `local` runtime.** ADR 0009's loader was never built; migration 0053
+  takes it out of `plugins_runtime_check` (and `builtin` out of
+  `agent_runs_transport_check`, empty since 0041). A row put there by hand stops the
+  migration with a sentence rather than a constraint error.
+* **Columns written and never read were each decided.** `plugin_secrets.rotated_at` and
+  `bot_tokens.last_used_at` are now on the app's card (`registry.credential_times`);
+  `plugin_grants.granted_by/at`, `agent_delegations.granted_by` and
+  `scheduled_messages.sent_message_id` are kept as records and say so in `db/models.py`.
+  A reviewer finding them again should read those comments before proposing a drop.
+* **`sourceRatchets.test.ts` counts whole-map `agentRuns` selectors** (zero) and scans of
+  the map (four). A component that needs runs takes them from `lib/useRuns.ts`.

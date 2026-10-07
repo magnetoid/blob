@@ -40,6 +40,8 @@ const PLUGIN = {
   ownerUserId: null as string | null,
   lastError: null,
   recentErrors: [],
+  secretRotatedAt: null,
+  tokenLastUsedAt: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
   pendingDeliveries: 0,
@@ -236,5 +238,29 @@ describe('what an agent remembers', () => {
     expect(all).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Forget every conversation' }));
     await waitFor(() => expect(all).toHaveBeenCalledWith('p1'));
+  });
+});
+
+describe('the credentials an app holds', () => {
+  it('says when its secret was rotated and whether its token is in use', async () => {
+    useStore.setState({ users: { u1: ME, u2: MATE, u3: BOT } } as never);
+    vi.spyOn(api.admin, 'plugins').mockResolvedValue({
+      plugins: [
+        {
+          ...PLUGIN,
+          secretRotatedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+          tokenLastUsedAt: null,
+        },
+      ],
+    } as never);
+    vi.spyOn(api.admin, 'appChannels').mockResolvedValue({ channels: [] } as never);
+    vi.spyOn(api.admin, 'pluginCatalog').mockResolvedValue({ scopes: {}, events: {} } as never);
+    vi.spyOn(api.admin, 'pluginRuns').mockResolvedValue({ runs: [] } as never);
+    vi.spyOn(api.admin, 'pluginDeliveries').mockResolvedValue({ deliveries: [] } as never);
+    vi.spyOn(api.admin, 'agentMemory').mockResolvedValue({ memories: [] } as never);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+
+    const line = await screen.findByText(/Signing secret rotated/);
+    expect(line.textContent).toMatch(/Signing secret rotated 3h ago · no bot token used yet/);
   });
 });

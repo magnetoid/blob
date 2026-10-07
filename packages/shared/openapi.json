@@ -4621,7 +4621,7 @@
         "type": "object"
       },
       "Manifest": {
-        "description": "The registration payload. Also the shape a local plugin's `plugin.toml` parses to.",
+        "description": "The registration payload.",
         "properties": {
           "aguiPath": {
             "anyOf": [
@@ -4705,7 +4705,6 @@
           "runtime": {
             "default": "external",
             "enum": [
-              "local",
               "external",
               "container",
               "socket"
@@ -5609,6 +5608,17 @@
             "title": "Secondslastday",
             "type": "integer"
           },
+          "secretRotatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secretrotatedat"
+          },
           "showsReasoning": {
             "default": false,
             "title": "Showsreasoning",
@@ -5643,6 +5653,17 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "tokenLastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokenlastusedat"
           },
           "tokensLastDay": {
             "default": 0,
@@ -9222,6 +9243,22 @@
         "title": "ChannelsOut",
         "type": "object"
       },
+      "blob_api__routers__plugin_logs__AgentRunsOut": {
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/AgentRunOut"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "AgentRunsOut",
+        "type": "object"
+      },
       "blob_api__routers__plugins__ActivityOut": {
         "properties": {
           "days": {
@@ -9236,22 +9273,6 @@
           "days"
         ],
         "title": "ActivityOut",
-        "type": "object"
-      },
-      "blob_api__routers__plugins__AgentRunsOut": {
-        "properties": {
-          "runs": {
-            "items": {
-              "$ref": "#/components/schemas/AgentRunOut"
-            },
-            "title": "Runs",
-            "type": "array"
-          }
-        },
-        "required": [
-          "runs"
-        ],
-        "title": "AgentRunsOut",
         "type": "object"
       },
       "blob_api__routers__users__UsersOut": {
@@ -12257,7 +12278,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/blob_api__routers__plugins__AgentRunsOut"
+                  "$ref": "#/components/schemas/blob_api__routers__plugin_logs__AgentRunsOut"
                 }
               }
             },

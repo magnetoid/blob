@@ -69,6 +69,19 @@ class Work(CamelModel):
     artifact_count: int = 0
 
 
+def work_event(work: Work) -> dict[str, Any]:
+    """`work.updated`: the record changed — an artifact landed, or it finished. One
+    builder for the three places that say so: a person's request, an app's call and an
+    agent's run."""
+    return {
+        "t": "work.updated",
+        "workId": work.id,
+        "channelId": work.channel_id,
+        "status": work.status,
+        "artifactCount": work.artifact_count,
+    }
+
+
 class Artifact(CamelModel):
     id: str
     work_id: str

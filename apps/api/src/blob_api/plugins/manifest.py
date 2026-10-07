@@ -1,13 +1,14 @@
 """What a plugin declares about itself.
 
-One manifest describes both runtimes. A local plugin and an external app ask for the
-same scopes, subscribe to the same events and appear identically in the console; the
-only difference is where the code runs, and that is a single field.
+One manifest describes every runtime. An app at an address, one Blob hosts in a
+container and an agent that dials in ask for the same scopes, subscribe to the same
+events and appear identically in the console; the only difference is how Blob reaches
+the code, and that is a single field.
 
-Scopes are an ergonomics and audit boundary for local plugins, and a real one for
-external apps. The distinction is stated plainly in the docs rather than implied: a local
-plugin runs in this process and can read the environment, so its grants describe intent,
-not capability.
+Every one of them runs outside this process, so a scope is a real boundary: an app holds
+exactly the grants an admin approved. There is no in-process runtime. ADR 0009 described
+one, loaded from the filesystem at boot; it was never built, and it was dropped in
+2026-10 rather than kept as a promise (agentic review, phase 8).
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from ..schemas.base import CamelModel
 #: making a request to an address; a socket agent has no address to give — it runs on
 #: somebody's laptop, behind NAT, on a network this server cannot see — so it opens a
 #: connection *to* Blob and holds it, and runs are written down that pipe. See ADR 0012.
-Runtime = Literal["local", "external", "container", "socket"]
+Runtime = Literal["external", "container", "socket"]
 Status = Literal["enabled", "disabled", "needs_review", "failed"]
 
 #: Every permission a plugin can hold. Granted as a set at install, one row each, so a
@@ -148,7 +149,7 @@ class CommandDecl(CamelModel):
 
 
 class Manifest(CamelModel):
-    """The registration payload. Also the shape a local plugin's `plugin.toml` parses to."""
+    """The registration payload."""
 
     slug: str
     name: str = Field(min_length=1, max_length=80)

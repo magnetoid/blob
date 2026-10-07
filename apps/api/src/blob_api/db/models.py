@@ -728,9 +728,7 @@ class AgentRun(Base):
             "'refused', 'expired')",
             name="agent_runs_status_check",
         ),
-        CheckConstraint(
-            "transport IN ('http', 'socket', 'builtin')", name="agent_runs_transport_check"
-        ),
+        CheckConstraint("transport IN ('http', 'socket')", name="agent_runs_transport_check"),
         # The console reads one app's runs, newest first, which is the only query here.
         Index("agent_runs_plugin_recent", "plugin_id", text("started_at DESC")),
         Index("agent_runs_workspace_recent", "workspace_id", text("started_at DESC")),
@@ -749,6 +747,15 @@ class AgentRun(Base):
         # Runs in flight, which a `/metrics` scrape counts by agent (migration 0052). A
         # handful of rows at any moment, so the scrape never reads the month of history.
         Index("agent_runs_running", "plugin_id", postgresql_where=text("status = 'running'")),
+        # Behind the self-reference, for the nightly delete: every run it removes makes
+        # Postgres look for runs naming it as their parent, and without this each look is
+        # a scan of the table — 8,000 of 40,000 runs took 56 s and now take 0.3 s
+        # (migration 0053).
+        Index(
+            "agent_runs_parent",
+            "parent_run_id",
+            postgresql_where=text("parent_run_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
@@ -919,6 +926,9 @@ class WorkArtifact(Base):
     __table_args__ = (
         CheckConstraint("kind IN ('diff', 'html', 'markdown')", name="work_artifacts_kind_check"),
         Index("work_artifacts_by_work", "work_id", "created_at"),
+        # Behind `run_id`, for the same nightly delete: each run removed looks for the
+        # artifacts it published (migration 0053).
+        Index("work_artifacts_run", "run_id", postgresql_where=text("run_id IS NOT NULL")),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
@@ -1092,6 +1102,9 @@ class ScheduledMessage(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     #: Set once it has gone out. With `canceled_at`, the two ways a row stops being due.
     sent_at: Mapped[Any | None] = mapped_column(Timestamp)
+    #: The message it became. Read by nothing yet, and kept on purpose: it is the one link
+    #: from a schedule to what it sent, and cannot be rebuilt once lost (review of
+    #: 2026-10-05, phase 8 — "delete or read"; this is neither, said aloud).
     sent_message_id: Mapped[str | None] = mapped_column(Text)
     canceled_at: Mapped[Any | None] = mapped_column(Timestamp)
     #: Kept rather than retried forever: an author who comes back to a message that did
@@ -1356,7 +1369,7 @@ class Plugin(Base):
     __tablename__ = "plugins"
     __table_args__ = (
         CheckConstraint(
-            "runtime IN ('local', 'external', 'container', 'socket')",
+            "runtime IN ('external', 'container', 'socket')",
             name="plugins_runtime_check",
         ),
         CheckConstraint(
@@ -1521,6 +1534,7 @@ class PluginSecret(Base):
         UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), primary_key=True
     )
     signing_secret: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Shown on the app's card beside Rotate (`registry.credential_times`).
     rotated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
@@ -1532,6 +1546,9 @@ class PluginGrant(Base):
         UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
     )
     scope: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Who approved this scope, and when: the record of a grant, kept beside it. The audit
+    #: log says the same until its retention sweeps it; this lasts as long as the grant.
+    #: Read by nothing yet, on purpose (review of 2026-10-05, phase 8).
     granted_by: Mapped[str | None] = mapped_column(
         UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
     )
@@ -1578,6 +1595,9 @@ class AgentDelegation(Base):
     channel_id: Mapped[str | None] = mapped_column(
         UUIDStr, ForeignKey("channels.id", ondelete="CASCADE")
     )
+    #: Who lent it: its owner at the time (`/allow` is the owner's alone). An agent can
+    #: change hands, so this keeps whose loan it was for as long as the loan lasts. Read by
+    #: nothing yet, on purpose (review of 2026-10-05, phase 8).
     granted_by: Mapped[str | None] = mapped_column(
         UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
     )

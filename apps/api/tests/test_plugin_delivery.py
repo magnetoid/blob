@@ -384,9 +384,10 @@ async def test_an_agent_without_a_url_yet_keeps_its_queue(workspace: str) -> Non
     assert stored.attempts == 0
 
 
-async def test_a_local_plugin_is_still_never_delivered_to(workspace: str) -> None:
-    # Local plugins run in-process; an HTTP delivery to one would be nonsense.
-    plugin_id = await make_plugin(workspace, 9, runtime="local")
+async def test_an_agent_that_dials_in_is_never_delivered_to_over_http(workspace: str) -> None:
+    # A socket agent has no address to POST to — it opened the connection — so the drain
+    # serves only the runtimes reached at one, even for a row that somehow carries a URL.
+    plugin_id = await make_plugin(workspace, 9, runtime="socket")
     await queue(plugin_id)
     assert await delivery.drain_once() == 0
 

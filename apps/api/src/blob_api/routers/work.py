@@ -58,17 +58,6 @@ class ArtifactOut(CamelModel):
     artifact: work_service.Artifact
 
 
-def work_event(work: work_service.Work) -> dict[str, Any]:
-    """`work.updated`: the record changed — an artifact landed, or it finished."""
-    return {
-        "t": "work.updated",
-        "workId": work.id,
-        "channelId": work.channel_id,
-        "status": work.status,
-        "artifactCount": work.artifact_count,
-    }
-
-
 @router.post("/api/work", response_model=WorkOut, status_code=201)
 async def start_work(
     payload: StartWorkInput, request: Request, user: SessionUser = Depends(current_user)
@@ -166,7 +155,7 @@ async def publish_artifact(
             target_id=work_id,
             metadata={"artifactId": artifact.id, "kind": artifact.kind},
         )
-        event = work_event(updated)
+        event = work_service.work_event(updated)
         after.add(lambda: hub.to_channel(updated.channel_id, event))
     return ArtifactOut(artifact=artifact)
 
@@ -197,7 +186,7 @@ async def finish_work(
             metadata={"channelId": work.channel_id},
         )
         channel_id = work.channel_id
-        event = work_event(work)
+        event = work_service.work_event(work)
 
         def broadcast() -> None:
             hub.to_channel(channel_id, event)
@@ -207,4 +196,4 @@ async def finish_work(
     return WorkOut(work=work)
 
 
-__all__ = ["router", "work_event"]
+__all__ = ["router"]

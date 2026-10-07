@@ -9,9 +9,9 @@ That ordering is the whole design. The alternative, firing an HTTP request from 
 request handler, gets both halves wrong: it can deliver an event for a transaction that
 later rolls back, and it loses events whenever the process restarts at the wrong moment.
 
-Observers only. Nothing here can block or alter a message — the one blocking hook in the
-plan (`message.before_create`) is local-runtime work and deliberately absent from the
-external path, where a slow HTTP call would sit in the middle of every send.
+Observers only. Nothing here can block or alter a message. The one blocking hook an early
+plan named (`message.before_create`) belonged to the in-process runtime, which was never
+built (ADR 0009, superseded); over HTTP a slow call would sit in the middle of every send.
 """
 
 from __future__ import annotations

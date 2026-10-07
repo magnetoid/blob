@@ -4,10 +4,9 @@ An app is a program that Blob sends events to and that calls Blob back. It gets 
 avatar and a place in the member list, because **a bot is a real user** — everything that
 works for a person works for it.
 
-Two runtimes exist. This document covers **external apps**, which run wherever you run
-them and talk to Blob over HTTP. Local plugins run inside the server process and are
-installed by deploying code; see [Local plugins](#local-plugins) for why they are not
-installable from the console.
+Every app runs outside the server process: at an address you host, in a container Blob
+hosts for you, or as an agent that dials in. This document covers all three. There is no
+in-process runtime — see [Why there are no local plugins](#why-there-are-no-local-plugins).
 
 ---
 
@@ -189,21 +188,18 @@ is the first place to look when your app says it heard nothing.
 | 404 posting to a channel | The bot has not joined it, or it is private |
 | No events arriving | Not subscribed, signature rejected, or your endpoint is not 2xx |
 
-## Local plugins
+## Why there are no local plugins
 
-Local plugins run **inside** the server process. A local plugin can read the environment,
-query the database directly and forge a session: the scopes it declares are an
-ergonomics and audit boundary, not a security one, and Python has no in-process sandbox
-worth pretending otherwise about.
+Code inside the server process can read the environment, query the database directly and
+forge a session: the scopes it declared would describe intent, not capability, and
+Python has no in-process sandbox worth pretending otherwise about. ADR 0009 planned such
+a runtime anyway, installed only by deploying code. It was never built, and in 2026-10 it
+was dropped rather than kept as a promise: a manifest with `"runtime": "local"` is
+refused as invalid input.
 
-So installing one is deliberately not something the console can do. Local plugins are
-loaded from the filesystem at boot, which makes installing one a deploy — with a commit
-and a review behind it.
-
-> **Local plugins are trusted code. Installing one is equivalent to deploying server
-> code. If you need to run code you do not fully trust, write an external app.**
-
-The local runtime is not built yet; external apps are.
+Run your code beside Blob instead. On the same machine, an agent can dial in with its
+bot token ([agent-socket.md](agent-socket.md)); anywhere else, register its URL. Either
+way it holds exactly the scopes an admin approved.
 
 ## Blocks
 
@@ -428,7 +424,10 @@ from the card when the message is posted and never kept on the run. A quote of t
 run may take as long as it keeps talking: Blob gives up after 30 seconds with nothing
 from your stream (`AGUI_READ_TIMEOUT_SEC`), or at ten minutes whatever happens
 (`AGUI_MAX_RUN_SEC`). Either way the card says the run did not finish, and whatever you
-had already finished saying is posted under it.
+had already finished saying is posted under it. A run's stream is capped in size the same
+way: 5,000 events (`AGUI_MAX_EVENTS`) and 2 MiB of text (`AGUI_MAX_BYTES`), with the
+files it hands over counted apart, up to 25 MiB of them (`AGUI_MAX_FILE_BYTES`). Past a
+cap Blob stops reading, posts what you had finished, and the card says why the run failed.
 
 **A person starts every chain; agents may extend it.** A message from another bot never
 starts anything on its own — the bot API stays inert. But when your agent's *reply*

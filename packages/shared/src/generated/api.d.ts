@@ -4395,15 +4395,15 @@ export interface components {
             /** Channels */
             channels: components["schemas"]["ChannelWithState"][];
         };
+        /** AgentRunsOut */
+        blob_api__routers__plugin_logs__AgentRunsOut: {
+            /** Runs */
+            runs: components["schemas"]["AgentRunOut"][];
+        };
         /** ActivityOut */
         blob_api__routers__plugins__ActivityOut: {
             /** Days */
             days: components["schemas"]["ActivityDay"][];
-        };
-        /** AgentRunsOut */
-        blob_api__routers__plugins__AgentRunsOut: {
-            /** Runs */
-            runs: components["schemas"]["AgentRunOut"][];
         };
         /** UsersOut */
         blob_api__routers__users__UsersOut: {
@@ -5550,7 +5550,7 @@ export interface components {
         };
         /**
          * Manifest
-         * @description The registration payload. Also the shape a local plugin's `plugin.toml` parses to.
+         * @description The registration payload.
          */
         Manifest: {
             /** Aguipath */
@@ -5574,7 +5574,7 @@ export interface components {
              * @default external
              * @enum {string}
              */
-            runtime: "local" | "external" | "container" | "socket";
+            runtime: "external" | "container" | "socket";
             /** Scopes */
             scopes?: string[];
             /** Slug */
@@ -5904,6 +5904,8 @@ export interface components {
              * @default 0
              */
             secondsLastDay: number;
+            /** Secretrotatedat */
+            secretRotatedAt?: string | null;
             /**
              * Showsreasoning
              * @default false
@@ -5917,6 +5919,8 @@ export interface components {
             sourceRepo?: string | null;
             /** Status */
             status: string;
+            /** Tokenlastusedat */
+            tokenLastUsedAt?: string | null;
             /**
              * Tokenslastday
              * @default 0
@@ -7130,8 +7134,8 @@ export type blob_api__routers__bot_api__ReactionInput = components['schemas']['b
 export type blob_api__routers__bot_api__ThreadSummaryOut = components['schemas']['blob_api__routers__bot_api__ThreadSummaryOut'];
 export type blob_api__routers__bot_api__UsersOut = components['schemas']['blob_api__routers__bot_api__UsersOut'];
 export type blob_api__routers__channels__ChannelsOut = components['schemas']['blob_api__routers__channels__ChannelsOut'];
+export type blob_api__routers__plugin_logs__AgentRunsOut = components['schemas']['blob_api__routers__plugin_logs__AgentRunsOut'];
 export type blob_api__routers__plugins__ActivityOut = components['schemas']['blob_api__routers__plugins__ActivityOut'];
-export type blob_api__routers__plugins__AgentRunsOut = components['schemas']['blob_api__routers__plugins__AgentRunsOut'];
 export type blob_api__routers__users__UsersOut = components['schemas']['blob_api__routers__users__UsersOut'];
 export type blob_api__schemas__models__MessageOut = components['schemas']['blob_api__schemas__models__MessageOut'];
 export type blob_api__schemas__requests__EditMessageInput = components['schemas']['blob_api__schemas__requests__EditMessageInput'];
@@ -9253,7 +9257,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["blob_api__routers__plugins__AgentRunsOut"];
+                    "application/json": components["schemas"]["blob_api__routers__plugin_logs__AgentRunsOut"];
                 };
             };
             /** @description Validation Error */

@@ -84,6 +84,31 @@ describe('one RoomAudioRenderer', () => {
   });
 });
 
+describe('no component subscribes to every run', () => {
+  /**
+   * Five components once subscribed to the whole `agentRuns` map, while a run card's
+   * live snapshots replace a run object four times a second — so one agent thinking
+   * redrew the sidebar and the open conversation with it (the 2026-10-05 review). Phase 4
+   * moved them onto `lib/useRuns.ts`, which selects ids and flat values under shallow
+   * equality. A selector that hands back the map itself is the regression: its identity
+   * changes on every snapshot, and so does every component reading it.
+   */
+  it('has no selector that returns the map itself', () => {
+    expect(
+      productionOccurrences('=> s.agentRuns)', ['.ts', '.tsx']) +
+        productionOccurrences('=> state.agentRuns)', ['.ts', '.tsx']),
+    ).toBe(0);
+  });
+
+  /** Scans of the map live in `lib/useRuns.ts`, plus the chain line on the run card —
+   *  each one under `useShallow`, over flat values. Lower this, never raise it. */
+  it('scans the map in at most the last committed number of places', () => {
+    expect(
+      productionOccurrences('Object.values(s.agentRuns)', ['.ts', '.tsx']),
+    ).toBeLessThanOrEqual(4);
+  });
+});
+
 /**
  * A specifier naming `livekit-client`, `@livekit/*`, or `features/calls/engine.ts` — the
  * one `features/calls/` may say freely, and everywhere else may reach only two ways:

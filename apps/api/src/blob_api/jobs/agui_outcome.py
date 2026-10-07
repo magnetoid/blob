@@ -65,57 +65,11 @@ STOPPED_MID_RUN = "Blob restarted while the agent was answering. Ask again."
 FAILED_INSIDE_BLOB = "Blob could not finish writing this run's answer."
 
 
-def now_iso() -> str:
-    from ..schemas.base import require_iso
-
-    return require_iso(datetime.now(UTC))
-
-
 def _being_cancelled() -> bool:
     """Whether the task running this is itself being cancelled, as opposed to a task it
     was awaiting having been cancelled by somebody else (the Stop button)."""
     current = asyncio.current_task()
     return current is not None and current.cancelling() > 0
-
-
-def refused_view(
-    run_id: str,
-    listener: Listener,
-    *,
-    channel_id: str,
-    thread_root_id: str | None,
-    trigger_id: str,
-    trigger_user_id: str | None,
-    reason: str,
-) -> dict[str, Any]:
-    """A run that was over before it began, as the client draws it.
-
-    `agent_run.started` announces that a run row exists, whatever its status — the
-    client upserts the whole view, so a run terminal at birth needs no second event.
-    The card under the mention is the refusal's whole voice: the agent posts no
-    message, because the agent never ran.
-    """
-    return {
-        "id": run_id,
-        "pluginId": listener.plugin_id,
-        "agentName": listener.name,
-        "channelId": channel_id,
-        "threadRootId": thread_root_id,
-        "triggerMessageId": trigger_id,
-        "status": "refused",
-        "error": reason,
-        "postCount": 0,
-        "startedAt": now_iso(),
-        "finishedAt": now_iso(),
-        "card": None,
-        "chainId": trigger_id,
-        "parentRunId": None,
-        "depth": 0,
-        "askedBy": None,
-        "initiatedByUserId": trigger_user_id,
-        "answeredAt": None,
-        "expiresAt": None,
-    }
 
 
 async def refuse(
@@ -144,16 +98,13 @@ async def refuse(
         transport=listener.transport,
         reason=reason,
     )
-    view = refused_view(
-        refused_id,
-        listener,
-        channel_id=channel_id,
-        thread_root_id=thread_root_id,
-        trigger_id=trigger_id,
-        trigger_user_id=trigger_user_id,
-        reason=reason,
-    )
-    after.add(lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": view}))
+    # `agent_run.started` announces that a run row exists, whatever its status: the
+    # client upserts the whole view, so a run terminal at birth needs no second event,
+    # and the card under the mention is the refusal's whole voice. The view is the row as
+    # the service reads every run — one shape, not a second one built by hand here.
+    view = await agent_run_service.view_of(session, refused_id)
+    if view is not None:
+        after.add(lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": view}))
     after.add(lambda: queue_lib.fire_and_forget(metrics.run_ended(listener.slug, "refused")))
     if chain_id is not None:
         await task_dispatch.settle(
@@ -417,28 +368,13 @@ async def _start(
         )
         if run_id is None:
             return None
-        run_view: dict[str, Any] = {
-            "id": run_id,
-            "pluginId": listener.plugin_id,
-            "agentName": listener.name,
-            "channelId": channel_id,
-            "threadRootId": thread_root_id,
-            "triggerMessageId": trigger_id,
-            "status": "running",
-            "error": None,
-            "postCount": 0,
-            "startedAt": now_iso(),
-            "finishedAt": None,
-            "card": None,
-            "chainId": chain.chain_id,
-            "parentRunId": chain.parent_run_id,
-            "depth": chain.depth,
-            "askedBy": chain.asked_by,
-            "initiatedByUserId": chain.initiated_by_user_id,
-            "answeredAt": None,
-            "expiresAt": None,
-        }
-        after.add(lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": run_view}))
+        # The row as the service reads every run, so the card the room sees as a run
+        # starts is the shape it gets on every later read.
+        run_view = await agent_run_service.view_of(session, run_id)
+        if run_view is not None:
+            after.add(
+                lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": run_view})
+            )
 
     return run_id
 
@@ -684,13 +620,7 @@ async def _finish(
                         run_id=run_id,
                     )
                 updated = await work_service.get(session, work.id, workspace_id)
-                work_update = {
-                    "t": "work.updated",
-                    "workId": updated.id,
-                    "channelId": channel_id,
-                    "status": updated.status,
-                    "artifactCount": updated.artifact_count,
-                }
+                work_update = work_service.work_event(updated)
                 after.add(lambda: hub.to_channel(channel_id, work_update))
         finished_event = {
             "t": "agent_run.finished",

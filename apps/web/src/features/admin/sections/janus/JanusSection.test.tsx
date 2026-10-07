@@ -70,6 +70,8 @@ const janusRow = (over: Record<string, unknown> = {}) => ({
   ownerUserId: null,
   lastError: null,
   recentErrors: [],
+  secretRotatedAt: null,
+  tokenLastUsedAt: null,
   createdAt: '2026-09-01T00:00:00.000Z',
   updatedAt: '2026-09-01T00:00:00.000Z',
   pendingDeliveries: 0,

@@ -39,6 +39,19 @@ def sign(secret: str, timestamp: int, body: bytes) -> str:
     return f"{VERSION}={digest}"
 
 
+def signed_headers(secret: str, body: bytes) -> dict[str, str]:
+    """What every signed request Blob sends an app carries: the body's type, when it was
+    signed, and the signature. One place, because a webhook delivery, a slash command and
+    an AG-UI run are verified by the same code on the app's side, and three copies of
+    these lines are three chances for one of them to sign something else."""
+    timestamp = int(time.time())
+    return {
+        "content-type": "application/json",
+        TIMESTAMP_HEADER: str(timestamp),
+        SIGNATURE_HEADER: sign(secret, timestamp, body),
+    }
+
+
 def verify(secret: str, timestamp: str | None, signature: str | None, body: bytes) -> bool:
     """Constant-time check of a signature we received.
 

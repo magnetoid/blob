@@ -22,7 +22,7 @@ import httpx
 from ..config import settings
 from ..lib import sse, telemetry
 from . import agui, gateway
-from .signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
+from .signing import signed_headers
 
 
 def read_budget() -> int:
@@ -137,12 +137,9 @@ async def stream_run(
         return fold, posts, "that agent has no endpoint to call"
     decoder = sse.SseDecoder()
     body = json.dumps(run_input).encode()
-    timestamp = int(time.time())
     headers = {
-        "content-type": "application/json",
+        **signed_headers(listener.signing_secret, body),
         "accept": "text/event-stream",
-        TIMESTAMP_HEADER: str(timestamp),
-        SIGNATURE_HEADER: sign(listener.signing_secret, timestamp, body),
     }
     telemetry.inject(headers)
 

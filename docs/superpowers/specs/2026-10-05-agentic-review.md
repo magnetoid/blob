@@ -338,6 +338,22 @@ message that started a run into the worker.
   write-only columns; add the `agent_runs` indexes after measuring the nightly delete.
 - `lib/sourceRatchets.test.ts` gains a counter for whole-map `agentRuns` subscribers.
 
+*Built 2026-10-08.* The listener query is one select, one answering filter and one
+builder; every signed request takes `signing.signed_headers`; a run is announced with the
+service's own view; `work.updated` has one builder. `routers/plugins.py` (1,266 lines) is
+now three routers on its prefix — 716, 283 and 328 lines — and `plugins/registry.py`
+(972) gave the agent settings to `plugins/agent_settings.py` and the delivery log to
+`plugins/delivery.py`, leaving 789. The `local` runtime and the
+`builtin` transport are gone (migration 0053; ADR 0009 superseded). The FK indexes were
+measured first: the nightly sweep of 8,000 of 40,000 runs went from 56 s to 0.3 s with
+`agent_runs_parent` and `work_artifacts_run`; the message-side keys were left, since the
+app never hard-deletes a message. Of the write-only columns, the secret's rotation and
+the bot token's last use are now on the app's card, and the three grant and schedule
+records are kept, with the reason in the models. The client ratchet counts whole-map run
+selectors (0) and map scans (4). Not done: one fold for the two stream readers, and
+`post_as_bot` adopted by the bot API — each touches a contract (the fold's coverage,
+`/api/v1/`) that wants its own reviewed change.
+
 ---
 
 ## 9. Not doing, and why

@@ -57,6 +57,8 @@ const plugin = (over: Record<string, unknown>) => ({
   ownerUserId: null,
   lastError: null,
   recentErrors: [],
+  secretRotatedAt: null,
+  tokenLastUsedAt: null,
   createdAt: '2026-09-01T00:00:00Z',
   updatedAt: '2026-09-01T00:00:00Z',
   pendingDeliveries: 0,

@@ -260,13 +260,14 @@ async def test_a_private_address_is_a_policy_refusal_not_a_typo(team: dict, url:
     assert response.body["error"]["code"] == "policy_forbidden"
 
 
-async def test_a_local_plugin_cannot_be_installed_over_http(team: dict) -> None:
-    # Installing local code is a deploy, not a console action.
+async def test_there_is_no_in_process_runtime_to_install(team: dict) -> None:
+    # ADR 0009's local runtime was never built, and phase 8 of the agentic review dropped
+    # it: every app runs outside the server, so a manifest naming it is not a manifest.
     response = await team["owner"].post(
         "/api/admin/plugins", {**APP, "runtime": "local", "requestUrl": None}
     )
     assert response.status == 400
-    assert response.body["error"]["code"] == "local_not_installable"
+    assert response.body["error"]["code"] == "invalid_input"
 
 
 # ─── the callback API ─────────────────────────────────────────────────────────
@@ -277,6 +278,35 @@ async def test_auth_test_reports_what_the_token_can_do(team: dict) -> None:
     assert response.status == 200
     assert response.body["slug"] == "standup-bot"
     assert response.body["scopes"] == sorted(APP["scopes"])
+
+
+async def test_the_console_says_when_a_token_was_used_and_a_secret_rotated(team: dict) -> None:
+    """Both were written and never read until the review of 2026-10-05: an admin about to
+    rotate or revoke now sees how old the secret is and whether anything uses the token."""
+    body = await install(team["owner"])
+    plugin_id = body["plugin"]["id"]
+
+    async def listed() -> dict:
+        answer = await team["owner"].get("/api/admin/plugins")
+        (plugin,) = [p for p in answer.body["plugins"] if p["id"] == plugin_id]
+        return dict(plugin)
+
+    fresh = await listed()
+    assert fresh["secretRotatedAt"] is not None
+    assert fresh["tokenLastUsedAt"] is None
+
+    app = bot_client(team["owner"], body["botToken"])
+    assert (await app.get("/api/v1/auth.test")).status == 200
+    used = await listed()
+    assert used["tokenLastUsedAt"] is not None
+
+    rotated = await team["owner"].post(f"/api/admin/plugins/{plugin_id}/secret")
+    assert rotated.status == 200, rotated.body
+    assert (await listed())["secretRotatedAt"] >= fresh["secretRotatedAt"]
+
+    # A revoked token is no longer one that is in use.
+    assert (await team["owner"].delete(f"/api/admin/plugins/{plugin_id}/tokens")).status == 200
+    assert (await listed())["tokenLastUsedAt"] is None
 
 
 @pytest.mark.parametrize("token", ["", "Bearer nonsense", "blob-bot-made-up"])
