@@ -63,9 +63,12 @@ addressed to the agent, in the task's thread.**
   behind a person's own decision never overwrites it. A task that changes hands drops its
   hand-off.
 - **Two saves are a hand-off, and no others.** The task changing hands to an agent, and
-  an agent's task moved back to in progress — "work on it again", the retry for a task its
-  run blocked, and a fresh hand-off with a chain of its own. Saving anything else about a
-  task an agent holds, its priority or its outcome, does not set the agent going.
+  an agent's task moved back to in progress from to do or blocked — "work on it again",
+  the retry for a task its run blocked or a person stopped, and a fresh hand-off with a
+  chain of its own. Not from done or cancelled: reopening finished work is a decision
+  about the task, not an instruction to the agent. Saving anything else about a task an
+  agent holds, its priority or its outcome, does not set the agent going, and a save
+  decides from the task's row under a lock, so two at once cannot both hand it over.
 - **An app hands nothing over.** A task an app creates or reassigns through the bot API
   starts no run: an app's message has no person behind it to run on the authority of.
   An app's bot that is not an agent may still be assigned work by an admin, as before,

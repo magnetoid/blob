@@ -15,6 +15,7 @@ import { FALLBACK_MS } from '../../lib/usePresence.ts';
 
 const getThreadSummary = vi.fn();
 const listThreadTasks = vi.fn();
+const updateTask = vi.fn();
 const listAgents = vi.fn();
 const threadFollowing = vi.fn();
 const followThread = vi.fn();
@@ -26,7 +27,7 @@ vi.mock('../../lib/api.ts', async (importOriginal) => {
     ...actual,
     api: {
       ...actual.api,
-      agentic: { ...actual.api.agentic, getThreadSummary, listThreadTasks },
+      agentic: { ...actual.api.agentic, getThreadSummary, listThreadTasks, updateTask },
       agents: { ...actual.api.agents, list: listAgents },
       messages: { ...actual.api.messages, threadFollowing, followThread, markThreadRead },
     },
@@ -379,6 +380,43 @@ describe('the tasks card', () => {
     expect(screen.queryByText(/gets a hand-off in this thread/)).toBeNull();
     fireEvent.change(status, { target: { value: 'in_progress' } });
     expect(screen.getByText(/Helper gets a hand-off in this thread from you/)).toBeTruthy();
+  });
+
+  it('saves only what was changed, so a task that moved meanwhile is not put back', async () => {
+    // A frozen copy of the whole card sent the status it had when Ana started editing:
+    // the agent finished meanwhile, and her priority change reopened the task and set
+    // the agent going again (review of phase 3).
+    getThreadSummary.mockResolvedValue({ summary: null });
+    seedAgents();
+    const working = task({ status: 'in_progress', assigneeUserId: 'b1', assigneeKind: 'bot' });
+    const finished = { ...working, status: 'done', outcome: 'Notes are in the thread.' };
+    listThreadTasks
+      .mockResolvedValue({ tasks: [finished] })
+      .mockResolvedValueOnce({ tasks: [working] });
+    updateTask.mockResolvedValue({ task: { ...finished, priority: 'high' } });
+    await renderPanel();
+    await screen.findByText('in progress');
+
+    // Ana raises the priority while the agent is still at it…
+    fireEvent.change(screen.getByLabelText('Priority'), { target: { value: 'high' } });
+    // …and it finishes before she saves.
+    act(() => {
+      useStore.getState().applyEvent({
+        t: 'task.updated',
+        taskId: 't1',
+        channelId: 'c1',
+        threadRootId: 'm1',
+        status: 'done',
+      });
+    });
+    await screen.findByText('done');
+    expect(screen.queryByText(/gets a hand-off in this thread/)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(updateTask).toHaveBeenCalledWith('t1', { priority: 'high' });
   });
 
   it('keeps whoever has a task in its picker, even an agent you could not pick', async () => {

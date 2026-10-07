@@ -1471,6 +1471,15 @@ from there on. Things to know before changing it:
   agent. Anything else composed on someone's behalf that wants the parse must not pass
   it.
 * **Two saves dispatch, and no others.** A change of hands to an agent, and an agent's
-  task moved back to in progress (the retry — the route cannot clear an assignee, so it is
-  the only way back from blocked). The client sends the current assignee back on every
-  save; treating that as a hand-off would re-run the agent on a priority change.
+  task moved back to in progress from to do or blocked (the retry — the route cannot clear
+  an assignee, so it is the only way back from blocked). Never from done or cancelled.
+  The client sends the current assignee back on every save; treating that as a hand-off
+  would re-run the agent on a priority change.
+* **The save decides under a row lock** (`get_task(..., for_update=True)`). Without it two
+  retries that read the same blocked row both handed the task over. A test that fires two
+  requests with `gather` does not catch this here — the second one happened to read after
+  the first committed — so `test_a_retry_decides_from_the_task_as_it_stands…` holds the
+  lock itself and moves the task underneath the request.
+* **The card sends only what was touched** (`ThreadTasks.tsx`, `taskEdits`). It used to
+  freeze every field the moment one was edited, and a save sent the frozen status back:
+  an agent finished, a priority change reopened the task and set the agent going again.

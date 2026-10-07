@@ -203,7 +203,10 @@ async def update_task(
     user: SessionUser = Depends(current_user),
 ) -> AgentTaskOut:
     async with transaction() as (session, after):
-        existing = await agentic_service.get_task(session, task_id)
+        # Locked: what this save does is decided from the task as it stands, and two saves
+        # at once — the retry pressed in two tabs — must not both decide from the same
+        # blocked row and both hand the task over.
+        existing = await agentic_service.get_task(session, task_id, for_update=True)
         await channel_service.assert_channel_access(
             session, user.id, existing.channel_id, require_writable=True
         )
@@ -214,9 +217,11 @@ async def update_task(
         ):
             raise forbidden("You can only update your own assigned agent tasks.")
         # Two saves are a hand-off (ADR 0023): the task changing hands to an agent, and an
-        # agent's task moved back to in progress — "work on it again", the retry for one
-        # its run blocked. Saving anything else about it, its priority or its outcome,
-        # sets nothing going.
+        # agent's task moved back to in progress from to do or blocked — "work on it
+        # again", the retry for one its run blocked or a person stopped. Not from done or
+        # cancelled: reopening finished work is a person's decision about the task, and a
+        # save carrying a stale status must not quietly set the agent going on it again.
+        # Saving anything else about it, its priority or its outcome, sets nothing going.
         handed_to = (
             payload.assignee_user_id
             if payload.assignee_user_id not in (None, user.id, existing.assignee_user_id)
@@ -225,7 +230,7 @@ async def update_task(
         again = (
             handed_to is None
             and payload.status == "in_progress"
-            and existing.status != "in_progress"
+            and existing.status in ("todo", "blocked")
             and existing.assignee_kind == "bot"
             and existing.assignee_user_id is not None
             and payload.assignee_user_id in (None, existing.assignee_user_id)

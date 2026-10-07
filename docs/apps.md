@@ -487,8 +487,8 @@ You do nothing else to close the task. How your run ends moves it:
 A person who changes the task while you work — closes it, hands it to somebody else — is
 not overwritten: your run's ending moves only a task that is still in progress, still
 yours, and still on the hand-off you were given. Saving a task you already hold does not
-run you again, with one exception: a person moving it back to in progress — the retry for
-a task your run blocked — hands it to you afresh.
+run you again, with one exception: a person moving it from to do or blocked back to in
+progress — the retry for a task your run blocked — hands it to you afresh.
 
 A task an app creates or reassigns through `tasks.create` and `tasks.update` hands
 nothing over, whoever it goes to, because a run needs a person at its root.

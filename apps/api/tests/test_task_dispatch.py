@@ -9,6 +9,7 @@ moves the task without ever overwriting what a person decided in the meantime.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -17,11 +18,12 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from blob_api.db.engine import SessionFactory
+from blob_api.db.engine import SessionFactory, transaction
 from blob_api.jobs import agui as agui_job
 from blob_api.plugins import streams
 from blob_api.realtime import hub
 from blob_api.services import agent_chains, task_dispatch
+from blob_api.services import agentic as agentic_service
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up
 from .test_agent_tools import says
@@ -498,6 +500,55 @@ class TestHowTheRunEndingMovesTheTask:
         await run_handoff(desk, retried, says("Second time lucky."))
         settled = await row_of("agent_tasks", task["id"])
         assert (settled.status, settled.outcome) == ("done", "Second time lucky.")
+
+    async def test_a_retry_decides_from_the_task_as_it_stands_when_its_turn_comes(
+        self, desk: dict[str, Any]
+    ) -> None:
+        # The retry pressed in two tabs. Each save decided from the row it had read, so
+        # two that read the same blocked row both handed the task over — the agent asked
+        # to do the same work twice, in two chains (review of phase 3). The row is locked
+        # now. Here the "first tab" is this transaction: it holds the row while the retry
+        # arrives, moves the task on, and commits; the retry must then see it moved.
+        task = (await handed(desk)).body["task"]
+        await run_handoff(
+            desk,
+            task,
+            frame(type="RUN_STARTED", threadId="t", runId="r")
+            + frame(type="RUN_ERROR", message="model unavailable"),
+        )
+
+        async with transaction() as (session, _after):
+            await agentic_service.get_task(session, task["id"], for_update=True)
+            retry = asyncio.ensure_future(
+                desk["owner"].patch(f"/api/tasks/{task['id']}", {"status": "in_progress"})
+            )
+            await asyncio.sleep(0.3)
+            assert not retry.done()  # It waits for the save already deciding.
+            await session.execute(
+                text("UPDATE agent_tasks SET status = 'in_progress' WHERE id = :id"),
+                {"id": task["id"]},
+            )
+        retried = await retry
+
+        assert retried.status == 200, retried.body
+        # Not handed over a second time: the retry found the task already in progress.
+        assert retried.body["task"]["dispatchMessageId"] == task["dispatchMessageId"]
+
+    async def test_a_finished_task_moved_back_to_in_progress_hands_nothing_over(
+        self, desk: dict[str, Any]
+    ) -> None:
+        # Reopening finished work is a person's decision about the task. A save carrying
+        # a stale "in progress" — a card edited before the agent finished — must not set
+        # the agent going on it again.
+        task = (await handed(desk)).body["task"]
+        await run_handoff(desk, task, says("All done."))
+        assert (await row_of("agent_tasks", task["id"])).status == "done"
+        runs_before = [job for job in desk["enqueued"] if job[0] == "agui_run"]
+
+        reopened = await desk["owner"].patch(f"/api/tasks/{task['id']}", {"status": "in_progress"})
+        assert reopened.status == 200, reopened.body
+        assert reopened.body["task"]["dispatchMessageId"] == task["dispatchMessageId"]
+        assert [job for job in desk["enqueued"] if job[0] == "agui_run"] == runs_before
 
     async def test_in_progress_on_a_persons_task_hands_nothing_over(
         self, desk: dict[str, Any]

@@ -93,7 +93,11 @@ export function ThreadTasksCard({
   users: Record<string, User>;
   apply: (change: ThreadToolsChange) => void;
 }) {
-  const [taskDrafts, setTaskDrafts] = useState<Record<string, TaskDraft>>({});
+  // Only the fields a person has touched, per task. The rest of the card is the task as
+  // it is now: a frozen copy of every field went stale the moment the task moved under
+  // it — an agent finishing it, say — and a save sent the stale status back, reopening
+  // finished work from a priority change (review of phase 3).
+  const [taskEdits, setTaskEdits] = useState<Record<string, Partial<TaskDraft>>>({});
   const [savingTaskId, setSavingTaskId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -130,7 +134,9 @@ export function ThreadTasksCard({
   }
 
   async function saveTask(task: AgentTask) {
-    const draft = taskDrafts[task.id] ?? draftFor(task);
+    // What was touched and still differs from the task as it stands — nothing else is
+    // sent, so a field somebody else changed meanwhile is never put back.
+    const edits = taskEdits[task.id] ?? {};
     const payload: {
       assigneeUserId?: string | null;
       status?: AgentTaskStatus;
@@ -138,16 +144,20 @@ export function ThreadTasksCard({
       outcome?: string | null;
     } = {};
 
-    if (draft.status !== task.status) payload.status = draft.status;
-    if (draft.priority !== task.priority) payload.priority = draft.priority;
-    if (mayReassign(task)) {
-      const nextAssignee = draft.assigneeUserId || null;
+    if (edits.status !== undefined && edits.status !== task.status)
+      payload.status = edits.status;
+    if (edits.priority !== undefined && edits.priority !== task.priority)
+      payload.priority = edits.priority;
+    if (edits.assigneeUserId !== undefined && mayReassign(task)) {
+      const nextAssignee = edits.assigneeUserId || null;
       if (nextAssignee !== (task.assigneeUserId ?? null))
         payload.assigneeUserId = nextAssignee;
     }
-    const trimmedOutcome = draft.outcome.trim();
-    if ((trimmedOutcome || null) !== (task.outcome ?? null)) {
-      payload.outcome = trimmedOutcome || null;
+    if (edits.outcome !== undefined) {
+      const trimmedOutcome = edits.outcome.trim();
+      if ((trimmedOutcome || null) !== (task.outcome ?? null)) {
+        payload.outcome = trimmedOutcome || null;
+      }
     }
     if (Object.keys(payload).length === 0) return;
 
@@ -157,7 +167,7 @@ export function ThreadTasksCard({
       const result = await api.agentic.updateTask(task.id, payload);
       apply({ type: "task.updated", task: result.task });
       // Saved, so nothing is pending: the card follows the task again.
-      setTaskDrafts((current) => {
+      setTaskEdits((current) => {
         const next = { ...current };
         delete next[task.id];
         return next;
@@ -170,17 +180,10 @@ export function ThreadTasksCard({
   }
 
   function setTaskDraft(taskId: string, patch: Partial<TaskDraft>) {
-    setTaskDrafts((current) => {
-      const existing = current[taskId];
-      return {
-        ...current,
-        [taskId]: {
-          ...(existing ??
-            draftFor(tasks.find((task) => task.id === taskId) as AgentTask)),
-          ...patch,
-        },
-      };
-    });
+    setTaskEdits((current) => ({
+      ...current,
+      [taskId]: { ...current[taskId], ...patch },
+    }));
   }
 
   const shown = saveError ?? error;
@@ -275,7 +278,8 @@ export function ThreadTasksCard({
       ) : (
         <div className="task-list">
           {tasks.map((task) => {
-            const draft = taskDrafts[task.id] ?? draftFor(task);
+            // The task as it is, with what this person has touched laid over it.
+            const draft = { ...draftFor(task), ...taskEdits[task.id] };
             const reassignable = mayReassign(task);
             // Whoever has it now stays in the list even when it is not somebody this
             // person could pick — an agent they may not command, someone since gone —

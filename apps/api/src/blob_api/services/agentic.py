@@ -686,7 +686,10 @@ async def create_task(
     return to_agent_task(enriched)
 
 
-async def get_task(session: AsyncSession, task_id: str) -> AgentTask:
+async def get_task(session: AsyncSession, task_id: str, *, for_update: bool = False) -> AgentTask:
+    """One task. `for_update` locks its row for the rest of the transaction — what a
+    change that decides something from the task as it stands needs, so two saves at once
+    are taken one after the other rather than both deciding from the same old row."""
     row = (
         await session.execute(
             text(
@@ -696,6 +699,7 @@ async def get_task(session: AsyncSession, task_id: str) -> AgentTask:
                   LEFT JOIN users u ON u.id = t.assignee_user_id
                  WHERE t.id = :id
                 """
+                + (" FOR UPDATE OF t" if for_update else "")
             ),
             {"id": task_id},
         )

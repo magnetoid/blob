@@ -425,3 +425,8 @@ writes always ask, and a borrowed agent runs without its owner's memory until Ph
 - **"`task.updated` reaches socket agents and Janus":** it does through the run. An agent
   is told of its task by being run on it, whatever its transport; a later edit to the
   task does not re-run it.
+- **The review of this phase found two real faults, both fixed on the branch:** two
+  retries at once could both hand a task over (the save now decides under a row lock),
+  and the task card froze every field once one was edited, so a priority change saved
+  after the agent finished reopened the task and ran the agent again (the card now sends
+  only what was touched, and a retry no longer starts from done or cancelled).
