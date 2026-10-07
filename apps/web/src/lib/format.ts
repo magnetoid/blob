@@ -22,3 +22,11 @@ export function formatTokens(tokens: number): string {
 export function byDisplayName<T extends { displayName: string }>(a: T, b: T): number {
   return a.displayName.localeCompare(b.displayName);
 }
+
+/** When a connection ends, said the way a person plans by: a date, or that it has. */
+export function formatEnds(expiresAt: string | null): string {
+  if (!expiresAt) return 'never ends';
+  const at = new Date(expiresAt);
+  const date = at.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return at.getTime() <= Date.now() ? `ended ${date} — it no longer connects` : `ends ${date}`;
+}

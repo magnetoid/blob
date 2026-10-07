@@ -131,6 +131,14 @@ export interface AssistantToken {
   scopes: string[];
   createdAt: string;
   lastUsedAt: string | null;
+  /** When it stops working. Every connection ends (migration 0051). */
+  expiresAt: string | null;
+}
+
+/** A connection as an admin sees it: whose it is, too. */
+export interface WorkspaceAssistantToken extends AssistantToken {
+  ownerId: string;
+  ownerName: string;
 }
 
 /** What an agent remembers of one conversation (migration 0050): a person's own memory
@@ -1046,10 +1054,10 @@ export const api = {
   assistants: {
     list: () =>
       get<{ tokens: AssistantToken[]; url: string }>("/api/me/mcp-tokens"),
-    create: (name: string, canWrite: boolean) =>
+    create: (name: string, canWrite: boolean, lifetimeDays: 30 | 90 | 365 = 90) =>
       post<{ token: AssistantToken; secret: string; url: string }>(
         "/api/me/mcp-tokens",
-        { name, canWrite },
+        { name, canWrite, lifetimeDays },
       ),
     revoke: (tokenId: string) =>
       del<{ ok: true }>(`/api/me/mcp-tokens/${tokenId}`),
@@ -1345,6 +1353,11 @@ export const api = {
       get<{ runs: AdminAgentRun[] }>(
         `/api/admin/plugins/${pluginId}/runs?limit=${limit}`,
       ),
+    /** Every assistant connected to this workspace as one of its people. */
+    assistantTokens: () =>
+      get<{ tokens: WorkspaceAssistantToken[] }>("/api/admin/mcp-tokens"),
+    revokeAssistantToken: (tokenId: string) =>
+      del<{ ok: true }>(`/api/admin/mcp-tokens/${tokenId}`),
     /** What this agent remembers of conversations you can see. */
     agentMemory: (pluginId: string) =>
       get<{ memories: AgentMemory[] }>(`/api/admin/plugins/${pluginId}/memory`),

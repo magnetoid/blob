@@ -27,6 +27,7 @@ import { LogsSection } from './sections/LogsSection.tsx';
 import { AppsSection } from './sections/AppsSection.tsx';
 import { ChannelsSection } from './sections/ChannelsSection.tsx';
 import { DeliveriesSection } from './sections/DeliveriesSection.tsx';
+import { AssistantsAdminSection } from './sections/AssistantsAdminSection.tsx';
 import { EmojiSection } from './sections/EmojiSection.tsx';
 import { GeneralSection } from './sections/GeneralSection.tsx';
 import { GroupsSection } from './sections/GroupsSection.tsx';
@@ -82,6 +83,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   janus: JanusSection,
   webhooks: WebhooksSection,
   deliveries: DeliveriesSection,
+  connections: AssistantsAdminSection,
   users: framed(AccountsSection),
   'app-policy': AppPolicySection,
   feedback: FeedbackSection,

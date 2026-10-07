@@ -2654,6 +2654,16 @@
             "title": "Canwrite",
             "type": "boolean"
           },
+          "lifetimeDays": {
+            "default": 90,
+            "enum": [
+              30,
+              90,
+              365
+            ],
+            "title": "Lifetimedays",
+            "type": "integer"
+          },
           "name": {
             "maxLength": 80,
             "minLength": 1,
@@ -7442,6 +7452,17 @@
             "title": "Createdat",
             "type": "string"
           },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresat"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -8782,6 +8803,85 @@
           "settings"
         ],
         "title": "WorkspaceSettingsOut",
+        "type": "object"
+      },
+      "WorkspaceTokenSummary": {
+        "properties": {
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresat"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastusedat"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ownerId": {
+            "title": "Ownerid",
+            "type": "string"
+          },
+          "ownerName": {
+            "title": "Ownername",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scopes",
+          "createdAt",
+          "ownerId",
+          "ownerName"
+        ],
+        "title": "WorkspaceTokenSummary",
+        "type": "object"
+      },
+      "WorkspaceTokensOut": {
+        "properties": {
+          "tokens": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceTokenSummary"
+            },
+            "title": "Tokens",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tokens"
+        ],
+        "title": "WorkspaceTokensOut",
         "type": "object"
       },
       "blob_api__routers__activity__ActivityOut": {
@@ -10564,6 +10664,75 @@
         "summary": "Restart Janus",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/admin/mcp-tokens": {
+      "get": {
+        "description": "Every assistant connected to this workspace as one of its people: whose, what it\nmay do, when it was last used and when it ends. A credential that acts as a colleague\nis the workspace's business as well as theirs.",
+        "operationId": "list_workspace_tokens_api_admin_mcp_tokens_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceTokensOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Workspace Tokens",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/admin/mcp-tokens/{token_id}": {
+      "delete": {
+        "operationId": "revoke_workspace_token_api_admin_mcp_tokens__token_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Token Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Revoke Workspace Token Api Admin Mcp Tokens  Token Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Workspace Token",
+        "tags": [
+          "mcp"
         ]
       }
     },
@@ -12994,7 +13163,7 @@
     },
     "/api/agent-runs/{run_id}/cancel": {
       "post": {
-        "description": "Stop an in-flight run.\n\nAnyone who can see the channel can stop a run in it \u2014 the same rule as Slack's\nstop button, and the right one: the person paying attention is rarely the person\nwho asked. The worker hears it two ways, key and publish, because it subscribes\nbefore it checks and a Stop pressed in the gap must land on one side or the other.",
+        "description": "Stop an in-flight run \u2014 anyone who can see the channel may, and the hops it caused\nstop with it. `services/agent_run_control.py` holds the rule, shared with an\nassistant's `stop_run`.",
         "operationId": "cancel_agent_run_api_agent_runs__run_id__cancel_post",
         "parameters": [
           {

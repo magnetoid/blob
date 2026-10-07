@@ -563,6 +563,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/mcp-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Workspace Tokens
+         * @description Every assistant connected to this workspace as one of its people: whose, what it
+         *     may do, when it was last used and when it ends. A credential that acts as a colleague
+         *     is the workspace's business as well as theirs.
+         */
+        get: operations["list_workspace_tokens_api_admin_mcp_tokens_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/mcp-tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Workspace Token */
+        delete: operations["revoke_workspace_token_api_admin_mcp_tokens__token_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/plugins": {
         parameters: {
             query?: never;
@@ -1515,12 +1554,9 @@ export interface paths {
         put?: never;
         /**
          * Cancel Agent Run
-         * @description Stop an in-flight run.
-         *
-         *     Anyone who can see the channel can stop a run in it — the same rule as Slack's
-         *     stop button, and the right one: the person paying attention is rarely the person
-         *     who asked. The worker hears it two ways, key and publish, because it subscribes
-         *     before it checks and a Stop pressed in the gap must land on one side or the other.
+         * @description Stop an in-flight run — anyone who can see the channel may, and the hops it caused
+         *     stop with it. `services/agent_run_control.py` holds the rule, shared with an
+         *     assistant's `stop_run`.
          */
         post: operations["cancel_agent_run_api_agent_runs__run_id__cancel_post"];
         delete?: never;
@@ -4764,6 +4800,12 @@ export interface components {
              * @default false
              */
             canWrite: boolean;
+            /**
+             * Lifetimedays
+             * @default 90
+             * @enum {integer}
+             */
+            lifetimeDays: 30 | 90 | 365;
             /** Name */
             name: string;
         };
@@ -6539,6 +6581,8 @@ export interface components {
         TokenSummary: {
             /** Createdat */
             createdAt: string;
+            /** Expiresat */
+            expiresAt?: string | null;
             /** Id */
             id: string;
             /** Lastusedat */
@@ -6951,6 +6995,30 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** WorkspaceTokensOut */
+        WorkspaceTokensOut: {
+            /** Tokens */
+            tokens: components["schemas"]["WorkspaceTokenSummary"][];
+        };
+        /** WorkspaceTokenSummary */
+        WorkspaceTokenSummary: {
+            /** Createdat */
+            createdAt: string;
+            /** Expiresat */
+            expiresAt?: string | null;
+            /** Id */
+            id: string;
+            /** Lastusedat */
+            lastUsedAt?: string | null;
+            /** Name */
+            name: string;
+            /** Ownerid */
+            ownerId: string;
+            /** Ownername */
+            ownerName: string;
+            /** Scopes */
+            scopes: string[];
+        };
     };
     responses: never;
     parameters: never;
@@ -7194,6 +7262,8 @@ export type WorkspaceAgentOut = components['schemas']['WorkspaceAgentOut'];
 export type WorkspaceAgentsOut = components['schemas']['WorkspaceAgentsOut'];
 export type WorkspaceMembership = components['schemas']['WorkspaceMembership'];
 export type WorkspaceSettingsOut = components['schemas']['WorkspaceSettingsOut'];
+export type WorkspaceTokensOut = components['schemas']['WorkspaceTokensOut'];
+export type WorkspaceTokenSummary = components['schemas']['WorkspaceTokenSummary'];
 export type $defs = Record<string, never>;
 export interface operations {
     activity_api_activity_get: {
@@ -8206,6 +8276,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JanusAppliedOut"];
+                };
+            };
+        };
+    };
+    list_workspace_tokens_api_admin_mcp_tokens_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceTokensOut"];
+                };
+            };
+        };
+    };
+    revoke_workspace_token_api_admin_mcp_tokens__token_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

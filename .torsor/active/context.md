@@ -1534,3 +1534,22 @@ from there on. Things to know before changing it:
 * **`thread_key` still is not a foreign key** — it names a channel or a thread root.
   `channel_id` is the real one, and the migration deleted rows whose conversation was
   already gone.
+
+## MCP, second pass (2026-10-08): what bites
+
+* **`text()` reads a colon followed by a word as a parameter — inside string literals too.**
+  `'agui:' || :id || ':interrupt'` bound `:interrupt` as `$2` and failed at runtime. Bind
+  the whole pattern from Python instead (`agent_runs.answer_of`). `':%'` is safe only
+  because `%` is not a word character.
+* **2026-07-28 results must say `resultType: "complete"`**, and `tools/list` and
+  `server/discover` must carry `ttlMs` and `cacheScope`. Only the modern path adds them
+  (`routers/mcp.py:_modern`); a legacy client's results are untouched. `tools/list` is
+  `private` because it is filtered by the token's scopes; discovery is `public`.
+* **The new person-only tools refuse a room-bound caller** (`_person_only`). Agents are
+  never offered them (`jobs/agui_tools` lists what is), but `inbox` and `list_threads` read
+  the person's own state and must not answer an agent in a room even if asked.
+* **A followed thread in a room the person left is filtered out** (`_visible_channels`):
+  `thread_subscriptions` outlives membership. The test proves the thread was listed while
+  they were in the room first, or it passes for the wrong reason.
+* **Stopping a run is one service** (`services/agent_run_control.stop`), shared by the
+  card's Stop and `stop_run`. A rule changed in one place only is how the two drift.

@@ -1693,6 +1693,8 @@ class McpToken(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     last_used_at: Mapped[Any | None] = mapped_column(Timestamp)
     revoked_at: Mapped[Any | None] = mapped_column(Timestamp)
+    #: When it stops resolving (migration 0051): chosen at minting, 30 to 365 days out.
+    expires_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
 __all__ = [

@@ -18,6 +18,7 @@ const TOKEN = {
   scopes: ['read'],
   createdAt: '2026-09-06T09:00:00.000Z',
   lastUsedAt: null as string | null,
+  expiresAt: null as string | null,
 };
 
 beforeEach(() => {
@@ -61,7 +62,8 @@ describe('connecting an assistant', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Get a token' }));
 
-    await waitFor(() => expect(create).toHaveBeenCalledWith('Laptop', false));
+    // Ninety days unless another lifetime is chosen: every connection ends.
+    await waitFor(() => expect(create).toHaveBeenCalledWith('Laptop', false, 90));
   });
 
   it('asks for write only when the box is ticked', async () => {
@@ -79,7 +81,7 @@ describe('connecting an assistant', () => {
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Get a token' }));
 
-    await waitFor(() => expect(create).toHaveBeenCalledWith('Laptop', true));
+    await waitFor(() => expect(create).toHaveBeenCalledWith('Laptop', true, 90));
     expect(await screen.findByText(/It can also post/)).toBeTruthy();
   });
 
@@ -147,5 +149,27 @@ describe('the connections you already have', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
     expect(screen.getByRole('button', { name: 'Revoke' })).toBeTruthy();
     expect(revoke).not.toHaveBeenCalled();
+  });
+});
+
+describe('how long a connection lasts', () => {
+  it('is chosen when it is made, and shown on every connection', async () => {
+    seed([{ ...TOKEN, expiresAt: '2099-01-02T09:00:00.000Z' }]);
+    const create = vi
+      .spyOn(api.assistants, 'create')
+      .mockResolvedValue({ token: TOKEN, secret: 's3cret', url: 'https://b/api/mcp' } as never);
+    await draw();
+
+    expect(screen.getByText(/ends .*2099/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Laptop' } });
+    fireEvent.change(screen.getByLabelText('How long it lasts'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Get a token' }));
+    await waitFor(() => expect(create).toHaveBeenCalledWith('Laptop', false, 30));
+  });
+
+  it('says so when one has ended', async () => {
+    seed([{ ...TOKEN, expiresAt: '2001-01-02T09:00:00.000Z' }]);
+    await draw();
+    expect(screen.getByText(/ended .*it no longer connects/)).toBeTruthy();
   });
 });

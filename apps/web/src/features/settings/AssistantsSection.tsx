@@ -17,6 +17,7 @@
  */
 
 import { useState } from 'react';
+import { formatEnds } from '../../lib/format.ts';
 import { api, type AssistantToken } from '../../lib/api.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import { Card, CardNotice } from '../console/Card.tsx';
@@ -39,6 +40,7 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
   const act = useAdminAction(onError, reload);
   const [name, setName] = useState('');
   const [canWrite, setCanWrite] = useState(false);
+  const [lifetime, setLifetime] = useState<30 | 90 | 365>(90);
   const [busy, setBusy] = useState(false);
   const [minted, setMinted] = useState<Minted | null>(null);
 
@@ -50,7 +52,7 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
     setBusy(true);
     onError(null);
     try {
-      const made = await api.assistants.create(name.trim(), canWrite);
+      const made = await api.assistants.create(name.trim(), canWrite, lifetime);
       setMinted({
         name: made.token.name,
         secret: made.secret,
@@ -108,6 +110,24 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
             onChange={(event) => setCanWrite(event.target.checked)}
           />
         </label>
+        <label className="pref-row">
+          <span className="pref-label grow">
+            It lasts
+            <span className="pref-hint block">
+              Every connection ends; make a new one when it does. Your admins can see it too.
+            </span>
+          </span>
+          <select
+            className="input"
+            aria-label="How long it lasts"
+            value={lifetime}
+            onChange={(event) => setLifetime(Number(event.target.value) as 30 | 90 | 365)}
+          >
+            <option value={30}>30 days</option>
+            <option value={90}>90 days</option>
+            <option value={365}>A year</option>
+          </select>
+        </label>
       </Card>
 
       {minted && <AssistantSetup minted={minted} />}
@@ -153,6 +173,8 @@ function TokenRow({
             {token.lastUsedAt
               ? `Last used ${new Date(token.lastUsedAt).toLocaleString()}`
               : 'Never used — it has not connected yet'}
+            {' · '}
+            {formatEnds(token.expiresAt)}
           </div>
         </div>
         <div className="admin-row-actions">

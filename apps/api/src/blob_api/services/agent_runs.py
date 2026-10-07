@@ -864,6 +864,67 @@ async def views_for_member(
     return [_view(row) for row in rows]
 
 
+async def views_for_trigger(
+    session: AsyncSession, *, workspace_id: str, message_id: str
+) -> list[dict[str, Any]]:
+    """The runs one message started, oldest first — what an assistant that asked an agent
+    something watches. Visibility is the caller's to check: they name a message they
+    could see."""
+    rows = (
+        await session.execute(
+            text(
+                _VIEW_SELECT
+                + """
+                 WHERE r.workspace_id = :ws AND r.trigger_message_id = :message_id
+                 ORDER BY r.id
+                """
+            ),
+            {"ws": workspace_id, "message_id": message_id},
+        )
+    ).fetchall()
+    return [_view(row) for row in rows]
+
+
+async def answer_of(session: AsyncSession, run_id: str) -> list[str]:
+    """What a run said, in the order it was posted: its agent's messages, keyed
+    `agui:{run}:…` by the job, without the question it posted to wait on."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT m.body
+                  FROM agent_runs r
+                  JOIN users u ON u.bot_plugin_id = r.plugin_id
+                  JOIN messages m ON m.channel_id = r.channel_id AND m.author_id = u.id
+                 WHERE r.id = :id
+                   AND m.client_msg_id LIKE :posts
+                   AND m.client_msg_id <> :question
+                   AND m.deleted_at IS NULL
+                 ORDER BY m.id
+                """
+            ),
+            # Bound rather than spelled in the SQL: `text()` reads a colon followed by a
+            # word as a parameter even inside a string literal, so ':interrupt' was one.
+            # A run id is a UUID, so neither pattern holds a LIKE wildcard of its own.
+            {"id": run_id, "posts": f"agui:{run_id}:%", "question": f"agui:{run_id}:interrupt"},
+        )
+    ).fetchall()
+    return [str(row.body) for row in rows]
+
+
+async def view_in(
+    session: AsyncSession, *, workspace_id: str, run_id: str
+) -> dict[str, Any] | None:
+    """One run in the wire shape, if it is in this workspace."""
+    row = (
+        await session.execute(
+            text(_VIEW_SELECT + " WHERE r.id = :id AND r.workspace_id = :ws"),
+            {"id": run_id, "ws": workspace_id},
+        )
+    ).fetchone()
+    return None if row is None else _view(row)
+
+
 async def view_of(session: AsyncSession, run_id: str) -> dict[str, Any] | None:
     """One run in the wire shape, for re-announcing it after its state changed."""
     row = (

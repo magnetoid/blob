@@ -32,6 +32,7 @@ export const ADMIN_SECTIONS = [
   'janus',
   'webhooks',
   'deliveries',
+  'connections',
   'users',
   'app-policy',
   'feedback',

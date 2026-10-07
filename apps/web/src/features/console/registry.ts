@@ -255,6 +255,15 @@ export const ADMIN_NAV: NavGroup<AdminSection>[] = [
         keywords: ['webhooks', 'outbox', 'retry', 'replay', 'circuit'],
       },
       {
+        // Not `assistants`: that is the Settings page where a person makes their own, and
+        // the two consoles share no section id.
+        id: 'connections',
+        label: 'Assistants',
+        description:
+          "Every assistant connected here as one of its people — whose, what it may do, when it ends.",
+        keywords: ['mcp', 'tokens', 'claude', 'connections', 'revoke'],
+      },
+      {
         id: 'app-policy',
         label: 'App policy',
         description: 'What may be installed on this machine, and how many apps.',

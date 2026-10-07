@@ -92,13 +92,30 @@ def offered(access: str) -> list[dict[str, Any]]:
     return offered_for(offered_names(access))
 
 
+#: Parameters an agent is not offered. Blob keys an agent's post by the call that made it
+#: (`run_write`), so an id of the agent's own would be one more thing to get wrong and
+#: would change nothing.
+_NOT_FOR_AGENTS: dict[str, frozenset[str]] = {"post_message": frozenset({"client_msg_id"})}
+
+
+def _parameters(tool: dict[str, Any]) -> dict[str, Any]:
+    hidden = _NOT_FOR_AGENTS.get(tool["name"])
+    schema: dict[str, Any] = tool["inputSchema"]
+    if not hidden:
+        return schema
+    return {
+        **schema,
+        "properties": {k: v for k, v in schema["properties"].items() if k not in hidden},
+    }
+
+
 def offered_for(names: frozenset[str]) -> list[dict[str, Any]]:
     """`offered`, for a set of names already decided."""
     return [
         {
             "name": tool["name"],
             "description": _FOR_AGENTS.get(tool["name"], tool["description"]),
-            "parameters": tool["inputSchema"],
+            "parameters": _parameters(tool),
         }
         for tool in mcp_catalogue.CATALOGUE
         if tool["name"] in names

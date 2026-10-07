@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import suppress
 from functools import partial
 from typing import Annotated, Any
 
@@ -15,14 +14,13 @@ from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request, forbidden, not_found, thread_gone
 from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
-from ..lib.redis import redis
 from ..plugins import decisions
 from ..plugins import events as plugin_events
 from ..realtime import hub
 from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import AgentTask, ThreadSummary
 from ..schemas.requests import CreateAgentTaskInput, UpdateAgentTaskInput
-from ..services import agent_chains, task_dispatch
+from ..services import agent_chains, agent_run_control, task_dispatch
 from ..services import agent_runs as agent_run_service
 from ..services import agentic as agentic_service
 from ..services import audit as audit_service
@@ -453,49 +451,15 @@ async def agent_run_history(
 async def cancel_agent_run(
     run_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
 ) -> OkOut:
-    """Stop an in-flight run.
-
-    Anyone who can see the channel can stop a run in it — the same rule as Slack's
-    stop button, and the right one: the person paying attention is rarely the person
-    who asked. The worker hears it two ways, key and publish, because it subscribes
-    before it checks and a Stop pressed in the gap must land on one side or the other.
-    """
-    async with transaction() as (session, _):
-        channel_id = await agent_run_service.running_channel(
-            session, workspace_id=user.workspace_id, run_id=run_id
-        )
-        if channel_id is None:
-            raise not_found("That run is not running.")
-        # Access before the mark: a member who cannot see the channel must not be
-        # able to stop what is happening in it — same 404, same reason.
-        await channel_service.assert_channel_access(session, user.id, channel_id)
-        marked = await agent_run_service.request_cancel(
-            session, workspace_id=user.workspace_id, run_id=run_id
-        )
-        if marked is None:
-            raise not_found("That run is not running.")
-        # Stop is Stop for the whole piece of work: the hops this run's reply caused
-        # end with it, or the person watches the agent they stopped keep talking
-        # through another agent's mouth. ADR 0013.
-        descendants = await agent_run_service.request_cancel_descendants(
-            session, workspace_id=user.workspace_id, run_id=run_id
-        )
-
-    for stopped in (run_id, *descendants):
-        with suppress(Exception):
-            await redis.set(f"agui:cancel:{stopped}", user.id, nx=True, ex=600)
-        with suppress(Exception):
-            await redis.publish(f"agent:ctl:{stopped}", "cancel")
-
-    async with transaction() as (session, _):
-        await audit_service.record(
-            session,
-            actor_for(request, user),
-            "agent.run_cancelled",
-            target_type="agent_run",
-            target_id=run_id,
-            metadata={"channelId": marked["channelId"], "cascaded": len(descendants)},
-        )
+    """Stop an in-flight run — anyone who can see the channel may, and the hops it caused
+    stop with it. `services/agent_run_control.py` holds the rule, shared with an
+    assistant's `stop_run`."""
+    await agent_run_control.stop(
+        workspace_id=user.workspace_id,
+        run_id=run_id,
+        user_id=user.id,
+        actor=actor_for(request, user),
+    )
     return OkOut()
 
 

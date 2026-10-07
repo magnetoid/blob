@@ -470,3 +470,22 @@ writes always ask, and a borrowed agent runs without its owner's memory until Ph
   lacked is `channel_id`, backfilled from the key (migration 0050).
 - **Loans you can see.** Settings lists who your agent is lent to, everywhere or in which
   channel, and ends a loan; `/allow` and `/disallow` stay as they were.
+
+## Phase 6 — done (2026-10-08, branch `agentic-phase-6`)
+
+- **Tools, as planned:** `inbox`, `list_threads`, search paging by cursor, `client_msg_id`
+  on `post_message` (scoped to the token), `message_person` for DMs, `add_reaction`, and
+  the agent tools — `ask_agent` (a mention composed for the person, with the mention's rules
+  asked up front so an assistant is told why nothing happened), `run_status` (status, the
+  question and its numbered choices, and what the agent answered), `answer_decision`,
+  `stop_run`. Stopping a run moved into `services/agent_run_control.py`, which the card's
+  Stop now shares.
+- **Every token ends** (30, 90 or 365 days; migration 0051) and **Admin → Assistants**
+  lists every connection with whose it is, and revokes any.
+- **The 2026-07-28 shape:** every modern result says `resultType: "complete"`, carries
+  `io.modelcontextprotocol/serverInfo` in `_meta`, and `tools/list` and `server/discover`
+  carry `ttlMs`/`cacheScope` — read off the current specification, where all three are
+  requirements, not options.
+- **Not built:** OAuth 2.1, as planned — only when a claude.ai connector is wanted. MRTR
+  `input_required` was not needed: an assistant's post is its person's own act, with the
+  posting tick as the consent, so there is no approval to ask for mid-call.

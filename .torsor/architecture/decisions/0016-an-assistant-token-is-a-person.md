@@ -88,3 +88,19 @@ derive and would be a credential nobody could see in order to revoke it.
 
 Nothing here makes Blob an MCP *client*. The built-in agent still has no tools; mounting
 external MCP servers as tools for it is a separate decision with a different blast radius.
+
+## Note — 2026-10-08 (agentic plan, phase 6)
+
+Two things this decision left open are closed. **Every token ends**: its person chooses 30,
+90 or 365 days when minting it (`mcp_tokens.expires_at`, migration 0051), and tokens minted
+before that were given 90 days from the migration. **The workspace sees them**: an admin
+lists every live token — whose, what it may do, when it was last used and when it ends —
+and may revoke any, audited as the admin. The token is still the person, with exactly
+their reach; it is no longer a credential nobody else can see.
+
+The tools grew past reading and posting: an inbox, followed threads, search paging,
+idempotent posts (`client_msg_id`, scoped to the token), direct messages, reactions, and
+the workspace's agents — asking one (a mention composed for the person, the rules of a
+mention asked up front), following its run, answering its question and stopping it, each
+through the same rule the browser meets. OAuth 2.1 remains the gap, still waiting on a
+client that needs it.

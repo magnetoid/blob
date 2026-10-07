@@ -28,14 +28,14 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import Field
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
-from ..lib.auth import SessionUser, current_user
+from ..lib.auth import SessionUser, current_user, require_admin
 from ..lib.errors import AppError
 from ..lib.ids import IdParam
 from ..schemas.base import CamelModel
@@ -46,6 +46,7 @@ log = logging.getLogger("blob.mcp")
 
 router = APIRouter(tags=["mcp"])
 tokens_router = APIRouter(prefix="/api/me/mcp-tokens", tags=["mcp"])
+admin_tokens_router = APIRouter(prefix="/api/admin/mcp-tokens", tags=["mcp"])
 
 #: Revisions that carry their version per request and have no handshake.
 MODERN_VERSIONS = ("2026-07-28",)
@@ -55,6 +56,12 @@ LEGACY_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26")
 SUPPORTED_VERSIONS = MODERN_VERSIONS + LEGACY_VERSIONS
 
 VERSION_META_KEY = "io.modelcontextprotocol/protocolVersion"
+SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
+
+#: How long a client may reuse a tool list or the discovery answer (2026-07-28's
+#: caching hints, SEP-2549). An hour: the catalogue changes with a deploy, and a token's
+#: scopes are fixed for its life.
+LIST_TTL_MS = 3_600_000
 
 #: JSON-RPC codes. The first three are JSON-RPC's own; the last two are MCP's.
 PARSE_ERROR = -32700
@@ -73,9 +80,11 @@ SERVER_INFO = {
 INSTRUCTIONS = (
     "This is a Blob workspace — a team's channels, threads and direct messages. You are "
     "connected as one person and see exactly what they see. Start with `whoami` if you "
-    "are unsure who that is, `list_channels` to find your way around, and `read_channel` "
-    "or `search_messages` to read. Anything you post is posted under their name, in front "
-    "of their colleagues, so post only what they asked for."
+    "are unsure who that is, `inbox` for what is waiting on them, `list_channels` to find "
+    "your way around, and `read_channel` or `search_messages` to read. To put a question "
+    "to one of the workspace's agents, `ask_agent`, then follow it with `run_status`. "
+    "Anything you post is posted under their name, in front of their colleagues, so post "
+    "only what they asked for."
 )
 
 
@@ -95,6 +104,19 @@ def _error(
     if data is not None:
         body["data"] = data
     return {"jsonrpc": "2.0", "id": request_id, "error": body}
+
+
+def _modern(payload: dict[str, Any], **cache: Any) -> dict[str, Any]:
+    """A response in the 2026-07-28 shape: every result says it is `complete` — the
+    revision requires `resultType` on every result — names this server in `_meta`, and
+    carries caching hints where the revision asks for them (`cache`). Errors pass as
+    they are; a legacy client never sees any of this."""
+    result = payload.get("result")
+    if isinstance(result, dict):
+        result.setdefault("resultType", "complete")
+        result.setdefault("_meta", {})[SERVER_INFO_META_KEY] = SERVER_INFO
+        result.update(cache)
+    return payload
 
 
 def _json(payload: dict[str, Any], status: int = 200) -> Response:
@@ -184,11 +206,13 @@ async def mcp_endpoint(request: Request) -> Response:
 
     is_modern = meta_version in MODERN_VERSIONS or header_version in MODERN_VERSIONS
     if is_modern:
-        return await _modern(request, caller, body, method, request_id, params, meta_version)
+        return await _modern_request(
+            request, caller, body, method, request_id, params, meta_version
+        )
     return await _legacy(caller, method, request_id, params, header_version)
 
 
-async def _modern(
+async def _modern_request(
     request: Request,
     caller: mcp_service.McpCaller,
     body: dict[str, Any],
@@ -238,10 +262,20 @@ async def _modern(
         )
 
     if method == "server/discover":
-        return _json(_result(request_id, _discovery()))
+        # The same for every caller, so any cache may share it.
+        return _json(
+            _modern(_result(request_id, _discovery()), ttlMs=LIST_TTL_MS, cacheScope="public")
+        )
 
     if method == "tools/list":
-        return _json(_result(request_id, {"tools": mcp_service.catalogue(caller)}))
+        # Filtered by the token's scopes, so it is this caller's own list.
+        return _json(
+            _modern(
+                _result(request_id, {"tools": mcp_service.catalogue(caller)}),
+                ttlMs=LIST_TTL_MS,
+                cacheScope="private",
+            )
+        )
 
     if method == "tools/call":
         name = params.get("name")
@@ -255,7 +289,7 @@ async def _modern(
                 ),
                 status=400,
             )
-        return _json(await _call_tool(caller, request_id, params))
+        return _json(_modern(await _call_tool(caller, request_id, params)))
 
     # 404 rather than 200: it is what distinguishes a modern server that does not know
     # this method from an old server that does not host this endpoint at all.
@@ -375,6 +409,8 @@ class TokenSummary(CamelModel):
     scopes: list[str]
     created_at: str
     last_used_at: str | None = None
+    #: When it stops working (migration 0051).
+    expires_at: str | None = None
 
 
 class TokensOut(CamelModel):
@@ -388,6 +424,8 @@ class CreateTokenInput(CamelModel):
     name: Annotated[str, Field(min_length=1, max_length=80)]
     #: Read is not optional. This is whether the assistant may also post.
     can_write: bool = False
+    #: How long it lasts, in days. Every connection ends.
+    lifetime_days: Literal[30, 90, 365] = 90
 
 
 class CreatedTokenOut(CamelModel):
@@ -404,6 +442,7 @@ def _summary(row: Any) -> TokenSummary:
         scopes=list(row.scopes),
         created_at=row.created_at.isoformat(),
         last_used_at=row.last_used_at.isoformat() if row.last_used_at else None,
+        expires_at=row.expires_at.isoformat() if row.expires_at else None,
     )
 
 
@@ -424,7 +463,11 @@ async def create_token(
 ) -> CreatedTokenOut:
     async with transaction() as (session, _after):
         row, secret = await token_service.mint(
-            session, user, name=payload.name.strip(), can_write=payload.can_write
+            session,
+            user,
+            name=payload.name.strip(),
+            can_write=payload.can_write,
+            lifetime_days=payload.lifetime_days,
         )
     return CreatedTokenOut(token=_summary(row), secret=secret, url=_endpoint_url())
 
@@ -438,4 +481,54 @@ async def revoke_token(
     return {"ok": True}
 
 
-__all__ = ["MODERN_VERSIONS", "SUPPORTED_VERSIONS", "router", "tokens_router"]
+# --------------------------------------------------------------------------------------
+# Every connection in the workspace, for its admins
+# --------------------------------------------------------------------------------------
+
+
+class WorkspaceTokenSummary(TokenSummary):
+    owner_id: str
+    owner_name: str
+
+
+class WorkspaceTokensOut(CamelModel):
+    tokens: list[WorkspaceTokenSummary]
+
+
+@admin_tokens_router.get("", response_model=WorkspaceTokensOut)
+async def list_workspace_tokens(
+    admin: SessionUser = Depends(require_admin),
+) -> WorkspaceTokensOut:
+    """Every assistant connected to this workspace as one of its people: whose, what it
+    may do, when it was last used and when it ends. A credential that acts as a colleague
+    is the workspace's business as well as theirs."""
+    async with session_scope() as session:
+        rows = await token_service.list_for_workspace(session, admin.workspace_id)
+    return WorkspaceTokensOut(
+        tokens=[
+            WorkspaceTokenSummary(
+                **_summary(row).model_dump(),
+                owner_id=str(row.user_id),
+                owner_name=row.owner_name,
+            )
+            for row in rows
+        ]
+    )
+
+
+@admin_tokens_router.delete("/{token_id}")
+async def revoke_workspace_token(
+    token_id: IdParam, admin: SessionUser = Depends(require_admin)
+) -> dict[str, bool]:
+    async with transaction() as (session, _after):
+        await token_service.revoke_any(session, admin, token_id)
+    return {"ok": True}
+
+
+__all__ = [
+    "MODERN_VERSIONS",
+    "SUPPORTED_VERSIONS",
+    "admin_tokens_router",
+    "router",
+    "tokens_router",
+]

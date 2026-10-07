@@ -34,6 +34,21 @@ _CHANNEL_SCHEMA = {
     "description": "A channel id, or a name like #general.",
 }
 
+_CLIENT_ID_SCHEMA = {
+    "type": "string",
+    "maxLength": 64,
+    "description": (
+        "An id of your own for this post, up to 64 characters. Calling again with the same "
+        "id posts nothing new and answers with the message already posted — so a retry "
+        "after a dropped response is safe."
+    ),
+}
+
+_PERSON_SCHEMA = {
+    "type": "string",
+    "description": "A person's display name, with or without @, or their user id.",
+}
+
 #: The tools, once. `scope` is what the calling token must hold — "read" for everything
 #: that only looks, "write" for the one that speaks.
 CATALOGUE: list[dict[str, Any]] = [
@@ -120,6 +135,12 @@ CATALOGUE: list[dict[str, Any]] = [
             "properties": {
                 "query": {"type": "string", "description": "What to search for."},
                 "limit": _LIMIT_SCHEMA,
+                "cursor": {
+                    "type": "string",
+                    "description": (
+                        "The cursor a previous search answered with, for its next page."
+                    ),
+                },
             },
             "required": ["query"],
         },
@@ -159,8 +180,158 @@ CATALOGUE: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "Reply in this thread instead of the channel.",
                 },
+                "client_msg_id": _CLIENT_ID_SCHEMA,
             },
             "required": ["channel", "text"],
+        },
+        "scope": "write",
+        "readOnly": False,
+    },
+    {
+        "name": "inbox",
+        "title": "What needs this person",
+        "description": (
+            "Conversations with messages this person has not read — the ones that mention "
+            "them first — and their latest mentions. Start here to catch them up."
+        ),
+        "inputSchema": {"type": "object", "properties": {"limit": _LIMIT_SCHEMA}},
+        "scope": "read",
+        "readOnly": True,
+    },
+    {
+        "name": "list_threads",
+        "title": "Threads they follow",
+        "description": (
+            "Threads this person follows, most recently active first, marking the ones with "
+            "replies they have not read. Read one with read_thread."
+        ),
+        "inputSchema": {"type": "object", "properties": {"limit": _LIMIT_SCHEMA}},
+        "scope": "read",
+        "readOnly": True,
+    },
+    {
+        "name": "message_person",
+        "title": "Message a person directly",
+        "description": (
+            "Send a direct message to one person, as this person — opening the DM if they "
+            "have none yet. They see it under this person's name."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "to": _PERSON_SCHEMA,
+                "text": {"type": "string", "description": "What to say. Markdown works."},
+                "client_msg_id": _CLIENT_ID_SCHEMA,
+            },
+            "required": ["to", "text"],
+        },
+        "scope": "write",
+        "readOnly": False,
+    },
+    {
+        "name": "add_reaction",
+        "title": "React to a message",
+        "description": "React to a message with an emoji, as this person.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "message_id": {"type": "string", "description": "The message to react to."},
+                "emoji": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "description": "The emoji itself, like 👍, or a custom one like :shipit:.",
+                },
+            },
+            "required": ["message_id", "emoji"],
+        },
+        "scope": "write",
+        "readOnly": False,
+    },
+    {
+        "name": "ask_agent",
+        "title": "Ask an agent",
+        "description": (
+            "Ask one of the workspace's agents something, in a channel or thread, as this "
+            "person — the same as them mentioning it there, so it answers in the room and "
+            "on their authority. Answers with the message that asked; follow the agent's "
+            "run with run_status."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "type": "string",
+                    "description": "The agent's display name, with or without @.",
+                },
+                "channel": _CHANNEL_SCHEMA,
+                "text": {"type": "string", "description": "What to ask it."},
+                "thread_root_id": {
+                    "type": "string",
+                    "description": "Ask in this thread instead of the channel.",
+                },
+                "client_msg_id": _CLIENT_ID_SCHEMA,
+            },
+            "required": ["agent", "channel", "text"],
+        },
+        "scope": "write",
+        "readOnly": False,
+    },
+    {
+        "name": "run_status",
+        "title": "How an agent's run is going",
+        "description": (
+            "What an agent is doing or did about one message: still running, finished — "
+            "with what it answered — failed and why, or stopped on a question waiting for "
+            "an answer, with the choices it offers."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "message_id": {
+                    "type": "string",
+                    "description": "The message that asked the agent — what ask_agent answers.",
+                },
+                "run_id": {"type": "string", "description": "Or the run itself."},
+            },
+        },
+        "scope": "read",
+        "readOnly": True,
+    },
+    {
+        "name": "answer_decision",
+        "title": "Answer an agent's question",
+        "description": (
+            "Answer the question an agent's run stopped to ask — only the person it asked "
+            "may. Give the place of one of the choices run_status lists, or words when it "
+            "asked for words. The answer is posted as this person and the agent carries on."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string", "description": "The run that is waiting."},
+                "choice": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "The place of the choice, counting from 0.",
+                },
+                "text": {"type": "string", "description": "Words, for a question without choices."},
+            },
+            "required": ["run_id"],
+        },
+        "scope": "write",
+        "readOnly": False,
+    },
+    {
+        "name": "stop_run",
+        "title": "Stop an agent's run",
+        "description": (
+            "Stop an agent's run that is still going, and any it set going in turn. Anyone "
+            "who can see the conversation may."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"run_id": {"type": "string", "description": "The run to stop."}},
+            "required": ["run_id"],
         },
         "scope": "write",
         "readOnly": False,

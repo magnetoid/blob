@@ -40,12 +40,21 @@ from ..lib.auth import hash_token
 from ..lib.errors import bad_request, forbidden, not_found
 from ..lib.ids import new_id
 from ..lib.rate_limit import consume
+from ..plugins import decisions
+from ..plugins import events as plugin_events
+from ..realtime import hub
 from ..schemas.models import Message
+from . import activity as activity_service
+from . import agent_chains, agent_run_control, mcp_catalogue, task_dispatch
+from . import agent_runs as agent_run_service
+from . import audit as audit_service
 from . import channels as channel_service
-from . import mcp_catalogue
 from . import messages as message_service
+from . import reactions as reaction_service
 from . import search as search_service
+from . import thread_subscriptions as thread_service
 from .mcp_catalogue import DEFAULT_LIMIT, MAX_LIMIT
+from .serialize import channel_event, membership_event
 
 #: What a token may hold. `read` is implied by every token; `write` is the second thought.
 SCOPES = ("read", "write")
@@ -79,6 +88,9 @@ class McpCaller:
     #: #salaries" typed in #general by somebody who is in #salaries would read the private
     #: channel and land its contents in a public one.
     room_channel_id: str | None = None
+    #: The person's role in the workspace — what decides, for example, whether they may
+    #: hand an app's bot work (`task_dispatch.agent_for`).
+    role: str = "member"
 
     def may_write(self) -> bool:
         return "write" in self.scopes
@@ -98,12 +110,15 @@ async def resolve_token(token: str) -> McpCaller | None:
                 text(
                     """
                     SELECT t.id AS token_id, t.name AS token_name, t.scopes,
-                           u.id AS user_id, u.workspace_id, u.display_name,
+                           u.id AS user_id, u.workspace_id, u.display_name, u.role,
                            u.deactivated_at, w.name AS workspace_name
                       FROM mcp_tokens t
                       JOIN users u ON u.id = t.user_id
                       JOIN workspaces w ON w.id = t.workspace_id
                      WHERE t.token_hash = :hash AND t.revoked_at IS NULL
+                       -- Past its date it is nobody (migration 0051). NULL only on a row
+                       -- written outside the mint path, which never expires it.
+                       AND (t.expires_at IS NULL OR t.expires_at > now())
                     """
                 ),
                 {"hash": hash_token(token)},
@@ -127,6 +142,7 @@ async def resolve_token(token: str) -> McpCaller | None:
         display_name=row.display_name,
         workspace_name=row.workspace_name,
         scopes=frozenset(row.scopes),
+        role=row.role,
     )
 
 
@@ -410,8 +426,10 @@ async def _search_messages(caller: McpCaller, arguments: dict[str, Any]) -> str:
     parsed = search_service.parse_query(query)
     if not parsed.text:
         raise bad_request("Give something to search for, not only filters.")
+    raw_cursor = arguments.get("cursor")
+    cursor = search_service.SearchCursor.decode(str(raw_cursor)) if raw_cursor else None
     async with session_scope() as session:
-        messages, total, _cursor = await search_service.search(
+        messages, total, next_cursor = await search_service.search(
             session,
             workspace_id=caller.workspace_id,
             user_id=caller.user_id,
@@ -424,6 +442,7 @@ async def _search_messages(caller: McpCaller, arguments: dict[str, Any]) -> str:
             after=parsed.after,
             has=parsed.has,
             limit=limit,
+            cursor=cursor,
             audience_channel_id=caller.room_channel_id,
         )
         names = await _names(session, {m.author_id for m in messages if m.author_id})
@@ -437,7 +456,14 @@ async def _search_messages(caller: McpCaller, arguments: dict[str, Any]) -> str:
         for m in messages
     ]
     more = f"\n\n{total} match in all; showing {len(messages)}." if total > len(messages) else ""
-    return "\n".join(lines) + more
+    # The page after this one: the search's own cursor, handed back as it came, so the
+    # next page is the same search and not a new one that happens to share words.
+    following = (
+        f"\nFor the next page, call search_messages again with cursor={next_cursor.encode()}."
+        if next_cursor is not None
+        else ""
+    )
+    return "\n".join(lines) + more + following
 
 
 async def _author_id(session: AsyncSession, caller: McpCaller, name: str | None) -> str | None:
@@ -546,12 +572,11 @@ async def _post_message(caller: McpCaller, arguments: dict[str, Any]) -> str:
             channel_id=channel_id,
             author_id=caller.user_id,
             body=body,
-            # A fresh id per call, deliberately. Every other write here is idempotent on
-            # an id the client supplies, but an MCP client has none to supply and a hash
-            # of the text would swallow the second of two identical messages — somebody
-            # posting "+1" twice means it twice. A retried call therefore posts twice,
-            # exactly as a person pressing send twice does.
-            client_msg_id=new_id(),
+            # The assistant's own id when it gives one — a retry after a dropped response
+            # then posts nothing new — and a fresh one when it does not: a hash of the
+            # text would swallow the second of two identical messages, and somebody
+            # posting "+1" twice means it twice.
+            client_msg_id=_client_id(caller, arguments),
             thread_root_id=(_an_id(str(thread_root_id), "message") if thread_root_id else None),
         )
         # Persist, then broadcast — `after` drains past COMMIT. Without this the message
@@ -567,7 +592,406 @@ async def _post_message(caller: McpCaller, arguments: dict[str, Any]) -> str:
             workspace_id=caller.workspace_id,
             channel_id=channel_id,
         )
+    if not result.created:
+        return f"Already posted, as message id {result.message.id}: nothing new was sent."
     return f"Posted as {caller.display_name}. Message id {result.message.id}."
+
+
+def _client_id(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    """The id a post is idempotent on. The assistant's own, scoped to its token so two
+    assistants choosing the same string do not collide; or a fresh one."""
+    given = arguments.get("client_msg_id")
+    if given is None:
+        return new_id()
+    value = str(given).strip()
+    if not value or len(value) > 64:
+        raise bad_request("A client_msg_id is 1 to 64 characters.")
+    return f"mcp:{caller.token_id}:{value}"
+
+
+async def _visible_channels(
+    session: AsyncSession, caller: McpCaller, channel_ids: set[str]
+) -> set[str]:
+    """Which of these channels this person can see now: public ones, and ones they are in.
+    A followed thread in a private channel they have since left is not theirs to list."""
+    if not channel_ids:
+        return set()
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT c.id FROM channels c
+                 WHERE c.id = ANY(cast(:ids AS uuid[])) AND c.workspace_id = :ws
+                   AND (c.kind = 'public' OR EXISTS (
+                         SELECT 1 FROM channel_members cm
+                          WHERE cm.channel_id = c.id AND cm.user_id = :me))
+                """
+            ),
+            {"ids": list(channel_ids), "ws": caller.workspace_id, "me": caller.user_id},
+        )
+    ).fetchall()
+    return {str(row.id) for row in rows}
+
+
+def _person_only(caller: McpCaller, tool: str) -> None:
+    """A tool about the person themselves — their unread, their threads. Never offered to
+    an agent (ADR 0022 lists what is), and refused should one ask: an agent in a room
+    reads that room, not its asker's inbox."""
+    if caller.reads_are_room_bound:
+        raise forbidden(f"{tool} reads the person's own inbox, which is not offered here.")
+
+
+async def _inbox(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    _person_only(caller, "inbox")
+    limit = _limit(arguments)
+    async with session_scope() as session:
+        channels = await channel_service.list_for_user(session, caller.user_id, caller.workspace_id)
+        waiting = [
+            c for c in channels if c.membership is not None and (c.has_unread or c.mention_count)
+        ]
+        # Mentions first: a channel that named them is the one they are waited on in.
+        waiting.sort(key=lambda c: (-(c.mention_count or 0), (c.name or "").lower()))
+        member_names = await _dm_names(session, caller, waiting)
+        items, _cursor = await activity_service.feed(
+            session,
+            workspace_id=caller.workspace_id,
+            user_id=caller.user_id,
+            kind="mention",
+            limit=min(limit, 10),
+        )
+        mentions = [item.message for item in items]
+        names = await _names(session, {m.author_id for m in mentions if m.author_id})
+        labels = await _channel_names(session, {m.channel_id for m in mentions})
+
+    lines: list[str] = []
+    if waiting:
+        lines.append("Unread:")
+        for channel in waiting[:limit]:
+            label = (
+                f"#{channel.name}"
+                if channel.name
+                else member_names.get(channel.id) or _channel_label(None, channel.kind)
+            )
+            what = (
+                f"{channel.mention_count} mention{'' if channel.mention_count == 1 else 's'}"
+                if channel.mention_count
+                else "unread"
+            )
+            lines.append(f"[{channel.id}] {label} — {what}")
+    if mentions:
+        lines.append("")
+        lines.append("Mentioned lately:")
+        lines.extend(
+            f"[{m.id}] {_when(m.created_at)} in {labels.get(m.channel_id, 'a conversation')} "
+            f"{names.get(m.author_id or '', 'someone')}: {_body(m)}"
+            for m in mentions
+        )
+    if not lines:
+        return "Nothing waiting: every conversation is read, and nobody has mentioned them lately."
+    return "\n".join(lines).strip()
+
+
+async def _list_threads(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    _person_only(caller, "list_threads")
+    limit = _limit(arguments)
+    async with session_scope() as session:
+        roots, unread = await thread_service.threads_for_user(session, caller.user_id, limit=limit)
+        visible = await _visible_channels(session, caller, {r.channel_id for r in roots})
+        roots = [r for r in roots if r.channel_id in visible]
+        names = await _names(session, {r.author_id for r in roots if r.author_id})
+        labels = await _channel_names(session, {r.channel_id for r in roots})
+
+    if not roots:
+        return "They follow no threads."
+    new = set(unread)
+    # `_body` already says how many replies each has.
+    lines = [
+        f"[{root.id}] in {labels.get(root.channel_id, 'a conversation')} "
+        f"{names.get(root.author_id or '', 'someone')}: {_body(root)}"
+        + (" — new replies" if root.id in new else "")
+        for root in roots
+    ]
+    return "\n".join(lines)
+
+
+async def _person_id(session: AsyncSession, caller: McpCaller, reference: str) -> str:
+    """A person or agent named by id or by display name, in this workspace and active."""
+    value = reference.strip()
+    if _UUID_RE.match(value):
+        row = (
+            await session.execute(
+                text(
+                    "SELECT id FROM users WHERE id = :id AND workspace_id = :ws "
+                    "AND deactivated_at IS NULL"
+                ),
+                {"id": value, "ws": caller.workspace_id},
+            )
+        ).fetchone()
+        if row is None:
+            raise not_found("There is nobody here with that id.")
+        return str(row.id)
+    found = await _author_id(session, caller, value)
+    if found is None:
+        raise not_found("Name somebody.")
+    return found
+
+
+async def _message_person(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    if not caller.may_write():
+        raise forbidden("This connection may only read.")
+    reference = _required(arguments, "to")
+    body = _required(arguments, "text")
+    await consume("send_message", caller.user_id)
+
+    async with transaction() as (session, after):
+        person_id = await _person_id(session, caller, reference)
+        if person_id == caller.user_id:
+            raise bad_request("That is the person this connection acts as.")
+        members = [caller.user_id, person_id]
+        channel_id, created = await channel_service.find_or_create_dm(
+            session, caller.workspace_id, members
+        )
+        if created:
+            # A new DM appears in both sidebars at once, as it does when opened in the app.
+            views = {
+                member_id: await channel_service.get_for_user(session, channel_id, member_id)
+                for member_id in members
+            }
+
+            def opened() -> None:
+                for member_id, view in views.items():
+                    hub.subscribe_users([member_id], [channel_id])
+                    if view is not None:
+                        hub.to_users([member_id], channel_event("channel.created", view))
+                        hub.to_users([member_id], membership_event(view))
+
+            after.add(opened)
+        result = await message_service.send(
+            session,
+            workspace_id=caller.workspace_id,
+            channel_id=channel_id,
+            author_id=caller.user_id,
+            body=body,
+            client_msg_id=_client_id(caller, arguments),
+        )
+        await message_service.announce(
+            session, after, result, workspace_id=caller.workspace_id, channel_id=channel_id
+        )
+        names = await _names(session, {person_id})
+    who = names.get(person_id, "them")
+    if not result.created:
+        return f"Already sent to {who}, as message id {result.message.id}."
+    return (
+        f"Sent to {who} as {caller.display_name}. Message id {result.message.id}, "
+        f"in DM {channel_id}."
+    )
+
+
+async def _add_reaction(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    if not caller.may_write():
+        raise forbidden("This connection may only read.")
+    message_id = _an_id(_required(arguments, "message_id"), "message")
+    emoji = _required(arguments, "emoji").strip()
+    if len(emoji) > 64:
+        raise bad_request("An emoji is at most 64 characters.")
+    async with transaction() as (session, after):
+        existing = await message_service.load_for(
+            session, caller.user_id, message_id, require_member=True, require_writable=True
+        )
+        await refuse_outside_the_room(session, caller, existing.channel_id)
+        if await reaction_service.add(session, message_id, caller.user_id, emoji):
+            reaction = {
+                "messageId": message_id,
+                "channelId": existing.channel_id,
+                "threadRootId": existing.thread_root_id,
+                "emoji": emoji,
+                "userId": caller.user_id,
+            }
+            await plugin_events.emit(
+                session,
+                workspace_id=caller.workspace_id,
+                event="reaction.added",
+                channel_id=existing.channel_id,
+                payload=reaction,
+            )
+            after.add(
+                lambda: hub.to_channel(existing.channel_id, {"t": "reaction.added", **reaction})
+            )
+    return f"Reacted {emoji} to message {message_id} as {caller.display_name}."
+
+
+async def _ask_agent(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    if not caller.may_write():
+        raise forbidden("This connection may only read.")
+    agent_reference = _required(arguments, "agent")
+    reference = _required(arguments, "channel")
+    body = _required(arguments, "text")
+    thread_root_id = arguments.get("thread_root_id")
+    await consume("send_message", caller.user_id)
+
+    async with transaction() as (session, after):
+        channel_id = await _resolve_channel(session, caller, reference)
+        bot_id = await _person_id(session, caller, agent_reference)
+        # The rules a mention meets, asked up front and said aloud: an assistant cannot see
+        # that nothing happened, as a person in the room can (ADR 0023's helper).
+        agent = await task_dispatch.agent_for(
+            session,
+            workspace_id=caller.workspace_id,
+            channel_id=channel_id,
+            actor_id=caller.user_id,
+            actor_role=caller.role,
+            assignee_user_id=bot_id,
+            handing_over=False,
+        )
+        if agent is None:
+            raise bad_request(f"“{agent_reference}” is not an agent.", code="not_an_agent")
+        result = await message_service.send(
+            session,
+            workspace_id=caller.workspace_id,
+            channel_id=channel_id,
+            author_id=caller.user_id,
+            body=f"@{agent.name} {body}",
+            client_msg_id=_client_id(caller, arguments),
+            thread_root_id=(_an_id(str(thread_root_id), "message") if thread_root_id else None),
+            # The agent asked, and nobody else: a name in the question is part of it.
+            mention_user_ids=[agent.bot_user_id],
+        )
+        await message_service.announce(
+            session, after, result, workspace_id=caller.workspace_id, channel_id=channel_id
+        )
+    message_id = result.message.id
+    if not result.created:
+        return f"Already asked, as message id {message_id}. Follow it with run_status."
+    return (
+        f"Asked {agent.name} as {caller.display_name}. Message id {message_id}. "
+        f"Call run_status with message_id={message_id} to follow its run."
+    )
+
+
+def _status_lines(view: dict[str, Any], answer: list[str], caller: McpCaller) -> list[str]:
+    status = str(view["status"])
+    lines = [f"Run {view['id']} — {view['agentName']}: {status}"]
+    if view.get("error"):
+        lines.append(f"Why: {view['error']}")
+    decision = view.get("decision")
+    if decision:
+        yours = view.get("initiatedByUserId") == caller.user_id
+        lines.append(
+            f"It asks{' this person' if yours else ' the person it runs for'}: {decision['prompt']}"
+        )
+        if decision["choices"]:
+            lines.extend(
+                f"  {index}. {choice['label']}" for index, choice in enumerate(decision["choices"])
+            )
+            how = "with answer_decision and the choice's number"
+        else:
+            how = "with answer_decision and words"
+        if yours:
+            lines.append(f"Answer {how}.")
+        if view.get("expiresAt"):
+            lines.append(f"The question closes at {view['expiresAt']}.")
+    if answer:
+        lines.append("It answered:")
+        lines.extend(answer)
+    elif status == "running":
+        lines.append("Still going; ask again in a little while.")
+    return lines
+
+
+async def _run_status(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    run_id = arguments.get("run_id")
+    message_id = arguments.get("message_id")
+    if not run_id and not message_id:
+        raise bad_request("Name the run, or the message that asked the agent.")
+    async with session_scope() as session:
+        if run_id:
+            view = await agent_run_service.view_in(
+                session, workspace_id=caller.workspace_id, run_id=_an_id(str(run_id), "run")
+            )
+            views = [view] if view is not None else []
+        else:
+            views = await agent_run_service.views_for_trigger(
+                session,
+                workspace_id=caller.workspace_id,
+                message_id=_an_id(str(message_id), "message"),
+            )
+        for view in views:
+            # The room's rule, before anything about the run is said.
+            await channel_service.assert_channel_access(
+                session, caller.user_id, str(view["channelId"])
+            )
+            await refuse_outside_the_room(session, caller, str(view["channelId"]))
+        answers = {
+            str(view["id"]): await agent_run_service.answer_of(session, str(view["id"]))
+            for view in views
+        }
+    if not views:
+        if run_id:
+            raise not_found("There is no run with that id.")
+        return (
+            "No agent has run on that message yet. A run starts a moment after the message "
+            "does — ask again shortly."
+        )
+    blocks = ["\n".join(_status_lines(view, answers[str(view["id"])], caller)) for view in views]
+    return "\n\n".join(blocks)
+
+
+async def _answer_decision(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    if not caller.may_write():
+        raise forbidden("This connection may only read.")
+    run_id = _an_id(_required(arguments, "run_id"), "run")
+    choice = arguments.get("choice")
+    words = str(arguments.get("text") or "").strip()
+    if (choice is None) == (not words):
+        raise bad_request("Answer with the number of a choice or with words — one of the two.")
+    if choice is not None and (
+        isinstance(choice, bool) or not isinstance(choice, int) or choice < 0
+    ):
+        raise bad_request("A choice is its number in the list run_status gives, counting from 0.")
+    await consume("send_message", caller.user_id)
+    async with transaction() as (session, after):
+        answered = await agent_chains.answer(
+            session,
+            after,
+            workspace_id=caller.workspace_id,
+            run_id=run_id,
+            user_id=caller.user_id,
+            user_name=caller.display_name,
+            action_id=(
+                f"{decisions.ACTION_PREFIX}{run_id}:{choice}" if choice is not None else None
+            ),
+            value=words,
+            client_action_id=None,
+        )
+        await audit_service.record(
+            session,
+            audit_service.Actor(id=caller.user_id, workspace_id=caller.workspace_id),
+            "agent.run_answered",
+            target_type="agent_run",
+            target_id=run_id,
+            metadata={"channelId": answered.channel_id, "via": "mcp"},
+        )
+    return "Answered, as this person. The agent carries on; follow it with run_status."
+
+
+async def _stop_run(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    if not caller.may_write():
+        raise forbidden("This connection may only read.")
+    run_id = _an_id(_required(arguments, "run_id"), "run")
+    async with session_scope() as session:
+        view = await agent_run_service.view_in(
+            session, workspace_id=caller.workspace_id, run_id=run_id
+        )
+        if view is not None:
+            await refuse_outside_the_room(session, caller, str(view["channelId"]))
+    cascaded = await agent_run_control.stop(
+        workspace_id=caller.workspace_id,
+        run_id=run_id,
+        user_id=caller.user_id,
+        actor=audit_service.Actor(id=caller.user_id, workspace_id=caller.workspace_id),
+    )
+    also = f", and {cascaded} run{'' if cascaded == 1 else 's'} it set going" if cascaded else ""
+    return f"Stopped run {run_id}{also}."
 
 
 _HANDLERS = {
@@ -578,6 +1002,14 @@ _HANDLERS = {
     "search_messages": _search_messages,
     "list_people": _list_people,
     "post_message": _post_message,
+    "inbox": _inbox,
+    "list_threads": _list_threads,
+    "message_person": _message_person,
+    "add_reaction": _add_reaction,
+    "ask_agent": _ask_agent,
+    "run_status": _run_status,
+    "answer_decision": _answer_decision,
+    "stop_run": _stop_run,
 }
 
 

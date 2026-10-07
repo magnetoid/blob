@@ -78,7 +78,8 @@ button and a key field that is write-only by design.
 **Your own assistant reads Blob as you.** Blob is an [MCP](https://modelcontextprotocol.io)
 server. Mint a token under *Settings → Assistants* and Claude Code, Claude on the web or your
 editor can read your channels, your DMs and nothing more, exactly your reach and no
-further, and show up in the audit log as you.
+further, and show up in the audit log as you. It can catch you up on what is waiting, put a
+question to one of the workspace's agents and follow its run, and every token ends.
 
 **Private by design.** No read receipts, ever. No presence or typing signals for apps and
 agents. A private channel you are not in answers 404, not 403, because its existence is the
@@ -269,11 +270,18 @@ document a key nobody bound or a command your server does not answer.
 - **Your assistant reads Blob** — Blob is an [MCP](https://modelcontextprotocol.io) server.
   Under *Settings → Assistants* a member mints a token and pastes one command; Claude Code,
   Claude on the web or an editor then reads the workspace **as them**, same channels, same
-  private conversations, nothing more, with seven tools (`whoami`, `list_channels`,
-  `read_channel`, `read_thread`, `search_messages`, `list_people`, `post_message`). Posting
-  is a separate tick and off by default. One stateless endpoint at `POST /api/mcp`, speaking
-  both the `initialize` handshake of `2025-06-18`/`2025-11-25` and the per-request metadata
-  of `2026-07-28`. ADR 0016.
+  private conversations, nothing more. Reading: `whoami`, `inbox` (unread conversations,
+  mentions first, and recent mentions), `list_channels`, `list_threads` (followed threads,
+  new replies marked), `read_channel`, `read_thread`, `search_messages` (paged by cursor),
+  `list_people`, `run_status`. Writing, a separate tick and off by default:
+  `post_message` and `message_person` (both idempotent on a `client_msg_id` of the
+  assistant's own), `add_reaction`, and the workspace's agents — `ask_agent`,
+  `answer_decision`, `stop_run` — on the person's authority, as if they had typed it. Every
+  token ends after 30, 90 or 365 days, and *Admin → Assistants* lists every connection in
+  the workspace and revokes any. One stateless endpoint at `POST /api/mcp`, speaking both
+  the `initialize` handshake of `2025-06-18`/`2025-11-25` and the per-request metadata of
+  `2026-07-28` — whose results say `resultType: "complete"` and whose lists carry the
+  `ttlMs`/`cacheScope` caching hints. ADR 0016.
 - **Tasks** — shared human/agent work items, extracted from a thread or created directly.
   Hand one to an agent and it is a hand-off in the thread, from you, that the agent
   answers without anybody mentioning it; its answer closes the task, and a failure or a
