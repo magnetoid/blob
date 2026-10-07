@@ -949,7 +949,7 @@ async def list_runs(
     async with session_scope() as session:
         await registry.by_id(session, plugin_id, admin.workspace_id)
         runs = await agent_run_service.list_for_plugin(
-            session, admin.workspace_id, plugin_id, limit=limit
+            session, admin.workspace_id, plugin_id, admin.id, limit=limit
         )
     return AgentRunsOut(
         runs=[

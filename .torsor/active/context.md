@@ -1504,6 +1504,11 @@ from there on. Things to know before changing it:
   `value` (words), exactly one, and refuses words for a question that offered choices.
 * **The decision prompt mentions its asker by id** (`post_as_bot(mention_user_ids=…)`), so
   it notifies them; the body names them too, for the room.
+* **The admin run log withholds a run's card where the admin cannot see the room.** It
+  lists every run — where, who asked, how it ended, as the console's channel list names
+  every room — but the card carries tool calls' arguments and results, the room's own
+  words. `list_for_plugin` takes the viewer and blanks `card` outside public rooms and
+  rooms they are in (review of phase 4).
 * **Run history is keyset on the run id** (UUIDv7) with migration 0049's
   `(channel_id, id)` and `(plugin_id, id)` indexes. There was no index on a run's channel
   before; the conversation's load read through the workspace's.

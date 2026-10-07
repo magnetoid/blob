@@ -158,6 +158,49 @@ class TestWhatARunWasShown:
         assert run["seen"]["window"] == "channel"
         assert "card" in run
 
+    async def test_the_admin_log_shows_what_a_run_did_only_where_the_admin_can_see(
+        self, desk: dict[str, Any]
+    ) -> None:
+        # A run's card carries its tool calls' arguments and results — the room's own
+        # words. A private room keeps them from an admin who is not in it, as it keeps its
+        # messages; that the run happened, and where, the admin still sees, as the
+        # console's channel list already names every room (review of phase 4).
+        made = await desk["member"].post("/api/channels", {"name": "quiet", "kind": "private"})
+        quiet = made.body["channel"]["id"]
+        card = {
+            "steps": [],
+            "tools": [{"name": "read_thread", "status": "done", "args": "{}", "result": "secret"}],
+            "activity": None,
+            "reasoning": None,
+            "textChars": 0,
+            "dropped": 0,
+        }
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent_runs
+                        (id, workspace_id, plugin_id, channel_id, transport, status,
+                         chain_id, card, finished_at)
+                    VALUES (:id, (SELECT workspace_id FROM plugins WHERE id = :p), :p, :c,
+                            'http', 'succeeded', :id, cast(:card AS jsonb), now())
+                    """
+                ),
+                {
+                    "id": "01a22222-2222-7222-8222-222222222222",
+                    "p": desk["plugin_id"],
+                    "c": quiet,
+                    "card": json.dumps(card),
+                },
+            )
+        await ask(desk, "@Helper go", says("Gone."))
+
+        logged = (await desk["owner"].get(f"/api/admin/plugins/{desk['plugin_id']}/runs")).body
+        by_channel = {run["channelId"]: run for run in logged["runs"]}
+        assert by_channel[quiet]["channelName"] == "quiet"
+        assert by_channel[quiet]["card"] is None
+        assert by_channel[desk["general"]]["seen"] is not None
+
 
 class TestAQuestionWaitingOnSomebody:
     async def test_it_names_the_person_it_waits_on_and_reaches_them(

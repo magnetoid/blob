@@ -567,12 +567,18 @@ async def expire_waiting(session: AsyncSession) -> list[dict[str, Any]]:
 
 
 async def list_for_plugin(
-    session: AsyncSession, workspace_id: str, plugin_id: str, limit: int = 30
+    session: AsyncSession, workspace_id: str, plugin_id: str, viewer_id: str, limit: int = 30
 ) -> list[Run]:
     """One app's runs, newest first.
 
     Scoped by workspace inside the statement rather than trusting the id in the path —
     an app id from another workspace returns nothing rather than somebody else's runs.
+
+    Every run is listed to an admin — where, who asked, how it ended, as the console's
+    channel list already names every room — but what a run *did* is listed only where the
+    viewer can see the room. Its card carries the tool calls with their arguments and
+    results, which are the room's own words, and a private room keeps those from an admin
+    who is not in it as it keeps its messages (review of phase 4).
     """
     rows = (
         await session.execute(
@@ -583,7 +589,11 @@ async def list_for_plugin(
                        u.display_name AS trigger_user_name,
                        r.transport, r.status, r.error, r.post_count,
                        r.started_at, r.finished_at, r.depth, r.card, r.seen,
-                       pp.name AS asked_by, {_RUN_TOKENS} AS tokens
+                       pp.name AS asked_by, {_RUN_TOKENS} AS tokens,
+                       (c.kind = 'public' OR EXISTS (
+                          SELECT 1 FROM channel_members cm
+                           WHERE cm.channel_id = r.channel_id AND cm.user_id = :viewer
+                       )) AS visible
                   FROM agent_runs r
                   LEFT JOIN channels c ON c.id = r.channel_id
                   LEFT JOIN users u ON u.id = r.trigger_user_id
@@ -594,7 +604,7 @@ async def list_for_plugin(
                  LIMIT :limit
                 """
             ),
-            {"plugin_id": plugin_id, "ws": workspace_id, "limit": limit},
+            {"plugin_id": plugin_id, "ws": workspace_id, "viewer": viewer_id, "limit": limit},
         )
     ).fetchall()
     return [
@@ -615,7 +625,7 @@ async def list_for_plugin(
             depth=row.depth,
             asked_by=row.asked_by if row.depth > 0 else None,
             tokens=int(row.tokens) if row.tokens is not None else None,
-            card=row.card if isinstance(row.card, dict) else None,
+            card=row.card if row.visible and isinstance(row.card, dict) else None,
             seen=row.seen if isinstance(row.seen, dict) else None,
         )
         for row in rows
