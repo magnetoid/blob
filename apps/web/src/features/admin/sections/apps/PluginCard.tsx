@@ -299,7 +299,7 @@ export function PluginCard({
           {/* Headings of the card this is drawn in, a level under its title: they were
               h5s, which left the page two levels short between that title and these. */}
           <CardHeading>Recent runs</CardHeading>
-          <RunLog runs={runs} />
+          <RunLog pluginId={plugin.id} runs={runs} />
 
           <CardHeading className="section-label admin-plugin-deliveries-label">
             Deliveries

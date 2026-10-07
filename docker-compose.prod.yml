@@ -129,6 +129,14 @@ services:
       - COOLIFY_DESTINATION_UUID=${COOLIFY_DESTINATION_UUID:-}
       - AGENT_RUNNER=${AGENT_RUNNER:-disabled}
       - AGENT_ALLOW_PRIVATE_ENDPOINTS=${AGENT_ALLOW_PRIVATE_ENDPOINTS:-false}
+      # What an operator can see of agents, and all of it off until set. Traces go to the
+      # OTLP/HTTP collector named here, read the way OpenTelemetry's own variables are
+      # (lib/telemetry.py), and the worker carries the same two lines, since a run is
+      # traced there. /metrics answers a scrape presenting METRICS_TOKEN as a bearer token,
+      # and 404 while it is unset: the numbers name every agent on the server.
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
     networks:
       # The stack's own network, plus one shared only with agents hosted on this box.
       # Naming `default` explicitly is required: the moment a service lists any network,
@@ -229,6 +237,11 @@ services:
       - COOLIFY_SERVER_UUID=${COOLIFY_SERVER_UUID:-}
       - COOLIFY_DESTINATION_UUID=${COOLIFY_DESTINATION_UUID:-}
       - AGENT_RUNNER=${AGENT_RUNNER:-disabled}
+      # Agent runs are traced here when a collector is named — the app's two lines, for
+      # the reason given there. /metrics is the app's; the worker counts into the same
+      # Redis hash it reads.
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
     networks:
       - default
       - agents

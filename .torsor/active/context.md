@@ -1553,3 +1553,34 @@ from there on. Things to know before changing it:
   they were in the room first, or it passes for the wrong reason.
 * **Stopping a run is one service** (`services/agent_run_control.stop`), shared by the
   card's Stop and `stop_run`. A rule changed in one place only is how the two drift.
+
+## Observability (ADR 0025, 2026-10-08): what bites
+
+* **Counters live in Redis, not in the process.** Runs are counted in the worker and MCP
+  calls in an API process, and `/metrics` is served by whichever API process the scrape
+  reaches. An in-memory counter there would answer for its own process only. Everything
+  counts into the one hash `metrics:v1` (`lib/metrics.py`).
+* **A metric write is built inside its guard.** A write is "never raises", and an
+  exception thrown while the client call is *built*, before there is anything to await,
+  escaped the first version. `_bounded` takes a callable, not an awaitable, for that reason.
+* **A histogram writes every bucket on every observation**, adding 0 where the value does
+  not fit. A series missing its lower buckets reads as having no data there, not as zero.
+  The test needs a slow value to prove it: a fast one fills every bucket anyway.
+* **No OTLP endpoint means nothing touches the wire.** OpenTelemetry's no-op tracer still
+  propagates an *incoming* context, so `inject` and `extract` are gated on
+  `telemetry._configured`, not on whether a span records. `extract` takes only string
+  `traceparent`/`tracestate`: the SDK's parser raises `TypeError` on a number from
+  `params._meta`.
+* **`.env` does not reach the SDK.** pydantic-settings reads `.env` into `Settings`, and
+  the SDK reads `os.environ`. `OTEL_EXPORTER_OTLP_ENDPOINT` and `_HEADERS` are declared on
+  `Settings`, and `configure` copies them into the environment when it has none.
+* **`trace.set_tracer_provider` works once per process.** The tests install one in-memory
+  provider for the whole session (`_install_provider`) and switch tracing per test with
+  `telemetry._configured`. The flags in a `traceparent` read `03`, not `01`: SDK 1.45 sets
+  W3C Level 2's "random" bit. Compare against the span's own `trace_flags`.
+* **A run's events follow the card's privacy rules.** Reasoning loses its words unless the
+  agent's row shows reasoning, and an admin reads the events only where they can see the
+  room. A run that broke inside Blob keeps its events too: `_abandon` stores the trail,
+  because a broken run is the one an operator most wants to read.
+* **`recent_errors.read` caps what it returns at ten**, and that hid a writer that kept
+  everything. The test reads `jsonb_array_length` off the column itself.

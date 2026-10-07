@@ -16,21 +16,24 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Mapping
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
+from ..lib import metrics, telemetry
 from ..lib import queue as queue_lib
 from ..lib.errors import AppError
 from ..lib.ids import new_id
 from ..lib.redis import redis, redis_sub
-from ..plugins import agui, decisions, run_card
+from ..plugins import agui, decisions, recent_errors, run_card, run_trail
 from ..plugins import events as plugin_events
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub
@@ -151,6 +154,7 @@ async def refuse(
         reason=reason,
     )
     after.add(lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": view}))
+    after.add(lambda: queue_lib.fire_and_forget(metrics.run_ended(listener.slug, "refused")))
     if chain_id is not None:
         await task_dispatch.settle(
             session,
@@ -278,9 +282,13 @@ async def post_as_bot(
 
 
 async def record_error(plugin_id: str, reason: str) -> None:
+    """The app's newest error, at the head of its recent ones (migration 0052)."""
     async with transaction() as (session, _):
         await session.execute(
-            text("UPDATE plugins SET last_error = :reason, updated_at = now() WHERE id = :id"),
+            text(
+                f"UPDATE plugins SET {recent_errors.record_sql('reason')}, updated_at = now() "
+                "WHERE id = :id"
+            ),
             {"reason": reason[:500], "id": plugin_id},
         )
 
@@ -446,10 +454,17 @@ async def _stream(
     chain: agent_chains.Chain,
     card: run_card.CardFold,
     wall_sec: float | None = None,
+    trail: run_trail.Trail | None = None,
 ) -> Streamed:
-    """Run the agent under the Stop button, showing the card as it forms."""
+    """Run the agent under the Stop button, showing the card as it forms and keeping
+    what it streams for the run's event log."""
     broadcaster = CardBroadcaster(run_id, channel_id, card)
     cancelled = False
+
+    def on_event(event: Mapping[str, Any]) -> None:
+        broadcaster.on_event(event)
+        if trail is not None:
+            trail.add(event)
 
     ctl_channel = f"agent:ctl:{run_id}"
     pubsub = redis_sub.pubsub()
@@ -473,9 +488,7 @@ async def _stream(
         else:
             async with looks_busy(listener, channel_id, thread_root_id):
                 stream_task = asyncio.create_task(
-                    stream_run(
-                        listener, run_input, on_event=broadcaster.on_event, wall_sec=wall_sec
-                    )
+                    stream_run(listener, run_input, on_event=on_event, wall_sec=wall_sec)
                 )
                 waiters: set[asyncio.Task[Any]] = {stream_task}
                 cancel_task: asyncio.Task[None] | None = None
@@ -542,6 +555,7 @@ async def _finish(
     chain_id: str | None = None,
     answer: str | None = None,
     seen: dict[str, Any] | None = None,
+    events: dict[str, Any] | None = None,
 ) -> tuple[agent_run_service.RunStatus, str | None, agui.Decision | None]:
     """How the run ended, on the row and on the channel.
 
@@ -556,7 +570,8 @@ async def _finish(
     a limit of the tool loop that ended it.
 
     A run handed a task (ADR 0023) moves that task in the same transaction, by `answer` —
-    everything it said, across every round. `seen` is what the run was shown, kept on it.
+    everything it said, across every round. `seen` is what the run was shown, kept on it,
+    and `events` what it streamed (`run_trail`).
     """
     fold, cancelled = streamed.fold, streamed.cancelled
     reason = streamed.transport_error or fold.error or bound_error
@@ -615,6 +630,7 @@ async def _finish(
             expires_at=expires_at,
             usage=fold.usage if usage is None else (usage or None),
             seen=seen,
+            events=events,
         )
         if chain_id is not None:
             await task_dispatch.settle(
@@ -784,64 +800,114 @@ async def run_one(
     # own ceiling) and an exception inside Blob — and either used to leave the card under
     # the person's message spinning until the nightly sweep. `asyncio.gather` in
     # `jobs/agui.py` would have swallowed the exception besides, so it was not even logged.
-    progress = _Progress()
+    progress = _Progress(trail=run_trail.Trail(show_reasoning=listener.shows_reasoning))
     asked = _Asked(
         trigger_id=trigger_id,
         asker=asker,
         channel_name=channel_name,
         on_behalf_of=on_behalf_of,
     )
-    try:
-        await _drive(
-            listener,
-            gathered,
-            asked,
-            progress,
-            run_id=run_id,
-            workspace_id=workspace_id,
-            channel_id=channel_id,
-            thread_root_id=thread_root_id,
-            thread_key=gathered.thread_key,
-            memory_person=gathered.memory_person,
-            chain=chain,
-            max_depth=max_depth,
-        )
-    except asyncio.CancelledError:
-        if not progress.finished:
-            with suppress(Exception):
-                await asyncio.shield(
-                    _abandon(
+    # One span for the run, as OpenTelemetry's GenAI conventions name an agent's
+    # invocation (`lib/telemetry.py`): every round's request carries it to the agent, so
+    # the agent's own spans join this trace, and Blob's tool calls are its children.
+    with telemetry.span(
+        f"invoke_agent {listener.name}",
+        kind=telemetry.SpanKind.CLIENT,
+        attributes={
+            "gen_ai.operation.name": "invoke_agent",
+            "gen_ai.agent.id": listener.plugin_id,
+            "gen_ai.agent.name": listener.name,
+            "gen_ai.conversation.id": gathered.thread_key,
+            "server.address": urlsplit(listener.agui_url).hostname if listener.agui_url else None,
+            "blob.run.id": run_id,
+            "blob.run.transport": listener.transport,
+            "blob.chain.id": chain.chain_id,
+            "blob.chain.depth": chain.depth,
+            "blob.workspace.id": workspace_id,
+        },
+    ) as run_span:
+        try:
+            await _drive(
+                listener,
+                gathered,
+                asked,
+                progress,
+                run_id=run_id,
+                workspace_id=workspace_id,
+                channel_id=channel_id,
+                thread_root_id=thread_root_id,
+                thread_key=gathered.thread_key,
+                memory_person=gathered.memory_person,
+                chain=chain,
+                max_depth=max_depth,
+            )
+        except asyncio.CancelledError:
+            if not progress.finished:
+                with suppress(Exception):
+                    await asyncio.shield(
+                        _abandon(
+                            run_id,
+                            channel_id=channel_id,
+                            reason=STOPPED_MID_RUN,
+                            progress=progress,
+                            agent=listener.slug,
+                            chain_id=chain.chain_id,
+                            plugin_id=listener.plugin_id,
+                        )
+                    )
+            raise
+        except Exception as error:
+            log.exception("agui: run %s for %s failed inside Blob", run_id, listener.plugin_id)
+            telemetry.fail(type(error).__name__, run_span)
+            if not progress.finished:
+                with suppress(Exception):
+                    await _abandon(
                         run_id,
                         channel_id=channel_id,
-                        reason=STOPPED_MID_RUN,
-                        post_count=progress.posted,
+                        reason=FAILED_INSIDE_BLOB,
+                        progress=progress,
+                        agent=listener.slug,
                         chain_id=chain.chain_id,
                         plugin_id=listener.plugin_id,
                     )
-                )
-        raise
-    except Exception:
-        log.exception("agui: run %s for %s failed inside Blob", run_id, listener.plugin_id)
-        if not progress.finished:
-            with suppress(Exception):
-                await _abandon(
-                    run_id,
-                    channel_id=channel_id,
-                    reason=FAILED_INSIDE_BLOB,
-                    post_count=progress.posted,
-                    chain_id=chain.chain_id,
-                    plugin_id=listener.plugin_id,
-                )
+        _describe(run_span, progress)
+
+
+def _describe(run_span: Any, progress: _Progress) -> None:
+    """The run's outcome on its span: how it ended, what it posted, what it spent."""
+    if progress.status is None:
+        return
+    run_span.set_attribute("blob.run.status", progress.status)
+    run_span.set_attribute("blob.run.posts", progress.posted)
+    for key, attribute in (
+        ("inputTokens", "gen_ai.usage.input_tokens"),
+        ("outputTokens", "gen_ai.usage.output_tokens"),
+    ):
+        spent = sum(int(entry.get(key) or 0) for entry in progress.usage)
+        if spent:
+            run_span.set_attribute(attribute, spent)
+    if progress.status == "failed":
+        # The reason is a sentence and may quote the agent; the status is what a trace
+        # backend groups by.
+        telemetry.fail("failed", run_span)
 
 
 @dataclass(slots=True)
 class _Progress:
-    """How far a run got, for the handler that closes one which stopped short."""
+    """How far a run got, for the handler that closes one which stopped short — and, once
+    it ends, how it went, for its span."""
 
     #: Answers posted so far.
     posted: int = 0
     #: `_finish` has written the run's outcome; nothing left for a handler to close.
     finished: bool = False
+    #: What the run streamed, kept on it however it ends (`run_trail`).
+    trail: run_trail.Trail | None = None
+    #: When it began, for how long it took.
+    started: float = field(default_factory=time.monotonic)
+    #: How it ended, and what it reported spending — set by `_drive` once it has.
+    status: str | None = None
+    usage: list[dict[str, Any]] = field(default_factory=list)
 
 
 async def _abandon(
@@ -849,15 +915,21 @@ async def _abandon(
     *,
     channel_id: str,
     reason: str,
-    post_count: int,
+    progress: _Progress,
+    agent: str,
     chain_id: str | None = None,
     plugin_id: str | None = None,
 ) -> None:
     """Close a run that will not reach `_finish`, and tell the channel it ended — and the
     task it was handed, if it was handed one."""
+    post_count = progress.posted
     async with transaction() as (session, after):
         closed = await agent_run_service.abandon(
-            session, run_id, reason=reason, post_count=post_count
+            session,
+            run_id,
+            reason=reason,
+            post_count=post_count,
+            events=progress.trail.stored() if progress.trail is not None else None,
         )
         if closed and chain_id is not None and plugin_id is not None:
             await task_dispatch.settle(
@@ -878,6 +950,8 @@ async def _abandon(
                 "postCount": post_count,
             }
             after.add(lambda: hub.to_channel(channel_id, finished_event))
+    if closed:
+        await metrics.run_ended(agent, "failed", seconds=time.monotonic() - progress.started)
 
 
 @dataclass(slots=True)
@@ -1089,6 +1163,8 @@ async def _drive(
             thread_root_id=thread_root_id,
             chain=chain,
         )
+        if progress.trail is not None:
+            progress.trail.round = round_no
         streamed = await _stream(
             listener,
             run_input,
@@ -1099,6 +1175,7 @@ async def _drive(
             chain=chain,
             card=card,
             wall_sec=max(1.0, deadline - time.monotonic()),
+            trail=progress.trail,
         )
         # A later round's posts are keyed by their round too: each round's fold numbers
         # its posts from one.
@@ -1170,7 +1247,7 @@ async def _drive(
             break
         round_no += 1
 
-    _status, reason, decision = await _finish(
+    status, reason, decision = await _finish(
         listener,
         streamed,
         run_id=run_id,
@@ -1190,8 +1267,13 @@ async def _drive(
         chain_id=chain.chain_id,
         answer="\n\n".join(said_in_all) or None,
         seen=seen,
+        events=progress.trail.stored() if progress.trail is not None else None,
     )
     progress.finished = True
+    progress.status, progress.usage = status, usage
+    await metrics.run_ended(
+        listener.slug, status, seconds=time.monotonic() - progress.started, usage=usage
+    )
     if streamed.cancelled:
         return  # Stopped on request; no apology, nothing posted.
 
@@ -1282,24 +1364,61 @@ async def _run_calls(
     turn = agui_tools.assistant_turn(calls, said)
     results: list[dict[str, Any]] = []
     for index, call in enumerate(calls):
-        if index >= agui_tools.MAX_CALLS_PER_ROUND:
-            outcome = agui_tools.not_run(
-                f"one turn runs at most {agui_tools.MAX_CALLS_PER_ROUND} calls"
-            )
-        elif call.name in agui_tools.WRITE_TOOLS:
-            prepared = await agui_tools.prepare_write(
-                tools.caller, call, bot_user_id=listener.bot_user_id
-            )
-            if isinstance(prepared, agui_tools.PreparedWrite):
-                later = list(calls[index + 1 :])
-                return turn, results, (call, prepared, later)
-            outcome = prepared
-        else:
-            outcome = await agui_tools.run_read(tools.caller, call)
+        with _tool_span(call.name, call.id) as tool_span:
+            if index >= agui_tools.MAX_CALLS_PER_ROUND:
+                outcome = agui_tools.not_run(
+                    f"one turn runs at most {agui_tools.MAX_CALLS_PER_ROUND} calls"
+                )
+                said_of = "not_run"
+            elif call.name in agui_tools.WRITE_TOOLS:
+                prepared = await agui_tools.prepare_write(
+                    tools.caller, call, bot_user_id=listener.bot_user_id
+                )
+                if isinstance(prepared, agui_tools.PreparedWrite):
+                    # Put to the person; their answer is counted when it comes.
+                    tool_span.set_attribute("blob.tool.outcome", "asked")
+                    await metrics.tool_called("agent", call.name, "asked")
+                    later = list(calls[index + 1 :])
+                    return turn, results, (call, prepared, later)
+                outcome = prepared
+                said_of = _outcome_of(outcome)
+            else:
+                outcome = await agui_tools.run_read(tools.caller, call)
+                said_of = _outcome_of(outcome)
+            _tool_ended(tool_span, said_of)
+        await metrics.tool_called("agent", call.name, said_of)
         # On the card too: what each call came back with, for the people reading along.
         card.feed({"type": "TOOL_CALL_RESULT", "toolCallId": call.id, "content": outcome.summary})
         results.append(agui_tools.tool_message(call.id, outcome, speaks_1_0=sent_1_0))
     return turn, results, None
+
+
+def _tool_span(name: str, call_id: str) -> Any:
+    """One of Blob's tools, run for the agent, as the GenAI conventions name it. A
+    client-side tool in their words: the agent chose the call, Blob ran it. The name is
+    one of Blob's own; the call's id is the agent's, so it is clipped."""
+    return telemetry.span(
+        f"execute_tool {name}",
+        attributes={
+            "gen_ai.operation.name": "execute_tool",
+            "gen_ai.tool.name": name,
+            "gen_ai.tool.call.id": call_id[:128],
+            "gen_ai.tool.type": "function",
+        },
+    )
+
+
+def _outcome_of(outcome: agui_tools.ToolOutcome) -> str:
+    """How a call went, as it is counted: it ran, the tool said no, or Blob broke."""
+    if outcome.failed:
+        return "failed"
+    return "refused" if outcome.error is not None else "ok"
+
+
+def _tool_ended(tool_span: Any, said_of: str) -> None:
+    tool_span.set_attribute("blob.tool.outcome", said_of)
+    if said_of in ("refused", "failed", "not_run"):
+        telemetry.fail("tool_error", tool_span)
 
 
 async def _settle_approval(
@@ -1314,35 +1433,14 @@ async def _settle_approval(
     """Run or decline the write the person answered, and answer the calls that waited
     behind it. Returns the exchange to carry on from, and the round to carry on in."""
     call_id = str(resumed.call.get("id") or "")
-    prepared = agui_tools.PreparedWrite.from_dict(resumed.prepared)
-    if not resumed.approved:
-        outcome = agui_tools.DECLINED
-    elif prepared is None or tools.caller is None or "post_message" not in tools.names:
-        # Asked when the agent could write; since then its access, or the person, is gone.
-        outcome = agui_tools.ToolOutcome("", "Approved, but it can no longer be posted.")
-    else:
-
-        async def post(target: str, thread_root_id: str | None, body: str, key: str) -> str | None:
-            # As the agent — it is the agent speaking — and never a hop: a message Blob
-            # posted for a tool call starts no run (ADR 0022).
-            return await post_as_bot(
-                listener,
-                workspace_id=workspace_id,
-                channel_id=target,
-                thread_root_id=thread_root_id,
-                body=body,
-                client_msg_id=key,
-                blocks=None,
-                spawn=False,
-            )
-
-        outcome = await agui_tools.run_write(
-            tools.caller,
-            prepared,
-            bot_user_id=listener.bot_user_id,
-            key=f"agui-tool:{run_id}:{call_id}",
-            post=post,
+    tool_name = str(resumed.call.get("name") or "post_message")
+    with _tool_span(tool_name, call_id) as tool_span:
+        outcome = await _approved_write(
+            listener, resumed, tools, run_id=run_id, workspace_id=workspace_id, call_id=call_id
         )
+        said_of = "declined" if not resumed.approved else _outcome_of(outcome)
+        _tool_ended(tool_span, said_of)
+    await metrics.tool_called("agent", tool_name, said_of)
     results = [agui_tools.tool_message(call_id, outcome, speaks_1_0=sent_1_0)]
     for later in resumed.later:
         results.append(
@@ -1353,3 +1451,43 @@ async def _settle_approval(
             )
         )
     return [*resumed.exchange, *results], resumed.round + 1
+
+
+async def _approved_write(
+    listener: Listener,
+    resumed: agent_chains.ToolResume,
+    tools: _Tools,
+    *,
+    run_id: str,
+    workspace_id: str,
+    call_id: str,
+) -> agui_tools.ToolOutcome:
+    """The write the person answered: declined, no longer possible, or run."""
+    prepared = agui_tools.PreparedWrite.from_dict(resumed.prepared)
+    if not resumed.approved:
+        return agui_tools.DECLINED
+    if prepared is None or tools.caller is None or "post_message" not in tools.names:
+        # Asked when the agent could write; since then its access, or the person, is gone.
+        return agui_tools.ToolOutcome("", "Approved, but it can no longer be posted.")
+
+    async def post(target: str, thread_root_id: str | None, body: str, key: str) -> str | None:
+        # As the agent — it is the agent speaking — and never a hop: a message Blob posted
+        # for a tool call starts no run (ADR 0022).
+        return await post_as_bot(
+            listener,
+            workspace_id=workspace_id,
+            channel_id=target,
+            thread_root_id=thread_root_id,
+            body=body,
+            client_msg_id=key,
+            blocks=None,
+            spawn=False,
+        )
+
+    return await agui_tools.run_write(
+        tools.caller,
+        prepared,
+        bot_user_id=listener.bot_user_id,
+        key=f"agui-tool:{run_id}:{call_id}",
+        post=post,
+    )

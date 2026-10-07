@@ -30,7 +30,7 @@ from ..lib import net
 from ..lib.auth import SessionUser, require_admin
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam
-from ..plugins import gateway, registry
+from ..plugins import gateway, recent_errors, registry
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
 from ..schemas.base import CamelModel, OkOut, iso, require_iso
 from ..schemas.models import AgentMemory
@@ -45,6 +45,11 @@ from ..services.audit import actor_for
 from ..tools import agent_bridge
 
 router = APIRouter(tags=["admin"], prefix="/api/admin/plugins")
+
+
+class RecentErrorOut(CamelModel):
+    at: str
+    error: str
 
 
 class PluginOut(CamelModel):
@@ -69,6 +74,9 @@ class PluginOut(CamelModel):
     #: they have lent it to.
     owner_user_id: str | None = None
     last_error: str | None = None
+    #: The newest ten errors with their times, newest first. Switching the app back on
+    #: clears `last_error` and not these: they are its history (migration 0052).
+    recent_errors: list[RecentErrorOut] = []
     created_at: str
     updated_at: str
     #: Queued and failed counts, so a broken app is visible without reading logs.
@@ -262,6 +270,10 @@ async def _build_plugin(
         bot_user_id=bot_id,
         owner_user_id=getattr(row, "owner_user_id", None),
         last_error=row.last_error,
+        recent_errors=[
+            RecentErrorOut(**entry)
+            for entry in recent_errors.read(getattr(row, "recent_errors", None))
+        ],
         created_at=iso(row.created_at),
         updated_at=iso(row.updated_at),
         pending_deliveries=int(counts.pending if counts else 0),
@@ -935,6 +947,26 @@ class AgentRunsOut(CamelModel):
     runs: list[AgentRunOut]
 
 
+class RunEventOut(CamelModel):
+    #: Milliseconds from the start of the run.
+    ms: int
+    #: Which round of a run that used Blob's tools it arrived in, from 0.
+    round: int
+    #: The AG-UI event, cut down (`plugins/run_trail.py`).
+    event: dict[str, Any]
+
+
+class RunEventsOut(CamelModel):
+    """What one run streamed: the newest 200 of `total` events."""
+
+    #: The run was in a room the viewer cannot see, so its events are kept from them.
+    hidden: bool
+    total: int
+    events: list[RunEventOut]
+    #: When the nightly sweep empties them; the run itself stays for its thirty days.
+    kept_until: str
+
+
 class AgentMemoriesOut(CamelModel):
     memories: list[AgentMemory]
 
@@ -1047,6 +1079,37 @@ async def list_runs(
             )
             for run in runs
         ]
+    )
+
+
+@router.get("/{plugin_id}/runs/{run_id}/events", response_model=RunEventsOut)
+async def run_events(
+    plugin_id: IdParam, run_id: IdParam, admin: SessionUser = Depends(require_admin)
+) -> RunEventsOut:
+    """What the agent streamed in one run — for when the card and the error do not say
+    why it went the way it did. Only where you can see the room it ran in."""
+    async with session_scope() as session:
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        found = await agent_run_service.events_of(
+            session,
+            workspace_id=admin.workspace_id,
+            plugin_id=plugin_id,
+            run_id=run_id,
+            viewer_id=admin.id,
+        )
+    if found is None:
+        raise not_found("There is no run with that id.")
+    events: list[RunEventOut] = []
+    for entry in found["events"]:
+        if (
+            isinstance(entry, dict)
+            and isinstance(entry.get("ms"), int)
+            and isinstance(entry.get("round"), int)
+            and isinstance(entry.get("event"), dict)
+        ):
+            events.append(RunEventOut(ms=entry["ms"], round=entry["round"], event=entry["event"]))
+    return RunEventsOut(
+        hidden=found["hidden"], total=found["total"], events=events, kept_until=found["keptUntil"]
     )
 
 

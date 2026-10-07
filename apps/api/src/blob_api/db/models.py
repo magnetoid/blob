@@ -746,6 +746,9 @@ class AgentRun(Base):
             "expires_at",
             postgresql_where=text("status = 'interrupted' AND answered_at IS NULL"),
         ),
+        # Runs in flight, which a `/metrics` scrape counts by agent (migration 0052). A
+        # handful of rows at any moment, so the scrape never reads the month of history.
+        Index("agent_runs_running", "plugin_id", postgresql_where=text("status = 'running'")),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
@@ -817,6 +820,10 @@ class AgentRun(Base):
     #: memory and a task went with them, the tools offered, the protocol spoken. Counts
     #: and names, never content (migration 0049).
     seen: Mapped[Any | None] = mapped_column(JSONB)
+    #: What the agent streamed: `{total, kept}`, the newest 200 AG-UI events cut down
+    #: (`plugins/run_trail.py`). For an admin explaining a run; emptied after seven days
+    #: while the run is kept for its thirty (migration 0052).
+    events: Mapped[Any | None] = mapped_column(JSONB)
 
 
 class AgentState(Base):
@@ -1447,6 +1454,12 @@ class Plugin(Base):
         ARRAY(Text), nullable=False, server_default=text("'{}'")
     )
     last_error: Mapped[str | None] = mapped_column(Text)
+    #: The newest ten errors, `{at, error}`, newest first — history that switching the app
+    #: back on does not clear, where `last_error` is its present state (migration 0052,
+    #: `plugins/recent_errors.py`).
+    recent_errors: Mapped[Any] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
     #: Where a container agent came from, and what the runner calls its deployment.
     source_repo: Mapped[str | None] = mapped_column(Text)
     source_ref: Mapped[str | None] = mapped_column(Text)

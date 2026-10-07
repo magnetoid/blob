@@ -9793,3 +9793,50 @@ button.call-bar-where {
 .call-server[data-state='down'] .call-server-dot {
   background: var(--danger);
 }
+
+/* What a run streamed, in the admin run log's drill-in: one line per event, the time and
+   type first, the event itself as wrapped code under them. */
+.run-events {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.run-event {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+.run-event-at {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.run-event-type {
+  font-weight: 600;
+}
+.run-event-detail {
+  flex-basis: 100%;
+  font-size: var(--text-xs);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* An app's last ten errors, under the banner that says what is wrong now. */
+.recent-errors {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.recent-error-at {
+  color: var(--text-3);
+}

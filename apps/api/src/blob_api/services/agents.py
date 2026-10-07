@@ -21,7 +21,7 @@ from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError, bad_request
-from ..plugins import registry
+from ..plugins import recent_errors, registry
 from ..plugins.runner import AGENT_PORT, Deployment, EnvVar, current_runner, normalize_fqdn
 from ..plugins.source import RepoSource, read_manifest
 from ..services import audit as audit_service
@@ -318,9 +318,10 @@ async def _record_failure(plugin_id: str, reason: str) -> None:
     async with transaction() as (session, _):
         await session.execute(
             text(
-                """
+                f"""
                 UPDATE plugins
-                   SET status = 'failed', deployment_status = 'failed', last_error = :reason
+                   SET status = 'failed', deployment_status = 'failed',
+                       {recent_errors.record_sql("reason")}
                  WHERE id = :id
                 """
             ),

@@ -319,6 +319,17 @@ assigns itself; a task handed to Janus comes back answered without a mention.
 - A capped per-run event log (last 200 raw events, 7 days) behind the admin drill-in;
   `last_error` becomes the last ten.
 
+*Built 2026-10-08 (ADR 0025).* Traces are off until `OTEL_EXPORTER_OTLP_ENDPOINT` names a
+collector: `invoke_agent`, `execute_tool` and MCP server spans carry ids, names, counts and
+outcomes, never content, and a `traceparent` goes to the agent as a header and on the
+socket's run frame, which the bridge forwards. `/metrics` answers only `METRICS_TOKEN` and
+reads counters every process shares through Redis — runs by outcome, duration, tokens,
+tool calls by caller and outcome — plus runs in flight and decisions waiting, read live.
+A run keeps its newest 200 events for a week, reasoning stripped unless the agent shows
+it, and an admin reads them only where they can see the room. An app keeps its last ten
+errors. Not done: OTLP metrics, HTTP spans for every route, and carrying the trace of the
+message that started a run into the worker.
+
 ### Phase 8 · Ratchets, continuous
 
 - Split `routers/plugins.py` and `plugins/registry.py` along the seams the review

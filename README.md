@@ -301,6 +301,11 @@ document a key nobody bound or a command your server does not answer.
   runs this week and whether it is online; one *Install agent* button offering Janus,
   another agent on this machine, or an app by URL; a Guardrails panel that states the
   policies in force; and a bar chart of the week's runs.
+- **Watching agents** — an agent's page lists its last ten errors with when each
+  happened, and opening a run in its log shows what the agent actually streamed: the
+  newest 200 events, cut down, kept for a week, and only where you can see the room. An
+  operator can trace runs, tool calls and MCP requests with OpenTelemetry and scrape
+  counters from `/metrics`; both are off until configured. ADR 0025.
 
 ### Slash commands
 
@@ -618,6 +623,28 @@ turned on from the server console, and that column defaults to false.
 | `SECURITY_HEADERS` | `true` — every response carries a Content-Security-Policy, `nosniff`, `X-Frame-Options: DENY`, a referrer policy and HSTS over https. Off only when a proxy in front sets its own. |
 | `CSP_EXTRA_SOURCES` | unset — space-separated origins added to `connect-src` and `img-src`, for storage or previews the policy cannot infer from `S3_PUBLIC_ENDPOINT`. |
 
+### Watching agents
+
+Both off by default, and off costs nothing: no exporter is started, no trace id leaves
+the server, and `/metrics` answers 404. See
+[ADR 0025](.torsor/architecture/decisions/0025-what-an-operator-can-see-of-agents.md).
+
+| Variable | Default |
+|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset — an OTLP/HTTP collector (an OpenTelemetry Collector, Jaeger, Tempo, Honeycomb…) to send traces of agent runs, tool calls and MCP requests to. Set it on the app and the worker: runs are traced in the worker. Spans carry ids, names, counts and outcomes, never what anybody wrote. Other `OTEL_*` variables — `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_TRACES_SAMPLER` — mean what the SDK says they do. |
+| `METRICS_TOKEN` | unset — the bearer token a Prometheus scrape of `/metrics` presents. Runs by agent and outcome, run duration, tokens, Blob's tools by caller and outcome, and runs in flight and decisions waiting right now. |
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: blob
+    scheme: https
+    authorization:
+      credentials: <METRICS_TOKEN>
+    static_configs:
+      - targets: ["chat.example.com"]
+```
+
 ---
 
 ## Deploying
@@ -771,7 +798,7 @@ Chat history is keyset-paginated, never `OFFSET`.
 
 ### Decisions
 
-The twenty-four ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
+The twenty-five ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
 | | |
 |---|---|
@@ -799,6 +826,7 @@ The twenty-four ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture
 | 0022 | An agent may use Blob's tools — as the asker, inside the room, and every write asks first |
 | 0023 | A task handed to an agent is a message from the person who handed it |
 | 0024 | What an agent remembers is the conversation's, or one person's |
+| 0025 | What an operator can see of agents — traces, counters, a run's events, an app's errors |
 
 ---
 

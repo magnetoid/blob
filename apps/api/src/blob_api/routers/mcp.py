@@ -35,6 +35,7 @@ from pydantic import Field
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
+from ..lib import metrics, telemetry
 from ..lib.auth import SessionUser, current_user, require_admin
 from ..lib.errors import AppError
 from ..lib.ids import IdParam
@@ -100,6 +101,8 @@ def _result(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
 def _error(
     request_id: Any, code: int, message: str, data: dict[str, Any] | None = None
 ) -> dict[str, Any]:
+    # On the request's span, as MCP's conventions put a JSON-RPC error: by its code.
+    telemetry.fail(str(code))
     body: dict[str, Any] = {"code": code, "message": message}
     if data is not None:
         body["data"] = data
@@ -147,6 +150,7 @@ def _tool_error(request_id: Any, message: str) -> dict[str, Any]:
     no channel by that name" is working correctly, and reporting it as a JSON-RPC error
     would have the client treat the *connection* as broken.
     """
+    telemetry.fail("tool_error")
     return _result(request_id, {"content": [{"type": "text", "text": message}], "isError": True})
 
 
@@ -205,11 +209,44 @@ async def mcp_endpoint(request: Request) -> Response:
         return _json(_error(request_id, INVALID_REQUEST, "A message needs a method."), status=400)
 
     is_modern = meta_version in MODERN_VERSIONS or header_version in MODERN_VERSIONS
-    if is_modern:
-        return await _modern_request(
-            request, caller, body, method, request_id, params, meta_version
-        )
-    return await _legacy(caller, method, request_id, params, header_version)
+    named = params.get("name") if method == "tools/call" else None
+    tool = named if isinstance(named, str) and mcp_service.known(named) else None
+    version = meta_version if isinstance(meta_version, str) else header_version
+    # One span per request, as MCP's conventions name it, continuing the assistant's own
+    # trace when `params._meta` carries one (the HTTP headers otherwise). What the caller
+    # sent is clipped before it is recorded, and only a known method or tool names a span.
+    with telemetry.span(
+        _span_name(method, tool),
+        kind=telemetry.SpanKind.SERVER,
+        parent=telemetry.extract(meta, request.headers),
+        attributes={
+            "mcp.method.name": method[:64],
+            "mcp.protocol.version": version[:32] if isinstance(version, str) else None,
+            "jsonrpc.request.id": str(request_id)[:64] if request_id is not None else None,
+            "gen_ai.operation.name": "execute_tool" if tool else None,
+            "gen_ai.tool.name": tool,
+            "network.protocol.name": "http",
+            "blob.workspace.id": caller.workspace_id,
+        },
+    ):
+        if is_modern:
+            return await _modern_request(
+                request, caller, body, method, request_id, params, meta_version
+            )
+        return await _legacy(caller, method, request_id, params, header_version)
+
+
+#: The methods a span is named after. Anything else is `other`: the name is what a trace
+#: backend groups by, and a client must not be able to mint one per request.
+_TRACED_METHODS = frozenset({"initialize", "ping", "tools/list", "tools/call", "server/discover"})
+
+
+def _span_name(method: str, tool: str | None) -> str:
+    if method.startswith("notifications/"):
+        name = "notifications"
+    else:
+        name = method if method in _TRACED_METHODS else "other"
+    return f"{name} {tool}" if tool else name
 
 
 async def _modern_request(
@@ -376,11 +413,14 @@ async def _call_tool(
     except AppError as refusal:
         # An expected no — a channel that is not there, a limit spent, a token that may
         # only read. The model is told, and the connection stays up.
+        await metrics.tool_called("mcp", name, "refused")
         return _tool_error(request_id, refusal.message)
     except Exception:
         log.exception("mcp tool %s failed", name)
+        await metrics.tool_called("mcp", name, "failed")
         return _tool_error(request_id, "Something went wrong on the server running that tool.")
 
+    await metrics.tool_called("mcp", name, "ok")
     return _result(request_id, {"content": [{"type": "text", "text": text_out}], "isError": False})
 
 

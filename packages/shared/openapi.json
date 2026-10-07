@@ -5559,6 +5559,14 @@
             "title": "Pendingscopes",
             "type": "array"
           },
+          "recentErrors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RecentErrorOut"
+            },
+            "title": "Recenterrors",
+            "type": "array"
+          },
           "requestUrl": {
             "anyOf": [
               {
@@ -6201,6 +6209,24 @@
         "title": "ReasoningInput",
         "type": "object"
       },
+      "RecentErrorOut": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "error"
+        ],
+        "title": "RecentErrorOut",
+        "type": "object"
+      },
       "RepoInput": {
         "properties": {
           "env": {
@@ -6387,6 +6413,62 @@
           "clientMsgId"
         ],
         "title": "RunCommandInput",
+        "type": "object"
+      },
+      "RunEventOut": {
+        "properties": {
+          "event": {
+            "additionalProperties": true,
+            "title": "Event",
+            "type": "object"
+          },
+          "ms": {
+            "title": "Ms",
+            "type": "integer"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ms",
+          "round",
+          "event"
+        ],
+        "title": "RunEventOut",
+        "type": "object"
+      },
+      "RunEventsOut": {
+        "description": "What one run streamed: the newest 200 of `total` events.",
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/RunEventOut"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "keptUntil": {
+            "title": "Keptuntil",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hidden",
+          "total",
+          "events",
+          "keptUntil"
+        ],
+        "title": "RunEventsOut",
         "type": "object"
       },
       "SaveInput": {
@@ -12193,6 +12275,60 @@
           }
         },
         "summary": "List Runs",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/{plugin_id}/runs/{run_id}/events": {
+      "get": {
+        "description": "What the agent streamed in one run \u2014 for when the card and the error do not say\nwhy it went the way it did. Only where you can see the room it ran in.",
+        "operationId": "run_events_api_admin_plugins__plugin_id__runs__run_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunEventsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Events",
         "tags": [
           "admin"
         ]

@@ -56,6 +56,7 @@ const plugin = (over: Record<string, unknown>) => ({
   botUserId: 'b1',
   ownerUserId: null,
   lastError: null,
+  recentErrors: [],
   createdAt: '2026-09-01T00:00:00Z',
   updatedAt: '2026-09-01T00:00:00Z',
   pendingDeliveries: 0,

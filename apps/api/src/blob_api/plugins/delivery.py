@@ -32,6 +32,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import transaction
+from . import recent_errors
 from .signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
 
 log = logging.getLogger("blob.plugins.delivery")
@@ -265,9 +266,9 @@ async def trip_if_open(session: AsyncSession, plugin_id: str) -> None:
         return
     await session.execute(
         text(
-            """
+            f"""
             UPDATE plugins
-               SET status = 'failed', last_error = :err, updated_at = now()
+               SET status = 'failed', {recent_errors.record_sql("err")}, updated_at = now()
              WHERE id = :id AND status = 'enabled'
             """
         ),

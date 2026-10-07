@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 
 from ..config import settings
-from ..lib import sse
+from ..lib import sse, telemetry
 from . import agui, gateway
 from .signing import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign
 
@@ -117,7 +117,8 @@ async def stream_run(
 
     The body is signed exactly as a webhook delivery is — same header names, same `v0=`
     scheme — so an app that already verifies Blob's deliveries verifies this with the
-    code it has.
+    code it has. With tracing on, the request carries the run's `traceparent` too, which
+    the signature does not cover and does not need to: it names a trace, not an order.
     """
     wall = (
         settings.AGUI_MAX_RUN_SEC if wall_sec is None else min(wall_sec, settings.AGUI_MAX_RUN_SEC)
@@ -143,6 +144,7 @@ async def stream_run(
         TIMESTAMP_HEADER: str(timestamp),
         SIGNATURE_HEADER: sign(listener.signing_secret, timestamp, body),
     }
+    telemetry.inject(headers)
 
     seen_events = 0
     seen_bytes = 0

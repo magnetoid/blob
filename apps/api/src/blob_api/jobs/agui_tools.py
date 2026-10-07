@@ -128,6 +128,9 @@ class ToolOutcome:
 
     content: str
     error: str | None = None
+    #: The error was Blob's, not a refusal: something broke inside the tool. Counted
+    #: apart (`blob_tool_calls_total`), since one is working as intended and one is a bug.
+    failed: bool = False
 
     @property
     def summary(self) -> str:
@@ -247,7 +250,7 @@ async def run_read(caller: mcp_service.McpCaller, call: ToolCall) -> ToolOutcome
         return ToolOutcome("", error.message)
     except Exception:
         log.warning("agui: tool %s failed inside Blob", call.name, exc_info=True)
-        return ToolOutcome("", "That tool failed inside Blob; try something else.")
+        return ToolOutcome("", "That tool failed inside Blob; try something else.", failed=True)
 
 
 async def prepare_write(
@@ -350,7 +353,7 @@ async def run_write(
         return ToolOutcome("", f"Approved, but it could not be posted: {error.message}")
     except Exception:
         log.warning("agui: an approved post failed inside Blob", exc_info=True)
-        return ToolOutcome("", "Approved, but Blob could not post it.")
+        return ToolOutcome("", "Approved, but Blob could not post it.", failed=True)
     if message_id is None:
         return ToolOutcome(f"Posted in {prepared.label}.")
     return ToolOutcome(f"Posted in {prepared.label}. Message id {message_id}.")

@@ -110,6 +110,17 @@ class Settings(BaseSettings):
     #: knows, and "What's new" asks it.
     SOURCE_COMMIT: str | None = None
 
+    #: What a Prometheus scrape of `/metrics` presents as its bearer token. Unset — the
+    #: default — and `/metrics` answers 404: the numbers name every agent on the server.
+    METRICS_TOKEN: str | None = None
+    #: Where traces go: an OTLP/HTTP collector. Unset, nothing is traced. OpenTelemetry's
+    #: SDK reads these two itself, from the process environment; they are declared here
+    #: only so a `.env` file can set them as it sets everything else, and
+    #: `lib/telemetry.py` hands a value from there to the SDK when the environment has
+    #: none. Every other `OTEL_*` variable is the SDK's alone.
+    OTEL_EXPORTER_OTLP_ENDPOINT: str | None = None
+    OTEL_EXPORTER_OTLP_HEADERS: str | None = None
+
     AGENT_RUNNER: Literal["disabled", "coolify"] = "disabled"
     #: Where the runner's API lives. Deliberately not COOLIFY_URL: Coolify injects that
     #: name into every container it runs, set to that container's own address, so a Blob

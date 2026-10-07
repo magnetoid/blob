@@ -16,6 +16,7 @@ from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import close_engine, session_scope, transaction
+from ..lib import telemetry
 from ..lib.queue import close_queue, redis_settings
 from ..lib.redis import close_redis
 from ..lib.storage import delete_object
@@ -177,6 +178,8 @@ async def sweep_calls(_ctx: dict[str, Any]) -> None:
 
 
 async def startup(_ctx: dict[str, Any]) -> None:
+    # Runs are the worker's, so their traces start here — when there is an endpoint.
+    telemetry.configure("worker")
     # The worker broadcasts too (read-state updates from notify), so it needs the bridge.
     await hub.start_redis_bridge()
     log.info("worker ready")
@@ -188,6 +191,7 @@ async def shutdown(_ctx: dict[str, Any]) -> None:
     await close_queue()
     await close_redis()
     await close_engine()
+    telemetry.shutdown()
 
 
 async def after_job_end(ctx: dict[str, Any]) -> None:

@@ -30,6 +30,7 @@ from ..lib.errors import (
     unique_violation,
 )
 from ..lib.ids import new_id, new_token
+from ..plugins import recent_errors
 from ..schemas.admin import (
     AdminChannel,
     AdminChannelsOut,
@@ -227,9 +228,10 @@ async def _turn_off_their_agents(session: AsyncSession, admin: Actor, user_id: s
     rows = (
         await session.execute(
             text(
-                """
+                f"""
                 UPDATE plugins
-                   SET status = 'disabled', last_error = :why, updated_at = now()
+                   SET status = 'disabled', {recent_errors.record_sql("why")},
+                       updated_at = now()
                  WHERE owner_user_id = :id AND workspace_id = :ws AND status = 'enabled'
                 RETURNING id, slug
                 """

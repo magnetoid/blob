@@ -28,6 +28,7 @@ import { showError } from "../../../lib/toasts.ts";
 import { Card, CardNotice } from "../../console/Card.tsx";
 import { AppChannelList } from "./apps/AppChannelList.tsx";
 import { PluginCard } from "./apps/PluginCard.tsx";
+import { RecentErrors } from "./apps/RecentErrors.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
 import { DesktopAgentSetup } from "../../agentic/DesktopAgentSetup.tsx";
 import { MemoryList } from "../../agentic/MemoryList.tsx";
@@ -163,6 +164,7 @@ export function AppSettings({ pluginId, onError }: Props) {
             Last failure: {plugin.lastError}
           </div>
         )}
+        <RecentErrors errors={plugin.recentErrors} />
 
         <div className="pref-row">
           <div className="grow">

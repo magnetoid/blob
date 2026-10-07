@@ -363,6 +363,12 @@ newest replies (up to a thousand); in a channel, its last 30 messages
 with the same `X-Blob-Signature` scheme as a webhook delivery, so if you already verify
 those you already verify this.
 
+When the server's operator traces with OpenTelemetry, the request also carries a W3C
+`traceparent` header (and `tracestate`, when there is one): the run's span, so your
+agent's own spans can join the trace. Every round of a run that uses Blob's tools carries
+the same one. The signature does not cover it and does not need to — it names a trace,
+not an instruction — and a server that does not trace sends none (ADR 0025).
+
 **What a person can see of your runs.** Every run keeps what it was shown — how many
 messages of which thread or channel, how many files, whether the workspace's
 instructions, its memory and a task went with them, which of Blob's tools it was offered,

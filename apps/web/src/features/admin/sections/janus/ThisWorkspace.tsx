@@ -24,6 +24,7 @@ import { Card, CardNotice } from "../../../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../../../console/hooks.ts";
 import { AppChannelList } from "../apps/AppChannelList.tsx";
 import { BudgetRow } from "../apps/BudgetRow.tsx";
+import { RecentErrors } from "../apps/RecentErrors.tsx";
 import { RunLog } from "../apps/RunLog.tsx";
 import { isSeededJanus } from "./seeded.ts";
 
@@ -146,6 +147,7 @@ export function ThisWorkspace({
         {plugin.lastError && (
           <div className="connection-banner">Last failure: {plugin.lastError}</div>
         )}
+        <RecentErrors errors={plugin.recentErrors} />
       </Card>
 
       <Card title="Channels">
@@ -216,10 +218,14 @@ export function ThisWorkspace({
             {loading ? "Loading…" : "The recent runs could not be read."}
           </CardNotice>
         ) : data.runs.length === 0 ? (
-          <RunLog runs={data.runs} emptyLabel="Nobody here has asked Janus anything yet." />
+          <RunLog
+            pluginId={plugin.id}
+            runs={data.runs}
+            emptyLabel="Nobody here has asked Janus anything yet."
+          />
         ) : (
           <div className="console-list">
-            <RunLog runs={data.runs} />
+            <RunLog pluginId={plugin.id} runs={data.runs} />
           </div>
         )}
       </Card>

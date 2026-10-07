@@ -1095,6 +1095,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/plugins/{plugin_id}/runs/{run_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Events
+         * @description What the agent streamed in one run — for when the card and the error do not say
+         *     why it went the way it did. Only where you can see the room it ran in.
+         */
+        get: operations["run_events_api_admin_plugins__plugin_id__runs__run_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/plugins/{plugin_id}/secret": {
         parameters: {
             query?: never;
@@ -5852,6 +5873,11 @@ export interface components {
              * @default []
              */
             pendingScopes: string[];
+            /**
+             * Recenterrors
+             * @default []
+             */
+            recentErrors: components["schemas"]["RecentErrorOut"][];
             /** Requesturl */
             requestUrl?: string | null;
             /**
@@ -6120,6 +6146,13 @@ export interface components {
             /** Shown */
             shown: boolean;
         };
+        /** RecentErrorOut */
+        RecentErrorOut: {
+            /** At */
+            at: string;
+            /** Error */
+            error: string;
+        };
         /** RepoInput */
         RepoInput: {
             /** Env */
@@ -6195,6 +6228,31 @@ export interface components {
             clientMsgId: string;
             /** Text */
             text: string;
+        };
+        /** RunEventOut */
+        RunEventOut: {
+            /** Event */
+            event: {
+                [key: string]: unknown;
+            };
+            /** Ms */
+            ms: number;
+            /** Round */
+            round: number;
+        };
+        /**
+         * RunEventsOut
+         * @description What one run streamed: the newest 200 of `total` events.
+         */
+        RunEventsOut: {
+            /** Events */
+            events: components["schemas"]["RunEventOut"][];
+            /** Hidden */
+            hidden: boolean;
+            /** Keptuntil */
+            keptUntil: string;
+            /** Total */
+            total: number;
         };
         /** SaveInput */
         SaveInput: {
@@ -7196,12 +7254,15 @@ export type ReadStateOut = components['schemas']['ReadStateOut'];
 export type ReadStateResponse = components['schemas']['ReadStateResponse'];
 export type ReadStatesOut = components['schemas']['ReadStatesOut'];
 export type ReasoningInput = components['schemas']['ReasoningInput'];
+export type RecentErrorOut = components['schemas']['RecentErrorOut'];
 export type RepoInput = components['schemas']['RepoInput'];
 export type RepoPreviewOut = components['schemas']['RepoPreviewOut'];
 export type ResetLinkOut = components['schemas']['ResetLinkOut'];
 export type ResetPasswordInput = components['schemas']['ResetPasswordInput'];
 export type RoleInput = components['schemas']['RoleInput'];
 export type RunCommandInput = components['schemas']['RunCommandInput'];
+export type RunEventOut = components['schemas']['RunEventOut'];
+export type RunEventsOut = components['schemas']['RunEventsOut'];
 export type SaveInput = components['schemas']['SaveInput'];
 export type SaveThemeInput = components['schemas']['SaveThemeInput'];
 export type ScheduledListOut = components['schemas']['ScheduledListOut'];
@@ -9193,6 +9254,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["blob_api__routers__plugins__AgentRunsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_events_api_admin_plugins__plugin_id__runs__run_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunEventsOut"];
                 };
             };
             /** @description Validation Error */

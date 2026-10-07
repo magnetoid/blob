@@ -21,13 +21,15 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-twenty-four ADRs; the principles below are their summary, not a substitute. 0013–0020 and
-0022–0024 are the agentic surface — chains, work channels, summaries and nudges, the MCP
+twenty-five ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+0022–0025 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
 room bound), that a task handed to an agent is a message from the person who handed it
-(0023), and that what an agent remembers is the conversation's or one person's (0024) —
-and are the ones this digest compresses hardest, so read them before changing that code. The shortest way in: an agent in a workspace is either the
+(0023), that what an agent remembers is the conversation's or one person's (0024), and
+what an operator can see of agents — traces, `/metrics`, a run's events, an app's last
+ten errors (0025) — and are the ones this digest compresses hardest, so read them before
+changing that code. The shortest way in: an agent in a workspace is either the
 workspace's (`plugins.owner_user_id` NULL — an admin installed it for everyone, like the
 `magnetoid/janus` agent, the one Blob seeds) or one person's (set — theirs, listed only
 for them, lent out through `agent_delegations`); an assistant holding an `mcp_token` is

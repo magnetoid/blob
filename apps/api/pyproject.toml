@@ -28,6 +28,12 @@ dependencies = [
     # subprocess to babysit — and no OpenSSH binary has to exist in the image.
     "asyncssh>=2.19",
     "livekit-api>=1.2.1",
+    # Traces of agent runs, tool calls and MCP requests (lib/telemetry.py). Off unless
+    # OTEL_EXPORTER_OTLP_ENDPOINT says where to send them; with it unset the API's tracer
+    # is a no-op and the SDK is never configured.
+    "opentelemetry-api>=1.45",
+    "opentelemetry-sdk>=1.45",
+    "opentelemetry-exporter-otlp-proto-http>=1.45",
 ]
 
 [dependency-groups]

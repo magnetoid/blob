@@ -45,6 +45,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from ..config import settings
+from ..lib import telemetry
 from ..lib.ids import new_id
 from ..lib.redis import redis, redis_sub
 
@@ -141,10 +142,11 @@ async def stream_events(
     pubsub = redis_sub.pubsub()
     try:
         await pubsub.subscribe(event_channel(run_id))
-        receivers = await redis.publish(
-            run_channel(plugin_id),
-            json.dumps({"runId": run_id, "input": run_input}),
-        )
+        # The run's trace context rides along when tracing is on, for the holder to put on
+        # the run frame — the socket's equivalent of the header the HTTP path sends.
+        request: dict[str, Any] = {"runId": run_id, "input": run_input}
+        request.update(telemetry.inject({}))
+        receivers = await redis.publish(run_channel(plugin_id), json.dumps(request))
         if not receivers:
             raise AgentNotConnectedError(plugin_id)
 
@@ -308,7 +310,11 @@ class AgentConnection:
                         claim_key(run_id), self.plugin_id, nx=True, ex=claim_ttl_sec()
                     ):
                         continue
-                    await self._send({"t": "run", "runId": run_id, "input": run_input})
+                    frame: dict[str, Any] = {"t": "run", "runId": run_id, "input": run_input}
+                    for key in ("traceparent", "tracestate"):
+                        if isinstance(request.get(key), str):
+                            frame[key] = request[key]
+                    await self._send(frame)
             except asyncio.CancelledError:
                 raise
             except Exception as error:

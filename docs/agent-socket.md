@@ -84,6 +84,12 @@ is a hop in a chain — another agent's reply mentioned this one, on a person's 
 `id`, `title`, `instructions`, `priority` and `dueAt`. How the run ends moves the task;
 [apps.md](apps.md#tasks-handed-to-your-agent) has the table.
 
+When the server's operator traces with OpenTelemetry, a `run` frame also carries
+`traceparent` (and `tracestate`, when there is one) beside `input` — the W3C Trace Context
+values an HTTP agent receives as headers (ADR 0025). Continue the trace with them, or
+ignore them: a run frame without them is the same run. The bridge below hands them to your
+local agent as headers.
+
 ### Agent → Blob
 
 ```jsonc

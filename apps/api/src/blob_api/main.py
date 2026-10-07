@@ -18,7 +18,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .config import served_commit, settings
 from .db.engine import SessionFactory, close_engine
-from .lib import storage
+from .lib import storage, telemetry
 from .lib.auth import SESSION_COOKIE, resolve_session
 from .lib.errors import AppError
 from .lib.logbuf import close_log_buffer, install_log_capture
@@ -50,6 +50,8 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("POST", "/api/mcp"),
     ("GET", "/api/mcp"),
     ("DELETE", "/api/mcp"),
+    # A Prometheus scrape: it presents `METRICS_TOKEN` and the route checks it itself.
+    ("GET", "/metrics"),
     # LiveKit's webhooks: signed with our LiveKit key and verified by the route itself.
     ("POST", "/api/calls/livekit"),
 }
@@ -150,6 +152,8 @@ class SessionMiddleware:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Traces, when the environment names an OTLP endpoint; nothing at all otherwise.
+    telemetry.configure("api")
     await hub.start_redis_bridge()
     # Every workspace gets Janus when Janus runs as a service in this stack, which is a
     # no-op on all but the first boot after the setting changed. It lives here because
@@ -185,6 +189,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await close_queue()
     await close_redis()
     await close_engine()
+    telemetry.shutdown()
 
 
 def create_app() -> FastAPI:
@@ -304,6 +309,7 @@ def create_app() -> FastAPI:
     from .routers.mcp import router as mcp_router
     from .routers.mcp import tokens_router as mcp_tokens_router
     from .routers.messages import router as message_router
+    from .routers.metrics import router as metrics_router
     from .routers.my_agents import router as my_agents_router
     from .routers.plugin_hosting import router as plugin_hosting_router
     from .routers.plugins import router as plugin_router
@@ -325,6 +331,7 @@ def create_app() -> FastAPI:
     app.include_router(mcp_router)
     app.include_router(mcp_tokens_router)
     app.include_router(mcp_admin_tokens_router)
+    app.include_router(metrics_router)
     app.include_router(file_router)
     app.include_router(feedback_router)
     app.include_router(interaction_router)

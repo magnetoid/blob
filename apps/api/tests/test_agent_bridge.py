@@ -18,6 +18,7 @@ import json
 import time
 from typing import Any
 
+import httpx
 import pytest
 
 from blob_api.plugins import signing
@@ -213,7 +214,7 @@ def _install(monkeypatch: pytest.MonkeyPatch, bridge: agent_bridge.Bridge, gen: 
 def _answers_with(
     monkeypatch: pytest.MonkeyPatch, bridge: agent_bridge.Bridge, *events: dict[str, Any]
 ) -> None:
-    async def fake(_run_input: dict[str, Any]) -> Any:
+    async def fake(_run_input: dict[str, Any], *_trace: Any) -> Any:
         for event in events:
             yield event
 
@@ -223,7 +224,7 @@ def _answers_with(
 def _fails_with(
     monkeypatch: pytest.MonkeyPatch, bridge: agent_bridge.Bridge, error: Exception
 ) -> None:
-    async def fake(_run_input: dict[str, Any]) -> Any:
+    async def fake(_run_input: dict[str, Any], *_trace: Any) -> Any:
         raise error
         yield  # pragma: no cover — makes this an async generator
 
@@ -233,7 +234,7 @@ def _fails_with(
 def _answers_then_fails(
     monkeypatch: pytest.MonkeyPatch, bridge: agent_bridge.Bridge, event: dict[str, Any]
 ) -> None:
-    async def fake(_run_input: dict[str, Any]) -> Any:
+    async def fake(_run_input: dict[str, Any], *_trace: Any) -> Any:
         yield event
         raise RuntimeError("the stream died")
 
@@ -259,3 +260,63 @@ class TestServingTheBridge:
 
     async def test_a_member_does_not(self, team: dict) -> None:  # noqa: F811
         assert (await team["member"].get("/api/admin/plugins/bridge")).status == 403
+
+
+class TestTheRunsTrace:
+    """With tracing on, Blob puts the run's `traceparent` on the run frame; the bridge hands
+    it to the local agent as the header Blob's own POST would have carried."""
+
+    async def test_a_run_frame_hands_its_trace_on(
+        self, config: agent_bridge.Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bridge = agent_bridge.Bridge(config)
+        started: list[tuple[Any, ...]] = []
+        monkeypatch.setattr(bridge, "_start_run", lambda *args: started.append(args))
+        parent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+
+        class Frames:
+            def __init__(self, frames: list[str]) -> None:
+                self._frames = frames
+
+            def __aiter__(self) -> Any:
+                return self
+
+            async def __anext__(self) -> str:
+                if not self._frames:
+                    raise StopAsyncIteration
+                return self._frames.pop(0)
+
+        await bridge._read_loop(
+            Frames(
+                [
+                    json.dumps({"t": "run", "runId": "r1", "input": {}, "traceparent": parent}),
+                    json.dumps({"t": "run", "runId": "r2", "input": {}, "traceparent": 7}),
+                ]
+            )
+        )
+        assert [args[-1] for args in started] == [{"traceparent": parent}, {}]
+
+    async def test_the_local_agent_is_sent_it_as_a_header(
+        self, config: agent_bridge.Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=b'data: {"type": "RUN_FINISHED"}\n\n',
+            )
+
+        real = httpx.AsyncClient
+        monkeypatch.setattr(
+            agent_bridge.httpx,
+            "AsyncClient",
+            lambda **kwargs: real(**kwargs, transport=httpx.MockTransport(handler)),
+        )
+        bridge = agent_bridge.Bridge(config)
+        parent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+        events = [e async for e in bridge._ask_agent({}, {"traceparent": parent})]
+        assert [e["type"] for e in events] == ["RUN_FINISHED"]
+        assert seen[0].headers["traceparent"] == parent

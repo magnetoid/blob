@@ -15,13 +15,16 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any, Literal
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.ids import new_id
+from ..plugins import run_trail
 from ..plugins.agui import decision_of, total_tokens
+from ..plugins.registry import MENTIONABLE_AGENT
 from ..schemas.base import require_iso
 
 RunStatus = Literal[
@@ -391,6 +394,7 @@ async def finish(
     usage: list[dict[str, Any]] | None = None,
     interrupt_extra: dict[str, Any] | None = None,
     seen: dict[str, Any] | None = None,
+    events: dict[str, Any] | None = None,
 ) -> None:
     """Close the row. For an interrupted run, also keep what a resume will need.
 
@@ -398,7 +402,7 @@ async def finish(
     later without a second column. `state_json` is already serialised by the caller —
     `None` means the agent shared no state (or too much), which is distinct from a state
     that happens to be JSON null. `seen` is what the run was shown; None leaves it as it
-    was.
+    was. `events` is what the agent streamed (`run_trail.Trail.stored`).
     """
     await session.execute(
         text(
@@ -411,7 +415,8 @@ async def finish(
                    state = cast(:state AS jsonb),
                    expires_at = cast(:expires_at AS timestamptz),
                    usage = cast(:usage AS jsonb),
-                   seen = COALESCE(cast(:seen AS jsonb), seen)
+                   seen = COALESCE(cast(:seen AS jsonb), seen),
+                   events = COALESCE(cast(:events AS jsonb), events)
              WHERE id = :id
             """
         ),
@@ -421,6 +426,7 @@ async def finish(
             "error": error,
             "post_count": post_count,
             "seen": json.dumps(seen) if seen is not None else None,
+            "events": json.dumps(events, default=str) if events is not None else None,
             "card": json.dumps(card) if card is not None else None,
             "interrupt": (
                 json.dumps({"items": interrupt, **(interrupt_extra or {})}, default=str)
@@ -434,7 +440,14 @@ async def finish(
     )
 
 
-async def abandon(session: AsyncSession, run_id: str, *, reason: str, post_count: int) -> bool:
+async def abandon(
+    session: AsyncSession,
+    run_id: str,
+    *,
+    reason: str,
+    post_count: int,
+    events: dict[str, Any] | None = None,
+) -> bool:
     """Close a run that will not reach `finish`, and say whether it was still open.
 
     For the two ways a run can stop without an outcome: the worker cancelled under it —
@@ -442,7 +455,8 @@ async def abandon(session: AsyncSession, run_id: str, *, reason: str, post_count
     the row was written. Either used to leave the row `running` until the nightly sweep,
     with its card under the person's message still spinning and its seconds still
     counted against the agent's budget. Guarded on `running`, so a run that did finish
-    is never rewritten.
+    is never rewritten. What it had streamed is kept, as a run that finished keeps it:
+    a run that broke is the one an operator most wants to read.
     """
     row = (
         await session.execute(
@@ -450,12 +464,18 @@ async def abandon(session: AsyncSession, run_id: str, *, reason: str, post_count
                 """
                 UPDATE agent_runs
                    SET status = 'failed', error = :reason, post_count = :post_count,
-                       finished_at = now()
+                       finished_at = now(),
+                       events = COALESCE(cast(:events AS jsonb), events)
                  WHERE id = :id AND status = 'running'
                 RETURNING id
                 """
             ),
-            {"id": run_id, "reason": reason, "post_count": post_count},
+            {
+                "id": run_id,
+                "reason": reason,
+                "post_count": post_count,
+                "events": json.dumps(events, default=str) if events is not None else None,
+            },
         )
     ).fetchone()
     return row is not None
@@ -632,6 +652,88 @@ async def list_for_plugin(
     ]
 
 
+async def events_of(
+    session: AsyncSession, *, workspace_id: str, plugin_id: str, run_id: str, viewer_id: str
+) -> dict[str, Any] | None:
+    """What one run streamed, for the admin drill-in — None when there is no such run.
+
+    Under the rule the run log keeps for a card (`list_for_plugin`): an admin sees what a
+    run did only where they can see the room. Elsewhere `hidden` is set and nothing else
+    is: the run is listed to them, so saying it exists tells them nothing new, but its
+    events are the room's own words. `keptUntil` is when the nightly sweep empties them.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT r.events, r.started_at,
+                       (c.kind = 'public' OR EXISTS (
+                          SELECT 1 FROM channel_members cm
+                           WHERE cm.channel_id = r.channel_id AND cm.user_id = :viewer
+                       )) AS visible
+                  FROM agent_runs r
+                  LEFT JOIN channels c ON c.id = r.channel_id
+                 WHERE r.id = :id AND r.plugin_id = :plugin_id AND r.workspace_id = :ws
+                """
+            ),
+            {"id": run_id, "plugin_id": plugin_id, "ws": workspace_id, "viewer": viewer_id},
+        )
+    ).fetchone()
+    if row is None:
+        return None
+    kept_until = require_iso(row.started_at + timedelta(days=run_trail.KEEP_DAYS))
+    if not row.visible:
+        return {"hidden": True, "total": 0, "events": [], "keptUntil": kept_until}
+    stored = row.events if isinstance(row.events, dict) else {}
+    kept = stored.get("kept")
+    total = stored.get("total")
+    return {
+        "hidden": False,
+        "total": total if isinstance(total, int) else 0,
+        "events": kept if isinstance(kept, list) else [],
+        "keptUntil": kept_until,
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class LiveCounts:
+    """Runs going right now, and runs waiting on a person, by agent slug."""
+
+    running: dict[str, int]
+    waiting: dict[str, int]
+
+
+async def live_counts(session: AsyncSession) -> LiveCounts:
+    """What a `/metrics` scrape reports as gauges, across the server.
+
+    Every agent is listed, at zero when it is idle, so a series that drops to nothing
+    reads as zero rather than as a gap. The two partial indexes (`agent_runs_running`,
+    `agent_runs_waiting`) are the whole read on the runs side.
+    """
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                SELECT p.slug,
+                       count(r.id) FILTER (WHERE r.status = 'running') AS running,
+                       count(r.id) FILTER (WHERE r.status = 'interrupted') AS waiting
+                  FROM plugins p
+                  LEFT JOIN agent_runs r
+                    ON r.plugin_id = p.id
+                   AND (r.status = 'running'
+                        OR (r.status = 'interrupted' AND r.answered_at IS NULL))
+                 WHERE {MENTIONABLE_AGENT}
+                 GROUP BY p.slug
+                """
+            )
+        )
+    ).fetchall()
+    return LiveCounts(
+        running={row.slug: int(row.running) for row in rows},
+        waiting={row.slug: int(row.waiting) for row in rows},
+    )
+
+
 async def sweep(session: AsyncSession, keep_days: int = 30) -> int:
     """Drop runs older than the window, and give up on ones that never finished.
 
@@ -649,6 +751,17 @@ async def sweep(session: AsyncSession, keep_days: int = 30) -> int:
              WHERE status = 'running' AND started_at < now() - interval '1 hour'
             """
         )
+    )
+    # What a run streamed is kept a week, not the month the run is: it is the bulk of the
+    # row, and the reason to read it is a run somebody is asking about now.
+    await session.execute(
+        text(
+            """
+            UPDATE agent_runs SET events = NULL
+             WHERE events IS NOT NULL AND started_at < now() - make_interval(days => :days)
+            """
+        ),
+        {"days": run_trail.KEEP_DAYS},
     )
     # RETURNING and count the rows: SQLAlchemy's async `Result` has no `rowcount`, which
     # is a trap this codebase has already hit once.

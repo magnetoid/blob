@@ -112,6 +112,15 @@ def _require(name: str) -> str:
     return value
 
 
+def _trace_of(frame: dict[str, Any]) -> dict[str, str]:
+    """The trace context a run frame carries when Blob traces: the W3C headers, as given."""
+    return {
+        key: value
+        for key in ("traceparent", "tracestate")
+        if isinstance(value := frame.get(key), str) and 0 < len(value) <= 512
+    }
+
+
 def _sign(secret: str, timestamp: int, body: bytes) -> str:
     """Blob's scheme, which is Slack's: `v0=hex(hmac_sha256("v0:{ts}:{body}"))`.
 
@@ -253,7 +262,7 @@ class Bridge:
             elif kind == "run":
                 run_id, run_input = frame.get("runId"), frame.get("input")
                 if isinstance(run_id, str) and isinstance(run_input, dict):
-                    self._start_run(socket, run_id, run_input)
+                    self._start_run(socket, run_id, run_input, _trace_of(frame))
             elif kind == "pong":
                 pass
             elif kind == "hello_ok":
@@ -285,15 +294,27 @@ class Bridge:
         if fields:
             await socket.send(json.dumps({"t": "hello", **fields}))
 
-    def _start_run(self, socket: Any, run_id: str, run_input: dict[str, Any]) -> None:
-        task = asyncio.create_task(self._run(socket, run_id, run_input))
+    def _start_run(
+        self,
+        socket: Any,
+        run_id: str,
+        run_input: dict[str, Any],
+        trace: dict[str, str] | None = None,
+    ) -> None:
+        task = asyncio.create_task(self._run(socket, run_id, run_input, trace))
         # Held in a set so a run is not garbage-collected mid-flight, and discarded on
         # completion. `_drain_runs` snapshots the set before cancelling — iterating a live
         # set whose members remove themselves from it silently skips half of them.
         self._runs.add(task)
         task.add_done_callback(self._runs.discard)
 
-    async def _run(self, socket: Any, run_id: str, run_input: dict[str, Any]) -> None:
+    async def _run(
+        self,
+        socket: Any,
+        run_id: str,
+        run_input: dict[str, Any],
+        trace: dict[str, str] | None = None,
+    ) -> None:
         """Forward one run to the local agent and relay what it says.
 
         `done` is sent in a `finally`, always. The server holds a run open until it is
@@ -303,7 +324,7 @@ class Bridge:
         posted = 0
         try:
             async with self._limit:
-                async for event in self._ask_agent(run_input):
+                async for event in self._ask_agent(run_input, trace or {}):
                     posted += 1
                     await socket.send(json.dumps({"t": "event", "runId": run_id, "event": event}))
         except Exception as error:
@@ -325,13 +346,17 @@ class Bridge:
             with contextlib.suppress(Exception):
                 await socket.send(json.dumps({"t": "done", "runId": run_id}))
 
-    async def _ask_agent(self, run_input: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
-        """POST the run to the local AG-UI server, signed the way Blob signs a delivery."""
+    async def _ask_agent(
+        self, run_input: dict[str, Any], trace: dict[str, str] | None = None
+    ) -> AsyncIterator[dict[str, Any]]:
+        """POST the run to the local AG-UI server, signed the way Blob signs a delivery —
+        and carrying the run's trace, as Blob's own POST would, when the frame had one."""
         body = json.dumps(run_input).encode()
         timestamp = int(time.time())
         headers = {
             "content-type": "application/json",
             "accept": "text/event-stream",
+            **(trace or {}),
         }
         if self.config.signing_secret:
             headers["x-blob-request-timestamp"] = str(timestamp)

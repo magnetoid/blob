@@ -39,6 +39,7 @@ const PLUGIN = {
   botUserId: 'u3',
   ownerUserId: null as string | null,
   lastError: null,
+  recentErrors: [],
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
   pendingDeliveries: 0,

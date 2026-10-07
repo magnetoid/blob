@@ -335,6 +335,11 @@ export interface AdminPlugin {
    */
   ownerUserId: string | null;
   lastError: string | null;
+  /**
+   * The newest ten errors, newest first. History: switching the app back on clears
+   * `lastError` and leaves these.
+   */
+  recentErrors: AppRecentError[];
   createdAt: string;
   updatedAt: string;
   pendingDeliveries: number;
@@ -528,6 +533,30 @@ export interface AdminAgentRun {
   card: AgentRunCard | null;
   /** What it was shown. Null for a run from before it was kept. */
   seen: AgentRunSeen | null;
+}
+
+export interface AppRecentError {
+  at: string;
+  error: string;
+}
+
+/** One AG-UI event a run streamed, as the run's log keeps it — cut down, never whole. */
+export interface AdminRunEvent {
+  /** Milliseconds from the start of the run. */
+  ms: number;
+  /** Which round of a run that used Blob's tools it arrived in, from 0. */
+  round: number;
+  event: { type?: string } & Record<string, unknown>;
+}
+
+export interface AdminRunEvents {
+  /** The run was in a room you cannot see, so what it streamed is kept from you. */
+  hidden: boolean;
+  /** How many events the run streamed; `events` is the newest 200 of them. */
+  total: number;
+  events: AdminRunEvent[];
+  /** When the nightly sweep empties them. The run itself is kept for thirty days. */
+  keptUntil: string;
 }
 
 export interface AdminPluginDelivery {
@@ -1352,6 +1381,11 @@ export const api = {
     pluginRuns: (pluginId: string, limit = 20) =>
       get<{ runs: AdminAgentRun[] }>(
         `/api/admin/plugins/${pluginId}/runs?limit=${limit}`,
+      ),
+    /** What the agent streamed in one run, where you can see the room it ran in. */
+    runEvents: (pluginId: string, runId: string) =>
+      get<AdminRunEvents>(
+        `/api/admin/plugins/${pluginId}/runs/${runId}/events`,
       ),
     /** Every assistant connected to this workspace as one of its people. */
     assistantTokens: () =>
