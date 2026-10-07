@@ -822,6 +822,17 @@
             ],
             "title": "Createdby"
           },
+          "dispatchMessageId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispatchmessageid"
+          },
           "dueAt": {
             "anyOf": [
               {

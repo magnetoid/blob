@@ -33,13 +33,24 @@ def _union_block(source: str, name: str) -> str:
 
     Scanned with brace depth rather than matched with a regex: the members are objects
     whose own fields end in semicolons, so the first `;` is nowhere near the end of the
-    declaration.
+    declaration. Comments are stepped over: a doc comment between two members is prose,
+    and a semicolon in it ended the block there, so every event declared below it read as
+    one the client ignores.
     """
     start = source.find(f"export type {name} =")
     assert start != -1, f"{name} is no longer declared in protocol.ts"
 
     depth = 0
-    for index in range(start, len(source)):
+    index = start
+    while index < len(source):
+        if source.startswith("/*", index):
+            end = source.find("*/", index + 2)
+            index = len(source) if end == -1 else end + 2
+            continue
+        if source.startswith("//", index):
+            end = source.find("\n", index)
+            index = len(source) if end == -1 else end + 1
+            continue
         char = source[index]
         if char == "{":
             depth += 1
@@ -47,6 +58,7 @@ def _union_block(source: str, name: str) -> str:
             depth -= 1
         elif char == ";" and depth == 0:
             return source[start:index]
+        index += 1
     raise AssertionError(f"{name} has no terminating semicolon")
 
 

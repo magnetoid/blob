@@ -80,6 +80,13 @@ interface State {
    * the work panel refetches when it moves, so the frame carries no artifact bodies.
    */
   workVersions: Record<string, number>;
+  /**
+   * Per thread (or channel, for a task with no thread), how many times its tasks changed
+   * since load. Bumped by `task.updated`; the thread panel refetches its tasks when it
+   * moves — which is how a task handed to an agent shows done the moment the agent
+   * answers, rather than on the next reload.
+   */
+  taskVersions: Record<string, number>;
   /** Message ids you have put aside. A Set: the message menu asks per row. */
   savedMessageIds: Set<string>;
   /** Every group here, by id — a message can name one you are not in. */
@@ -561,6 +568,7 @@ export const useStore = create<State>((set, get) => ({
   themes: [],
   customEmoji: [],
   workVersions: {},
+  taskVersions: {},
   savedMessageIds: new Set<string>(),
   groups: {},
   myGroupIds: new Set<string>(),
@@ -643,6 +651,7 @@ export const useStore = create<State>((set, get) => ({
       themes: [],
       customEmoji: [],
   workVersions: {},
+  taskVersions: {},
       savedMessageIds: new Set<string>(),
       groups: {},
       myGroupIds: new Set<string>(),
@@ -1806,6 +1815,17 @@ export const useStore = create<State>((set, get) => ({
         }));
         break;
 
+      case "task.updated": {
+        const key = event.threadRootId ?? event.channelId;
+        set((s) => ({
+          taskVersions: {
+            ...s.taskVersions,
+            [key]: (s.taskVersions[key] ?? 0) + 1,
+          },
+        }));
+        break;
+      }
+
       case "agent_run.updated":
         set((s) => {
           const run = s.agentRuns[event.runId];
@@ -2003,10 +2023,14 @@ export const useStore = create<State>((set, get) => ({
     // run that ended while the socket was down kept its spinner and its Stop button,
     // and the Stop answered 404.
     void get().reloadRuns();
-    // An artifact published in the gap: the work panel refetches on its version.
+    // An artifact published in the gap: the work panel refetches on its version. A task
+    // that changed in the gap — an agent finishing one, above all — the same way.
     set((s) => ({
       workVersions: Object.fromEntries(
         Object.entries(s.workVersions).map(([id, version]) => [id, version + 1]),
+      ),
+      taskVersions: Object.fromEntries(
+        Object.entries(s.taskVersions).map(([id, version]) => [id, version + 1]),
       ),
     }));
   },

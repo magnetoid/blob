@@ -2451,6 +2451,18 @@ dialog.lightbox-host::backdrop {
   line-height: 1.55;
 }
 
+/* What choosing an agent will do: post a hand-off and set it going (ADR 0023). Said in
+   the card's quieter voice, beside the picker that caused it. */
+.agentic-note {
+  margin-top: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+  line-height: 1.5;
+}
+.agentic-form .agentic-note {
+  margin-top: 0;
+}
+
 .agentic-form {
   display: flex;
   flex-direction: column;
@@ -6030,6 +6042,13 @@ select.chip {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A scheduled message that runs an agent: the one line saying this row is a run, in the
+   iris everything an agent touches already wears. */
+.scheduled-run {
+  color: var(--iris-strong);
+  font-weight: 600;
 }
 
 /* Small enough to sit inside a row without becoming its own control. */

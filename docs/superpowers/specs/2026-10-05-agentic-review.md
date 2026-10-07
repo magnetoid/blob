@@ -383,3 +383,45 @@ every agent would 422 the older ones. The 1.0 spec's own answer is that an agent
 its version in `RUN_STARTED.protocolVersion` and a client omits the field for a peer it
 knows predates it — so Phase 1 learns each agent's version from its runs and sends 1.0
 fields only to agents that have said they speak it.
+
+## Phase 1 — done (2026-10-07, branch `agentic-phase-1`)
+
+AG-UI 1.0 is spoken to an agent that says it speaks it, and to nobody else: an agent's
+`RUN_STARTED.protocolVersion` is remembered (migration 0046), and only then is it sent
+`protocolVersion` and the files in its conversation as content parts. A 400 or 422 to a
+1.0 run forgets the version again. Usage is kept on the run and shown, never capped, and
+reasoning is off the card unless an admin turns it on. As planned, with one addition: every
+message names its files in its text for every agent, since attachment-only messages had
+been dropped from the history altogether.
+
+## Phase 2 — done (2026-10-07, branch `agentic-phase-2`, ADR 0022)
+
+Agents may use Blob's MCP tools as AG-UI client-executed tools, per agent
+(`plugins.tool_access`, migration 0047): as the asker, inside the room, and every
+`post_message` stops for the asker's Approve. The decisions of §10 were taken as
+recommended: reasoning hidden by default, the room as the bound (0017's rule, returned),
+writes always ask, and a borrowed agent runs without its owner's memory until Phase 5.
+
+## Phase 3 — done (2026-10-07, branch `agentic-phase-3`, ADR 0023)
+
+- **Task dispatch, as planned.** Handing a task to an agent posts a hand-off from the
+  person who assigned it, in the task's thread, mentioning the agent alone; the run is an
+  ordinary mention on their authority and is told the task as a `context` item. How the
+  run ends moves the task, and only while it is still in progress with that agent
+  (`agent_tasks.dispatch_message_id`, migration 0048). A `task.updated` frame tells the
+  room, so an open thread shows the task done when the agent answers.
+- **"Only admins can assign work to an agent" is gone for agents.** It predated agents
+  having owners; the rule is now the mention's own (`MAY_COMMAND`), which also stops an
+  admin commanding somebody's own agent by assigning it work. An app's bot that is not an
+  agent keeps the admins-only rule and gets no run.
+- **Scheduled runs departed from the plan: no new row.** A scheduled message that
+  mentions an agent already roots a chain on its author's authority, and the scheduler
+  already repeats daily, on weekdays and weekly. The Scheduled list now marks such a
+  message as a run. A second scheduler would have been a second place for every rule to
+  be forgotten.
+- **Event triggers were not built**, as the plan said: gated on a request.
+- **Found on the way:** the person's task routes skipped the archived check (§3), and
+  `GET /api/agents` labelled an agent lent to you as yours. Both are fixed.
+- **"`task.updated` reaches socket agents and Janus":** it does through the run. An agent
+  is told of its task by being run on it, whatever its transport; a later edit to the
+  task does not re-run it.

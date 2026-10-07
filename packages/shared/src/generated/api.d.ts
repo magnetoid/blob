@@ -3828,6 +3828,8 @@ export interface components {
             createdAt: string;
             /** Createdby */
             createdBy?: string | null;
+            /** Dispatchmessageid */
+            dispatchMessageId?: string | null;
             /** Dueat */
             dueAt?: string | null;
             /** Externalref */

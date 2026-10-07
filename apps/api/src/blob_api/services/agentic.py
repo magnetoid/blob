@@ -751,6 +751,16 @@ async def update_task(
                          WHEN :assignee_user_id_set THEN cast(:assignee_user_id AS uuid)
                          ELSE assignee_user_id
                        END,
+                       -- A task that changes hands leaves its hand-off behind: a run still
+                       -- answering it is no longer this task's run, and must not settle it
+                       -- (ADR 0023). A new agent gets a hand-off of its own after this.
+                       -- The right-hand side reads the row as it was.
+                       dispatch_message_id = CASE
+                         WHEN :assignee_user_id_set
+                          AND assignee_user_id IS DISTINCT FROM cast(:assignee_user_id AS uuid)
+                         THEN NULL
+                         ELSE dispatch_message_id
+                       END,
                        status = COALESCE(:status, status),
                        priority = COALESCE(:priority, priority),
                        due_at = CASE

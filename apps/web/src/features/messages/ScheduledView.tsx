@@ -13,6 +13,7 @@ import { useStore } from '../../lib/store.ts';
 import { showError } from '../../lib/toasts.ts';
 import { ClockIcon } from '../../components/Icon.tsx';
 import { describeRepeat } from './schedulePresets.ts';
+import { agentsSetGoing } from './scheduledRuns.ts';
 import { EmptyState } from '../../components/EmptyState.tsx';
 
 function whenText(iso: string): string {
@@ -29,7 +30,12 @@ function whenText(iso: string): string {
 export function ScheduledView() {
   const channels = useStore((s) => s.channels);
   const channelTitle = useStore((s) => s.channelTitle);
+  const users = useStore((s) => s.users);
+  const me = useStore((s) => s.currentUser?.id ?? null);
   const { data, error, reload } = useFetch(async () => (await api.scheduled.list()).scheduled, []);
+  // The agents you may set going, which decides which of these are runs. A list that
+  // cannot load them still lists every message; it only cannot say which are runs.
+  const { data: agents } = useFetch(async () => (await api.agents.list()).agents, []);
 
   async function cancel(item: ScheduledMessage) {
     try {
@@ -75,6 +81,7 @@ export function ScheduledView() {
           {items.map((item) => {
             const channel = channels[item.channelId];
             const repeats = describeRepeat(item.repeat);
+            const runs = agentsSetGoing(item.body, channel, users, agents ?? [], me);
             return (
               <li key={item.id} className="browse-row">
                 <div className="browse-row-main">
@@ -91,6 +98,11 @@ export function ScheduledView() {
                           that has already gone out four times. */}
                       {repeats}
                       {item.lastSentAt ? ` · last sent ${whenText(item.lastSentAt)}` : ''}
+                    </div>
+                  )}
+                  {runs.length > 0 && (
+                    <div className="browse-row-meta scheduled-run">
+                      Runs {runs.map((agent) => agent.displayName).join(', ')}
                     </div>
                   )}
                   <div className="browse-row-meta">{item.body}</div>

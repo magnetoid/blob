@@ -34,7 +34,7 @@ from ..plugins import agui, decisions, run_card
 from ..plugins import events as plugin_events
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub
-from ..services import agent_chains, agent_files
+from ..services import agent_chains, agent_files, task_dispatch
 from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
@@ -126,8 +126,10 @@ async def refuse(
     trigger_id: str,
     trigger_user_id: str | None,
     reason: str,
+    chain_id: str | None = None,
 ) -> None:
-    """Record that this agent was not run, and show the card that says so."""
+    """Record that this agent was not run, and show the card that says so — and, when the
+    run was a task's (ADR 0023), block the task with the reason."""
     refused_id = await agent_run_service.record_refusal(
         session,
         workspace_id=workspace_id,
@@ -149,6 +151,15 @@ async def refuse(
         reason=reason,
     )
     after.add(lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": view}))
+    if chain_id is not None:
+        await task_dispatch.settle(
+            session,
+            after,
+            chain_id=chain_id,
+            plugin_id=listener.plugin_id,
+            status="refused",
+            reason=reason,
+        )
 
 
 @dataclass(slots=True)
@@ -169,6 +180,9 @@ class Gathered:
     #: Whether this run reads and writes what the agent remembers here; see
     #: `Listener.remembers_for`.
     remembers: bool = True
+    #: The task this run was handed, as the run input's `task` context item says it — or
+    #: None, which is nearly every run (ADR 0023).
+    task: dict[str, Any] | None = None
 
 
 @dataclass(slots=True)
@@ -333,8 +347,24 @@ async def _gather(
             state = await agent_state_service.load(
                 session, plugin_id=listener.plugin_id, thread_key=thread_key
             )
+        task = (
+            await task_dispatch.for_run(
+                session, chain_id=chain.chain_id, bot_user_id=listener.bot_user_id
+            )
+            if refusal is None
+            else None
+        )
 
-    return Gathered(history, names, participants, state, thread_key, refusal, remembers=remembers)
+    return Gathered(
+        history,
+        names,
+        participants,
+        state,
+        thread_key,
+        refusal,
+        remembers=remembers,
+        task=task,
+    )
 
 
 async def _start(
@@ -501,6 +531,8 @@ async def _finish(
     usage: list[dict[str, Any]] | None = None,
     state_touched: bool | None = None,
     exchange: list[dict[str, Any]] | None = None,
+    chain_id: str | None = None,
+    answer: str | None = None,
 ) -> tuple[agent_run_service.RunStatus, str | None, agui.Decision | None]:
     """How the run ended, on the row and on the channel.
 
@@ -513,6 +545,9 @@ async def _finish(
     write it asked Blob to make, waiting for the person (ADR 0022) — it stops the run the
     way the agent's own question does, with the question minted by Blob. `bound_error` is
     a limit of the tool loop that ended it.
+
+    A run handed a task (ADR 0023) moves that task in the same transaction, by `answer` —
+    everything it said, across every round.
     """
     fold, cancelled = streamed.fold, streamed.cancelled
     reason = streamed.transport_error or fold.error or bound_error
@@ -569,6 +604,16 @@ async def _finish(
             expires_at=expires_at,
             usage=fold.usage if usage is None else (usage or None),
         )
+        if chain_id is not None:
+            await task_dispatch.settle(
+                session,
+                after,
+                chain_id=chain_id,
+                plugin_id=listener.plugin_id,
+                status=status,
+                reason=reason,
+                answer=answer,
+            )
         if fold.protocol_version is not None and fold.protocol_version != listener.agui_version:
             # What the agent says it speaks, kept for its next run (migration 0046).
             await agent_run_service.learn_version(
@@ -676,6 +721,19 @@ async def run_one(
         listener, channel_id=channel_id, thread_root_id=thread_root_id, chain=chain
     )
     if gathered.silent:
+        # Nothing said in the room, for the reason `Gathered.silent` gives. A task handed
+        # to this agent is still told, though: it was checked into this channel when it
+        # was handed over, so the room it sits in already knows the agent was here, and
+        # a task left "in progress" for an agent that can never answer helps nobody.
+        async with transaction() as (session, after):
+            await task_dispatch.settle(
+                session,
+                after,
+                chain_id=chain.chain_id,
+                plugin_id=listener.plugin_id,
+                status="refused",
+                reason="it can no longer post in this channel.",
+            )
         return
     if gathered.refusal is not None:
         async with transaction() as (session, after):
@@ -689,6 +747,7 @@ async def run_one(
                 trigger_id=trigger_id,
                 trigger_user_id=trigger_user_id,
                 reason=gathered.refusal,
+                chain_id=chain.chain_id,
             )
         return
 
@@ -746,6 +805,8 @@ async def run_one(
                         channel_id=channel_id,
                         reason=STOPPED_MID_RUN,
                         post_count=progress.posted,
+                        chain_id=chain.chain_id,
+                        plugin_id=listener.plugin_id,
                     )
                 )
         raise
@@ -758,6 +819,8 @@ async def run_one(
                     channel_id=channel_id,
                     reason=FAILED_INSIDE_BLOB,
                     post_count=progress.posted,
+                    chain_id=chain.chain_id,
+                    plugin_id=listener.plugin_id,
                 )
 
 
@@ -771,12 +834,30 @@ class _Progress:
     finished: bool = False
 
 
-async def _abandon(run_id: str, *, channel_id: str, reason: str, post_count: int) -> None:
-    """Close a run that will not reach `_finish`, and tell the channel it ended."""
+async def _abandon(
+    run_id: str,
+    *,
+    channel_id: str,
+    reason: str,
+    post_count: int,
+    chain_id: str | None = None,
+    plugin_id: str | None = None,
+) -> None:
+    """Close a run that will not reach `_finish`, and tell the channel it ended — and the
+    task it was handed, if it was handed one."""
     async with transaction() as (session, after):
         closed = await agent_run_service.abandon(
             session, run_id, reason=reason, post_count=post_count
         )
+        if closed and chain_id is not None and plugin_id is not None:
+            await task_dispatch.settle(
+                session,
+                after,
+                chain_id=chain_id,
+                plugin_id=plugin_id,
+                status="failed",
+                reason=reason,
+            )
         if closed:
             finished_event = {
                 "t": "agent_run.finished",
@@ -867,6 +948,7 @@ def _run_body(
         instructions=listener.instructions,
         protocol_version=agui.PROTOCOL_VERSION if speaks_1_0 else None,
         tools=tools,
+        task=gathered.task,
     )
 
 
@@ -966,6 +1048,8 @@ async def _drive(
     usage: list[dict[str, Any]] = []
     approval: dict[str, Any] | None = None
     bound_error: str | None = None
+    # Everything the agent said, every round: a task's outcome is its whole answer.
+    said_in_all: list[str] = []
     while True:
         run_input = _run_body(
             listener,
@@ -1007,6 +1091,7 @@ async def _drive(
             thread_root_id=thread_root_id,
             spawn=spawn,
         )
+        said_in_all.extend(post.body for post in streamed.posts if post.body)
         fold = streamed.fold
         usage.extend(fold.usage or [])
         touched = touched or fold.state_touched
@@ -1067,6 +1152,8 @@ async def _drive(
         usage=usage,
         state_touched=touched,
         exchange=[*carried, *exchange],
+        chain_id=chain.chain_id,
+        answer="\n\n".join(said_in_all) or None,
     )
     progress.finished = True
     if streamed.cancelled:

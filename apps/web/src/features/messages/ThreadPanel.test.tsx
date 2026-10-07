@@ -15,6 +15,7 @@ import { FALLBACK_MS } from '../../lib/usePresence.ts';
 
 const getThreadSummary = vi.fn();
 const listThreadTasks = vi.fn();
+const listAgents = vi.fn();
 const threadFollowing = vi.fn();
 const followThread = vi.fn();
 const markThreadRead = vi.fn();
@@ -26,6 +27,7 @@ vi.mock('../../lib/api.ts', async (importOriginal) => {
     api: {
       ...actual.api,
       agentic: { ...actual.api.agentic, getThreadSummary, listThreadTasks },
+      agents: { ...actual.api.agents, list: listAgents },
       messages: { ...actual.api.messages, threadFollowing, followThread, markThreadRead },
     },
   };
@@ -128,7 +130,33 @@ function seed() {
     commands: [],
     drafts: {},
     customEmoji: [],
+    channelMembers: {},
+    taskVersions: {},
   } as never);
+}
+
+function task(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 't1',
+    channelId: 'c1',
+    threadRootId: 'm1',
+    createdBy: 'u2',
+    assigneeUserId: null,
+    assigneeKind: null,
+    summaryId: null,
+    title: 'Draft the notes',
+    instructions: '',
+    status: 'todo',
+    priority: 'medium',
+    dueAt: null,
+    completedAt: null,
+    outcome: null,
+    externalRef: {},
+    dispatchMessageId: null,
+    createdAt: '2026-10-07T10:00:00.000Z',
+    updatedAt: '2026-10-07T10:00:00.000Z',
+    ...overrides,
+  };
 }
 
 // happy-dom does no layout, and the list inside the panel is virtualized: without a
@@ -155,6 +183,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.setItem('blob.threadTools', 'open');
   listThreadTasks.mockResolvedValue({ tasks: [] });
+  listAgents.mockResolvedValue({ agents: [] });
   threadFollowing.mockResolvedValue({ following: false });
   followThread.mockResolvedValue({ ok: true });
   markThreadRead.mockResolvedValue({ ok: true });
@@ -247,6 +276,139 @@ describe('the summary card', () => {
     expect(card?.getAttribute('data-written-by')).toBeNull();
     expect(screen.getByText('Summary')).toBeTruthy();
     expect(screen.getByText(/Keyword scan/)).toBeTruthy();
+  });
+});
+
+describe('the tasks card', () => {
+  /** Helper may be handed work and is here; Scout is here but somebody else's; Faraway
+   *  may be handed work but is not in this channel. */
+  function seedAgents() {
+    useStore.setState((s) => ({
+      users: {
+        ...s.users,
+        b1: { id: 'b1', kind: 'bot', displayName: 'Helper', deactivated: false },
+        b2: { id: 'b2', kind: 'bot', displayName: 'Scout', deactivated: false },
+        b3: { id: 'b3', kind: 'bot', displayName: 'Faraway', deactivated: false },
+      } as never,
+      channelMembers: { c1: { version: 1, userIds: ['u1', 'u2', 'b1', 'b2'] } },
+    }));
+    listAgents.mockResolvedValue({
+      agents: [
+        { id: 'p1', name: 'Helper', botUserId: 'b1', mine: false, online: null },
+        { id: 'p3', name: 'Faraway', botUserId: 'b3', mine: false, online: null },
+      ],
+    });
+  }
+
+  it('offers people, and the agents you may hand work to that are in this room', async () => {
+    getThreadSummary.mockResolvedValue({ summary: null });
+    seedAgents();
+    await renderPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: /New task/ }));
+    await screen.findByRole('option', { name: 'Helper (Agent)' });
+    const picker = screen.getByLabelText('Assign to') as HTMLSelectElement;
+    expect(Array.from(picker.options).map((option) => option.textContent)).toEqual([
+      'Unassigned',
+      'Ana',
+      'Bo',
+      'Helper (Agent)',
+    ]);
+  });
+
+  it('says what choosing an agent will do before the task is created', async () => {
+    getThreadSummary.mockResolvedValue({ summary: null });
+    seedAgents();
+    await renderPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: /New task/ }));
+    await screen.findByRole('option', { name: 'Helper (Agent)' });
+    expect(screen.queryByText(/gets a hand-off in this thread/)).toBeNull();
+    fireEvent.change(screen.getByLabelText('Assign to'), { target: { value: 'b1' } });
+    expect(screen.getByText(/Helper gets a hand-off in this thread from you/)).toBeTruthy();
+  });
+
+  it('fetches its tasks again when one changes elsewhere, as when an agent finishes it', async () => {
+    getThreadSummary.mockResolvedValue({ summary: null });
+    seedAgents();
+    // The first read is the task in progress; every read after it, the task done. A
+    // default rather than a second one-off, so a run that never refetches leaves nothing
+    // queued for the next test.
+    listThreadTasks
+      .mockResolvedValue({
+        tasks: [
+          task({
+            status: 'done',
+            assigneeUserId: 'b1',
+            assigneeKind: 'bot',
+            outcome: 'Notes are in the thread.',
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        tasks: [task({ status: 'in_progress', assigneeUserId: 'b1', assigneeKind: 'bot' })],
+      });
+    await renderPanel();
+    await screen.findByText('in progress');
+
+    act(() => {
+      useStore.getState().applyEvent({
+        t: 'task.updated',
+        taskId: 't1',
+        channelId: 'c1',
+        threadRootId: 'm1',
+        status: 'done',
+      });
+    });
+
+    await screen.findByText('done');
+    expect(screen.queryByText('in progress')).toBeNull();
+    expect(screen.getByDisplayValue('Notes are in the thread.')).toBeTruthy();
+    expect(listThreadTasks).toHaveBeenCalledTimes(2);
+  });
+
+  it('says a blocked agent task moved back to in progress goes to the agent again', async () => {
+    getThreadSummary.mockResolvedValue({ summary: null });
+    seedAgents();
+    listThreadTasks.mockResolvedValue({
+      tasks: [task({ status: 'blocked', assigneeUserId: 'b1', assigneeKind: 'bot' })],
+    });
+    await renderPanel();
+
+    const status = (await screen.findByLabelText('Status')) as HTMLSelectElement;
+    expect(screen.queryByText(/gets a hand-off in this thread/)).toBeNull();
+    fireEvent.change(status, { target: { value: 'in_progress' } });
+    expect(screen.getByText(/Helper gets a hand-off in this thread from you/)).toBeTruthy();
+  });
+
+  it('keeps whoever has a task in its picker, even an agent you could not pick', async () => {
+    getThreadSummary.mockResolvedValue({ summary: null });
+    seedAgents();
+    listThreadTasks.mockResolvedValue({
+      tasks: [task({ assigneeUserId: 'b2', assigneeKind: 'bot' })],
+    });
+    await renderPanel();
+
+    const holder = (await screen.findByLabelText('Assigned to')) as HTMLSelectElement;
+    expect(holder.value).toBe('b2');
+    expect(holder.selectedOptions[0]?.textContent).toBe('Scout (Agent)');
+  });
+
+  it('lets a member change who has a task only when the task is theirs', async () => {
+    getThreadSummary.mockResolvedValue({ summary: null });
+    useStore.setState((s) => ({
+      currentUser: { ...s.currentUser, role: 'member' } as never,
+    }));
+    listThreadTasks.mockResolvedValue({
+      tasks: [
+        task({ id: 't1', title: 'Theirs', createdBy: 'u2', assigneeUserId: 'u2' }),
+        task({ id: 't2', title: 'Mine', createdBy: 'u1', assigneeUserId: 'u2' }),
+      ],
+    });
+    await renderPanel();
+
+    const pickers = (await screen.findAllByLabelText('Assigned to')) as HTMLSelectElement[];
+    expect(pickers.map((picker) => picker.disabled)).toEqual([true, false]);
   });
 });
 

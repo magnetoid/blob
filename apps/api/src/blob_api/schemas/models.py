@@ -343,6 +343,9 @@ class AgentTask(CamelModel):
     completed_at: str | None = None
     outcome: str | None = None
     external_ref: dict[str, str] = Field(default_factory=dict)
+    #: The message that handed this task to its agent, which is also the chain its run
+    #: is on (ADR 0023). None for a person's task, and once it has changed hands since.
+    dispatch_message_id: str | None = None
     created_at: str
     updated_at: str
 

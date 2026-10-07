@@ -1147,6 +1147,11 @@ class AgentTask(Base):
         ),
         Index("agent_tasks_workspace_recent", "workspace_id", text("updated_at DESC")),
         Index(
+            "agent_tasks_dispatch",
+            "dispatch_message_id",
+            postgresql_where=text("dispatch_message_id IS NOT NULL"),
+        ),
+        Index(
             "agent_tasks_thread_recent",
             "thread_root_id",
             text("updated_at DESC"),
@@ -1180,6 +1185,12 @@ class AgentTask(Base):
     due_at: Mapped[Any | None] = mapped_column(Timestamp)
     completed_at: Mapped[Any | None] = mapped_column(Timestamp)
     outcome: Mapped[str | None] = mapped_column(Text)
+    #: The hand-off that gave this task to an agent: a message from the person who
+    #: assigned it, mentioning the agent, which roots the chain the agent works it in.
+    #: How a finished run finds its task (migration 0048).
+    dispatch_message_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="SET NULL")
+    )
     external_ref: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )

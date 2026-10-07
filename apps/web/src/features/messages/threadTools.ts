@@ -1,13 +1,16 @@
 /** What the thread panel knows beyond the messages: the summary and the tasks.
  *
  * One request pair per thread, through `useFetch`, and one reducer for everything
- * that changes it afterwards — a refreshed summary, a task created or saved. The
- * cards that render these are presentational; this is the state.
+ * that changes it afterwards — a refreshed summary, a task created or saved here, or a
+ * task changed anywhere else: a `task.updated` frame moves the thread's version in the
+ * store, and the tasks alone are fetched again. The cards that render these are
+ * presentational; this is the state.
  */
 
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import type { AgentTask, ThreadSummary } from "@blob/shared";
 import { ApiError, api } from "../../lib/api.ts";
+import { useStore } from "../../lib/store.ts";
 import { useFetch } from "../../lib/useFetch.ts";
 
 interface Tools {
@@ -18,6 +21,7 @@ interface Tools {
 type Change =
   | { type: "loaded"; summary: ThreadSummary | null; tasks: AgentTask[] }
   | { type: "summary"; summary: ThreadSummary | null }
+  | { type: "tasks"; tasks: AgentTask[] }
   | { type: "task.created"; task: AgentTask }
   | { type: "task.updated"; task: AgentTask };
 
@@ -27,6 +31,8 @@ function change(state: Tools, action: Change): Tools {
       return { summary: action.summary, tasks: action.tasks };
     case "summary":
       return { ...state, summary: action.summary };
+    case "tasks":
+      return { ...state, tasks: action.tasks };
     case "task.created":
       return { ...state, tasks: [action.task, ...state.tasks] };
     case "task.updated":
@@ -66,6 +72,31 @@ export function useThreadTools(rootId: string): {
   useEffect(() => {
     if (data) apply({ type: "loaded", ...data });
   }, [data]);
+
+  // A task here changed somewhere else — another person, an app, or the agent it was
+  // handed to finishing it. Only the tasks are fetched again, and quietly: the card is
+  // already showing them, so "Loading tasks…" in their place would be a flash, not news.
+  const version = useStore((s) => s.taskVersions[rootId] ?? 0);
+  const last = useRef({ rootId, version });
+  useEffect(() => {
+    const previous = last.current;
+    last.current = { rootId, version };
+    // Another thread is `useFetch`'s to load, and a version this thread already had when
+    // it opened is old news; only a move while it is open is a change to fetch.
+    if (previous.rootId !== rootId || previous.version === version) return;
+    let current = true;
+    api.agentic
+      .listThreadTasks(rootId)
+      .then((result) => {
+        if (current) apply({ type: "tasks", tasks: result.tasks });
+      })
+      .catch(() => {
+        // The next frame, or reopening the thread, tries again; the card keeps what it had.
+      });
+    return () => {
+      current = false;
+    };
+  }, [rootId, version]);
   return {
     summary: state.summary,
     tasks: state.tasks,

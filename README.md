@@ -266,6 +266,11 @@ document a key nobody bound or a command your server does not answer.
   both the `initialize` handshake of `2025-06-18`/`2025-11-25` and the per-request metadata
   of `2026-07-28`. ADR 0016.
 - **Tasks** — shared human/agent work items, extracted from a thread or created directly.
+  Hand one to an agent and it is a hand-off in the thread, from you, that the agent
+  answers without anybody mentioning it; its answer closes the task, and a failure or a
+  refusal blocks it with the reason. A scheduled message that mentions an agent is a
+  scheduled run — every weekday at nine, if you like — and the Scheduled list marks it
+  as one. ADR 0023.
 - **Thread summaries** — decisions, open questions and action items pulled out of a long
   thread, each pointing at the message it came from. With `LLM_PROVIDER` set a model
   writes it and the panel says so; without one it is a keyword scan, labelled as such,

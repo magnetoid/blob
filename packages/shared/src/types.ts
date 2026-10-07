@@ -347,6 +347,9 @@ export interface AgentTask {
   completedAt: string | null;
   outcome: string | null;
   externalRef: Record<string, string>;
+  /** The message that handed this task to its agent — a hand-off from the person who
+   * assigned it, which the agent's run answers under. Null for a person's task. */
+  dispatchMessageId: string | null;
   createdAt: string;
   updatedAt: string;
 }

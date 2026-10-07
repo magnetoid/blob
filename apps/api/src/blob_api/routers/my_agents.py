@@ -135,7 +135,9 @@ async def list_available(user: SessionUser = Depends(current_user)) -> Workspace
                 id=str(row.id),
                 name=row.name,
                 bot_user_id=str(row.bot_user_id),
-                mine=row.owner_user_id is not None,
+                # Yours: owned by the person asking. An agent somebody lent them is in the
+                # list too, and is not theirs — the picker labels this one "yours".
+                mine=row.owner_user_id is not None and str(row.owner_user_id) == user.id,
                 online=await gateway.is_online(str(row.id)) if row.runtime == "socket" else None,
             )
         )

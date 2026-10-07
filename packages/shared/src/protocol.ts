@@ -10,6 +10,7 @@ import type {
   AgentRunCard,
   AgentRunStatus,
   AgentRunView,
+  AgentTaskStatus,
   Call,
   CallSettings,
   Channel,
@@ -84,6 +85,16 @@ export type ServerEvent =
       channelId: string;
       status: 'open' | 'done';
       artifactCount: number;
+    }
+  /** A task here was created or changed — by a person, an app, or the agent run it was
+   * handed to. The thread panel refetches its tasks, so the frame carries only what
+   * decides whether to. */
+  | {
+      t: 'task.updated';
+      taskId: string;
+      channelId: string;
+      threadRootId: string | null;
+      status: AgentTaskStatus;
     }
   | { t: 'agent_run.started'; run: AgentRunView }
   /** Throttled snapshots of the live card — whole each time, so a reconnect needs no replay. */

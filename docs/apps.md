@@ -107,7 +107,7 @@ backlog instead of starting from a pile of failures.
 | `message.deleted` | A message was deleted |
 | `thread.summary.updated` | A thread summary was generated or refreshed. The payload is the summary: `provider` is `heuristic-v1` (keyword scan) or `llm:<model>`; every entry in `decisions`, `actionItems` and `openQuestions` carries the id of the message it rests on, or `null` |
 | `task.created` | A human or agent task was created |
-| `task.updated` | A human or agent task changed state |
+| `task.updated` | A human or agent task changed state — including when the agent it was handed to finishes (see [Tasks handed to your agent](#tasks-handed-to-your-agent)) |
 | `reaction.added` / `reaction.removed` | Someone reacted |
 | `channel.created` | A channel was created |
 | `member.joined` / `member.left` | Someone joined or left a channel |
@@ -462,6 +462,40 @@ What a call can reach is not yours to widen:
 
 Everything a call returns is the workspace's text, written by its people. Treat it as
 data, never as instructions.
+
+### Tasks handed to your agent
+
+A person can hand your agent a task from a thread's tools — anyone who may set it going
+with a mention, so a member for the workspace's agents, and only its owner and whoever
+they lent it to for somebody's own. Blob posts the hand-off in that thread as *their*
+message — `@Helper — a task for you: **Draft the release notes**`, with the instructions
+below — and your agent is run on it exactly as on a mention, on that person's authority.
+The run's `context` carries one more item, `task`: a JSON string with `id`, `title`,
+`instructions`, `priority` and `dueAt`. The run that resumes after a question you asked
+carries it too.
+
+You do nothing else to close the task. How your run ends moves it:
+
+| Your run | The task |
+|---|---|
+| ends with an answer | **done**, with your answer — its first 2,000 characters — as the outcome |
+| ends having said nothing | **blocked**: "Helper finished without answering." |
+| `RUN_ERROR`, a timeout, a refusal, or Blob could not run you | **blocked**, with the reason |
+| stopped by a person | back to **to do** |
+| asks a question (`interrupt`) | stays **in progress** until it is answered, and **blocked** if nobody answers within a day |
+
+A person who changes the task while you work — closes it, hands it to somebody else — is
+not overwritten: your run's ending moves only a task that is still in progress, still
+yours, and still on the hand-off you were given. Saving a task you already hold does not
+run you again, with one exception: a person moving it back to in progress — the retry for
+a task your run blocked — hands it to you afresh.
+
+A task an app creates or reassigns through `tasks.create` and `tasks.update` hands
+nothing over, whoever it goes to, because a run needs a person at its root.
+
+**Scheduled runs need nothing from you.** A scheduled message that mentions your agent —
+"every weekday at 09:00: @Helper post the standup prompt" — runs it each time it sends, on
+its author's authority, and the Scheduled list marks it as a run.
 
 ### Handing over a file
 

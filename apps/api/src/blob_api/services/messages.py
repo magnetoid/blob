@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import bad_request, forbidden, message_gone, thread_gone
 from ..lib.ids import new_id
-from ..lib.mentions import MentionTarget, mention_lookup_phrases, parse_mentions
+from ..lib.mentions import MentionResult, MentionTarget, mention_lookup_phrases, parse_mentions
 from ..schemas.models import Message
 from . import channels as channel_service
 from .serialize import MESSAGE_SELECT, to_message
@@ -112,10 +112,20 @@ async def send(
     #: Structured content beside the text. `body` stays the fallback and the only thing
     #: the search index reads, so a client that ignores blocks still shows something.
     blocks: list[dict[str, Any]] | None = None,
+    #: Whom a message Blob composes on someone's behalf mentions — exactly these, with the
+    #: body not parsed for more. A task handed to an agent (`services/task_dispatch.py`)
+    #: is addressed to that agent: a name in the task's own text must not notify anyone
+    #: or set a second agent going, and the agent must be reached whatever its name
+    #: looks like, which a parse of `@Name` cannot promise.
+    mention_user_ids: Sequence[str] | None = None,
 ) -> SendResult:
     message_id = new_id()
     attachment_ids = attachment_ids or []
-    mentions = parse_mentions(body, await mention_targets(session, workspace_id, body))
+    mentions = (
+        MentionResult(user_ids=list(dict.fromkeys(mention_user_ids)))
+        if mention_user_ids is not None
+        else parse_mentions(body, await mention_targets(session, workspace_id, body))
+    )
 
     if thread_root_id:
         await _assert_thread_root(session, thread_root_id, channel_id)

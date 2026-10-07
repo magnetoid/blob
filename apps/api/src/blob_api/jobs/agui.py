@@ -35,7 +35,7 @@ from ..lib.redis import redis
 from ..plugins import agui, decisions
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub
-from ..services import agent_access, agent_chains
+from ..services import agent_access, agent_chains, task_dispatch
 from ..services import agent_runs as agent_run_service
 from ..services import messages as message_service
 from ..services import policies as policy_service
@@ -73,11 +73,19 @@ async def handle_agui_run(message_id: str, parent_run_id: str | None = None) -> 
 
 
 async def expire_agent_decisions() -> int:
-    """Decisions nobody made in time: mark the runs, take the buttons off their cards."""
+    """Decisions nobody made in time: mark the runs, take the buttons off their cards, and
+    block the task a run was handed, if it was handed one (ADR 0023)."""
     async with transaction() as (session, after):
         expired = await agent_run_service.expire_waiting(session)
         for row in expired:
             channel_id = row["channel_id"]
+            await task_dispatch.settle(
+                session,
+                after,
+                chain_id=row["chain_id"],
+                plugin_id=row["plugin_id"],
+                status="expired",
+            )
             if row["decision_message_id"]:
                 stored = row["interrupt"] if isinstance(row["interrupt"], dict) else {}
                 decision = agui.decision_of(stored.get("items"))
@@ -272,6 +280,7 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
                     trigger_id=trigger.id,
                     trigger_user_id=trigger.author_id,
                     reason="Agents are turned off for this server.",
+                    chain_id=chain.chain_id,
                 )
         return
 

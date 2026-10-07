@@ -21,11 +21,12 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-twenty-two ADRs; the principles below are their summary, not a substitute. 0013–0020 and
-0022 are the agentic surface — chains, work channels, summaries and nudges, the MCP
-caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
-over a file (0020), and that an agent may use Blob's tools (0022, which brings back
-0017's room bound) — and are the ones this digest compresses hardest, so read them before
+twenty-three ADRs; the principles below are their summary, not a substitute. 0013–0020,
+0022 and 0023 are the agentic surface — chains, work channels, summaries and nudges, the
+MCP caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent
+hands over a file (0020), that an agent may use Blob's tools (0022, which brings back
+0017's room bound), and that a task handed to an agent is a message from the person who
+handed it (0023) — and are the ones this digest compresses hardest, so read them before
 changing that code. The shortest way in: an agent in a workspace is either the
 workspace's (`plugins.owner_user_id` NULL — an admin installed it for everyone, like the
 `magnetoid/janus` agent, the one Blob seeds) or one person's (set — theirs, listed only
@@ -199,7 +200,7 @@ process holding the socket is not the process running the job — mentions are t
 sockets are an API process's — so every run crosses through Redis, which is why the holder
 claims a run id with `SET NX` and why `stream_events` subscribes before it publishes.
 
-**What sits on top of the plugin layer.** `plugins/` is the transport; these six are the
+**What sits on top of the plugin layer.** `plugins/` is the transport; these eight are the
 product built on it. Each of the first three departs from a rule an earlier ADR set, so
 the ADR is the place to look before changing them.
 
@@ -243,6 +244,19 @@ the ADR is the place to look before changing them.
   keyword scan that runs when no model is configured, `llm:<model>` otherwise. Both
   production instances run with no model, so every path has to be honest in that state.
   Nudges go to the asker alone — see the privacy principle below.
+* **Blob's tools, for an agent** (`jobs/agui_tools.py`, ADR 0022). An admin may offer an
+  agent the MCP catalogue as AG-UI client-executed tools. Blob runs every call as the
+  person the chain is on, inside the room it was asked in — a private channel outside it
+  is "no such channel" — and every `post_message` stops the run for that person's
+  Approve. The run job loops (stream, run the calls, continue) under one wall clock and
+  eight rounds.
+* **Tasks handed to an agent** (`services/task_dispatch.py`, ADR 0023). Assigning a task
+  to an agent posts a hand-off from the assigner in the task's thread, mentioning the
+  agent alone (`messages.send(mention_user_ids=)`), so its run is an ordinary mention on
+  that person's authority. The run's ending settles the task by `dispatch_message_id`,
+  which is the run's chain id, and only while the task is still in progress with that
+  agent. A scheduled run is a scheduled message that mentions an agent — no row of its
+  own.
 * **Files from agents, and the file panel** (`services/agent_files.py`,
   `features/messages/FilePreviewPanel.tsx`, ADR 0020). An agent hands over a file inside
   the run it is answering — `CUSTOM` events `blob.file.start`/`chunk`/`end`, base64

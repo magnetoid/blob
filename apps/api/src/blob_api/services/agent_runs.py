@@ -537,7 +537,7 @@ async def expire_waiting(session: AsyncSession) -> list[dict[str, Any]]:
                    SET status = 'expired', finished_at = COALESCE(finished_at, now())
                  WHERE status = 'interrupted' AND answered_at IS NULL
                    AND expires_at IS NOT NULL AND expires_at < now()
-                RETURNING id, channel_id, decision_message_id, interrupt
+                RETURNING id, channel_id, decision_message_id, interrupt, chain_id, plugin_id
                 """
             )
         )
@@ -546,6 +546,8 @@ async def expire_waiting(session: AsyncSession) -> list[dict[str, Any]]:
         {
             "id": str(row.id),
             "channel_id": str(row.channel_id),
+            "chain_id": str(row.chain_id),
+            "plugin_id": str(row.plugin_id),
             "decision_message_id": (
                 str(row.decision_message_id) if row.decision_message_id else None
             ),

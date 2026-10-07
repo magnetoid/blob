@@ -161,3 +161,16 @@ describe('reminders', () => {
     expect(useToasts.getState().toasts.map((t) => t.text)).toContain('Reminder: circle back');
   });
 });
+
+describe('task frames', () => {
+  it('move the version of the thread a task is in, or of its channel when it has none', () => {
+    // The thread panel refetches its tasks when this moves — how a task handed to an
+    // agent shows done the moment the agent answers.
+    useStore.setState({ taskVersions: {} });
+    const { applyEvent } = useStore.getState();
+    applyEvent({ t: 'task.updated', taskId: 't1', channelId: 'c1', threadRootId: 'm1', status: 'in_progress' });
+    applyEvent({ t: 'task.updated', taskId: 't1', channelId: 'c1', threadRootId: 'm1', status: 'done' });
+    applyEvent({ t: 'task.updated', taskId: 't2', channelId: 'c1', threadRootId: null, status: 'todo' });
+    expect(useStore.getState().taskVersions).toEqual({ m1: 2, c1: 1 });
+  });
+});

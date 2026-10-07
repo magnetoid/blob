@@ -59,6 +59,17 @@ const EMPTY_TASK: NewTask = {
   priority: "medium",
 };
 
+/** Said under a picker the moment an agent is chosen: handing it a task is not only a
+ * field changing, it posts a message in the thread and sets the agent going. */
+function HandOffNote({ name }: { name: string }) {
+  return (
+    <div className="agentic-note">
+      {name} gets a hand-off in this thread from you and starts on it. The task moves when
+      it answers.
+    </div>
+  );
+}
+
 export function ThreadTasksCard({
   rootId,
   tasks,
@@ -66,7 +77,7 @@ export function ThreadTasksCard({
   error,
   summaryId,
   assignees,
-  canManageAssignments,
+  mayReassign,
   users,
   apply,
 }: {
@@ -75,8 +86,10 @@ export function ThreadTasksCard({
   loading: boolean;
   error: string | null;
   summaryId: string | null;
+  /** Who a task here may go to: people, and the agents this person may hand work. */
   assignees: User[];
-  canManageAssignments: boolean;
+  /** Whether this person may change who has this task. */
+  mayReassign: (task: AgentTask) => boolean;
   users: Record<string, User>;
   apply: (change: ThreadToolsChange) => void;
 }) {
@@ -104,11 +117,9 @@ export function ThreadTasksCard({
         priority,
         summaryId,
       });
+      // No draft for it: the card shows the task as it is until somebody edits it, so a
+      // task handed to an agent shows done when the agent answers, not what it was here.
       apply({ type: "task.created", task: result.task });
-      setTaskDrafts((current) => ({
-        ...current,
-        [result.task.id]: draftFor(result.task),
-      }));
       setForm(EMPTY_TASK);
       setCreateOpen(false);
     } catch (err) {
@@ -129,7 +140,7 @@ export function ThreadTasksCard({
 
     if (draft.status !== task.status) payload.status = draft.status;
     if (draft.priority !== task.priority) payload.priority = draft.priority;
-    if (canManageAssignments) {
+    if (mayReassign(task)) {
       const nextAssignee = draft.assigneeUserId || null;
       if (nextAssignee !== (task.assigneeUserId ?? null))
         payload.assigneeUserId = nextAssignee;
@@ -145,10 +156,12 @@ export function ThreadTasksCard({
     try {
       const result = await api.agentic.updateTask(task.id, payload);
       apply({ type: "task.updated", task: result.task });
-      setTaskDrafts((current) => ({
-        ...current,
-        [task.id]: draftFor(result.task),
-      }));
+      // Saved, so nothing is pending: the card follows the task again.
+      setTaskDrafts((current) => {
+        const next = { ...current };
+        delete next[task.id];
+        return next;
+      });
     } catch (err) {
       setSaveError(errorMessage(err, "Could not update that task."));
     } finally {
@@ -171,6 +184,7 @@ export function ThreadTasksCard({
   }
 
   const shown = saveError ?? error;
+  const isAgent = (userId: string) => users[userId]?.kind === "bot";
   return (
     <section className="agentic-card" aria-labelledby="thread-tasks-title">
       <div className="agentic-head">
@@ -208,6 +222,7 @@ export function ThreadTasksCard({
           <div className="agentic-grid">
             <select
               className="input"
+              aria-label="Assign to"
               value={assigneeUserId}
               onChange={(event) => edit({ assigneeUserId: event.target.value })}
             >
@@ -221,6 +236,7 @@ export function ThreadTasksCard({
             </select>
             <select
               className="input"
+              aria-label="Priority"
               value={priority}
               onChange={(event) =>
                 edit({ priority: event.target.value as AgentTaskPriority })
@@ -233,6 +249,9 @@ export function ThreadTasksCard({
               ))}
             </select>
           </div>
+          {assigneeUserId && isAgent(assigneeUserId) && (
+            <HandOffNote name={users[assigneeUserId]?.displayName ?? "The agent"} />
+          )}
           <div className="agentic-actions">
             <button
               className="btn btn-primary"
@@ -257,6 +276,27 @@ export function ThreadTasksCard({
         <div className="task-list">
           {tasks.map((task) => {
             const draft = taskDrafts[task.id] ?? draftFor(task);
+            const reassignable = mayReassign(task);
+            // Whoever has it now stays in the list even when it is not somebody this
+            // person could pick — an agent they may not command, someone since gone —
+            // or the picker would claim the task is unassigned.
+            const holder = task.assigneeUserId;
+            const holderListed =
+              holder === null || assignees.some((user) => user.id === holder);
+            // The two saves that hand a task to an agent (ADR 0023): giving it to one, and
+            // moving an agent's task back to in progress — the retry.
+            const handingTo =
+              draft.assigneeUserId &&
+              draft.assigneeUserId !== (task.assigneeUserId ?? "") &&
+              isAgent(draft.assigneeUserId)
+                ? draft.assigneeUserId
+                : holder !== null &&
+                    draft.assigneeUserId === holder &&
+                    isAgent(holder) &&
+                    draft.status === "in_progress" &&
+                    task.status !== "in_progress"
+                  ? holder
+                  : null;
             return (
               <article className="task-card" key={task.id}>
                 <div className="task-head">
@@ -297,6 +337,7 @@ export function ThreadTasksCard({
                 <div className="agentic-grid">
                   <select
                     className="input"
+                    aria-label="Status"
                     value={draft.status}
                     onChange={(event) =>
                       setTaskDraft(task.id, {
@@ -313,6 +354,7 @@ export function ThreadTasksCard({
 
                   <select
                     className="input"
+                    aria-label="Priority"
                     value={draft.priority}
                     onChange={(event) =>
                       setTaskDraft(task.id, {
@@ -331,15 +373,22 @@ export function ThreadTasksCard({
                 <div className="agentic-grid">
                   <select
                     className="input"
+                    aria-label="Assigned to"
                     value={draft.assigneeUserId}
                     onChange={(event) =>
                       setTaskDraft(task.id, {
                         assigneeUserId: event.target.value,
                       })
                     }
-                    disabled={!canManageAssignments}
+                    disabled={!reassignable}
                   >
                     <option value="">Unassigned</option>
+                    {!holderListed && holder !== null && (
+                      <option value={holder}>
+                        {users[holder]?.displayName ?? "Someone no longer here"}
+                        {task.assigneeKind === "bot" ? " (Agent)" : ""}
+                      </option>
+                    )}
                     {assignees.map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.displayName}
@@ -353,6 +402,12 @@ export function ThreadTasksCard({
                     <span>Completed {formatWhen(task.completedAt)}</span>
                   </div>
                 </div>
+
+                {handingTo && (
+                  <HandOffNote
+                    name={users[handingTo]?.displayName ?? "The agent"}
+                  />
+                )}
 
                 <textarea
                   className="input agentic-textarea"

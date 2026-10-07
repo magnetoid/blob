@@ -79,7 +79,10 @@ raised, with the person's answer as the payload. `state` on a resume is the last
 raises an interrupt never sees either key.
 
 `context` may also carry `asked_by_agent`, `on_behalf_of` and `participants` when the run
-is a hop in a chain — another agent's reply mentioned this one, on a person's behalf.
+is a hop in a chain — another agent's reply mentioned this one, on a person's behalf — and
+`task` when a person handed the agent a task (ADR 0023): a JSON string with the task's
+`id`, `title`, `instructions`, `priority` and `dueAt`. How the run ends moves the task;
+[apps.md](apps.md#tasks-handed-to-your-agent) has the table.
 
 ### Agent → Blob
 

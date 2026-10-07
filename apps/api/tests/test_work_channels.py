@@ -242,6 +242,11 @@ class TestStarting:
 
         offered = (await team["ana"].get("/api/agents")).body["agents"]
         assert planner_id in [agent["id"] for agent in offered]
+        # Lent, not given: offered to Ana, and not labelled hers. Its owner's list says it
+        # is theirs.
+        assert [a["mine"] for a in offered if a["id"] == planner_id] == [False]
+        owners = (await team["marko"].get("/api/agents")).body["agents"]
+        assert [a["mine"] for a in owners if a["id"] == planner_id] == [True]
         started = await start(team, team["ana"], agentPluginIds=[planner_id])
         assert started["work"]["status"] == "open"
 

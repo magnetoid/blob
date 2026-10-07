@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
+from functools import partial
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -16,18 +17,19 @@ from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
 from ..lib.redis import redis
 from ..plugins import events as plugin_events
+from ..realtime import hub
 from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import AgentTask, ThreadSummary
 from ..schemas.requests import CreateAgentTaskInput, UpdateAgentTaskInput
-from ..services import agent_chains
+from ..services import agent_chains, task_dispatch
 from ..services import agent_runs as agent_run_service
 from ..services import agentic as agentic_service
 from ..services import audit as audit_service
 from ..services import catchup as catchup_service
 from ..services import channels as channel_service
 from ..services import messages as message_service
-from ..services import users as user_service
 from ..services.audit import actor_for
+from ..services.serialize import task_event
 
 router = APIRouter(tags=["agentic"])
 
@@ -122,15 +124,29 @@ async def create_thread_task(
     user: SessionUser = Depends(current_user),
 ) -> AgentTaskOut:
     thread_root_id, channel_id = await _root_message(message_id, user)
-    if payload.assignee_user_id and payload.assignee_user_id != user.id and user.role == "member":
-        async with session_scope() as session:
-            to_agent = await user_service.is_agent(
-                session, user.workspace_id, payload.assignee_user_id
-            )
-        if to_agent:
-            raise forbidden("Only admins can assign work directly to an agent.")
 
-    async with transaction() as (session, _after):
+    async with transaction() as (session, after):
+        # A task is a write into the channel, and an archived channel is read-only — the
+        # one check this route skipped that every other write here makes.
+        await channel_service.assert_channel_access(
+            session, user.id, channel_id, require_writable=True
+        )
+        # Handed to an agent, the task is also a message from this person — the hand-off
+        # that sets the agent going (ADR 0023) — so it is checked, and counted, as one.
+        agent = (
+            await task_dispatch.agent_for(
+                session,
+                workspace_id=user.workspace_id,
+                channel_id=channel_id,
+                actor_id=user.id,
+                actor_role=user.role,
+                assignee_user_id=payload.assignee_user_id,
+            )
+            if payload.assignee_user_id and payload.assignee_user_id != user.id
+            else None
+        )
+        if agent is not None:
+            await consume("send_message", user.id)
         task = await agentic_service.create_task(
             session,
             workspace_id=user.workspace_id,
@@ -145,6 +161,15 @@ async def create_thread_task(
             summary_id=payload.summary_id,
             external_ref=payload.external_ref,
         )
+        if agent is not None:
+            task = await task_dispatch.dispatch(
+                session,
+                after,
+                task=task,
+                agent=agent,
+                actor_id=user.id,
+                workspace_id=user.workspace_id,
+            )
         await audit_service.record(
             session,
             actor_for(request, user),
@@ -156,6 +181,7 @@ async def create_thread_task(
                 "threadRootId": thread_root_id,
                 "assigneeUserId": task.assignee_user_id,
                 "priority": task.priority,
+                "dispatchMessageId": task.dispatch_message_id,
             },
         )
         await plugin_events.emit(
@@ -165,6 +191,7 @@ async def create_thread_task(
             channel_id=channel_id,
             payload=task.model_dump(by_alias=True),
         )
+        after.add(partial(hub.to_channel, channel_id, task_event(task)))
     return AgentTaskOut(task=task)
 
 
@@ -175,22 +202,45 @@ async def update_task(
     request: Request,
     user: SessionUser = Depends(current_user),
 ) -> AgentTaskOut:
-    async with transaction() as (session, _after):
+    async with transaction() as (session, after):
         existing = await agentic_service.get_task(session, task_id)
-        await channel_service.assert_channel_access(session, user.id, existing.channel_id)
+        await channel_service.assert_channel_access(
+            session, user.id, existing.channel_id, require_writable=True
+        )
         if (
             user.role == "member"
             and existing.assignee_user_id not in (None, user.id)
             and existing.created_by != user.id
         ):
             raise forbidden("You can only update your own assigned agent tasks.")
-        if (
+        # Two saves are a hand-off (ADR 0023): the task changing hands to an agent, and an
+        # agent's task moved back to in progress — "work on it again", the retry for one
+        # its run blocked. Saving anything else about it, its priority or its outcome,
+        # sets nothing going.
+        handed_to = (
             payload.assignee_user_id
-            and payload.assignee_user_id != user.id
-            and user.role == "member"
-        ):
-            if await user_service.is_agent(session, user.workspace_id, payload.assignee_user_id):
-                raise forbidden("Only admins can reassign work to an agent.")
+            if payload.assignee_user_id not in (None, user.id, existing.assignee_user_id)
+            else None
+        )
+        again = (
+            handed_to is None
+            and payload.status == "in_progress"
+            and existing.status != "in_progress"
+            and existing.assignee_kind == "bot"
+            and existing.assignee_user_id is not None
+            and payload.assignee_user_id in (None, existing.assignee_user_id)
+        )
+        agent = None
+        if handed_to is not None or again:
+            agent = await task_dispatch.agent_for(
+                session,
+                workspace_id=user.workspace_id,
+                channel_id=existing.channel_id,
+                actor_id=user.id,
+                actor_role=user.role,
+                assignee_user_id=handed_to or str(existing.assignee_user_id),
+                handing_over=handed_to is not None,
+            )
         task = await agentic_service.update_task(
             session,
             task_id=task_id,
@@ -202,6 +252,18 @@ async def update_task(
             outcome=payload.outcome,
             instructions=payload.instructions,
         )
+        # Handed over finished — reassigned and closed in one save — there is nothing to
+        # set going.
+        if agent is not None and task.status not in ("done", "cancelled"):
+            await consume("send_message", user.id)
+            task = await task_dispatch.dispatch(
+                session,
+                after,
+                task=task,
+                agent=agent,
+                actor_id=user.id,
+                workspace_id=user.workspace_id,
+            )
         await audit_service.record(
             session,
             actor_for(request, user),
@@ -212,6 +274,7 @@ async def update_task(
                 "status": task.status,
                 "assigneeUserId": task.assignee_user_id,
                 "priority": task.priority,
+                "dispatchMessageId": task.dispatch_message_id,
             },
         )
         await plugin_events.emit(
@@ -221,6 +284,7 @@ async def update_task(
             channel_id=existing.channel_id,
             payload=task.model_dump(by_alias=True),
         )
+        after.add(partial(hub.to_channel, existing.channel_id, task_event(task)))
     return AgentTaskOut(task=task)
 
 

@@ -148,6 +148,7 @@ export interface WorkspaceAgent {
   id: string;
   name: string;
   botUserId: string;
+  /** Yours: you own it. One somebody lent you is listed, and is not yours. */
   mine: boolean;
   online: boolean | null;
 }

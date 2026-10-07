@@ -980,6 +980,7 @@ def build_run_input(
     instructions: str | None = None,
     protocol_version: str | None = None,
     tools: Sequence[Mapping[str, Any]] = (),
+    task: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The POST body.
 
@@ -1000,6 +1001,8 @@ def build_run_input(
     The extra context items exist for a chain (ADR 0013): `asked_by_agent` names the agent
     whose reply mentioned this one, `on_behalf_of` the person whose authority the hop runs
     on, and `participants` the other agents in the room, so an agent can address one.
+    `task` is the task this run was handed (ADR 0023), as JSON — id, title, instructions,
+    priority and due date — beside the hand-off message that says the same in words.
 
     `protocol_version` is the version Blob speaks, and is sent only to an agent that
     declared it speaks it too (`speaks`): AG-UI 1.0 asks a client to omit it for a peer
@@ -1023,6 +1026,8 @@ def build_run_input(
         context.append({"description": "on_behalf_of", "value": on_behalf_of})
     if participants:
         context.append({"description": "participants", "value": ", ".join(participants)})
+    if task is not None:
+        context.append({"description": "task", "value": json.dumps(dict(task))})
     body: dict[str, Any] = {
         "threadId": thread_id,
         "runId": run_id,

@@ -16,6 +16,7 @@ idempotency constraint.
 from __future__ import annotations
 
 import re
+from functools import partial
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
@@ -41,7 +42,7 @@ from ..services import messages as message_service
 from ..services import reactions as reaction_service
 from ..services import users as user_service
 from ..services import work as work_service
-from ..services.serialize import message_event
+from ..services.serialize import message_event, task_event
 
 router = APIRouter(prefix="/api/v1", tags=["apps"])
 
@@ -492,7 +493,9 @@ async def create_task(
     payload: CreateAgentTaskInput,
     bot: BotCaller = requires("tasks:write"),
 ) -> AgentTaskOut:
-    async with transaction() as (session, _after):
+    # No hand-off here, whoever the assignee is: an app's message starts no run, because
+    # there is no person behind it to run on the authority of (ADR 0013, ADR 0023).
+    async with transaction() as (session, after):
         root = await message_service.load_for(
             session, bot.user_id, thread_root_id, allow_deleted=True, gone=thread_gone
         )
@@ -527,6 +530,7 @@ async def create_task(
             payload=task.model_dump(by_alias=True),
             exclude_plugin_id=bot.plugin_id,
         )
+        after.add(partial(hub.to_channel, root.channel_id, task_event(task)))
     return AgentTaskOut(task=task)
 
 
@@ -536,7 +540,7 @@ async def update_task(
     payload: UpdateAgentTaskInput,
     bot: BotCaller = requires("tasks:write"),
 ) -> AgentTaskOut:
-    async with transaction() as (session, _after):
+    async with transaction() as (session, after):
         existing = await agentic_service.get_task(session, task_id)
         await channel_service.assert_channel_access(session, bot.user_id, existing.channel_id)
         if existing.assignee_user_id not in (None, bot.user_id) and not bot.has("admin:write"):
@@ -570,6 +574,7 @@ async def update_task(
             payload=task.model_dump(by_alias=True),
             exclude_plugin_id=bot.plugin_id,
         )
+        after.add(partial(hub.to_channel, existing.channel_id, task_event(task)))
     return AgentTaskOut(task=task)
 
 

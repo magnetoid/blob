@@ -271,6 +271,7 @@ def to_agent_task(row: Any) -> AgentTask:
         completed_at=iso(row.completed_at),
         outcome=row.outcome,
         external_ref=row.external_ref or {},
+        dispatch_message_id=getattr(row, "dispatch_message_id", None),
         created_at=require_iso(row.created_at),
         updated_at=require_iso(row.updated_at),
     )
@@ -295,6 +296,19 @@ def to_message_translation(row: Any, *, cached: bool = False) -> MessageTranslat
 def message_event(name: str, message: Message) -> dict[str, Any]:
     """The socket envelope carrying a message. Shared so every sender emits one shape."""
     return {"t": name, "message": message.model_dump(by_alias=True)}
+
+
+def task_event(task: AgentTask) -> dict[str, Any]:
+    """A task here was created or changed — by a person, an app, or the run it was handed
+    to. Only what decides whether to refetch: the thread panel reloads its tasks, and a
+    task's whole shape stays on one path, the REST read."""
+    return {
+        "t": "task.updated",
+        "taskId": task.id,
+        "channelId": task.channel_id,
+        "threadRootId": task.thread_root_id,
+        "status": task.status,
+    }
 
 
 def channel_event(name: str, channel: Channel) -> dict[str, Any]:

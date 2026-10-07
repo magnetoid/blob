@@ -1,8 +1,15 @@
 /** The right panel's thread view: root message plus its replies and agentic helpers. */
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import type { AgentRunView } from "@blob/shared";
-import { api } from "../../lib/api.ts";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
+import type { AgentRunView, AgentTask } from "@blob/shared";
+import { api, type WorkspaceAgent } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import { showError } from "../../lib/toasts.ts";
 import { draftKey } from "../../lib/drafts.ts";
@@ -133,7 +140,18 @@ export function ThreadPanel({
   const root = thread?.[0];
   const channel = root ? channels[root.channelId] : undefined;
   const replyCount = Math.max((thread?.length ?? 1) - 1, 0);
-  const canManageAssignments = currentUser?.role !== "member";
+  const me = currentUser?.id ?? null;
+  const isAdmin = currentUser != null && currentUser.role !== "member";
+  // The server's rule for changing a task, asked per task: an admin, or a member whose
+  // task it is — they made it, it is theirs, or nobody has it yet.
+  const mayReassign = useCallback(
+    (task: AgentTask) =>
+      isAdmin ||
+      task.assigneeUserId === null ||
+      task.assigneeUserId === me ||
+      task.createdBy === me,
+    [isAdmin, me],
+  );
   const channelLabel = channel
     ? channel.name
       ? `#${channel.name}`
@@ -149,14 +167,31 @@ export function ThreadPanel({
   }
   const toolsHint = toolsHintParts.join(" · ");
 
-  const assignees = useMemo(
-    () =>
-      Object.values(users)
-        .filter((user) => !user.deactivated)
-        .filter((user) => canManageAssignments || user.kind !== "bot")
-        .sort(byDisplayName),
-    [canManageAssignments, users],
+  // Who a task here may go to: anybody active, and the agents this person may set going
+  // that are in this room — the rules a hand-off meets on the server (ADR 0023), asked
+  // up front so the list does not offer what would be refused. Fetched once the tools
+  // are open, since most threads are opened to read and never get that far.
+  const { data: commandable } = useFetch(
+    async (): Promise<WorkspaceAgent[] | null> =>
+      toolsOpen ? (await api.agents.list()).agents : null,
+    [toolsOpen],
   );
+  const roomMemberIds = useStore((s) =>
+    root ? (s.channelMembers[root.channelId]?.userIds ?? null) : null,
+  );
+  const inRoom = roomMemberIds ?? channel?.memberIds ?? null;
+  const assignees = useMemo(() => {
+    const agents = new Set((commandable ?? []).map((agent) => agent.botUserId));
+    const room = inRoom ? new Set(inRoom) : null;
+    return Object.values(users)
+      .filter((user) => !user.deactivated)
+      .filter(
+        (user) =>
+          user.kind !== "bot" ||
+          (agents.has(user.id) && (room === null || room.has(user.id))),
+      )
+      .sort(byDisplayName);
+  }, [commandable, inRoom, users]);
 
   function toggleTools() {
     setToolsOpen((open) => {
@@ -243,7 +278,7 @@ export function ThreadPanel({
               error={tools.error}
               summaryId={tools.summary?.id ?? null}
               assignees={assignees}
-              canManageAssignments={canManageAssignments}
+              mayReassign={mayReassign}
               users={users}
               apply={tools.apply}
             />

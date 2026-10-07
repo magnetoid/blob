@@ -1446,3 +1446,31 @@ a bound ends it. Things to know before changing it:
   `run_write` re-checks access, because the approval can come a day later.
 * **`error` on a tool message is 1.0-only.** Older parsers refuse unknown members, so the
   error is always in the text and only added as a field for an agent that speaks 1.0.
+
+## Tasks handed to agents (ADR 0023, 2026-10-07): the hand-off and its traps
+
+`services/task_dispatch.py` turns "assigned to an agent" into a message: a hand-off from
+the assigner, in the task's thread, mentioning the agent. The run is an ordinary mention
+from there on. Things to know before changing it:
+
+* **`dispatch_message_id` is the chain id.** The hand-off roots the chain (`Chain.root`
+  takes the trigger's own id, even for a thread reply), so a run finds its task by
+  `chain_id` — the first run and every resume after a question. A hop by another agent
+  is on the same chain and is filtered out by the assignee, not by the chain.
+* **Settle only what is still in progress, with that agent, on that hand-off.** The
+  condition is the whole point: a person who closed or reassigned the task while the
+  agent worked must not be overwritten when the run finishes behind them.
+  `update_task` clears `dispatch_message_id` when the assignee changes, in the same
+  UPDATE — its right-hand side reads the old row.
+* **Every way a run ends settles, not only `_finish`.** `refuse` (budget, agents off),
+  `_abandon` (restart, a fault inside Blob), the silent path (the bot can no longer post),
+  and `expire_agent_decisions` (a question nobody answered) each call `settle`. Miss one
+  and a task sits "in progress" for an agent that will never answer.
+* **`messages.send(mention_user_ids=…)` skips the body parse.** The hand-off's mentions
+  are set outright, so a name in a task's title cannot notify anyone or start a second
+  agent. Anything else composed on someone's behalf that wants the parse must not pass
+  it.
+* **Two saves dispatch, and no others.** A change of hands to an agent, and an agent's
+  task moved back to in progress (the retry — the route cannot clear an assignee, so it is
+  the only way back from blocked). The client sends the current assignee back on every
+  save; treating that as a hand-off would re-run the agent on a priority change.
