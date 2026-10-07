@@ -1,7 +1,8 @@
 /** The meter and the dial on one line: what the trailing day cost, against the caps.
  *
  * Budgets are measured in what Blob can observe — runs begun and wall-clock time
- * occupied — because token counts belong to the agent's own provider. Admins think in
+ * occupied. Tokens are on the meter when the agent reports them (AG-UI 1.0 does), but
+ * they are its provider's count, not Blob's, so they are shown and never capped. Admins think in
  * minutes, the server stores seconds; the conversion lives here and nowhere else. The
  * component is keyed by its callers on the saved caps, so a save that comes back from
  * the reload reseeds the inputs instead of fighting them.
@@ -12,6 +13,7 @@
 
 import { useState } from "react";
 import { api, type AdminPlugin } from "../../../../lib/api.ts";
+import { formatTokens } from "../../../../lib/format.ts";
 
 export function BudgetRow({
   plugin,
@@ -39,7 +41,8 @@ export function BudgetRow({
     ` · ${usedMinutes}m` +
     (plugin.budgetSecondsPerDay !== null
       ? ` of ${Math.round(plugin.budgetSecondsPerDay / 60)}m`
-      : "");
+      : "") +
+    (plugin.tokensLastDay > 0 ? ` · ${formatTokens(plugin.tokensLastDay)}` : "");
 
   const save = () => {
     const runsNum = runs.trim() === "" ? null : Number(runs);

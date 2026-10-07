@@ -481,6 +481,11 @@ export interface AgentRunCard {
     result: string | null;
   }>;
   activity: string | null;
+  /**
+   * Delegated work, drawn like steps (AG-UI 1.0's subagent events). Absent on a card
+   * stored before 1.0 support, so read it as optional.
+   */
+  subagents?: Array<{ name: string; status: 'running' | 'done' | 'failed' }>;
   reasoning: string | null;
   textChars: number;
   dropped: number;
@@ -512,6 +517,11 @@ export interface AgentRunView {
    * answer a decision it stops to ask, so "needs you" is a comparison with this.
    */
   initiatedByUserId: string | null;
+  /**
+   * Tokens the agent reported for the run, all providers together; null when it reported
+   * none. Optional on the wire, because a view written before 1.0 support has no field.
+   */
+  tokens?: number | null;
   /** Set once the decision an interrupted run was waiting on has been made. */
   answeredAt: string | null;
   /** When a waiting decision stops waiting. */

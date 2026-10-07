@@ -806,6 +806,9 @@ class AgentRun(Base):
     answered_at: Mapped[Any | None] = mapped_column(Timestamp)
     #: When a waiting decision stops waiting and the run becomes `expired`.
     expires_at: Mapped[Any | None] = mapped_column(Timestamp)
+    #: Token usage the agent reported for this run, as AG-UI 1.0 shapes it: one entry
+    #: per provider and model. NULL when it reported none.
+    usage: Mapped[Any | None] = mapped_column(JSONB)
 
 
 class AgentState(Base):
@@ -1376,6 +1379,15 @@ class Plugin(Base):
     #: a person's agent is not the workspace's to instruct. NULL means nothing to say,
     #: and then no key is sent at all.
     instructions: Mapped[str | None] = mapped_column(Text)
+    #: The AG-UI version the agent last declared in `RUN_STARTED.protocolVersion`, or
+    #: NULL if it never has. Blob sends 1.0's input fields only to an agent that said it
+    #: speaks 1.0 — an older parser refuses fields it does not know (migration 0046).
+    agui_version: Mapped[str | None] = mapped_column(Text)
+    #: Whether the run card keeps a tail of this agent's reasoning for the channel to
+    #: read. Off unless an admin turns it on.
+    shows_reasoning: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     version: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'0.0.0'"))
     request_url: Mapped[str | None] = mapped_column(Text)
     #: An AG-UI endpoint Blob calls when this app's bot is mentioned.

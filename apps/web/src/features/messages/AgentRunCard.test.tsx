@@ -293,3 +293,44 @@ describe('Stop', () => {
 function useToastMessages(): string[] {
   return useToasts.getState().toasts.map((toast) => toast.text);
 }
+
+describe('AG-UI 1.0 on the card', () => {
+  it('draws delegated work like the plan, and says which part failed', () => {
+    render(
+      <AgentRunCard
+        run={run({
+          card: {
+            steps: [],
+            tools: [],
+            activity: null,
+            subagents: [
+              { name: 'researcher', status: 'done' },
+              { name: 'writer', status: 'failed' },
+            ],
+            reasoning: null,
+            textChars: 0,
+            dropped: 0,
+          },
+        })}
+      />,
+    );
+    const delegated = screen.getByRole('list', { name: 'Delegated to' });
+    expect(delegated.textContent).toContain('researcher');
+    expect(delegated.textContent).toContain('writer — failed');
+  });
+
+  it('says what a finished run reported it cost', () => {
+    render(
+      <AgentRunCard
+        compact
+        run={run({
+          status: 'succeeded',
+          postCount: 1,
+          finishedAt: '2026-09-05T10:00:04.000Z',
+          tokens: 12_400,
+        })}
+      />,
+    );
+    expect(screen.getByText(/4s · 12k tokens/)).toBeTruthy();
+  });
+});

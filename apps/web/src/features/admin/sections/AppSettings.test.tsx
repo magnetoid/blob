@@ -131,3 +131,42 @@ describe('who owns an agent', () => {
     await waitFor(() => expect(set).toHaveBeenCalledWith('p1', 'u1'));
   });
 });
+
+describe('showing an agent its reasoning', () => {
+  function seedAgent(showsReasoning: boolean) {
+    useStore.setState({ users: { u1: ME, u2: MATE, u3: BOT } } as never);
+    vi.spyOn(api.admin, 'plugins').mockResolvedValue({
+      plugins: [
+        {
+          ...PLUGIN,
+          aguiUrl: 'https://apps.example.com/agui',
+          aguiVersion: '1.0',
+          showsReasoning,
+          tokensLastDay: 0,
+        },
+      ],
+    } as never);
+    vi.spyOn(api.admin, 'appChannels').mockResolvedValue({ channels: [] } as never);
+    vi.spyOn(api.admin, 'pluginCatalog').mockResolvedValue({ scopes: {}, events: {} } as never);
+    vi.spyOn(api.admin, 'pluginRuns').mockResolvedValue({ runs: [] } as never);
+    vi.spyOn(api.admin, 'pluginDeliveries').mockResolvedValue({ deliveries: [] } as never);
+  }
+
+  it('is off until an admin turns it on, and the switch says which', async () => {
+    seedAgent(false);
+    const set = vi.spyOn(api.admin, 'setPluginReasoning').mockResolvedValue({} as never);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+
+    const toggle = await screen.findByRole('button', { name: "Show Assistant's reasoning" });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(set).toHaveBeenCalledWith('p1', true));
+  });
+
+  it('is not offered for an app that answers no mention', async () => {
+    seed(null);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+    await waitFor(() => expect(ownerPicker()).toBeTruthy());
+    expect(screen.queryByRole('button', { name: /reasoning/ })).toBeNull();
+  });
+});

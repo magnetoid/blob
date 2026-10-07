@@ -572,6 +572,22 @@ async def set_in_every_public_channel(
     )
 
 
+async def set_shows_reasoning(
+    session: AsyncSession, plugin_id: str, workspace_id: str, shown: bool
+) -> None:
+    """Whether this agent's run cards show the channel a tail of its reasoning.
+
+    A display choice about one agent, made by an admin. The card goes to everyone in the
+    channel, so the default is off (migration 0046); an agent whose working-out is worth
+    reading — and safe to show — is switched on here.
+    """
+    await by_id(session, plugin_id, workspace_id)
+    await session.execute(
+        text("UPDATE plugins SET shows_reasoning = :shown, updated_at = now() WHERE id = :id"),
+        {"id": plugin_id, "shown": shown},
+    )
+
+
 async def set_status(
     session: AsyncSession, plugin_id: str, workspace_id: str, status: Status
 ) -> None:

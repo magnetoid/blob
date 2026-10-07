@@ -166,12 +166,7 @@ async def resume_of(
     raw_items = stored.get("items")
     items: list[Any] = raw_items if isinstance(raw_items, list) else []
     answer = stored.get("answer")
-    ids = [
-        item["id"] for item in items if isinstance(item, dict) and isinstance(item.get("id"), str)
-    ]
-    resume = [
-        {"interruptId": i, "status": "resolved", "payload": answer} for i in ids or ["default"]
-    ]
+    resume = agui.resume_entries(agui.decision_of(items).interrupt_ids, answer)
     return (
         Chain(
             chain_id=str(row.chain_id),

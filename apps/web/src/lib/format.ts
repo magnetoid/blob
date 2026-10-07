@@ -9,6 +9,16 @@ export function formatBytes(bytes: number): string {
 }
 
 /** For `.sort()`: people by the name they chose, in the reader's collation. */
+/** A token count the way a person reads one: "380 tokens", "12.4k tokens", "1.3M tokens". */
+export function formatTokens(tokens: number): string {
+  if (tokens < 1000) return `${tokens} token${tokens === 1 ? '' : 's'}`;
+  if (tokens < 1_000_000) {
+    const thousands = tokens / 1000;
+    return `${thousands < 10 ? thousands.toFixed(1) : Math.round(thousands)}k tokens`;
+  }
+  return `${(tokens / 1_000_000).toFixed(1)}M tokens`;
+}
+
 export function byDisplayName<T extends { displayName: string }>(a: T, b: T): number {
   return a.displayName.localeCompare(b.displayName);
 }

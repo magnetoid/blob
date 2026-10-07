@@ -108,3 +108,84 @@ def test_text_progress_is_counted_not_kept() -> None:
     card.feed({"type": "TEXT_MESSAGE_CONTENT", "delta": "world"})
     snapshot = card.snapshot()
     assert snapshot["textChars"] == 11
+
+
+def test_an_activity_in_the_1_0_shape_is_read_from_its_content() -> None:
+    # 1.0 carries an activity as a content object patched by JSON Patch; the card read
+    # top-level strings, so every conforming agent's progress rendered nothing.
+    card = CardFold()
+    assert card.feed(
+        {
+            "type": "ACTIVITY_SNAPSHOT",
+            "messageId": "a1",
+            "activityType": "progress",
+            "content": {"label": "reading the thread", "done": 1},
+        }
+    )
+    assert card.snapshot()["activity"] == "reading the thread"
+    assert card.feed(
+        {
+            "type": "ACTIVITY_DELTA",
+            "messageId": "a1",
+            "activityType": "progress",
+            "patch": [{"op": "replace", "path": "/label", "value": "writing the answer"}],
+        }
+    )
+    assert card.snapshot()["activity"] == "writing the answer"
+
+
+def test_an_activity_with_no_words_falls_back_to_its_type() -> None:
+    card = CardFold()
+    card.feed(
+        {"type": "ACTIVITY_SNAPSHOT", "messageId": "a", "activityType": "search", "content": {}}
+    )
+    assert card.snapshot()["activity"] == "search"
+
+
+def test_a_patch_that_does_not_apply_keeps_the_last_good_line() -> None:
+    card = CardFold()
+    card.feed(
+        {
+            "type": "ACTIVITY_SNAPSHOT",
+            "messageId": "a",
+            "activityType": "p",
+            "content": {"title": "one"},
+        }
+    )
+    assert not card.feed(
+        {
+            "type": "ACTIVITY_DELTA",
+            "messageId": "a",
+            "activityType": "p",
+            "patch": [{"op": "replace", "path": "/missing/deep", "value": "x"}],
+        }
+    )
+    assert card.snapshot()["activity"] == "one"
+
+
+def test_subagents_are_drawn_like_steps() -> None:
+    card = CardFold()
+    assert card.feed({"type": "SUBAGENT_STARTED", "subagentRunId": "s1", "name": "researcher"})
+    assert card.feed({"type": "SUBAGENT_STARTED", "subagentRunId": "s2", "name": "writer"})
+    assert not card.feed({"type": "SUBAGENT_STARTED", "subagentRunId": "s1", "name": "again"})
+    assert card.feed({"type": "SUBAGENT_FINISHED", "subagentRunId": "s1"})
+    assert card.feed({"type": "SUBAGENT_ERROR", "subagentRunId": "s2", "message": "no"})
+    assert card.snapshot()["subagents"] == [
+        {"name": "researcher", "status": "done"},
+        {"name": "writer", "status": "failed"},
+    ]
+    assert card.has_content
+
+
+def test_a_tool_result_given_as_parts_shows_its_text() -> None:
+    card = CardFold()
+    card.feed({"type": "TOOL_CALL_START", "toolCallId": "c", "toolCallName": "search"})
+    card.feed(
+        {
+            "type": "TOOL_CALL_RESULT",
+            "toolCallId": "c",
+            "messageId": "t",
+            "content": [{"type": "text", "text": "3 results"}, {"type": "image", "source": {}}],
+        }
+    )
+    assert card.snapshot()["tools"][0]["result"] == "3 results"

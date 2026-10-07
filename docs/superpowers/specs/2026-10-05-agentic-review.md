@@ -378,7 +378,7 @@ Where the work departed from the plan:
   (§3), and everything in §7 beyond the ownership predicate.
 
 **A Phase 1 constraint found on the way:** AG-UI's Python SDK forbade unknown input
-fields until somewhere after 0.1.9 (0.1.22 allows them), so sending `protocolVersion` to
+fields until 0.1.10, so sending `protocolVersion` to
 every agent would 422 the older ones. The 1.0 spec's own answer is that an agent states
 its version in `RUN_STARTED.protocolVersion` and a client omits the field for a peer it
 knows predates it — so Phase 1 learns each agent's version from its runs and sends 1.0

@@ -21,6 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.ids import new_id
+from ..plugins.agui import total_tokens
 from ..schemas.base import require_iso
 
 RunStatus = Literal[
@@ -47,6 +48,27 @@ class Run:
     depth: int = 0
     #: The agent whose reply asked this one, when depth > 0.
     asked_by: str | None = None
+    #: Tokens the agent reported for the run, all providers together; None if it
+    #: reported none.
+    tokens: int | None = None
+
+
+#: One run's reported tokens, in SQL: each usage entry's total, or its input and output.
+#: Kept beside `agui.total_tokens`, which says the same thing in Python.
+#: Every count is read only if it is digits: the fold stores nothing else
+#: (`agui.usage_of`), but this statement backs the console's list of agents, and one row
+#: written by anything else must not be able to make that list a 500.
+_RUN_TOKENS = """(
+    SELECT sum(COALESCE(
+             CASE WHEN u->>'totalTokens' ~ '^[0-9]{1,15}$'
+                  THEN (u->>'totalTokens')::bigint END,
+             COALESCE(CASE WHEN u->>'inputTokens' ~ '^[0-9]{1,15}$'
+                           THEN (u->>'inputTokens')::bigint END, 0)
+             + COALESCE(CASE WHEN u->>'outputTokens' ~ '^[0-9]{1,15}$'
+                             THEN (u->>'outputTokens')::bigint END, 0)))
+      FROM jsonb_array_elements(
+             CASE WHEN jsonb_typeof(r.usage) = 'array' THEN r.usage ELSE '[]'::jsonb END) u
+)"""
 
 
 async def start(
@@ -248,27 +270,33 @@ async def record_refusal(
 
 async def usage_by_plugin(
     session: AsyncSession, plugin_ids: list[str]
-) -> dict[str, tuple[int, int]]:
-    """Trailing-day (runs, seconds) per plugin, for the console list. One statement."""
+) -> dict[str, tuple[int, int, int]]:
+    """Trailing-day (runs, seconds, tokens) per plugin, for the console list. One statement.
+
+    Tokens are what the agents reported (AG-UI 1.0 carries them on the terminal event);
+    an agent that reports none counts zero, which is a fact about the report rather than
+    about the cost.
+    """
     if not plugin_ids:
         return {}
     rows = (
         await session.execute(
             text(
-                """
-                SELECT plugin_id, count(*) AS runs,
+                f"""
+                SELECT r.plugin_id, count(*) AS runs,
                        COALESCE(SUM(EXTRACT(EPOCH FROM
-                           (COALESCE(finished_at, now()) - started_at))), 0) AS seconds
-                  FROM agent_runs
-                 WHERE plugin_id = ANY(cast(:ids AS uuid[])) AND status <> 'refused'
-                   AND started_at > now() - interval '24 hours'
-                 GROUP BY plugin_id
+                           (COALESCE(r.finished_at, now()) - r.started_at))), 0) AS seconds,
+                       COALESCE(SUM({_RUN_TOKENS}), 0) AS tokens
+                  FROM agent_runs r
+                 WHERE r.plugin_id = ANY(cast(:ids AS uuid[])) AND r.status <> 'refused'
+                   AND r.started_at > now() - interval '24 hours'
+                 GROUP BY r.plugin_id
                 """
             ),
             {"ids": plugin_ids},
         )
     ).fetchall()
-    return {str(row.plugin_id): (int(row.runs), int(row.seconds)) for row in rows}
+    return {str(row.plugin_id): (int(row.runs), int(row.seconds), int(row.tokens)) for row in rows}
 
 
 async def activity_by_plugin(
@@ -355,6 +383,7 @@ async def finish(
     interrupt: list[dict[str, Any]] | None = None,
     state_json: str | None = None,
     expires_at: Any | None = None,
+    usage: list[dict[str, Any]] | None = None,
 ) -> None:
     """Close the row. For an interrupted run, also keep what a resume will need.
 
@@ -372,7 +401,8 @@ async def finish(
                    card = COALESCE(cast(:card AS jsonb), card),
                    interrupt = cast(:interrupt AS jsonb),
                    state = cast(:state AS jsonb),
-                   expires_at = cast(:expires_at AS timestamptz)
+                   expires_at = cast(:expires_at AS timestamptz),
+                   usage = cast(:usage AS jsonb)
              WHERE id = :id
             """
         ),
@@ -385,6 +415,7 @@ async def finish(
             "interrupt": json.dumps({"items": interrupt}) if interrupt is not None else None,
             "state": state_json,
             "expires_at": expires_at,
+            "usage": json.dumps(usage) if usage is not None else None,
         },
     )
 
@@ -414,6 +445,37 @@ async def abandon(session: AsyncSession, run_id: str, *, reason: str, post_count
         )
     ).fetchone()
     return row is not None
+
+
+async def learn_version(session: AsyncSession, plugin_id: str, declared: str) -> None:
+    """Remember the protocol version an agent declared, so the next run speaks it.
+
+    Written only when it changed, so an agent that says the same thing every run costs
+    no write after its first.
+    """
+    await session.execute(
+        text(
+            """
+            UPDATE plugins SET agui_version = :v
+             WHERE id = :id AND agui_version IS DISTINCT FROM cast(:v AS text)
+            """
+        ),
+        {"id": plugin_id, "v": declared},
+    )
+
+
+async def forget_version(session: AsyncSession, plugin_id: str) -> None:
+    """Stop speaking 1.0 to an agent that refused a run written in it.
+
+    An agent that declared 1.0 and was later redeployed on an older SDK says nothing in
+    a `RUN_STARTED` it never gets to send: its parser refuses the run first. Without
+    this, every run after the downgrade would carry the fields it refuses, and the agent
+    would read as down for good. Forgotten, the next run goes out in the older shape,
+    and an agent that does speak 1.0 says so again on that run.
+    """
+    await session.execute(
+        text("UPDATE plugins SET agui_version = NULL WHERE id = :id"), {"id": plugin_id}
+    )
 
 
 async def set_decision_message(session: AsyncSession, run_id: str, message_id: str) -> None:
@@ -499,13 +561,13 @@ async def list_for_plugin(
     rows = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT r.id, r.plugin_id, r.channel_id, c.name AS channel_name,
                        r.thread_root_id, r.trigger_message_id,
                        u.display_name AS trigger_user_name,
                        r.transport, r.status, r.error, r.post_count,
                        r.started_at, r.finished_at, r.depth,
-                       pp.name AS asked_by
+                       pp.name AS asked_by, {_RUN_TOKENS} AS tokens
                   FROM agent_runs r
                   LEFT JOIN channels c ON c.id = r.channel_id
                   LEFT JOIN users u ON u.id = r.trigger_user_id
@@ -536,6 +598,7 @@ async def list_for_plugin(
             finished_at=row.finished_at,
             depth=row.depth,
             asked_by=row.asked_by if row.depth > 0 else None,
+            tokens=int(row.tokens) if row.tokens is not None else None,
         )
         for row in rows
     ]
@@ -581,7 +644,7 @@ _VIEW_SELECT = """
            r.thread_root_id, r.trigger_message_id, r.status, r.error,
            r.post_count, r.started_at, r.finished_at, r.card,
            r.chain_id, r.parent_run_id, r.depth, r.answered_at, r.expires_at,
-           r.initiated_by_user_id, pp.name AS asked_by
+           r.initiated_by_user_id, r.usage, pp.name AS asked_by
       FROM agent_runs r
       JOIN plugins p ON p.id = r.plugin_id
       LEFT JOIN agent_runs parent ON parent.id = r.parent_run_id
@@ -608,6 +671,7 @@ def _view(row: Any) -> dict[str, Any]:
         "depth": row.depth,
         "askedBy": row.asked_by if row.depth > 0 else None,
         "initiatedByUserId": (str(row.initiated_by_user_id) if row.initiated_by_user_id else None),
+        "tokens": total_tokens(row.usage if isinstance(row.usage, list) else None),
         "answeredAt": require_iso(row.answered_at) if row.answered_at else None,
         "expiresAt": require_iso(row.expires_at) if row.expires_at else None,
     }

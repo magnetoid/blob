@@ -304,6 +304,18 @@ export interface AdminPlugin {
   budgetSecondsPerDay: number | null;
   runsLastDay: number;
   secondsLastDay: number;
+  /**
+   * Tokens the agent reported over the same day. AG-UI 1.0 carries them on a run's last
+   * event; an agent that reports none shows 0, which says nothing about what it cost.
+   */
+  tokensLastDay: number;
+  /**
+   * The AG-UI version the agent last declared, or null if it never has. A run is sent
+   * 1.0's fields — the version itself, the files as content parts — only once it has.
+   */
+  aguiVersion: string | null;
+  /** Whether its run cards show the channel a tail of its reasoning. Off by default. */
+  showsReasoning: boolean;
   /** The console table's numbers: a week of runs, runs in flight, public channels joined. */
   runsLastWeek: number;
   runningNow: number;
@@ -464,6 +476,8 @@ export interface AdminAgentRun {
   depth: number;
   /** The agent whose reply asked this one, when depth > 0. */
   askedBy: string | null;
+  /** Tokens the agent reported for the run, or null if it reported none. */
+  tokens: number | null;
 }
 
 export interface AdminPluginDelivery {
@@ -1234,6 +1248,9 @@ export const api = {
     /** Whether the agent joins public channels founded from now on. */
     setPluginEverywhere: (pluginId: string, enabled: boolean) =>
       post<AdminPlugin>(`/api/admin/plugins/${pluginId}/everywhere`, { enabled }),
+    /** Whether the agent's run cards show the channel a tail of its reasoning. */
+    setPluginReasoning: (pluginId: string, shown: boolean) =>
+      post<AdminPlugin>(`/api/admin/plugins/${pluginId}/reasoning`, { shown }),
     rotatePluginSecret: (pluginId: string) =>
       post<{ signingSecret: string }>(`/api/admin/plugins/${pluginId}/secret`),
     issuePluginToken: (pluginId: string) =>

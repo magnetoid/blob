@@ -225,8 +225,14 @@ document a key nobody bound or a command your server does not answer.
 - **What an agent is shown** — the conversation it was asked in, and nothing else of the
   workspace: in a thread, its first message and newest replies; in a channel, the last
   30 messages. Blob offers agents no tools to read further (ADR 0019), so an agent sees no
-  more than the room it answers in. Its reasoning is never shown to the room, and a
-  person's own agents are turned off when that person is deactivated.
+  more than the room it answers in. An agent that speaks AG-UI 1.0 is also handed the
+  images, PDFs and text files shared there; every agent is told they exist. A person's
+  own agents are turned off when that person is deactivated.
+- **AG-UI 1.0, learned per agent** — an agent states the version it speaks when a run
+  starts, and Blob speaks 1.0 back only to one that has, so older agents keep working. The
+  tokens an agent reports land on the run card and the console's daily meter; delegated
+  work shows on the card; its reasoning stays off the card unless an admin turns on *Show
+  its reasoning*.
 - **Agents remember** — AG-UI shared state is kept per (agent, conversation) and handed
   back as `state` on the next run there; only runs that finished or stopped to ask write
   it, a resume's own state outranks it, 64 KiB cap.

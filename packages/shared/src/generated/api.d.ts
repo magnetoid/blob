@@ -939,6 +939,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/plugins/{plugin_id}/reasoning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Reasoning Shown
+         * @description Whether this agent's run cards show its reasoning to the channel.
+         *
+         *     Off by default: the card is the whole channel's, and an agent's working-out is where
+         *     it narrates what it read — from tools and memory of its own that reach past the room.
+         *     Turned on for an agent whose reasoning is worth reading and safe to share.
+         */
+        post: operations["set_reasoning_shown_api_admin_plugins__plugin_id__reasoning_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/plugins/{plugin_id}/redeploy": {
         parameters: {
             query?: never;
@@ -3756,6 +3780,8 @@ export interface components {
             status: string;
             /** Threadrootid */
             threadRootId?: string | null;
+            /** Tokens */
+            tokens?: number | null;
             /** Transport */
             transport: string;
             /** Triggermessageid */
@@ -5466,6 +5492,8 @@ export interface components {
         PluginOut: {
             /** Aguiurl */
             aguiUrl?: string | null;
+            /** Aguiversion */
+            aguiVersion?: string | null;
             /** Botuserid */
             botUserId?: string | null;
             /** Budgetrunsperday */
@@ -5543,6 +5571,11 @@ export interface components {
              * @default 0
              */
             secondsLastDay: number;
+            /**
+             * Showsreasoning
+             * @default false
+             */
+            showsReasoning: boolean;
             /** Slug */
             slug: string;
             /** Sourceref */
@@ -5551,6 +5584,11 @@ export interface components {
             sourceRepo?: string | null;
             /** Status */
             status: string;
+            /**
+             * Tokenslastday
+             * @default 0
+             */
+            tokensLastDay: number;
             /** Updatedat */
             updatedAt: string;
             /** Version */
@@ -5764,6 +5802,11 @@ export interface components {
             readStates: components["schemas"]["ReadStateOut"][];
             /** Totalmentions */
             totalMentions: number;
+        };
+        /** ReasoningInput */
+        ReasoningInput: {
+            /** Shown */
+            shown: boolean;
         };
         /** RepoInput */
         RepoInput: {
@@ -6800,6 +6843,7 @@ export type Reaction = components['schemas']['Reaction'];
 export type ReadStateOut = components['schemas']['ReadStateOut'];
 export type ReadStateResponse = components['schemas']['ReadStateResponse'];
 export type ReadStatesOut = components['schemas']['ReadStatesOut'];
+export type ReasoningInput = components['schemas']['ReasoningInput'];
 export type RepoInput = components['schemas']['RepoInput'];
 export type RepoPreviewOut = components['schemas']['RepoPreviewOut'];
 export type ResetLinkOut = components['schemas']['ResetLinkOut'];
@@ -8548,6 +8592,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_reasoning_shown_api_admin_plugins__plugin_id__reasoning_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasoningInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginOut"];
                 };
             };
             /** @description Validation Error */

@@ -6,6 +6,7 @@
  */
 
 import { type AdminAgentRun } from "../../../../lib/api.ts";
+import { formatTokens } from "../../../../lib/format.ts";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
 import { CardNotice } from "../../../console/Card.tsx";
 
@@ -38,6 +39,7 @@ export function RunLog({
               {run.triggerUserName ?? "someone"} asked · {formatRelative(run.startedAt)}
               {run.durationMs !== null && ` · ${run.durationMs} ms`}
               {` · ${run.postCount} ${run.postCount === 1 ? "reply" : "replies"}`}
+              {run.tokens !== null && ` · ${formatTokens(run.tokens)}`}
               {run.transport === "socket" && " · over its own socket"}
               {run.error && ` · ${run.error}`}
             </div>

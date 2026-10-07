@@ -367,6 +367,22 @@ Your agent is asked once per message. A job that is delivered twice finds the ru
 already started and stops, so an answer is never posted twice — whatever ids your
 agent gives its messages.
 
+**Say which AG-UI you speak.** Put `protocolVersion` on your `RUN_STARTED` — `"1.0"` for
+the September 2026 protocol. Blob remembers it, and from the next run sends you its own
+`protocolVersion` and the files people shared (see below). An agent that never says is
+sent neither, because the Python SDK before 0.1.10 refuses any input field it does not know, and
+that refusal looks exactly like the agent being down. If your agent refuses a run written in 1.0
+with a 400 or a 422 — redeployed on an older SDK, say — Blob forgets the version and sends
+the next run in the older shape; declare it again and 1.0 comes back.
+
+**Files in the conversation.** Every message names its files in its text —
+`[attached: report.pdf]` — whatever you speak, so you know a file exists even when you
+are not handed it. An agent that speaks 1.0 is also handed them, as content parts on the
+message they came with: images (PNG, JPEG, GIF, WebP) as `image`, PDFs as `document`,
+both inline as base64 `data` sources; text, Markdown, CSV and JSON as a `text` part
+holding the file. Newest first, at most six files, none over 2 MiB and 6 MiB in all.
+Inline rather than by URL because your agent may have no route to Blob's storage.
+
 What Blob does with the stream:
 
 | Event | Result |
@@ -374,14 +390,17 @@ What Blob does with the stream:
 | `TEXT_MESSAGE_START` / `CONTENT` / `END` | One message in the channel, posted by your bot |
 | `TEXT_MESSAGE_CHUNK` | The same, for agents that use the compact form |
 | `TOOL_CALL_START` | The tool's name is listed under the answer |
-| `RUN_FINISHED` with an `interrupt` outcome | The question is posted **with buttons or a text box**, minted from your `interrupts[].responseSchema` (an `enum`, a `oneOf` with `const`/`title`, or a boolean) — or from `metadata.options`. Only the person the run is on behalf of can answer. Their answer is posted as their own message and your agent is called again with `resume: [{interruptId, status: "resolved", payload}]`, `parentRunId` (the `runId` of the run that asked) and `state` (below). A question nobody answers within a day expires. |
+| `RUN_STARTED` with `protocolVersion` | Remembered, and spoken back to you from the next run |
+| `RUN_FINISHED` with `usage` | The tokens you report are kept on the run, shown on the card under the mention and on the console's daily meter. Shown, never capped: they are your provider's count, not Blob's |
+| `RUN_FINISHED` with a `cancelled` outcome | The card says the run was stopped — neither an answer nor a failure |
+| `RUN_FINISHED` with an `interrupt` outcome | The question is posted **with buttons or a text box**, minted from your `interrupts[].responseSchema` (an `enum`, a `oneOf` with `const`/`title`, or a boolean) — or from `metadata.options`. Only the person the run is on behalf of can answer. Their answer is posted as their own message and your agent is called again with `resume: [{interruptId, status: "resolved", payload}]`, `parentRunId` (the `runId` of the run that asked) and `state` (below). If you raise several interrupts at once, the first is asked; the resume answers it and marks the others `cancelled`, and you ask again for any you still need. A question nobody answers within a day expires. |
 | `STATE_SNAPSHOT` / `STATE_DELTA` | Folded (deltas are RFC 6902) and **remembered per conversation**: the next run in the same channel or thread receives it as `state`. A resume receives the state the run had when it stopped. 64 KiB cap. |
 | `CUSTOM` with `name: "blob.artifact"` | In a work channel, publishes an artifact — see below. Elsewhere, ignored. |
 | `CUSTOM` named `blob.file.start` / `chunk` / `end` | Hands over a file, attached to your answer — see [Handing over a file](#handing-over-a-file). |
 | `RUN_ERROR` | The card under the mention says the run failed, with your `message`; `lastError` on the app records it. Nothing is posted in the channel |
-| `STEP_*`, `TOOL_CALL_*`, `ACTIVITY_*` | Drawn live on the card under the mention — the plan, the tool calls with their arguments, the latest activity — while the run goes |
+| `STEP_*`, `TOOL_CALL_*`, `ACTIVITY_*`, `SUBAGENT_*` | Drawn live on the card under the mention — the plan, the tool calls with their arguments and results, the latest activity, the work you delegated — while the run goes. An activity's line is read from its `content` (`title`, `label`, `message`, `status`…), patched by `ACTIVITY_DELTA`, or from its `activityType` |
 | `TEXT_MESSAGE_START` with a role other than `assistant` | Not posted, and neither are its deltas: an agent quoting the person back is not answering |
-| reasoning events | Never posted, and not shown on the card: an agent's working-out is not its answer, and the card is the whole channel's |
+| reasoning events | Never posted. Not shown on the card either, unless an admin turns on *Show its reasoning* for your agent: an agent's working-out is not its answer, and the card is the whole channel's |
 | everything else | Ignored. An event Blob does not know is never fatal |
 
 Three things are worth knowing before you build against it.

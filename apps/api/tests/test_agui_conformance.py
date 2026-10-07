@@ -76,6 +76,50 @@ class TestWhatBlobSends:
         assert parsed.resume is not None and parsed.resume[0].interrupt_id == "i1"
         assert parsed.forwarded_props == {"instructions": "Answer in English."}
 
+    def test_a_run_for_an_agent_that_speaks_1_0_validates_against_the_sdk(self) -> None:
+        # The version and the content parts go only to an agent that said it speaks 1.0;
+        # what they produce must still be what the SDK accepts.
+        image = {
+            "type": "image",
+            "source": {"type": "data", "value": "aGk=", "mimeType": "image/png"},
+            "metadata": {"filename": "chart.png"},
+        }
+        document = {
+            "type": "document",
+            "source": {"type": "data", "value": "JVBERg==", "mimeType": "application/pdf"},
+        }
+        body = agui.build_run_input(
+            thread_id="t1",
+            run_id="r1",
+            messages=[
+                {
+                    "id": "m1",
+                    "role": "user",
+                    "name": "Ana",
+                    "content": [
+                        {"type": "text", "text": "what is this?\n[attached: chart.png]"},
+                        image,
+                        document,
+                        {"type": "text", "text": "notes.md:\n# Plan"},
+                    ],
+                }
+            ],
+            channel_name="general",
+            trigger_user="Ana",
+            protocol_version=agui.PROTOCOL_VERSION,
+        )
+        parsed = core.RunAgentInput.model_validate(body)
+        assert parsed.protocol_version == "1.0"
+        [message] = parsed.messages
+        assert [part.type for part in message.content] == ["text", "image", "document", "text"]
+
+    def test_a_resume_with_a_cancelled_question_validates_against_the_sdk(self) -> None:
+        parsed = core.RunAgentInput.model_validate(
+            run_input(parent_run_id="r0", resume=agui.resume_entries(["i1", "i2"], "eu"))
+        )
+        assert parsed.resume is not None
+        assert [entry.status for entry in parsed.resume] == ["resolved", "cancelled"]
+
 
 class TestWhatBlobReads:
     def test_a_message_the_sdk_writes_is_one_post(self) -> None:
@@ -135,6 +179,22 @@ class TestWhatBlobReads:
             )
         )
         assert fold.state == {"plan": ["build", "deploy"], "step": 2}
+
+    def test_the_version_and_usage_the_sdk_writes_are_read(self) -> None:
+        fold, _ = read(
+            wire(
+                core.RunStartedEvent(thread_id="t1", run_id="r1", protocol_version="1.0"),
+                core.RunFinishedEvent(
+                    thread_id="t1",
+                    run_id="r1",
+                    usage=[
+                        core.TokenUsage(provider="p", model="m", input_tokens=7, output_tokens=3)
+                    ],
+                ),
+            )
+        )
+        assert fold.protocol_version == "1.0"
+        assert agui.total_tokens(fold.usage) == 10
 
     def test_an_error_the_sdk_writes_fails_the_run(self) -> None:
         fold, _ = read(wire(core.RunErrorEvent(message="the model refused", code="refusal")))

@@ -714,6 +714,17 @@
             ],
             "title": "Threadrootid"
           },
+          "tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens"
+          },
           "transport": {
             "title": "Transport",
             "type": "string"
@@ -5138,6 +5149,17 @@
             ],
             "title": "Aguiurl"
           },
+          "aguiVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aguiversion"
+          },
           "botUserId": {
             "anyOf": [
               {
@@ -5326,6 +5348,11 @@
             "title": "Secondslastday",
             "type": "integer"
           },
+          "showsReasoning": {
+            "default": false,
+            "title": "Showsreasoning",
+            "type": "boolean"
+          },
           "slug": {
             "title": "Slug",
             "type": "string"
@@ -5355,6 +5382,11 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "tokensLastDay": {
+            "default": 0,
+            "title": "Tokenslastday",
+            "type": "integer"
           },
           "updatedAt": {
             "title": "Updatedat",
@@ -5896,6 +5928,19 @@
           "totalMentions"
         ],
         "title": "ReadStatesOut",
+        "type": "object"
+      },
+      "ReasoningInput": {
+        "properties": {
+          "shown": {
+            "title": "Shown",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "shown"
+        ],
+        "title": "ReasoningInput",
         "type": "object"
       },
       "RepoInput": {
@@ -11420,6 +11465,60 @@
           }
         },
         "summary": "Set Agent Owner",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/{plugin_id}/reasoning": {
+      "post": {
+        "description": "Whether this agent's run cards show its reasoning to the channel.\n\nOff by default: the card is the whole channel's, and an agent's working-out is where\nit narrates what it read \u2014 from tools and memory of its own that reach past the room.\nTurned on for an agent whose reasoning is worth reading and safe to share.",
+        "operationId": "set_reasoning_shown_api_admin_plugins__plugin_id__reasoning_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasoningInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Reasoning Shown",
         "tags": [
           "admin"
         ]

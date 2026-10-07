@@ -72,6 +72,9 @@ class Listener:
     #: Whose agent this is: None for the workspace's, a person's id for theirs (ADR 0018).
     #: Decides whose runs may read and write what it remembers.
     owner_user_id: str | None = None
+    #: The AG-UI version the agent last declared, or None if it never has. Decides
+    #: whether a run is sent 1.0's input fields; see `agui.speaks`.
+    agui_version: str | None = None
 
     def remembers_for(self, person_id: str) -> bool:
         """Whether a run on this person's behalf reads and writes the agent's memory.
@@ -146,6 +149,7 @@ async def stream_run(
                 "POST", listener.agui_url, content=body, headers=headers
             ) as response:
                 if response.status_code >= 400:
+                    fold.rejected_status = response.status_code
                     return fold, posts, f"the agent answered {response.status_code}"
                 async for chunk in response.aiter_bytes():
                     if time.monotonic() - started > settings.AGUI_MAX_RUN_SEC:

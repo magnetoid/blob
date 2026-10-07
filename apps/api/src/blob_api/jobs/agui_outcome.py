@@ -41,6 +41,7 @@ from ..services import messages as message_service
 from ..services import work as work_service
 from ..services.serialize import message_event
 from .agui_admission import looks_busy
+from .agui_input import attachment_parts
 from .agui_stream import CardBroadcaster, wait_for_cancel
 
 log = logging.getLogger("blob.jobs.agui")
@@ -488,6 +489,7 @@ async def _finish(
     card: run_card.CardFold,
     post_count: int,
     remembers: bool,
+    sent_1_0: bool = False,
 ) -> tuple[agent_run_service.RunStatus, str | None, agui.Decision | None]:
     """How the run ended, on the row and on the channel.
 
@@ -504,6 +506,11 @@ async def _finish(
         if reason
         else "interrupted"
         if fold.interrupt
+        # The agent ended the run as cancelled itself — after Blob's cancel frame, or its
+        # own decision. Neither an answer nor a failure, and the card should not say
+        # either.
+        else "cancelled"
+        if fold.cancelled
         else "succeeded"
     )
     final_card = card.snapshot() if card.has_content else None
@@ -532,7 +539,18 @@ async def _finish(
             interrupt=fold.interrupts if status == "interrupted" else None,
             state_json=shared_state if status == "interrupted" else None,
             expires_at=expires_at,
+            usage=fold.usage,
         )
+        if fold.protocol_version is not None and fold.protocol_version != listener.agui_version:
+            # What the agent says it speaks, kept for its next run (migration 0046).
+            await agent_run_service.learn_version(
+                session, listener.plugin_id, fold.protocol_version
+            )
+        elif sent_1_0 and fold.rejected_status in (400, 422):
+            # Refused outright a run written in 1.0: most likely redeployed on an older
+            # SDK, which refuses the fields before it can say what it speaks. The next
+            # run goes out in the older shape.
+            await agent_run_service.forget_version(session, listener.plugin_id)
         if (
             remembers
             and fold.state_touched
@@ -646,22 +664,6 @@ async def run_one(
             )
         return
 
-    run_input = agui.build_run_input(
-        thread_id=thread_root_id or channel_id,
-        run_id=trigger_id,
-        messages=agui.to_agui_messages(
-            gathered.history, bot_user_id=listener.bot_user_id, names=gathered.names
-        ),
-        channel_name=channel_name,
-        trigger_user=asker,
-        asked_by_agent=chain.asked_by,
-        on_behalf_of=on_behalf_of,
-        participants=gathered.participants,
-        state=gathered.state,
-        parent_run_id=chain.parent_agui_run_id,
-        resume=chain.resume,
-        instructions=listener.instructions,
-    )
     run_id = await _start(
         listener,
         workspace_id=workspace_id,
@@ -686,10 +688,17 @@ async def run_one(
     # the person's message spinning until the nightly sweep. `asyncio.gather` in
     # `jobs/agui.py` would have swallowed the exception besides, so it was not even logged.
     progress = _Progress()
+    asked = _Asked(
+        trigger_id=trigger_id,
+        asker=asker,
+        channel_name=channel_name,
+        on_behalf_of=on_behalf_of,
+    )
     try:
         await _drive(
             listener,
-            run_input,
+            gathered,
+            asked,
             progress,
             run_id=run_id,
             workspace_id=workspace_id,
@@ -752,9 +761,68 @@ async def _abandon(run_id: str, *, channel_id: str, reason: str, post_count: int
             after.add(lambda: hub.to_channel(channel_id, finished_event))
 
 
+@dataclass(slots=True)
+class _Asked:
+    """Who asked, and where — what the run input says about the question."""
+
+    trigger_id: str
+    asker: str
+    channel_name: str
+    on_behalf_of: str | None
+
+
+async def _run_input(
+    listener: Listener,
+    gathered: Gathered,
+    asked: _Asked,
+    *,
+    channel_id: str,
+    thread_root_id: str | None,
+    chain: agent_chains.Chain,
+) -> tuple[dict[str, Any], bool]:
+    """The POST body, and whether it was written in AG-UI 1.0.
+
+    Built after the run row exists, not before: reading the files is storage round trips,
+    and a job delivered twice should stop at the ledger before doing them — and a failure
+    here should close the run like any other, which only `run_one`'s guard does.
+
+    AG-UI 1.0's input fields go only to an agent that has said it speaks 1.0: an older
+    parser refuses a member it does not know, and that refusal looks like the agent being
+    down.
+    """
+    speaks_1_0 = agui.speaks(listener.agui_version)
+    parts = (
+        await attachment_parts(gathered.history, bot_user_id=listener.bot_user_id)
+        if speaks_1_0
+        else None
+    )
+    body = agui.build_run_input(
+        thread_id=thread_root_id or channel_id,
+        run_id=asked.trigger_id,
+        messages=agui.to_agui_messages(
+            gathered.history,
+            bot_user_id=listener.bot_user_id,
+            names=gathered.names,
+            parts=parts,
+        ),
+        channel_name=asked.channel_name,
+        trigger_user=asked.asker,
+        asked_by_agent=chain.asked_by,
+        on_behalf_of=asked.on_behalf_of,
+        participants=gathered.participants,
+        state=gathered.state,
+        parent_run_id=chain.parent_agui_run_id,
+        resume=chain.resume,
+        instructions=listener.instructions,
+        protocol_version=agui.PROTOCOL_VERSION if speaks_1_0 else None,
+    )
+    return body, speaks_1_0
+
+
 async def _drive(
     listener: Listener,
-    run_input: dict[str, Any],
+    gathered: Gathered,
+    asked: _Asked,
     progress: _Progress,
     *,
     run_id: str,
@@ -767,6 +835,14 @@ async def _drive(
     max_depth: int,
 ) -> None:
     """A started run: stream it, post what it said, record how it ended."""
+    run_input, sent_1_0 = await _run_input(
+        listener,
+        gathered,
+        asked,
+        channel_id=channel_id,
+        thread_root_id=thread_root_id,
+        chain=chain,
+    )
     card = run_card.CardFold(show_reasoning=listener.shows_reasoning)
     streamed = await _stream(
         listener,
@@ -815,6 +891,7 @@ async def _drive(
         card=card,
         post_count=len(streamed.posts),
         remembers=remembers,
+        sent_1_0=sent_1_0,
     )
     progress.finished = True
     if streamed.cancelled:

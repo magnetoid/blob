@@ -153,6 +153,7 @@ export function AppSettings({ pluginId, onError }: Props) {
           <>
             {plugin.slug} · v{plugin.version} · {plugin.status}
             {plugin.aguiUrl ? " · answers over AG-UI" : ""}
+            {plugin.aguiVersion ? ` ${plugin.aguiVersion}` : ""}
           </>
         }
       >
@@ -210,6 +211,31 @@ export function AppSettings({ pluginId, onError }: Props) {
             </div>
           </div>
         </div>
+
+        {(plugin.aguiUrl || plugin.runtime === "socket") && (
+          <div className="pref-row">
+            <div className="grow">
+              <h3 className="pref-label">Show its reasoning</h3>
+              <div className="pref-hint">
+                The card under a mention can show the channel a tail of what the agent
+                was thinking. Off by default: an agent narrates what it read there,
+                including from tools and memory of its own beyond the room.
+              </div>
+            </div>
+            <button
+              className="toggle"
+              aria-pressed={plugin.showsReasoning}
+              aria-label={`Show ${plugin.name}'s reasoning`}
+              onClick={() =>
+                void act(() =>
+                  api.admin.setPluginReasoning(pluginId, !plugin.showsReasoning),
+                )
+              }
+            >
+              <span />
+            </button>
+          </div>
+        )}
       </Card>
 
       <Card title="Channels">

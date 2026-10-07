@@ -14,6 +14,7 @@
 import { useState } from 'react';
 import type { AgentRunCard as RunCard, AgentRunView } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
+import { formatTokens } from '../../lib/format.ts';
 import { useStore } from '../../lib/store.ts';
 import { showError } from '../../lib/toasts.ts';
 import { ChevronDownIcon } from '../../components/Icon.tsx';
@@ -115,7 +116,11 @@ function RunLine({ run, isTabStop }: { run: AgentRunView; isTabStop: boolean }) 
   const [open, setOpen] = useState(false);
   const card = run.card;
   const hasWork = Boolean(
-    card && (card.steps.length > 0 || card.tools.length > 0 || card.reasoning),
+    card &&
+      (card.steps.length > 0 ||
+        card.tools.length > 0 ||
+        (card.subagents?.length ?? 0) > 0 ||
+        card.reasoning),
   );
   const said = [run.askedBy ? lineage(run) : '', statusLabel(run, false)].filter(Boolean);
 
@@ -170,6 +175,22 @@ function RunWork({ card }: { card: RunCard }) {
         </ol>
       )}
 
+      {/* Delegated work reads like the plan: each subagent a row that says how it
+          ended. Optional on the card, which was stored without it before AG-UI 1.0. */}
+      {card.subagents && card.subagents.length > 0 && (
+        <ol className="agent-run-steps agent-run-subagents" aria-label="Delegated to">
+          {card.subagents.map((subagent, index) => (
+            <li key={`${subagent.name}-${index}`} data-status={subagent.status}>
+              <span className="agent-run-step-mark" aria-hidden>
+                {subagent.status === 'done' ? '✓' : subagent.status === 'failed' ? '✕' : '•'}
+              </span>
+              {subagent.name}
+              {subagent.status === 'failed' && ' — failed'}
+            </li>
+          ))}
+        </ol>
+      )}
+
       {card.tools.length > 0 && (
         <div className="agent-run-tools">
           {card.tools.map((tool, index) => (
@@ -211,7 +232,14 @@ function lineage(run: AgentRunView): string {
 function statusLabel(run: AgentRunView, yours: boolean): string {
   switch (run.status) {
     case 'succeeded':
-      return run.postCount > 0 ? durationLabel(run) : `answered silently · ${durationLabel(run)}`;
+      return [
+        run.postCount > 0 ? '' : 'answered silently',
+        durationLabel(run),
+        // What the agent reported it cost, when it reported anything (AG-UI 1.0).
+        run.tokens ? formatTokens(run.tokens) : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
     case 'failed':
       return run.error ? `failed — ${run.error}` : 'failed';
     case 'cancelled':

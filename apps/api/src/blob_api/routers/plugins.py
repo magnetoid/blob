@@ -90,6 +90,14 @@ class PluginOut(CamelModel):
     budget_seconds_per_day: int | None = None
     runs_last_day: int = 0
     seconds_last_day: int = 0
+    #: Tokens the agent reported over the same day (AG-UI 1.0 carries them on the run's
+    #: last event). Zero for an agent that reports none, which says nothing about cost.
+    tokens_last_day: int = 0
+    #: The AG-UI version the agent last declared, or None if it never has — what decides
+    #: whether its runs are sent 1.0's fields.
+    agui_version: str | None = None
+    #: Whether its run cards show the channel a tail of its reasoning.
+    shows_reasoning: bool = False
     #: The console table's two numbers beside the name, and its Access column. A week
     #: is the window a person judges an agent over; "live" is the one thing on the page
     #: worth a glance; the channel count is how many public rooms the bot is a member of.
@@ -222,7 +230,7 @@ async def _build_plugin(
     scopes: list[str],
     counts: Any,
     bot_id: str | None,
-    usage: tuple[int, int] | None = None,
+    usage: tuple[int, int, int] | None = None,
     activity: tuple[int, int] | None = None,
     channel_count: int = 0,
 ) -> PluginOut:
@@ -257,6 +265,9 @@ async def _build_plugin(
         budget_seconds_per_day=getattr(row, "budget_seconds_per_day", None),
         runs_last_day=usage[0] if usage else 0,
         seconds_last_day=usage[1] if usage else 0,
+        tokens_last_day=usage[2] if usage else 0,
+        agui_version=getattr(row, "agui_version", None),
+        shows_reasoning=bool(getattr(row, "shows_reasoning", False)),
         runs_last_week=activity[0] if activity else 0,
         running_now=activity[1] if activity else 0,
         channel_count=channel_count,
@@ -766,6 +777,37 @@ async def set_everywhere(
         return await _to_plugin(session, row)
 
 
+class ReasoningInput(CamelModel):
+    shown: bool
+
+
+@router.post("/{plugin_id}/reasoning", response_model=PluginOut)
+async def set_reasoning_shown(
+    plugin_id: IdParam,
+    payload: ReasoningInput,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> PluginOut:
+    """Whether this agent's run cards show its reasoning to the channel.
+
+    Off by default: the card is the whole channel's, and an agent's working-out is where
+    it narrates what it read — from tools and memory of its own that reach past the room.
+    Turned on for an agent whose reasoning is worth reading and safe to share.
+    """
+    async with transaction() as (session, _after):
+        await registry.set_shows_reasoning(session, plugin_id, admin.workspace_id, payload.shown)
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.reasoning_set",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"pluginId": plugin_id, "shown": payload.shown},
+        )
+        row = await registry.by_id(session, plugin_id, admin.workspace_id)
+        return await _to_plugin(session, row)
+
+
 @router.post("/{plugin_id}/secret", response_model=SecretOut)
 async def rotate_secret(
     plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
@@ -837,6 +879,8 @@ class AgentRunOut(CamelModel):
     depth: int = 0
     #: The agent whose reply asked this one, when depth > 0. ADR 0013.
     asked_by: str | None = None
+    #: Tokens the agent reported for the run, or None if it reported none.
+    tokens: int | None = None
 
 
 class AgentRunsOut(CamelModel):
@@ -876,6 +920,7 @@ async def list_runs(
                 post_count=run.post_count,
                 depth=run.depth,
                 asked_by=run.asked_by,
+                tokens=run.tokens,
                 started_at=require_iso(run.started_at),
                 finished_at=iso(run.finished_at),
                 duration_ms=(

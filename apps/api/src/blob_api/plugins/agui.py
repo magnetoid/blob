@@ -22,9 +22,14 @@ Three details cost more to rediscover than to record:
   the wire is `TEXT_MESSAGE_START`. Matching the headings parses nothing.
 - **Field names are camelCase**, in every SDK, including the Python one — it declares
   `message_id` but serialises through an alias generator.
-- **Unknown event types are ignored, never fatal.** The protocol is pre-1.0 and still
-  gaining events; a strict discriminated union would turn next month's addition into a
-  dead agent. Ten event types are acted on and the rest are inert.
+- **Unknown event types are ignored, never fatal.** The protocol reached 1.0 in September
+  2026 and still gains events; a strict discriminated union would turn next month's
+  addition into a dead agent. What Blob does with each one is pinned against the official
+  SDK in `tests/test_agui_conformance.py`.
+- **A version is learned, not assumed.** An agent states its own in
+  `RUN_STARTED.protocolVersion`, and Blob sends 1.0's input fields — the version itself,
+  content parts — only to an agent that has said it speaks 1.0, because parsers from
+  before the field refuse members they do not know.
 """
 
 from __future__ import annotations
@@ -33,6 +38,7 @@ import base64
 import binascii
 import json
 import logging
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -67,6 +73,29 @@ STATE_MAX_BYTES = 64 * 1024
 
 #: Buttons a decision may offer. Matches the block element cap.
 DECISION_MAX_CHOICES = 5
+
+#: How much of an agent's `RUN_ERROR` message Blob keeps. It is stored on the run and
+#: broadcast to the channel, and an agent can put anything in it.
+ERROR_MAX_CHARS = 500
+
+#: A protocol version as AG-UI writes one: MAJOR.MINOR, compared numerically. A patch
+#: number some producers add is accepted and dropped — the protocol does not version by it.
+_VERSION_RE = re.compile(r"^(\d{1,4})\.(\d{1,4})(?:\.\d{1,6})?$")
+
+#: The version Blob speaks, sent as `protocolVersion` to an agent that has said it
+#: speaks at least this.
+PROTOCOL_VERSION = "1.0"
+
+#: Usage entries kept from one terminal event, and the token counts each may carry.
+USAGE_MAX_ENTRIES = 8
+_USAGE_COUNTS = (
+    "inputTokens",
+    "outputTokens",
+    "totalTokens",
+    "reasoningTokens",
+    "cachedInputTokens",
+    "cacheWriteInputTokens",
+)
 
 #: Artifacts one run may publish into a work channel (ADR 0014), and how big each may be.
 ARTIFACT_MAX_ITEMS = 10
@@ -227,6 +256,19 @@ class Fold:
         #: them in. Anywhere else they are inert.
         self.artifacts: list[dict[str, str]] = []
         self.finished = False
+        #: The protocol version the agent declared in `RUN_STARTED.protocolVersion` —
+        #: its own, never an echo of Blob's. None when it said nothing, which is what an
+        #: agent from before 1.0 says.
+        self.protocol_version: str | None = None
+        #: Token usage the agent reported on its terminal event, one entry per provider
+        #: and model. None when it reported none.
+        self.usage: list[dict[str, Any]] | None = None
+        #: The agent ended the run as cancelled (`outcome: {type: "cancelled"}`), which
+        #: is neither an answer nor a failure.
+        self.cancelled = False
+        #: The HTTP status the agent refused the run with, when it refused it outright.
+        #: Set by the transport, which is the only thing that sees one.
+        self.rejected_status: int | None = None
 
     @property
     def posted(self) -> int:
@@ -286,9 +328,19 @@ class Fold:
                     self._tools.append(name)
             return []
 
+        if kind == "RUN_STARTED":
+            declared = event.get("protocolVersion")
+            matched = _VERSION_RE.match(declared) if isinstance(declared, str) else None
+            if matched:
+                self.protocol_version = f"{int(matched.group(1))}.{int(matched.group(2))}"
+            return []
+
         if kind == "RUN_ERROR":
             message = event.get("message")
-            self.error = message if isinstance(message, str) and message else "no reason given"
+            self.error = (
+                message[:ERROR_MAX_CHARS] if isinstance(message, str) and message else None
+            ) or "no reason given"
+            self.usage = usage_of(event)
             self.finished = True
             return self.finish()
 
@@ -296,6 +348,9 @@ class Fold:
             self.finished = True
             self.interrupts = interrupts_of(event)
             self.interrupt = interrupt_prompt(self.interrupts)
+            self.usage = usage_of(event)
+            outcome = event.get("outcome")
+            self.cancelled = isinstance(outcome, Mapping) and outcome.get("type") == "cancelled"
             return self.finish()
 
         if kind == "CUSTOM" and event.get("name") == "blob.artifact":
@@ -322,10 +377,11 @@ class Fold:
                 log.info("agui: a STATE_DELTA did not apply; keeping the last snapshot")
             return []
 
-        # Everything else — RUN_STARTED, STEP_*, MESSAGES_SNAPSHOT, every REASONING_* and
-        # THINKING_* event, TOOL_CALL_ARGS, TOOL_CALL_RESULT, CUSTOM — is deliberately
-        # inert. Reasoning in particular is never posted: it is the agent's working-out,
-        # not its answer.
+        # Everything else — STEP_*, ACTIVITY_*, SUBAGENT_*, MESSAGES_SNAPSHOT, every
+        # REASONING_* and THINKING_* event, TOOL_CALL_ARGS, TOOL_CALL_RESULT, RAW, CUSTOM —
+        # posts nothing; the live card (`run_card.CardFold`) draws what of it is drawn.
+        # Reasoning in particular is never posted: it is the agent's working-out, not its
+        # answer.
         return []
 
     def _take_artifact(self, value: Any) -> None:
@@ -557,6 +613,62 @@ def _message_id(event: Mapping[str, Any]) -> str:
     return value if isinstance(value, str) and value else "default"
 
 
+def speaks(declared: str | None, version: str = PROTOCOL_VERSION) -> bool:
+    """Whether an agent that declared `declared` speaks at least `version`.
+
+    MAJOR.MINOR compared numerically, component by component — `1.10` is newer than
+    `1.9`. An agent that never declared one speaks something older than the field.
+    """
+    have = _VERSION_RE.match(declared) if declared is not None else None
+    want = _VERSION_RE.match(version)
+    if have is None or want is None:
+        return False
+    return (int(have.group(1)), int(have.group(2))) >= (int(want.group(1)), int(want.group(2)))
+
+
+def usage_of(event: Mapping[str, Any]) -> list[dict[str, Any]] | None:
+    """The token usage a terminal event reported, kept to what AG-UI defines.
+
+    A list, one entry per provider and model. Only the named counts are kept, and only as
+    non-negative integers; `provider` and `model` are trimmed. Anything else the agent put
+    there is dropped rather than stored, since it is stored and shown.
+    """
+    raw = event.get("usage")
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        return None
+    kept: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            continue
+        entry: dict[str, Any] = {}
+        for key in ("provider", "model"):
+            value = item.get(key)
+            if isinstance(value, str) and value:
+                entry[key] = value[:80]
+        for key in _USAGE_COUNTS:
+            value = item.get(key)
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                entry[key] = value
+        if any(key in entry for key in _USAGE_COUNTS):
+            kept.append(entry)
+        if len(kept) >= USAGE_MAX_ENTRIES:
+            break
+    return kept or None
+
+
+def total_tokens(usage: Sequence[Mapping[str, Any]] | None) -> int | None:
+    """One number for a run's usage: each entry's total, or its input and output."""
+    if not usage:
+        return None
+    total = 0
+    for entry in usage:
+        if isinstance(entry.get("totalTokens"), int):
+            total += int(entry["totalTokens"])
+        else:
+            total += int(entry.get("inputTokens") or 0) + int(entry.get("outputTokens") or 0)
+    return total
+
+
 def interrupts_of(event: Mapping[str, Any]) -> list[dict[str, Any]] | None:
     """The `interrupts[]` a RUN_FINISHED carried, capped, or None if it ended cleanly.
 
@@ -627,20 +739,40 @@ class Decision:
 
 
 def decision_of(interrupts: Sequence[Mapping[str, Any]] | None) -> Decision:
+    """The question to put to the person: the first interrupt, whole.
+
+    An agent may stop with several questions at once. Each is self-contained — its own
+    message, its own `responseSchema` — so the card asks the first, prompt and choices
+    from the same one; it used to take the prompt from one and the buttons from whichever
+    came first with choices. The resume answers that one and marks the rest cancelled
+    (`resume_entries`), and an agent that still needs them asks again.
+    """
     items = list(interrupts or [])
-    prompt = interrupt_prompt(items) or "The agent is waiting on a decision."
+    first = items[0] if items else {}
+    prompt = interrupt_prompt([first] if items else None) or "The agent is waiting on a decision."
     ids = [str(item["id"]) for item in items if isinstance(item.get("id"), str) and item["id"]]
-    choices: list[Choice] = []
-    for item in items:
-        choices = _choices_of(item)
-        if choices:
-            break
     return Decision(
         prompt=prompt,
-        choices=choices[:DECISION_MAX_CHOICES],
+        choices=_choices_of(first)[:DECISION_MAX_CHOICES],
         interrupt_ids=ids or ["default"],
         expires_at=_earliest_expiry(items),
     )
+
+
+def resume_entries(interrupt_ids: Sequence[str], answer: Any) -> list[dict[str, Any]]:
+    """What a resume tells the agent: the question that was asked answered, the rest
+    cancelled.
+
+    AG-UI 1.0 wants one entry per interrupt, each `resolved` or `cancelled`. Every id
+    used to be resolved with the one answer the person gave to the one question they
+    were shown — an answer to "deploy to production?" handed to "which region?" too.
+    """
+    ids = list(interrupt_ids) or ["default"]
+    first, rest = ids[0], ids[1:]
+    return [
+        {"interruptId": first, "status": "resolved", "payload": answer},
+        *({"interruptId": other, "status": "cancelled"} for other in rest),
+    ]
 
 
 def _choices_of(item: Mapping[str, Any]) -> list[Choice]:
@@ -705,27 +837,53 @@ def to_agui_messages(
     *,
     bot_user_id: str,
     names: Mapping[str, str],
+    parts: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
 ) -> list[dict[str, Any]]:
     """Blob history as AG-UI `Message[]`, oldest first.
 
     The listening bot's own rows become `assistant`; everyone else — people and other
     apps' bots alike — becomes `user` with a `name`. To the agent, another bot is simply
     another participant, which is the same thing it is to a person reading the channel.
+
+    A message with files says so in its text, whatever the agent speaks: "[attached:
+    report.pdf]". A message that was only a file used to be dropped altogether, so the
+    agent was asked about a document it was never told existed. `parts` carries the
+    files themselves, as AG-UI 1.0 content parts keyed by message id — given only for an
+    agent that speaks 1.0, because an older parser refuses a list where it expects text.
     """
     out: list[dict[str, Any]] = []
     for message in messages:
-        if message.deleted_at or message.kind == "system" or not message.body:
+        if message.deleted_at or message.kind == "system":
+            continue
+        text = _with_attachment_line(message)
+        if not text:
             continue
         mine = message.author_id == bot_user_id
+        content: str | list[dict[str, Any]] = text
+        extra = parts.get(message.id) if parts and not mine else None
+        if extra:
+            content = [{"type": "text", "text": text}, *(dict(part) for part in extra)]
         entry: dict[str, Any] = {
             "id": message.id,
             "role": "assistant" if mine else "user",
-            "content": message.body,
+            "content": content,
         }
         if not mine:
             entry["name"] = names.get(message.author_id or "", "someone")
         out.append(entry)
     return out
+
+
+def _with_attachment_line(message: Message) -> str:
+    """The body, and a line naming the files that came with it.
+
+    A voice note's transcript is already its body, so a recording is not named again.
+    """
+    named = [a.filename for a in message.attachments if a.kind != "voice"]
+    if not named:
+        return message.body
+    line = f"[attached: {', '.join(named)}]"
+    return f"{message.body}\n{line}" if message.body else line
 
 
 def build_run_input(
@@ -742,6 +900,7 @@ def build_run_input(
     parent_run_id: str | None = None,
     resume: Sequence[Mapping[str, Any]] | None = None,
     instructions: str | None = None,
+    protocol_version: str | None = None,
 ) -> dict[str, Any]:
     """The POST body.
 
@@ -761,6 +920,11 @@ def build_run_input(
     The extra context items exist for a chain (ADR 0013): `asked_by_agent` names the agent
     whose reply mentioned this one, `on_behalf_of` the person whose authority the hop runs
     on, and `participants` the other agents in the room, so an agent can address one.
+
+    `protocol_version` is the version Blob speaks, and is sent only to an agent that
+    declared it speaks it too (`speaks`): AG-UI 1.0 asks a client to omit it for a peer
+    that predates the field, since that peer's parser may refuse any member it does not
+    know.
 
     `instructions` is what the workspace told this agent (`plugins.instructions`), and it
     is the one thing that travels in `forwardedProps` — Janus reads it as an ephemeral
@@ -788,6 +952,8 @@ def build_run_input(
         "context": context,
         "forwardedProps": {"instructions": instructions} if instructions else {},
     }
+    if protocol_version is not None:
+        body["protocolVersion"] = protocol_version
     if parent_run_id is not None:
         body["parentRunId"] = parent_run_id
     if resume is not None:

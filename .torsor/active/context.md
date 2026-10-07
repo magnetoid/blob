@@ -1396,3 +1396,24 @@ reconnect never refetched runs. `lib/agentRuns.ts` folds by progress (a view nev
 replaces one further along), and `resync` calls `reloadRuns`, which may settle only runs
 it held as running *before* the request — one that starts while it is out is absent for a
 different reason.
+
+## AG-UI 1.0 (2026-10-07): a version is learned, never assumed
+
+AG-UI froze at 1.0 on 2026-09-30, compatible on the event side and not quite on the input
+side: the Python SDK refused unknown input members until 0.1.10 (`extra="forbid"` in
+0.1.9, `"allow"` from 0.1.10 — checked against the published wheels), so
+`protocolVersion`, or a list of content parts where text was expected, is a 422 from an
+older agent — the failure that reads exactly like the agent being down. The spec's own
+rule is that an agent states its version in `RUN_STARTED.protocolVersion` and a client
+omits the field for a peer it knows predates it. So `plugins.agui_version` holds what the
+agent last declared (migration 0046), `agui.speaks()` compares MAJOR.MINOR numerically,
+and `run_one` sends `protocolVersion` and the files as parts (`jobs/agui_input.py`) only
+when it says yes. **Do not send a new input member to every agent because the spec added
+it** — gate it on the declared version the same way.
+
+Two shapes changed under the card, both caught by the conformance oracle
+(`tests/test_agui_conformance.py`, which builds every event the SDK defines): an
+activity is a `content` object patched by `ACTIVITY_DELTA`, not a top-level string, and a
+tool result may be a list of parts. A new member of the SDK's `EventType` fails
+`test_every_event_the_protocol_defines_is_covered` until it has an entry — that is the
+intended way to hear about the next revision.

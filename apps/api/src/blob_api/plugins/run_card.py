@@ -19,6 +19,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from ..lib import jsonpatch
+
 #: Wire values are SCREAMING_SNAKE — verified against ag-ui-protocol/ag-ui, and worth
 #: restating because the docs' section headers confidently suggest otherwise.
 
@@ -29,6 +31,12 @@ MAX_RESULT_CHARS = 600
 MAX_ACTIVITY_CHARS = 200
 MAX_REASONING_CHARS = 2000
 MAX_NAME_CHARS = 80
+MAX_SUBAGENTS = 10
+
+#: The keys of an AG-UI 1.0 activity's `content` read for the card's one line, in order.
+#: The content's shape belongs to its `activityType`, so the card looks for the plain
+#: words a progress object carries rather than knowing every type.
+_ACTIVITY_KEYS = ("title", "label", "message", "status", "description", "text")
 
 
 class CardFold:
@@ -48,6 +56,11 @@ class CardFold:
         self._tools: list[dict[str, Any]] = []
         self._tool_index: dict[str, dict[str, Any]] = {}
         self._activity: str | None = None
+        #: AG-UI 1.0 activities by `messageId`: the content object a snapshot set and
+        #: deltas patch. The line shown is read from the latest one touched.
+        self._activities: dict[str, Any] = {}
+        self._subagents: list[dict[str, Any]] = []
+        self._subagent_index: dict[str, dict[str, Any]] = {}
         self._reasoning = ""
         self._text_chars = 0
         self._dropped = 0
@@ -70,7 +83,10 @@ class CardFold:
             return self._tool_end(event, kind)
 
         if kind in ("ACTIVITY_SNAPSHOT", "ACTIVITY_DELTA"):
-            return self._activity_line(event)
+            return self._activity_event(event, kind)
+
+        if kind in ("SUBAGENT_STARTED", "SUBAGENT_FINISHED", "SUBAGENT_ERROR"):
+            return self._subagent(event, kind)
 
         if kind.startswith(("REASONING", "THINKING")):
             if not self._show_reasoning:
@@ -146,7 +162,7 @@ class CardFold:
         changed = tool["status"] != "done"
         tool["status"] = "done"
         if kind == "TOOL_CALL_RESULT":
-            content = _text(event.get("content"), MAX_RESULT_CHARS)
+            content = _text(_parts_text(event.get("content")), MAX_RESULT_CHARS)
             if content:
                 tool["result"] = content
                 changed = True
@@ -163,15 +179,68 @@ class CardFold:
                 return tool
         return None
 
-    def _activity_line(self, event: Mapping[str, Any]) -> bool:
+    def _activity_event(self, event: Mapping[str, Any], kind: str) -> bool:
+        """An activity, in either shape it has had.
+
+        AG-UI 1.0: a snapshot sets a `content` object for a `messageId` and a delta
+        patches it (JSON Patch), and what the object holds belongs to its
+        `activityType`. Before 1.0 producers put a string at the top level, and some
+        still do; that shape is read too.
+        """
+        message_id = event.get("messageId")
+        if isinstance(message_id, str) and message_id:
+            if kind == "ACTIVITY_SNAPSHOT" and isinstance(event.get("content"), Mapping):
+                self._activities[message_id] = dict(event["content"])
+                return self._set_activity(_activity_text(self._activities[message_id], event))
+            patch = event.get("patch")
+            if kind == "ACTIVITY_DELTA" and isinstance(patch, list):
+                current = self._activities.get(message_id, {})
+                try:
+                    patched = jsonpatch.apply(current, patch)
+                except jsonpatch.PatchError:
+                    return False  # Keep the last good line rather than half a patch.
+                if isinstance(patched, Mapping):
+                    self._activities[message_id] = dict(patched)
+                    return self._set_activity(_activity_text(self._activities[message_id], event))
+                return False
         for key in ("message", "description", "text", "content", "activity"):
             line = _text(event.get(key), MAX_ACTIVITY_CHARS)
             if line:
-                if line == self._activity:
-                    return False
-                self._activity = line
-                return True
+                return self._set_activity(line)
         return False
+
+    def _set_activity(self, line: str | None) -> bool:
+        if not line or line == self._activity:
+            return False
+        self._activity = line
+        return True
+
+    def _subagent(self, event: Mapping[str, Any], kind: str) -> bool:
+        """Delegated work, drawn like a step: AG-UI 1.0's subagent lifecycle."""
+        run_id = _text(event.get("subagentRunId"), 64)
+        if run_id is None:
+            return False
+        if kind == "SUBAGENT_STARTED":
+            if run_id in self._subagent_index:
+                return False  # A repeated start is noise, not a second subagent.
+            if len(self._subagents) >= MAX_SUBAGENTS:
+                self._dropped += 1
+                return False
+            started: dict[str, Any] = {
+                "name": _text(event.get("name"), MAX_NAME_CHARS) or "subagent",
+                "status": "running",
+            }
+            self._subagents.append(started)
+            self._subagent_index[run_id] = started
+            return True
+        known = self._subagent_index.get(run_id)
+        if known is None:
+            return False
+        status = "failed" if kind == "SUBAGENT_ERROR" else "done"
+        if known["status"] == status:
+            return False
+        known["status"] = status
+        return True
 
     def snapshot(self) -> dict[str, Any]:
         """The card as the wire and the row carry it. Snapshots, not deltas: a client
@@ -180,6 +249,7 @@ class CardFold:
             "steps": [dict(step) for step in self._steps],
             "tools": [dict(tool) for tool in self._tools],
             "activity": self._activity,
+            "subagents": [dict(entry) for entry in self._subagents],
             "reasoning": self._reasoning or None,
             "textChars": self._text_chars,
             "dropped": self._dropped,
@@ -187,7 +257,33 @@ class CardFold:
 
     @property
     def has_content(self) -> bool:
-        return bool(self._steps or self._tools or self._activity or self._reasoning)
+        return bool(
+            self._steps or self._tools or self._activity or self._subagents or self._reasoning
+        )
+
+
+def _activity_text(content: Mapping[str, Any], event: Mapping[str, Any]) -> str | None:
+    for key in _ACTIVITY_KEYS:
+        line = _text(content.get(key), MAX_ACTIVITY_CHARS)
+        if line:
+            return line
+    return _text(event.get("activityType"), MAX_ACTIVITY_CHARS)
+
+
+def _parts_text(value: Any) -> str | None:
+    """A tool result as text: a string, or the text parts of AG-UI 1.0's part list."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        pieces = [
+            part["text"]
+            for part in value
+            if isinstance(part, Mapping)
+            and part.get("type") == "text"
+            and isinstance(part.get("text"), str)
+        ]
+        return "\n".join(pieces) or None
+    return None
 
 
 def _text(value: Any, cap: int) -> str | None:
