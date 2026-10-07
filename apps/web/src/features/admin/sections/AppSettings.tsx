@@ -215,6 +215,37 @@ export function AppSettings({ pluginId, onError }: Props) {
         {(plugin.aguiUrl || plugin.runtime === "socket") && (
           <div className="pref-row">
             <div className="grow">
+              <h3 className="pref-label">What it may do in the workspace</h3>
+              <div className="pref-hint">
+                With Blob&apos;s tools, an agent can look further than the conversation it
+                was asked in — always as the person who asked, and in a channel only
+                into public channels and that room. Every post it wants to make waits for
+                that person to approve it.
+              </div>
+            </div>
+            <select
+              className="input"
+              aria-label={`What ${plugin.name} may do`}
+              value={plugin.toolAccess ?? "none"}
+              onChange={(event) =>
+                void act(() =>
+                  api.admin.setPluginTools(
+                    pluginId,
+                    event.target.value as AdminPlugin["toolAccess"],
+                  ),
+                )
+              }
+            >
+              <option value="none">Only answer what it was asked</option>
+              <option value="read">Read and search, as the person who asked</option>
+              <option value="write">Read, and post once they approve</option>
+            </select>
+          </div>
+        )}
+
+        {(plugin.aguiUrl || plugin.runtime === "socket") && (
+          <div className="pref-row">
+            <div className="grow">
               <h3 className="pref-label">Show its reasoning</h3>
               <div className="pref-hint">
                 The card under a mention can show the channel a tail of what the agent

@@ -588,6 +588,21 @@ async def set_shows_reasoning(
     )
 
 
+async def set_tool_access(
+    session: AsyncSession, plugin_id: str, workspace_id: str, access: str
+) -> None:
+    """What this agent may do with Blob's tools (ADR 0022): `none`, `read`, or `write`.
+
+    The caller checks the value; the table's CHECK is the second line. Every write an
+    agent asks for still waits for the person it is working for, whatever this says.
+    """
+    await by_id(session, plugin_id, workspace_id)
+    await session.execute(
+        text("UPDATE plugins SET tool_access = :access, updated_at = now() WHERE id = :id"),
+        {"id": plugin_id, "access": access},
+    )
+
+
 async def set_status(
     session: AsyncSession, plugin_id: str, workspace_id: str, status: Status
 ) -> None:

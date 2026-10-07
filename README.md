@@ -228,6 +228,11 @@ document a key nobody bound or a command your server does not answer.
   more than the room it answers in. An agent that speaks AG-UI 1.0 is also handed the
   images, PDFs and text files shared there; every agent is told they exist. A person's
   own agents are turned off when that person is deactivated.
+- **Blob's tools, for agents an admin allows** — an agent can search the workspace, read
+  a channel or a thread and list people, always as the person who asked it and, in a
+  channel, only into public channels and that room (ADR 0022). With write access it can
+  post too, and every post waits for that person to press Approve. Off for every agent
+  until an admin chooses on its page.
 - **AG-UI 1.0, learned per agent** — an agent states the version it speaks when a run
   starts, and Blob speaks 1.0 back only to one that has, so older agents keep working. The
   tokens an agent reports land on the run card and the console's daily meter; delegated

@@ -39,7 +39,7 @@ import binascii
 import json
 import logging
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -127,6 +127,38 @@ class AgentFile:
     #: name. A claim is only a claim: the job sniffs the bytes before trusting it.
     mime: str | None
     data: bytes
+
+
+#: How much of one tool call's arguments Blob keeps. A call is a handful of fields — the
+#: longest is a post's text — and a megabyte of "arguments" is not a call Blob will run.
+TOOL_ARGS_MAX_CHARS = 32 * 1024
+
+
+@dataclass(slots=True)
+class ToolCall:
+    """A tool call the agent made in its stream, as Blob heard it.
+
+    Kept for every call, because a call to one of Blob's own tools (ADR 0022) is a request
+    Blob runs once the stream ends — the agent stops and waits, as AG-UI's client-executed
+    tools do. A call the agent ran itself reports its own `TOOL_CALL_RESULT`, and is only
+    shown.
+    """
+
+    id: str
+    name: str
+    arguments: str = ""
+    #: Past `TOOL_ARGS_MAX_CHARS`: kept as a call, never run.
+    oversized: bool = False
+
+    def parsed_arguments(self) -> dict[str, Any] | None:
+        """The arguments as an object, or None if they are not one."""
+        if self.oversized:
+            return None
+        try:
+            value = json.loads(self.arguments) if self.arguments.strip() else {}
+        except ValueError:
+            return None
+        return value if isinstance(value, dict) else None
 
 
 @dataclass(slots=True)
@@ -223,6 +255,10 @@ class Fold:
         self._part: dict[str, int] = {}
         self._tools: list[str] = []
         self._calls: dict[str, str] = {}
+        #: Every tool call in the stream, in order, with its arguments.
+        self.tool_calls: dict[str, ToolCall] = {}
+        #: Calls the agent reported a result for itself — its own tools, not Blob's.
+        self._answered_calls: set[str] = set()
         self._posted = 0
         #: The last message sealed. Nothing is written until the stream ends, so a file
         #: or a note that arrives after the answer can still join it.
@@ -319,6 +355,10 @@ class Fold:
         if kind in ("TOOL_CALL_START", "TOOL_CALL_CHUNK"):
             name = event.get("toolCallName")
             call_id = event.get("toolCallId")
+            if isinstance(name, str) and name and isinstance(call_id, str) and call_id:
+                self.tool_calls.setdefault(call_id, ToolCall(id=call_id, name=name))
+            if kind == "TOOL_CALL_CHUNK":
+                self._take_arguments(event)
             if isinstance(name, str) and name:
                 if isinstance(call_id, str) and self._calls.get(call_id) == name:
                     return []  # A chunk repeating what its start already said.
@@ -326,6 +366,16 @@ class Fold:
                     self._calls[call_id] = name
                 if name not in self._tools:
                     self._tools.append(name)
+            return []
+
+        if kind == "TOOL_CALL_ARGS":
+            self._take_arguments(event)
+            return []
+
+        if kind == "TOOL_CALL_RESULT":
+            call_id = event.get("toolCallId")
+            if isinstance(call_id, str):
+                self._answered_calls.add(call_id)
             return []
 
         if kind == "RUN_STARTED":
@@ -378,11 +428,39 @@ class Fold:
             return []
 
         # Everything else — STEP_*, ACTIVITY_*, SUBAGENT_*, MESSAGES_SNAPSHOT, every
-        # REASONING_* and THINKING_* event, TOOL_CALL_ARGS, TOOL_CALL_RESULT, RAW, CUSTOM —
+        # REASONING_* and THINKING_* event, TOOL_CALL_END, RAW, CUSTOM —
         # posts nothing; the live card (`run_card.CardFold`) draws what of it is drawn.
         # Reasoning in particular is never posted: it is the agent's working-out, not its
         # answer.
         return []
+
+    def _take_arguments(self, event: Mapping[str, Any]) -> None:
+        """A piece of a call's arguments: for the call it names, or the newest one."""
+        delta = event.get("delta")
+        if not isinstance(delta, str) or not delta:
+            return
+        call_id = event.get("toolCallId")
+        call = (
+            self.tool_calls.get(call_id)
+            if isinstance(call_id, str)
+            else next(reversed(self.tool_calls.values()), None)
+        )
+        if call is None or call.oversized:
+            return
+        if len(call.arguments) + len(delta) > TOOL_ARGS_MAX_CHARS:
+            call.oversized = True
+            call.arguments = ""
+            return
+        call.arguments += delta
+
+    def client_calls(self, names: Collection[str]) -> list[ToolCall]:
+        """The calls the agent left for Blob to run: to a tool Blob offered, and with no
+        result the agent reported itself."""
+        return [
+            call
+            for call in self.tool_calls.values()
+            if call.name in names and call.id not in self._answered_calls
+        ]
 
     def _take_artifact(self, value: Any) -> None:
         """Keep a well-formed artifact; log and drop anything else. Never fatal."""
@@ -901,6 +979,7 @@ def build_run_input(
     resume: Sequence[Mapping[str, Any]] | None = None,
     instructions: str | None = None,
     protocol_version: str | None = None,
+    tools: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """The POST body.
 
@@ -914,8 +993,9 @@ def build_run_input(
     when this run resumes one that stopped to ask, which is the only time they mean
     anything.
 
-    `tools` is empty by design. Offering frontend tools would mean Blob executing work on
-    an agent's say-so; an app that wants to act already has a bot token and scopes.
+    `tools` are Blob's own, offered only to an agent an admin allowed them (ADR 0022):
+    client-executed, so Blob runs every call, as the person who asked and inside the room,
+    and asks the person before any write. Empty for every other agent.
 
     The extra context items exist for a chain (ADR 0013): `asked_by_agent` names the agent
     whose reply mentioned this one, `on_behalf_of` the person whose authority the hop runs
@@ -948,7 +1028,7 @@ def build_run_input(
         "runId": run_id,
         "state": state,
         "messages": messages,
-        "tools": [],
+        "tools": [dict(tool) for tool in tools],
         "context": context,
         "forwardedProps": {"instructions": instructions} if instructions else {},
     }

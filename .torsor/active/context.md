@@ -1417,3 +1417,32 @@ activity is a `content` object patched by `ACTIVITY_DELTA`, not a top-level stri
 tool result may be a list of parts. A new member of the SDK's `EventType` fails
 `test_every_event_the_protocol_defines_is_covered` until it has an entry — that is the
 intended way to hear about the next revision.
+
+## Blob's tools for agents (ADR 0022, 2026-10-07): the loop and its traps
+
+`jobs/agui_tools.py` offers the MCP catalogue's tools over AG-UI as client-executed tools,
+and `jobs/agui_outcome._drive` is the loop: stream, run the calls the agent left
+(`Fold.client_calls` — calls to an offered tool with no `TOOL_CALL_RESULT` from the agent
+itself), continue with the results, until it answers, stops to ask, waits on a write, or
+a bound ends it. Things to know before changing it:
+
+* **Every call in the agent's turn needs a result.** A model refuses a history where a
+  `toolCalls` entry has no matching `tool` message, so calls past the per-round cap, and
+  calls queued behind a write that is waiting for approval, are answered "Not run: …"
+  rather than dropped.
+* **A tool resume is not an AG-UI resume.** The person's Approve resumes Blob's own
+  question, so `Chain.tool_resume` carries the write and the exchange, and the agent is
+  sent no `resume` entries — it never asked anything. `Chain.resuming` covers both kinds;
+  the hop budget skips both (a resume is the person, not a hop).
+* **The run row spans the rounds.** One ledger entry, one card, one Stop, one budget
+  charge. Posts in a later round are keyed `agui:{run}:{round}:{ordinal}`, because each
+  round's fold numbers its posts from one.
+* **`McpCaller.room_channel_id` is back** (removed with the built-in agent in 9c75263b).
+  It is set for an agent anywhere but its own two-member DM with the person, and a
+  person's own assistant over `/api/mcp` never sets it. The search statement takes it as
+  `audience_channel_id`, inside the statement, so totals and paging stay honest.
+* **A write is checked before it is asked about, and again before it is made.**
+  `prepare_write` answers the agent at once for a post that could never succeed;
+  `run_write` re-checks access, because the approval can come a day later.
+* **`error` on a tool message is 1.0-only.** Older parsers refuse unknown members, so the
+  error is always in the text and only added as a field for an agent that speaks 1.0.

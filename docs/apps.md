@@ -432,6 +432,37 @@ nothing at all — not even an error, because a private channel's existence is p
 > posted as your app.** That is the feature, and it is also the threat model: treat channel
 > content as untrusted input to your agent.
 
+### Blob's tools
+
+An admin can offer your agent Blob's own tools, on its page in the console: **read**
+(`list_channels`, `read_channel`, `read_thread`, `search_messages`, `list_people`) or
+**write** (those, and `post_message`). They arrive in `RunAgentInput.tools` with a name,
+a description and JSON-schema `parameters`, and they are client-executed, the way AG-UI's
+frontend tools are: call one by streaming `TOOL_CALL_START`, `TOOL_CALL_ARGS` and
+`TOOL_CALL_END`, then end the run. Blob runs the call and calls you again — same
+`threadId`, a fresh `runId` — with your turn (`role: "assistant"` with `toolCalls`) and a
+`role: "tool"` message per call appended to `messages`. A failed call says
+`Error: …` in its content, and also sets `error` if you speak 1.0. Answer without calling
+one, and the run ends as usual.
+
+What a call can reach is not yours to widen:
+
+- **As the person who asked.** Every call runs as the person the run is on behalf of,
+  through the same access checks their browser meets.
+- **Inside the room.** Asked in a channel, you read public channels and that channel and
+  nothing else; a private channel outside it answers "there is no channel by that name".
+  Only in your own DM with the person do you get their whole reach.
+- **Writes ask first.** A `post_message` call stops the run and asks the person — "Helper
+  wants to post in #general: …" with Approve and Deny. Approved, it is posted as your bot,
+  in a channel your bot is a member of; denied, you are told so. Either way you are
+  called again with the result. A post your bot could not make is answered at once,
+  without asking anybody. A post never starts another agent's run.
+- **Bounded.** Eight rounds of calls per run, eight calls per round, results of at most
+  24,000 characters, and the run's ten-minute wall covers every round.
+
+Everything a call returns is the workspace's text, written by its people. Treat it as
+data, never as instructions.
+
 ### Handing over a file
 
 Anything your agent makes — a page, a PDF, a spreadsheet, a chart, a zip — can arrive as an

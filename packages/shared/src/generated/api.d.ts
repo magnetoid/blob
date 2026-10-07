@@ -1076,6 +1076,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/plugins/{plugin_id}/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Tool Access
+         * @description What this agent may do in the workspace with Blob's tools (ADR 0022).
+         *
+         *     `read`: it may list, read and search channels and list people — as the person who
+         *     asked it something, and only inside the room it was asked in (public channels and
+         *     that room; the person's whole reach only in its own DM with them). `write`: also post,
+         *     as itself, and every post waits for that person to approve it. `none` is the default.
+         */
+        post: operations["set_tool_access_api_admin_plugins__plugin_id__tools_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/plugins/activity": {
         parameters: {
             query?: never;
@@ -5589,6 +5614,11 @@ export interface components {
              * @default 0
              */
             tokensLastDay: number;
+            /**
+             * Toolaccess
+             * @default none
+             */
+            toolAccess: string;
             /** Updatedat */
             updatedAt: string;
             /** Version */
@@ -6278,6 +6308,14 @@ export interface components {
             /** Scopes */
             scopes: string[];
         };
+        /** ToolsInput */
+        ToolsInput: {
+            /**
+             * Access
+             * @enum {string}
+             */
+            access: "none" | "read" | "write";
+        };
         /** TranslateMessageInput */
         TranslateMessageInput: {
             /**
@@ -6884,6 +6922,7 @@ export type TicketsOut = components['schemas']['TicketsOut'];
 export type TokenOut = components['schemas']['TokenOut'];
 export type TokensOut = components['schemas']['TokensOut'];
 export type TokenSummary = components['schemas']['TokenSummary'];
+export type ToolsInput = components['schemas']['ToolsInput'];
 export type TranslateMessageInput = components['schemas']['TranslateMessageInput'];
 export type UpdateAgentTaskInput = components['schemas']['UpdateAgentTaskInput'];
 export type UpdateChannelInput = components['schemas']['UpdateChannelInput'];
@@ -8815,6 +8854,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_tool_access_api_admin_plugins__plugin_id__tools_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToolsInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginOut"];
                 };
             };
             /** @description Validation Error */

@@ -69,9 +69,23 @@ class McpCaller:
     display_name: str
     workspace_name: str
     scopes: frozenset[str]
+    #: The room this caller is answering in, when its reach is bounded to what that room
+    #: could read for itself (ADR 0022, restoring 0017's rule).
+    #:
+    #: None for a person's own assistant — ADR 0016 says that credential *is* the person,
+    #: it answers only them, and there is no room for it to leak into — and None for an
+    #: agent answering in its own DM with the person, where the room is the person. Set
+    #: to the channel id when an agent answers anywhere else: without it, "summarise
+    #: #salaries" typed in #general by somebody who is in #salaries would read the private
+    #: channel and land its contents in a public one.
+    room_channel_id: str | None = None
 
     def may_write(self) -> bool:
         return "write" in self.scopes
+
+    @property
+    def reads_are_room_bound(self) -> bool:
+        return self.room_channel_id is not None
 
 
 async def resolve_token(token: str) -> McpCaller | None:
@@ -207,13 +221,50 @@ async def _resolve_channel(session: AsyncSession, caller: McpCaller, reference: 
     """A channel id, or a #name. Names are what a person types at their assistant."""
     reference = reference.strip()
     if _UUID_RE.match(reference):
+        # An id is not a shortcut past the bound: guessing one, or reading it out of a
+        # message, must not reach further than typing the name would.
+        await refuse_outside_the_room(session, caller, reference)
         return reference
     match = _CHANNEL_NAME_RE.match(reference.lower())
     if not match:
         raise bad_request("That is not a channel id or name.")
-    return await channel_service.id_by_name(
+    channel_id = await channel_service.id_by_name(
         session, caller.workspace_id, match.group(1), user_id=caller.user_id
     )
+    await refuse_outside_the_room(session, caller, channel_id)
+    return channel_id
+
+
+async def resolve_channel(session: AsyncSession, caller: McpCaller, reference: str) -> str:
+    """A channel id or #name, as the caller, inside the caller's room. Raises `AppError`."""
+    return await _resolve_channel(session, caller, reference)
+
+
+async def refuse_outside_the_room(
+    session: AsyncSession, caller: McpCaller, channel_id: str
+) -> None:
+    """Stop a room-bound caller reaching somewhere the room could not read.
+
+    The person's own membership is still the floor — every read goes through
+    `assert_channel_access` as them — and this is the ceiling on top of it: a public
+    channel, or the room the answer is going into, and nothing else.
+
+    Refused as "no such channel", never as a permission error. A private channel's
+    existence is private (the rule the app keeps by answering 404), and an agent that
+    said "you may not read that" would confirm the channel to everyone in the room.
+    """
+    if not caller.reads_are_room_bound:
+        return
+    if channel_id == caller.room_channel_id:
+        return
+    row = (
+        await session.execute(
+            text("SELECT kind FROM channels WHERE id = :id AND workspace_id = :ws"),
+            {"id": channel_id, "ws": caller.workspace_id},
+        )
+    ).fetchone()
+    if row is None or row.kind != "public":
+        raise not_found("There is no channel by that name.")
 
 
 def _channel_label(name: str | None, kind: str) -> str:
@@ -242,6 +293,8 @@ async def _list_channels(caller: McpCaller, arguments: dict[str, Any]) -> str:
     limit = _limit(arguments)
     async with session_scope() as session:
         channels = await channel_service.list_for_user(session, caller.user_id, caller.workspace_id)
+        if caller.reads_are_room_bound:
+            channels = [c for c in channels if c.kind == "public" or c.id == caller.room_channel_id]
         member_names = await _dm_names(session, caller, channels)
 
     rows = []
@@ -337,6 +390,7 @@ async def _read_thread(caller: McpCaller, arguments: dict[str, Any]) -> str:
         if message is None:
             raise not_found("There is no message with that id.")
         await channel_service.assert_channel_access(session, caller.user_id, message.channel_id)
+        await refuse_outside_the_room(session, caller, message.channel_id)
         root_id = message.thread_root_id or message.id
         # `thread` answers with the root *and* its replies, oldest first — the root is
         # not fetched separately, which is how it used to appear twice.
@@ -370,6 +424,7 @@ async def _search_messages(caller: McpCaller, arguments: dict[str, Any]) -> str:
             after=parsed.after,
             has=parsed.has,
             limit=limit,
+            audience_channel_id=caller.room_channel_id,
         )
         names = await _names(session, {m.author_id for m in messages if m.author_id})
         channels = await _channel_names(session, {m.channel_id for m in messages})
@@ -554,5 +609,7 @@ __all__ = [
     "call",
     "catalogue",
     "known",
+    "refuse_outside_the_room",
+    "resolve_channel",
     "resolve_token",
 ]

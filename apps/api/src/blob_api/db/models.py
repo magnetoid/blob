@@ -1318,6 +1318,10 @@ class Plugin(Base):
             name="plugins_external_needs_url",
         ),
         CheckConstraint(
+            "tool_access IN ('none', 'read', 'write')",
+            name="plugins_tool_access_check",
+        ),
+        CheckConstraint(
             "runtime <> 'container' OR source_repo IS NOT NULL",
             name="plugins_container_needs_repo",
         ),
@@ -1388,6 +1392,10 @@ class Plugin(Base):
     shows_reasoning: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
+    #: What the agent may do with Blob's tools (ADR 0022): `none`, `read` — run as the
+    #: person who asked, inside the room — or `write`, where every post waits for that
+    #: person's approval. Migration 0047.
+    tool_access: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'none'"))
     version: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'0.0.0'"))
     request_url: Mapped[str | None] = mapped_column(Text)
     #: An AG-UI endpoint Blob calls when this app's bot is mentioned.

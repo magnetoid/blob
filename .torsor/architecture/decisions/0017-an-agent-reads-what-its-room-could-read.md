@@ -1,9 +1,10 @@
 # 0017 — A shared agent reads no further than the room it is answering in
 
-> **Superseded on 2026-09-15 by [[0019-blob-ships-no-agent-of-its-own]].** The bound this
-> ADR describes applied to the tools the built-in agent ran on the asker's authority.
-> That agent is retired and no external agent is offered Blob's tools, so the bound has
-> no subject. The reasoning below is kept for the day one is.
+> **Superseded on 2026-09-15 by [[0019-blob-ships-no-agent-of-its-own]]; its rule returns
+> in [[0022-an-agent-may-use-blobs-tools-inside-the-room-and-writes-ask-first]] (2026-10-07).**
+> The bound this ADR describes applied to the tools the built-in agent ran on the asker's
+> authority. That agent is retired; external agents are now offered Blob's tools, and the
+> room bound below is what they read under — fixed, not a policy switch.
 
 **Status:** superseded by 0019 on 2026-09-15; accepted 2026-09-13. Qualifies 0013 (a chain carries the rooting person's
 authority) by bounding where that authority may be *spent*. Leaves 0016 (an assistant

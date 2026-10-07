@@ -67,6 +67,10 @@ authority flows down it; unchanged, it never depended on which agent answered.
 [[0016-an-assistant-token-is-a-person]] and [[0018-an-agent-is-the-workspaces-or-a-persons]]
 are untouched.
 
+> **Qualified on 2026-10-07 by [[0022-an-agent-may-use-blobs-tools-inside-the-room-and-writes-ask-first]].**
+> The empty `tools` list this left "for the day an external agent is offered Blob's
+> tools" is that decision: an admin may now offer them, per agent.
+
 ## Consequences
 
 * Every workspace's agent runs in its own process with its own model and key, configured

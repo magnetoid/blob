@@ -170,3 +170,33 @@ describe('showing an agent its reasoning', () => {
     expect(screen.queryByRole('button', { name: /reasoning/ })).toBeNull();
   });
 });
+
+describe("what an agent may do with Blob's tools", () => {
+  it('offers the three levels and sends the one chosen', async () => {
+    useStore.setState({ users: { u1: ME, u2: MATE, u3: BOT } } as never);
+    vi.spyOn(api.admin, 'plugins').mockResolvedValue({
+      plugins: [
+        {
+          ...PLUGIN,
+          aguiUrl: 'https://apps.example.com/agui',
+          aguiVersion: null,
+          showsReasoning: false,
+          tokensLastDay: 0,
+          toolAccess: 'none',
+        },
+      ],
+    } as never);
+    vi.spyOn(api.admin, 'appChannels').mockResolvedValue({ channels: [] } as never);
+    vi.spyOn(api.admin, 'pluginCatalog').mockResolvedValue({ scopes: {}, events: {} } as never);
+    vi.spyOn(api.admin, 'pluginRuns').mockResolvedValue({ runs: [] } as never);
+    vi.spyOn(api.admin, 'pluginDeliveries').mockResolvedValue({ deliveries: [] } as never);
+    const set = vi.spyOn(api.admin, 'setPluginTools').mockResolvedValue({} as never);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+
+    const select = (await screen.findByLabelText('What Assistant may do')) as HTMLSelectElement;
+    expect(select.value).toBe('none');
+    expect([...select.options].map((o) => o.value)).toEqual(['none', 'read', 'write']);
+    fireEvent.change(select, { target: { value: 'write' } });
+    await waitFor(() => expect(set).toHaveBeenCalledWith('p1', 'write'));
+  });
+});

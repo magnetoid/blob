@@ -75,6 +75,8 @@ class Listener:
     #: The AG-UI version the agent last declared, or None if it never has. Decides
     #: whether a run is sent 1.0's input fields; see `agui.speaks`.
     agui_version: str | None = None
+    #: What it may do with Blob's tools: `none`, `read` or `write` (ADR 0022).
+    tool_access: str = "none"
 
     def remembers_for(self, person_id: str) -> bool:
         """Whether a run on this person's behalf reads and writes the agent's memory.
@@ -101,8 +103,13 @@ async def stream_run(
     *,
     transport: httpx.AsyncBaseTransport | None = None,
     on_event: Callable[[Mapping[str, Any]], None] | None = None,
+    wall_sec: float | None = None,
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
     """Call the agent and fold its stream. Returns (fold, messages to post, error).
+
+    `wall_sec` is how long this stream may take at most, when less than the run's own
+    wall is left — a run that used Blob's tools streams several times, and its wall
+    covers all of them (ADR 0022).
 
     The posts are collected as they are sealed rather than gathered at the end: a
     message is emitted by `feed` the moment its TEXT_MESSAGE_END arrives, so a caller
@@ -112,8 +119,11 @@ async def stream_run(
     scheme — so an app that already verifies Blob's deliveries verifies this with the
     code it has.
     """
+    wall = (
+        settings.AGUI_MAX_RUN_SEC if wall_sec is None else min(wall_sec, settings.AGUI_MAX_RUN_SEC)
+    )
     if listener.dials_in:
-        return await _stream_over_socket(listener, run_input, on_event=on_event)
+        return await _stream_over_socket(listener, run_input, on_event=on_event, wall_sec=wall)
 
     fold = _fold(run_input)
     posts: list[agui.Post] = []
@@ -152,7 +162,7 @@ async def stream_run(
                     fold.rejected_status = response.status_code
                     return fold, posts, f"the agent answered {response.status_code}"
                 async for chunk in response.aiter_bytes():
-                    if time.monotonic() - started > settings.AGUI_MAX_RUN_SEC:
+                    if time.monotonic() - started > wall:
                         posts.extend(fold.finish())
                         return fold, posts, "the agent ran past the ceiling"
                     seen_bytes += len(chunk)
@@ -211,6 +221,7 @@ async def _stream_over_socket(
     run_input: dict[str, Any],
     *,
     on_event: Callable[[Mapping[str, Any]], None] | None = None,
+    wall_sec: float | None = None,
 ) -> tuple[agui.Fold, list[agui.Post], str | None]:
     """The same run, down a connection the agent opened, from a process that is not this one.
 
@@ -234,7 +245,10 @@ async def _stream_over_socket(
     seen_bytes = 0
     try:
         async for event in gateway.stream_events(
-            listener.plugin_id, run_input, timeout_sec=gateway.run_timeout_sec()
+            listener.plugin_id,
+            run_input,
+            timeout_sec=gateway.run_timeout_sec(),
+            wall_sec=wall_sec,
         ):
             seen_events += 1
             if seen_events > settings.AGUI_MAX_EVENTS:

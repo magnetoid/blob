@@ -111,7 +111,11 @@ async def is_online(plugin_id: str) -> bool:
 
 
 async def stream_events(
-    plugin_id: str, run_input: dict[str, Any], *, timeout_sec: float
+    plugin_id: str,
+    run_input: dict[str, Any],
+    *,
+    timeout_sec: float,
+    wall_sec: float | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Ask the agent to run, and yield the AG-UI events it sends back.
 
@@ -150,7 +154,7 @@ async def stream_events(
         # wall, so long agent runs are bounded by "still talking", not by 150 seconds.
         loop = asyncio.get_running_loop()
         started = loop.time()
-        wall = started + settings.AGUI_MAX_RUN_SEC
+        wall = started + (settings.AGUI_MAX_RUN_SEC if wall_sec is None else wall_sec)
         idle_deadline = started + timeout_sec
         while True:
             now = loop.time()

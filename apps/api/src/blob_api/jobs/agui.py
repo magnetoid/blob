@@ -221,7 +221,7 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
         # for a resume is the one agent being resumed, and a person may take far longer
         # than the chain's quarter hour to answer a question that waits a day. So a
         # decision raised anywhere past the root could never be answered at all.
-        if chain.depth > 0 and chain.resume is None:
+        if chain.depth > 0 and not chain.resuming:
             admitted = await agent_chains.admit(
                 session,
                 chain,

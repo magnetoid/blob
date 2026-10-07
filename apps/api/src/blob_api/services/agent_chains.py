@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy import text
@@ -55,6 +55,24 @@ INTERRUPT_TTL_SEC = 24 * 3600
 
 
 @dataclass(slots=True)
+class ToolResume:
+    """A person's answer to a write an agent asked to make with Blob's tools (ADR 0022),
+    and what the run needs to carry on from it."""
+
+    approved: bool
+    #: The call the agent made: its id, name and arguments.
+    call: dict[str, Any]
+    #: The write as it was checked and put to the person (`agui_tools.PreparedWrite`).
+    prepared: dict[str, Any]
+    #: Calls the agent made after the write in the same turn, which were not run.
+    later: list[dict[str, Any]]
+    #: The tool exchange so far: the agent's turns and the results it was given.
+    exchange: list[dict[str, Any]]
+    #: Which round of tool calls the write came in.
+    round: int
+
+
+@dataclass(slots=True)
 class Chain:
     """Where a run sits, and on whose authority it runs."""
 
@@ -72,10 +90,26 @@ class Chain:
     resume: list[dict[str, Any]] | None = None
     state: Any = None
     parent_agui_run_id: str | None = None
+    #: Set on a resume of a write the agent asked for, instead of `resume`: Blob runs (or
+    #: declines) the write and carries the tool exchange on, and the agent is not handed
+    #: AG-UI `resume` entries for a question it never asked.
+    tool_resume: ToolResume | None = None
+    #: On a resume of the agent's own question: the tool exchange of the run that asked,
+    #: so the history it is handed still holds the calls it made before it asked.
+    exchange: list[dict[str, Any]] = field(default_factory=list)
+    #: On either kind of resume: the message the run that stopped was answering. The
+    #: exchange it carries belongs right after it, which is where it happened — before
+    #: the question and before the person's answer.
+    exchange_after: str | None = None
 
     @property
     def is_root(self) -> bool:
         return self.parent_run_id is None
+
+    @property
+    def resuming(self) -> bool:
+        """A person answering a run that stopped — to ask them, or for their approval."""
+        return self.resume is not None or self.tool_resume is not None
 
 
 def root(trigger: Any) -> Chain:
@@ -166,6 +200,29 @@ async def resume_of(
     raw_items = stored.get("items")
     items: list[Any] = raw_items if isinstance(raw_items, list) else []
     answer = stored.get("answer")
+    if stored.get("kind") == "tool_approval":
+        # A write the agent asked Blob to make, not a question it asked: the run goes on
+        # with the write done or declined, and no `resume` entries are made up for it.
+        return (
+            Chain(
+                chain_id=str(row.chain_id),
+                initiated_by_user_id=str(row.initiated_by_user_id),
+                depth=int(row.depth),
+                parent_run_id=str(row.id),
+                parent_plugin_id=str(row.plugin_id),
+                state=row.state,
+                exchange_after=str(row.trigger_message_id) if row.trigger_message_id else None,
+                tool_resume=ToolResume(
+                    approved=answer is True,
+                    call=_as_dict(stored.get("call")),
+                    prepared=_as_dict(stored.get("prepared")),
+                    later=_as_dicts(stored.get("later")),
+                    exchange=_as_dicts(stored.get("exchange")),
+                    round=int(stored.get("round") or 0),
+                ),
+            ),
+            str(row.bot_user_id),
+        )
     resume = agui.resume_entries(agui.decision_of(items).interrupt_ids, answer)
     return (
         Chain(
@@ -177,8 +234,20 @@ async def resume_of(
             resume=resume,
             state=row.state,
             parent_agui_run_id=str(row.trigger_message_id) if row.trigger_message_id else None,
+            exchange=_as_dicts(stored.get("exchange")),
+            exchange_after=str(row.trigger_message_id) if row.trigger_message_id else None,
         ),
         str(row.bot_user_id),
+    )
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _as_dicts(value: Any) -> list[dict[str, Any]]:
+    return (
+        [dict(item) for item in value if isinstance(item, dict)] if isinstance(value, list) else []
     )
 
 
@@ -422,6 +491,7 @@ __all__ = [
     "MAX_RUNS_PER_CHAIN",
     "Answered",
     "Chain",
+    "ToolResume",
     "admit",
     "answer",
     "can_spawn",

@@ -5388,6 +5388,11 @@
             "title": "Tokenslastday",
             "type": "integer"
           },
+          "toolAccess": {
+            "default": "none",
+            "title": "Toolaccess",
+            "type": "string"
+          },
           "updatedAt": {
             "title": "Updatedat",
             "type": "string"
@@ -7249,6 +7254,24 @@
           "url"
         ],
         "title": "TokensOut",
+        "type": "object"
+      },
+      "ToolsInput": {
+        "properties": {
+          "access": {
+            "enum": [
+              "none",
+              "read",
+              "write"
+            ],
+            "title": "Access",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access"
+        ],
+        "title": "ToolsInput",
         "type": "object"
       },
       "TranslateMessageInput": {
@@ -11791,6 +11814,60 @@
           }
         },
         "summary": "Revoke Tokens",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/{plugin_id}/tools": {
+      "post": {
+        "description": "What this agent may do in the workspace with Blob's tools (ADR 0022).\n\n`read`: it may list, read and search channels and list people \u2014 as the person who\nasked it something, and only inside the room it was asked in (public channels and\nthat room; the person's whole reach only in its own DM with them). `write`: also post,\nas itself, and every post waits for that person to approve it. `none` is the default.",
+        "operationId": "set_tool_access_api_admin_plugins__plugin_id__tools_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolsInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Tool Access",
         "tags": [
           "admin"
         ]

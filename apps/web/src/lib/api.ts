@@ -316,6 +316,12 @@ export interface AdminPlugin {
   aguiVersion: string | null;
   /** Whether its run cards show the channel a tail of its reasoning. Off by default. */
   showsReasoning: boolean;
+  /**
+   * What it may do with Blob's tools (ADR 0022). `read`: list, read and search, as the
+   * person who asked and only inside the room. `write`: also post, as itself, each post
+   * waiting for that person's approval. `none` by default.
+   */
+  toolAccess: "none" | "read" | "write";
   /** The console table's numbers: a week of runs, runs in flight, public channels joined. */
   runsLastWeek: number;
   runningNow: number;
@@ -1251,6 +1257,9 @@ export const api = {
     /** Whether the agent's run cards show the channel a tail of its reasoning. */
     setPluginReasoning: (pluginId: string, shown: boolean) =>
       post<AdminPlugin>(`/api/admin/plugins/${pluginId}/reasoning`, { shown }),
+    /** What the agent may do with Blob's tools. Every post still waits for approval. */
+    setPluginTools: (pluginId: string, access: AdminPlugin["toolAccess"]) =>
+      post<AdminPlugin>(`/api/admin/plugins/${pluginId}/tools`, { access }),
     rotatePluginSecret: (pluginId: string) =>
       post<{ signingSecret: string }>(`/api/admin/plugins/${pluginId}/secret`),
     issuePluginToken: (pluginId: string) =>

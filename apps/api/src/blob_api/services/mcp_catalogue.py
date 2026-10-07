@@ -6,11 +6,12 @@ than merely refused: a model offered a tool it may not use will call it, and the
 reads a permission error in the middle of an answer. The handlers that run the tools are
 in `services/mcp.py`.
 
-There was a second reader until 2026-09-15 — the agent Blob ran itself was offered the
-same tools on the asker's authority, filtered by the scopes an admin had granted it
-instead. That agent is retired, and no external agent is offered Blob's tools: an agent
-acts through its own bot token, bounded by its channel membership. One principal now, and
-one filter.
+There is a second reader (ADR 0022): an agent answering a mention may be offered the same
+tools over AG-UI, as client-executed tools, run as the person who asked and bounded to the
+room it was asked in (`jobs/agui_tools.py`). Same names, same schemas, same executors —
+`whoami` aside, which describes a token, and `post_message` aside, which an agent runs as
+itself and only after the person approves. One definition of what a tool does, whoever
+asks for it.
 """
 
 from __future__ import annotations

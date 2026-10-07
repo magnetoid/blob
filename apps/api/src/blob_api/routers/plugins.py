@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -98,6 +98,9 @@ class PluginOut(CamelModel):
     agui_version: str | None = None
     #: Whether its run cards show the channel a tail of its reasoning.
     shows_reasoning: bool = False
+    #: What it may do with Blob's tools: `none`, `read` (as the person who asked, inside
+    #: the room), or `write` (and post, once that person approves each one). ADR 0022.
+    tool_access: str = "none"
     #: The console table's two numbers beside the name, and its Access column. A week
     #: is the window a person judges an agent over; "live" is the one thing on the page
     #: worth a glance; the channel count is how many public rooms the bot is a member of.
@@ -268,6 +271,7 @@ async def _build_plugin(
         tokens_last_day=usage[2] if usage else 0,
         agui_version=getattr(row, "agui_version", None),
         shows_reasoning=bool(getattr(row, "shows_reasoning", False)),
+        tool_access=getattr(row, "tool_access", "none"),
         runs_last_week=activity[0] if activity else 0,
         running_now=activity[1] if activity else 0,
         channel_count=channel_count,
@@ -772,6 +776,45 @@ async def set_everywhere(
             target_type="plugin",
             target_id=plugin_id,
             metadata={"pluginId": plugin_id, "enabled": payload.enabled},
+        )
+        row = await registry.by_id(session, plugin_id, admin.workspace_id)
+        return await _to_plugin(session, row)
+
+
+class ToolsInput(CamelModel):
+    #: Required: an absent key must not read as "none" and quietly take an agent's tools.
+    access: Literal["none", "read", "write"]
+
+
+@router.post("/{plugin_id}/tools", response_model=PluginOut)
+async def set_tool_access(
+    plugin_id: IdParam,
+    payload: ToolsInput,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> PluginOut:
+    """What this agent may do in the workspace with Blob's tools (ADR 0022).
+
+    `read`: it may list, read and search channels and list people — as the person who
+    asked it something, and only inside the room it was asked in (public channels and
+    that room; the person's whole reach only in its own DM with them). `write`: also post,
+    as itself, and every post waits for that person to approve it. `none` is the default.
+    """
+    async with transaction() as (session, _after):
+        existing = await registry.by_id(session, plugin_id, admin.workspace_id)
+        if payload.access != "none" and not (existing.agui_url or existing.runtime == "socket"):
+            raise bad_request(
+                "Only an agent that answers over AG-UI can be offered Blob's tools.",
+                code="not_an_agent",
+            )
+        await registry.set_tool_access(session, plugin_id, admin.workspace_id, payload.access)
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.tools_set",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"pluginId": plugin_id, "access": payload.access},
         )
         row = await registry.by_id(session, plugin_id, admin.workspace_id)
         return await _to_plugin(session, row)

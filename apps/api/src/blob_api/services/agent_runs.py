@@ -384,6 +384,7 @@ async def finish(
     state_json: str | None = None,
     expires_at: Any | None = None,
     usage: list[dict[str, Any]] | None = None,
+    interrupt_extra: dict[str, Any] | None = None,
 ) -> None:
     """Close the row. For an interrupted run, also keep what a resume will need.
 
@@ -412,7 +413,11 @@ async def finish(
             "error": error,
             "post_count": post_count,
             "card": json.dumps(card) if card is not None else None,
-            "interrupt": json.dumps({"items": interrupt}) if interrupt is not None else None,
+            "interrupt": (
+                json.dumps({"items": interrupt, **(interrupt_extra or {})}, default=str)
+                if interrupt is not None
+                else None
+            ),
             "state": state_json,
             "expires_at": expires_at,
             "usage": json.dumps(usage) if usage is not None else None,
