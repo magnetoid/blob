@@ -1527,7 +1527,10 @@ from there on. Things to know before changing it:
   run.
 * **An admin's list is filtered to rooms they can see**, inside the statement; clearing
   all of an agent's conversation memories is not, and says nothing of what it cleared.
-  A person's own memory never appears to an admin.
+  A person's own memory never appears to an admin — and neither does any memory of an
+  agent somebody owns, person or not: migration 0050 set each owned agent's existing rows
+  to its owner, and the admin's list and clear skip owned agents outright, because a row
+  of one with no person on it is not the room's (review of phase 5).
 * **`thread_key` still is not a foreign key** — it names a channel or a thread root.
   `channel_id` is the real one, and the migration deleted rows whose conversation was
   already gone.

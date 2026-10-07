@@ -301,6 +301,20 @@ class TestSeeingAndClearingIt:
         assert cleared.status == 200, cleared.body
         assert await memory_rows() == []
 
+    async def test_an_owned_agents_memory_with_nobody_on_it_is_still_not_the_admins(
+        self, agent: dict
+    ) -> None:
+        # A row of an owned agent with no person on it — written before it had an owner, or
+        # before migration 0050 set its owner on it — is not the room's to show an admin
+        # (review of phase 5). The migration now names the owner; this is the second line.
+        await ask(agent, *remembers({"before": "it was owned"}))
+        await own_and_lend(agent)
+        url = f"/api/admin/plugins/{agent['plugin_id']}/memory"
+        assert (await agent["owner"].get(url)).body["memories"] == []
+        cleared = await agent["owner"].delete(url)
+        assert cleared.status == 200, cleared.body
+        assert len(await memory_rows()) == 1
+
     async def test_clearing_an_agents_conversations_leaves_peoples_own(self, agent: dict) -> None:
         await own_and_lend(agent)
         await ask(agent, *remembers({"owners": "plan"}))

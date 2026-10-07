@@ -155,6 +155,10 @@ async def for_conversations(
                 _LISTED
                 + """
                  WHERE s.workspace_id = :ws AND s.plugin_id = :p AND s.person_id IS NULL
+                   -- The workspace's agent only. An owned agent's memory is people's, and a
+                   -- row of one with no person — written before it had an owner, say — is
+                   -- not the admin's to read either (review of phase 5).
+                   AND p.owner_user_id IS NULL
                    AND (
                      c.kind = 'public'
                      OR EXISTS (
@@ -204,6 +208,7 @@ async def forget_conversations(
                 """
                 DELETE FROM agent_state
                  WHERE workspace_id = :ws AND plugin_id = :p AND person_id IS NULL
+                   AND plugin_id IN (SELECT id FROM plugins WHERE owner_user_id IS NULL)
                    AND (cast(:id AS uuid) IS NULL OR id = cast(:id AS uuid))
                 RETURNING id
                 """

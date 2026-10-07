@@ -7,7 +7,9 @@ wrote over it, so since phase 0 a borrowed run has simply gone without memory. N
 owned agent's memory is per person: its owner's, and each borrower's own.
 
 - `person_id`, NULL for the conversation's memory, a person for theirs. It cascades: a
-  person removed takes their memories with them.
+  person removed takes their memories with them. A row of an agent somebody owns today is
+  its owner's: since phase 0 only the owner's runs wrote one, and left NULL it would read
+  as the room's — shown to an admin, and out of the owner's own next run's reach.
 - `channel_id`, the conversation's channel, which the row never had: `thread_key` is a
   channel's id or a thread root's, so it could not reference either, and a deleted
   channel left its agents' memories behind for good. Backfilled from whichever the key
@@ -52,6 +54,13 @@ def upgrade() -> None:
         """
     )
     op.execute("DELETE FROM agent_state WHERE channel_id IS NULL")
+    op.execute(
+        """
+        UPDATE agent_state s SET person_id = p.owner_user_id
+          FROM plugins p
+         WHERE p.id = s.plugin_id AND p.owner_user_id IS NOT NULL
+        """
+    )
 
     # UUIDv7 like every other id here, made in Python because Postgres 16 cannot.
     bind = op.get_bind()
