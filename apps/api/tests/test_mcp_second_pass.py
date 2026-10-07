@@ -23,6 +23,7 @@ from blob_api.jobs import agui as agui_job
 from blob_api.jobs.notify import handle_notify
 from blob_api.plugins import streams
 from blob_api.services import agent_chains
+from blob_api.services import mcp as mcp_service
 
 from .helpers import Client, send_message
 from .test_agent_tools import says
@@ -446,3 +447,44 @@ class TestAgentsFromAnAssistant:
         said = await outsider.refuse("run_status", {"run_id": run_id})
         assert "Helper" not in said
         assert "running" not in said
+
+    async def test_a_caller_bound_to_a_room_answers_nothing_outside_it(
+        self, crew: dict[str, Any]
+    ) -> None:
+        """No caller bound to a room may write today; if one ever may, the room's ceiling
+        holds for answering a question as it does for reading a run (review of phase 6)."""
+        run_id = "01a55555-5555-7555-8555-555555555555"
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent_runs
+                        (id, workspace_id, plugin_id, channel_id, transport, status, chain_id)
+                    VALUES (:id, (SELECT workspace_id FROM plugins WHERE id = :p), :p, :c,
+                            'http', 'interrupted', :id)
+                    """
+                ),
+                {"id": run_id, "p": crew["plugin_id"], "c": crew["private"]},
+            )
+            workspace_id = (
+                await session.execute(
+                    text("SELECT workspace_id FROM users WHERE id = :id"),
+                    {"id": crew["owner"].user_id},
+                )
+            ).scalar_one()
+        # The owner is in the private room, so only the ceiling can refuse this.
+        bound = mcp_service.McpCaller(
+            token_id="",
+            token_name="test",
+            user_id=crew["owner"].user_id,
+            workspace_id=str(workspace_id),
+            display_name="Owner",
+            workspace_name="Test",
+            scopes=frozenset({"read", "write"}),
+            room_channel_id=crew["general"],
+        )
+        from blob_api.lib.errors import AppError
+
+        with pytest.raises(AppError) as refused:
+            await mcp_service.call(bound, "answer_decision", {"run_id": run_id, "choice": 0})
+        assert refused.value.message == "There is no channel by that name."

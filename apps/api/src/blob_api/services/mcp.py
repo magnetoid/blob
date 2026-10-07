@@ -948,6 +948,16 @@ async def _answer_decision(caller: McpCaller, arguments: dict[str, Any]) -> str:
         isinstance(choice, bool) or not isinstance(choice, int) or choice < 0
     ):
         raise bad_request("A choice is its number in the list run_status gives, counting from 0.")
+    # The room's ceiling, as `run_status` and `stop_run` keep it. No caller that is bound
+    # to a room may write today — an agent's tools read, and its one write is Blob's own
+    # (`jobs/agui_tools.py`) — so this guards the day that changes rather than a path that
+    # is open now (review of phase 6).
+    async with session_scope() as session:
+        view = await agent_run_service.view_in(
+            session, workspace_id=caller.workspace_id, run_id=run_id
+        )
+        if view is not None:
+            await refuse_outside_the_room(session, caller, str(view["channelId"]))
     await consume("send_message", caller.user_id)
     async with transaction() as (session, after):
         answered = await agent_chains.answer(
