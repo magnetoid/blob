@@ -5969,6 +5969,16 @@ select.chip {
 /* ─── forwarding ─────────────────────────────────────────────────────────── */
 /* An agent's runs, a page at a time: each the card it left, under when and where. Tall
    enough to read several, scrolling inside the dialog rather than the page. */
+/* A memory's contents, behind a disclosure on its row. */
+.memory-preview {
+  margin-top: 6px;
+  font-size: var(--text-sm);
+}
+.memory-preview > summary {
+  color: var(--text-3);
+  cursor: pointer;
+}
+
 /* One run in the console's log, opened: what it did and what it was shown. */
 .run-log-detail {
   margin-top: 6px;

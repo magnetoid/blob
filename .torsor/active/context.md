@@ -1512,3 +1512,22 @@ from there on. Things to know before changing it:
 * **Run history is keyset on the run id** (UUIDv7) with migration 0049's
   `(channel_id, id)` and `(plugin_id, id)` indexes. There was no index on a run's channel
   before; the conversation's load read through the workspace's.
+
+## Whose memory (ADR 0024, migration 0050): what bites
+
+* **The key has a nullable part.** `agent_state` is unique on (plugin, thread_key,
+  person) `NULLS NOT DISTINCT`, so the conversation's memory (person NULL) is one row.
+  The upsert's `ON CONFLICT (plugin_id, thread_key, person_id)` infers that index; a
+  plain unique index would let two NULL-person rows in and the conflict never fire. Reads
+  compare with `person_id IS NOT DISTINCT FROM cast(:person AS uuid)`, cast because
+  asyncpg cannot type a bare parameter in that position.
+* **`Listener.memory_of` decides whose, not whether.** None for the workspace's agent, the
+  person for an owned one — owner and borrowers alike. There is no run without memory
+  any more; a test asserting a borrowed run gets `state: None` holds only for its first
+  run.
+* **An admin's list is filtered to rooms they can see**, inside the statement; clearing
+  all of an agent's conversation memories is not, and says nothing of what it cleared.
+  A person's own memory never appears to an admin.
+* **`thread_key` still is not a foreign key** — it names a channel or a thread root.
+  `channel_id` is the real one, and the migration deleted rows whose conversation was
+  already gone.

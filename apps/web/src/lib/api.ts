@@ -133,6 +133,35 @@ export interface AssistantToken {
   lastUsedAt: string | null;
 }
 
+/** What an agent remembers of one conversation (migration 0050): a person's own memory
+ * with an agent they own or borrow, or — for an admin — a conversation's. */
+export interface AgentMemory {
+  id: string;
+  pluginId: string;
+  agentName: string;
+  channelId: string;
+  channelName: string | null;
+  channelKind: string;
+  /** Remembered of a thread rather than of the channel as a whole. */
+  inThread: boolean;
+  updatedAt: string;
+  /** Bytes of JSON as stored. */
+  size: number;
+  /** The start of it, as JSON text. */
+  preview: string;
+}
+
+/** One live loan of your agent — what `/allow` made. */
+export interface AgentLoan {
+  id: string;
+  granteeUserId: string;
+  granteeName: string;
+  /** Null for a loan that covers everywhere the agent is. */
+  channelId: string | null;
+  channelName: string | null;
+  grantedAt: string;
+}
+
 export interface MyAgent {
   id: string;
   slug: string;
@@ -995,6 +1024,16 @@ export const api = {
     mine: () => get<{ agents: MyAgent[] }>("/api/agents/mine"),
     attach: (name: string) => post<AttachedAgent>("/api/agents/mine", { name }),
     detach: (agentId: string) => del<{ ok: true }>(`/api/agents/mine/${agentId}`),
+    /** Who your agent is lent to, and where. */
+    loans: (agentId: string) =>
+      get<{ loans: AgentLoan[] }>(`/api/agents/mine/${agentId}/loans`),
+    endLoan: (agentId: string, loanId: string) =>
+      del<{ ok: true }>(`/api/agents/mine/${agentId}/loans/${loanId}`),
+    /** What agents remember of your own conversations with them. */
+    memory: () => get<{ memories: AgentMemory[] }>("/api/agents/memory"),
+    forgetMemory: (memoryId: string) =>
+      del<{ ok: true }>(`/api/agents/memory/${memoryId}`),
+    forgetAllMemory: () => del<{ ok: true }>("/api/agents/memory"),
     channels: (agentId: string) =>
       get<{ channels: AppChannel[] }>(`/api/agents/mine/${agentId}/channels`),
     joinChannel: (agentId: string, channelId: string) =>
@@ -1306,6 +1345,14 @@ export const api = {
       get<{ runs: AdminAgentRun[] }>(
         `/api/admin/plugins/${pluginId}/runs?limit=${limit}`,
       ),
+    /** What this agent remembers of conversations you can see. */
+    agentMemory: (pluginId: string) =>
+      get<{ memories: AgentMemory[] }>(`/api/admin/plugins/${pluginId}/memory`),
+    forgetAgentMemory: (pluginId: string, memoryId: string) =>
+      del<{ ok: true }>(`/api/admin/plugins/${pluginId}/memory/${memoryId}`),
+    /** Every conversation's memory of it, rooms you are not in included. */
+    forgetAllAgentMemory: (pluginId: string) =>
+      del<{ ok: true }>(`/api/admin/plugins/${pluginId}/memory`),
     pluginDeliveries: (pluginId: string, limit = 20) =>
       get<{ deliveries: AdminPluginDelivery[] }>(
         `/api/admin/plugins/${pluginId}/deliveries?limit=${limit}`,

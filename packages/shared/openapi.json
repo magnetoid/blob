@@ -603,6 +603,87 @@
         "title": "AgentChannelsOut",
         "type": "object"
       },
+      "AgentMemoriesOut": {
+        "properties": {
+          "memories": {
+            "items": {
+              "$ref": "#/components/schemas/AgentMemory"
+            },
+            "title": "Memories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "memories"
+        ],
+        "title": "AgentMemoriesOut",
+        "type": "object"
+      },
+      "AgentMemory": {
+        "description": "What an agent remembers of one conversation, for somebody to see and clear: a\nperson their own (an owned agent's per-person memory), an admin a conversation's.",
+        "properties": {
+          "agentName": {
+            "title": "Agentname",
+            "type": "string"
+          },
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "channelKind": {
+            "title": "Channelkind",
+            "type": "string"
+          },
+          "channelName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channelname"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "inThread": {
+            "title": "Inthread",
+            "type": "boolean"
+          },
+          "pluginId": {
+            "title": "Pluginid",
+            "type": "string"
+          },
+          "preview": {
+            "title": "Preview",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "pluginId",
+          "agentName",
+          "channelId",
+          "channelKind",
+          "inThread",
+          "updatedAt",
+          "size",
+          "preview"
+        ],
+        "title": "AgentMemory",
+        "type": "object"
+      },
       "AgentOwnerInput": {
         "properties": {
           "userId": {
@@ -4430,6 +4511,72 @@
         "title": "LinkPreview",
         "type": "object"
       },
+      "LoanOut": {
+        "properties": {
+          "channelId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channelid"
+          },
+          "channelName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channelname"
+          },
+          "grantedAt": {
+            "title": "Grantedat",
+            "type": "string"
+          },
+          "granteeName": {
+            "title": "Granteename",
+            "type": "string"
+          },
+          "granteeUserId": {
+            "title": "Granteeuserid",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "granteeUserId",
+          "granteeName",
+          "grantedAt"
+        ],
+        "title": "LoanOut",
+        "type": "object"
+      },
+      "LoansOut": {
+        "properties": {
+          "loans": {
+            "items": {
+              "$ref": "#/components/schemas/LoanOut"
+            },
+            "title": "Loans",
+            "type": "array"
+          }
+        },
+        "required": [
+          "loans"
+        ],
+        "title": "LoansOut",
+        "type": "object"
+      },
       "LoginInput": {
         "properties": {
           "email": {
@@ -4791,6 +4938,22 @@
           }
         },
         "title": "MembershipUpdateInput",
+        "type": "object"
+      },
+      "MemoriesOut": {
+        "properties": {
+          "memories": {
+            "items": {
+              "$ref": "#/components/schemas/AgentMemory"
+            },
+            "title": "Memories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "memories"
+        ],
+        "title": "MemoriesOut",
         "type": "object"
       },
       "Message": {
@@ -11519,6 +11682,146 @@
         ]
       }
     },
+    "/api/admin/plugins/{plugin_id}/memory": {
+      "delete": {
+        "description": "Clear every conversation's memory of this agent, including rooms you are not in \u2014\nclearing reveals nothing of them. People's own memories with it are untouched.",
+        "operationId": "forget_all_agent_memory_api_admin_plugins__plugin_id__memory_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget All Agent Memory",
+        "tags": [
+          "admin"
+        ]
+      },
+      "get": {
+        "description": "What this agent remembers of conversations \u2014 the memories nobody owns \u2014 in the\nconversations you can see.\n\nA memory is made of what was said in the room, so a private room you are not in keeps\nits agent's memory out of your sight as it keeps its messages. A person's own memory\nwith an agent they own or borrow is theirs, in their Settings, and never listed here.",
+        "operationId": "agent_memory_api_admin_plugins__plugin_id__memory_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMemoriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Memory",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/{plugin_id}/memory/{memory_id}": {
+      "delete": {
+        "description": "Clear one conversation's memory of this agent \u2014 an agent that learned something\nwrong there starts it fresh.",
+        "operationId": "forget_agent_memory_api_admin_plugins__plugin_id__memory__memory_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "memory_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Memory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget Agent Memory",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/plugins/{plugin_id}/owner": {
       "put": {
         "description": "Give an agent to a person, or hand it back to the workspace.\n\nOwnership is Blob's fact about an install, not something the app declares \u2014 an app\ncannot name its own owner any more than it can grant itself a scope \u2014 so it is its own\nroute rather than a field on the manifest.\n\nOwned means it answers that person and whoever they lend it to. Unowned means it\nanswers everybody, which is what the workspace's own assistant should do.",
@@ -12777,6 +13080,90 @@
         ]
       }
     },
+    "/api/agents/memory": {
+      "delete": {
+        "operationId": "forget_all_my_memories_api_agents_memory_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Forget All My Memories",
+        "tags": [
+          "my-agents"
+        ]
+      },
+      "get": {
+        "description": "What agents remember of your own conversations with them: an agent you own, or\none lent to you, keeps a memory per person (migration 0050). Yours to read and to\nclear. The workspace's agents remember conversations, not people \u2014 those are an\nadmin's to clear, on the agent's page.",
+        "operationId": "my_memories_api_agents_memory_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Memories",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
+    "/api/agents/memory/{memory_id}": {
+      "delete": {
+        "operationId": "forget_my_memory_api_agents_memory__memory_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memory_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Memory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget My Memory",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
     "/api/agents/mine": {
       "get": {
         "operationId": "list_mine_api_agents_mine_get",
@@ -13025,6 +13412,104 @@
           }
         },
         "summary": "Agent Join Channel",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
+    "/api/agents/mine/{agent_id}/loans": {
+      "get": {
+        "description": "Everyone your agent is lent to, and where \u2014 the loans `/allow` made, listed, so\none made months ago is not something you have to remember to know about.",
+        "operationId": "agent_loans_api_agents_mine__agent_id__loans_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoansOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Loans",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
+    "/api/agents/mine/{agent_id}/loans/{loan_id}": {
+      "delete": {
+        "description": "End one loan. `/disallow` still does the same from a channel.",
+        "operationId": "agent_end_loan_api_agents_mine__agent_id__loans__loan_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "loan_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Loan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent End Loan",
         "tags": [
           "my-agents"
         ]

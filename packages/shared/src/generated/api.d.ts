@@ -912,6 +912,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/plugins/{plugin_id}/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agent Memory
+         * @description What this agent remembers of conversations — the memories nobody owns — in the
+         *     conversations you can see.
+         *
+         *     A memory is made of what was said in the room, so a private room you are not in keeps
+         *     its agent's memory out of your sight as it keeps its messages. A person's own memory
+         *     with an agent they own or borrow is theirs, in their Settings, and never listed here.
+         */
+        get: operations["agent_memory_api_admin_plugins__plugin_id__memory_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Forget All Agent Memory
+         * @description Clear every conversation's memory of this agent, including rooms you are not in —
+         *     clearing reveals nothing of them. People's own memories with it are untouched.
+         */
+        delete: operations["forget_all_agent_memory_api_admin_plugins__plugin_id__memory_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/plugins/{plugin_id}/memory/{memory_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Forget Agent Memory
+         * @description Clear one conversation's memory of this agent — an agent that learned something
+         *     wrong there starts it fresh.
+         */
+        delete: operations["forget_agent_memory_api_admin_plugins__plugin_id__memory__memory_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/plugins/{plugin_id}/owner": {
         parameters: {
             query?: never;
@@ -1554,6 +1605,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agents/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Memories
+         * @description What agents remember of your own conversations with them: an agent you own, or
+         *     one lent to you, keeps a memory per person (migration 0050). Yours to read and to
+         *     clear. The workspace's agents remember conversations, not people — those are an
+         *     admin's to clear, on the agent's page.
+         */
+        get: operations["my_memories_api_agents_memory_get"];
+        put?: never;
+        post?: never;
+        /** Forget All My Memories */
+        delete: operations["forget_all_my_memories_api_agents_memory_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/memory/{memory_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Forget My Memory */
+        delete: operations["forget_my_memory_api_agents_memory__memory_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/mine": {
         parameters: {
             query?: never;
@@ -1636,6 +1728,47 @@ export interface paths {
         post: operations["agent_join_channel_api_agents_mine__agent_id__channels__channel_id__post"];
         /** Agent Leave Channel */
         delete: operations["agent_leave_channel_api_agents_mine__agent_id__channels__channel_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/mine/{agent_id}/loans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agent Loans
+         * @description Everyone your agent is lent to, and where — the loans `/allow` made, listed, so
+         *     one made months ago is not something you have to remember to know about.
+         */
+        get: operations["agent_loans_api_agents_mine__agent_id__loans_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/mine/{agent_id}/loans/{loan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Agent End Loan
+         * @description End one loan. `/disallow` still does the same from a channel.
+         */
+        delete: operations["agent_end_loan_api_agents_mine__agent_id__loans__loan_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3798,6 +3931,38 @@ export interface components {
             /** Channels */
             channels: components["schemas"]["AgentChannel"][];
         };
+        /** AgentMemoriesOut */
+        AgentMemoriesOut: {
+            /** Memories */
+            memories: components["schemas"]["AgentMemory"][];
+        };
+        /**
+         * AgentMemory
+         * @description What an agent remembers of one conversation, for somebody to see and clear: a
+         *     person their own (an owned agent's per-person memory), an admin a conversation's.
+         */
+        AgentMemory: {
+            /** Agentname */
+            agentName: string;
+            /** Channelid */
+            channelId: string;
+            /** Channelkind */
+            channelKind: string;
+            /** Channelname */
+            channelName?: string | null;
+            /** Id */
+            id: string;
+            /** Inthread */
+            inThread: boolean;
+            /** Pluginid */
+            pluginId: string;
+            /** Preview */
+            preview: string;
+            /** Size */
+            size: number;
+            /** Updatedat */
+            updatedAt: string;
+        };
         /** AgentOwnerInput */
         AgentOwnerInput: {
             /** Userid */
@@ -5285,6 +5450,26 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** LoanOut */
+        LoanOut: {
+            /** Channelid */
+            channelId?: string | null;
+            /** Channelname */
+            channelName?: string | null;
+            /** Grantedat */
+            grantedAt: string;
+            /** Granteename */
+            granteeName: string;
+            /** Granteeuserid */
+            granteeUserId: string;
+            /** Id */
+            id: string;
+        };
+        /** LoansOut */
+        LoansOut: {
+            /** Loans */
+            loans: components["schemas"]["LoanOut"][];
+        };
         /** LoginInput */
         LoginInput: {
             /**
@@ -5407,6 +5592,11 @@ export interface components {
         MembersOut: {
             /** Userids */
             userIds: string[];
+        };
+        /** MemoriesOut */
+        MemoriesOut: {
+            /** Memories */
+            memories: components["schemas"]["AgentMemory"][];
         };
         /** Message */
         Message: {
@@ -6782,6 +6972,8 @@ export type AdminUser = components['schemas']['AdminUser'];
 export type AdminUsersOut = components['schemas']['AdminUsersOut'];
 export type AgentChannel = components['schemas']['AgentChannel'];
 export type AgentChannelsOut = components['schemas']['AgentChannelsOut'];
+export type AgentMemoriesOut = components['schemas']['AgentMemoriesOut'];
+export type AgentMemory = components['schemas']['AgentMemory'];
 export type AgentOwnerInput = components['schemas']['AgentOwnerInput'];
 export type AgentRunHistoryOut = components['schemas']['AgentRunHistoryOut'];
 export type AgentRunOut = components['schemas']['AgentRunOut'];
@@ -6894,6 +7086,8 @@ export type LaterInput = components['schemas']['LaterInput'];
 export type LaterItemOut = components['schemas']['LaterItemOut'];
 export type LaterOut = components['schemas']['LaterOut'];
 export type LinkPreview = components['schemas']['LinkPreview'];
+export type LoanOut = components['schemas']['LoanOut'];
+export type LoansOut = components['schemas']['LoansOut'];
 export type LoginInput = components['schemas']['LoginInput'];
 export type LogsOut = components['schemas']['LogsOut'];
 export type Manifest = components['schemas']['Manifest'];
@@ -6904,6 +7098,7 @@ export type MeetupSettings = components['schemas']['MeetupSettings'];
 export type Membership = components['schemas']['Membership'];
 export type MembershipUpdateInput = components['schemas']['MembershipUpdateInput'];
 export type MembersOut = components['schemas']['MembersOut'];
+export type MemoriesOut = components['schemas']['MemoriesOut'];
 export type Message = components['schemas']['Message'];
 export type MessagesOut = components['schemas']['MessagesOut'];
 export type MessageTranslation = components['schemas']['MessageTranslation'];
@@ -8660,6 +8855,100 @@ export interface operations {
             };
         };
     };
+    agent_memory_api_admin_plugins__plugin_id__memory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentMemoriesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_all_agent_memory_api_admin_plugins__plugin_id__memory_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_agent_memory_api_admin_plugins__plugin_id__memory__memory_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memory_id: string;
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     set_agent_owner_api_admin_plugins__plugin_id__owner_put: {
         parameters: {
             query?: never;
@@ -9633,6 +9922,77 @@ export interface operations {
             };
         };
     };
+    my_memories_api_agents_memory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoriesOut"];
+                };
+            };
+        };
+    };
+    forget_all_my_memories_api_agents_memory_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+        };
+    };
+    forget_my_memory_api_agents_memory__memory_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_mine_api_agents_mine_get: {
         parameters: {
             query?: never;
@@ -9787,6 +10147,69 @@ export interface operations {
             path: {
                 agent_id: string;
                 channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_loans_api_agents_mine__agent_id__loans_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoansOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_end_loan_api_agents_mine__agent_id__loans__loan_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: string;
+                loan_id: string;
             };
             cookie?: never;
         };

@@ -823,18 +823,42 @@ class AgentState(Base):
     """What an agent knew at the end of its last run in a conversation.
 
     AG-UI shared state, kept past the run so the next one in the same place starts from
-    it rather than cold. One row per (agent, conversation), replaced whole each time the
-    agent shares a snapshot. See migration 0027.
+    it rather than cold. Replaced whole each time the agent shares a snapshot. See
+    migration 0027. Whose it is (migration 0050): the conversation's for the workspace's
+    agent (`person_id` NULL), one person's for an agent somebody owns — its owner's, and
+    each borrower's own — so a loan lends the agent and not what it knows.
     """
 
     __tablename__ = "agent_state"
-    __table_args__ = (PrimaryKeyConstraint("plugin_id", "thread_key", name="agent_state_pkey"),)
+    __table_args__ = (
+        # One memory per agent, conversation and person; a NULL person is one value, so
+        # the conversation's memory is a single row.
+        Index(
+            "agent_state_key",
+            "plugin_id",
+            "thread_key",
+            "person_id",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
+        ),
+        # The retention sweep's order.
+        Index("agent_state_stale", "updated_at"),
+    )
 
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
     plugin_id: Mapped[str] = mapped_column(
         UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
     )
     #: The AG-UI `threadId`: a thread root's id, or the channel's when not in a thread.
     thread_key: Mapped[str] = mapped_column(UUIDStr, nullable=False)
+    #: The conversation's channel — what a deleted channel takes its memories with.
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    #: Whose memory: NULL for the conversation's, a person for theirs.
+    person_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE")
+    )
     workspace_id: Mapped[str] = mapped_column(
         UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
     )

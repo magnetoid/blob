@@ -33,7 +33,9 @@ from ..lib.ids import IdParam
 from ..plugins import gateway, registry
 from ..plugins.manifest import EVENTS, SCOPES, Manifest
 from ..schemas.base import CamelModel, OkOut, iso, require_iso
+from ..schemas.models import AgentMemory
 from ..services import agent_runs as agent_run_service
+from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import commands as command_service
@@ -931,6 +933,72 @@ class AgentRunOut(CamelModel):
 
 class AgentRunsOut(CamelModel):
     runs: list[AgentRunOut]
+
+
+class AgentMemoriesOut(CamelModel):
+    memories: list[AgentMemory]
+
+
+@router.get("/{plugin_id}/memory", response_model=AgentMemoriesOut)
+async def agent_memory(
+    plugin_id: IdParam, admin: SessionUser = Depends(require_admin)
+) -> AgentMemoriesOut:
+    """What this agent remembers of conversations — the memories nobody owns — in the
+    conversations you can see.
+
+    A memory is made of what was said in the room, so a private room you are not in keeps
+    its agent's memory out of your sight as it keeps its messages. A person's own memory
+    with an agent they own or borrow is theirs, in their Settings, and never listed here.
+    """
+    async with session_scope() as session:
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        memories = await agent_state_service.for_conversations(
+            session, workspace_id=admin.workspace_id, plugin_id=plugin_id, viewer_id=admin.id
+        )
+    return AgentMemoriesOut(memories=memories)
+
+
+async def _forget_conversations(
+    request: Request, admin: SessionUser, plugin_id: str, memory_id: str | None
+) -> None:
+    async with transaction() as (session, _after):
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        forgotten = await agent_state_service.forget_conversations(
+            session, workspace_id=admin.workspace_id, plugin_id=plugin_id, memory_id=memory_id
+        )
+        if memory_id is not None and not forgotten:
+            raise not_found("That memory is already gone.")
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "agent.memory_forgotten",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"memoryId": memory_id, "count": forgotten},
+        )
+
+
+@router.delete("/{plugin_id}/memory/{memory_id}", response_model=OkOut)
+async def forget_agent_memory(
+    plugin_id: IdParam,
+    memory_id: IdParam,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> OkOut:
+    """Clear one conversation's memory of this agent — an agent that learned something
+    wrong there starts it fresh."""
+    await _forget_conversations(request, admin, plugin_id, memory_id)
+    return OkOut()
+
+
+@router.delete("/{plugin_id}/memory", response_model=OkOut)
+async def forget_all_agent_memory(
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
+) -> OkOut:
+    """Clear every conversation's memory of this agent, including rooms you are not in —
+    clearing reveals nothing of them. People's own memories with it are untouched."""
+    await _forget_conversations(request, admin, plugin_id, None)
+    return OkOut()
 
 
 @router.get("/{plugin_id}/runs", response_model=AgentRunsOut)

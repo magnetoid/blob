@@ -78,15 +78,15 @@ class Listener:
     #: What it may do with Blob's tools: `none`, `read` or `write` (ADR 0022).
     tool_access: str = "none"
 
-    def remembers_for(self, person_id: str) -> bool:
-        """Whether a run on this person's behalf reads and writes the agent's memory.
+    def memory_of(self, person_id: str) -> str | None:
+        """Whose memory a run on this person's behalf reads and writes (migration 0050).
 
-        A workspace agent's memory is the conversation's, and anyone's run uses it. An
-        owned agent's memory is its owner's: lent to somebody, the agent works for them
-        without being handed what it remembers of its owner's work, and without writing
-        over it. A memory of the grantee's own is for when memory is keyed by person.
+        None — the conversation's — for the workspace's agent: anyone's run there uses it.
+        The person's own for an agent somebody owns, its owner and each borrower alike: a
+        loan lends the agent, not what it remembers of its owner's work, and the
+        borrower's runs build a memory of their own instead of going without one.
         """
-        return self.owner_user_id is None or self.owner_user_id == person_id
+        return None if self.owner_user_id is None else person_id
 
     @property
     def dials_in(self) -> bool:

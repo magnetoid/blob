@@ -22,6 +22,7 @@ from ..lib.storage import delete_object
 from ..plugins import delivery as plugin_delivery
 from ..realtime import hub
 from ..services import agent_runs as agent_run_service
+from ..services import agent_state as agent_state_service
 from ..services.calls import reconcile as reconcile_calls
 from .agui import expire_agent_decisions as expire_decisions
 from .agui import handle_agui_run
@@ -94,8 +95,14 @@ async def sweep_agent_runs(_ctx: dict[str, Any]) -> None:
     """
     async with transaction() as (session, _):
         removed = await agent_run_service.sweep(session)
+        # And what agents remember, once nobody has touched it for a season: one row per
+        # agent per conversation grew for ever, and a plan from months ago handed to the
+        # next run is not memory but confusion (migration 0050).
+        forgotten = await agent_state_service.sweep(session)
     if removed:
         log.info("swept %d agent run(s)", removed)
+    if forgotten:
+        log.info("forgot %d stale agent memor(ies)", forgotten)
 
 
 async def sweep_expired(_ctx: dict[str, Any]) -> None:

@@ -30,12 +30,15 @@ from pydantic import Field
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import bad_request
+from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
 from ..plugins import gateway, registry
 from ..plugins.manifest import Manifest
 from ..schemas.base import CamelModel, OkOut, require_iso
+from ..schemas.models import AgentMemory
+from ..services import agent_access
+from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import commands as command_service
@@ -322,6 +325,125 @@ async def _out(row: Any) -> MyAgentOut:
         bot_user_id=str(row.bot_user_id) if row.bot_user_id else None,
         created_at=require_iso(row.created_at),
     )
+
+
+# ─── who your agent is lent to ───────────────────────────────────────────────
+
+
+class LoanOut(CamelModel):
+    id: str
+    grantee_user_id: str
+    grantee_name: str
+    #: None for a loan that covers everywhere the agent is.
+    channel_id: str | None = None
+    channel_name: str | None = None
+    granted_at: str
+
+
+class LoansOut(CamelModel):
+    loans: list[LoanOut]
+
+
+@router.get("/mine/{agent_id}/loans", response_model=LoansOut)
+async def agent_loans(agent_id: IdParam, user: SessionUser = Depends(current_user)) -> LoansOut:
+    """Everyone your agent is lent to, and where — the loans `/allow` made, listed, so
+    one made months ago is not something you have to remember to know about."""
+    async with session_scope() as session:
+        row = await agent_service.owned(session, user, agent_id)
+        loans = await agent_access.delegations_of(session, plugin_id=str(row.id))
+    return LoansOut(
+        loans=[
+            LoanOut(
+                id=loan.id,
+                grantee_user_id=loan.grantee_user_id,
+                grantee_name=loan.grantee_name,
+                channel_id=loan.channel_id,
+                channel_name=loan.channel_name,
+                granted_at=require_iso(loan.granted_at),
+            )
+            for loan in loans
+        ]
+    )
+
+
+@router.delete("/mine/{agent_id}/loans/{loan_id}", response_model=OkOut)
+async def agent_end_loan(
+    agent_id: IdParam,
+    loan_id: IdParam,
+    request: Request,
+    user: SessionUser = Depends(current_user),
+) -> OkOut:
+    """End one loan. `/disallow` still does the same from a channel."""
+    async with transaction() as (session, _after):
+        row = await agent_service.owned(session, user, agent_id)
+        ended = await agent_access.revoke_by_id(
+            session, plugin_id=str(row.id), delegation_id=loan_id
+        )
+        if not ended:
+            raise not_found("That loan has already ended.")
+        await audit_service.record(
+            session,
+            actor_for(request, user),
+            "agent.loan_ended",
+            target_type="plugin",
+            target_id=agent_id,
+            metadata={"loanId": loan_id},
+        )
+    return OkOut()
+
+
+# ─── what agents remember of you ─────────────────────────────────────────────
+
+
+class MemoriesOut(CamelModel):
+    memories: list[AgentMemory]
+
+
+@router.get("/memory", response_model=MemoriesOut)
+async def my_memories(user: SessionUser = Depends(current_user)) -> MemoriesOut:
+    """What agents remember of your own conversations with them: an agent you own, or
+    one lent to you, keeps a memory per person (migration 0050). Yours to read and to
+    clear. The workspace's agents remember conversations, not people — those are an
+    admin's to clear, on the agent's page."""
+    async with session_scope() as session:
+        memories = await agent_state_service.for_person(
+            session, workspace_id=user.workspace_id, person_id=user.id
+        )
+    return MemoriesOut(memories=memories)
+
+
+async def _forget_mine(request: Request, user: SessionUser, memory_id: str | None) -> int:
+    async with transaction() as (session, _after):
+        forgotten = await agent_state_service.forget_own(
+            session, workspace_id=user.workspace_id, person_id=user.id, memory_id=memory_id
+        )
+        if memory_id is not None and not forgotten:
+            raise not_found("That memory is already gone.")
+        await audit_service.record(
+            session,
+            actor_for(request, user),
+            "agent.memory_forgotten",
+            target_type="user",
+            target_id=user.id,
+            metadata={"memoryId": memory_id, "count": forgotten},
+        )
+    return forgotten
+
+
+@router.delete("/memory/{memory_id}", response_model=OkOut)
+async def forget_my_memory(
+    memory_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    await _forget_mine(request, user, memory_id)
+    return OkOut()
+
+
+@router.delete("/memory", response_model=OkOut)
+async def forget_all_my_memories(
+    request: Request, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    await _forget_mine(request, user, None)
+    return OkOut()
 
 
 __all__ = ["PERSONAL_SCOPES", "router"]

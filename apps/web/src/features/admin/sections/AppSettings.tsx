@@ -30,6 +30,7 @@ import { AppChannelList } from "./apps/AppChannelList.tsx";
 import { PluginCard } from "./apps/PluginCard.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
 import { DesktopAgentSetup } from "../../agentic/DesktopAgentSetup.tsx";
+import { MemoryList } from "../../agentic/MemoryList.tsx";
 
 interface Props {
   pluginId: string;
@@ -334,6 +335,8 @@ export function AppSettings({ pluginId, onError }: Props) {
         />
       </Card>
 
+      <AgentMemoryCard pluginId={pluginId} onError={onError} />
+
       <DialogPresence when={uninstalling}>
         {() => (
           <ConfirmDialog
@@ -353,6 +356,74 @@ export function AppSettings({ pluginId, onError }: Props) {
         )}
       </DialogPresence>
     </div>
+  );
+}
+
+/**
+ * What this agent remembers of conversations you can see — the memories nobody owns
+ * (migration 0050). Forget one and the agent starts that conversation fresh; forget them
+ * all and it reaches rooms you are not in as well, which reveals nothing of them. A
+ * person's own memory with an agent they own or borrow is theirs, in their Settings, and
+ * never shown here.
+ */
+function AgentMemoryCard({
+  pluginId,
+  onError,
+}: {
+  pluginId: string;
+  onError: (message: string | null) => void;
+}) {
+  const { data, reload } = useAdminData(
+    () => api.admin.agentMemory(pluginId),
+    [pluginId],
+    onError,
+    "Could not load what it remembers.",
+  );
+  const act = useAdminAction(onError, reload);
+  const [confirming, setConfirming] = useState(false);
+  const memories = data?.memories ?? [];
+
+  return (
+    <Card title="What it remembers">
+      {data && memories.length === 0 && (
+        <CardNotice>Nothing, in the conversations you can see.</CardNotice>
+      )}
+      {memories.length > 0 && (
+        <MemoryList
+          memories={memories}
+          showAgent={false}
+          onForget={(memory) =>
+            void act(() => api.admin.forgetAgentMemory(pluginId, memory.id))
+          }
+        />
+      )}
+      {data && (
+        <div className="console-row-more">
+          {confirming ? (
+            <>
+              <button
+                className="btn btn-danger"
+                onClick={() =>
+                  void act(async () => {
+                    await api.admin.forgetAllAgentMemory(pluginId);
+                    setConfirming(false);
+                  })
+                }
+              >
+                Forget every conversation
+              </button>
+              <button className="btn btn-ghost" onClick={() => setConfirming(false)}>
+                Keep
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-ghost" onClick={() => setConfirming(true)}>
+              Forget everything it remembers of conversations
+            </button>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
 

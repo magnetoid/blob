@@ -13,8 +13,9 @@
  */
 
 import { useState } from "react";
-import { api, type AppChannel, type MyAgent } from "../../lib/api.ts";
+import { api, type AgentLoan, type AppChannel, type MyAgent } from "../../lib/api.ts";
 import { DesktopAgentSetup } from '../agentic/DesktopAgentSetup.tsx';
+import { MemoryList } from "../agentic/MemoryList.tsx";
 import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
 import { Card, CardNotice } from "../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../console/hooks.ts";
@@ -124,7 +125,71 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
           </div>
         )}
       </Card>
+
+      <RememberedCard onError={onError} />
     </div>
+  );
+}
+
+/**
+ * What agents remember of your own conversations with them: an agent you own keeps a
+ * memory per person, and so does one lent to you (migration 0050). Yours to read and to
+ * clear. The workspace's agents remember conversations rather than people — those are an
+ * admin's to clear, on the agent's page.
+ */
+function RememberedCard({ onError }: { onError: (message: string | null) => void }) {
+  const { data, reload } = useAdminData(
+    () => api.agents.memory(),
+    [],
+    onError,
+    "Could not load what agents remember.",
+  );
+  const act = useAdminAction(onError, reload);
+  const [confirming, setConfirming] = useState(false);
+  const memories = data?.memories ?? [];
+
+  return (
+    <Card title="What agents remember of you">
+      {data && memories.length === 0 && (
+        <CardNotice>
+          Nothing yet. An agent you own, or one lent to you, keeps what it learns in your
+          conversations here — yours, not the room&rsquo;s.
+        </CardNotice>
+      )}
+      {memories.length > 0 && (
+        <>
+          <MemoryList
+            memories={memories}
+            showAgent
+            onForget={(memory) => void act(() => api.agents.forgetMemory(memory.id))}
+          />
+          <div className="console-row-more">
+            {confirming ? (
+              <>
+                <button
+                  className="btn btn-danger"
+                  onClick={() =>
+                    void act(async () => {
+                      await api.agents.forgetAllMemory();
+                      setConfirming(false);
+                    })
+                  }
+                >
+                  Forget all of it
+                </button>
+                <button className="btn btn-ghost" onClick={() => setConfirming(false)}>
+                  Keep
+                </button>
+              </>
+            ) : (
+              <button className="btn btn-ghost" onClick={() => setConfirming(true)}>
+                Forget everything
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 
@@ -140,7 +205,17 @@ function AgentRow({
   act: (work: () => Promise<unknown>) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const [lendingOpen, setLendingOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Who it is lent to — the loans `/allow` made, listed so one made months ago is not
+  // something to remember, and ended here as `/disallow` ends them in a channel.
+  const loans = useAdminData(
+    () => (lendingOpen ? api.agents.loans(agent.id) : Promise.resolve({ loans: [] })),
+    [lendingOpen, agent.id],
+    onError,
+    "Could not load who it is lent to.",
+  );
+  const loanAct = useAdminAction(onError, loans.reload);
   const channels = useAdminData(
     () =>
       open ? api.agents.channels(agent.id) : Promise.resolve({ channels: [] }),
@@ -182,6 +257,13 @@ function AgentRow({
         <div className="admin-row-actions">
           <button className="btn btn-ghost" onClick={() => setOpen((v) => !v)}>
             {open ? "Hide channels" : "Channels"}
+          </button>
+          <button
+            className="btn btn-ghost"
+            aria-expanded={lendingOpen}
+            onClick={() => setLendingOpen((v) => !v)}
+          >
+            {lendingOpen ? "Hide who has it" : "Lent to"}
           </button>
           {confirming ? (
             <>
@@ -241,6 +323,34 @@ function AgentRow({
             <div className="pref-hint">
               You are not in any channel it could join.
             </div>
+          )}
+        </div>
+      )}
+
+      {lendingOpen && (
+        <div className="console-row-more">
+          <div className="pref-hint">
+            Lend it with /allow @{agent.name} @someone in a channel. Each person it is
+            lent to keeps a memory of their own with it, never yours.
+          </div>
+          {(loans.data?.loans ?? []).map((loan: AgentLoan) => (
+            <div className="console-subrow" key={loan.id}>
+              <div className="pref-label grow">
+                {loan.granteeName} ·{" "}
+                {loan.channelId === null
+                  ? "everywhere it is"
+                  : `#${loan.channelName ?? "a channel"}`}
+              </div>
+              <button
+                className="btn btn-ghost"
+                onClick={() => void loanAct(() => api.agents.endLoan(agent.id, loan.id))}
+              >
+                End
+              </button>
+            </div>
+          ))}
+          {loans.data && loans.data.loans.length === 0 && (
+            <div className="pref-hint">Nobody else may use it.</div>
           )}
         </div>
       )}

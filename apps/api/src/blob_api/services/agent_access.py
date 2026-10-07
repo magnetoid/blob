@@ -13,6 +13,9 @@ one sits beside rather than inside.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Any
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -168,6 +171,70 @@ async def revoke(
         )
     ).fetchall()
     return len(rows)
+
+
+@dataclass(slots=True)
+class Delegation:
+    """One live loan of an agent: to whom, and where."""
+
+    id: str
+    grantee_user_id: str
+    grantee_name: str
+    #: None for a loan that covers everywhere the agent is.
+    channel_id: str | None
+    channel_name: str | None
+    granted_at: Any
+
+
+async def delegations_of(session: AsyncSession, *, plugin_id: str) -> list[Delegation]:
+    """Everyone this agent is lent to, and where — what its owner sees in Settings, so a
+    loan made with `/allow` months ago is not something they have to remember."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT d.id, d.grantee_user_id, u.display_name AS grantee_name,
+                       d.channel_id, c.name AS channel_name, d.created_at AS granted_at
+                  FROM agent_delegations d
+                  JOIN users u ON u.id = d.grantee_user_id
+                  LEFT JOIN channels c ON c.id = d.channel_id
+                 WHERE d.plugin_id = :plugin_id AND d.revoked_at IS NULL
+                 ORDER BY lower(u.display_name), d.created_at
+                """
+            ),
+            {"plugin_id": plugin_id},
+        )
+    ).fetchall()
+    return [
+        Delegation(
+            id=str(row.id),
+            grantee_user_id=str(row.grantee_user_id),
+            grantee_name=row.grantee_name,
+            channel_id=str(row.channel_id) if row.channel_id else None,
+            channel_name=row.channel_name,
+            granted_at=row.granted_at,
+        )
+        for row in rows
+    ]
+
+
+async def revoke_by_id(session: AsyncSession, *, plugin_id: str, delegation_id: str) -> bool:
+    """End one loan, named by its id — the Settings page's Revoke. Scoped to the agent, so
+    an id from somebody else's agent ends nothing."""
+    row = (
+        await session.execute(
+            text(
+                """
+                UPDATE agent_delegations
+                   SET revoked_at = now()
+                 WHERE id = :id AND plugin_id = :plugin_id AND revoked_at IS NULL
+                RETURNING id
+                """
+            ),
+            {"id": delegation_id, "plugin_id": plugin_id},
+        )
+    ).fetchone()
+    return row is not None
 
 
 async def listeners(

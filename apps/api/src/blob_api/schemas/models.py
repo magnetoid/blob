@@ -350,6 +350,25 @@ class AgentTask(CamelModel):
     updated_at: str
 
 
+class AgentMemory(CamelModel):
+    """What an agent remembers of one conversation, for somebody to see and clear: a
+    person their own (an owned agent's per-person memory), an admin a conversation's."""
+
+    id: str
+    plugin_id: str
+    agent_name: str
+    channel_id: str
+    channel_name: str | None = None
+    channel_kind: str
+    #: Remembered of a thread rather than of the channel as a whole.
+    in_thread: bool
+    updated_at: str
+    #: Bytes of JSON as stored.
+    size: int
+    #: The start of it, as JSON text.
+    preview: str
+
+
 class MessageTranslation(CamelModel):
     id: str
     message_id: str

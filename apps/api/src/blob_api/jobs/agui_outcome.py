@@ -177,9 +177,9 @@ class Gathered:
     #: answers 404 precisely so that its existence is not disclosed, and an app
     #: announcing "I can't read this" would disclose it.
     silent: bool = False
-    #: Whether this run reads and writes what the agent remembers here; see
-    #: `Listener.remembers_for`.
-    remembers: bool = True
+    #: Whose memory this run reads and writes — None for the conversation's, a person
+    #: for theirs (`Listener.memory_of`, migration 0050).
+    memory_person: str | None = None
     #: The task this run was handed, as the run input's `task` context item says it — or
     #: None, which is nearly every run (ADR 0023).
     task: dict[str, Any] | None = None
@@ -347,10 +347,13 @@ async def _gather(
         # stopped, which is newer than anything saved, so it wins; otherwise the last
         # state the agent left in this conversation is where it picks up.
         state = chain.state
-        remembers = listener.remembers_for(chain.initiated_by_user_id)
-        if state is None and refusal is None and remembers:
+        memory_person = listener.memory_of(chain.initiated_by_user_id)
+        if state is None and refusal is None:
             state = await agent_state_service.load(
-                session, plugin_id=listener.plugin_id, thread_key=thread_key
+                session,
+                plugin_id=listener.plugin_id,
+                thread_key=thread_key,
+                person_id=memory_person,
             )
         task = (
             await task_dispatch.for_run(
@@ -367,7 +370,7 @@ async def _gather(
         state,
         thread_key,
         refusal,
-        remembers=remembers,
+        memory_person=memory_person,
         task=task,
     )
 
@@ -529,7 +532,7 @@ async def _finish(
     thread_key: str,
     card: run_card.CardFold,
     post_count: int,
-    remembers: bool,
+    memory_person: str | None,
     sent_1_0: bool = False,
     approval: dict[str, Any] | None = None,
     bound_error: str | None = None,
@@ -633,22 +636,20 @@ async def _finish(
             # SDK, which refuses the fields before it can say what it speaks. The next
             # run goes out in the older shape.
             await agent_run_service.forget_version(session, listener.plugin_id)
-        if (
-            remembers
-            and touched
-            and shared_state is not None
-            and status in ("succeeded", "interrupted")
-        ):
-            # Kept past the run, per conversation: the next run here starts from it. A
-            # failed or stopped run leaves the memory as it was — what it had folded
-            # was never the agent's considered state — and so does a run that said
-            # nothing about state: the fold starts from what it was given, and writing
-            # that back would only be a second copy of it.
+        if touched and shared_state is not None and status in ("succeeded", "interrupted"):
+            # Kept past the run, per conversation — and per person for an agent somebody
+            # owns: the next run here, for them, starts from it. A failed or stopped run
+            # leaves the memory as it was — what it had folded was never the agent's
+            # considered state — and so does a run that said nothing about state: the
+            # fold starts from what it was given, and writing that back would only be a
+            # second copy of it.
             await agent_state_service.save(
                 session,
                 workspace_id=workspace_id,
                 plugin_id=listener.plugin_id,
+                channel_id=channel_id,
                 thread_key=thread_key,
+                person_id=memory_person,
                 state_json=shared_state,
             )
         if fold.artifacts and status in ("succeeded", "interrupted"):
@@ -801,7 +802,7 @@ async def run_one(
             channel_id=channel_id,
             thread_root_id=thread_root_id,
             thread_key=gathered.thread_key,
-            remembers=gathered.remembers,
+            memory_person=gathered.memory_person,
             chain=chain,
             max_depth=max_depth,
         )
@@ -1016,7 +1017,7 @@ async def _drive(
     channel_id: str,
     thread_root_id: str | None,
     thread_key: str,
-    remembers: bool,
+    memory_person: str | None,
     chain: agent_chains.Chain,
     max_depth: int,
 ) -> None:
@@ -1179,7 +1180,7 @@ async def _drive(
         thread_key=thread_key,
         card=card,
         post_count=progress.posted,
-        remembers=remembers,
+        memory_person=memory_person,
         sent_1_0=sent_1_0,
         approval=approval,
         bound_error=bound_error,

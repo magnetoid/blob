@@ -456,3 +456,17 @@ writes always ask, and a borrowed agent runs without its owner's memory until Ph
   fold in `lib/agentRuns.ts:applyRunEvent`; the selectors live in `lib/useRuns.ts`; lists
   hold ids and cards subscribe to their own run. Five views redrew on every card snapshot
   before; now one card does.
+
+## Phase 5 — done (2026-10-08, branch `agentic-phase-5`, ADR 0024)
+
+- **Memory is somebody's.** The workspace's agent keeps the conversation's memory; an
+  agent somebody owns keeps one per person — its owner's and each borrower's own — so a
+  loan lends the agent and not what it knows. This replaces phase 0's stopgap, where a
+  borrowed run went without memory.
+- **Seen, cleared and ended.** Settings lists what agents remember of your own
+  conversations and clears it; an agent's console page lists its conversation memories in
+  rooms the admin can see and clears one or all. A 90-day sweep forgets what nobody
+  writes, and a deleted channel takes its memories with it — the foreign key `agent_state`
+  lacked is `channel_id`, backfilled from the key (migration 0050).
+- **Loans you can see.** Settings lists who your agent is lent to, everywhere or in which
+  channel, and ends a loan; `/allow` and `/disallow` stay as they were.

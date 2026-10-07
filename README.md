@@ -205,7 +205,10 @@ document a key nobody bound or a command your server does not answer.
   answered on the card or on Home with the choices it offered. Each run keeps what it was
   shown — how many messages and from where, the files, instructions, memory, task and
   tools that went with them — on the card's details; a conversation's runs, or one agent's
-  anywhere you can see, page back from the conversation's menu.
+  anywhere you can see, page back from the conversation's menu. What an agent remembers is
+  the conversation's, or — for an agent somebody owns — each person's own, so a loan lends
+  the agent and not what it knows; Settings shows you yours and clears it, lists who your
+  agent is lent to and ends a loan, and memories lapse after 90 days unwritten. ADR 0024.
 - **Janus, the agent every workspace has** — run as a service in this stack
   (`COMPOSE_PROFILES=janus`, see [Janus](#janus) under Configuration). Seeded into every
   workspace through the ordinary install path, seated in every public channel from the
@@ -760,7 +763,7 @@ Chat history is keyset-paginated, never `OFFSET`.
 
 ### Decisions
 
-The twenty-three ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
+The twenty-four ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
 | | |
 |---|---|
@@ -787,6 +790,7 @@ The twenty-three ADRs in [`.torsor/architecture/decisions/`](.torsor/architectur
 | 0021 | Calls are LiveKit rooms that belong to a conversation |
 | 0022 | An agent may use Blob's tools — as the asker, inside the room, and every write asks first |
 | 0023 | A task handed to an agent is a message from the person who handed it |
+| 0024 | What an agent remembers is the conversation's, or one person's |
 
 ---
 

@@ -59,6 +59,7 @@ function seed(ownerUserId: string | null) {
   vi.spyOn(api.admin, 'pluginCatalog').mockResolvedValue({ scopes: {}, events: {} } as never);
   vi.spyOn(api.admin, 'pluginRuns').mockResolvedValue({ runs: [] } as never);
   vi.spyOn(api.admin, 'pluginDeliveries').mockResolvedValue({ deliveries: [] } as never);
+  vi.spyOn(api.admin, 'agentMemory').mockResolvedValue({ memories: [] } as never);
 }
 
 function ownerPicker() {
@@ -198,5 +199,41 @@ describe("what an agent may do with Blob's tools", () => {
     expect([...select.options].map((o) => o.value)).toEqual(['none', 'read', 'write']);
     fireEvent.change(select, { target: { value: 'write' } });
     await waitFor(() => expect(set).toHaveBeenCalledWith('p1', 'write'));
+  });
+});
+
+describe('what an agent remembers', () => {
+  it('lists the conversations it remembers, forgets one, and asks before forgetting all', async () => {
+    seed(null);
+    vi.spyOn(api.admin, 'agentMemory').mockResolvedValue({
+      memories: [
+        {
+          id: 'mem1',
+          pluginId: 'p1',
+          agentName: 'Assistant',
+          channelId: 'c9',
+          channelName: 'launch',
+          channelKind: 'public',
+          inThread: false,
+          updatedAt: '2026-10-07T09:00:00.000Z',
+          size: 120,
+          preview: '{"open":["docs"]}',
+        },
+      ],
+    } as never);
+    const one = vi.spyOn(api.admin, 'forgetAgentMemory').mockResolvedValue({ ok: true });
+    const all = vi.spyOn(api.admin, 'forgetAllAgentMemory').mockResolvedValue({ ok: true });
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+
+    expect(await screen.findByText('#launch')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Forget' }));
+    await waitFor(() => expect(one).toHaveBeenCalledWith('p1', 'mem1'));
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Forget everything it remembers of conversations' }),
+    );
+    expect(all).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Forget every conversation' }));
+    await waitFor(() => expect(all).toHaveBeenCalledWith('p1'));
   });
 });
