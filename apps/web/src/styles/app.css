@@ -7603,6 +7603,18 @@ a.build-commit-sha:hover {
     min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
+    /* The last tab fades into the bar rather than being sliced by its edge — the cue
+       that the row scrolls, where a clipped "C" read as a rendering fault. */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  }
+
+  /* Room after the last tab as wide as the fade, so a strip scrolled to its end shows its
+     last tab whole — and its underline, when it is the view you are on. */
+  .topbar-tabs::after {
+    content: '';
+    flex: none;
+    width: 20px;
   }
 
   .topbar-tabs::-webkit-scrollbar {
@@ -9519,83 +9531,336 @@ button.person-trigger:hover {
   white-space: nowrap;
 }
 
-/* ─── home dashboard ─────────────────────────────────────────────────────── */
+/* ─── home ────────────────────────────────────────────────────────────────────
+   The board a workspace opens on. A column that reads rather than a dashboard stretched
+   to the window: past ~1040px the cards only grew emptier. Opens with where you stand in
+   a sentence, then the ask, then the numbers, then the lists the numbers count. */
 .home-body {
   overflow: auto;
-  padding: 20px var(--pane-gutter) 32px;
+  padding: 28px var(--pane-gutter) 40px;
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
+
+.home-body > * {
+  width: 100%;
+  max-width: 1040px;
+  margin-inline: auto;
+}
+
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Meadow's page title, 22/700. */
+.home-greeting {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.home-summary {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text-3);
+}
+
+/* The ask: Meadow's ambient strip — the forest ✦ and a line to type in. Drawn as the
+   composer is, a hairline at rest and the forest ring when focused; the field inside has
+   no outline of its own because the strip is the visible control. A border and no
+   elevation, not both: --elev-1 carries its own ring. */
 .home-ask {
   display: flex;
+  align-items: center;
   gap: 10px;
-  align-items: stretch;
+  padding: 6px 6px 6px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  transition:
+    border-color var(--dur-fast) var(--ease-color),
+    box-shadow var(--dur-fast) var(--ease-color);
 }
-.home-ask .input {
-  min-height: 44px;
+
+.home-ask:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
+
+.home-ask-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.home-ask-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  border: 0;
+  background: none;
+  outline: none;
+  font: inherit;
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+.home-ask-input::placeholder {
+  color: var(--text-4);
+}
+
+.home-ask .btn {
+  border-radius: var(--radius-full);
+}
+
+/* No agent to ask: the strip stops looking like a place to type. */
+.home-ask:has(.home-ask-input:disabled) {
+  background: var(--surface-muted);
+}
+
+.home-ask:has(.home-ask-input:disabled) .home-ask-mark {
+  background: var(--disabled-bg);
+  color: var(--disabled-fg);
+}
+
 .home-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
-.stat-value[data-live='true'] {
-  color: var(--ok, var(--success, #1f7a3d));
+
+/* A number, what it counts, and — when it is a button — where to go about it. Bordered
+   like a Meadow card; the tone is only on the small icon, so four tiles do not shout. */
+.home-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color var(--dur-fast) var(--ease-color),
+    background-color var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-standard);
 }
+
+button.home-stat:hover {
+  border-color: var(--hairline-strong);
+  background: var(--surface-row-hover);
+}
+
+button.home-stat:active {
+  scale: var(--motion-press);
+}
+
+.home-stat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.home-stat-label {
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.home-stat-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--surface-icon);
+  color: var(--text-2);
+}
+
+.home-stat[data-tone='accent'] .home-stat-icon {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* Iris because the tile counts agents, and iris means an agent did this. */
+.home-stat[data-tone='iris'] .home-stat-icon {
+  background: var(--iris-tint);
+  color: var(--iris-strong);
+}
+
+.home-stat[data-tone='clay'] .home-stat-icon {
+  background: var(--clay);
+  color: var(--clay-text);
+}
+
+.home-stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* A zero is still an answer, said quieter. */
+.home-stat-value[data-zero='true'] {
+  color: var(--text-4);
+}
+
+.home-stat-value[data-live='true'] {
+  color: var(--iris-strong);
+}
+
 .home-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+
 .home-card {
-  padding: 14px 16px 16px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--surface);
+  position: relative;
   min-width: 0;
+  padding: 16px 18px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
+
+/* Arrived at from "Needs you": the card it took you to says so. Only ever focused by
+   that, so plain :focus — a click leaves no ring behind once focus moves on. */
+.home-card:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .home-card h2 {
-  margin: 0 0 10px;
-  font-size: var(--text-label-size);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-label);
+  margin: 0 0 8px;
+  font-size: var(--text-base);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--text);
 }
+
+.home-card > .muted {
+  margin: 6px 0 4px;
+  font-size: var(--text-ui);
+  color: var(--text-3);
+}
+
+.home-card-count {
+  position: absolute;
+  top: 15px;
+  right: 16px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--radius-full);
+  background: var(--surface-icon);
+  color: var(--text-2);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A row in a card: a whole-row target with the wash under the pointer, rather than text
+   with a rule under it. Pulled out to the card's padding so the wash reaches its edges. */
 .home-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
-  width: 100%;
-  min-height: 36px;
-  padding: 6px 0;
+  width: calc(100% + 20px);
+  min-height: 38px;
+  margin-inline: -10px;
+  padding: 7px 10px;
   border: 0;
+  border-radius: var(--radius-md);
   background: none;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  border-bottom: 1px solid var(--hairline-soft);
+  transition: background-color var(--dur-fast) var(--ease-color);
 }
-.home-row:last-of-type {
-  border-bottom: 0;
+
+.home-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
 }
+
+.home-row:hover {
+  background: var(--surface-hover);
+}
+
 .home-row:hover strong {
   color: var(--accent);
 }
+
+.home-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--radius-full);
+  background: var(--surface-icon);
+  color: var(--text-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Green is "you were named"; clay is the rest of what is waiting — the rules sheet's two
+   badges. */
+.home-pill[data-tone='accent'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.home-pill[data-tone='clay'] {
+  background: var(--clay);
+  color: var(--clay-text);
+}
+
 .home-run {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
 }
+
 .home-pulse p {
   margin: 0 0 6px;
 }
+
 @media (max-width: 860px) {
-  .home-stats,
+  .home-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .home-grid {
     grid-template-columns: 1fr;
   }

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { AgentRunView } from '@blob/shared';
 
 vi.mock('../../lib/api.ts', () => ({
@@ -16,8 +16,15 @@ vi.mock('../../lib/navigation.ts', () => ({
   showThread: vi.fn(),
 }));
 
+// Partial: the rest of what the router exports is real, `navigate` is recorded.
+vi.mock('../../lib/router.ts', async (original) => ({
+  ...(await original<typeof import('../../lib/router.ts')>()),
+  navigate: vi.fn(),
+}));
+
 const { useStore } = await import('../../lib/store.ts');
 const { HomeView } = await import('./HomeView.tsx');
+const { navigate } = await import('../../lib/router.ts');
 
 afterEach(cleanup);
 
@@ -106,5 +113,94 @@ describe('Needs a decision', () => {
     const section = screen.getByRole('heading', { name: 'Needs a decision' }).parentElement!;
     expect(within(section).getAllByText(/waiting for your answer/)).toHaveLength(1);
     expect(within(section).queryByText(/waiting for an answer/)).toBeNull();
+  });
+
+  it('counts what a card holds beside its heading, and shows no count for none', () => {
+    // The count is a sibling of the heading, so the heading's name stays its words; and
+    // an empty card says so in its own line rather than with a "0" chip as well.
+    useStore.setState({
+      agentRuns: { mine: waitingOn('mine', 'u1'), theirs: waitingOn('theirs', 'u2') },
+    } as never);
+    render(<HomeView />);
+
+    const decisions = screen.getByRole('heading', { name: 'Needs a decision' }).parentElement!;
+    expect(decisions.querySelector('.home-card-count')?.textContent).toBe('1');
+    const live = screen.getByRole('heading', { name: 'Agents live' }).parentElement!;
+    expect(live.querySelector('.home-card-count')).toBeNull();
+  });
+});
+
+describe('where you stand', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('greets you by the hour and your first name, and says it in a sentence', () => {
+    // One unread channel with two mentions, nothing waiting on you.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 8, 9, 30));
+    useStore.setState({
+      currentUser: { id: 'u1', kind: 'human', displayName: 'Marko Ilic', role: 'owner', deactivated: false },
+    } as never);
+    render(<HomeView />);
+
+    expect(screen.getByText('Good morning, Marko')).toBeTruthy();
+    expect(screen.getByText('2 mentions and 1 conversation with something new.')).toBeTruthy();
+  });
+
+  it('says so when there is nothing at all', () => {
+    useStore.setState({ channels: {} } as never);
+    render(<HomeView />);
+    expect(screen.getByText('You are all caught up.')).toBeTruthy();
+  });
+
+  it('is still evening after midnight', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 9, 1, 15));
+    render(<HomeView />);
+    expect(screen.getByText('Good evening, Marko')).toBeTruthy();
+  });
+});
+
+describe('the numbers lead somewhere', () => {
+  it('takes you down this page to what needs you: a decision first, then your mentions', () => {
+    // "Needs you" counts decisions as well as mentions, and the mentions page cannot show
+    // a decision — so it stays here, where both are.
+    vi.mocked(navigate).mockClear();
+    useStore.setState({ agentRuns: { mine: waitingOn('mine', 'u1') } } as never);
+    render(<HomeView />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Needs you/ }));
+    const decisions = screen.getByRole('heading', { name: 'Needs a decision' }).parentElement;
+    expect(document.activeElement).toBe(decisions);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('goes to the unread mentions when no decision is waiting', () => {
+    // The seeded #general has two mentions and nothing is waiting on you.
+    render(<HomeView />);
+    fireEvent.click(screen.getByRole('button', { name: /Needs you/ }));
+    expect(document.activeElement).toBe(
+      screen.getByRole('heading', { name: 'Unread' }).parentElement,
+    );
+  });
+
+  it('is a number and not a button when nothing needs you', () => {
+    useStore.setState({ channels: {} } as never);
+    render(<HomeView />);
+    expect(screen.queryByRole('button', { name: /Needs you/ })).toBeNull();
+  });
+
+  it('opens your tasks from "Open tasks"', () => {
+    vi.mocked(navigate).mockClear();
+    render(<HomeView />);
+    fireEvent.click(screen.getByRole('button', { name: /Open tasks/ }));
+    expect(navigate).toHaveBeenLastCalledWith('/tasks');
+  });
+
+  it('leaves a number with nowhere to go as a number, not a button', () => {
+    render(<HomeView />);
+    expect(screen.queryByRole('button', { name: /Here now/ })).toBeNull();
+    expect(screen.getByText('Here now')).toBeTruthy();
   });
 });

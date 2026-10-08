@@ -5,15 +5,22 @@
  * start by hunting #general.
  */
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { AgentRunView, AgentTask } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { useRun, useRunIds } from '../../lib/useRuns.ts';
 import { agentIsAvailable } from '../../lib/conversations.ts';
 import { showChannel, showThread } from '../../lib/navigation.ts';
+import { navigate } from '../../lib/router.ts';
 import { showError } from '../../lib/toasts.ts';
-import { SendIcon } from '../../components/Icon.tsx';
+import {
+  FileIcon,
+  MembersIcon,
+  MentionIcon,
+  SendIcon,
+  SparkIcon,
+} from '../../components/Icon.tsx';
 import { AgentRunCard } from '../messages/AgentRunCard.tsx';
 import { formatRelative } from '../messages/messageFormatting.ts';
 import { useFetch } from '../../lib/useFetch.ts';
@@ -120,6 +127,23 @@ export function HomeView() {
     }
   }
 
+  const mentions = unread.reduce((n, c) => n + (c.mentionCount || 0), 0);
+  const needsYou = waiting.length + mentions;
+
+  // "Needs you" counts decisions as well as mentions, and only this page shows both: the
+  // decisions in their card, the mentions as green pills in Unread. So the tile takes you
+  // down the page to them rather than away from it — to the decisions first, which are an
+  // agent stopped until you answer. The mentions page cannot show a decision at all.
+  const decisionsRef = useRef<HTMLElement>(null);
+  const unreadRef = useRef<HTMLElement>(null);
+  function showWhatNeedsYou() {
+    const target = waiting.length > 0 ? decisionsRef.current : unreadRef.current;
+    if (!target) return;
+    target.scrollIntoView({ block: 'nearest' });
+    target.focus({ preventScroll: true });
+  }
+  const firstName = currentUser?.displayName.trim().split(/\s+/)[0] ?? '';
+
   return (
     <main className="pane home">
       <header className="pane-header">
@@ -135,22 +159,37 @@ export function HomeView() {
           style={{ marginLeft: 'auto' }}
           onClick={() => useStore.setState({ catchupScope: 'all' })}
         >
+          <SparkIcon size="sm" />
           Catch me up
         </button>
       </header>
 
       <div className="home-body">
+        {/* The board opens with where you stand, in a sentence, before any number: the
+            numbers below are the detail, and a row of zeros was the first thing a quiet
+            morning used to say. */}
+        <section className="home-hero" aria-label="Where you stand">
+          <p className="home-greeting">
+            {greeting(new Date())}
+            {firstName && `, ${firstName}`}
+          </p>
+          <p className="home-summary">{summary(waiting.length, mentions, unread.length)}</p>
+        </section>
+
+        {/* Meadow's ambient strip: the product's ✦ and a line to type in. A composer, so it
+            is allowed the composer's lift and the composer's ring when focused. */}
         <form className="home-ask" onSubmit={(e) => void submitAsk(e)}>
-          <label className="field" style={{ flex: 1, margin: 0 }}>
-            <input
-              className="input"
-              value={ask}
-              onChange={(e) => setAsk(e.target.value)}
-              placeholder={agent ? `Ask @${agent.displayName}…` : 'No agent installed yet'}
-              aria-label="Ask the workspace agent"
-              disabled={!agent || sending}
-            />
-          </label>
+          <span className="home-ask-mark" aria-hidden="true">
+            <SparkIcon size="sm" />
+          </span>
+          <input
+            className="home-ask-input"
+            value={ask}
+            onChange={(e) => setAsk(e.target.value)}
+            placeholder={agent ? `Ask @${agent.displayName}…` : 'No agent installed yet'}
+            aria-label="Ask the workspace agent"
+            disabled={!agent || sending}
+          />
           <button className="btn btn-primary" type="submit" disabled={!agent || !ask.trim() || sending}>
             <SendIcon size="sm" />
             {sending ? 'Sending…' : 'Ask'}
@@ -158,15 +197,35 @@ export function HomeView() {
         </form>
 
         <div className="home-stats">
-          <Stat label="Needs you" value={String(waiting.length + unread.reduce((n, c) => n + (c.mentionCount || 0), 0))} />
-          <Stat label="Agents running" value={String(running.length)} live={running.length > 0} />
-          <Stat label="Open tasks" value={String(openTasks.length)} />
-          <Stat label="Here now" value={String(peopleHere.length)} />
+          <Stat
+            label="Needs you"
+            value={needsYou}
+            tone="accent"
+            icon={<MentionIcon size="md" />}
+            onOpen={needsYou > 0 ? showWhatNeedsYou : undefined}
+          />
+          <Stat
+            label="Agents running"
+            value={running.length}
+            tone="iris"
+            live={running.length > 0}
+            icon={<SparkIcon size="md" />}
+          />
+          <Stat
+            label="Open tasks"
+            value={openTasks.length}
+            icon={<FileIcon size="md" />}
+            onOpen={() => navigate('/tasks')}
+          />
+          <Stat label="Here now" value={peopleHere.length} tone="clay" icon={<MembersIcon size="md" />} />
         </div>
 
         <div className="home-grid">
-          <section className="home-card">
+          {/* The heading stays the section's first child, with its count a sibling rather
+              than inside it: inside, the count would become part of the heading's name. */}
+          <section className="home-card" ref={decisionsRef} tabIndex={-1}>
             <h2>Needs a decision</h2>
+            <CardCount value={waiting.length} />
             {waiting.length === 0 && <p className="muted">Nothing waiting.</p>}
             {waiting.map((runId) => (
               <HomeRun key={runId} runId={runId} answer />
@@ -175,27 +234,36 @@ export function HomeView() {
 
           <section className="home-card">
             <h2>Agents live</h2>
+            <CardCount value={running.length} />
             {running.length === 0 && <p className="muted">No agent is working right now.</p>}
             {running.map((runId) => (
               <HomeRun key={runId} runId={runId} />
             ))}
           </section>
 
-          <section className="home-card">
+          <section className="home-card" ref={unreadRef} tabIndex={-1}>
             <h2>Unread</h2>
+            <CardCount value={unread.length} />
             {unread.length === 0 && <p className="muted">You are caught up.</p>}
             {unread.slice(0, 8).map((channel) => (
               <button key={channel.id} type="button" className="home-row" onClick={() => void showChannel(channel.id)}>
                 <strong>{channelTitle(channel)}</strong>
-                <span className="muted">
-                  {(channel.mentionCount ?? 0) > 0 ? `${channel.mentionCount} mention${channel.mentionCount === 1 ? '' : 's'}` : 'new messages'}
-                </span>
+                {(channel.mentionCount ?? 0) > 0 ? (
+                  <span className="home-pill" data-tone="accent">
+                    {channel.mentionCount} mention{channel.mentionCount === 1 ? '' : 's'}
+                  </span>
+                ) : (
+                  <span className="home-pill" data-tone="clay">
+                    new
+                  </span>
+                )}
               </button>
             ))}
           </section>
 
           <section className="home-card">
             <h2>Your tasks</h2>
+            <CardCount value={openTasks.length} />
             {tasks === null && <p className="muted">Loading…</p>}
             {tasks && openTasks.length === 0 && <p className="muted">Nothing queued for you.</p>}
             {openTasks.slice(0, 8).map((task) => (
@@ -206,7 +274,7 @@ export function HomeView() {
                 onClick={() => void (task.threadRootId ? showThread(task.channelId, task.threadRootId) : showChannel(task.channelId))}
               >
                 <strong>{task.title}</strong>
-                <span className="muted">{task.status.replace('_', ' ')}</span>
+                <span className="home-pill">{task.status.replace('_', ' ')}</span>
               </button>
             ))}
           </section>
@@ -277,13 +345,80 @@ function DoneLine({ runId }: { runId: string }) {
   );
 }
 
-function Stat({ label, value, live }: { label: string; value: string; live?: boolean }) {
-  return (
-    <div className="stat">
-      <div className="stat-label">{label}</div>
-      <div className="stat-value" data-live={live ? 'true' : undefined}>
+/** The hour's greeting. Past midnight is still the evening: nobody at work at 2am wants
+ *  to be told it is morning. */
+function greeting(now: Date): string {
+  const hour = now.getHours();
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/** Where you stand, in one sentence, from the same counts the tiles show. */
+function summary(decisions: number, mentions: number, conversations: number): string {
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const parts = [
+    decisions > 0 && plural(decisions, 'decision waiting on you', 'decisions waiting on you'),
+    mentions > 0 && plural(mentions, 'mention', 'mentions'),
+    conversations > 0 &&
+      plural(conversations, 'conversation with something new', 'conversations with something new'),
+  ].filter((part): part is string => Boolean(part));
+  if (parts.length === 0) return 'You are all caught up.';
+  const last = parts.pop() as string;
+  return `${parts.length > 0 ? `${parts.join(', ')} and ${last}` : last}.`;
+}
+
+/**
+ * One number on the board, with what it counts and where to go about it. A button when
+ * there is somewhere to go — the mentions, the task list — and a plain tile when the
+ * place is already on this screen.
+ */
+function Stat({
+  label,
+  value,
+  icon,
+  tone,
+  live,
+  onOpen,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+  tone?: 'accent' | 'iris' | 'clay';
+  live?: boolean;
+  onOpen?: () => void;
+}) {
+  const body = (
+    <>
+      <span className="home-stat-head">
+        <span className="home-stat-label">{label}</span>
+        <span className="home-stat-icon" aria-hidden="true">
+          {icon}
+        </span>
+      </span>
+      <span
+        className="home-stat-value"
+        data-live={live ? 'true' : undefined}
+        data-zero={value === 0 ? 'true' : undefined}
+      >
         {value}
-      </div>
+      </span>
+    </>
+  );
+  return onOpen ? (
+    <button type="button" className="home-stat" data-tone={tone} onClick={onOpen}>
+      {body}
+    </button>
+  ) : (
+    <div className="home-stat" data-tone={tone}>
+      {body}
     </div>
   );
+}
+
+/** How many a card holds, beside its heading. Nothing at all for none: the card's own
+ *  empty line already says so. */
+function CardCount({ value }: { value: number }) {
+  if (value === 0) return null;
+  return <span className="home-card-count">{value}</span>;
 }
