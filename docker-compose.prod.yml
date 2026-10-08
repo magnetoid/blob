@@ -440,11 +440,15 @@ services:
     # so container liveness says nothing, and a check that cannot pass fails the deploy.
 
   minio:
-      # quay.io, not Docker Hub. MinIO stopped publishing to `minio/minio` there and the
-      # repository now 404s, which broke both CI jobs and every `docker compose up` at
-      # once — an image reference is a dependency on someone else's registry policy, and
-      # this is what it looks like when that policy changes. quay.io is MinIO's own.
-    image: quay.io/minio/minio:latest
+      # Coolify's own build of MinIO's final community release, pinned. MinIO stopped
+      # publishing images: `minio/minio` on Docker Hub 404s, and by 2026-10-08
+      # `quay.io/minio/minio` refused anonymous pulls too, which failed both CI jobs and
+      # would fail any host that has to pull the stack. This one is made from MinIO's own
+      # Dockerfile — same entrypoint, same environment, `mc` inside — so it is the same
+      # server under another registry, and a host on an older 2025 release upgrades in
+      # place on the next deploy. Pinned rather than `latest`: an image reference is a
+      # dependency on someone else's registry policy, and that has now changed twice.
+    image: ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
