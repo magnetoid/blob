@@ -63,6 +63,17 @@ button {
   background: transparent;
 }
 
+/* Firefox has no ::-webkit-scrollbar and drew the platform's default bar — grey on
+   every theme — beside Chrome's and Safari's slim themed one. The standard properties
+   give it the same colour, thin. Only where the pseudo-elements do not exist: in Chrome
+   setting them would switch off the slimmer pill above, which they cannot draw. */
+@supports not selector(::-webkit-scrollbar) {
+  :root {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar) transparent;
+  }
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   /* Where the ring rests. A control whose ring sits elsewhere — inside its own edge, like
@@ -7490,11 +7501,28 @@ a.build-commit-sha:hover {
 
 /* ─── loading skeleton ───────────────────────────────────────────────────── */
 
+/* No padding of its own: each place insets it as its real rows are inset, so the lines
+   sit where the text will (ListSkeleton.tsx). Home's task card insets nothing — its rows
+   sit flush with the card's own padding. */
 .message-skeleton {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.message-list > .message-skeleton {
   padding: 24px 20px;
+}
+
+/* Threads, Later and Activity: a result row is inset 14px. */
+.search-results > .message-skeleton {
+  padding: 14px;
+}
+
+/* A pinned row is inset 8px, and closer together. */
+.pinned-panel > .message-skeleton {
+  gap: 14px;
+  padding: 8px;
 }
 
 .message-skeleton-row {
@@ -7511,6 +7539,37 @@ a.build-commit-sha:hover {
   flex: none;
 }
 
+/* The pinned list's rows draw a 20px avatar (Avatar size="sm"). */
+.message-skeleton-avatar[data-size='sm'] {
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
+}
+
+/* Files that have not arrived, in the grid they will arrive in — faded out downward, so
+   it reads as "more to come" whatever number of columns the width gives it. */
+.files-grid-skeleton {
+  max-height: 340px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 45%, transparent);
+  mask-image: linear-gradient(#000 45%, transparent);
+}
+
+.files-tile-skeleton {
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  background: var(--surface-hover);
+  animation: skeleton-breathe 1.4s ease-in-out infinite;
+}
+
+.files-tile-skeleton:nth-child(odd) {
+  animation-delay: 0.12s;
+}
+
+.files-tile-skeleton:nth-child(3n) {
+  animation-delay: 0.24s;
+}
+
 .message-skeleton-lines {
   display: flex;
   flex-direction: column;
@@ -7524,6 +7583,34 @@ a.build-commit-sha:hover {
   border-radius: var(--radius-xs);
   background: var(--surface-hover);
   animation: skeleton-breathe 1.4s ease-in-out infinite;
+}
+
+/* A name, then a line of a message — the second line's length varies by row so five rows
+   read as five different messages rather than one stamped five times. Here rather than
+   inline (ListSkeleton.tsx). */
+.message-skeleton-line:first-child {
+  width: 120px;
+  max-width: 60%;
+}
+
+.message-skeleton-row:nth-child(5n + 2) .message-skeleton-line:last-child {
+  width: 72%;
+}
+
+.message-skeleton-row:nth-child(5n + 3) .message-skeleton-line:last-child {
+  width: 55%;
+}
+
+.message-skeleton-row:nth-child(5n + 4) .message-skeleton-line:last-child {
+  width: 84%;
+}
+
+.message-skeleton-row:nth-child(5n + 5) .message-skeleton-line:last-child {
+  width: 40%;
+}
+
+.message-skeleton-row:nth-child(5n + 6) .message-skeleton-line:last-child {
+  width: 66%;
 }
 
 /* Staggered, or five lines breathe as one block and read as a single flashing shape
@@ -7555,7 +7642,8 @@ a.build-commit-sha:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .message-skeleton-line {
+  .message-skeleton-line,
+  .files-tile-skeleton {
     animation: none;
   }
 }

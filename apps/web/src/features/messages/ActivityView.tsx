@@ -20,6 +20,7 @@ import { showError } from '../../lib/toasts.ts';
 import { MentionIcon } from '../../components/Icon.tsx';
 import { MessageResultRow } from './MessageResultRow.tsx';
 import { EmptyState } from '../../components/EmptyState.tsx';
+import { ListSkeleton } from '../../components/ListSkeleton.tsx';
 
 const SEEN_KEY = 'blob.activity.seen';
 
@@ -149,7 +150,7 @@ function ActivityResults({
   return (
     <div className="search-results">
       {failed && <p className="error-text">That could not be loaded.</p>}
-      {!failed && items === null && <p className="muted">Loading…</p>}
+      {!failed && items === null && <ListSkeleton />}
 
       {items?.length === 0 && (
         <EmptyState mark={<MentionIcon size="xl" />} title="Nothing yet">

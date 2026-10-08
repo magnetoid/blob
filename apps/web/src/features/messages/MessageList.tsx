@@ -17,6 +17,7 @@ import { useStore } from "../../lib/store.ts";
 import { usePresence } from "../../lib/usePresence.ts";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { ArrowDownIcon } from "../../components/Icon.tsx";
+import { ListSkeleton } from "../../components/ListSkeleton.tsx";
 
 interface Props {
   /**
@@ -425,23 +426,7 @@ export function MessageList({
       // about history, and while the fetch is in flight nobody knows yet.
       return (
         <div className="message-list" ref={scrollRef} aria-busy="true">
-          <div className="message-skeleton">
-            {[72, 55, 84, 40, 66].map((width, index) => (
-              <div key={index} className="message-skeleton-row">
-                <span className="message-skeleton-avatar" />
-                <span className="message-skeleton-lines">
-                  <span
-                    className="message-skeleton-line"
-                    style={{ width: "120px" }}
-                  />
-                  <span
-                    className="message-skeleton-line"
-                    style={{ width: `${width}%` }}
-                  />
-                </span>
-              </div>
-            ))}
-          </div>
+          <ListSkeleton />
         </div>
       );
     }

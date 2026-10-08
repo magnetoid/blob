@@ -18,6 +18,7 @@ import { useStore } from '../../lib/store.ts';
 import { renderMarkdown } from '../../lib/markdown.tsx';
 import { useEscape } from '../../lib/useEscape.ts';
 import { Avatar } from '../../components/Avatar.tsx';
+import { ListSkeleton } from '../../components/ListSkeleton.tsx';
 import { useMentionIndex } from './mentionIndex.ts';
 
 interface Props {
@@ -60,7 +61,7 @@ export function PinnedPanel({ channelId, onClose, onJump }: Props) {
       <h2 className="section-label">Pinned</h2>
 
       {error && <p className="error-text">Those could not be loaded.</p>}
-      {!error && pins === null && <p className="muted">Loading…</p>}
+      {!error && pins === null && <ListSkeleton rows={3} avatar="sm" />}
       {pins?.length === 0 && (
         <p className="muted">
           Nothing pinned yet. Pin a message from its ••• menu to keep it here.

@@ -10,6 +10,7 @@ import { showError } from '../../lib/toasts.ts';
 import { ImageLightbox } from './ImageLightbox.tsx';
 import { useFetch } from '../../lib/useFetch.ts';
 import { EmptyState } from '../../components/EmptyState.tsx';
+import { TileSkeleton } from '../../components/ListSkeleton.tsx';
 import { revealIfCached, revealOnError, revealOnLoad } from '../../lib/imageReveal.ts';
 
 export function FilesView() {
@@ -56,9 +57,7 @@ export function FilesView() {
       </div>
 
       {items === null ? (
-        <div className="empty-state-body" style={{ padding: 16 }}>
-          Loading…
-        </div>
+        <TileSkeleton />
       ) : items.length === 0 ? (
         <EmptyState title="Nothing here yet">Files people post in channels will show up here.</EmptyState>
       ) : (

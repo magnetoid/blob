@@ -22,6 +22,7 @@ import {
   SparkIcon,
 } from '../../components/Icon.tsx';
 import { AgentRunCard } from '../messages/AgentRunCard.tsx';
+import { ListSkeleton } from '../../components/ListSkeleton.tsx';
 import { formatRelative } from '../messages/messageFormatting.ts';
 import { useFetch } from '../../lib/useFetch.ts';
 
@@ -264,7 +265,7 @@ export function HomeView() {
           <section className="home-card">
             <h2>Your tasks</h2>
             <CardCount value={openTasks.length} />
-            {tasks === null && <p className="muted">Loading…</p>}
+            {tasks === null && <ListSkeleton rows={2} avatar="none" />}
             {tasks && openTasks.length === 0 && <p className="muted">Nothing queued for you.</p>}
             {openTasks.slice(0, 8).map((task) => (
               <button

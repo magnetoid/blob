@@ -50,10 +50,12 @@ describe('inline styles keep leaving the components', () => {
    * `.ellipsis`). 47 on 2026-09-22, when the consoles got a space scale (`--space-*`)
    * and cards to spend it in, and their one-off margins and max-widths went with it.
    * Most of what is left is a value that is data — a palette's own colours, a bar's
-   * height — or sits outside the consoles. Lower this, never raise it.
+   * height — or sits outside the consoles. 42 on 2026-10-08: the skeleton's widths moved
+   * into the stylesheet (ListSkeleton), and the home ask lost its wrapper. Lower this,
+   * never raise it.
    */
   it('is at most the last committed count', () => {
-    expect(occurrences('style={{', ['.tsx'])).toBeLessThanOrEqual(47);
+    expect(occurrences('style={{', ['.tsx'])).toBeLessThanOrEqual(42);
   });
 });
 

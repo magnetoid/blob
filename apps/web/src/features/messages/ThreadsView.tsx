@@ -19,6 +19,7 @@ import { showThread } from '../../lib/navigation.ts';
 import { ReplyIcon } from '../../components/Icon.tsx';
 import { MessageResultRow } from './MessageResultRow.tsx';
 import { EmptyState } from '../../components/EmptyState.tsx';
+import { ListSkeleton } from '../../components/ListSkeleton.tsx';
 
 export function ThreadsView() {
   // Fetched on arrival, not held in the store. The list is a query over subscriptions
@@ -47,7 +48,7 @@ export function ThreadsView() {
 
       <div className="search-results">
         {error && <p className="error-text">Those could not be loaded.</p>}
-        {!error && threads === null && <p className="muted">Loading…</p>}
+        {!error && threads === null && <ListSkeleton />}
 
         {threads?.messages.length === 0 && (
           <EmptyState mark={<ReplyIcon size="xl" />} title="No threads yet">

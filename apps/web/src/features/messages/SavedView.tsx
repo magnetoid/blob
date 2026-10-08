@@ -16,6 +16,7 @@ import { showError } from '../../lib/toasts.ts';
 import { PinIcon } from '../../components/Icon.tsx';
 import { MessageResultRow } from './MessageResultRow.tsx';
 import { EmptyState } from '../../components/EmptyState.tsx';
+import { ListSkeleton } from '../../components/ListSkeleton.tsx';
 
 const TABS: Array<{ state: LaterState; label: string }> = [
   { state: 'in_progress', label: 'In progress' },
@@ -82,7 +83,7 @@ export function SavedView() {
 
       <div className="search-results">
         {error && <p className="error-text">Those could not be loaded.</p>}
-        {!error && data === null && <p className="muted">Loading…</p>}
+        {!error && data === null && <ListSkeleton />}
 
         {data !== null && visible.length === 0 && (
           <EmptyState mark={<PinIcon size="xl" />} title={tab === 'in_progress' ? 'Nothing saved' : 'Nothing here'}>
