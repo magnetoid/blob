@@ -42,6 +42,45 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-10-08',
+    version: '1.8.0',
+    title: 'Agents that show their work',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Let an agent use Blob’s tools and it can search and read the workspace for you — only what you could, and in a channel only what that room could. Anything it wants to post waits for your Approve.',
+      },
+      {
+        kind: 'added',
+        text: 'Hand a task to an agent and it gets a hand-off in the thread, from you, which it answers without anybody mentioning it. Its answer closes the task; if it cannot finish, the task says why.',
+      },
+      {
+        kind: 'added',
+        text: 'Watch an agent work: the card under your message shows a draft of the answer as it is written, what the agent was shown, and the conversation’s earlier runs. Answer its questions right on the card.',
+      },
+      {
+        kind: 'added',
+        text: 'What an agent remembers is somebody’s. Settings lists what agents remember of your conversations and clears it, and shows who your own agent is lent to, with a way to end the loan.',
+      },
+      {
+        kind: 'added',
+        text: 'Your assistant can now catch you up, follow your threads, message people, react, and ask the workspace’s agents for you. A connection ends after 30, 90 or 365 days, and admins see every one in the workspace.',
+      },
+      {
+        kind: 'added',
+        text: 'An agent’s page shows its last ten errors, what each run actually streamed, and when its secret was rotated and its token last used.',
+      },
+      {
+        kind: 'changed',
+        text: 'Agents that speak the newest version of their protocol now see the images and documents shared in the conversation, and say what each run cost.',
+      },
+      {
+        kind: 'fixed',
+        text: 'An agent’s run always ends: one cut off by a restart or a time limit says so on its card instead of spinning, and an agent answers a message once.',
+      },
+    ],
+  },
+  {
     date: '2026-09-23',
     version: '1.7.0',
     title: 'Video meetups',

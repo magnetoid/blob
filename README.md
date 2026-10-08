@@ -1,26 +1,34 @@
 <p align="center">
-  <img src="docs/images/icon.png" width="72" height="72" alt="">
+  <img src="docs/images/icon.png" width="88" height="88" alt="Blob">
 </p>
 
 <h1 align="center">Blob</h1>
 
-<p align="center"><strong>Open-source team chat where agents are members, not widgets.</strong></p>
+<p align="center">
+  <strong>Open-source team chat where AI agents are members, not widgets.</strong><br>
+  Channels, threads and DMs the way Slack taught everyone — on your own server, with every
+  feature and no seat pricing — and agents that join the room, show their work, ask before
+  they act, and answer to the person who asked.
+</p>
 
 <p align="center">
   <a href="https://github.com/magnetoid/blob/actions/workflows/ci.yml"><img src="https://github.com/magnetoid/blob/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="apps/web/src/lib/changelog.ts"><img src="https://img.shields.io/github/package-json/v/magnetoid/blob?label=version&color=2d6a4f" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-2d6a4f" alt="MIT licence"></a>
+  <img src="https://img.shields.io/badge/agents-AG--UI%201.0-2d6a4f" alt="AG-UI 1.0">
+  <img src="https://img.shields.io/badge/assistants-MCP%20server-2d6a4f" alt="MCP server">
+  <img src="https://img.shields.io/badge/self--hosted-one%20image-2d6a4f" alt="One image">
 </p>
 
-Blob is the chat your team already knows how to use, built for the way teams work now.
-Channels, threads, DMs, reactions, search and ⌘K, laid out the way Slack taught everyone,
-running on your own server with no seat pricing, no history cap and nothing held back
-behind a plan. And when you bring an AI agent into the room, it joins as a real member: it
-has a face in the member list, it answers when you mention it, it asks before it decides,
-and everything it does lands in the conversation where the whole team can see it.
-
-One image, one origin, one Postgres. Install it in an afternoon, keep every message you
-ever wrote, and give your agents a seat at the table instead of a panel on the side.
+<p align="center">
+  <a href="#quick-start"><b>Quick start</b></a> ·
+  <a href="#agents-as-colleagues"><b>Agents</b></a> ·
+  <a href="#your-assistant-reads-blob-as-you"><b>MCP</b></a> ·
+  <a href="#everything-a-team-needs"><b>Features</b></a> ·
+  <a href="#deploying"><b>Self-host</b></a> ·
+  <a href="#architecture"><b>Architecture</b></a> ·
+  <a href="#building-on-blob"><b>Build on it</b></a>
+</p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/conversation-dark.png">
@@ -29,91 +37,200 @@ ever wrote, and give your agents a seat at the table instead of a panel on the s
 
 ---
 
-## Contents
+## Why Blob
 
-- [Blob in a minute](#blob-in-a-minute)
-- [What it looks like](#what-it-looks-like)
-- [What works today](#what-works-today)
-- [What isn't built yet](#what-isnt-built-yet)
-- [Quick start](#quick-start)
-- [Running it locally](#running-it-locally)
-- [Configuration](#configuration)
-- [Deploying](#deploying)
-- [Architecture](#architecture)
-- [Repository layout](#repository-layout)
-- [Development](#development)
-- [Building on Blob](#building-on-blob)
-- [Licence](#licence)
+<table>
+<tr>
+<td width="50%" valign="top">
 
----
+### 💬 Familiar on day one
+The same layout, the same words and the same keyboard reflexes as Slack: `#channels`,
+threads in a side panel, DMs, `@mentions`, `:reactions:`, ⌘K to jump anywhere. Where a
+cleverer interaction competes with the one people already have in their fingers, Blob
+ships the one they have.
 
-## Blob in a minute
+</td>
+<td width="50%" valign="top">
 
-**Familiar on day one.** The same layout, the same words and the same keyboard reflexes as
-Slack: `#channels`, threads in a side panel, DMs, `@mentions`, `:reactions:`, ⌘K to jump
-anywhere. Where a cleverer interaction competes with the one people already have in their
-fingers, Blob ships the one they have.
+### 🤖 Agents are colleagues
+An agent is a real member with a face in the member list. Mention it and a card under your
+message shows its plan, its draft and a Stop button. It asks before it decides, uses
+Blob's tools only as you and only with your Approve for anything it posts, and takes on
+tasks you hand it.
 
-**Yours, whole.** Every feature is in this repository under one MIT licence. There is no
-plan check anywhere in the code and no enterprise tier. The deployment you run *is* the
-product, and your history stays yours for as long as you keep the database.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-**Agents are colleagues.** An agent is a real row in `users`, so it has an avatar, a place in
-the member list, and messages that thread, search and get reacted to like anybody else's.
-Mention it in a channel or DM it. A card under your message shows the plan, the step it is
-on, the answer as it is being written and a Stop button while it works. It can stop to ask
-you a question with real buttons — answerable on the card, and on your Home —
-remember what a conversation told it, hand a job to another agent, and open a private *work
-channel* with tabs for the plan, the diffs and the preview. Everything it does runs on the
-authority of the person who asked, never on a service account.
+### 🔓 Yours, whole
+Every feature is in this repository under one MIT licence. There is no plan check anywhere
+in the code and no enterprise tier. The deployment you run *is* the product, and your
+history stays yours for as long as you keep the database.
 
-**Janus comes with it.** Blob ships with [Janus](https://github.com/magnetoid/Janus-Agent), an
-open-source agent that runs as a service beside the app. Switch it on and every workspace
-gets an agent that is already in every public channel, answers a DM without being
-mentioned, and takes a few lines of instructions from each workspace's admins. The console
-page for it shows what it may spend, where it is, and, for the server's admin, what it runs
-on: provider, model, reasoning effort, toolsets, the config file itself, with a restart
-button and a key field that is write-only by design.
+</td>
+<td width="50%" valign="top">
 
-**Your own assistant reads Blob as you.** Blob is an [MCP](https://modelcontextprotocol.io)
-server. Mint a token under *Settings → Assistants* and Claude Code, Claude on the web or your
-editor can read your channels, your DMs and nothing more, exactly your reach and no
-further, and show up in the audit log as you. It can catch you up on what is waiting, put a
-question to one of the workspace's agents and follow its run, and every token ends.
+### 🧭 Your assistant reads Blob as you
+Blob is an MCP server. Claude Code, Claude on the web or your editor can catch you up,
+search, reply and ask the workspace's agents — with exactly your reach, in the audit log as
+you, on a token that ends.
 
-**Private by design.** No read receipts, ever. No presence or typing signals for apps and
-agents. A private channel you are not in answers 404, not 403, because its existence is the
-private part. A shared agent in a channel reads no further than that room could.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-**Built to stay up.** A dead mail server, a broken app, a slow agent or a failed link
-preview degrades that one thing and nothing else. Every write is a REST call, so losing the
-live connection costs you updates and never data.
+### 🔒 Private by design
+No read receipts, ever. No presence or typing signals for apps and agents. A private
+channel you are not in answers 404, not 403, because its existence is the private part. A
+shared agent in a channel reads no further than that room could.
 
----
+</td>
+<td width="50%" valign="top">
 
-## What it looks like
+### 🛟 Built to stay up
+A dead mail server, a broken app, a slow agent or a failed link preview degrades that one
+thing and nothing else. Every write is a REST call, so losing the live connection costs you
+updates and never data.
 
-**A thread, beside the channel it came from.** Replies stay out of the main flow; the
-channel is still readable while you are in one, and "Also send to #channel" is one tick.
+</td>
+</tr>
+</table>
 
-![A thread open in its panel](docs/images/thread.png)
-
-**Twelve palettes, drawn in their own colours.** Six light, six dark, chosen per person from a
-gallery, with three text densities. An admin can add more, token by token.
-
-![The palette gallery in Preferences](docs/images/themes.png)
-
-**Help, inside the app.** Sixteen sections covering the whole product, with the keyboard
-shortcuts and the slash-command table generated from the running code, so the page cannot
-document a key nobody bound or a command your server does not answer.
-
-![The in-app guide](docs/images/help.png)
+One image, one origin, one Postgres. Install it in an afternoon, keep every message you ever
+wrote, and give your agents a seat at the table instead of a panel on the side.
 
 ---
 
-## What works today
+## Agents as colleagues
 
-### Conversations
+Bring an agent into a channel and it behaves like a colleague who happens to work very
+fast — in front of everyone, on the authority of whoever asked, and never on a service
+account.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor You
+    participant Blob
+    participant Agent as Your agent (AG-UI)
+    You->>Blob: @Janus what did we decide about the launch?
+    Blob->>Agent: a signed run: the thread, the workspace's instructions, the tools allowed
+    Agent-->>Blob: plan, steps, the answer as it is written
+    Note over You,Blob: the card under your message fills in live, with a Stop button
+    Agent->>Blob: search_messages "launch decision"
+    Blob-->>Agent: results, read as you, inside this room
+    Agent->>Blob: post_message to the marketing channel
+    Blob->>You: Approve or Deny?
+    You->>Blob: Approve
+    Agent-->>Blob: the answer
+    Blob->>You: posted in the thread, with what the run was shown kept on its card
+```
+
+**In the conversation**
+
+- **Agents as members** — a real row in `users`, so an agent has an avatar, a place in the
+  member list, and messages that thread, search and get reacted to like anybody else's.
+  Mention one in a channel; the workspace's resident agent, and your own, answer a DM
+  without one.
+- **A card you can watch** — the plan, the step it is on, a draft of the answer as it is
+  written and a Stop button while it runs. Each run keeps what it was shown — how many
+  messages and from where, the files, the instructions, memory, task and tools that went
+  with it — and a conversation's runs, or one agent's anywhere you can see, page back from
+  the conversation's menu.
+- **It asks before it decides** — an agent that stops to ask posts the question with
+  buttons Blob minted from what it declared, names you and notifies you. Only you may
+  answer, on the card or on Home; your answer is your own message, the run resumes over
+  AG-UI with its saved state, and a question nobody answers within a day expires.
+- **Agents hand each other work** — a reply may mention another agent, which answers in the
+  same channel, and the card says who asked. Every hop runs on the authority of the person
+  who started it, inside a depth budget, a per-agent cap that ends ping-pong and a
+  quarter-hour wall clock. Stop cascades. ([ADR 0013](.torsor/architecture/decisions/0013-agent-chains-carry-human-authority.md))
+- **Files both ways** — an agent that speaks AG-UI 1.0 is handed the images, PDFs and text
+  files shared in the conversation, and can hand files back inside its answer. They meet
+  your upload rules and open in the panel beside the conversation.
+
+**Doing real work**
+
+- **Blob's tools, when an admin allows them** — search the workspace, read a channel or a
+  thread, list people: always as the person who asked, and in a channel only into public
+  channels and that room. With write access an agent can post too, and every post waits
+  for that person's Approve. Off for every agent until an admin chooses.
+  ([ADR 0022](.torsor/architecture/decisions/0022-an-agent-may-use-blobs-tools-inside-the-room-and-writes-ask-first.md))
+- **Tasks handed to agents** — assign a task to an agent and it is a hand-off in the thread,
+  from you, that the agent answers without anybody mentioning it. Its answer closes the
+  task; a failure or a refusal blocks it with the reason. A scheduled message that mentions
+  an agent is a scheduled run — every weekday at nine, if you like.
+  ([ADR 0023](.torsor/architecture/decisions/0023-a-task-handed-to-an-agent-is-a-message-from-the-person-who-handed-it.md))
+- **Work channels** — *Start work from here* on any message spins a private channel for that
+  one job, with tabs beside the conversation: Plan (the run cards), Changes (diffs, with a
+  viewer) and Preview (pages and documents). A page runs only on click, in a sandbox with
+  its own no-network policy. Blob executes nothing an agent publishes.
+
+**Whose it is, and what it remembers**
+
+- **The workspace's, or one person's** — an agent with no owner answers anyone; an agent
+  with an owner answers that person and whoever they lend it to with `/allow`. Settings
+  lists who your agent is lent to and ends a loan.
+- **Memory with an owner** — what an agent remembers is the conversation's, or — for an
+  agent somebody owns — each person's own, so a loan lends the agent and not what it knows.
+  Settings shows you yours and clears it, and a memory nobody writes for 90 days lapses.
+  ([ADR 0024](.torsor/architecture/decisions/0024-what-an-agent-remembers-is-somebodys.md))
+- **Bring your own** — any member connects an agent from their laptop under *My agents*:
+  Blob mints the token, the agent dials in from behind NAT, and it is theirs from the
+  first mention. Admins can register one at an HTTPS address, or have Blob deploy one from
+  a repository where the server allows it.
+
+**Janus comes with it.** Blob ships with [Janus](https://github.com/magnetoid/Janus-Agent),
+an open-source agent that runs as a service beside the app. Switch it on and every
+workspace gets an agent that is already in every public channel, answers a DM without being
+mentioned, and takes a few lines of instructions from each workspace's admins. Its console
+page shows what it may spend and where it is, and, for the server's admin, what it runs on —
+provider, model, reasoning effort, toolsets, the config file — with a restart button and a
+key field that is write-only by design. **No provider key is ever stored, logged or returned
+by Blob.**
+
+**Agents you can account for.** An agent's console page lists its runs, what each was
+shown, what it streamed — the newest 200 events, kept for a week, and only where you can
+see the room — its last ten errors, and when its secret was rotated and its token last
+used. Operators can trace runs, tool calls and MCP requests with OpenTelemetry and scrape
+counters from `/metrics`; both are off until configured.
+([ADR 0025](.torsor/architecture/decisions/0025-what-an-operator-can-see-of-agents.md))
+
+**Any framework, two directions.** [AG-UI](https://ag-ui.com) is the protocol every major
+agent framework already speaks — LangGraph, CrewAI, PydanticAI, Google ADK, AWS Strands,
+the Claude Agent SDK — so an agent that exposes an AG-UI endpoint is already integrated.
+Blob learns per agent whether it speaks 1.0 and keeps older agents working. An agent with
+no address at all dials in over a WebSocket instead
+([docs/agent-socket.md](docs/agent-socket.md)).
+
+---
+
+## Your assistant reads Blob as you
+
+Blob is an [MCP](https://modelcontextprotocol.io) server. Under *Settings → Assistants* a
+member mints a token and pastes one command; Claude Code, Claude on the web or an editor
+then works in the workspace **as them** — same channels, same private conversations,
+nothing more — and shows up in the audit log as them.
+
+| | Tools |
+|---|---|
+| **Read** | `whoami` · `inbox` (unread conversations, mentions first) · `list_channels` · `list_threads` (followed threads, new replies marked) · `read_channel` · `read_thread` · `search_messages` (paged by cursor) · `list_people` · `run_status` |
+| **Write** — a separate tick, off by default | `post_message` · `message_person` (both idempotent on the assistant's own id) · `add_reaction` · `ask_agent` · `answer_decision` · `stop_run` |
+
+Every token ends after 30, 90 or 365 days, and *Admin → Assistants* lists every connection
+in the workspace and revokes any. One stateless endpoint at `POST /api/mcp` speaks both the
+`initialize` handshake of `2025-06-18`/`2025-11-25` and the per-request metadata of
+`2026-07-28`, with its `resultType` and caching hints.
+([ADR 0016](.torsor/architecture/decisions/0016-an-assistant-token-is-a-person.md))
+
+---
+
+## Everything a team needs
+
+<details open>
+<summary><b>Conversations</b> — channels, DMs, threads, reactions, mentions, files, calls</summary>
 
 - **Channels** — public and private, topics, starring, archiving, per-channel notification
   levels, and a searchable directory of every open channel with member counts and
@@ -130,195 +247,100 @@ document a key nobody bound or a command your server does not answer.
   reaction lands the instant you click it and comes back off with a toast if the server
   disagrees.
 - **Mentions** — `@person`, `@group`, `@channel`, `@here` and `@everyone`, never fired from
-  inside a code block. People are resolved when the message is written; a group is resolved
-  at notify time against current membership, so an edit reaches whoever is in it now.
-  `@channel` and `@everyone` reach everybody; `@here` reaches only the people who are
-  actually at their desk.
+  inside a code block. A group is resolved at notify time against current membership, so
+  an edit reaches whoever is in it now; `@here` reaches only the people actually at their
+  desk.
 - **Files** — up to ten per message, 100 MB each, uploaded straight to object storage so
   file bytes never pass through the API process. Executable extensions are refused. An
   image gets a small copy made on upload, turned upright and stripped of its camera
-  metadata, so a channel of screenshots is cheap to scroll; clicking one opens the original
-  in place.
+  metadata; text, PDFs and pages open in a panel beside the conversation.
 - **Link previews** — the first URL in a message, fetched with an SSRF guard, a 5-second
   timeout and a 512 KB ceiling.
-- **Translation** — per-message, or automatic for everything arriving in another language.
-  Needs a preferred language and a configured provider (DeepL or LibreTranslate).
-- **Calls** — a huddle or a video meetup, in any channel or DM, carried by LiveKit and
-  inheriting the conversation's access: one live call of each kind per conversation,
-  presence kept from LiveKit's webhooks plus a once-a-minute sweep, and no attendance
-  history. Meetups are full screen and shipped; huddles arrive in a later release. Opt-in;
-  see [Calls](#calls) under Configuration.
+- **Translation** — per message, or automatic for everything arriving in another language,
+  through DeepL or LibreTranslate.
+- **Calls** — a video meetup in any channel or DM, carried by LiveKit and inheriting the
+  conversation's access: one live call of each kind per conversation, presence kept from
+  LiveKit's webhooks plus a once-a-minute sweep, and no attendance history. Opt-in; see
+  [Calls](#calls) under Configuration.
 
-### Attention
+</details>
+
+<details open>
+<summary><b>Attention</b> — unread, notifications, catch-up, Later, Home</summary>
 
 - **Unread** — a forward-only read cursor, a "New messages" divider frozen where you
   entered, mention badges that count mentions rather than messages, and Mark unread to put
   the line back deliberately. Come back to a busy channel and a strip offers to catch you
   up; a jump bar takes you to the first thing you have not read.
 - **Notifications** — mentions and DMs by default, per-channel levels down to a hard mute,
-  up to thirty keyword alerts, group-mention silencing, quiet hours, and a pause with four
-  presets. Web Push when the tab is closed needs `VAPID_*` keys; without them the switch is
-  not drawn and notifications stay in-app.
+  up to thirty keyword alerts, group-mention silencing, quiet hours, a pause with four
+  presets, and Web Push when the tab is closed.
 - **Catch up** — a model-written summary of what you have not read, per channel or across
-  the workspace, with Mark as read beside each one. Needs `LLM_PROVIDER` **and**
-  `LLM_API_KEY`; without both the panel says so rather than inventing a summary.
+  the workspace, with Mark as read beside each one. Without a configured model the panel
+  says so rather than inventing a summary.
 - **Later** — save any message to a private shortlist, or have it come back at one of five
   preset times. Pinning tells the channel; this tells nobody.
 - **Home** — what needs you, which agents are running, your open tasks, who is here now,
   and a box to ask the workspace's agent from.
 
-### Finding things
+</details>
+
+<details open>
+<summary><b>Finding things</b> — search, ⌘K, activity, files, keyboard</summary>
 
 - **Search** — Postgres full-text across every conversation you are in, with `from:`,
-  `in:`, `has:link`, `has:file`, `before:` and `after:`, ranked by relevance or answered in
-  time order. Accents fold on both sides, so `sta` finds `šta`. A bad *value* (`has:files`,
-  `before:yesterday`) is refused rather than silently dropped; an unrecognised modifier
-  *name* is treated as words to search for.
+  `in:`, `has:link`, `has:file`, `before:` and `after:`, ranked by relevance or in time
+  order. Accents fold on both sides, so `sta` finds `šta`.
 - **⌘K** — jump to a channel, a person or an action, and see matching messages as you
   type. ⌘⇧K is the same picker with only people in it.
 - **Activity** — everybody who mentioned you and everybody who reacted to something you
-  wrote, newest first, filtered by either. Only what you can still read: leaving a channel
-  takes its mentions with it, and muting one keeps the direct mentions while dropping the
-  `@channel` ones.
+  wrote, newest first. Only what you can still read: leaving a channel takes its mentions
+  with it.
 - **Files** — every attachment you can see, filtered to images or documents.
 - **Keyboard** — ⌥↑/⌥↓ walk the sidebar, ⌥⇧↑/⌥⇧↓ and ⌘⇧J step through unread, ⇧Esc
   marks everything read, ⌘/ lists the lot.
 
-### Time
+</details>
+
+<details open>
+<summary><b>Time</b> — send later, repeating messages, nudges, reminders</summary>
 
 - **Send later** — four presets or a time you pick, up to a year ahead, with a Scheduled
   view to cancel from.
 - **Repeating messages** — daily, weekdays or weekly, rebuilt from the wall clock each time
-  so a standup does not drift when the clocks change, and skipping missed occurrences
-  rather than owing you a backlog.
-- **Unanswered-question nudges** — switch it on in a channel's details and a question that
-  goes a day there without a reply, a reaction or anyone chiming in comes back to the
-  person who asked, as a reminder in their Later. Only to them: nothing about who saw the
-  question is ever looked at, because Blob has no read receipts to look at.
+  so a standup does not drift when the clocks change.
+- **Unanswered-question nudges** — a question that goes a day without a reply, a reaction
+  or anyone chiming in comes back to the person who asked, as a reminder in their Later.
+  Only to them: Blob has no read receipts to look at.
 - **Reminders** — `/remind me to water the plants tomorrow at 9`, understanding durations,
   clock times, weekdays and "every weekday at 9am".
 
-### Agents and apps
+</details>
 
-- **Agents as members** — mention one in a channel or DM it. A card under your message
-  shows the plan, the step it is on, a draft of the answer as it is written and a Stop
-  button while it runs. A question it stops to ask names you and notifies you, and can be
-  answered on the card or on Home with the choices it offered. Each run keeps what it was
-  shown — how many messages and from where, the files, instructions, memory, task and
-  tools that went with them — on the card's details; a conversation's runs, or one agent's
-  anywhere you can see, page back from the conversation's menu. What an agent remembers is
-  the conversation's, or — for an agent somebody owns — each person's own, so a loan lends
-  the agent and not what it knows; Settings shows you yours and clears it, lists who your
-  agent is lent to and ends a loan, and memories lapse after 90 days unwritten. ADR 0024.
-- **Janus, the agent every workspace has** — run as a service in this stack
-  (`COMPOSE_PROFILES=janus`, see [Janus](#janus) under Configuration). Seeded into every
-  workspace through the ordinary install path, seated in every public channel from the
-  moment the channel exists, and reachable in a DM without an `@`. A workspace's admins
-  turn it on or off, choose its channels, decide whether it joins channels founded from now
-  on, set its daily budget, write a few lines of instructions it reads with every run, and
-  press *Say hello* to check it answers. The server's admin sees what it runs on and
-  changes it from the same page: provider, model, a write-only key field, reasoning
-  effort, toolsets, the config file, a restart. **No provider key is ever stored, logged or
-  returned by Blob.**
-- **Whose agent it is** — an agent with no owner is the workspace's and answers anyone; an
-  agent with an owner answers that person, and whoever they lend it to with `/allow` in a
-  given channel. That is what makes a personal assistant personal, and an agent handed to
-  a person stops being the workspace's everywhere at once.
-- **Your own agent** — any member connects an agent from their laptop under *My agents*:
-  Blob mints the token, the agent dials in, and it is theirs from the first mention.
-  `POST /api/agents/mine`.
-- **Agents talking to each other** — an agent's reply may mention another agent, which
-  answers in the same channel; the card says who asked. Every hop runs on the authority of
-  the person who started it, inside a depth budget (`agent_chain_max_depth` per workspace,
-  `AGENT_CHAIN_MAX_DEPTH` as the server ceiling), a per-agent cap that ends ping-pong, and
-  a quarter-hour wall clock. Stop cascades. ADR 0013.
-- **What an agent is shown** — the conversation it was asked in, and nothing else of the
-  workspace: in a thread, its first message and newest replies; in a channel, the last
-  30 messages. Blob offers agents no tools to read further (ADR 0019), so an agent sees no
-  more than the room it answers in. An agent that speaks AG-UI 1.0 is also handed the
-  images, PDFs and text files shared there; every agent is told they exist. A person's
-  own agents are turned off when that person is deactivated.
-- **Blob's tools, for agents an admin allows** — an agent can search the workspace, read
-  a channel or a thread and list people, always as the person who asked it and, in a
-  channel, only into public channels and that room (ADR 0022). With write access it can
-  post too, and every post waits for that person to press Approve. Off for every agent
-  until an admin chooses on its page.
-- **AG-UI 1.0, learned per agent** — an agent states the version it speaks when a run
-  starts, and Blob speaks 1.0 back only to one that has, so older agents keep working. The
-  tokens an agent reports land on the run card and the console's daily meter; delegated
-  work shows on the card; its reasoning stays off the card unless an admin turns on *Show
-  its reasoning*.
-- **Agents remember** — AG-UI shared state is kept per (agent, conversation) and handed
-  back as `state` on the next run there; only runs that finished or stopped to ask write
-  it, a resume's own state outranks it, 64 KiB cap.
-- **Decisions that resume** — an agent that stops to ask posts the question with buttons
-  Blob minted from what it declared; only the asker may answer; the answer is their own
-  message; the run resumes over AG-UI with `resume[]`, `parentRunId` and its saved state. A
-  question nobody answers within a day expires.
-- **Work channels** — *Start work from here* on any message spins a private channel for
-  that one job, quoting the message, linking back, and bringing the agents you name on
-  your authority. Tabs beside the conversation: Plan (the run cards), Changes (diffs, with
-  a viewer), Preview (pages and documents). Agents publish artifacts with an AG-UI
-  `CUSTOM` event named `blob.artifact` or `POST /api/v1/work.publishArtifact`; a page runs
-  only on click, in an `allow-scripts`-only sandbox with its own no-network CSP. Mark done
-  archives the channel. ADR 0014.
-- **Where an agent runs is a manifest field.** `external` is an HTTPS endpoint you host;
-  `container` is one Blob deploys from a repository; `socket` dials in from a laptop
-  behind NAT and needs no address at all. [AG-UI](https://ag-ui.com) is orthogonal to all
-  of them: declare `aguiUrl` or `aguiPath` and Blob speaks it as the client, which is the
-  direction every agent framework already ships.
-- **Your assistant reads Blob** — Blob is an [MCP](https://modelcontextprotocol.io) server.
-  Under *Settings → Assistants* a member mints a token and pastes one command; Claude Code,
-  Claude on the web or an editor then reads the workspace **as them**, same channels, same
-  private conversations, nothing more. Reading: `whoami`, `inbox` (unread conversations,
-  mentions first, and recent mentions), `list_channels`, `list_threads` (followed threads,
-  new replies marked), `read_channel`, `read_thread`, `search_messages` (paged by cursor),
-  `list_people`, `run_status`. Writing, a separate tick and off by default:
-  `post_message` and `message_person` (both idempotent on a `client_msg_id` of the
-  assistant's own), `add_reaction`, and the workspace's agents — `ask_agent`,
-  `answer_decision`, `stop_run` — on the person's authority, as if they had typed it. Every
-  token ends after 30, 90 or 365 days, and *Admin → Assistants* lists every connection in
-  the workspace and revokes any. One stateless endpoint at `POST /api/mcp`, speaking both
-  the `initialize` handshake of `2025-06-18`/`2025-11-25` and the per-request metadata of
-  `2026-07-28` — whose results say `resultType: "complete"` and whose lists carry the
-  `ttlMs`/`cacheScope` caching hints. ADR 0016.
-- **Tasks** — shared human/agent work items, extracted from a thread or created directly.
-  Hand one to an agent and it is a hand-off in the thread, from you, that the agent
-  answers without anybody mentioning it; its answer closes the task, and a failure or a
-  refusal blocks it with the reason. A scheduled message that mentions an agent is a
-  scheduled run — every weekday at nine, if you like — and the Scheduled list marks it
-  as one. ADR 0023.
+<details open>
+<summary><b>Teamwork</b> — tasks, decisions, summaries, apps, webhooks</summary>
+
+- **Tasks** — shared work items for people and agents, extracted from a thread or created
+  directly, with owners, priorities and due dates, listed on Home.
 - **Thread summaries** — decisions, open questions and action items pulled out of a long
-  thread, each pointing at the message it came from. With `LLM_PROVIDER` set a model
-  writes it and the panel says so; without one it is a keyword scan, labelled as such,
-  that finds only what somebody phrased plainly. A model that fails says so rather than
-  pretending.
-- **Apps** — a manifest, a scope catalogue, SSRF-guarded registration, HMAC-signed
-  delivery through a transactional outbox, interactive blocks and buttons, and
-  app-provided slash commands that appear in the same list as the built-ins.
+  thread, each pointing at the message it came from. A model writes it when one is
+  configured; otherwise a keyword scan does, and says so.
+- **Apps** — a manifest, a scope catalogue, SSRF-guarded registration, HMAC-signed delivery
+  through a transactional outbox, interactive blocks and buttons, and app-provided slash
+  commands that appear in the same list as the built-ins.
 - **Incoming webhooks** — post into a channel from CI or a cron job.
-- **The Apps & agents console** — one table of everything installed with its access, its
-  runs this week and whether it is online; one *Install agent* button offering Janus,
-  another agent on this machine, or an app by URL; a Guardrails panel that states the
-  policies in force; and a bar chart of the week's runs.
-- **Watching agents** — an agent's page lists its last ten errors with when each
-  happened, and opening a run in its log shows what the agent actually streamed: the
-  newest 200 events, cut down, kept for a week, and only where you can see the room. An
-  operator can trace runs, tool calls and MCP requests with OpenTelemetry and scrape
-  counters from `/metrics`; both are off until configured. ADR 0025.
+- **Slash commands** — eighteen built-ins, plus whatever the installed apps add:
+  `/help` `/shrug` `/me` `/topic` `/leave` `/away` `/invite` `/remove` `/join` `/rename`
+  `/mute` `/archive` `/who` `/dm` `/status` `/remind` `/allow` `/disallow`
 
-### Slash commands
+</details>
 
-Eighteen built-ins, and whatever the apps installed here have added:
-
-`/help` `/shrug` `/me` `/topic` `/leave` `/away` `/invite` `/remove` `/join` `/rename`
-`/mute` `/archive` `/who` `/dm` `/status` `/remind` `/allow` `/disallow`
-
-### Running a workspace
+<details open>
+<summary><b>Running a workspace</b> — two consoles, feedback, What's new</summary>
 
 - **Workspace console** — name, appearance, members and roles, user groups, invitations,
-  every channel including the private ones, apps and agents, Janus, webhooks, deliveries,
-  custom emoji.
+  every channel including the private ones, apps and agents with their runs and errors,
+  Janus, connected assistants, webhooks, deliveries, custom emoji.
 - **Server console** — every account and workspace on the instance, per-workspace app
   policy, live health, the audit log, error logs, and feedback filed from inside the app.
 - **Feedback** — anyone can file a bug from the top bar; the ticket carries the browser
@@ -327,17 +349,32 @@ Eighteen built-ins, and whatever the apps installed here have added:
   version you are not looking at, with a dot beside the menu when there is something you
   have not seen.
 
-### Look and feel
+</details>
+
+<details open>
+<summary><b>Look and feel</b> — palettes, densities, motion, the in-app guide</summary>
 
 - Light, dark and system, each side filled by a named palette an admin can edit token by
-  token; three densities; 44px touch targets on coarse pointers; the whole shell usable
-  at phone width.
-- Motion is spent on the small moments and nowhere else: menus, toasts and the thread
-  panel enter and leave, counts tick when they change, a reaction applies before the
-  server answers. Reduced motion is honoured as a token policy rather than a blanket clamp,
-  so distances go to zero and fades keep their timing.
-- **An in-app guide** at `/help`, sixteen sections covering the whole app, with the
-  keyboard shortcuts and the slash-command table generated from the running code.
+  token — twelve to start, drawn in their own colours — with three densities, 44px touch
+  targets on coarse pointers, and the whole shell usable at phone width.
+- Motion is spent on the small moments and nowhere else: menus, toasts and the thread panel
+  enter and leave, counts tick when they change, a reaction applies before the server
+  answers. Reduced motion is honoured as a token policy rather than a blanket clamp.
+- **An in-app guide** at `/help`, sixteen sections covering the whole app, with the keyboard
+  shortcuts and the slash-command table generated from the running code, so it cannot
+  document a key nobody bound.
+
+</details>
+
+### A look around
+
+<table>
+<tr>
+<td width="33%" valign="top"><img src="docs/images/thread.png" alt="A thread open in its panel beside the channel"><br><sub><b>Threads</b> — replies beside the channel they came from, with "Also send to #channel" one tick away.</sub></td>
+<td width="33%" valign="top"><img src="docs/images/themes.png" alt="The palette gallery in Preferences"><br><sub><b>Twelve palettes</b> — six light, six dark, chosen per person from a gallery; admins add more.</sub></td>
+<td width="33%" valign="top"><img src="docs/images/help.png" alt="The in-app guide"><br><sub><b>Help inside the app</b> — sixteen sections, with shortcuts and commands generated from the code.</sub></td>
+</tr>
+</table>
 
 ---
 
@@ -347,13 +384,11 @@ Named because they are coming, and because a README that implies otherwise waste
 afternoon:
 
 - **Huddles.** The audio-first counterpart to a video meetup — same call, same access
-  rules, but the camera never comes on just from joining; someone in one turns theirs on
-  by hand. The button is in the top bar and disabled today; it arrives in a later
-  release. (Video meetups, the other kind of call, are built — see [Calls](#calls) under
-  Configuration for what that needs.)
-- **Voice messages.** The server already accepts a voice note as its own kind of attachment,
-  with a duration and a waveform, and plays it inline. The recorder, the player and the
-  transcript are the next slices.
+  rules, but the camera never comes on just from joining. The button is in the top bar and
+  disabled today.
+- **Voice messages.** The server already accepts a voice note as its own kind of
+  attachment, with a duration and a waveform, and plays it inline. The recorder, the player
+  and the transcript are the next slices.
 - **Search scopes in ⌘K** (channels · people · messages · files as sections) and a lightly
   tinted sidebar are the next two steps on the Slack-parity path.
 - **Canvases and workflows** — not started.
@@ -382,18 +417,18 @@ pnpm migrate
 pnpm seed                                  # optional — see the warning below
 
 pnpm dev                                   # API :3000, web :5173
-pnpm worker                                # second shell: notifications, unfurls, sweeps
+pnpm worker                                # second shell: notifications, agent runs, sweeps
 ```
 
 Open <http://localhost:5173>. The first account you create founds the workspace and
 administers the server; everyone else joins by invitation.
 
-**`pnpm seed` is destructive.** It truncates seventeen tables — workspaces, users,
-sessions, channels, messages, reactions, attachments and the rest — with `RESTART IDENTITY
-CASCADE` before inserting the demo data. It is for a scratch database, never for one you
-care about.
-
-The seeded demo workspace signs in as `ana@example.com` with `correct-horse-battery`.
+> [!WARNING]
+> **`pnpm seed` is destructive.** It truncates seventeen tables — workspaces, users,
+> sessions, channels, messages, reactions, attachments and the rest — with `RESTART
+> IDENTITY CASCADE` before inserting the demo data. It is for a scratch database, never for
+> one you care about. The seeded demo workspace signs in as `ana@example.com` with
+> `correct-horse-battery`.
 
 To put it on a server, see [Deploying](#deploying): on Coolify it is one Docker Compose
 resource pointed at `docker-compose.prod.yml`, and the first deploy generates the domain,
@@ -419,7 +454,7 @@ point for both tiers.
 | Task | Command |
 |---|---|
 | Dev servers — API on :3000, web on :5173 | `pnpm dev` |
-| Job worker — notifications, unfurls, sweeps, plugin delivery | `pnpm worker` |
+| Job worker — notifications, unfurls, agent runs, sweeps, plugin delivery | `pnpm worker` |
 | The whole gate — tsc + eslint + ruff + mypy --strict + pytest + vitest | `pnpm check` |
 | Migrate — `alembic upgrade head` | `pnpm migrate` |
 | Seed a demo workspace (**truncates first**) | `pnpm seed` |
@@ -435,9 +470,11 @@ argon2-cffi verifies what `@node-rs/argon2` wrote.
 
 ## Configuration
 
-Everything is environment variables; `.env.example` is the annotated copy. The app refuses
-to start without `DATABASE_URL` and a `SESSION_SECRET` of at least 32 characters. Every
-other setting has a working default.
+Everything is environment variables; [`.env.example`](.env.example) is the annotated copy.
+The app refuses to start without `DATABASE_URL` and a `SESSION_SECRET` of at least 32
+characters. Every other setting has a working default, and every optional dependency —
+mail, push, calls, a model, translation, Janus, tracing — is off until you set it, without
+taking anything else down.
 
 `.env` is looked for at `../../.env` and then `.env`, relative to the process's working
 directory — which is why the repo-root file works for `pnpm migrate`, `pnpm seed` and the
@@ -461,18 +498,22 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 | Variable | Default | Notes |
 |---|---|---|
 | `PUBLIC_URL` | `http://localhost:5173` | The public origin, **scheme included**. Every mutating request is checked against it; a mismatch shows up as "Blocked request." on sign-in and nothing else explains it. It has a default, so the app starts without it and then refuses every write from your real domain. |
-| `TRUSTED_PROXY_HOPS` | `0` | How many proxies append to `X-Forwarded-For` **after** the one that names the real caller. The proxy nearest the caller contributes their address, so it does not count; anything behind it does. **One reverse proxy: `0`. nginx in front of Coolify's Traefik: `1`.** This decides what the login, signup and password-reset rate limits count against and what the audit log records. Set it too high and those become a header the caller writes; too low and everyone shares one bucket — which is why the default is low. |
+| `TRUSTED_PROXY_HOPS` | `0` | How many proxies append to `X-Forwarded-For` **after** the one that names the real caller. **One reverse proxy: `0`. nginx in front of Coolify's Traefik: `1`.** This decides what the login, signup and password-reset rate limits count against and what the audit log records. Set it too high and those become a header the caller writes; too low and everyone shares one bucket — which is why the default is low. |
 
-### Core
+<details>
+<summary><b>Core</b> — <code>NODE_ENV</code>, <code>REDIS_URL</code>, <code>SESSION_TTL_DAYS</code>, <code>WEB_DIST</code></summary>
 
 | Variable | Default | Notes |
 |---|---|---|
 | `NODE_ENV` | `development` | |
-| `REDIS_URL` | `redis://localhost:6379` | Presence, typing, rate limits, the job queue. |
+| `REDIS_URL` | `redis://localhost:6379` | Presence, typing, rate limits, the job queue, the metrics counters. |
 | `SESSION_TTL_DAYS` | `30` | |
 | `WEB_DIST` | unset | Where the built client lives. Unset in development, where Vite serves it; the image sets it and the API then serves both. |
 
-### Object storage
+</details>
+
+<details>
+<summary><b>Object storage</b> — <code>S3_*</code></summary>
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -483,7 +524,10 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | `blobadmin` / `blobadmin123` | Change these anywhere real. |
 | `S3_FORCE_PATH_STYLE` | `true` | MinIO wants path style; most managed S3 does not. |
 
-### Mail — invitations and password resets
+</details>
+
+<details>
+<summary><b>Mail</b> — invitations and password resets, <code>SMTP_*</code></summary>
 
 | Variable | Default |
 |---|---|
@@ -498,14 +542,20 @@ link from **People** in the workspace console and hands it over. **System → He
 whether mail is reachable at all, so a server that quietly delivers nothing is visible
 rather than assumed.
 
-### Web Push
+</details>
+
+<details>
+<summary><b>Web Push</b> — <code>VAPID_*</code></summary>
 
 | Variable | Notes |
 |---|---|
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | `npx web-push generate-vapid-keys`. Without them the Notifications page says so and draws no switch; notifications stay in-app. |
 | `VAPID_SUBJECT` | `mailto:` address, default `mailto:admin@example.com`. |
 
-### Calls
+</details>
+
+<details>
+<summary id="calls"><b>Calls</b> — LiveKit, <code>LIVEKIT_*</code>, <code>COMPOSE_PROFILES=meetups</code></summary>
 
 A huddle and a video meetup are one primitive — a LiveKit room that belongs to a
 conversation — in two kinds. Blob issues the token; LiveKit carries the media and tells
@@ -516,8 +566,7 @@ set `COMPOSE_PROFILES=meetups` alongside the values below. Leave these empty and
 answers `livekit_not_configured` while everything else carries on.
 
 Per-workspace controls — on or off, cameras on join, the participant cap — and whether
-LiveKit is actually reachable live in the console at **Admin → Calls → Video meetups**
-(`/admin/meetups`; a Huddles row sits beside it, marked "Soon" until the next release).
+LiveKit is actually reachable live in the console at **Admin → Calls → Video meetups**.
 
 | Variable | Notes |
 |---|---|
@@ -526,11 +575,9 @@ LiveKit is actually reachable live in the console at **Admin → Calls → Video
 | `LIVEKIT_API_URL` | Optional: where **Blob itself** reaches LiveKit's API, when that differs from `LIVEKIT_URL` — the stack's own network, `http://livekit:7880`, in the production compose. |
 
 LiveKit's webhook has to reach Blob at `<PUBLIC_URL>/api/calls/livekit`, and both compose
-files already point it there rather than at a Docker service name: `host.docker.internal`
-in dev, since the API runs on the host, and Blob's own public address in production —
-never the `app` service's own name, which two stacks sharing a Coolify host can both
-answer to. Running LiveKit as a plain binary instead of in Docker needs the same webhook
-config, given inline:
+files already point it there: `host.docker.internal` in dev, since the API runs on the
+host, and Blob's own public address in production. Running LiveKit as a plain binary
+instead of in Docker needs the same webhook config, given inline:
 
 ```bash
 brew install livekit
@@ -540,30 +587,29 @@ livekit-server --dev --config-body 'webhook: {api_key: devkey, urls: ["http://lo
 Signalling is an ordinary WebSocket and a reverse proxy carries it. Media is not: WebRTC is
 UDP and a proxy only speaks TCP, so the stack publishes **7882/udp** straight onto the host
 and that port has to be open in the firewall. Miss it and a call connects, shows everyone
-present, and carries no sound. One UDP port rather than LiveKit's 50000-60000 default,
-because a range that size is a firewall argument nobody wants to have twice.
+present, and carries no sound. A second Blob stack on the same machine needs its own
+`LIVEKIT_UDP_PORT` and `LIVEKIT_TCP_PORT`, both opened in the firewall.
 
-A host port belongs to one container. Running two Blob stacks on one machine means the
-second needs its own `LIVEKIT_UDP_PORT` and `LIVEKIT_TCP_PORT`, both opened in the
-firewall. LiveKit advertises the UDP port it binds, so Blob passes that one value to the
-flag and to both halves of the mapping; the TCP variable moves only the host side, and a
-host port that differs from 7881 also needs `rtc.tcp_port` in a LiveKit config.
+</details>
 
-### A model for Catch-up and summaries
+<details>
+<summary><b>A model for Catch-up and summaries</b> — <code>LLM_*</code></summary>
 
 | Variable | Default | Notes |
 |---|---|---|
 | `LLM_PROVIDER` | `disabled` | `anthropic`, `openai` or `deepseek`. Turns on the Catch-up summaries and model-written thread summaries. It runs no agent: the agent is Janus. |
 | `LLM_API_KEY` | unset | The server's key, unlike an installed agent's, which its own container holds. |
-| `LLM_BASE_URL` | unset | Not needed for the three providers above — each knows its own host. Set it for a proxy, or an OpenAI-compatible server you run. |
-| `LLM_MODEL` | unset | Empty means a current model rather than a cheap one: `claude-sonnet-5`, `gpt-4.1`, `deepseek-v4-pro`. Check `GET /v1/models` on the provider before pinning one — a name that has been retired may hang rather than 404. |
+| `LLM_BASE_URL` | unset | Not needed for the three providers above. Set it for a proxy, or an OpenAI-compatible server you run. |
+| `LLM_MODEL` | unset | Empty means a current model rather than a cheap one: `claude-sonnet-5`, `gpt-4.1`, `deepseek-v4-pro`. Check `GET /v1/models` on the provider before pinning one — a retired name may hang rather than 404. |
 | `LLM_MAX_TOKENS` | `2048` | |
 
 Set these on **the app and the worker both** — they run one image and should see one
-environment. Today only the app reads them: Catch-up and thread summaries are both made
-at request time.
+environment.
 
-### Translation
+</details>
+
+<details>
+<summary><b>Translation</b> — <code>TRANSLATION_*</code></summary>
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -575,7 +621,10 @@ at request time.
 Without a provider the Translate action answers "Translation is not configured for this
 workspace yet."
 
-### Janus
+</details>
+
+<details>
+<summary id="janus"><b>Janus</b> — the agent every workspace gets, <code>JANUS_*</code>, <code>COMPOSE_PROFILES=janus</code></summary>
 
 Janus runs as a service in this stack, on an internal network, with no published port and
 no domain: Blob reaches it by name, and every run is authenticated by HMAC. It is off
@@ -590,44 +639,48 @@ switches it off with the same two clicks as anything else.
 | `JANUS_SIGNING_SECRET` | unset | Shared: Blob signs every run with it, the service reads it as `BLOB_SIGNING_SECRET`. A mismatch is a 401 that looks exactly like the agent being down. |
 | `JANUS_API_SERVER_KEY` | unset | Read by the service as `API_SERVER_KEY`, and by the app for one purpose: the Janus page reads and changes what Janus runs on through Janus's own API, bearing this key, at an address composed from `JANUS_AGUI_URL` and never from a request. |
 | `JANUS_AGENT_NAME` | `Janus` | What people type after `@`. The slug is always `janus`. |
-| `JANUS_PROVIDER` / `JANUS_MODEL` | `deepseek` / `deepseek-v4-pro` | Provider and model move together — the same model is named differently by a direct API and by a router. **These reach Janus's CLI paths, not the agent that answers a mention:** its gateway reads `config.yaml` on its own volume, and a fresh volume starts on the image's packaged default. Set the model from the Janus page after the first boot, or a run finishes with no text and the channel sees silence. |
-| `JANUS_VERSION` | `0.18.0` | The image tag, pinned rather than `latest`: an agent that changes under a deploy nobody made cannot be debugged from a chat message. `0.17.0` brought the config API the page needs; `0.17.1` redacts the config file's credentials before the text leaves Janus; `0.18.0` hands Blob the files a reply names, inside the run (ADR 0020). |
+| `JANUS_PROVIDER` / `JANUS_MODEL` | `deepseek` / `deepseek-v4-pro` | Provider and model move together. **These reach Janus's CLI paths, not the agent that answers a mention:** its gateway reads `config.yaml` on its own volume. Set the model from the Janus page after the first boot, or a run finishes with no text and the channel sees silence. |
+| `JANUS_VERSION` | `0.18.0` | The image tag, pinned rather than `latest`: an agent that changes under a deploy nobody made cannot be debugged from a chat message. `0.18.0` hands Blob the files a reply names, inside the run. |
 
 The two secrets are shared with the service and are never stored in Blob. **Agents & apps →
 Janus** is the page: the workspace half (on or off, channels, the everywhere switch, budget,
-instructions, run log, *Say hello*) is for the workspace's admins; the server half (provider,
-model, key, reasoning effort, toolsets, the config file, restart) is for the server's admin
-only. A key typed there passes through this process to Janus and is gone; the page shows
-only whether one is set. The config file comes back with its inline keys redacted, by
-Janus itself since 0.17.1 and again by Blob, and a save still holding the placeholder is
-refused rather than written.
+instructions, run log, *Say hello*) is for the workspace's admins; the server half
+(provider, model, key, reasoning effort, toolsets, the config file, restart) is for the
+server's admin only. A key typed there passes through this process to Janus and is gone;
+the config file comes back with its inline keys redacted, and a save still holding the
+placeholder is refused rather than written.
 
-### Hosting agents from a repository
+</details>
 
-Off by default, and off is fine — agents can still be registered as external apps and run
-wherever their author put them. This is only the "and run it for me" half. Blob never
-holds the Docker socket; the runner is whatever already owns that privilege on the host.
-See [ADR 0010](.torsor/architecture/decisions/0010-agents-deploy-as-containers.md).
+<details>
+<summary><b>Agents beyond Janus</b> — hosting, the terminal, chains, security headers</summary>
 
-The environment is only half the gate: a workspace also needs its `may_host_agents` policy
-turned on from the server console, and that column defaults to false.
+Hosting an agent from a repository is off by default, and off is fine — agents can still be
+registered at an address or dial in from wherever their author put them. This is only the
+"and run it for me" half. Blob never holds the Docker socket; the runner is whatever already
+owns that privilege on the host
+([ADR 0010](.torsor/architecture/decisions/0010-agents-deploy-as-containers.md)). A
+workspace also needs its `may_host_agents` policy turned on from the server console.
 
 | Variable | Default |
 |---|---|
 | `AGENT_RUNNER` | `disabled` (or `coolify`) |
 | `COOLIFY_API_URL`, `COOLIFY_TOKEN`, `COOLIFY_PROJECT_UUID`, `COOLIFY_SERVER_UUID` | unset — **all four** are required, so a half-configured runner reads as off rather than failing mid-deploy |
 | `COOLIFY_ENVIRONMENT` | `production` |
-| `AGENT_SHELL` | `disabled`. `ssh` alone does nothing: the terminal also needs `AGENT_SHELL_HOST`, `AGENT_SHELL_KEY` (inline key material, not a path) and `AGENT_SHELL_HOST_KEY`. There is no way to skip host-key verification. Six more `AGENT_SHELL_*` settings tune timeouts and session limits. |
+| `AGENT_SHELL` | `disabled`. `ssh` alone does nothing: the terminal also needs `AGENT_SHELL_HOST`, `AGENT_SHELL_KEY` (inline key material, not a path) and `AGENT_SHELL_HOST_KEY`. There is no way to skip host-key verification. |
 | `AGENT_ALLOW_PRIVATE_ENDPOINTS` | `false` — the escape hatch that lets an agent live on a private address. Off means SSRF-guarded. |
-| `AGENT_CHAIN_MAX_DEPTH` | `4` — the server-wide ceiling on how many hops an agent's reply may carry a request between agents. `0` means only people start agents, whatever a workspace's policy says. |
+| `AGENT_CHAIN_MAX_DEPTH` | `4` — the server-wide ceiling on how many hops an agent's reply may carry a request between agents. `0` means only people start agents. |
 | `SECURITY_HEADERS` | `true` — every response carries a Content-Security-Policy, `nosniff`, `X-Frame-Options: DENY`, a referrer policy and HSTS over https. Off only when a proxy in front sets its own. |
 | `CSP_EXTRA_SOURCES` | unset — space-separated origins added to `connect-src` and `img-src`, for storage or previews the policy cannot infer from `S3_PUBLIC_ENDPOINT`. |
 
-### Watching agents
+</details>
 
-Both off by default, and off costs nothing: no exporter is started, no trace id leaves
-the server, and `/metrics` answers 404. See
-[ADR 0025](.torsor/architecture/decisions/0025-what-an-operator-can-see-of-agents.md).
+<details>
+<summary><b>Watching agents</b> — OpenTelemetry traces and <code>/metrics</code></summary>
+
+Both off by default, and off costs nothing: no exporter is started, no trace id leaves the
+server, and `/metrics` answers 404
+([ADR 0025](.torsor/architecture/decisions/0025-what-an-operator-can-see-of-agents.md)).
 
 | Variable | Default |
 |---|---|
@@ -645,26 +698,23 @@ scrape_configs:
       - targets: ["chat.example.com"]
 ```
 
+</details>
+
 ---
 
 ## Deploying
 
 The client and the server ship as **one image on one origin**: `/`, `/api` and `/ws` all
-come from the same host, so the session cookie needs no CORS exemption and a proxy in
-front has a single service to route. `web.py` mounts the built client last, so every real
-route wins first and an unknown path under `/api` or `/ws` gets a 404 rather than
-index.html.
+come from the same host, so the session cookie needs no CORS exemption and a proxy in front
+has a single service to route. `web.py` mounts the built client last, so every real route
+wins first and an unknown path under `/api` or `/ws` gets a 404 rather than index.html.
 
 Migrations run from the **app** container's entrypoint on every boot, under a Postgres
-advisory lock (`python -m blob_api.db.migrate`; `pnpm migrate` is the plain, unlocked
-`alembic upgrade head` for local use), so replicas booting together serialize rather than
-race, and a failed migration stops the container instead of serving against a schema it
-does not have. The worker runs the same image with `RUN_MIGRATIONS=false`: it waits on the
-app's health check, by which time the schema is already current.
-
-`/healthz` is liveness and touches nothing. `/readyz` checks Postgres and Redis and names
-the commit it is serving. The container health check uses the first deliberately, so a
-database blip does not restart a healthy app.
+advisory lock, so replicas booting together serialize rather than race, and a failed
+migration stops the container instead of serving against a schema it does not have. The
+worker runs the same image with `RUN_MIGRATIONS=false` and waits on the app's health check.
+`/healthz` is liveness and touches nothing; `/readyz` checks Postgres and Redis and names the
+commit it is serving.
 
 ### Coolify
 
@@ -677,20 +727,16 @@ sets a compose service's domain from `docker_compose_domains`, which it refuses 
 until it has parsed the compose file from git — so the first deploy has to run before the
 domain can be attached, and a second one applies it.
 
-Three things to know about the stack it builds:
-
 - **Set `PUBLIC_URL` explicitly, scheme included.** Coolify's generated `SERVICE_FQDN_APP`
-  can arrive as a bare host, and a schemeless value parses to an empty host — which fails
-  the origin check on every mutating request.
-- **MinIO needs its own hostname.** The browser uploads to the bucket directly and reads
-  from it directly, and a presigned URL is signed for one specific host, so MinIO gets a
-  domain of its own and `S3_PUBLIC_ENDPOINT` must name it **with a scheme** — only
-  `SERVICE_URL_*` carries one; `SERVICE_FQDN_*` is a bare hostname by design. Point `S3_*`
-  at a managed S3 instead and the service can be deleted outright.
+  can arrive as a bare host, and a schemeless value fails the origin check on every
+  mutating request.
+- **MinIO needs its own hostname.** The browser uploads to the bucket directly, and a
+  presigned URL is signed for one specific host, so MinIO gets a domain of its own and
+  `S3_PUBLIC_ENDPOINT` must name it **with a scheme**. Point `S3_*` at a managed S3 instead
+  and the service can be deleted outright.
 - **Backups are yours to arrange.** Coolify's automated backups cover databases it manages
-  as resources, not ones inside a compose file. If you want them, create a Postgres
-  resource in Coolify, point `DATABASE_URL` at it, and delete the `postgres` service here.
-  What to back up and how to restore it is in [docs/backup.md](docs/backup.md).
+  as resources, not ones inside a compose file. What to back up and how to restore it is in
+  [docs/backup.md](docs/backup.md).
 
 ### Any Docker host
 
@@ -706,99 +752,113 @@ with the `SERVICE_*` values supplied yourself. For a plain `docker build`, the r
 
 - **`PUBLIC_URL` must be exactly the public origin**, or sign-in reads "Blocked request."
 - **Keep `--proxy-headers` on uvicorn** (the image's default). Without it every request
-  appears to come from the proxy, so one person failing logins rate-limits everybody and
-  every audit row records the same address.
+  appears to come from the proxy, so one person failing logins rate-limits everybody.
 - **Raise `client_max_body_size`** to at least the upload cap and set
   `proxy_request_buffering off`. nginx defaults to 1 MB, which rejects most real
   attachments with a 413 the client cannot explain.
 
 ### How this repository ships
 
-A merge to `main` is a release. CI runs the gate against real datastores, builds the
-image, boots `docker-compose.prod.yml` and asserts `/healthz` and `/readyz`, checks the
-layering rules, and only then asks Coolify to deploy, one build at a time. Afterwards it
-polls `/readyz` on the deployed origins and **fails** if the served commit is not the one
-it tested. Version numbers follow the in-app What's new: the current one is in the four
-`package.json` files and at the top of `apps/web/src/lib/changelog.ts`.
+A merge to `main` is a release. CI runs the gate against real datastores, builds the image,
+boots `docker-compose.prod.yml` and asserts `/healthz` and `/readyz`, checks the layering
+rules, and only then asks Coolify to deploy, one build at a time. Afterwards it polls
+`/readyz` on the deployed origins and **fails** if the served commit is not the one it
+tested. The current version is in the four `package.json` files and at the top of
+`apps/web/src/lib/changelog.ts`.
 
 ---
 
 ## Architecture
 
-Two processes in production, both from the same image: the FastAPI app (HTTP and
-WebSocket, with the built client as static files inside it) and the arq worker. In
-development there is a third — Vite on :5173, proxying `/api` and `/ws` to :3000.
+```mermaid
+flowchart LR
+    subgraph people ["People and their tools"]
+        web["Web client<br/>React 19 · zustand"]
+        assistant["Your assistant<br/>MCP client"]
+    end
+    subgraph image ["One image, one origin"]
+        app["FastAPI app<br/>REST · WebSocket · the built client"]
+        worker["arq worker<br/>agent runs · notifications · delivery · sweeps"]
+    end
+    pg[("Postgres 16<br/>everything durable")]
+    redis[("Redis 7<br/>presence · queue · pub/sub · counters")]
+    s3[("S3 / MinIO<br/>files")]
+    agents["Agents<br/>AG-UI over HTTP, or dialling in"]
+    janus["Janus<br/>optional"]
+    livekit["LiveKit<br/>optional, for calls"]
+    web -->|REST + WebSocket| app
+    web -->|presigned uploads| s3
+    web -.->|WebRTC| livekit
+    assistant -->|MCP| app
+    app --> pg
+    app --> redis
+    worker --> pg
+    worker --> redis
+    worker -->|signed runs| agents
+    worker -->|signed runs| janus
+    app -->|room tokens| livekit
+```
 
 | Layer | Choice |
 |---|---|
 | Web | React 19 + Vite, zustand, a hand-rolled router |
 | API | FastAPI on Python 3.12, REST for every write |
-| Data | SQLAlchemy 2.0 async + asyncpg, Alembic (45 migrations) |
+| Data | SQLAlchemy 2.0 async + asyncpg, Alembic (53 migrations) |
 | Realtime | FastAPI WebSockets, one event hub, Redis pub/sub between processes |
 | Database | Postgres 16 — messages, full-text search, everything |
-| Ephemera | Redis 7 — presence, typing, rate limits, the job queue |
-| Jobs | arq — notifications, unfurls, scheduled sends, plugin delivery |
+| Ephemera | Redis 7 — presence, typing, rate limits, the job queue, metrics counters |
+| Jobs | arq — agent runs, notifications, unfurls, scheduled sends, plugin delivery, sweeps |
 | Files | S3-compatible (MinIO in dev) with presigned uploads |
+| Agents | AG-UI as the client, over HTTP or a socket the agent opens |
+| Assistants | MCP, one stateless endpoint |
 | Media | LiveKit, optional, for calls |
-| The agent | Janus, optional, a service on the internal network |
+| Observability | OpenTelemetry traces and a Prometheus endpoint, both optional |
 
 **The write path.** `routers/` shape and authorize; `services/` hold the logic and the
 hand-written SQL; `db/engine.transaction()` yields `(session, after)` and drains `after`'s
 callbacks *past* COMMIT. That is persist-then-broadcast made structural rather than
 remembered — no event is ever emitted from inside a transaction, so a client can never be
-told about a row that has not committed. Routers import services and nothing imports
-routers back; `torsor guard` fails the build on that specifically for `realtime/` (ADR
-0004) and `plugins/` (ADR 0005), the two tiers meant to move out as units.
+told about a row that has not committed. Routers import services and nothing imports routers
+back; `torsor guard` fails the build on that for `realtime/` and `plugins/`, the two tiers
+meant to move out as units.
 
-**The read path for live updates.** `realtime/hub.py` addresses four ways — one channel,
-a set of users, a whole workspace, or whoever subscribed to presence — delivering to local
-sockets and publishing to Redis, where sibling processes re-broadcast to theirs, so a
-second container needs no code change. The socket only *delivers*: every write is REST, so
-an outage costs live updates and never data. On reconnect the client asks what it missed
-rather than assuming the gap was empty.
+**The read path for live updates.** `realtime/hub.py` delivers to local sockets and
+publishes to Redis, where sibling processes re-broadcast to theirs, so a second container
+needs no code change. The socket only *delivers*: every write is REST, so an outage costs
+live updates and never data. On reconnect the client asks what it missed rather than
+assuming the gap was empty.
 
 **The wire contract.** `packages/shared/` is the client's view of the server — types, zod
-schemas, and `protocol.ts`. `protocol.ts` and `realtime/protocol.py` are hand-written
-twins because the socket carries a discriminated union OpenAPI would not describe, so
-`tests/test_protocol_parity.py` parses the TypeScript and compares. The same trick holds
-the in-app guide's slash-command citations to the server's registry.
+schemas, and `protocol.ts`. `protocol.ts` and `realtime/protocol.py` are hand-written twins
+because the socket carries a discriminated union OpenAPI would not describe, so
+`tests/test_protocol_parity.py` parses the TypeScript and compares.
 
 **Ids are UUIDv7.** Chronological sort order is load-bearing: unread state is a string
 comparison rather than a count or a timestamp join, and a live insert is a sorted-position
-insert. This is the one schema decision that cannot be retrofitted cheaply.
-
-**Every write is idempotent** on a client-supplied id, which is what makes optimistic UI
-and offline replay safe rather than duplicating messages.
+insert. **Every write is idempotent** on a client-supplied id, which is what makes optimistic
+UI and offline replay safe rather than duplicating messages.
 
 **Apps and agents are one layer.** `plugins/` holds the manifest and its scope catalogue,
 SSRF-guarded registration, and delivery through a transactional outbox that the worker
-drains one request at a time per plugin. A plugin's bot is a real `users` row, so
-`author_id` stays a valid foreign key and mentions, search and DMs work with no frontend
-change. `plugins/agui.py` is a pure bytes-in/writes-out function, and the three AG-UI
-transports converge on one `Fold` so the reader does not care how the bytes arrived.
+drains one request at a time per plugin. A plugin's bot is a real `users` row, so mentions,
+search and DMs work with no frontend change. `plugins/agui.py` is a pure bytes-in/writes-out
+function, and every AG-UI transport converges on one `Fold`. An agent with no address dials
+in and holds a WebSocket; because the process holding the socket is not the one running the
+job, every such run crosses Redis.
 
-The exception that shapes the design is `runtime: "socket"` — an agent with no address.
-It dials Blob and holds a WebSocket, and runs go down that pipe. Only the *transport*
-reverses: the agent still answers runs it did not start. The part that bites is that the
-process holding the socket is not the process running the job — mentions belong to the
-worker, sockets to an API process — so every run crosses Redis, which is why the holder
-claims a run id with `SET NX` and why `stream_events` subscribes before it publishes.
+**Authority flows from people.** Every agent run carries the person who rooted its chain.
+Tools run as that person and inside the room; writes wait for their Approve; a hop to
+another agent cannot reach an agent only its owner may command. An assistant over MCP *is*
+its person. No agent ever acts on a service account's authority.
 
-**Blob runs no agent of its own.** The agent is Janus, seeded through the ordinary install
-path, and its identity is one predicate in `services/seeded.py` (slug `janus`, runtime
-`external`, no owner) that the workspace's instructions, the everywhere switch, the home
-view and the auto-join into a new channel all key on. `lib/llm.py` is deliberately the
-smallest possible provider layer with two callers, the unread recap and thread summaries,
-and is not a framework.
+**Hand-tuned SQL stays SQL** — all of it. `db/models.py` exists to define the schema and drive
+Alembic; it is not a query layer. Every read and write in the app is `text()` with bound
+parameters, and chat history is keyset-paginated, never `OFFSET`.
 
-**Hand-tuned SQL stays SQL** — all of it. `db/models.py` exists to define the schema and
-drive Alembic; it is not a query layer. There is no `session.add()` and no ORM `select()`
-anywhere in the backend: every read and write in the app is `text()` with bound parameters.
-Chat history is keyset-paginated, never `OFFSET`.
+<details>
+<summary><b>The twenty-five architecture decisions</b></summary>
 
-### Decisions
-
-The twenty-five ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
+The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
 | | |
 |---|---|
@@ -828,6 +888,8 @@ The twenty-five ADRs in [`.torsor/architecture/decisions/`](.torsor/architecture
 | 0024 | What an agent remembers is the conversation's, or one person's |
 | 0025 | What an operator can see of agents — traces, counters, a run's events, an app's errors |
 
+</details>
+
 ---
 
 ## Repository layout
@@ -838,15 +900,16 @@ apps/api          FastAPI app, WebSocket tier, arq worker
     routers/      HTTP surface: shape and authorize
     services/     the logic, and the hand-written SQL
     realtime/     the socket tier — imports nothing from routers/
-    plugins/      apps and agents: manifest, scopes, signing, delivery
-    jobs/         what the worker runs
+    plugins/      apps and agents: manifest, scopes, signing, delivery, AG-UI
+    jobs/         what the worker runs, agent runs among them
+    lib/          auth, errors, storage, telemetry, metrics
     db/           models, migrations, engine, the demo seeder
-  tests/          ~1,500 integration tests against real Postgres and Redis (1,530 today)
+  tests/          ~1,900 integration tests against real Postgres and Redis
 apps/web          React client
   src/features/   by domain
   src/lib/        store, api client, router, socket, outbox, help, changelog
   src/styles/     tokens.css is the whole vocabulary; app.css spends it
-packages/shared   types, zod schemas, and the socket protocol
+packages/shared   types, zod schemas, the socket protocol, the generated OpenAPI
 docs/             the integrator guides, the backup guide, the roadmap, design specs
 scripts/          build-time helpers (the commit stamp "What's new" reads)
 .torsor/          architectural memory: ADRs, module map, traps
@@ -885,27 +948,23 @@ pnpm exec vitest run -t "stores and reloads queued entries"
 pnpm typecheck
 ```
 
-**Create the test database first.** `docker compose up -d` creates `blob`, not `blob_test`,
-and `conftest.py` only points at the latter — so on a fresh clone every test errors in
-setup (the session fixture cannot connect) until you run `createdb blob_test` (or
-`docker compose exec postgres createdb -U blob blob_test`). The suite also flushes Redis
-db 15 before every test module, so do not point `REDIS_URL` at a Redis holding anything you
-want to keep.
+> [!NOTE]
+> **Create the test database first.** `docker compose up -d` creates `blob`, not
+> `blob_test`, and `conftest.py` only points at the latter — so on a fresh clone every test
+> errors in setup until you run `createdb blob_test` (or
+> `docker compose exec postgres createdb -U blob blob_test`). The suite flushes Redis db 15,
+> so do not point `REDIS_URL` at a Redis holding anything you want to keep.
 
-**Tests need real datastores.** Two feedback-snapshot tests carry a `needs_storage` marker
-and **skip** without MinIO, which is green while proving nothing, so bring storage up
-before trusting a clean run. (The file and attachment tests plant their rows directly and
-do not need it.) `conftest.py` migrates once per session and truncates the tables before
-**every test**, not every module, and the event loop is session-scoped because the engine
-and Redis clients are bound to the loop that created them. Run one pytest at a time: the
-test database is shared.
+**Tests need real datastores.** Two feedback-snapshot tests skip without MinIO, which is
+green while proving nothing, so bring storage up before trusting a clean run.
+`conftest.py` migrates once per session and truncates the tables before every test, and
+the event loop is session-scoped because the engine and Redis clients are bound to the loop
+that created them. Run one pytest at a time: the test database is shared.
 
 **Migrations.** `db/models.py` defines the schema and drives Alembic; `0001_baseline` runs
 the original TypeScript server's SQL verbatim, so an existing database is adopted rather
 than rebuilt. The chain is sequential, so the highest number is the head; ask
-`uv run alembic heads` before writing a `down_revision`. `alembic check` runs in CI — if
-the models drift, the next autogenerate proposes dropping the generated column and the
-partial indexes.
+`uv run alembic heads` before writing a `down_revision`.
 
 **Architectural memory.** `.torsor/` holds the ADRs, a module map and a list of the traps
 this codebase has already sprung. `torsor guard --strict --severity error` is what CI
@@ -917,9 +976,8 @@ working in this repository loads every session, and it is kept true on purpose.
 ## Building on Blob
 
 - **[docs/apps.md](docs/apps.md)** — the app model: manifest, scopes, signed delivery, the
-  bot user, the callback API under `/api/v1/`, and interactive blocks. Trust the code over
-  it where they differ: it predates the socket and container runtimes and lists eight
-  callback methods where there are now twelve.
+  bot user, the callback API under `/api/v1/`, interactive blocks, AG-UI agents, tasks
+  handed to your agent, and hosting from a repository.
 - **[docs/agent-socket.md](docs/agent-socket.md)** — the socket runtime, for an agent on a
   laptop or behind NAT that dials Blob instead of being dialled.
 - **[docs/agent-terminal.md](docs/agent-terminal.md)** — the in-app terminal for a hosted
@@ -927,11 +985,8 @@ working in this repository loads every session, and it is kept true on purpose.
 - **[docs/backup.md](docs/backup.md)** — what to back up, what is safe to lose, and how to
   restore.
 - **[docs/roadmap.md](docs/roadmap.md)** — the six-month plan, with what each slice
-  measures; the design specs and task plans behind recent slices are under
+  measures; the design specs behind recent slices are under
   [docs/superpowers/specs/](docs/superpowers/specs/).
-
-Those are written for people building against or running Blob. For what is coming, the
-[What isn't built yet](#what-isnt-built-yet) section above is the honest list.
 
 `packages/shared/openapi.json` is the generated REST surface; `pnpm openapi` refreshes it.
 

@@ -11,6 +11,118 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "9a088db9f3c445667c9c477c3059da19536cf0d2",
+    "shortSha": "9a088db9",
+    "subject": "docs: phases 7 and 8 done, what each late review found, and where the branches stand",
+    "date": "2026-10-08T02:12:51+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "ef4ba288444a721f756f06e008c029817daaf8b9",
+    "shortSha": "ef4ba288",
+    "subject": "refactor: one listener query, one signing helper, one run view; the plugin console in three; no local runtime — agentic phase 8",
+    "date": "2026-10-08T01:58:15+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "5b8aeccbfcf3dcd16d18b92d753714cadcc00291",
+    "shortSha": "5b8aeccb",
+    "subject": "feat: see what agents do — traces, /metrics, a run's events, an app's last ten errors — agentic phase 7",
+    "date": "2026-10-08T01:33:00+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "a04c3546019d8d7d94e2c1dd1e627f71142b1253",
+    "shortSha": "a04c3546",
+    "subject": "fix: answering an agent's question keeps a room's ceiling too — phase 6 review",
+    "date": "2026-10-08T01:06:30+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "47898b1d0a6b3a6c2c604f46e1679bc72f3275b5",
+    "shortSha": "47898b1d",
+    "subject": "feat: an assistant can catch you up, work with your agents, and its token ends — agentic phase 6",
+    "date": "2026-10-08T00:49:32+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "a97d01bd11717de2194bddb1fcb060230a66a1fe",
+    "shortSha": "a97d01bd",
+    "subject": "fix: an owned agent's memory stays its owner's through the upgrade — phase 5 review",
+    "date": "2026-10-08T00:51:06+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "f7a148abfcf646a6279569aa949751b2fcf197ba",
+    "shortSha": "f7a148ab",
+    "subject": "feat: what an agent remembers is somebody's — seen, cleared, and it ends; loans you can see — agentic phase 5",
+    "date": "2026-10-08T00:21:05+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "6e754c43828fcff1ad6cf8398a71f83ac9610adf",
+    "shortSha": "6e754c43",
+    "subject": "fix: the admin run log keeps what a private room's runs did from admins not in it — phase 4 review",
+    "date": "2026-10-08T00:27:08+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "cca50cd8c84dc20601b4aad2c5bbb68b36338b47",
+    "shortSha": "cca50cd8",
+    "subject": "feat: watch a run — a draft of the answer, what it saw, its history, answers on the card — agentic phase 4",
+    "date": "2026-10-07T23:58:53+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "804f18b666c72dd1997fc2e91b2282f5a1271558",
+    "shortSha": "804f18b6",
+    "subject": "fix: a task is handed over once, and never again by a stale card — phase 3 review",
+    "date": "2026-10-07T23:37:53+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "b19c8cce5e59f83e083f67c949b2bb1401ba09d3",
+    "shortSha": "b19c8cce",
+    "subject": "feat: a task handed to an agent is a hand-off it answers — scheduled runs labelled — agentic phase 3",
+    "date": "2026-10-07T23:15:19+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "adfcd7dd5ba67257500ceef3f26a8105f015607c",
+    "shortSha": "adfcd7dd",
+    "subject": "feat: agents may use Blob's tools — as the asker, inside the room, every post asks first — agentic phase 2",
+    "date": "2026-10-07T22:30:18+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "c115c2b89c28b36a5b06cb165fc47050d9a7dcc9",
+    "shortSha": "c115c2b8",
+    "subject": "feat: AG-UI 1.0, learned per agent — files reach agents, runs report cost — agentic phase 1",
+    "date": "2026-10-07T21:47:27+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "5b3a66ebc705f1f5fb7c158d67ee720d9698ac1f",
+    "shortSha": "5b3a66eb",
+    "subject": "fix: an agent run always ends, runs once, and answers only its asker — agentic phase 0",
+    "date": "2026-10-07T01:11:37+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "89db9961e63afe757eea679ece7bc1dfc11ab0a0",
+    "shortSha": "89db9961",
+    "subject": "docs: review of the agentic surface, and CLAUDE.md drift",
+    "date": "2026-10-06T23:58:18+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "9366551316b3d6dfd81b401304f4b85089b01d00",
+    "shortSha": "93665513",
+    "subject": "feat: video meetups — a call that belongs to the conversation — 1.7.0",
+    "date": "2026-09-23T03:37:14+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "e19bf9b807dc5c5723a54be81797a9f10c1e3b2a",
     "shortSha": "e19bf9b8",
     "subject": "feat: the @ picker puts who you tagged last first; a finished run is a quiet line — 1.6.0",
@@ -316,118 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "e711a6e0",
     "subject": "Pin that an internal agent URL is still refused from a route",
     "date": "2026-09-15T02:16:13+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "576af177e66316de89439d023976fd6bcdb32a5b",
-    "shortSha": "576af177",
-    "subject": "Reconcile Janus at boot, the way the built-in agent is reconciled",
-    "date": "2026-09-15T02:08:20+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "2cd4d4f6a5a574d9e120cf526bbd22e354c2bfcd",
-    "shortSha": "2cd4d4f6",
-    "subject": "Move an already-installed Janus onto the internal address",
-    "date": "2026-09-15T01:54:31+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "b0646b0880aab82b4fa4557ef5762447b22e9955",
-    "shortSha": "b0646b08",
-    "subject": "Seed Janus into a workspace when it is running beside us",
-    "date": "2026-09-15T01:42:47+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "1ff60088880a4e988d23d75af8f2a83060d01950",
-    "shortSha": "1ff60088",
-    "subject": "Let an install be given the secret it must share",
-    "date": "2026-09-15T01:18:34+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "728d79933fdb3b20dd4acc87812adf09d1f45d90",
-    "shortSha": "728d7993",
-    "subject": "Let the environment say Janus is running beside us",
-    "date": "2026-09-15T01:04:38+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "05bebafb938aa98545b26c2f805fa9cf2c86c91d",
-    "shortSha": "05bebafb",
-    "subject": "Plan: Janus as a service in Blob's stack, phase 1",
-    "date": "2026-09-15T00:28:39+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "ff087e29edb3b41ab0cc788d0b7014ff54cbdd25",
-    "shortSha": "ff087e29",
-    "subject": "Design: Janus as a service in Blob's own stack, not a Coolify app",
-    "date": "2026-09-14T23:30:09+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "1d514892699b66e1f1471cb7207d8686c577143f",
-    "shortSha": "1d514892",
-    "subject": "Say in 0018 that Blob and Janus are two agents, not one",
-    "date": "2026-09-14T23:21:28+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "c25c72ff3309fb44953934340a075e0bd3323af3",
-    "shortSha": "c25c72ff",
-    "subject": "Record what the two kinds of agent are, and stop defaulting to a model DeepSeek retired",
-    "date": "2026-09-14T23:08:26+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "eed1cdd1d4a201d7f68405033bdb6867c4a6d416",
-    "shortSha": "eed1cdd1",
-    "subject": "Write down what the agent sidebar taught, before it is forgotten",
-    "date": "2026-09-14T22:04:32+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "1f8df24ac0d4632f7d80e0865f08a6c476be685c",
-    "shortSha": "1f8df24a",
-    "subject": "Stop offering an agent whose app is switched off",
-    "date": "2026-09-14T21:55:10+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "156284192fde53c92fec7775ffe6465761752d6c",
-    "shortSha": "15628419",
-    "subject": "Stop the sidebar naming agents that were uninstalled",
-    "date": "2026-09-14T21:23:43+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "4dff8e548666cfb08ae271b84a24f03c9fe33cd5",
-    "shortSha": "4dff8e54",
-    "subject": "Stop a channel with unread swallowing the message you just sent",
-    "date": "2026-09-14T20:35:19+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "be555db0e6e1cc4424b8b78c4ab16dd8fc4db657",
-    "shortSha": "be555db0",
-    "subject": "Stop a channel switch leaving the old message list in the document",
-    "date": "2026-09-14T18:43:23+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "81310e6a07563d2e754b4fb535984b9097ce69fe",
-    "shortSha": "81310e6a",
-    "subject": "Put members, user groups, invitations and accounts on one page",
-    "date": "2026-09-14T05:16:05+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "7540d2e0faa6c694c8305d870ad0087d9e0468fc",
-    "shortSha": "7540d2e0",
-    "subject": "Rebuild the agents console to Meadow 2c, and stop teaching the bridge to Janus",
-    "date": "2026-09-14T04:59:31+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
