@@ -44,6 +44,7 @@ import {
   MentionOptions,
 } from "./ComposerOptions.tsx";
 import { useAttachments } from "./useAttachments.ts";
+import { useConversationDrop } from "./useConversationDrop.ts";
 import { useEmojiAutocomplete } from "./useEmojiAutocomplete.ts";
 import { useMentionAutocomplete } from "./useMentionAutocomplete.ts";
 import { useSlashCommands } from "./useSlashCommands.ts";
@@ -104,6 +105,13 @@ export function Composer({
   );
   const files = useAttachments(setError);
   const { attachments } = files;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const dropArea = useConversationDrop(rootRef, files.attach);
+  // Where a dropped file is going, in the overlay that says so.
+  const dropWhere = useStore((s) => {
+    const channel = s.channels[channelId];
+    return channel ? s.channelTitle(channel) : "this conversation";
+  });
 
   // Escape through the shared stack, so closing the picker does not also let the shell
   // act on the key. See `lib/useEscape`.
@@ -405,23 +413,33 @@ export function Composer({
     mentions.query !== null && mentions.candidates.length > 0;
 
   return (
-    <div className="composer">
-      <div
-        className="composer-wrap"
-        data-dragging={files.dragging}
-        onDragOver={(event) => {
-          if (!event.dataTransfer.types.includes("Files")) return;
-          event.preventDefault();
-          files.setDragging(true);
-        }}
-        onDragLeave={(event) => {
-          // Moving between children fires dragleave; only the real exit counts.
-          if (event.currentTarget.contains(event.relatedTarget as Node | null))
-            return;
-          files.setDragging(false);
-        }}
-        onDrop={files.onDrop}
-      >
+    <div className="composer" ref={rootRef}>
+      {dropArea && (
+        // Over the whole conversation the composer belongs to, which is where the drop
+        // is taken (`useConversationDrop`). Fixed and measured rather than absolute, so
+        // nothing about the pane's own positioning had to change for it. Decoration for
+        // a pointer gesture: the paperclip below is the way in for everyone else.
+        <div
+          className="drop-overlay"
+          aria-hidden="true"
+          style={{
+            top: dropArea.top,
+            left: dropArea.left,
+            width: dropArea.width,
+            height: dropArea.height,
+            borderRadius: dropArea.radius,
+          }}
+        >
+          <div className="drop-overlay-card">
+            <AttachIcon size="xl" />
+            <strong>
+              {threadRootId ? "Drop to add to your reply" : `Drop to share in ${dropWhere}`}
+            </strong>
+            <span>It goes into your message. Nothing is sent until you send it.</span>
+          </div>
+        </div>
+      )}
+      <div className="composer-wrap" data-dragging={dropArea !== null}>
         {mentionsOpen && (
           <MentionOptions
             candidates={mentions.candidates}

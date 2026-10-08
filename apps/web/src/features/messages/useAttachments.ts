@@ -5,13 +5,7 @@
  * composer goes away — not doing so leaks the whole file for the life of the tab.
  */
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ClipboardEvent,
-  type DragEvent,
-} from "react";
+import { useEffect, useRef, useState, type ClipboardEvent } from "react";
 import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   newPendingAttachment,
@@ -25,12 +19,8 @@ export function useAttachments(onError: (message: string | null) => void): {
   discard: (key: string) => void;
   clear: () => void;
   onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
-  onDrop: (event: DragEvent<HTMLDivElement>) => void;
-  dragging: boolean;
-  setDragging: (dragging: boolean) => void;
 } {
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
-  const [dragging, setDragging] = useState(false);
 
   // Read through a ref rather than the closure. The effect runs once, so its cleanup
   // captured `attachments` as it was on mount — always empty — and the one path it was
@@ -113,20 +103,13 @@ export function useAttachments(onError: (message: string | null) => void): {
     attach(files);
   }
 
-  function onDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    setDragging(false);
-    attach(Array.from(event.dataTransfer.files));
-  }
-
+  // A drop arrives through `attach` too: from anywhere on the conversation, by
+  // `useConversationDrop`, rather than from the composer box alone.
   return {
     attachments,
     attach,
     discard,
     clear,
     onPaste,
-    onDrop,
-    dragging,
-    setDragging,
   };
 }
