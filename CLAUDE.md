@@ -342,8 +342,9 @@ still sit with the subject it belongs to instead of in a bucket named after a pe
 
 **The design layer.** `styles/tokens.css` is the whole vocabulary and `styles/app.css`
 spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
-(`--radius-xs..full`), motion (`--dur-*`, `--ease-*`, `--motion-*`) and a stacking ladder
-(`--z-raised` … `--z-toast`). Four rules the file will not tell you on its own:
+(`--radius-xs..full`), motion (`--dur-*`, `--ease-*`, `--motion-*`), a stacking ladder
+(`--z-raised` … `--z-toast`) and the frame (`--frame-*`, `--elev-frame`, `--ground-*`).
+Five rules the file will not tell you on its own:
 
 * **The 44 colour names are a contract with the server.** `services/themes.py` allowlists
   them by string and slices that tuple *by index* to group the theme editor, so renaming
@@ -353,6 +354,17 @@ spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
 * **Elevation carries its own border.** Every `--elev-*` opens with a `0 0 0 1px` ring, so
   an elevated surface sets `box-shadow` and no `border`. Setting both is how four
   different popover treatments drifted apart before.
+* **The work sits in a frame (Meadow `1a`, since 2026-10).** From 769px `.shell > .pane` —
+  every view's root — and `.shell > .panel` — a thread, a file, a terminal — are one paper
+  card, inset by `--frame-gap`, rounded `--frame-radius`, shadowed `--elev-frame`, on the
+  ground the top bar and the channel list share (`--bg-sidebar`, which in dark sits
+  *below* the page so the card lifts); the consoles' `.admin-main` is framed the same way.
+  It is a rule about those selectors with nothing wrapped round them and no
+  `overflow: hidden` — the header's menus and the message toolbar overhang the card — so a
+  view root sets no margin, radius or background of its own, and anything that paints to
+  the card's edge clips itself (the file panel does). A row on the ground hovers, selects
+  and presses with `--ground-*`, mixed against whatever the ground is: the palette's
+  washes were tuned on near-white and vanish on the tint.
 * **Overlays enter and leave — menus, toasts, the thread panel, the two conversation
   notices, the typing line and the dialogs.** Each is held through a 150 ms exit by
   `lib/usePresence.ts` (`{present, state}`; `animationend` on the node itself, or the
@@ -436,9 +448,11 @@ fades keep their duration. Anything sized for a pointer gets a 44px minimum unde
   designed, or a dependency or platform API chosen, look up the present state of the art
   and say what you found; propose the current approach first and give a reason if you
   recommend an older one. Ready is part of the rule — client code means Chrome, Firefox
-  and Safari today, which is why the design layer still refuses anchor positioning and
-  scroll-driven animations. "I checked and the established option is still right" answers
-  this; "I did not check" does not.
+  and Safari today, which is why the design layer still refuses scroll-driven animations
+  (Firefox has them in Nightly only, as of 2026-10). Anchor positioning reached all three
+  engines with Firefox 147 in January 2026 but is not Baseline yet, so it may be an
+  enhancement with a fallback and not something a layout depends on. "I checked and the
+  established option is still right" answers this; "I did not check" does not.
 
 ### Architecture rules (machine-enforced — `torsor guard` flags violations)
 - forbid_pattern: `(?m)^(?!\s*#).*\bOFFSET\s+:` in `apps/api/src/blob_api/services/*.py` — Chat queries use keyset pagination, never OFFSET — see ADR 0003. (per ADR 0003: SQLAlchemy for schema, verbatim SQL for the hot paths)

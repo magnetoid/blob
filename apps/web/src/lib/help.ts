@@ -163,6 +163,7 @@ export const SECTIONS: Section[] = [
         body: [
           'Write **bold**, *italics* or _italics_, ~~strikethrough~~ and `code` inline. Start a line with > for a quote, with - or 1. for a list, and fence a block of code with three backticks. [Text](https://example.com) makes a link, and a bare URL becomes one on its own.',
           'The buttons under the composer do the same thing to whatever you have selected, and so do the keyboard chords. Nothing you write ever becomes raw HTML, so a message cannot inject markup into anyone else’s screen no matter what it contains.',
+          'A code block shows the language it was fenced with — ```sql gives it a “sql” label — and a Copy button at its foot takes the whole block, indentation and all. The button shows when you point at the block, and is always there on a touch screen.',
         ],
         shortcuts: ['format-bold', 'format-italic', 'format-code', 'format-strike'],
         keywords: ['markdown', 'bold', 'italic', 'code', 'quote', 'list', 'link'],
@@ -193,7 +194,7 @@ export const SECTIONS: Section[] = [
         title: 'Files and images',
         blurb: 'Attach up to ten files to a message, each under 100 MB.',
         body: [
-          'The paperclip beside the composer attaches a file, and so does dropping one on the conversation. Both limits are enforced on the server as well as in the browser, so a file refused here would have been refused there too.',
+          'The paperclip beside the composer attaches a file, and so does dropping one anywhere on the conversation — the messages, not only the box you type in. Dropped on an open thread, it goes into your reply instead. Nothing is sent until you send it. Both limits are enforced on the server as well as in the browser, so a file refused here would have been refused there too.',
           'Anything executable is refused by extension — .exe, .msi, .bat, .cmd, .com, .scr, .ps1, .sh, .app and .jar — and so are .svg and .html, which are executable in a browser even though they do not look it.',
           'An image is shown in the conversation as a small copy made when you upload it, so a large photo is not a large download for everyone who scrolls past. Clicking it opens the original full size in place — Escape closes it, and Download keeps it. A photo taken sideways is turned upright, and the copy the channel sees carries none of the camera data the original does; the original itself is untouched. Anything that is not an image opens in a new tab as before.',
         ],
@@ -262,8 +263,9 @@ export const SECTIONS: Section[] = [
         blurb: 'A “New messages” divider marks where your reading stopped when you open a conversation.',
         body: [
           'The marker only ever moves forward, so a slow update from another tab or another device cannot drag your position backwards. Moving it back is a deliberate act: Mark unread on a message puts the line above it again.',
+          'Read a screen or more back from the newest message and a Jump to latest button appears at the foot of the conversation. If people kept talking while you read, it says how many new messages are waiting instead; your own do not count.',
         ],
-        keywords: ['unread', 'new messages', 'divider', 'where I left off', 'position'],
+        keywords: ['unread', 'new messages', 'divider', 'where I left off', 'position', 'jump to latest', 'newest'],
       },
       {
         id: 'remind-me',

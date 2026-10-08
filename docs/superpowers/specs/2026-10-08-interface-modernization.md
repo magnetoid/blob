@@ -61,3 +61,41 @@ taken on main, and a review before the next phase builds on it. Nothing is pushe
    resting and focused states per Meadow.
 6. **Motion and focus.** One focus ring; skeletons where a view says "Loading…"; a pass
    over hover and press so every control answers.
+
+## Where it stands (2026-10-08)
+
+All six built, each a commit on its own stacked branch (`modern-phase-1` … `-6`, then
+`modern-docs` for the guide, CLAUDE.md and the README's screenshots), reviewed, and the
+review's findings fixed on the phase they belonged to. Not pushed.
+
+What review caught, phase by phase:
+
+1. A PDF or page in the file panel painted over the card's rounded corner (the file panel
+   now clips); a CSV preview's sticky header kept the sidebar's tint. The built-in palettes
+   whose rail is darker than their sidebar now read as a band across the top — kept, and
+   said so in the stylesheet.
+2. A code block's Copy button nested inside the button that a search hit and a pinned row
+   each are — invalid, and invisible to assistive tech; `renderMarkdown` takes
+   `copyableCode: false` there. On touch the always-visible Copy covered one-line blocks;
+   it sits below the block there.
+3. "Needs you" counted decisions but sent you to the mentions page, which cannot show one;
+   it now takes you down Home to the decisions, then the unread mentions. The phone tab
+   strip's fade could hide the last tab's underline.
+4. The private channel's lock in ⌘K told only the eye; the row says "Private channel".
+5. Nothing at the bar. Below it: `dragend` never fires for a file dragged in from the
+   desktop (its source is outside the page) — covered, because a cancelled or departing
+   drag fires `dragleave` on the current target, which empties the depth count.
+6. The skeletons were not shaped like what replaced them: the pinned list's avatars were
+   36px over 20px rows, Files drew rows before a grid of tiles, and the skeleton's own
+   padding stacked on every container's. Each now matches its rows.
+
+Deferred, with the reason:
+
+- **The person card on hover** (Slack, Teams, Linear). `PersonCard` is built on `Menu`,
+  which while open joins the Escape stack and steers ↑↓ window-wide; a card opened by a
+  passing pointer would take the composer's ↑ and Escape. It needs a peek mode that does
+  neither.
+- **`flushSync was called from inside a lifecycle method`** in the dev console when
+  messages arrive at the bottom of a conversation — on main too. TanStack Virtual 3.14 has
+  `useFlushSync: false` for React 19; turning it off changes rendering during fast scroll
+  and wants measuring first.
