@@ -319,17 +319,6 @@ assigns itself; a task handed to Janus comes back answered without a mention.
 - A capped per-run event log (last 200 raw events, 7 days) behind the admin drill-in;
   `last_error` becomes the last ten.
 
-*Built 2026-10-08 (ADR 0025).* Traces are off until `OTEL_EXPORTER_OTLP_ENDPOINT` names a
-collector: `invoke_agent`, `execute_tool` and MCP server spans carry ids, names, counts and
-outcomes, never content, and a `traceparent` goes to the agent as a header and on the
-socket's run frame, which the bridge forwards. `/metrics` answers only `METRICS_TOKEN` and
-reads counters every process shares through Redis — runs by outcome, duration, tokens,
-tool calls by caller and outcome — plus runs in flight and decisions waiting, read live.
-A run keeps its newest 200 events for a week, reasoning stripped unless the agent shows
-it, and an admin reads them only where they can see the room. An app keeps its last ten
-errors. Not done: OTLP metrics, HTTP spans for every route, and carrying the trace of the
-message that started a run into the worker.
-
 ### Phase 8 · Ratchets, continuous
 
 - Split `routers/plugins.py` and `plugins/registry.py` along the seams the review
@@ -337,22 +326,6 @@ message that started a run into the worker.
 - Drop the `local` runtime and the `builtin` transport check; delete or read the
   write-only columns; add the `agent_runs` indexes after measuring the nightly delete.
 - `lib/sourceRatchets.test.ts` gains a counter for whole-map `agentRuns` subscribers.
-
-*Built 2026-10-08.* The listener query is one select, one answering filter and one
-builder; every signed request takes `signing.signed_headers`; a run is announced with the
-service's own view; `work.updated` has one builder. `routers/plugins.py` (1,266 lines) is
-now three routers on its prefix — 716, 283 and 328 lines — and `plugins/registry.py`
-(972) gave the agent settings to `plugins/agent_settings.py` and the delivery log to
-`plugins/delivery.py`, leaving 789. The `local` runtime and the
-`builtin` transport are gone (migration 0053; ADR 0009 superseded). The FK indexes were
-measured first: the nightly sweep of 8,000 of 40,000 runs went from 56 s to 0.3 s with
-`agent_runs_parent` and `work_artifacts_run`; the message-side keys were left, since the
-app never hard-deletes a message. Of the write-only columns, the secret's rotation and
-the bot token's last use are now on the app's card, and the three grant and schedule
-records are kept, with the reason in the models. The client ratchet counts whole-map run
-selectors (0) and map scans (4). Not done: one fold for the two stream readers, and
-`post_as_bot` adopted by the bot API — each touches a contract (the fold's coverage,
-`/api/v1/`) that wants its own reviewed change.
 
 ---
 
@@ -516,3 +489,58 @@ writes always ask, and a borrowed agent runs without its owner's memory until Ph
 - **Not built:** OAuth 2.1, as planned — only when a claude.ai connector is wanted. MRTR
   `input_required` was not needed: an assistant's post is its person's own act, with the
   posting tick as the consent, so there is no approval to ask for mid-call.
+- **Its review** found no defect at its bar. It named one inconsistency, closed on the
+  branch: `answer_decision` now keeps a room's ceiling as `run_status` and `stop_run` do.
+  No caller bound to a room may write today, so it guards a future path, not an open one.
+
+## Phase 7 — done (2026-10-08, branch `agentic-phase-7`, ADR 0025)
+
+- **Traces, off until named.** With `OTEL_EXPORTER_OTLP_ENDPOINT` set, a run is an
+  `invoke_agent` span, Blob's tools run for an agent are `execute_tool` children, and an
+  MCP request is a SERVER span continuing the assistant's trace from `params._meta`. The
+  agent is sent `traceparent` as a header, and on the socket's run frame, which the bridge
+  forwards. Spans carry ids, names, counts and outcomes, never content. With no endpoint
+  nothing is injected or read.
+- **`/metrics`, behind `METRICS_TOKEN`** and a 404 without it: runs by agent and outcome,
+  duration, tokens, Blob's tools by caller and outcome — counters every process shares
+  through one Redis hash — and runs in flight and decisions waiting, read live.
+- **A run keeps what it streamed** for a week — its newest 200 events, cut down, reasoning
+  stripped unless the agent shows it — and an admin reads them under the run only where
+  they can see the room. **An app keeps its last ten errors** with their times (migration
+  0052).
+- **Not built:** OpenTelemetry metrics over OTLP, HTTP spans for every route, and carrying
+  the trace of the message that started a run into the worker.
+- **Its review** found no defect at its bar.
+
+## Phase 8 — done (2026-10-08, branch `agentic-phase-8`)
+
+- **One of each.** The listener query is one select, one answering filter and one builder;
+  every signed request takes `signing.signed_headers`; a run is announced with the
+  service's own view; `work.updated` has one builder.
+- **The console's code split where its pages do.** `routers/plugins.py` (1,266 lines) is
+  three routers on its prefix — 716, 283 and 328 lines — and `plugins/registry.py` (972)
+  gave its agent setters to `plugins/agent_settings.py` and the delivery log to
+  `plugins/delivery.py`, leaving 789.
+- **What was never built is gone.** The `local` runtime leaves the manifest, the install
+  route and `plugins_runtime_check`, and `builtin` leaves `agent_runs_transport_check`
+  (empty since 0041); ADR 0009 is marked superseded.
+- **Indexes, measured first.** The nightly sweep of 8,000 of 40,000 runs went from 56 s to
+  0.3 s with `agent_runs_parent` and `work_artifacts_run` (migration 0053). The keys into
+  `messages` were left: the app never hard-deletes a message.
+- **Columns written and never read:** a secret's rotation and a bot token's last use are
+  on the app's card; the grant and schedule records are kept, with the reason in the
+  models. The client ratchet counts whole-map run selectors (0) and map scans (4).
+- **Not done:** one fold for the two stream readers, and `post_as_bot` adopted by the bot
+  API — each changes a contract (the fold's coverage, `/api/v1/`) and wants its own
+  reviewed change.
+- **Its review** found no defect at its bar.
+
+## Where it stands
+
+Every phase is built, tested and reviewed on its own local branch, each stacked on the one
+before: `agentic-phase-8` holds all of them. Nothing is pushed or merged, because a merge
+to `main` ships to production. Merging brings migrations 0046 to 0053, which run on
+deploy; three new runtime dependencies (OpenTelemetry's API, SDK and OTLP/HTTP exporter);
+and three settings, all off until set (`OTEL_EXPORTER_OTLP_ENDPOINT`,
+`OTEL_EXPORTER_OTLP_HEADERS`, `METRICS_TOKEN`). The version bump and `pnpm stamp` belong
+to the merge commit.
