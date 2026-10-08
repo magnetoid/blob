@@ -285,7 +285,8 @@ describe('search scopes', () => {
     expect(search).toHaveBeenCalledTimes(1);
     expect(listFiles).toHaveBeenCalledTimes(1);
     expect(strayCalls).toEqual([]);
-    expect(screen.queryByText('#secret-plans')).toBeNull();
+    // A channel row shows its name beside its mark, so the name is what would appear.
+    expect(screen.queryByText('secret-plans')).toBeNull();
   });
 
   it('asks the server for nothing when it is a people picker', async () => {
@@ -322,7 +323,7 @@ describe('search scopes', () => {
     fireEvent.change(input, { target: { value: 'deploy' } });
 
     await waitFor(() => expect(screen.getByText('Channels')).toBeTruthy());
-    expect(screen.getAllByText(/^#deploy/).length).toBe(5);
+    expect(screen.getAllByText(/^deploy/).length).toBe(5);
     expect(screen.getByText('See all 6 channels')).toBeTruthy();
   });
 
@@ -340,7 +341,7 @@ describe('search scopes', () => {
     fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
     fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
     fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
-    expect(screen.getByText('#design')).toBeTruthy();
+    expect(screen.getByText('design')).toBeTruthy();
   });
 
   it('sends See all files to the search page with the files scope', async () => {
@@ -362,5 +363,34 @@ describe('search scopes', () => {
     fireEvent.click(screen.getByText(/See all files/));
 
     expect(navigate).toHaveBeenCalledWith('/search?q=deploy&scope=files');
+  });
+});
+
+describe('what a row shows', () => {
+  it('draws a channel as its mark and its name, and still finds it by the # people type', async () => {
+    // Slack's switcher: the `#` (or a lock) in the icon column, the bare name beside it.
+    // What a query is matched against keeps the `#`, which is what people type.
+    useStore.setState({
+      channels: {
+        c1: channel('c1', 'design'),
+        c9: { ...channel('c9', 'payroll'), kind: 'private', membership: { isStarred: false } },
+      },
+      users: {},
+      currentUser: { id: 'u1', displayName: 'Me', prefs: {} },
+    } as never);
+    render(<CommandPalette onClose={vi.fn()} />);
+    const input = screen.getByRole('combobox');
+
+    fireEvent.change(input, { target: { value: '#des' } });
+    const row = screen.getByText('design').closest('[role="option"]')!;
+    expect(row.querySelector('.palette-item-mark')?.textContent).toBe('#');
+
+    fireEvent.change(input, { target: { value: 'pay' } });
+    const locked = screen.getByText('payroll').closest('[role="option"]')!;
+    expect(locked.querySelector('.palette-item-mark svg')).toBeTruthy();
+    expect(locked.querySelector('.palette-item-mark')?.textContent).toBe('');
+    // The lock is decoration; the words are what a screen reader hears.
+    expect(locked.querySelector('.palette-item-kind')?.textContent).toBe('Private channel');
+    expect(row.querySelector('.palette-item-kind')?.textContent).toBe('Channel');
   });
 });

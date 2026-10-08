@@ -115,3 +115,26 @@ describe('the Meetup button in an archived channel (R45)', () => {
     expect(meetupButton()).toBeNull();
   });
 });
+
+describe('who is in the room', () => {
+  it('shows the first three people as faces, and leaves the agents to the count', () => {
+    // An agent's iris face in a row of people would read as one of them; the count
+    // beside the faces already says how many agents there are.
+    useStore.setState({
+      users: {
+        b1: { id: 'b1', kind: 'bot', displayName: 'Janus', deactivated: false },
+        u1: { id: 'u1', kind: 'human', displayName: 'Ana Petrov', deactivated: false },
+        u2: { id: 'u2', kind: 'human', displayName: 'Marko Ilic', deactivated: false },
+        u3: { id: 'u3', kind: 'human', displayName: 'Devin Cole', deactivated: false },
+        u4: { id: 'u4', kind: 'human', displayName: 'Priya Raman', deactivated: false },
+      } as never,
+      // The list as fetched for membership version 0, so nothing is fetched again.
+      channelMembers: { 'ch-1': { version: 0, userIds: ['b1', 'u1', 'u2', 'u3', 'u4'] } },
+    } as never);
+    const { container } = render(<ChannelView />);
+
+    const faces = [...container.querySelectorAll('.member-faces .avatar')];
+    expect(faces.map((face) => face.textContent)).toEqual(['A', 'M', 'D']);
+    expect(faces.some((face) => face.getAttribute('data-kind') === 'bot')).toBe(false);
+  });
+});

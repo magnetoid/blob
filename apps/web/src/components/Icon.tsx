@@ -305,3 +305,11 @@ export const ArrowDownIcon = (p: IconProps) => (
     <path d="M12 5v14M6.5 13.5L12 19l5.5-5.5" />
   </Svg>
 );
+
+/** A private channel: a shackle over a body. */
+export const LockIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="5" y="10.5" width="14" height="9.5" rx="2.2" />
+    <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+  </Svg>
+);

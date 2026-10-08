@@ -29,6 +29,7 @@ import { useWork } from "../work/useWork.ts";
 import { TYPING_TTL_MS } from "@blob/shared";
 import { memberSummary } from "./memberSummary.ts";
 import { EmptyState } from "../../components/EmptyState.tsx";
+import { Avatar } from "../../components/Avatar.tsx";
 
 export function ChannelView() {
   const activeChannelId = useStore((s) => s.activeChannelId);
@@ -340,7 +341,7 @@ export function ChannelView() {
           disabled={isDm}
           onClick={() => setDetailsOpen(true)}
         >
-          <MembersIcon size="md" />
+          {!isDm && members ? <MemberFaces ids={members} /> : <MembersIcon size="md" />}
           <span className="pane-members-count pane-action-label">
             {memberSummary(memberCount, agentCount)}
           </span>
@@ -484,5 +485,25 @@ export function ChannelView() {
         </>
       )}
     </main>
+  );
+}
+
+/**
+ * Who is in the room, as faces: the first three people, overlapped, the way Slack's
+ * header shows a channel's members. People rather than agents — the count beside it says
+ * how many agents there are, and an agent's iris face in a row of people would read as
+ * one of them. Nothing moves when it mounts: the header remounts on every channel
+ * switch, and faces that popped in would pop on all of them.
+ */
+function MemberFaces({ ids }: { ids: string[] }) {
+  const users = useStore((s) => s.users);
+  const people = ids.filter((id) => users[id] && users[id].kind !== "bot").slice(0, 3);
+  if (people.length === 0) return <MembersIcon size="md" />;
+  return (
+    <span className="member-faces" aria-hidden="true">
+      {people.map((id) => (
+        <Avatar key={id} user={users[id]} size="sm" />
+      ))}
+    </span>
   );
 }

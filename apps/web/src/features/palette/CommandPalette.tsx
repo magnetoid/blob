@@ -19,6 +19,13 @@ import {
 import { navigate } from "../../lib/router.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { Dialog } from "../../components/Dialog.tsx";
+import {
+  FileIcon,
+  LockIcon,
+  MessagesIcon,
+  SearchIcon,
+  SparkIcon,
+} from "../../components/Icon.tsx";
 
 /** The sections, in the order they are drawn — which is also the order Tab walks. */
 type Section = "Channels" | "People" | "Messages" | "Files" | "Actions";
@@ -66,7 +73,12 @@ function fetches(scope: PaletteScope, section: Section): boolean {
 
 interface Item {
   id: string;
+  /** What a query is matched against. A channel's carries its `#`, which is what people
+   *  type; `display`, when there is one, is what the row shows beside its mark. */
   label: string;
+  display?: string;
+  /** A channel's mark in the icon column: `#`, or a lock for a private one. */
+  mark?: "hash" | "lock";
   kind: "Channel" | "Person" | "Action" | "Message" | "File";
   section: Section;
   hint?: string;
@@ -183,6 +195,11 @@ export function CommandPalette({
           return {
             id: `c-${channel.id}`,
             label: channel.name ? `#${channel.name}` : channelTitle(channel),
+            // Slack's switcher draws a channel as its mark and its name, the `#` in the
+            // icon column where every other row has its icon. A conversation with no name
+            // — a group DM — keeps its title and no mark.
+            display: channel.name ?? undefined,
+            mark: channel.name ? (channel.kind === "private" ? "lock" : "hash") : undefined,
             kind: "Channel",
             section: "Channels",
             hint: joined ? undefined : "not joined",
@@ -480,6 +497,9 @@ export function CommandPalette({
          * in this app, is a text box that silently swallows arrow keys.
          */}
         <div className="palette-field">
+          <span className="palette-field-icon" aria-hidden="true">
+            <SearchIcon size="md" />
+          </span>
           <input
             ref={inputRef}
             className="palette-input"
@@ -577,19 +597,43 @@ export function CommandPalette({
                   onMouseEnter={() => setIndex(i)}
                   onClick={() => void choose(item)}
                 >
-                  {item.kind === "Person" && (
-                    <Avatar
-                      user={{ displayName: item.label, avatarUrl: null }}
-                      size="sm"
-                    />
-                  )}
-                  <span className="palette-item-label">{item.label}</span>
+                  <ItemMark item={item} />
+                  <span className="palette-item-label">{item.display ?? item.label}</span>
                   {item.hint && <span className="palette-item-hint muted">{item.hint}</span>}
-                  <span className="palette-item-kind">{item.kind}</span>
+                  {/* A private channel says so in words as well as with its lock: the
+                      lock is decoration, and this is what a screen reader hears. */}
+                  <span className="palette-item-kind">
+                    {item.mark === "lock" ? "Private channel" : item.kind}
+                  </span>
+                  {/* What Enter does, on the row it would do it to. Decoration: the row's
+                      selection is already what the combobox announces. */}
+                  <kbd className="palette-item-enter" aria-hidden="true">
+                    ↵
+                  </kbd>
                 </button>
               </Fragment>
             ))
           )}
+        </div>
+
+        {/* The keys, where a palette's keys always are. Decoration for eyes: the input's
+            name already says what Tab does, and arrows and Enter are the combobox's own. */}
+        <div className="palette-footer" aria-hidden="true">
+          <span>
+            <kbd>↑</kbd>
+            <kbd>↓</kbd> to move
+          </span>
+          <span>
+            <kbd>↵</kbd> to open
+          </span>
+          {!only && (
+            <span>
+              <kbd>⇥</kbd> to narrow
+            </span>
+          )}
+          <span className="palette-footer-end">
+            <kbd>esc</kbd> to close
+          </span>
         </div>
       </div>
     </Dialog>
@@ -610,4 +654,26 @@ function score(text: string, query: string): number {
     ti = found + 1;
   }
   return 300 - text.length;
+}
+
+/**
+ * The icon column: a person's face, a channel's `#` or lock, and for the rest the kind of
+ * thing it is — the ✦ the product speaks with for an action, a bubble for a message, a
+ * page for a file. One column for all of them, so every label starts at the same x.
+ */
+function ItemMark({ item }: { item: Item }) {
+  if (item.kind === "Person") {
+    return <Avatar user={{ displayName: item.label, avatarUrl: null }} size="sm" />;
+  }
+  let glyph: React.ReactNode = null;
+  if (item.mark === "hash") glyph = "#";
+  else if (item.mark === "lock") glyph = <LockIcon size="sm" />;
+  else if (item.kind === "Action") glyph = <SparkIcon size="sm" />;
+  else if (item.kind === "Message") glyph = <MessagesIcon size="sm" />;
+  else if (item.kind === "File") glyph = <FileIcon size="sm" />;
+  return (
+    <span className="palette-item-mark" data-kind={item.kind} aria-hidden="true">
+      {glyph}
+    </span>
+  );
 }
