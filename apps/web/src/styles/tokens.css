@@ -23,8 +23,11 @@
 :root {
   /* ─── surfaces ─────────────────────────────────────────────────────────── */
   --bg: #fcfcfa; /* message pane, app canvas */
-  --bg-rail: #f5f4f0;
-  --bg-sidebar: #faf9f6;
+  /* The ground the frame sits on: the top bar and the channel list. One tint for both,
+     the one the plan settled for the sidebar (0.5), so the bar and the list read as a
+     single surface and what you are reading is the paper card inset in it. */
+  --bg-rail: #f3f1ea;
+  --bg-sidebar: #f3f1ea;
   --surface: #ffffff; /* cards, inputs, popovers */
   --surface-hover: #f3f2ed;
   --surface-hover-warm: #f0eee7; /* sidebar rows */
@@ -180,6 +183,27 @@
   --surface-2: var(--surface);
   --surface-3: var(--surface);
 
+  /* ─── the frame ────────────────────────────────────────────────────────── */
+  /* Meadow's app frame. The conversation — and a thread or file beside it — sits on
+     paper in one rounded card, inset from the window's edge on the tinted ground the top
+     bar and the channel list share. The rules sheet allows shadows on the frame, the
+     composer and overlays, and on nothing else; this is the frame's, kept lower than
+     --elev-1 because it is the page itself rather than something floating over it.
+     Phones go full bleed (app.css), where an inset would only cost width. */
+  --frame-gap: 8px;
+  --frame-radius: var(--radius-lg);
+  /* What a row on the ground does under the pointer, when it is where you are, and when
+     it is pressed. Mixed against whatever the ground is rather than fixed steps: the
+     palette's hover and selection washes were tuned on near-white, and on the tint they
+     are the ground's own colour give or take a point. Ink deepens a light ground and
+     lifts a dark one, so one rule serves both themes and every custom palette. */
+  --ground-hover: color-mix(in oklab, var(--text) 6%, transparent);
+  --ground-press: color-mix(in oklab, var(--text) 10%, transparent);
+  --ground-selected: color-mix(in oklab, var(--accent) 13%, transparent);
+  --elev-frame:
+    0 0 0 1px var(--hairline), 0 1px 2px rgb(var(--shadow-ink) / 4%),
+    0 8px 24px -14px rgb(var(--shadow-ink) / 14%);
+
   /* ─── radius ───────────────────────────────────────────────────────────── */
   /* Five steps for what were thirteen ad-hoc values. Nested corners follow
      inner = outer - padding, clamped at 2px. */
@@ -260,7 +284,10 @@
      is only the alias list, which does not change when a value does. */
   --dark-bg: #141614;
   --dark-bg-rail: #101210;
-  --dark-bg-sidebar: #171a17;
+  /* Below --dark-bg rather than above it, as the light ground is below --bg: the frame
+     is lifted by being lighter than what it sits on, which is how dark mode shows
+     height. It was #171a17, a shade lighter than the page, when there was no frame. */
+  --dark-bg-sidebar: #101210;
   --dark-surface: #1c1f1c;
   --dark-surface-hover: #232623;
   --dark-surface-hover-warm: #232623;
@@ -406,6 +433,8 @@
     --elev-2: 0 0 0 1px rgb(255 255 255 / 8%), 0 8px 24px -8px rgb(0 0 0 / 50%);
     --elev-3:
       0 0 0 1px rgb(255 255 255 / 10%), 0 16px 48px -12px rgb(0 0 0 / 60%);
+    --elev-frame:
+      0 0 0 1px rgb(255 255 255 / 7%), 0 10px 28px -14px rgb(0 0 0 / 70%);
 
     --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
   }
@@ -482,6 +511,8 @@
   --elev-2: 0 0 0 1px rgb(255 255 255 / 8%), 0 8px 24px -8px rgb(0 0 0 / 50%);
   --elev-3:
     0 0 0 1px rgb(255 255 255 / 10%), 0 16px 48px -12px rgb(0 0 0 / 60%);
+  --elev-frame:
+    0 0 0 1px rgb(255 255 255 / 7%), 0 10px 28px -14px rgb(0 0 0 / 70%);
 
   --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
 }

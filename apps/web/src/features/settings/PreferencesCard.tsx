@@ -241,7 +241,7 @@ function PaletteGallery({
             >
               <span
                 className="palette-preview-rail"
-                style={{ background: token('--bg-sidebar', base ? '#171a17' : '#faf9f6') }}
+                style={{ background: token('--bg-sidebar', base ? '#101210' : '#f3f1ea') }}
               />
               <span className="palette-preview-body">
                 <span
