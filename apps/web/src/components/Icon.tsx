@@ -283,3 +283,25 @@ export const CollapseIcon = (p: IconProps) => (
     <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
   </Svg>
 );
+
+/** Two sheets, the front one whole: "take a copy". */
+export const CopyIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.2" />
+    <path d="M15.5 8.5V6.2a1.7 1.7 0 0 0-1.7-1.7H6.2a1.7 1.7 0 0 0-1.7 1.7v7.6a1.7 1.7 0 0 0 1.7 1.7h2.3" />
+  </Svg>
+);
+
+/** Done. A bare stroke reads light beside detailed glyphs, so it carries a touch more. */
+export const CheckIcon = (p: IconProps) => (
+  <Svg boost={0.2} {...p}>
+    <path d="M5 12.5l4.3 4.3L19 7" />
+  </Svg>
+);
+
+/** Down to the end of something: the newest message. */
+export const ArrowDownIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M6.5 13.5L12 19l5.5-5.5" />
+  </Svg>
+);

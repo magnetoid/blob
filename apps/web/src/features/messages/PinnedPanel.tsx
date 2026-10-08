@@ -84,6 +84,8 @@ export function PinnedPanel({ channelId, onClose, onJump }: Props) {
                 knownNames,
                 currentUserId: currentUser?.id ?? null,
                 customEmoji,
+                // The row is a button; a Copy inside it would be a button in one.
+                copyableCode: false,
               })}
             </div>
           </div>

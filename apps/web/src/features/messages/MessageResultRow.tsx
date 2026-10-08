@@ -56,6 +56,8 @@ export function MessageResultRow({ message, onOpen, timestamp, footer, action, h
           currentUserId,
           customEmoji,
           highlight,
+          // The row is a button; a code block's Copy inside it would be a button in one.
+          copyableCode: false,
         })}
       </div>
       {footer}

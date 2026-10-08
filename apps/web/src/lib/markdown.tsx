@@ -10,6 +10,7 @@ import { Fragment, type ReactNode } from "react";
 import type { CustomEmoji } from "@blob/shared";
 import { resolveName } from "./emoji.ts";
 import type { MentionTarget } from "../features/messages/mentionIndex.ts";
+import { CodeBlock } from "../components/CodeBlock.tsx";
 
 export interface RenderOptions {
   /**
@@ -32,6 +33,13 @@ export interface RenderOptions {
    * shout over every row around it.
    */
   headings?: boolean;
+  /**
+   * Whether a code block offers its Copy button. Off where the whole rendering sits
+   * inside a button — a search hit, a pinned row — because a button cannot hold another
+   * one: the inner control vanishes from the accessibility tree. There the row opens the
+   * message, and the copy is on the message.
+   */
+  copyableCode?: boolean;
 }
 
 const HEADING = /^(#{1,6})\s+(.*)$/;
@@ -63,9 +71,12 @@ export function renderMarkdown(
       }
       index += 1; // closing fence
       blocks.push(
-        <pre key={key++}>
-          <code data-language={language || undefined}>{body.join("\n")}</code>
-        </pre>,
+        <CodeBlock
+          key={key++}
+          code={body.join("\n")}
+          language={language || undefined}
+          copyable={options.copyableCode !== false}
+        />,
       );
       continue;
     }

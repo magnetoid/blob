@@ -18,10 +18,34 @@ const ANA = { displayName: 'Ana Lima', avatarUrl: null };
 const PHOTO = { displayName: 'Ana Lima', avatarUrl: '/files/ana.png' };
 
 describe('an avatar', () => {
-  it('is the initials when there is no photo', () => {
+  it('is the initial when there is no photo', () => {
+    // One letter, as Meadow draws a person; two at the sidebar's 20px were a smudge.
     const { container } = render(<Avatar user={ANA} />);
-    expect(container.querySelector('.avatar')!.textContent).toBe('AL');
+    expect(container.querySelector('.avatar')!.textContent).toBe('A');
     expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('keeps a whole character when a name starts with one outside the BMP', () => {
+    // `name[0]` is half of a surrogate pair for an emoji, and renders as a box.
+    const { container } = render(<Avatar user={{ displayName: '🦊 Fox', avatarUrl: null }} />);
+    expect(container.querySelector('.avatar')!.textContent).toBe('🦊');
+  });
+
+  it('gives a person one tone wherever they appear, and not everyone the same one', () => {
+    // Chosen from the name, so a reaction or a search hit — which hold no id — still
+    // matches the sidebar. Across a handful of names both tones turn up, or the choice
+    // would be decoration that never varies.
+    const toneOf = (displayName: string) => {
+      const { container } = render(<Avatar user={{ displayName, avatarUrl: null }} />);
+      const value = container.querySelector('.avatar')!.getAttribute('data-tone');
+      cleanup();
+      return value;
+    };
+    expect(toneOf('Ana Lima')).toBe(toneOf('Ana Lima'));
+    const tones = new Set(
+      ['Ana Petrov', 'Marko Ilic', 'Devin Cole', 'Priya Raman', 'Ana Lima'].map(toneOf),
+    );
+    expect(tones).toEqual(new Set(['clay', 'sage']));
   });
 
   it('keeps the initials under a photo until the photo has loaded', () => {
@@ -30,7 +54,7 @@ describe('an avatar', () => {
     const image = container.querySelector('img')!;
     const initials = container.querySelector<HTMLElement>('.avatar-initials')!;
 
-    expect(initials.textContent).toBe('AL');
+    expect(initials.textContent).toBe('A');
     // Decoration while the photo is there: the name is the avatar's title, as before.
     expect(initials.getAttribute('aria-hidden')).toBe('true');
     expect(image.dataset.loaded).toBeUndefined();

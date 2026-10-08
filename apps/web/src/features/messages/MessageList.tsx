@@ -16,6 +16,7 @@ import { flashMessage } from "../../lib/navigation.ts";
 import { useStore } from "../../lib/store.ts";
 import { usePresence } from "../../lib/usePresence.ts";
 import { EmptyState } from "../../components/EmptyState.tsx";
+import { ArrowDownIcon } from "../../components/Icon.tsx";
 
 interface Props {
   /**
@@ -47,6 +48,10 @@ interface Props {
 
 /** Within this many pixels of the bottom counts as "at the bottom". */
 const STICK_THRESHOLD = 120;
+
+/** Further than this many screens from the newest message, and the way back is offered.
+ *  One screen: closer than that the end is a flick away and the control would be noise. */
+const FAR_SCREENS = 1;
 
 export function MessageList({
   conversationId,
@@ -92,6 +97,26 @@ export function MessageList({
   const [tabStopId, setTabStopId] = useState<string | null>(null);
   const pendingScrollMessageId = useStore((s) => s.pendingScrollMessageId);
   const requestScrollToMessage = useStore((s) => s.requestScrollToMessage);
+  const currentUserId = useStore((s) => s.currentUser?.id ?? null);
+  /**
+   * Read back from the newest message far enough, and a way back is offered — with a
+   * count of what has arrived since, which is the question somebody scrolled up in a busy
+   * channel actually has. `from` is the newest message at the moment you went away, so
+   * an older page loading above you never counts as new.
+   *
+   * Tagged with its conversation and read through that tag during render, the way the
+   * jump bar's state is: cleared by the reset effect alone, it was still set on the first
+   * render of the next conversation, and that room mounted a pill only to fade it out.
+   */
+  const [awayState, setAway] = useState<{
+    conversation: string;
+    from: string | null;
+  } | null>(null);
+  const away = awayState?.conversation === conversationId ? awayState : null;
+  const lastIdRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    lastIdRef.current = messages[messages.length - 1]?.id ?? null;
+  }, [messages]);
 
   // `null` is not "no divider" — it is the server saying nothing in this channel has
   // been read, which is what `lastReadMessageId` holds after marking the very first
@@ -218,6 +243,7 @@ export function MessageList({
     wasAtBottom.current = true;
     previousMetrics.current = { firstId: null, lastId: null, scrollHeight: 0 };
     setTabStopId(null);
+    setAway(null);
     // `virtualizer` is a fresh object every render, so it cannot be a dependency —
     // the same reason the effect below says so.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -324,8 +350,18 @@ export function MessageList({
     function onScroll() {
       const el = scrollRef.current;
       if (!el) return;
-      wasAtBottom.current =
-        el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
+      const fromEnd = el.scrollHeight - el.scrollTop - el.clientHeight;
+      wasAtBottom.current = fromEnd < STICK_THRESHOLD;
+      // Same value back is a bail-out, so this costs a render only when it flips.
+      if (fromEnd > el.clientHeight * FAR_SCREENS) {
+        setAway((current) =>
+          current?.conversation === conversationId
+            ? current
+            : { conversation: conversationId, from: lastIdRef.current },
+        );
+      } else {
+        setAway(null);
+      }
       if (el.scrollTop < 200 && hasMore && !loading) onLoadOlder();
       // Scrolled the first unread row into view — by hand or with the bar's own jump —
       // and the bar has done its job. Left up, it offers a jump to what is on screen.
@@ -343,9 +379,27 @@ export function MessageList({
     return () => node.removeEventListener("scroll", onScroll);
     // `virtualizer` is not a dependency, for the reason the scroll effect gives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMore, loading, onLoadOlder, barOffered, firstUnreadIndex]);
+  }, [hasMore, loading, onLoadOlder, barOffered, firstUnreadIndex, conversationId]);
 
   const jumpBarOpen = unreadCount > 0 && barOffered && !inThread;
+
+  // Somebody else's, since you went away. Your own message is not news to you.
+  const arrivedSinceAway = useMemo(() => {
+    if (away === null || away.from === null) return 0;
+    const from = away.from;
+    return messages.filter((m) => m.id > from && m.authorId !== currentUserId).length;
+  }, [away, messages, currentUserId]);
+
+  function jumpToLatest() {
+    // The list's own way of being at the end: flagged, and placed through the
+    // virtualizer, which keeps adjusting as rows that were only estimated get measured —
+    // the same call that opens a conversation at its newest message.
+    wasAtBottom.current = true;
+    setAway(null);
+    if (messages.length > 0) {
+      virtualizer.scrollToIndex(messages.length - 1, { align: "end" });
+    }
+  }
 
   if (messages.length === 0) {
     if (error) {
@@ -401,89 +455,144 @@ export function MessageList({
   }
 
   return (
-    <div
-      className="message-list"
-      ref={scrollRef}
-      role="log"
-      aria-live="polite"
-      aria-relevant="additions"
-    >
-      {/* Keyed by the conversation, which is what stops one channel's bar from finishing
-          its exit over the next channel's messages: a switch mounts a new bar, and a new
-          bar that is not open has nothing to leave and renders nothing. The rest of this
-          list resets by hand on `conversationId` (see above) because it must keep its DOM
-          node; the bar has no such constraint, so it gets the key. */}
-      <UnreadJumpBar
-        key={conversationId}
-        open={jumpBarOpen}
-        count={unreadCount}
-        onJump={() => {
-          const target = messages[firstUnreadIndex];
-          if (!target) return;
-          virtualizer.scrollToIndex(firstUnreadIndex, { align: "center" });
-        }}
-        onDismiss={() => setBar((current) => ({ ...current, state: "done" }))}
-      />
-      {hasMore && (
-        <div style={{ padding: "8px 22px" }}>
-          <button
-            className="btn btn-ghost"
-            type="button"
-            onClick={onLoadOlder}
-            disabled={loading}
-          >
-            {loading ? "Loading…" : "Load earlier messages"}
-          </button>
-        </div>
-      )}
-
+    <>
       <div
-        className="message-list-viewport"
-        style={{ height: `${virtualizer.getTotalSize()}px` }}
+        className="message-list"
+        ref={scrollRef}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
       >
-        {virtualizer.getVirtualItems().map((item) => {
-          const { message, previous, showDay, isFirstUnread } =
-            decoratedMessages[item.index]!;
-
-          return (
-            <div
-              key={item.key}
-              ref={virtualizer.measureElement}
-              data-index={item.index}
-              className="message-list-row"
-              style={{ transform: `translate3d(0, ${item.start}px, 0)` }}
+        {/* Keyed by the conversation, which is what stops one channel's bar from finishing
+            its exit over the next channel's messages: a switch mounts a new bar, and a new
+            bar that is not open has nothing to leave and renders nothing. The rest of this
+            list resets by hand on `conversationId` (see above) because it must keep its DOM
+            node; the bar has no such constraint, so it gets the key. */}
+        <UnreadJumpBar
+          key={conversationId}
+          open={jumpBarOpen}
+          count={unreadCount}
+          onJump={() => {
+            const target = messages[firstUnreadIndex];
+            if (!target) return;
+            virtualizer.scrollToIndex(firstUnreadIndex, { align: "center" });
+          }}
+          onDismiss={() => setBar((current) => ({ ...current, state: "done" }))}
+        />
+        {hasMore && (
+          <div style={{ padding: "8px 22px" }}>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={onLoadOlder}
+              disabled={loading}
             >
-              {showDay && (
-                <div className="day-divider">
-                  <span>{dayLabel(message.createdAt)}</span>
-                </div>
-              )}
-              {isFirstUnread && (
-                <div className="unread-divider">
-                  <span>New</span>
-                </div>
-              )}
-              <MessageRow
-                message={message}
-                previous={showDay || isFirstUnread ? null : previous}
-                onOpenThread={onOpenThread}
-                inThread={inThread}
-                isTabStop={message.id === effectiveTabStopId}
-                onFocusRow={setTabStopId}
-              />
-              {runIdsByMessageId?.[message.id]?.map((runId) => (
-                <AgentRunCardById
-                  key={runId}
-                  runId={runId}
-                  compact
+              {loading ? "Loading…" : "Load earlier messages"}
+            </button>
+          </div>
+        )}
+
+        <div
+          className="message-list-viewport"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          {virtualizer.getVirtualItems().map((item) => {
+            const { message, previous, showDay, isFirstUnread } =
+              decoratedMessages[item.index]!;
+
+            return (
+              <div
+                key={item.key}
+                ref={virtualizer.measureElement}
+                data-index={item.index}
+                className="message-list-row"
+                style={{ transform: `translate3d(0, ${item.start}px, 0)` }}
+              >
+                {showDay && (
+                  <div className="day-divider">
+                    <span>{dayLabel(message.createdAt)}</span>
+                  </div>
+                )}
+                {isFirstUnread && (
+                  <div className="unread-divider">
+                    <span>New</span>
+                  </div>
+                )}
+                <MessageRow
+                  message={message}
+                  previous={showDay || isFirstUnread ? null : previous}
+                  onOpenThread={onOpenThread}
+                  inThread={inThread}
                   isTabStop={message.id === effectiveTabStopId}
+                  onFocusRow={setTabStopId}
                 />
-              ))}
-            </div>
-          );
-        })}
+                {runIdsByMessageId?.[message.id]?.map((runId) => (
+                  <AgentRunCardById
+                    key={runId}
+                    runId={runId}
+                    compact
+                    isTabStop={message.id === effectiveTabStopId}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+      {/* Beside the log rather than in it: the list is a live region that announces
+          additions, and a control appearing inside it would be read out every time
+          somebody scrolled up. A zero-height dock after the scroller, so the pill hangs
+          over the list's foot without adding to its height or moving the composer. */}
+      <div className="jump-latest-dock">
+        <JumpToLatest
+          key={conversationId}
+          open={away !== null}
+          count={arrivedSinceAway}
+          onJump={jumpToLatest}
+        />
+      </div>
+    </>
+  );
+}
+
+/**
+ * "Jump to latest", at the foot of a conversation you have scrolled back through — or
+ * "3 new messages", when people kept talking while you read.
+ *
+ * Built the way the unread bar below is, for the same two reasons: it holds itself
+ * through one exit with `usePresence`, keeping the words it was showing while it goes,
+ * and the caller keys it by conversation, so a switch never fades one room's pill out
+ * over the next room's messages. Mounted only while it is offered, so a list with
+ * nowhere to jump has no control in it at all.
+ */
+function JumpToLatest({
+  open,
+  count,
+  onJump,
+}: {
+  open: boolean;
+  count: number;
+  onJump: () => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const { present, state } = usePresence(open, ref);
+  const [held, setHeld] = useState(count);
+  if (open && held !== count) setHeld(count);
+
+  if (!present) return null;
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className="jump-latest"
+      data-state={state}
+      inert={state === "closed"}
+      onClick={onJump}
+    >
+      <ArrowDownIcon size="sm" />
+      {held > 0 ? `${held} new ${held === 1 ? "message" : "messages"}` : "Jump to latest"}
+    </button>
   );
 }
 

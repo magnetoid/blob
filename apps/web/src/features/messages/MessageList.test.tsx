@@ -445,3 +445,105 @@ describe("MessageList", () => {
     });
   });
 });
+
+describe("the way back to the newest message", () => {
+  /** 500 rows of 40px: the history is 20,000px tall and the screen 800px of it. */
+  const HISTORY_PX = 500 * ROW_PX;
+  const AT_END = HISTORY_PX - VIEWPORT_PX;
+
+  /** Where the list is scrolled, and how tall it is, as a browser would say — happy-dom
+   *  reports zero for both, and the list decides from them how far from the end you are. */
+  function pinGeometry(top: number) {
+    let current = top;
+    Object.defineProperty(HTMLElement.prototype, "scrollTop", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.classList.contains("message-list") ? current : 0;
+      },
+      set() {},
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.classList.contains("message-list") ? HISTORY_PX : ROW_PX;
+      },
+    });
+    return {
+      scrollTo(list: HTMLElement, next: number) {
+        current = next;
+        list.dispatchEvent(new Event("scroll"));
+      },
+    };
+  }
+
+  afterEach(() => {
+    delete (HTMLElement.prototype as { scrollTop?: number }).scrollTop;
+    delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
+    useStore.setState({ currentUser: null } as never);
+  });
+
+  function pill(container: HTMLElement) {
+    return container.querySelector<HTMLButtonElement>(".jump-latest");
+  }
+
+  it("is not offered at the end, and is once you have read a screen back", () => {
+    const geometry = pinGeometry(AT_END);
+    const { container } = renderList();
+    const list = container.querySelector(".message-list") as HTMLElement;
+
+    act(() => geometry.scrollTo(list, AT_END - 200));
+    // Less than a screen up: the end is a flick away, and a control would be noise.
+    expect(pill(container)).toBeNull();
+
+    act(() => geometry.scrollTo(list, AT_END - VIEWPORT_PX - 100));
+    expect(pill(container)?.textContent).toBe("Jump to latest");
+    expect(pill(container)?.getAttribute("data-state")).toBe("open");
+  });
+
+  it("counts what other people said since you went back, and not what you did", () => {
+    useStore.setState({ currentUser: { id: "me" } } as never);
+    const geometry = pinGeometry(AT_END);
+    const messages = makeMessages(500);
+    const { container, rerender, props } = renderList({ messages });
+    const list = container.querySelector(".message-list") as HTMLElement;
+    act(() => geometry.scrollTo(list, 0));
+
+    // Two from somebody else, one of your own, all after you went back.
+    const later = makeMessages(503).slice(500);
+    later[1] = { ...later[1]!, authorId: "me" } as Message;
+    rerender(<MessageList {...props} messages={[...messages, ...later]} />);
+
+    expect(pill(container)?.textContent).toBe("2 new messages");
+  });
+
+  it("takes you to the end and goes", () => {
+    const geometry = pinGeometry(AT_END);
+    const { container } = renderList();
+    const list = container.querySelector(".message-list") as HTMLElement;
+    act(() => geometry.scrollTo(list, 0));
+
+    vi.useFakeTimers();
+    act(() => {
+      pill(container)!.click();
+    });
+    // Held for its exit and out of the tab order while it fades, then gone.
+    expect(pill(container)?.getAttribute("data-state")).toBe("closed");
+    expect(pill(container)?.hasAttribute("inert")).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(EXIT_SETTLED_MS);
+    });
+    expect(pill(container)).toBeNull();
+  });
+
+  it("belongs to the conversation it was offered in", () => {
+    const geometry = pinGeometry(AT_END);
+    const { container, rerender, props } = renderList();
+    const list = container.querySelector(".message-list") as HTMLElement;
+    act(() => geometry.scrollTo(list, 0));
+    expect(pill(container)).toBeTruthy();
+
+    // A switch is a new pill that is not open — nothing to fade out over the next room.
+    rerender(<MessageList {...props} conversationId="c2" messages={makeMessages(500)} />);
+    expect(pill(container)).toBeNull();
+  });
+});
