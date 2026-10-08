@@ -42,6 +42,45 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-10-09',
+    version: '1.9.0',
+    title: 'A new look, and fewer steps',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'A new look: the conversation sits on one paper card, with the top bar and the channel list on a soft tinted ground around it, in light and dark.',
+      },
+      {
+        kind: 'changed',
+        text: 'Conversations are easier to scan. Names stand out, and somebody without a photo has one clear initial, in a colour that stays the same everywhere they appear.',
+      },
+      {
+        kind: 'added',
+        text: 'Code in a message has a Copy button.',
+      },
+      {
+        kind: 'added',
+        text: 'Scrolled up in a conversation? A button takes you back to the newest message, and says how many arrived while you were reading.',
+      },
+      {
+        kind: 'added',
+        text: 'Drop a file anywhere on a conversation or a thread to attach it, not only on the message box.',
+      },
+      {
+        kind: 'changed',
+        text: 'Home greets you and says in one sentence where you stand, and its numbers take you to what they count.',
+      },
+      {
+        kind: 'changed',
+        text: '⌘K marks each channel with # or a lock and lists its keys along the bottom, and a channel’s header shows a few faces of the people in it.',
+      },
+      {
+        kind: 'changed',
+        text: 'Lists load as their own outline instead of the word “Loading…”, and scrollbars follow the theme in Firefox too.',
+      },
+    ],
+  },
+  {
     date: '2026-10-08',
     version: '1.8.0',
     title: 'Agents that show their work',

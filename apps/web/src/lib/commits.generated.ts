@@ -11,6 +11,69 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "052288bc2036b9b8c5a3d44e5fbd4bc71626085a",
+    "shortSha": "052288bc",
+    "subject": "docs: the README shows the new design; CLAUDE.md learns the frame; the guide learns the drop, the copy and the way back",
+    "date": "2026-10-08T23:21:18+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "86bdac74f402a66b71d1906d81646200697d2059",
+    "shortSha": "86bdac74",
+    "subject": "feat: lists arrive as their shape, not the word \"Loading…\"; Firefox's scrollbar joins the theme — modernization phase 6",
+    "date": "2026-10-08T23:15:26+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "29044e8ceef2960def4d0ff175db6f4fdae82c0f",
+    "shortSha": "29044e8c",
+    "subject": "feat: drop a file anywhere on the conversation, not only on the composer — modernization phase 5",
+    "date": "2026-10-08T23:04:49+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "8375345bdafd46b8a6bcc066056de40985d31013",
+    "shortSha": "8375345b",
+    "subject": "feat: ⌘K reads at a glance — a mark per row, the keys at its foot — and the header shows who is in the room — modernization phase 4",
+    "date": "2026-10-08T22:47:56+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "12da326aa8bc489d30011c276c165ff61794e5fd",
+    "shortSha": "12da326a",
+    "subject": "feat: Home opens with where you stand — a greeting and a sentence, the ask as Meadow's strip, numbers that lead somewhere — modernization phase 3",
+    "date": "2026-10-08T22:29:15+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "fa9c4449c040f80055d18ff2e66168792346ef0a",
+    "shortSha": "fa9c4449",
+    "subject": "feat: a conversation that scans — names at weight, one initial in clay or sage, code you can copy, a way back to the newest — modernization phase 2",
+    "date": "2026-10-08T22:11:54+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "872cf1b906950af6523ae37f4e7dd5f84006911d",
+    "shortSha": "872cf1b9",
+    "subject": "feat: the app frame — the work on paper in one card, the bar and the list on a tinted ground — modernization phase 1",
+    "date": "2026-10-08T21:25:20+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "a21f49d140d4b1269fd3f3e407f91fb435140f73",
+    "shortSha": "a21f49d1",
+    "subject": "fix: MinIO from Coolify's pinned build — quay.io stopped serving it",
+    "date": "2026-10-08T03:38:56+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "261ba6e64fd0d4673e0bdc97ff417cf6920f600e",
+    "shortSha": "261ba6e6",
+    "subject": "release: 1.8.0 — agents that show their work, and a README for the whole product",
+    "date": "2026-10-08T03:33:15+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "9a088db9f3c445667c9c477c3059da19536cf0d2",
     "shortSha": "9a088db9",
     "subject": "docs: phases 7 and 8 done, what each late review found, and where the branches stand",
@@ -365,69 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "1d424d73",
     "subject": "Put the seeded agents into a public channel the moment it is founded",
     "date": "2026-09-15T22:27:17+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "67567c34e98c68ba27825baf54f52602a27f4098",
-    "shortSha": "67567c34",
-    "subject": "Give the two agent seeders one loop and one joiner",
-    "date": "2026-09-15T20:17:29+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "c741989c83f67bb56964743d5d62d344894b2f07",
-    "shortSha": "c741989c",
-    "subject": "Stop claiming two env vars configure the agent when they do not",
-    "date": "2026-09-15T14:02:28+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "2c4b182b8c15c6e210fd884fc4057d7af6248f0b",
-    "shortSha": "2c4b182b",
-    "subject": "Fall back a blank JANUS_AGENT_NAME to \"Janus\" instead of \"\"",
-    "date": "2026-09-15T03:22:02+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "61b81a7cb4b2a384b369058fcc10a342cf6074c0",
-    "shortSha": "61b81a7c",
-    "subject": "Give the app and the worker the settings they were promised",
-    "date": "2026-09-15T03:08:45+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "90f2fa719de9ab58c9a1373adbc681d8d72ad0ff",
-    "shortSha": "90f2fa71",
-    "subject": "Seed Janus into the rooms, and only onto our own row",
-    "date": "2026-09-15T03:08:33+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "947673e6273a39e0bbaeeb4ba429d1ff7a601214",
-    "shortSha": "947673e6",
-    "subject": "Map the module the agent seeding lives in",
-    "date": "2026-09-15T02:45:37+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d631aa0fe13468166813a8bdfb2d01f8ab32a00d",
-    "shortSha": "d631aa0f",
-    "subject": "Run Janus as a service in this stack, off unless asked for",
-    "date": "2026-09-15T02:37:42+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "82d8a96f19f56123c1497e490815a4b1e314c48d",
-    "shortSha": "82d8a96f",
-    "subject": "Pin that both guards refuse internal agent URLs",
-    "date": "2026-09-15T02:22:34+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e711a6e01908123372d30d0d67e96a1fe27ad720",
-    "shortSha": "e711a6e0",
-    "subject": "Pin that an internal agent URL is still refused from a route",
-    "date": "2026-09-15T02:16:13+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
