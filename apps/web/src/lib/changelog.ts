@@ -43,6 +43,37 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     date: '2026-10-09',
+    version: '1.10.0',
+    title: 'Answers that read well, and accounts that stay yours',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'Agent replies read the way they were written: numbered lists keep counting, sub-points sit under their point, sections stand out, tables show as tables, and a long answer folds behind “Show more”.',
+      },
+      {
+        kind: 'changed',
+        text: 'The admin menu is one list of every page, without headings, and each page appears only to the people who can open it.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Health in the admin menu works for every admin, not only for whoever runs the server.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Password reset links stay within reach: an admin can make one for a member, only the owner for an admin, and only the server’s administrator for the owner.',
+      },
+      {
+        kind: 'fixed',
+        text: 'A reset link works once, even when it is opened twice at the same moment, and using one retires any older links.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Signing somebody out everywhere also ends their assistant’s access.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-09',
     version: '1.9.0',
     title: 'A new look, and fewer steps',
     entries: [

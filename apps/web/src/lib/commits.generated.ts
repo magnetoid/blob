@@ -11,6 +11,48 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "7b26618caf0e1fe47c09e9f2e1fb4cf39480b31d",
+    "shortSha": "7b26618c",
+    "subject": "fix: the reset rules hold for the hour a link lives, resets for one address go one at a time, and a patch's work is capped too — security phase 1 review",
+    "date": "2026-10-09T04:42:39+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "defbb447a241d08ef954c0735d1382b6f72bb7a9",
+    "shortSha": "defbb447",
+    "subject": "fix: Health stays every admin's — the server's log is asked of the server's administrator alone — admin menu review",
+    "date": "2026-10-09T04:34:09+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d25600233c11b2533eed4e05d181a8139f9c77cb",
+    "shortSha": "d2560023",
+    "subject": "feat: agent replies read as written — lists keep their numbers and nest, sections, tables, dividers, and a long answer folds",
+    "date": "2026-10-09T04:27:48+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "3796663e971f7f002a39d55209ec2da9895ca774",
+    "shortSha": "3796663e",
+    "subject": "feat: the admin menu is one list, and shows each page to whoever the server lets in",
+    "date": "2026-10-09T04:27:35+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "04c11d1770d05c498cd582c2e18ebaa9cb42346e",
+    "shortSha": "04c11d17",
+    "subject": "fix: an admin can no longer take the owner's account; uploads are the size they claim; an agent's patch cannot grow without bound — security phase 1",
+    "date": "2026-10-09T03:47:59+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "65ec86b7e6103708052c2db0060b8ab659cd74a2",
+    "shortSha": "65ec86b7",
+    "subject": "release: 1.9.0 — a new look, and fewer steps",
+    "date": "2026-10-09T01:11:02+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "052288bc2036b9b8c5a3d44e5fbd4bc71626085a",
     "shortSha": "052288bc",
     "subject": "docs: the README shows the new design; CLAUDE.md learns the frame; the guide learns the drop, the copy and the way back",
@@ -386,48 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "19eaae6b",
     "subject": "fix: say what the retirement really costs, and finish clearing what it left",
     "date": "2026-09-16T01:41:04+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "1998b2af18e63fe5efab27994ce3d41d8a4fb138",
-    "shortSha": "1998b2af",
-    "subject": "feat: retire the agent Blob ran itself",
-    "date": "2026-09-16T01:15:32+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "65f24b2faa94aae8842f9dd58676596f2840f5fd",
-    "shortSha": "65f24b2f",
-    "subject": "fix: keep the room's address to agents that can actually be reached",
-    "date": "2026-09-15T23:54:39+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a74e951cd35875cbd4251a04dfcca5497ba9833f",
-    "shortSha": "a74e951c",
-    "subject": "feat: let a DM address a resident or owned agent without a mention",
-    "date": "2026-09-15T23:41:40+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "17fdd848cd8c6005a1dd9161039c0a601c60746e",
-    "shortSha": "17fdd848",
-    "subject": "Design and plan the retirement of the agent Blob ran itself",
-    "date": "2026-09-15T23:01:52+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d3eb5bf92a4db984836709f610ef3799be65a433",
-    "shortSha": "d3eb5bf9",
-    "subject": "Design the Janus page in the instance console",
-    "date": "2026-09-15T22:36:17+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "1d424d73af703567ee668b4853b17d5529cc8a24",
-    "shortSha": "1d424d73",
-    "subject": "Put the seeded agents into a public channel the moment it is founded",
-    "date": "2026-09-15T22:27:17+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
