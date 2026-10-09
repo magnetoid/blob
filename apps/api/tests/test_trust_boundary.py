@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
@@ -136,6 +137,44 @@ class TestAnAvatarIsAPicture:
 
 
 class TestAnAssistantTokenIsASession:
+    async def _assistant_for(self, who: Client) -> Client:
+        minted = await who.post("/api/me/mcp-tokens", {"name": "Laptop"})
+        assert minted.status in (200, 201), minted.body
+        assistant = who.fork()
+        assistant._http.headers["authorization"] = f"Bearer {minted.body['secret']}"
+        return assistant
+
+    async def _reaches(self, assistant: Client) -> int:
+        answer = await assistant._http.post(
+            "/api/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            headers={"mcp-protocol-version": "2025-06-18"},
+        )
+        return answer.status_code
+
+    async def test_an_admin_signing_someone_out_everywhere_includes_their_assistant(
+        self, team: dict[str, Any]
+    ) -> None:
+        """A stolen session could mint a year-long token and keep it past the clean-up."""
+        assistant = await self._assistant_for(team["member"])
+        assert await self._reaches(assistant) == 200
+
+        revoked = await team["owner"].post(
+            f"/api/admin/users/{team['member'].user_id}/revoke-sessions"
+        )
+        assert revoked.status == 200, revoked.body
+        assert await self._reaches(assistant) == 401
+
+    async def test_deactivating_someone_revokes_their_assistant_for_good(
+        self, team: dict[str, Any]
+    ) -> None:
+        """Not just unresolvable while deactivated: reactivating must not bring it back."""
+        assistant = await self._assistant_for(team["member"])
+        member = team["member"].user_id
+        assert (await team["owner"].post(f"/api/admin/users/{member}/deactivate")).status == 200
+        assert (await team["owner"].post(f"/api/admin/users/{member}/reactivate")).status == 200
+        assert await self._reaches(assistant) == 401
+
     async def test_a_password_reset_revokes_it(self, team: dict[str, Any]) -> None:
         """Somebody who lost control of their account and reset it was still being read."""
         minted = await team["owner"].post("/api/me/mcp-tokens", {"name": "Laptop"})
@@ -197,8 +236,15 @@ def _hashed(token: str) -> str:
 
 
 class TestCompletingAnUpload:
-    async def test_the_second_completion_is_free(self, team: dict[str, Any]) -> None:
+    async def test_the_second_completion_is_free(
+        self, team: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """A retry is a retry. Each repeat used to pay for the whole re-encode again."""
+
+        async def as_declared(_key: str) -> int:
+            return 10  # completion measures the object first; say it arrived whole
+
+        monkeypatch.setattr("blob_api.routers.files.object_size", as_declared)
         ticket = await team["owner"].post(
             "/api/uploads", {"filename": "a.png", "mime": "image/png", "sizeBytes": 10}
         )

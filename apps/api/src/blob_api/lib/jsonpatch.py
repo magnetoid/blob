@@ -14,6 +14,7 @@ back a state it never had.
 from __future__ import annotations
 
 import copy
+import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -22,9 +23,31 @@ class PatchError(ValueError):
     """The patch could not be applied as a whole."""
 
 
-def apply(document: Any, operations: Sequence[Mapping[str, Any]]) -> Any:
-    """Return a new document with every operation applied, or raise `PatchError`."""
+class PatchTooLargeError(PatchError):
+    """The patch would grow the document past the caller's limit."""
+
+
+#: Far more than any real delta carries. A cap on its own does not bound the work —
+#: the byte budget below does that — but it keeps a patch from being a loop.
+MAX_OPERATIONS = 1000
+
+
+def apply(
+    document: Any, operations: Sequence[Mapping[str, Any]], *, max_bytes: int | None = None
+) -> Any:
+    """Return a new document with every operation applied, or raise `PatchError`.
+
+    `max_bytes` bounds the document *while* the patch applies, not after it. Checking
+    only the result let `copy` from the root into a child double the document per
+    operation: eighteen operations, under a kilobyte of patch, built sixty megabytes on
+    the worker's event loop before any check ran. The running size is the JSON length
+    of what each operation adds, swaps or removes — close to the true length, and
+    always computed from bounded pieces.
+    """
+    if len(operations) > MAX_OPERATIONS:
+        raise PatchError(f"a patch of more than {MAX_OPERATIONS} operations")
     working = copy.deepcopy(document)
+    size = _json_size(working, max_bytes) if max_bytes is not None else 0
     for index, operation in enumerate(operations):
         if not isinstance(operation, Mapping):
             raise PatchError(f"operation {index} is not an object")
@@ -33,28 +56,70 @@ def apply(document: Any, operations: Sequence[Mapping[str, Any]]) -> Any:
         if not isinstance(path, str):
             raise PatchError(f"operation {index} has no path")
         tokens = _tokens(path)
+        grows = 0
         if op == "add":
-            working = _add(working, tokens, _value_of(operation, index))
+            value = _value_of(operation, index)
+            if max_bytes is not None:
+                grows = _json_size(value, max_bytes) - _replaced_size(working, tokens, max_bytes)
+            working = _add(working, tokens, value)
         elif op == "replace":
-            _get(working, tokens)  # must exist
+            old = _get(working, tokens)  # must exist
+            value = _value_of(operation, index)
+            if max_bytes is not None:
+                grows = _json_size(value, max_bytes) - _json_size(old, max_bytes)
             working = _remove(working, tokens)
-            working = _add(working, tokens, _value_of(operation, index))
+            working = _add(working, tokens, value)
         elif op == "remove":
+            if max_bytes is not None:
+                grows = -_json_size(_get(working, tokens), max_bytes)
             working = _remove(working, tokens)
         elif op == "move":
             source = _tokens(_from_of(operation, index))
+            # RFC 6902 §4.4: a value cannot be moved into one of its own children.
+            if tokens[: len(source)] == source and len(tokens) > len(source):
+                raise PatchError(f"operation {index} moves a value into itself")
             value = _get(working, source)
             working = _remove(working, source)
             working = _add(working, tokens, value)
         elif op == "copy":
-            value = copy.deepcopy(_get(working, _tokens(_from_of(operation, index))))
-            working = _add(working, tokens, value)
+            value = _get(working, _tokens(_from_of(operation, index)))
+            if max_bytes is not None:
+                grows = _json_size(value, max_bytes) - _replaced_size(working, tokens, max_bytes)
+                if size + grows > max_bytes:
+                    raise PatchTooLargeError(f"operation {index} grows the document too far")
+            working = _add(working, tokens, copy.deepcopy(value))
         elif op == "test":
             if _get(working, tokens) != _value_of(operation, index):
                 raise PatchError(f"test at {path!r} failed")
         else:
             raise PatchError(f"operation {index} has unknown op {op!r}")
+        if max_bytes is not None:
+            size += grows
+            if size > max_bytes:
+                raise PatchTooLargeError(f"operation {index} grows the document too far")
     return working
+
+
+def _json_size(value: Any, max_bytes: int) -> int:
+    """The JSON length of `value`; anything that cannot be measured counts as too big."""
+    try:
+        return len(json.dumps(value, separators=(",", ":"), default=str))
+    except (TypeError, ValueError, RecursionError):
+        return max_bytes + 1
+
+
+def _replaced_size(document: Any, tokens: list[str], max_bytes: int) -> int:
+    """What an `add` at `tokens` overwrites: the whole document at the root, a member
+    that already exists in an object, and nothing when it inserts into an array."""
+    if not tokens:
+        return _json_size(document, max_bytes)
+    try:
+        parent = _get(document, tokens[:-1])
+    except PatchError:
+        return 0
+    if isinstance(parent, dict) and tokens[-1] in parent:
+        return _json_size(parent[tokens[-1]], max_bytes)
+    return 0
 
 
 def _value_of(operation: Mapping[str, Any], index: int) -> Any:

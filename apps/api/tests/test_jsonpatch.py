@@ -60,3 +60,54 @@ def test_a_bad_operation_is_refused_whole(operation: dict) -> None:
         jsonpatch.apply(
             {"a": 1, "list": [1]}, [{"op": "add", "path": "/ok", "value": 1}, operation]
         )
+
+
+# ─── a patch is bounded while it applies, not after ──────────────────────────
+def _doubling_patch(rounds: int) -> list[dict]:
+    """Each copy puts the whole document inside itself: the size doubles per operation."""
+    return [{"op": "copy", "from": "", "path": f"/r{n}"} for n in range(rounds)]
+
+
+def test_copying_the_document_into_itself_is_stopped_at_the_budget() -> None:
+    import time
+
+    started = time.monotonic()
+    with pytest.raises(jsonpatch.PatchTooLargeError):
+        jsonpatch.apply({"seed": "x" * 100}, _doubling_patch(18), max_bytes=64 * 1024)
+    # Unbounded, these 18 operations built ~60 MB and took seconds on the event loop.
+    assert time.monotonic() - started < 0.5
+
+
+def test_a_patch_that_fits_still_applies() -> None:
+    patched = jsonpatch.apply({"a": 1}, _doubling_patch(2), max_bytes=64 * 1024)
+    assert patched["r0"] == {"a": 1}
+    assert patched["r1"]["r0"] == {"a": 1}
+
+
+def test_replacing_and_removing_free_their_space() -> None:
+    big = "y" * 900
+    document = {"slot": big}
+    # Replacing the 900-byte value over and over never accumulates: the old one goes.
+    patch = [{"op": "replace", "path": "/slot", "value": big} for _ in range(50)]
+    assert jsonpatch.apply(document, patch, max_bytes=2_000) == {"slot": big}
+    freed = jsonpatch.apply(
+        document,
+        [{"op": "remove", "path": "/slot"}, {"op": "add", "path": "/other", "value": big}],
+        max_bytes=1_000,
+    )
+    assert freed == {"other": big}
+
+
+def test_a_value_cannot_be_moved_into_its_own_child() -> None:
+    with pytest.raises(jsonpatch.PatchError):
+        jsonpatch.apply({"a": {"b": 1}}, [{"op": "move", "from": "/a", "path": "/a/c"}])
+
+
+def test_too_many_operations_are_refused_whole() -> None:
+    patch = [{"op": "test", "path": "", "value": {}}] * (jsonpatch.MAX_OPERATIONS + 1)
+    with pytest.raises(jsonpatch.PatchError):
+        jsonpatch.apply({}, patch)
+
+
+def test_without_a_budget_the_document_is_unbounded_as_before() -> None:
+    assert jsonpatch.apply({"a": 1}, _doubling_patch(3))["r2"]["r1"]["r0"] == {"a": 1}

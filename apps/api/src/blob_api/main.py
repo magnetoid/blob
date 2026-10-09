@@ -193,11 +193,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    # No interactive API docs in production. They served the whole surface (186 paths)
+    # to anyone, loaded swagger-ui and redoc from a CDN at floating versions onto this
+    # origin, and needed a hole in the content security policy to do it. The schema is
+    # committed as `packages/shared/openapi.json`; development keeps the pages.
+    docs = not settings.is_prod
     app = FastAPI(
         title="Blob",
         version="0.1.0",
         lifespan=lifespan,
         separate_input_output_schemas=False,
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
     )
 
     app.add_middleware(SessionMiddleware)

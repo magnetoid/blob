@@ -26,7 +26,7 @@ from ..lib.auth import (
     verify_password,
 )
 from ..lib.caller import client_ip, client_key
-from ..lib.errors import unauthorized
+from ..lib.errors import forbidden, unauthorized
 from ..lib.mail import send_invite, send_password_reset
 from ..lib.rate_limit import consume
 from ..realtime import hub
@@ -188,6 +188,11 @@ async def create_invite(
     user: SessionUser = Depends(require_admin),
 ) -> InviteOut:
     payload = payload or CreateInviteInput()
+    # Roles are the owner's to give (`set_role` is owner-only), and an invitation that
+    # carries one is giving it. An admin minting admin invites could keep a spare admin
+    # account in reserve that outlives their own demotion.
+    if payload.role == "admin" and user.role != "owner":
+        raise forbidden("Only the owner can invite an admin.")
     await consume("invite", user.id)
     async with transaction() as (session, _):
         token, expires_at, workspace_name = await signup_service.create_invite(
@@ -232,9 +237,15 @@ async def forgot_password(payload: ForgotPasswordInput, request: Request) -> For
 async def reset_password(
     payload: ResetPasswordInput, request: Request, response: Response
 ) -> OkOut:
+    await consume("password_reset_finish", client_key(request))
     async with transaction() as (session, after):
+        # The token first, the hash second. Hashing is the expensive half — argon2 at
+        # 64 MiB on a shared thread pool — and it used to run before the token was
+        # looked at, so a stream of made-up tokens cost the server a hash apiece and
+        # stalled every sign-in queued behind them.
+        claim = await account_service.claim_password_reset(session, payload.token)
         user_id, signed_out = await account_service.finish_password_reset(
-            session, payload.token, await hash_password(payload.password)
+            session, claim, await hash_password(payload.password)
         )
         # The sockets those sessions are holding, past COMMIT: a connection
         # authenticates once, so a socket opened with a since-deleted session keeps

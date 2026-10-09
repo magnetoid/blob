@@ -61,7 +61,11 @@ def audio_arrives(monkeypatch: pytest.MonkeyPatch) -> None:
     async def head(_key: str, _n: int = 64) -> bytes:
         return WEBM_HEAD
 
+    async def size(_key: str) -> int:
+        return 4096  # what `_ticket` asks for
+
     monkeypatch.setattr("blob_api.routers.files.get_object_head", head)
+    monkeypatch.setattr("blob_api.routers.files.object_size", size)
 
 
 async def _ticket(client: Client, **overrides: Any) -> Any:
@@ -99,9 +103,9 @@ async def _plant_voice(
                 """
                 INSERT INTO attachments
                   (id, workspace_id, uploader_id, object_key, filename, mime, size_bytes,
-                   message_id, kind, duration_ms, waveform)
+                   message_id, kind, duration_ms, waveform, uploaded_at)
                 VALUES (:id, :ws, :up, :key, 'voice-note.webm', 'audio/webm', 4096,
-                        :message_id, 'voice', 42_000, '[10, 200, 30]'::jsonb)
+                        :message_id, 'voice', 42_000, '[10, 200, 30]'::jsonb, now())
                 """
             ),
             {
@@ -189,8 +193,12 @@ class TestCompletion:
         async def noop_delete(_key: str) -> None:
             return None
 
+        async def size(_key: str) -> int:
+            return 4096
+
         monkeypatch.setattr("blob_api.routers.files.get_object_head", html_head)
         monkeypatch.setattr("blob_api.routers.files.delete_object", noop_delete)
+        monkeypatch.setattr("blob_api.routers.files.object_size", size)
         done = await team["owner"].post(
             f"/api/uploads/{ticket.body['attachmentId']}/complete", {"durationMs": 1_000}
         )

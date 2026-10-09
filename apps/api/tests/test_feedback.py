@@ -138,14 +138,14 @@ async def test_deleting_a_ticket_takes_its_snapshot_with_it(client: Client) -> N
     ticket = (await owner.post("/api/feedback", _ticket())).body["ticket"]
 
     key = f"{workspace_id}/feedback/{ticket['id']}.html"
-    assert await storage.get_object(key)
+    assert await storage.get_object(key, max_bytes=8 * 1024 * 1024)
 
     assert (await owner.delete(f"/api/admin/feedback/{ticket['id']}")).status == 200
     assert (await owner.get("/api/admin/feedback?status=open")).body["tickets"] == []
 
     # The object goes too; a snapshot outliving its ticket is data nobody can reach.
     with pytest.raises(Exception, match=r"NoSuchKey|404|Not Found"):
-        await storage.get_object(key)
+        await storage.get_object(key, max_bytes=8 * 1024 * 1024)
 
 
 async def test_a_bad_kind_is_refused(client: Client) -> None:

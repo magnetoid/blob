@@ -56,6 +56,35 @@ async def grant_instance_admin(session: AsyncSession, email: str) -> None:
     )
 
 
+async def is_instance_admin(session: AsyncSession, email: str) -> bool:
+    """Whether this address administers the server — the same question
+    `lib.auth.require_instance_admin` asks, for code already holding a session."""
+    row = (
+        await session.execute(
+            text("SELECT 1 FROM instance_admins WHERE email = :email"), {"email": email}
+        )
+    ).fetchone()
+    return row is not None
+
+
+async def has_account_elsewhere(session: AsyncSession, email: str, workspace_id: str) -> bool:
+    """Whether this address holds a live account in any workspace but this one."""
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT 1 FROM users
+                 WHERE email = :email AND workspace_id <> :ws
+                   AND deactivated_at IS NULL AND kind = 'human'
+                 LIMIT 1
+                """
+            ),
+            {"email": email, "ws": workspace_id},
+        )
+    ).fetchone()
+    return row is not None
+
+
 async def for_email(session: AsyncSession, email: str) -> list[Any]:
     """Every workspace this person has a live account in, oldest first.
 

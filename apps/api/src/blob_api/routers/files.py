@@ -29,6 +29,7 @@ from ..lib.storage import (
     ensure_bucket,
     get_object,
     get_object_head,
+    object_size,
     presign_download,
     presign_upload,
     public_file_url,
@@ -203,7 +204,7 @@ async def create_upload(
         )
     return UploadTicket(
         attachment_id=attachment_id,
-        upload_url=presign_upload(object_key, mime),
+        upload_url=presign_upload(object_key, mime, payload.size_bytes),
         headers={"Content-Type": mime},
     )
 
@@ -241,6 +242,26 @@ async def complete_upload(
     if attachment.uploaded_at is not None:
         return OkOut()
 
+    # What was stored, before anything reads it. The ticket signs the declared length in,
+    # so a different size means storage was bypassed or the ticket predates that; either
+    # way the claim this upload was allowed under is false, and nothing downstream —
+    # the thumbnail, an agent's copy, the quota — may trust it.
+    try:
+        stored = await object_size(attachment.object_key)
+    except Exception:
+        log.warning("could not measure %s", attachment_id, exc_info=True)
+        raise bad_request("That upload could not be checked. Try again.") from None
+    if stored is None:
+        raise bad_request("That upload didn't arrive. Try again.")
+    if stored != attachment.size_bytes:
+        try:
+            await delete_object(attachment.object_key)
+        except Exception:
+            log.warning("could not delete a mis-sized upload %s", attachment_id, exc_info=True)
+        async with transaction() as (session, _):
+            await file_service.refuse_upload(session, attachment_id, user.id)
+        raise bad_request("That file isn't the size it was said to be.")
+
     try:
         head = await get_object_head(attachment.object_key, magic.HEAD_BYTES)
     except Exception:
@@ -262,14 +283,14 @@ async def complete_upload(
 
     thumb_key: str | None = None
     width, height = payload.width, payload.height
-    if images.can_thumbnail(attachment.mime, attachment.size_bytes or 0):
+    if images.can_thumbnail(attachment.mime, stored):
         # Outside every transaction: two round trips to object storage.
         try:
             # Off the event loop. Decoding and resizing is CPU work measured in hundreds
             # of milliseconds for a phone photo, and on the loop it stalls every other
             # request this process is serving — including the socket writes. Every
             # sibling in `lib/storage.py` is wrapped for the same reason.
-            source = await get_object(attachment.object_key)
+            source = await get_object(attachment.object_key, max_bytes=images.MAX_SOURCE_BYTES)
             rendered = await asyncio.to_thread(images.render, source)
         except Exception:
             log.warning("could not read %s back for a thumbnail", attachment_id, exc_info=True)

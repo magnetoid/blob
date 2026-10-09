@@ -120,7 +120,7 @@ async def attachment_parts(
         if key is None or attachment.size_bytes > budget:
             continue
         try:
-            data = await storage.get_object(key)
+            data = await storage.get_object(key, max_bytes=min(PART_MAX_BYTES, budget))
         except Exception:
             log.info("agui: could not read %s for an agent; left out", attachment.id, exc_info=True)
             continue

@@ -48,8 +48,11 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..config import settings
 
-#: Paths whose UI comes from a CDN. They get every header but the policy.
-CSP_EXEMPT_PREFIXES = ("/docs", "/redoc", "/openapi.json")
+#: Paths whose UI comes from a CDN. They get every header but the policy — these exact
+#: paths only. It was a prefix test, and any path *starting* with one of these (`/docsx`,
+#: `/redoc-anything`) fell through to the client's index.html and served the signed-in
+#: app with no policy at all. They exist only outside production (see `main.py`).
+CSP_EXEMPT_PATHS = frozenset({"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"})
 
 HSTS = "max-age=31536000"
 
@@ -132,7 +135,7 @@ def security_headers(*, path: str, secure: bool, existing: MutableHeaders) -> di
     }
     if secure:
         wanted["strict-transport-security"] = HSTS
-    if not path.startswith(CSP_EXEMPT_PREFIXES):
+    if path not in CSP_EXEMPT_PATHS:
         wanted["content-security-policy"] = content_security_policy(
             public_url=settings.PUBLIC_URL,
             storage_origin=_origin(settings.s3_public_endpoint),
@@ -173,7 +176,7 @@ class SecurityHeadersMiddleware:
 
 
 __all__ = [
-    "CSP_EXEMPT_PREFIXES",
+    "CSP_EXEMPT_PATHS",
     "SecurityHeadersMiddleware",
     "content_security_policy",
     "security_headers",

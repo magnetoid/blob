@@ -157,7 +157,7 @@ class TestThroughTheUploadPath:
         assert row.thumb_key == images.thumb_key_for(row.object_key)
         assert (row.width, row.height) == (1600, 900)
 
-        stored = await storage.get_object(row.thumb_key)
+        stored = await storage.get_object(row.thumb_key, max_bytes=8 * 1024 * 1024)
         assert len(stored) < len(original), "the thumbnail should be the smaller one"
         with Image.open(io.BytesIO(stored)) as thumb:
             assert thumb.size == (800, 450)

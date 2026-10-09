@@ -324,3 +324,97 @@ async def test_instance_workspaces_counts_what_is_in_each(team: dict) -> None:
 
 async def test_instance_workspaces_is_owner_only(team: dict) -> None:
     assert (await team["admin"].get("/api/admin/instance/workspaces")).status == 403
+
+
+# ─── reset links stay within an admin's reach ─────────────────────────────────
+class TestAResetLinkIsNoWayToTakeAnAccountAbove:
+    """A link resets the password on every account its address holds and signs whoever
+    opens it in, so minting one is taking that account over. An admin used to be able to
+    mint one for the owner — who is also the server's administrator on a first workspace.
+    """
+
+    async def test_an_admin_cannot_take_the_owners_account(self, team: dict) -> None:
+        refused = await team["admin"].post(f"/api/admin/users/{team['owner'].user_id}/reset-link")
+        assert refused.status == 403, refused.body
+        assert "Forgot password" in refused.body["error"]["message"]
+
+    async def test_an_admin_cannot_take_another_admins(self, team: dict, client: Client) -> None:
+        second = await invite_and_sign_up(team["owner"], "Second Admin", role="admin")
+        refused = await team["admin"].post(f"/api/admin/users/{second.user_id}/reset-link")
+        assert refused.status == 403, refused.body
+
+    async def test_an_admin_still_unlocks_a_member(self, team: dict) -> None:
+        made = await team["admin"].post(f"/api/admin/users/{team['member'].user_id}/reset-link")
+        assert made.status == 200, made.body
+
+    async def test_the_owner_unlocks_an_admin(self, team: dict) -> None:
+        made = await team["owner"].post(f"/api/admin/users/{team['admin'].user_id}/reset-link")
+        assert made.status == 200, made.body
+
+    async def test_an_owner_who_is_not_the_server_admin_still_unlocks_an_admin(
+        self, team: dict
+    ) -> None:
+        from sqlalchemy import text
+
+        from blob_api.db.engine import SessionFactory
+
+        async with SessionFactory() as session, session.begin():
+            await session.execute(text("DELETE FROM instance_admins"))
+        made = await team["owner"].post(f"/api/admin/users/{team['admin'].user_id}/reset-link")
+        assert made.status == 200, made.body
+
+    async def test_nobody_but_the_server_admin_unlocks_the_server_admin(self, team: dict) -> None:
+        from sqlalchemy import text
+
+        from blob_api.db.engine import SessionFactory
+
+        # The member becomes a server administrator without being anything here.
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                text("INSERT INTO instance_admins (email) VALUES ('member@example.com')")
+            )
+        refused = await team["admin"].post(f"/api/admin/users/{team['member'].user_id}/reset-link")
+        assert refused.status == 403, refused.body
+        assert "server administrator" in refused.body["error"]["message"]
+
+    async def test_an_account_held_in_another_workspace_too_is_the_server_admins_to_unlock(
+        self, team: dict
+    ) -> None:
+        from .helpers import PASSWORD
+
+        # The founder (owner here, and the server admin) opens a second workspace and
+        # invites the member's own address into it.
+        founder_elsewhere = team["owner"].fork()
+        signed_in = await founder_elsewhere.post(
+            "/api/auth/login", {"email": "owner@example.com", "password": PASSWORD}
+        )
+        assert signed_in.status == 200, signed_in.body
+        created = await founder_elsewhere.post("/api/admin/instance/workspaces", {"name": "Else"})
+        assert created.status == 201, created.body
+        await founder_elsewhere.post(f"/api/workspaces/{created.body['id']}/switch")
+        invite = await founder_elsewhere.post("/api/invites", {"expiresInDays": 1})
+        token = invite.body["url"].split("/join/")[1]
+        await sign_up(
+            team["owner"].fork(), "Member Else", invite_token=token, email="member@example.com"
+        )
+
+        refused = await team["admin"].post(f"/api/admin/users/{team['member'].user_id}/reset-link")
+        assert refused.status == 403, refused.body
+        assert "other workspaces" in refused.body["error"]["message"]
+
+        made = await team["owner"].post(f"/api/admin/users/{team['member'].user_id}/reset-link")
+        assert made.status == 200, made.body
+
+
+class TestRolesAreTheOwnersToGiveByInvitationToo:
+    async def test_an_admin_cannot_invite_an_admin(self, team: dict) -> None:
+        refused = await team["admin"].post("/api/invites", {"expiresInDays": 1, "role": "admin"})
+        assert refused.status == 403, refused.body
+
+    async def test_an_admin_still_invites_a_member(self, team: dict) -> None:
+        made = await team["admin"].post("/api/invites", {"expiresInDays": 1, "role": "member"})
+        assert made.status == 200, made.body
+
+    async def test_the_owner_invites_an_admin(self, team: dict) -> None:
+        made = await team["owner"].post("/api/invites", {"expiresInDays": 1, "role": "admin"})
+        assert made.status == 200, made.body

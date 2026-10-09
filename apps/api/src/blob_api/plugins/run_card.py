@@ -37,6 +37,9 @@ MAX_TOOLS = 30
 MAX_ARG_CHARS = 400
 MAX_RESULT_CHARS = 600
 MAX_ACTIVITY_CHARS = 200
+#: The object an ACTIVITY_DELTA patches holds one line to show; nothing real is near this,
+#: and it is what stops a patch that copies the object into itself from doubling it.
+ACTIVITY_MAX_BYTES = 16 * 1024
 MAX_REASONING_CHARS = 2000
 MAX_NAME_CHARS = 80
 MAX_SUBAGENTS = 10
@@ -259,7 +262,7 @@ class CardFold:
             if kind == "ACTIVITY_DELTA" and isinstance(patch, list):
                 current = self._activities.get(message_id, {})
                 try:
-                    patched = jsonpatch.apply(current, patch)
+                    patched = jsonpatch.apply(current, patch, max_bytes=ACTIVITY_MAX_BYTES)
                 except jsonpatch.PatchError:
                     return False  # Keep the last good line rather than half a patch.
                 if isinstance(patched, Mapping):

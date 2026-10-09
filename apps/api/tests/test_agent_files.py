@@ -336,7 +336,7 @@ async def stored_bytes(attachment_id: str) -> bytes:
                 sql("SELECT object_key FROM attachments WHERE id = :id"), {"id": attachment_id}
             )
         ).scalar_one()
-    return await storage.get_object(key)
+    return await storage.get_object(key, max_bytes=50 * 1024 * 1024)
 
 
 def context_lines(message: dict[str, Any]) -> list[str]:

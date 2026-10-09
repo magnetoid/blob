@@ -61,7 +61,9 @@ async def snapshot(ticket_id: IdParam, user: SessionUser = Depends(require_admin
     async with session_scope() as session:
         key = await feedback_service.snapshot_key_for(session, user.workspace_id, ticket_id)
 
-    body = await get_object(key)
+    # A snapshot is at most 2,000,000 characters (schemas/requests), so 8 MiB holds any
+    # real one even at four bytes a character.
+    body = await get_object(key, max_bytes=8 * 1024 * 1024)
     return HTMLResponse(
         content=body.decode("utf-8", errors="replace"),
         headers={

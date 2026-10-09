@@ -15,6 +15,8 @@ for the opposite reason.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from blob_api.config import settings
@@ -189,3 +191,76 @@ class TestFollowingTheLink:
                 "/api/auth/reset-password", {"token": token, "password": NEW_PASSWORD}
             )
         ).status == 200
+
+
+class TestALinkIsSpentOnce:
+    async def test_two_clicks_at_the_same_moment_reset_it_once(
+        self, client: Client, sent_links: list[str]
+    ) -> None:
+        """It was a SELECT, then later an unconditional UPDATE — both clicks got through."""
+        await sign_up(client, "Owner")
+        token = await request_reset(client, "owner@example.com", sent_links)
+
+        first, second = await asyncio.gather(
+            client.fork().post(
+                "/api/auth/reset-password", {"token": token, "password": NEW_PASSWORD}
+            ),
+            client.fork().post(
+                "/api/auth/reset-password", {"token": token, "password": "a-rival-password-here"}
+            ),
+        )
+        assert sorted([first.status, second.status]) == [200, 400]
+
+    async def test_a_reset_retires_every_other_link_for_that_address(
+        self, client: Client, sent_links: list[str]
+    ) -> None:
+        await sign_up(client, "Owner")
+        for _ in range(2):
+            asked = await client.post("/api/auth/forgot-password", {"email": "owner@example.com"})
+            assert asked.status == 200, asked.body
+        older, newer = (link.rsplit("/", 1)[1] for link in sent_links)
+
+        used = await client.fork().post(
+            "/api/auth/reset-password", {"token": newer, "password": NEW_PASSWORD}
+        )
+        assert used.status == 200, used.body
+        # The older email is still sitting in an inbox; it must not undo what was chosen.
+        stale = await client.fork().post(
+            "/api/auth/reset-password", {"token": older, "password": "an-attackers-choice"}
+        )
+        assert stale.status == 400
+
+    async def test_a_made_up_token_never_costs_a_password_hash(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The hash used to run before the token was looked at: a free CPU-burner."""
+        await sign_up(client, "Owner")
+        hashed: list[str] = []
+        real = auth_router.hash_password
+
+        async def counting(password: str) -> str:
+            hashed.append(password)
+            return await real(password)
+
+        monkeypatch.setattr(auth_router, "hash_password", counting)
+        response = await client.fork().post(
+            "/api/auth/reset-password",
+            {"token": "not-a-real-token-at-all", "password": NEW_PASSWORD},
+        )
+        assert response.status == 400
+        assert hashed == []
+
+    async def test_guessing_at_links_runs_into_a_ceiling(self, client: Client) -> None:
+        await sign_up(client, "Owner")
+        guesser = client.fork()
+        statuses = [
+            (
+                await guesser.post(
+                    "/api/auth/reset-password",
+                    {"token": f"guess-number-{n}", "password": NEW_PASSWORD},
+                )
+            ).status
+            for n in range(11)
+        ]
+        assert statuses[:10] == [400] * 10
+        assert statuses[10] == 429

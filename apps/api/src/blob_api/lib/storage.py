@@ -17,6 +17,7 @@ from urllib.parse import quote
 
 import boto3
 from botocore.client import Config
+from botocore.exceptions import ClientError
 
 from ..config import settings
 from .ids import new_id
@@ -126,11 +127,23 @@ def build_object_key(workspace_id: str, filename: str) -> str:
     return f"{workspace_id}/{now.year}/{now.month:02d}/{new_id()}/{safe}"
 
 
-def presign_upload(key: str, mime: str) -> str:
+def presign_upload(key: str, mime: str, size_bytes: int) -> str:
+    """A URL a browser can PUT exactly this file to, and nothing else.
+
+    The length is signed in beside the type, so storage refuses a PUT of any other size
+    and the limit checked when the ticket was issued is the limit that holds. Before,
+    a ticket asked for as 1 KB accepted gigabytes — onto a disk shared with every other
+    project on the host — and `/complete` then read the lot into memory.
+    """
     # Presigning is local crypto, no I/O, so it is safe to call on the event loop.
     return _signing_client().generate_presigned_url(
         "put_object",
-        Params={"Bucket": settings.S3_BUCKET, "Key": key, "ContentType": mime},
+        Params={
+            "Bucket": settings.S3_BUCKET,
+            "Key": key,
+            "ContentType": mime,
+            "ContentLength": size_bytes,
+        },
         ExpiresIn=UPLOAD_URL_TTL_SEC,
     )
 
@@ -188,15 +201,42 @@ async def delete_object(key: str) -> None:
     await asyncio.to_thread(_client().delete_object, Bucket=settings.S3_BUCKET, Key=key)
 
 
-async def get_object(key: str) -> bytes:
-    """Read an object through the app rather than redirecting the browser to it.
+class ObjectTooLargeError(Exception):
+    """An object bigger than the caller agreed to hold in memory."""
 
-    Used where the response headers matter — a feedback snapshot is markup captured from
-    a browser, and it is served under a CSP this process controls.
+
+async def get_object(key: str, *, max_bytes: int) -> bytes:
+    """Read a whole object into memory — never more than `max_bytes` of it.
+
+    Used where the bytes are needed here: a feedback snapshot served under a CSP this
+    process controls, an image to thumbnail, a file handed to an agent. The bound is
+    required rather than defaulted because every one of those used to read whatever was
+    stored, and what was stored was whatever a browser chose to PUT.
     """
     response = await asyncio.to_thread(_client().get_object, Bucket=settings.S3_BUCKET, Key=key)
-    body: bytes = await asyncio.to_thread(response["Body"].read)
-    return body
+    body = response["Body"]
+    try:
+        if int(response.get("ContentLength") or 0) > max_bytes:
+            raise ObjectTooLargeError(key)
+        data: bytes = await asyncio.to_thread(body.read, max_bytes + 1)
+    finally:
+        await asyncio.to_thread(body.close)
+    if len(data) > max_bytes:
+        raise ObjectTooLargeError(key)
+    return data
+
+
+async def object_size(key: str) -> int | None:
+    """How many bytes are stored under `key`, or None when nothing is."""
+    try:
+        response = await asyncio.to_thread(
+            _client().head_object, Bucket=settings.S3_BUCKET, Key=key
+        )
+    except ClientError as error:
+        if str(error.response.get("Error", {}).get("Code")) in ("404", "NoSuchKey", "NotFound"):
+            return None
+        raise
+    return int(response["ContentLength"])
 
 
 #: How much of an object is held at once while it streams through the app.

@@ -7,6 +7,7 @@ needs around them.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import text
@@ -113,23 +114,32 @@ async def begin_password_reset(session: AsyncSession, email: str) -> str | None:
     return token
 
 
-async def finish_password_reset(
-    session: AsyncSession, token: str, password_hash: str
-) -> tuple[str, list[str]]:
-    """Set the new password everywhere this address has an account.
+@dataclass(slots=True, frozen=True)
+class ResetClaim:
+    """A reset link that has been spent, and whose password it is about to change."""
 
-    Returns the user the link was minted for, and every user id that has just been
-    signed out — the caller closes their sockets past COMMIT, because a connection
-    authenticates once and a deleted session row does not reach it.
+    user_id: str
+    email: str
+
+
+async def claim_password_reset(session: AsyncSession, token: str) -> ResetClaim:
+    """Spend the link — once.
+
+    One conditional UPDATE both checks the token and marks it used, so two requests
+    racing on the same link cannot both get through: the second finds `used_at` already
+    set. It used to be a plain SELECT followed later by an unconditional UPDATE, and two
+    clicks at the same moment both reset the password. Inside the caller's transaction,
+    so if anything after this fails the claim rolls back with it and the link still works.
     """
     reset = (
         await session.execute(
             text(
                 """
-                SELECT id, user_id FROM password_resets
+                UPDATE password_resets SET used_at = now()
                  WHERE token_hash = :token_hash
                    AND used_at IS NULL
                    AND expires_at > now()
+                RETURNING user_id
                 """
             ),
             {"token_hash": hash_token(token)},
@@ -137,19 +147,39 @@ async def finish_password_reset(
     ).fetchone()
     if reset is None:
         raise bad_request("That reset link has expired. Request a new one.")
-
-    # Every account this address holds, not only the one the link was minted for. A
-    # reset that touched one row would leave the same person locked out of their other
-    # workspaces by the password they had just chosen, with nothing on screen to say
-    # why. See services/workspaces for the rule this keeps.
     owner = (
         await session.execute(text("SELECT email FROM users WHERE id = :id"), {"id": reset.user_id})
     ).fetchone()
     if owner is None:
         raise bad_request("That reset link is no longer valid.")
-    await workspace_service.set_password_everywhere(session, owner.email, password_hash)
+    return ResetClaim(user_id=str(reset.user_id), email=owner.email)
+
+
+async def finish_password_reset(
+    session: AsyncSession, claim: ResetClaim, password_hash: str
+) -> tuple[str, list[str]]:
+    """Set the new password everywhere this address has an account.
+
+    Returns the user the link was minted for, and every user id that has just been
+    signed out — the caller closes their sockets past COMMIT, because a connection
+    authenticates once and a deleted session row does not reach it.
+    """
+    # Every account this address holds, not only the one the link was minted for. A
+    # reset that touched one row would leave the same person locked out of their other
+    # workspaces by the password they had just chosen, with nothing on screen to say
+    # why. See services/workspaces for the rule this keeps.
+    await workspace_service.set_password_everywhere(session, claim.email, password_hash)
+    # Every other link still out there for this address dies with this one: a reset
+    # requested last week, or minted by an admin, must not reset the password chosen now.
     await session.execute(
-        text("UPDATE password_resets SET used_at = now() WHERE id = :id"), {"id": reset.id}
+        text(
+            """
+            UPDATE password_resets SET used_at = now()
+             WHERE used_at IS NULL
+               AND user_id IN (SELECT id FROM users WHERE email = :email)
+            """
+        ),
+        {"email": claim.email},
     )
     # Changing a password signs out every existing session — in every workspace, since
     # the password that protected them all has just changed.
@@ -160,7 +190,7 @@ async def finish_password_reset(
              WHERE user_id IN (SELECT id FROM users WHERE email = :email)
             """
         ),
-        {"email": owner.email},
+        {"email": claim.email},
     )
     # And every assistant connection, for the same reason and in the same breath. An
     # MCP token resolves to this user and reads everything they can read (ADR 0016);
@@ -175,14 +205,14 @@ async def finish_password_reset(
                AND user_id IN (SELECT id FROM users WHERE email = :email)
             """
         ),
-        {"email": owner.email},
+        {"email": claim.email},
     )
     signed_out = [
         str(row.id)
         for row in (
             await session.execute(
-                text("SELECT id FROM users WHERE email = :email"), {"email": owner.email}
+                text("SELECT id FROM users WHERE email = :email"), {"email": claim.email}
             )
         ).fetchall()
     ]
-    return str(reset.user_id), signed_out
+    return claim.user_id, signed_out

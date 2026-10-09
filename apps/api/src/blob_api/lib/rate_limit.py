@@ -29,6 +29,9 @@ LIMITS: dict[str, Limit] = {
     "login": Limit(10, 900),
     "signup": Limit(5, 3600),
     "password_reset": Limit(5, 3600),
+    # Finishing one: the token is checked before the hash now, but a guessing loop
+    # still costs a database round trip apiece, so it gets a ceiling like sign-in.
+    "password_reset_finish": Limit(10, 900),
     "send_message": Limit(30, 60),
     "upload": Limit(20, 60),
     # Opening files in the side panel. A preview reads the bytes through this process,

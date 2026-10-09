@@ -82,6 +82,15 @@ class TestThePolicyItself:
         assert "content-security-policy" not in added
         assert added["x-frame-options"] == "DENY"
 
+    @pytest.mark.parametrize(
+        "path", ["/docsx", "/docs2/channel", "/redoc-anything", "/openapi.jsonp", "/docs/../x"]
+    )
+    def test_a_path_that_only_starts_like_the_docs_keeps_the_policy(self, path: str) -> None:
+        """It was a prefix test, and these fell through to index.html — the signed-in app
+        with no content security policy at all, one link away."""
+        added = sh.security_headers(path=path, secure=True, existing=MutableHeaders())
+        assert "content-security-policy" in added
+
     def test_hsts_only_over_https(self) -> None:
         secure = sh.security_headers(path="/", secure=True, existing=MutableHeaders())
         plain = sh.security_headers(path="/", secure=False, existing=MutableHeaders())
@@ -124,3 +133,21 @@ class TestOnTheWire:
         answer = await client.get("/healthz")
         assert "content-security-policy" not in answer.headers
         assert "x-content-type-options" not in answer.headers
+
+
+class TestProductionServesNoApiDocs:
+    @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+    async def test_the_pages_are_not_there(
+        self, monkeypatch: pytest.MonkeyPatch, path: str
+    ) -> None:
+        import httpx
+
+        from blob_api.main import create_app
+
+        monkeypatch.setattr(settings, "NODE_ENV", "production")
+        app = create_app()
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            answer = await http.get(path)
+        assert answer.status_code == 404

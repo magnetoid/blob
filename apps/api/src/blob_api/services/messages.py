@@ -253,7 +253,11 @@ async def _assert_thread_root(session: AsyncSession, root_id: str, channel_id: s
 async def _bind_attachments(
     session: AsyncSession, message_id: str, attachment_ids: list[str], *, uploader_id: str
 ) -> None:
-    """Only the uploader's own unbound attachments can be attached."""
+    """Only the uploader's own unbound, finished uploads can be attached.
+
+    Finished matters: `/complete` is where an upload's real size and type are checked,
+    so a ticket that never went through it carries only what the browser claimed.
+    """
     bound = (
         await session.execute(
             text(
@@ -262,6 +266,7 @@ async def _bind_attachments(
                  WHERE id = ANY(cast(:ids AS uuid[]))
                    AND uploader_id = :uploader_id
                    AND message_id IS NULL
+                   AND uploaded_at IS NOT NULL
                 RETURNING id
                 """
             ),

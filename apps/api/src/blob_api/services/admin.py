@@ -25,6 +25,7 @@ from ..lib.errors import (
     bad_request,
     channel_gone,
     conflict,
+    forbidden,
     no_such_person,
     not_found,
     unique_violation,
@@ -52,6 +53,8 @@ from ..schemas.models import ChannelWithState, User
 from . import audit as audit_service
 from . import channels as channel_service
 from . import handles as handle_service
+from . import workspaces as workspace_service
+from .accounts import revoke_assistant_tokens
 from .audit import Actor
 from .serialize import USER_COLUMNS, to_user
 
@@ -199,6 +202,9 @@ async def deactivate(session: AsyncSession, admin: Actor, user_id: str) -> User 
         text("UPDATE users SET deactivated_at = now() WHERE id = :id"), {"id": user_id}
     )
     await session.execute(text("DELETE FROM sessions WHERE user_id = :id"), {"id": user_id})
+    # Their assistant's token too. A deactivated person's token already stops resolving,
+    # but leaving it unrevoked means reactivating them would quietly bring it back.
+    await revoke_assistant_tokens(session, user_id)
     # The display-name index is partial on `deactivated_at IS NULL`, so deactivating
     # already frees the name. The handle table has to be told, or it would hold a
     # departed account's name against everybody for ever — the exact hostage problem
@@ -294,9 +300,51 @@ async def revoke_sessions(session: AsyncSession, admin: Actor, user_id: str) -> 
     if target is None:
         raise no_such_person()
     await session.execute(text("DELETE FROM sessions WHERE user_id = :id"), {"id": user_id})
+    # "Every device" includes an assistant holding an MCP token: it reads what this
+    # person reads and is not in `sessions`. Without this, a stolen session could mint a
+    # year-long token and keep it after an admin signed the account out everywhere —
+    # the same reason the person's own "sign out everywhere else" revokes them.
+    await revoke_assistant_tokens(session, user_id)
     await audit_service.record(
         session, admin, "user.sessions_revoked", target_type="user", target_id=user_id
     )
+
+
+async def _may_hand_over_a_reset(session: AsyncSession, admin: Actor, person: Any) -> None:
+    """Refuse a reset link that would hand an admin more than a member's account.
+
+    A link resets the password on every account its address holds and signs whoever
+    opens it in, so minting one is taking the account over. Before this check any admin
+    could take the owner's: the owner of the first workspace is also the server's
+    administrator, so one admin was one link away from the server console and from
+    switching into every other workspace that person belongs to. So: an owner's or a
+    server administrator's account, or anybody's with accounts in other workspaces,
+    only a server administrator may unlock; an admin's, only the owner. Everybody else
+    keeps the path the README promises — a forgotten password still needs an admin.
+    """
+    caller = (
+        await session.execute(
+            text("SELECT role, email FROM users WHERE id = :id"), {"id": admin.id}
+        )
+    ).fetchone()
+    if caller is None:
+        raise forbidden()
+    if await workspace_service.is_instance_admin(session, caller.email):
+        return
+    if person.role == "owner":
+        raise forbidden(
+            "Only a server administrator can reset the owner's password. The owner can"
+            " use “Forgot password” on the sign-in page."
+        )
+    if person.role == "admin" and caller.role != "owner":
+        raise forbidden("Only the owner can reset another admin's password.")
+    if await workspace_service.is_instance_admin(session, person.email):
+        raise forbidden("Only a server administrator can reset a server administrator's password.")
+    if await workspace_service.has_account_elsewhere(session, person.email, admin.workspace_id):
+        raise forbidden(
+            "This person has accounts in other workspaces, so only a server administrator"
+            " can reset their password."
+        )
 
 
 async def create_reset_link(session: AsyncSession, admin: Actor, user_id: str) -> ResetLinkOut:
@@ -316,7 +364,7 @@ async def create_reset_link(session: AsyncSession, admin: Actor, user_id: str) -
         await session.execute(
             text(
                 """
-                SELECT id, email FROM users
+                SELECT id, email, role FROM users
                  WHERE id = :id AND workspace_id = :ws
                    AND deactivated_at IS NULL AND kind = 'human'
                 """
@@ -326,6 +374,7 @@ async def create_reset_link(session: AsyncSession, admin: Actor, user_id: str) -
     ).fetchone()
     if person is None:
         raise not_found("No such person here.")
+    await _may_hand_over_a_reset(session, admin, person)
 
     token = new_token()
     row = (

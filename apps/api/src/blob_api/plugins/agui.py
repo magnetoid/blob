@@ -420,7 +420,13 @@ class Fold:
             if self.state_dropped or not isinstance(delta, list):
                 return []
             try:
-                self._take_state(jsonpatch.apply(self.state, delta))
+                self._take_state(jsonpatch.apply(self.state, delta, max_bytes=STATE_MAX_BYTES))
+            except jsonpatch.PatchTooLargeError:
+                # Bounded while it applies, so an overflow is caught before it is built;
+                # the outcome is the one `_take_state` gives a state that arrives too big.
+                self.state = None
+                self.state_dropped = True
+                log.info("agui: shared state over %d bytes was dropped", STATE_MAX_BYTES)
             except jsonpatch.PatchError:
                 # Keep the last good state rather than half of a patch: a resume handed
                 # a state the agent never had is worse than one handed no state.

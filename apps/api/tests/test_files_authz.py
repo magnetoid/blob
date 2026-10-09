@@ -188,10 +188,75 @@ class TestUploadRefusals:
         async def noop_delete(_key: str) -> None:
             return None
 
+        async def as_declared(_key: str) -> int:
+            return 20
+
         monkeypatch.setattr("blob_api.routers.files.get_object_head", html_head)
         monkeypatch.setattr("blob_api.routers.files.delete_object", noop_delete)
+        monkeypatch.setattr("blob_api.routers.files.object_size", as_declared)
         complete = await team["owner"].post(f"/api/uploads/{ticket.body['attachmentId']}/complete")
         assert complete.status == 400, complete.body
+        assert "size" not in complete.body["error"]["message"], "refused for the wrong reason"
+
+
+class TestAnUploadIsTheSizeItsTicketSays:
+    """A ticket asked for as 1 KB used to accept gigabytes, and `/complete` read them all."""
+
+    async def _ticket(self, team: dict, size: int = 20) -> dict:
+        ticket = await team["owner"].post(
+            "/api/uploads", {"filename": "notes.txt", "mime": "text/plain", "sizeBytes": size}
+        )
+        assert ticket.status == 200, ticket.body
+        return dict(ticket.body)
+
+    async def test_the_ticket_signs_the_length_in(self, team: dict) -> None:
+        from urllib.parse import parse_qs, urlparse
+
+        ticket = await self._ticket(team)
+        signed = parse_qs(urlparse(ticket["uploadUrl"]).query)["X-Amz-SignedHeaders"][0]
+        assert "content-length" in signed.split(";")
+
+    async def test_a_bigger_object_than_promised_is_refused_and_deleted(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ticket = await self._ticket(team, size=20)
+        deleted: list[str] = []
+
+        async def huge(_key: str) -> int:
+            return 5 * 1024**3
+
+        async def record_delete(key: str) -> None:
+            deleted.append(key)
+
+        monkeypatch.setattr("blob_api.routers.files.object_size", huge)
+        monkeypatch.setattr("blob_api.routers.files.delete_object", record_delete)
+        complete = await team["owner"].post(f"/api/uploads/{ticket['attachmentId']}/complete")
+        assert complete.status == 400, complete.body
+        assert "size" in complete.body["error"]["message"]
+        assert len(deleted) == 1
+        # Refused for good: completing it again finds no upload.
+        again = await team["owner"].post(f"/api/uploads/{ticket['attachmentId']}/complete")
+        assert again.status == 404, again.body
+
+    async def test_an_upload_that_never_arrived_can_be_retried(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ticket = await self._ticket(team)
+
+        async def nothing(_key: str) -> None:
+            return None
+
+        monkeypatch.setattr("blob_api.routers.files.object_size", nothing)
+        complete = await team["owner"].post(f"/api/uploads/{ticket['attachmentId']}/complete")
+        assert complete.status == 400, complete.body
+        assert "didn't arrive" in complete.body["error"]["message"]
+
+    async def test_an_unfinished_upload_cannot_ride_on_a_message(self, team: dict) -> None:
+        ticket = await self._ticket(team)
+        sent = await send_message(
+            team["owner"], team["private"]["id"], "a file", attachmentIds=[ticket["attachmentId"]]
+        )
+        assert sent.status == 400, sent.body
 
 
 class TestAvatars:
