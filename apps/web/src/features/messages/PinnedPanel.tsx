@@ -85,6 +85,8 @@ export function PinnedPanel({ channelId, onClose, onJump }: Props) {
                 knownNames,
                 currentUserId: currentUser?.id ?? null,
                 customEmoji,
+                // An agent's reply in its own dialect; the row clips it to two lines.
+                agent: message.authorId ? users[message.authorId]?.kind === 'bot' : false,
                 // The row is a button; a Copy inside it would be a button in one.
                 copyableCode: false,
               })}

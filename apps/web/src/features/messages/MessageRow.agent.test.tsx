@@ -42,12 +42,15 @@ describe('an agent is marked as one', () => {
 });
 
 describe("an agent's answer is set apart from the conversation", () => {
-  const message = (authorId: string): Message =>
+  const message = (
+    authorId: string,
+    body = 'The dip is isolated to email verification.',
+  ): Message =>
     ({
       id: '01a05000-0000-7000-8000-00000000beef',
       channelId: 'c1',
       authorId,
-      body: 'The dip is isolated to email verification.',
+      body,
       kind: authorId === 'b1' ? 'bot' : 'user',
       createdAt: '2026-09-12T09:00:00.000Z',
       editedAt: null,
@@ -62,7 +65,7 @@ describe("an agent's answer is set apart from the conversation", () => {
       mentionGroupIds: [],
     }) as unknown as Message;
 
-  function show(authorId: string) {
+  function show(authorId: string, body?: string) {
     useStore.setState({
       users: {
         u1: { id: 'u1', kind: 'human', displayName: 'Marko', deactivated: false },
@@ -76,7 +79,7 @@ describe("an agent's answer is set apart from the conversation", () => {
       messageDeliveryState: () => null,
     } as never);
     return render(
-      <MessageRow message={message(authorId)} previous={null} onOpenThread={vi.fn()} />,
+      <MessageRow message={message(authorId, body)} previous={null} onOpenThread={vi.fn()} />,
     );
   }
 
@@ -90,5 +93,26 @@ describe("an agent's answer is set apart from the conversation", () => {
     // everything.
     const { container } = show('u1');
     expect(container.querySelector('.message-body')?.hasAttribute('data-agent')).toBe(false);
+  });
+
+  /** What a model writes: a section, a table, a divider. */
+  const MARKDOWN = '## Findings\n\n| Metric | p95 |\n|---|--:|\n| verify | 2.4 s |\n\n---\n\nDone.';
+
+  it('reads an agent answer in the dialect a model writes, inside a fold', () => {
+    const { container } = show('b1', MARKDOWN);
+    const body = container.querySelector('.message-body');
+    expect(body?.querySelector('.md-section')?.textContent).toBe('Findings');
+    expect(body?.querySelector('table td[data-align="right"]')?.textContent).toBe('2.4 s');
+    expect(body?.querySelector('hr.md-divider')).not.toBeNull();
+    // Folded only once it is measured to be long; the fold is there to measure it.
+    expect(body?.querySelector('.reply-fold')).not.toBeNull();
+  });
+
+  it('keeps a person’s message in the chat dialect, and never folds it', () => {
+    const { container } = show('u1', MARKDOWN);
+    const body = container.querySelector('.message-body');
+    expect(body?.querySelector('.md-section, table, hr')).toBeNull();
+    expect(body?.textContent).toContain('## Findings');
+    expect(body?.querySelector('.reply-fold')).toBeNull();
   });
 });

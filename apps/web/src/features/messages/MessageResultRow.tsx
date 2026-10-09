@@ -56,6 +56,9 @@ export function MessageResultRow({ message, onOpen, timestamp, footer, action, h
           currentUserId,
           customEmoji,
           highlight,
+          // An agent's reply in its own dialect, as in the conversation — but no fold:
+          // this row already clips the body to a few lines.
+          agent: author?.kind === 'bot',
           // The row is a button; a code block's Copy inside it would be a button in one.
           copyableCode: false,
         })}

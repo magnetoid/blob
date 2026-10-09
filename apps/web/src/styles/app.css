@@ -1596,6 +1596,135 @@ button {
   font-size: 0.9em;
 }
 
+/* A list under an item sits tight under the text it hangs from. The 8px under a list is
+   room before the next paragraph; inside an item it opened a gap before the next item. */
+.message-body li > :is(ul, ol) {
+  margin-bottom: 0;
+}
+
+/* Items written a blank line apart are one list now — drawn as separate lists, the
+   numbering restarted at every gap — and keep the 8px those lists had between them. */
+.message-body :is(ul, ol)[data-loose='true'] > li + li {
+  margin-top: 8px;
+}
+
+/* A fenced block inside an item, a step's command under the step. */
+.message-body li > .code-block {
+  margin-top: 4px;
+}
+
+/* ─── an agent's Markdown (lib/markdown.tsx, `agent`) ──────────────────────
+   Section labels, tables and dividers. Not scoped under .message-body, for the reason
+   `.code-block` below is not: the same renderer draws an agent's reply in a search hit
+   and a pinned row. */
+
+/* A `#` line: a label for the section under it, at body size. Bold is the whole of the
+   difference — a chat row is not where type gets big — with the space above it that
+   says a new part begins, and little below, so it stays with what it names. */
+p.md-section {
+  margin: 14px 0 4px;
+  color: var(--text);
+}
+
+p.md-section:first-child {
+  margin-top: 0;
+}
+
+.md-divider {
+  height: 0;
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+/* A pipe table, in a box that scrolls sideways, so a wide one never makes the
+   conversation do it — not at 400px, not anywhere. Framed like a code block, by a
+   hairline with the same corner, and only as wide as its columns. */
+.md-table-wrap {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 8px;
+  overflow-x: auto;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+}
+
+.md-table-wrap:last-child {
+  margin-bottom: 0;
+}
+
+.md-table {
+  border-collapse: collapse;
+  font-size: var(--text-ui);
+  line-height: 1.45;
+  /* Figures in a column line up digit under digit. */
+  font-variant-numeric: tabular-nums;
+  /* Between words, never inside one: the body's `anywhere` would squeeze the columns down
+     to a letter each before the box had any reason to scroll. */
+  overflow-wrap: normal;
+}
+
+.md-table :is(th, td) {
+  padding: 5px 10px;
+  border: 1px solid var(--hairline-soft);
+  text-align: left;
+  vertical-align: top;
+}
+
+/* The box draws the frame; the cells draw only the lines between them. */
+.md-table tr > :first-child {
+  border-left: 0;
+}
+
+.md-table tr > :last-child {
+  border-right: 0;
+}
+
+.md-table thead th {
+  border-top: 0;
+}
+
+.md-table tbody tr:last-child td,
+.md-table thead:last-child th {
+  border-bottom: 0;
+}
+
+/* The header row a step up from the body: the code block's ground inside an agent's
+   card, and the weight of a label. */
+.md-table th {
+  background: var(--surface-muted);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.md-table [data-align='center'] {
+  text-align: center;
+}
+
+.md-table [data-align='right'] {
+  text-align: right;
+}
+
+/* A short cell on one line (`SHORT_CELL` in lib/markdown.tsx): a row of figures reads
+   across, and the table scrolls rather than splitting a number from its unit. */
+.md-table [data-short='true'] {
+  white-space: nowrap;
+}
+
+/* Where a reply is only a way back to its message — a search hit, a pinned row — the
+   body is clamped to a few lines, and the clamp counts lines of text. A table is not made
+   of them and came through whole, as tall as it was. Clipped to the same few lines, for
+   the eye only, as the clamp is; the message has the rest. */
+.search-result-text .md-table-wrap {
+  max-height: 3lh;
+  overflow: hidden;
+}
+
+.pinned-item-body .md-table-wrap {
+  max-height: 2lh;
+  overflow: hidden;
+}
+
 /* ─── code blocks (components/CodeBlock.tsx) ───────────────────────────────
    Not scoped under .message-body, for the reason `.mention` below is not: the same
    renderer draws a pinned message, a search hit, a shared document and an app's blocks,
@@ -8106,6 +8235,91 @@ a.build-commit-sha:hover {
   border-top-right-radius: 0;
   border-top: 0;
   padding-top: 0;
+}
+
+/* An answer's list items stand a little apart, so a long list scans item by item. A list
+   written loose keeps its own wider gap (above), which outranks this. */
+.message-body[data-agent='true'] li + li {
+  margin-top: 4px;
+}
+
+.message-body[data-agent='true'] li > :is(ul, ol) {
+  margin-top: 4px;
+}
+
+/* ─── a long answer, folded (ReplyFold.tsx) ────────────────────────────────
+   Sixteen lines show. `FOLD_AFTER_LINES` (twenty) is when an answer folds, so a fold
+   always hides four lines or more — and this has to stay below it, or an answer between
+   the two would fold with nothing hidden. Nothing here moves: opening one is a press. */
+.reply-fold {
+  position: relative;
+}
+
+/* A formatting context of its own, so the height ReplyFold measures is all of it, the
+   first and last margins inside included. */
+.reply-fold-content {
+  display: flow-root;
+}
+
+.reply-fold[data-folded='true'] {
+  /* In lines of the body's own leading, so the clip falls between two of them. The 4px
+     are a focus ring's room on the first line: the clip is this box's padding edge, and a
+     ring drawn outside a link up there would lose its top. */
+  max-height: calc(16lh + 4px);
+  margin-top: -4px;
+  padding-top: 4px;
+  /* Up and down only, and `clip` rather than `hidden`: nothing can scroll the hidden part
+     into the box — a focused link, find in page — and a ring at either side still shows. */
+  overflow-x: visible;
+  overflow-y: clip;
+}
+
+/* The last lines fade into the card: its own ground, from nothing to solid. */
+.reply-fold[data-folded='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 2.5lh;
+  background: linear-gradient(to bottom, transparent, var(--surface));
+  pointer-events: none;
+}
+
+/* Worded and coloured like the reply count under a thread's first message, the other
+   way into more of a message from where you are reading. */
+.reply-fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0 -6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--accent);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 1.4;
+  transition:
+    background var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
+}
+
+.reply-fold-toggle:hover {
+  background: var(--accent-wash);
+}
+
+.reply-fold-toggle:active {
+  scale: var(--motion-press);
+}
+
+.reply-fold-toggle[aria-expanded='true'] svg {
+  rotate: 180deg;
+}
+
+@media (pointer: coarse) {
+  .reply-fold-toggle {
+    min-height: 44px;
+    margin-left: -10px;
+    padding-inline: 10px;
+  }
 }
 
 .agent-live-dot {

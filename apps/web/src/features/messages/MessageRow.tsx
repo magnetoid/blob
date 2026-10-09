@@ -25,6 +25,7 @@ import { PersonCard } from "../../components/PersonCard.tsx";
 import type { LocalMessageDeliveryStatus } from "../../lib/outbox.ts";
 import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
+import { ReplyFold } from "./ReplyFold.tsx";
 import { MessageEditor } from "./MessageEditor.tsx";
 import { MessageMenu } from "./MessageMenu.tsx";
 import { ForwardDialog } from "./ForwardDialog.tsx";
@@ -223,14 +224,17 @@ export const MessageRow = memo(function MessageRow({
     (message.mentionUserIds.includes(currentUser.id) ||
       message.mentionGroupIds.some((id) => myGroupIds.has(id)));
 
+  // An agent's answer is read in the dialect a model writes: its section labels, tables
+  // and dividers render instead of arriving as hashes and pipes (`RenderOptions.agent`).
   const rendered = useMemo(
     () =>
       renderMarkdown(message.body, {
         knownNames,
         currentUserId: currentUser?.id ?? null,
         customEmoji,
+        agent: byAgent,
       }),
-    [message.body, knownNames, currentUser, customEmoji],
+    [message.body, knownNames, currentUser, customEmoji, byAgent],
   );
 
   // Same dismissal contract as the account menu: any click outside, or Escape. Capture
@@ -299,6 +303,10 @@ export const MessageRow = memo(function MessageRow({
       </article>
     );
   }
+
+  const edited = message.editedAt ? (
+    <span className="message-edited"> (edited)</span>
+  ) : null;
 
   return (
     // Both rules object to the same deliberate decision, made once: this row is a
@@ -403,9 +411,22 @@ export const MessageRow = memo(function MessageRow({
           />
         ) : (
           <div className="message-body" data-agent={byAgent ? "true" : undefined}>
-            {rendered}
-            {message.editedAt && (
-              <span className="message-edited"> (edited)</span>
+            {byAgent ? (
+              // A long answer folds behind "Show more", here and in a thread. Not in a
+              // search hit or a pinned row, which clip to a few lines already.
+              <ReplyFold
+                messageId={message.id}
+                authorName={author?.displayName}
+                tabIndex={tab}
+              >
+                {rendered}
+                {edited}
+              </ReplyFold>
+            ) : (
+              <>
+                {rendered}
+                {edited}
+              </>
             )}
           </div>
         )}
