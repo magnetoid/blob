@@ -43,7 +43,7 @@ const EVERY_ROW = [
   'Feedback',
 ];
 
-const SERVER_ROWS = ['App policy', 'Health', 'Errors and logs'];
+const SERVER_ROWS = ['App policy', 'Errors and logs'];
 
 /** What the nav offers this person, by label, for what they typed. */
 const offered = (viewer: Viewer, query = '') =>
@@ -143,9 +143,9 @@ describe('who each admin page is for', () => {
     deliveries: 'admin', // /api/admin/deliveries
     connections: 'admin', // /api/admin/mcp-tokens
     'app-policy': 'instance', // /api/admin/instance/workspaces/{id}/policy
-    // /api/admin/health is require_admin, but the page reads /api/admin/instance/logs in
-    // the same request and shows "Health unavailable" without it.
-    health: 'instance',
+    // /api/admin/health is require_admin; the page asks for the server's log only when the
+    // viewer is the server's administrator.
+    health: 'admin',
     audit: 'admin', // /api/admin/audit
     logs: 'instance', // /api/admin/instance/logs
     feedback: 'admin', // /api/admin/feedback
@@ -170,6 +170,7 @@ describe('who each admin page is for', () => {
     expect(offered(OWNER)).toEqual(offered(ADMIN));
     expect(offered(ADMIN)).toContain('Audit log');
     expect(offered(ADMIN)).toContain('Feedback');
+    expect(offered(ADMIN)).toContain('Health');
   });
 
   it('offers the server’s admin everything, whatever their role in this workspace', () => {

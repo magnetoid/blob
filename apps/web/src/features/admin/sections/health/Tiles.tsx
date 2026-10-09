@@ -19,19 +19,23 @@ export function ServiceTile({
   value: string;
   bad?: boolean;
   hint?: string;
-  route: string;
+  /** Where pressing the tile goes. Without one it is not a control at all — a button
+   *  that opens a page the viewer may not see is worse than a plain tile. */
+  route?: string;
 }) {
-  return (
-    <button
-      type="button"
-      className="stat stat-button"
-      onClick={() => navigate(route)}
-    >
+  const body = (
+    <>
       <span className="stat-label">{label}</span>
       <span className="stat-value" data-bad={bad}>
         {value}
       </span>
       {hint && <span className="stat-hint">{hint}</span>}
+    </>
+  );
+  if (!route) return <div className="stat">{body}</div>;
+  return (
+    <button type="button" className="stat stat-button" onClick={() => navigate(route)}>
+      {body}
     </button>
   );
 }

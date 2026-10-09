@@ -48,9 +48,19 @@ import { DashboardWidget, WidgetControls } from "./Widget.tsx";
 
 export function HealthSection({
   onError,
+  isInstanceAdmin = false,
 }: {
   onError: (message: string | null) => void;
+  /** The server's log is `require_instance_admin`; the rest of the page is any admin's. */
+  isInstanceAdmin?: boolean;
 }) {
+  const logsRoute = isInstanceAdmin
+    ? pathForRoute({ view: "admin", section: "logs" })
+    : undefined;
+  const logsHint = (what: string) =>
+    isInstanceAdmin
+      ? `Open logs for ${what}.`
+      : `The server's administrator can see ${what} in its logs.`;
   const [prefs, setPrefs] = useState<DashboardPrefs>(loadPrefs);
   const [health, setHealth] = useState<AdminHealth | null>(null);
   const [history, setHistory] = useState<HealthSample[]>([]);
@@ -82,7 +92,11 @@ export function HealthSection({
       try {
         const [nextHealth, nextLogs, nextAudit] = await Promise.all([
           api.admin.health(),
-          api.admin.serverLogs({ limit: LOG_LIMIT }),
+          // Asked only of whoever may read it. In the same Promise.all it used to fail
+          // the whole page for every other admin — "Health unavailable", every few seconds.
+          isInstanceAdmin
+            ? api.admin.serverLogs({ limit: LOG_LIMIT })
+            : Promise.resolve({ entries: [] as ServerLogEntry[] }),
           api.admin.audit({ limit: AUDIT_LIMIT }),
         ]);
         if (fetchSeq.current !== seq) return;
@@ -106,7 +120,7 @@ export function HealthSection({
         }
       }
     },
-    [onError],
+    [isInstanceAdmin, onError],
   );
 
   useEffect(() => {
@@ -357,13 +371,13 @@ export function HealthSection({
                     label="Database"
                     value={health.database ? "Reachable" : "Down"}
                     bad={!health.database}
-                    route={pathForRoute({ view: "admin", section: "logs" })}
+                    route={logsRoute}
                   />
                   <ServiceTile
                     label="Redis"
                     value={health.redis ? "Reachable" : "Down"}
                     bad={!health.redis}
-                    route={pathForRoute({ view: "admin", section: "logs" })}
+                    route={logsRoute}
                   />
                   <ServiceTile
                     label="Email"
@@ -378,9 +392,9 @@ export function HealthSection({
                     hint={
                       health.mail === "ok"
                         ? undefined
-                        : "Open logs for delivery failures and SMTP setup clues."
+                        : logsHint("delivery failures and SMTP setup clues")
                     }
-                    route={pathForRoute({ view: "admin", section: "logs" })}
+                    route={logsRoute}
                   />
                   <ServiceTile
                     label="Push"
@@ -389,7 +403,7 @@ export function HealthSection({
                     hint={
                       health.push ? undefined : "Closed-tab notifications are currently off."
                     }
-                    route={pathForRoute({ view: "admin", section: "logs" })}
+                    route={logsRoute}
                   />
                   <ServiceTile
                     label="File uploads"
@@ -406,9 +420,9 @@ export function HealthSection({
                     hint={
                       health.storage === "ok"
                         ? undefined
-                        : "Open logs for the most recent object storage failures."
+                        : logsHint("the most recent object storage failures")
                     }
-                    route={pathForRoute({ view: "admin", section: "logs" })}
+                    route={logsRoute}
                   />
                 </div>
               </DashboardWidget>
@@ -438,7 +452,7 @@ export function HealthSection({
                           ...current,
                           metric: metric.key,
                         }));
-                        setFeedKind(metric.feedKind);
+                        setFeedKind(metric.feedKind === "logs" && !isInstanceAdmin ? "all" : metric.feedKind);
                       }}
                     />
                   ))}
@@ -548,6 +562,7 @@ export function HealthSection({
                 items={feedItems}
                 kind={feedKind}
                 onKindChange={setFeedKind}
+                withLogs={isInstanceAdmin}
               />
             </DashboardWidget>
           );

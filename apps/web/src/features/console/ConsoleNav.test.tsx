@@ -83,8 +83,8 @@ describe('the server console’s nav', () => {
       const { container, unmount } = renderServerNav(viewer);
       const rows = rowLabels(container);
       expect(rows).not.toContain('App policy');
-      expect(rows).not.toContain('Health');
       expect(rows).not.toContain('Errors and logs');
+      expect(rows).toContain('Health');
       expect(rows).toContain('Audit log');
       expect(rows).toContain('Feedback');
       expect(screen.queryByText('Server')).toBeNull();
@@ -97,7 +97,7 @@ describe('the server console’s nav', () => {
     const badged = screen
       .getAllByText('Server')
       .map((badge) => badge.closest('button')?.querySelector('.channel-name')?.textContent);
-    expect(badged).toEqual(['App policy', 'Health', 'Errors and logs']);
+    expect(badged).toEqual(['App policy', 'Errors and logs']);
     expect(screen.getByText('Audit log').closest('button')?.textContent).toBe('Audit log');
   });
 

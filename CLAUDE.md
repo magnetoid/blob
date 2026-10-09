@@ -335,10 +335,14 @@ same page with different catalogues: `features/console/` holds what they share �
 shell, the nav, `registry.ts` (which is the nav *as data*, so a new section is a row plus
 a component rather than four files that have to agree) and the data/action hooks every
 section uses. `features/admin/` and `features/settings/` are then only their own section
-lists. Two things the registry decides that are easy to undo by accident: a `planned` row
-carries no section id, because the id lists are the set of URLs that actually exist; and
-`ownerOnly` lives on the **row**, not on a group, so a page the owner alone may open can
-still sit with the subject it belongs to instead of in a bucket named after a permission.
+lists. Two things the registry decides that are easy to undo by accident. The admin menu is one
+flat list of real pages — no group headings and no "Soon" placeholders (since 2026-10, by
+request) — so the id lists stay the set of URLs that actually exist. And every row carries
+an `access` level — `admin`, `owner` or `instance` — that has to match the server's gate
+for that page (`require_admin`, `require_owner`, `require_instance_admin`); the client
+knows the last from `isInstanceAdmin` on the current user. A page that mixes gates sits at
+the lower level and degrades: Health is any admin's and asks for the server's log only
+when the viewer is the server's administrator.
 
 **The design layer.** `styles/tokens.css` is the whole vocabulary and `styles/app.css`
 spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius

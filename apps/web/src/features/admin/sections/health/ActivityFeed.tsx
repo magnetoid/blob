@@ -11,17 +11,21 @@ export function ActivityFeed({
   items,
   kind,
   onKindChange,
+  withLogs = true,
 }: {
   items: FeedItem[];
   kind: FeedKind;
   onKindChange: (kind: FeedKind) => void;
+  /** The server's log is the server administrator's to read; for anyone else the feed
+   *  is the workspace's audit trail, and a "Logs" filter would only ever be empty. */
+  withLogs?: boolean;
 }) {
   return (
     <div className="dashboard-feed">
       <div className="chip-row">
         {[
           { label: "Everything", value: "all" as const },
-          { label: "Logs", value: "logs" as const },
+          ...(withLogs ? [{ label: "Logs", value: "logs" as const }] : []),
           { label: "Audit", value: "audit" as const },
         ].map((option) => (
           <button

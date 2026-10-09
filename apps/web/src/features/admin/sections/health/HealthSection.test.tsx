@@ -139,8 +139,19 @@ afterEach(() => {
 });
 
 describe("the health dashboard", () => {
+  it("gives an admin who does not run the server everything but the server's log", async () => {
+    const onError = vi.fn();
+    render(<HealthSection onError={onError} />);
+    expect(await screen.findByText("Database")).toBeTruthy();
+    expect(serverLogs).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalledWith(expect.any(String));
+    // The tiles are not links to a page this viewer cannot open, and there is no Logs filter.
+    expect(screen.getByText("Database").closest("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Logs" })).toBeNull();
+  });
+
   it("loads the live widgets and drills into the selected metric", async () => {
-    render(<HealthSection onError={vi.fn()} />);
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
 
     expect(await screen.findByText("Summary metrics")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Focus Messages" }));
@@ -151,7 +162,7 @@ describe("the health dashboard", () => {
   });
 
   it("refreshes when the websocket reports live activity", async () => {
-    render(<HealthSection onError={vi.fn()} />);
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
     await screen.findByText("Realtime trends");
 
     health.mockResolvedValueOnce({
@@ -176,14 +187,14 @@ describe("the health dashboard", () => {
   });
 
   it("persists hidden widgets across sessions", async () => {
-    const view = render(<HealthSection onError={vi.fn()} />);
+    const view = render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
     await screen.findByText("Recent activity");
 
     fireEvent.click(screen.getByLabelText("Hide activity widget"));
     expect(screen.getByRole("button", { name: "Add activity" })).toBeTruthy();
 
     view.unmount();
-    render(<HealthSection onError={vi.fn()} />);
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
 
     expect(await screen.findByRole("button", { name: "Add activity" })).toBeTruthy();
   });

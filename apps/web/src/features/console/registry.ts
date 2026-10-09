@@ -304,14 +304,13 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'instance',
   },
   {
-    // `/api/admin/health` alone would be any admin's, but the page reads the server's log
-    // (`/api/admin/instance/logs`) in the same request and has nothing to show without
-    // it — for anybody else it is "Health unavailable" and a 403, every few seconds.
+    // `/api/admin/health`, any admin's. The page adds the server's own log
+    // (`/api/admin/instance/logs`) only for the server's administrator.
     id: 'health',
     label: 'Health',
     description: 'Whether the parts this server runs on are answering.',
     keywords: ['status', 'database', 'redis', 'queue', 'storage', 'version'],
-    access: 'instance',
+    access: 'admin',
   },
   {
     // `/api/admin/audit`, which reads this workspace's own events.

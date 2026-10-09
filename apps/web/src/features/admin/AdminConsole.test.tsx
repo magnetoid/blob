@@ -92,9 +92,9 @@ describe('the console’s nav', () => {
     render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
     const rows = navRows();
     expect(rows).not.toContain('App policy');
-    expect(rows).not.toContain('Health');
     expect(rows).not.toContain('Errors and logs');
-    expect(rows).toHaveLength(13);
+    expect(rows).toContain('Health');
+    expect(rows).toHaveLength(14);
   });
 
   it('gives them to the server’s admin when they are a plain admin here', () => {
