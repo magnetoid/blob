@@ -2807,6 +2807,10 @@
             "title": "Id",
             "type": "string"
           },
+          "isInstanceAdmin": {
+            "title": "Isinstanceadmin",
+            "type": "boolean"
+          },
           "kind": {
             "default": "human",
             "enum": [
@@ -2883,7 +2887,8 @@
           "id",
           "displayName",
           "email",
-          "prefs"
+          "prefs",
+          "isInstanceAdmin"
         ],
         "title": "CurrentUser",
         "type": "object"

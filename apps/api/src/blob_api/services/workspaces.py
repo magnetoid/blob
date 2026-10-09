@@ -57,8 +57,14 @@ async def grant_instance_admin(session: AsyncSession, email: str) -> None:
 
 
 async def is_instance_admin(session: AsyncSession, email: str) -> bool:
-    """Whether this address administers the server — the same question
-    `lib.auth.require_instance_admin` asks, for code already holding a session."""
+    """Whether this address administers the server, whichever workspace it is signed into.
+
+    The same question `lib/auth.require_instance_admin` asks as a gate, answered as a fact:
+    the admin console shows the server's own pages by it, so a row is offered to exactly
+    the people that gate lets through, and the reset-link rules ask it of both ends. By
+    email, like the gate — `instance_admins` is keyed on the person, not on any one of
+    their user rows.
+    """
     row = (
         await session.execute(
             text("SELECT 1 FROM instance_admins WHERE email = :email"), {"email": email}

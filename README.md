@@ -394,7 +394,8 @@ afternoon:
 - **Canvases and workflows** — not started.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
 - **SSO, SAML, OIDC and 2FA** — email and password is the only way in.
-- Console rows marked **Soon** — Moderation, Approvals, Storage, Import/export.
+- **Moderation, Approvals, Storage and Import/export** in the admin console — not built,
+  and not listed there until they are.
 
 The whole six-month plan, with what each slice measures, is in
 [docs/roadmap.md](docs/roadmap.md).

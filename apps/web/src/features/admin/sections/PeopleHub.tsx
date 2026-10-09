@@ -4,8 +4,9 @@
  * notifications together: the only way to find out which of the four held the person
  * you were after was to open all four. Members leads because it is the roster; the
  * other three are what happens to a person before they arrive (invitations), how they
- * are addressed as a team (groups), and the owner's view across the whole server
- * (accounts), which stays the owner's alone.
+ * are addressed as a team (groups), and the view across the whole server (accounts),
+ * which is the server admin's alone: `/api/admin/instance/users` answers nobody else,
+ * the owner of a workspace included. That is the `users` row's level in the registry.
  *
  * Each part is a card, and the card is drawn here rather than by the part: the parts are
  * also reached alone by their old URLs, where AdminConsole frames them the same way.
@@ -53,10 +54,10 @@ export function PeopleHub(props: ConsoleSectionProps) {
         <InvitationsSection {...props} />
       </Card>
 
-      {props.isOwner && (
+      {props.isInstanceAdmin && (
         <Card
           title="Accounts"
-          description="Every account on this server — the owner's view."
+          description="Every account on this server — the server admin's view."
         >
           <AccountsSection {...props} />
         </Card>

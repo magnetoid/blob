@@ -43,6 +43,14 @@ export interface User {
 export interface CurrentUser extends User {
   email: string;
   prefs: UserPrefs;
+  /**
+   * Administers the server — their address is in `instance_admins` — rather than only
+   * holding a role in this workspace. A fact about the person across every workspace, so
+   * `role` cannot stand in for it: an owner here may not run the server, and the person
+   * who does may be a plain admin here. The admin console offers the server's own pages
+   * by it, because the server gates them by it (`require_instance_admin`).
+   */
+  isInstanceAdmin: boolean;
 }
 
 export interface UserPrefs {

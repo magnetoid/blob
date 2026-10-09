@@ -29,7 +29,7 @@ function shell(section: string, resetKey?: string) {
       navId="nav"
       nav={{ groups: [], basePath: '/admin', title: 'This server', subtitle: '' }}
       section={section}
-      isOwner
+      viewer={{ role: 'owner', isInstanceAdmin: true }}
       title="A page"
       toggle={{ className: 'icon-btn admin-nav-toggle', label: 'Sections', icon: null }}
       resetKey={resetKey}

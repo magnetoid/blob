@@ -14,11 +14,17 @@
 import { useState, type ReactNode } from 'react';
 import { TopBar } from '../shell/TopBar.tsx';
 import { ConsoleNav } from './ConsoleNav.tsx';
-import type { NavGroup } from './registry.ts';
+import type { NavGroup, Viewer } from './registry.ts';
 
 export interface ConsoleSectionProps {
   onError: (message: string | null) => void;
   isOwner: boolean;
+  /**
+   * Whether this person administers the server, not only this workspace. People reads it
+   * to draw Accounts, the part of that page the server keeps for its admin — the same
+   * gate as the `users` row in the registry. Optional: no other section asks yet.
+   */
+  isInstanceAdmin?: boolean;
   detailId?: string;
   /**
    * Only the Preferences section uses this — it owns the Sign out button, which is the
@@ -34,7 +40,6 @@ export interface ConsoleNav {
   basePath: string;
   title: string;
   subtitle: string;
-  isAdmin?: boolean;
 }
 
 export function ConsoleShell({
@@ -42,7 +47,7 @@ export function ConsoleShell({
   navId,
   nav,
   section,
-  isOwner,
+  viewer,
   title,
   description,
   toggle,
@@ -56,7 +61,8 @@ export function ConsoleShell({
   navId: string;
   nav: ConsoleNav;
   section: string;
-  isOwner: boolean;
+  /** Who is looking. The nav offers each row by it; the body is gated by the console. */
+  viewer: Viewer;
   title: string;
   description?: string;
   /** The consoles' toggle buttons differ in class, label and icon weight; each brings its own. */
@@ -88,8 +94,7 @@ export function ConsoleShell({
         id={navId}
         groups={nav.groups}
         section={section}
-        isOwner={isOwner}
-        isAdmin={nav.isAdmin}
+        viewer={viewer}
         onNavigate={() => setNavOpen(false)}
         basePath={nav.basePath}
         title={nav.title}

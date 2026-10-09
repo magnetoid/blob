@@ -1067,7 +1067,7 @@ export const SECTIONS: Section[] = [
         body: [
           'The Huddle button in the top bar is there and disabled: huddles arrive in a later release. Canvases and workflows do not exist at all.',
           'There is no Unreads screen — stepping through unread conversations with the keyboard is what Blob has instead. Nothing emails you about a message.',
-          'In the consoles, the rows marked “Soon” are honest: Moderation, Deliveries, Approvals, Storage and Import / export are named because they are coming, and they do nothing today.',
+          'The server console lists only pages that exist. Moderation, Approvals, Storage and Import / export are coming, and have no row there until they do.',
         ],
         keywords: ['huddle', 'canvas', 'workflow', 'missing', 'coming', 'soon', 'roadmap'],
       },

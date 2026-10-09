@@ -4872,6 +4872,8 @@ export interface components {
             fullName?: string | null;
             /** Id */
             id: string;
+            /** Isinstanceadmin */
+            isInstanceAdmin: boolean;
             /**
              * Kind
              * @default human

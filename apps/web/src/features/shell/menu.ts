@@ -14,10 +14,11 @@ export interface Item {
   soon?: boolean;
   adminOnly?: boolean;
   /**
-   * Owner-only, and separate from `adminOnly` for a reason that bites: some server
-   * pages (accounts, health, logs) 403 for an admin who is not the owner. Those rows
-   * are hidden in the console nav; this flag is for whole pages that should not appear
-   * in the account menu either.
+   * Owner-only, and separate from `adminOnly` for a reason that bites: being an admin
+   * does not open every server page. The console nav gates its own rows by the server's
+   * gate on each (`access` in `features/console/registry.ts` — accounts, health and logs
+   * are the server admin's, not the owner's); this flag is for whole pages that should
+   * not appear in the account menu either.
    */
   ownerOnly?: boolean;
 }

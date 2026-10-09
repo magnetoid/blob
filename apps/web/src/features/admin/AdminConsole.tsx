@@ -17,7 +17,7 @@ import { useStore } from '../../lib/store.ts';
 import type { AdminSection } from '../../lib/router.ts';
 import { Card } from '../console/Card.tsx';
 import { ConsoleShell, type ConsoleSectionProps } from '../console/ConsoleShell.tsx';
-import { ADMIN_NAV, sectionEntry } from '../console/registry.ts';
+import { ADMIN_NAV, sectionEntry, viewerOf } from '../console/registry.ts';
 import { AppPolicySection } from './sections/AppPolicySection.tsx';
 import { AccountsSection } from './sections/AccountsSection.tsx';
 import { AuditSection } from './sections/AuditSection.tsx';
@@ -39,6 +39,9 @@ import { ThemesSection } from './sections/ThemesSection.tsx';
 import { WebhooksSection } from './sections/WebhooksSection.tsx';
 
 const NAV_ID = 'admin-console-nav';
+
+/** The nav draws groups; this console's rows are one, under no heading. */
+const NAV_GROUPS = [{ id: 'server', sections: ADMIN_NAV }];
 
 /**
  * A part of the People page reached by its old URL, in the card the People page gives
@@ -102,7 +105,8 @@ export function AdminConsole({
   onFeedback: () => void;
 }) {
   const currentUser = useStore((s) => s.currentUser);
-  const isOwner = currentUser?.role === 'owner';
+  const viewer = viewerOf(currentUser);
+  const isOwner = viewer.role === 'owner';
 
   const entry = sectionEntry(section);
   const Body = SECTION_COMPONENTS[section];
@@ -112,13 +116,13 @@ export function AdminConsole({
       view="admin"
       navId={NAV_ID}
       nav={{
-        groups: ADMIN_NAV,
+        groups: NAV_GROUPS,
         basePath: '/admin',
         title: 'This server',
         subtitle: isOwner ? 'You own this server.' : 'You are an admin of this server.',
       }}
       section={section}
-      isOwner={isOwner}
+      viewer={viewer}
       title={entry.label}
       description={entry.description}
       toggle={{
@@ -130,7 +134,14 @@ export function AdminConsole({
       resetKey={`${section}/${detailId ?? ''}`}
       onFeedback={onFeedback}
     >
-      {(onError) => <Body onError={onError} isOwner={isOwner} detailId={detailId} />}
+      {(onError) => (
+        <Body
+          onError={onError}
+          isOwner={isOwner}
+          isInstanceAdmin={viewer.isInstanceAdmin}
+          detailId={detailId}
+        />
+      )}
     </ConsoleShell>
   );
 }

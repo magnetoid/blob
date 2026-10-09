@@ -106,6 +106,12 @@ class CurrentUser(User):
 
     email: str
     prefs: UserPrefs
+    #: Whether this person administers the server — their address is in
+    #: `instance_admins` — which `role` cannot say: a role belongs to one workspace, and
+    #: this is a fact about the person across all of them. The admin console draws the
+    #: server's own pages by it, mirroring `require_instance_admin`. No default, so that
+    #: nothing serialises a person without asking.
+    is_instance_admin: bool
 
 
 class Workspace(CamelModel):

@@ -10,7 +10,7 @@ import { MenuIcon } from '../../components/Icon.tsx';
 import { useStore } from '../../lib/store.ts';
 import type { SettingsSection } from '../../lib/router.ts';
 import { ConsoleShell } from '../console/ConsoleShell.tsx';
-import { SETTINGS_NAV, settingsEntry } from '../console/registry.ts';
+import { SETTINGS_NAV, settingsEntry, viewerOf } from '../console/registry.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import { YouSection } from './YouSection.tsx';
 import { MyAgentsSection } from './MyAgentsSection.tsx';
@@ -34,7 +34,8 @@ export function SettingsConsole({
   onSignedOut: () => void;
 }) {
   const currentUser = useStore((s) => s.currentUser);
-  const isOwner = currentUser?.role === 'owner';
+  const viewer = viewerOf(currentUser);
+  const isOwner = viewer.role === 'owner';
   const entry = settingsEntry(section);
   const Body = SECTION_COMPONENTS[section];
 
@@ -49,7 +50,7 @@ export function SettingsConsole({
         subtitle: 'How Blob behaves for you.',
       }}
       section={section}
-      isOwner={isOwner}
+      viewer={viewer}
       title={entry.label}
       description={entry.description}
       toggle={{

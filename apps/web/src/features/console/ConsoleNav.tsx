@@ -1,9 +1,13 @@
 /** The console's own sidebar.
  *
- * Grouped rows rather than a strip of pills, because the console has outgrown a strip:
- * grouping is what lets someone who has never opened this screen guess where retention
- * lives. The rows are the same primitive as the channel list, so the reflexes carry over
- * — including that the current one is marked, not merely coloured.
+ * Rows rather than a strip of pills, because the console has outgrown a strip. The rows
+ * are the same primitive as the channel list, so the reflexes carry over — including that
+ * the current one is marked, not merely coloured.
+ *
+ * Settings is one group under its heading; the server console is one list under none,
+ * because its headings had become a permission's job done badly. A group without a label
+ * is drawn without a heading, and a row the server keeps from some admins carries a
+ * badge naming who may open it instead.
  *
  * The filter is here for the same reason Mattermost's is: past a dozen sections, reading
  * every label is slower than typing three characters of the one you want.
@@ -12,14 +16,30 @@
 import { useState } from 'react';
 import { ChevronLeftIcon, SearchIcon } from '../../components/Icon.tsx';
 import { navigate } from '../../lib/router.ts';
-import { ADMIN_NAV, filterGroups, isPlanned, type NavGroup } from './registry.ts';
+import {
+  filterGroups,
+  type Access,
+  type NavGroup,
+  type SectionEntry,
+  type Viewer,
+} from './registry.ts';
+
+/**
+ * What a restricted row's badge says. On the row because only the people who can see it
+ * see it, and they have no other way to tell which pages their admins cannot reach — so
+ * it names who can, in the words the rest of the app uses for them.
+ */
+const RESTRICTED: Record<Access, { label: string; title: string } | null> = {
+  admin: null,
+  owner: { label: 'Owner', title: "Only this workspace's owner can open this." },
+  instance: { label: 'Server', title: "Only the server's admin can open this." },
+};
 
 export function ConsoleNav({
   id,
-  groups = ADMIN_NAV,
+  groups,
   section,
-  isOwner,
-  isAdmin = true,
+  viewer,
   onNavigate,
   /** `/admin` or `/settings`. Both consoles use this nav; only the prefix differs. */
   basePath = '/admin',
@@ -27,11 +47,10 @@ export function ConsoleNav({
   subtitle,
 }: {
   id?: string;
-  groups?: NavGroup[];
+  groups: NavGroup[];
   section: string;
-  isOwner: boolean;
-  /** False hides every admin-only group — this page also carries personal sections. */
-  isAdmin?: boolean;
+  /** Who is looking: decides which rows are offered at all, against each row's `access`. */
+  viewer: Viewer;
   /** Lets the mobile drawer close itself once a choice has been made. */
   onNavigate?: () => void;
   basePath?: string;
@@ -39,7 +58,35 @@ export function ConsoleNav({
   subtitle?: string;
 }) {
   const [filter, setFilter] = useState('');
-  const visible = filterGroups(groups, filter, isOwner, isAdmin);
+  const visible = filterGroups(groups, filter, viewer);
+
+  const row = (entry: SectionEntry) => {
+    const restricted = entry.access ? RESTRICTED[entry.access] : null;
+    return (
+      <button
+        key={entry.id}
+        className="channel-row"
+        aria-current={entry.id === section}
+        type="button"
+        onClick={() => {
+          onNavigate?.();
+          navigate(`${basePath}/${entry.id}`);
+        }}
+      >
+        <span className="channel-name">{entry.label}</span>
+        {restricted && (
+          <span className="console-nav-badge" data-kind={entry.access} title={restricted.title}>
+            {restricted.label}
+          </span>
+        )}
+        {entry.badge === 'new' && (
+          <span className="console-nav-badge" data-kind="new">
+            New
+          </span>
+        )}
+      </button>
+    );
+  };
 
   return (
     <nav id={id} className="admin-nav" aria-label="Console sections">
@@ -51,7 +98,7 @@ export function ConsoleNav({
         <div className="admin-nav-title">{title}</div>
         <div className="admin-nav-sub">
           {subtitle ??
-            (isOwner
+            (viewer.role === 'owner'
               ? 'You own this workspace.'
               : 'You are an admin. Only the owner can change roles.')}
         </div>
@@ -73,54 +120,20 @@ export function ConsoleNav({
       </div>
 
       <div className="sidebar-scroll">
-        {visible.map((group) => (
-          <section className="sidebar-section" key={group.id}>
-            <h2 className="section-label">{group.label}</h2>
-            {group.note && <p className="section-note">{group.note}</p>}
-            {group.sections.map((entry) =>
-              isPlanned(entry) ? (
-                <button
-                  key={entry.id}
-                  className="channel-row"
-                  disabled
-                  title="Not built yet"
-                  type="button"
-                >
-                  <span className="channel-name muted">{entry.label}</span>
-                  <span className="console-nav-badge" data-kind="soon">
-                    Soon
-                  </span>
-                </button>
-              ) : (
-                <button
-                  key={entry.id}
-                  className="channel-row"
-                  aria-current={entry.id === section}
-                  type="button"
-                  onClick={() => {
-                    onNavigate?.();
-                    navigate(`${basePath}/${entry.id}`);
-                  }}
-                >
-                  <span className="channel-name">{entry.label}</span>
-                  {/* On the row, not only on the group: an owner-only page can sit in a
-                      group its admins otherwise use, and the owner has no other way to
-                      see which pages they cannot reach. */}
-                  {entry.ownerOnly && (
-                    <span className="console-nav-badge" data-kind="owner">
-                      Owner
-                    </span>
-                  )}
-                  {entry.badge === 'new' && (
-                    <span className="console-nav-badge" data-kind="new">
-                      New
-                    </span>
-                  )}
-                </button>
-              ),
-            )}
-          </section>
-        ))}
+        {visible.map((group) =>
+          group.label ? (
+            <section className="sidebar-section" key={group.id}>
+              <h2 className="section-label">{group.label}</h2>
+              {group.sections.map(row)}
+            </section>
+          ) : (
+            // No heading, so no `section`: one with nothing naming it is noise to a screen
+            // reader, and the nav around it already says what these rows are.
+            <div className="sidebar-section" key={group.id}>
+              {group.sections.map(row)}
+            </div>
+          ),
+        )}
 
         {visible.length === 0 && <p className="muted console-nav-empty">Nothing matched.</p>}
       </div>

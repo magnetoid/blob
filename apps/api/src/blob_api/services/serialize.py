@@ -99,9 +99,20 @@ def to_user(row: Any) -> User:
     )
 
 
-def to_current_user(row: Any) -> CurrentUser:
+def to_current_user(row: Any, *, is_instance_admin: bool) -> CurrentUser:
+    """The signed-in person's own view of their row.
+
+    `is_instance_admin` is passed rather than read off the row, and has no default: it is
+    not a column of `users`, and a quiet False would tell the server's own admin, on the
+    next profile save, that the server's pages are not theirs.
+    """
     base = to_user(row)
-    return CurrentUser(**base.model_dump(by_alias=False), email=row.email, prefs=_prefs(row.prefs))
+    return CurrentUser(
+        **base.model_dump(by_alias=False),
+        email=row.email,
+        prefs=_prefs(row.prefs),
+        is_instance_admin=is_instance_admin,
+    )
 
 
 def to_workspace(row: Any) -> Workspace:

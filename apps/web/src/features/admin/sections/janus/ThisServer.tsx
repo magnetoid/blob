@@ -8,8 +8,8 @@
  * * **Not this admin's** — `/api/admin/janus` answers 403 to a workspace admin who does
  *   not administer this machine, and `JanusSection` skips the request entirely for one it
  *   can already tell is not the server's admin. Both reach the same line naming who can,
- *   rather than silence: the row in the nav is not `ownerOnly`, so somebody who arrives
- *   here and finds half a page needs to be told it is a permission and not a bug.
+ *   rather than silence: the row in the nav is open to every admin, so somebody who
+ *   arrives here and finds half a page needs to be told it is a permission and not a bug.
  * * **Not configured** — `Setup` already owns that screen, and it is the whole page.
  * * **Not answering** — Janus is down or restarting. The controls stay on the screen and
  *   go dead, with the reason above them, for the same reason the workspace half draws its

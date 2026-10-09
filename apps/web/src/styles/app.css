@@ -336,15 +336,6 @@ button {
   padding-left: 10px;
 }
 
-/* A group whose audience is not obvious says so, once, under its heading. Sentence case
-   against the label's uppercase, because this is a remark rather than a second label. */
-.section-note {
-  margin: 0 0 4px;
-  padding: 0 10px;
-  font-size: var(--text-xs);
-  color: var(--text-faint);
-}
-
 /* ─── auth ───────────────────────────────────────────────────────────────── */
 .auth {
   /* Two panels on a wide screen, the form alone on a narrow one. The brand half is
@@ -3651,14 +3642,6 @@ button.member-row,
   color: var(--text-4);
 }
 
-.admin-nav .channel-row:disabled {
-  cursor: default;
-}
-
-.admin-nav .channel-row:disabled:hover {
-  background: transparent;
-}
-
 /* ─── the console nav ─────────────────────────────────────────────────────── */
 /* The filter: the inputs' own edge, corner, surface and focus colour, at a height that
    suits a nav rather than a form. */
@@ -3733,8 +3716,9 @@ button.member-row,
 }
 
 /* One badge in three kinds, the same size and type so they line up at the rows' end:
-   dashed for not built, outlined for owner-only, the accent for new. They were the
-   account menu's "soon" pill and two role pills, each with its own box. */
+   outlined for a row only the owner or only the server's admin may open, the accent for
+   new. They were the account menu's "soon" pill and two role pills, each with its own
+   box; the dashed "soon" kind went with the rows that were not pages. */
 .console-nav-badge {
   flex: none;
   display: inline-flex;
@@ -3747,12 +3731,6 @@ button.member-row,
   font-weight: 600;
   line-height: 1;
   color: var(--text-3);
-}
-
-.console-nav-badge[data-kind='soon'] {
-  border-style: dashed;
-  font-weight: 500;
-  color: var(--text-4);
 }
 
 .console-nav-badge[data-kind='new'] {

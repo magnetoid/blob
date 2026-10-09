@@ -41,6 +41,7 @@ from . import seeded
 from . import themes as theme_service
 from . import translation as translation_service
 from . import user_groups as group_service
+from . import workspaces as workspace_service
 from .serialize import USER_COLUMNS, read_prefs, to_current_user, to_user, to_workspace
 
 
@@ -94,10 +95,11 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
     my_group_ids = await group_service.group_ids_for_user(session, user.id)
     muted_group_ids = await group_service.muted_group_ids_for_user(session, user.id)
     tagged = await recency_service.recent_mentions(session, user.id)
+    instance_admin = await workspace_service.is_instance_admin(session, user.email)
 
     return Bootstrap(
         workspace=to_workspace(workspace),
-        user=to_current_user(me),
+        user=to_current_user(me, is_instance_admin=instance_admin),
         users=[to_user(row) for row in users],
         channels=channels,
         custom_emoji=[
@@ -270,7 +272,11 @@ async def update_profile(
     row = await _row(session, user.id)
     if row is None:
         raise not_found("That account no longer exists.")
-    return to_current_user(row), to_user(row)
+    # Asked again rather than left out: the client takes this answer as the whole of
+    # its own row, so a profile save that dropped the flag would hide the server's pages
+    # from the person who runs it until their next reload.
+    instance_admin = await workspace_service.is_instance_admin(session, row.email)
+    return to_current_user(row, is_instance_admin=instance_admin), to_user(row)
 
 
 async def update_prefs(session: AsyncSession, user_id: str, patch: dict[str, Any]) -> UserPrefs:

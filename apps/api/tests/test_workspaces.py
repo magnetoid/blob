@@ -18,7 +18,7 @@ from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory
 
-from .helpers import Client, invite_and_sign_up, send_message, sign_up
+from .helpers import PASSWORD, Client, invite_and_sign_up, send_message, sign_up
 
 
 @pytest_asyncio.fixture
@@ -231,3 +231,84 @@ async def test_the_instance_console_is_for_instance_admins(founder: Client, path
     # And it stays theirs after they move workspace — it is a fact about the person.
     await founder.post(f"/api/workspaces/{created['id']}/switch")
     assert (await founder.get(path)).status == 200
+
+
+# ─── who runs the server, as the client is told it ────────────────────────────
+# `isInstanceAdmin` on the person's own row is what the admin console offers the server's
+# pages by, so it has to be the instance gate's answer exactly: a workspace's owner is not
+# enough, and the person who runs the server keeps it in a workspace where they are only
+# an admin.
+async def owner_of_a_second_workspace(founder: Client) -> Client:
+    """Somebody who owns a workspace here and does not run the server.
+
+    Made the way a second team arrives: the founder creates the workspace, invites them
+    into it and hands it over, and is left an admin of it.
+    """
+    created = await make_workspace(founder, "Second")
+    await founder.post(f"/api/workspaces/{created['id']}/switch")
+    owner = await invite_and_sign_up(founder, "Second Owner", role="admin")
+    handed = await founder.put(f"/api/admin/users/{owner.user_id}/role", {"role": "owner"})
+    assert handed.status == 200, handed.body
+    return owner
+
+
+async def _who(client: Client) -> tuple[str, bool]:
+    user = (await client.get("/api/bootstrap")).body["user"]
+    return user["role"], user["isInstanceAdmin"]
+
+
+async def test_the_boot_payload_says_who_runs_the_server(founder: Client) -> None:
+    member = await invite_and_sign_up(founder, "Member")
+    second_owner = await owner_of_a_second_workspace(founder)
+
+    # The founder is now a plain admin of the workspace they are signed into.
+    assert await _who(founder) == ("admin", True)
+    assert await _who(second_owner) == ("owner", False)
+    assert await _who(member) == ("member", False)
+
+    # The flag is the gate's answer, not a second opinion beside it.
+    assert (await founder.get("/api/admin/instance/logs")).status == 200
+    assert (await second_owner.get("/api/admin/instance/logs")).status == 403
+    assert (await member.get("/api/admin/instance/logs")).status == 403
+
+
+async def test_every_answer_that_carries_the_person_carries_the_flag(client: Client) -> None:
+    founded = await client.post(
+        "/api/auth/signup",
+        {
+            "email": "founder@example.com",
+            "password": PASSWORD,
+            "displayName": "Founder",
+            "workspaceName": "Test Workspace",
+        },
+    )
+    assert founded.status == 200, founded.body
+    # Granted inside the signup that founded the server, so its own answer knows.
+    assert founded.body["user"]["isInstanceAdmin"] is True
+    client.user_id = founded.body["user"]["id"]
+
+    invite = await client.post("/api/invites", {"expiresInDays": 1})
+    token = invite.body["url"].split("/join/")[1]
+    joined = await client.fork().post(
+        "/api/auth/signup",
+        {
+            "email": "member@example.com",
+            "password": PASSWORD,
+            "displayName": "Member",
+            "inviteToken": token,
+        },
+    )
+    assert joined.status == 200, joined.body
+    assert joined.body["user"]["isInstanceAdmin"] is False
+
+    for email, expected in (("founder@example.com", True), ("member@example.com", False)):
+        login = await client.fork().post("/api/auth/login", {"email": email, "password": PASSWORD})
+        assert login.status == 200, login.body
+        assert login.body["user"]["isInstanceAdmin"] is expected, email
+
+    # The client takes this answer as the whole of its own row: a profile save that
+    # dropped the flag would hide the server's pages from the person who runs it.
+    saved = await client.patch("/api/me", {"title": "Runs the server"})
+    assert saved.status == 200, saved.body
+    assert saved.body["user"]["title"] == "Runs the server"
+    assert saved.body["user"]["isInstanceAdmin"] is True

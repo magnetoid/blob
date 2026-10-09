@@ -41,6 +41,7 @@ from ..schemas.requests import (
 )
 from ..services import accounts as account_service
 from ..services import signup as signup_service
+from ..services import workspaces as workspace_service
 from ..services.audit import actor_for
 from ..services.serialize import to_current_user
 
@@ -132,7 +133,9 @@ async def login(payload: LoginInput, request: Request, response: Response) -> Se
         raise invalid
 
     await _sign_in(request, response, row.id)
-    return SessionOut(user=to_current_user(row))
+    async with session_scope() as session:
+        instance_admin = await workspace_service.is_instance_admin(session, row.email)
+    return SessionOut(user=to_current_user(row, is_instance_admin=instance_admin))
 
 
 @router.post("/api/auth/logout", response_model=OkOut)

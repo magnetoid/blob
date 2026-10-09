@@ -195,7 +195,10 @@ async def signup(
     ).fetchone()
     if created is None:
         raise bad_request("Could not create that account.")
-    return user_id, to_current_user(created)
+    # True for the founder of a fresh server, granted inside this same transaction, and
+    # for anybody joining by invitation whose address already runs this one.
+    instance_admin = await workspace_service.is_instance_admin(session, email)
+    return user_id, to_current_user(created, is_instance_admin=instance_admin)
 
 
 # ─── invitations ──────────────────────────────────────────────────────────────

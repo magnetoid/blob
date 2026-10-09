@@ -827,7 +827,7 @@ describe('this server', () => {
   });
 
   it('tells an admin who does not own the server who can, in the same words as the 403', async () => {
-    // The nav row is not `ownerOnly`, so a workspace admin who does not administer this
+    // The nav row is open to every admin, so a workspace admin who does not administer this
     // machine arrives here and finds half a page. Silence reads as a bug; one line saying
     // it is a permission does not. The same sentence as the `forbidden` branch above,
     // because it is the same fact — the request is skipped only to keep a 403 out of the

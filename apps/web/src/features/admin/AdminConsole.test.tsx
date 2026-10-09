@@ -3,9 +3,14 @@
  * `/admin/invitations`, `/admin/users` — and they draw their contents and leave the card
  * to whoever shows them. What these pin: alone, a part still gets its card; Groups' own
  * detail page (one group's members) draws its own and is not framed a second time; and
- * a detail id on a part with no detail page — `/admin/users/:id` — changes nothing. */
+ * a detail id on a part with no detail page — `/admin/users/:id` — changes nothing.
+ *
+ * And the nav, as this console mounts it: one list under no heading, offering each page
+ * to whoever the server lets in — read off the signed-in person, not off their role
+ * alone. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
+import { useStore } from '../../lib/store.ts';
 
 vi.mock('../shell/TopBar.tsx', () => ({ TopBar: () => <div>top bar</div> }));
 vi.mock('./sections/GroupsSection.tsx', () => ({
@@ -22,7 +27,10 @@ vi.mock('./sections/AccountsSection.tsx', () => ({
 
 const { AdminConsole } = await import('./AdminConsole.tsx');
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  useStore.setState({ currentUser: null });
+});
 
 describe('a People part at its old URL', () => {
   it('sits in the card the People page would give it', () => {
@@ -40,5 +48,59 @@ describe('a People part at its old URL', () => {
   it('keeps its card under a detail id when it has no detail page', () => {
     render(<AdminConsole section="users" detailId="u1" onFeedback={vi.fn()} />);
     expect(screen.getByText('accounts-part').closest('.console-card')).toBeTruthy();
+  });
+});
+
+describe('the console’s nav', () => {
+  function signIn(role: 'admin' | 'owner', isInstanceAdmin: boolean) {
+    useStore.setState({
+      currentUser: { id: 'me', role, isInstanceAdmin } as never,
+    });
+  }
+
+  function navRows(): string[] {
+    const nav = screen.getByRole('navigation', { name: 'Console sections' });
+    expect(within(nav).queryAllByRole('heading')).toEqual([]);
+    return [...nav.querySelectorAll('.channel-name')].map((node) => node.textContent ?? '');
+  }
+
+  it('is one list, with the server’s pages for the person who runs it', () => {
+    signIn('owner', true);
+    render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
+    expect(navRows()).toEqual([
+      'General',
+      'Appearance',
+      'People',
+      'Channels',
+      'Emoji',
+      'Video meetups',
+      'Apps & agents',
+      'Janus',
+      'Webhooks',
+      'Deliveries',
+      'Assistants',
+      'App policy',
+      'Health',
+      'Audit log',
+      'Errors and logs',
+      'Feedback',
+    ]);
+  });
+
+  it('leaves the server’s pages off for an owner who does not run the server', () => {
+    signIn('owner', false);
+    render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
+    const rows = navRows();
+    expect(rows).not.toContain('App policy');
+    expect(rows).not.toContain('Health');
+    expect(rows).not.toContain('Errors and logs');
+    expect(rows).toHaveLength(13);
+  });
+
+  it('gives them to the server’s admin when they are a plain admin here', () => {
+    signIn('admin', true);
+    render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
+    expect(navRows()).toContain('Errors and logs');
+    expect(navRows()).toHaveLength(16);
   });
 });
