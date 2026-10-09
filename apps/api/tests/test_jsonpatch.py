@@ -87,8 +87,8 @@ def test_a_patch_that_fits_still_applies() -> None:
 def test_replacing_and_removing_free_their_space() -> None:
     big = "y" * 900
     document = {"slot": big}
-    # Replacing the 900-byte value over and over never accumulates: the old one goes.
-    patch = [{"op": "replace", "path": "/slot", "value": big} for _ in range(50)]
+    # Replacing the 900-byte value again and again never accumulates: the old one goes.
+    patch = [{"op": "replace", "path": "/slot", "value": big} for _ in range(5)]
     assert jsonpatch.apply(document, patch, max_bytes=2_000) == {"slot": big}
     freed = jsonpatch.apply(
         document,
@@ -111,3 +111,37 @@ def test_too_many_operations_are_refused_whole() -> None:
 
 def test_without_a_budget_the_document_is_unbounded_as_before() -> None:
     assert jsonpatch.apply({"a": 1}, _doubling_patch(3))["r2"]["r1"]["r0"] == {"a": 1}
+
+
+def test_work_that_grows_nothing_is_still_bounded() -> None:
+    """Same-size replaces never grow the document, and a thousand of them on a 60 KB
+    state held the worker's loop for over a minute. The work itself is capped now."""
+    import time
+
+    state = {"a": "x" * 30_000, "b": "y" * 30_000}
+    patch = [{"op": "replace", "path": "/a", "value": "z" * 30_000}] * 1000
+    started = time.monotonic()
+    with pytest.raises(jsonpatch.PatchTooLargeError):
+        jsonpatch.apply(state, patch, max_bytes=64 * 1024)
+    assert time.monotonic() - started < 0.5
+
+
+def test_a_copy_onto_itself_is_free() -> None:
+    state = {"b": "y" * 30_000}
+    patch = [{"op": "copy", "from": "/b", "path": "/b"}] * 1000
+    assert jsonpatch.apply(state, patch, max_bytes=64 * 1024) == state
+
+
+def test_a_swap_may_pass_through_more_than_it_ends_with() -> None:
+    """add-then-remove is how some agents write a swap; only the end must fit."""
+    big = "y" * 900
+    patch = [
+        {"op": "add", "path": "/new", "value": big},
+        {"op": "remove", "path": "/old"},
+    ]
+    assert jsonpatch.apply({"old": big}, patch, max_bytes=1_000) == {"new": big}
+
+
+def test_the_end_must_fit_even_when_every_step_did() -> None:
+    with pytest.raises(jsonpatch.PatchTooLargeError):
+        jsonpatch.apply({}, [{"op": "add", "path": "/a", "value": "x" * 1_500}], max_bytes=1_000)

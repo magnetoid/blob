@@ -539,7 +539,11 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 
 Without mail, invite links still work — they are shown in the console, which says plainly
 that the email did not go — and a forgotten password needs an admin, who makes a reset
-link from **People** in the workspace console and hands it over. **System → Health** says
+link from **People** in the workspace console and hands it over. A link resets every
+account its address holds, so an admin's is the owner's to make, and the owner's, a
+server administrator's, or that of anyone with accounts in other workspaces only a server
+administrator's; whoever runs the server can always print one from inside the app
+container with `python -m blob_api.reset_link someone@example.com`. **System → Health** says
 whether mail is reachable at all, so a server that quietly delivers nothing is visible
 rather than assumed.
 

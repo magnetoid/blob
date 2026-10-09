@@ -13,12 +13,20 @@ import { useAdminAction } from '../../console/hooks.ts';
 
 export function PeopleSection({
   isOwner,
+  isInstanceAdmin = false,
   onError,
 }: {
   isOwner: boolean;
+  isInstanceAdmin?: boolean;
   onError: (message: string | null) => void;
 }) {
   const currentUser = useStore((s) => s.currentUser);
+  // The server's rule (services/admin `_may_act_on`): a member is any admin's to unlock
+  // or sign out, an admin only the owner's, the owner only the server administrator's.
+  // The server still decides — it also refuses an account held in other workspaces —
+  // but a button that can only ever answer 403 is not offered.
+  const mayActOn = (target: { role: string }) =>
+    isInstanceAdmin || target.role === "member" || (target.role === "admin" && isOwner);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -120,7 +128,7 @@ export function PeopleSection({
                       <option value="owner">owner</option>
                     </select>
                   )}
-                {!user.deactivatedAt && (
+                {!user.deactivatedAt && mayActOn(user) && (
                   <button
                     className="btn btn-ghost"
                     aria-label={`Make a password reset link for ${user.displayName}`}
@@ -135,7 +143,9 @@ export function PeopleSection({
                     Reset link
                   </button>
                 )}
-                {!user.deactivatedAt && user.sessionCount > 0 && (
+                {!user.deactivatedAt &&
+                  user.sessionCount > 0 &&
+                  (user.id === currentUser?.id || mayActOn(user)) && (
                   <button
                     className="btn btn-ghost"
                     onClick={() =>

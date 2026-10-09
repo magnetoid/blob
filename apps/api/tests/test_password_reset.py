@@ -264,3 +264,30 @@ class TestALinkIsSpentOnce:
         ]
         assert statuses[:10] == [400] * 10
         assert statuses[10] == 429
+
+
+async def test_two_different_links_finished_at_once_do_not_deadlock(
+    client: Client, sent_links: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Finishing retires the address's other links; two finishes at once used to lock
+    each other's rows in opposite orders, and one of them got a 500."""
+    await sign_up(client, "Owner")
+    for _ in range(2):
+        assert (
+            await client.post("/api/auth/forgot-password", {"email": "owner@example.com"})
+        ).status == 200
+    first, second = (link.rsplit("/", 1)[1] for link in sent_links)
+    real = auth_router.hash_password
+
+    async def slow(password: str) -> str:
+        await asyncio.sleep(0.3)  # production hashing takes about this long
+        return await real(password)
+
+    monkeypatch.setattr(auth_router, "hash_password", slow)
+    a, b = await asyncio.gather(
+        client.fork().post("/api/auth/reset-password", {"token": first, "password": NEW_PASSWORD}),
+        client.fork().post(
+            "/api/auth/reset-password", {"token": second, "password": "another-new-password"}
+        ),
+    )
+    assert sorted([a.status, b.status]) == [200, 400]

@@ -23,6 +23,7 @@ buffer keeps only its tail. An agent cannot grow this card without limit.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -256,6 +257,8 @@ class CardFold:
         message_id = event.get("messageId")
         if isinstance(message_id, str) and message_id:
             if kind == "ACTIVITY_SNAPSHOT" and isinstance(event.get("content"), Mapping):
+                if len(json.dumps(event["content"], default=str)) > ACTIVITY_MAX_BYTES:
+                    return False  # held to the budget its deltas are, or they all fail
                 self._activities[message_id] = dict(event["content"])
                 return self._set_activity(_activity_text(self._activities[message_id], event))
             patch = event.get("patch")

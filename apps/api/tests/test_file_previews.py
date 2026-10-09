@@ -238,14 +238,14 @@ class TestAPageRunsInItsOwnSandbox:
 
 
 class TestTheSizeThatCounts:
-    async def test_a_file_bigger_than_it_declared_is_measured_not_trusted(
-        self, team: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    async def test_storage_refuses_a_file_bigger_than_its_ticket(
+        self, team: dict[str, Any]
     ) -> None:
-        # The ticket's size is the uploader's word and the presigned PUT does not pin it,
-        # so a preview must read no more than its cap whatever the row says.
+        """The ticket's size is signed into the PUT now, so the uploader's word is the
+        size storage holds it to — a bigger body is refused before it lands. It used to
+        be stored, and every reader had to guard against the row being wrong."""
         import httpx
 
-        monkeypatch.setattr(files_router, "TEXT_PREVIEW_MAX_BYTES", 8)
         real = b"0123456789" * 3
         ticket = await team["owner"].post(
             "/api/uploads", {"filename": "small.txt", "mime": "text/plain", "sizeBytes": 4}
@@ -255,13 +255,7 @@ class TestTheSizeThatCounts:
             put = await http.put(
                 ticket.body["uploadUrl"], content=real, headers=ticket.body["headers"]
             )
-            assert put.status_code in (200, 204), put.text
+        assert put.status_code == 403, put.text
         attachment_id = ticket.body["attachmentId"]
         done = await team["owner"].post(f"/api/uploads/{attachment_id}/complete", {})
-        assert done.status == 200, done.body
-        await send_message(team["owner"], team["general"], "f", attachmentIds=[attachment_id])
-
-        answer = await team["member"].get(preview_of(attachment_id))
-
-        assert answer.status == 400
-        assert answer.body["error"]["code"] == "preview_too_large"
+        assert done.status == 400, done.body

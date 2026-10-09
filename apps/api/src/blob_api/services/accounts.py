@@ -122,6 +122,26 @@ class ResetClaim:
     email: str
 
 
+async def retire_resets(session: AsyncSession, *, email: str) -> None:
+    """Every reset link still out for this address stops working.
+
+    For when what a link would hand over has changed under it — the person was promoted,
+    or their address now holds an account in another workspace — since the rules for
+    who may unlock whom (`services/admin`) are checked when a link is minted, and a link
+    lives an hour.
+    """
+    await session.execute(
+        text(
+            """
+            UPDATE password_resets SET used_at = now()
+             WHERE used_at IS NULL
+               AND user_id IN (SELECT id FROM users WHERE email = :email)
+            """
+        ),
+        {"email": email},
+    )
+
+
 async def claim_password_reset(session: AsyncSession, token: str) -> ResetClaim:
     """Spend the link — once.
 
@@ -131,6 +151,26 @@ async def claim_password_reset(session: AsyncSession, token: str) -> ResetClaim:
     clicks at the same moment both reset the password. Inside the caller's transaction,
     so if anything after this fails the claim rolls back with it and the link still works.
     """
+    found = (
+        await session.execute(
+            text(
+                """
+                SELECT u.email FROM password_resets r JOIN users u ON u.id = r.user_id
+                 WHERE r.token_hash = :token_hash
+                """
+            ),
+            {"token_hash": hash_token(token)},
+        )
+    ).fetchone()
+    if found is None:
+        raise bad_request("That reset link has expired. Request a new one.")
+    # One reset per address at a time. Finishing retires the address's other links, so
+    # two different links finished at once used to lock each other's rows in opposite
+    # orders and deadlock; taken in turn, the second finds its link already retired.
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"password_reset:{found.email}"},
+    )
     reset = (
         await session.execute(
             text(
@@ -147,12 +187,7 @@ async def claim_password_reset(session: AsyncSession, token: str) -> ResetClaim:
     ).fetchone()
     if reset is None:
         raise bad_request("That reset link has expired. Request a new one.")
-    owner = (
-        await session.execute(text("SELECT email FROM users WHERE id = :id"), {"id": reset.user_id})
-    ).fetchone()
-    if owner is None:
-        raise bad_request("That reset link is no longer valid.")
-    return ResetClaim(user_id=str(reset.user_id), email=owner.email)
+    return ResetClaim(user_id=str(reset.user_id), email=found.email)
 
 
 async def finish_password_reset(
@@ -171,16 +206,7 @@ async def finish_password_reset(
     await workspace_service.set_password_everywhere(session, claim.email, password_hash)
     # Every other link still out there for this address dies with this one: a reset
     # requested last week, or minted by an admin, must not reset the password chosen now.
-    await session.execute(
-        text(
-            """
-            UPDATE password_resets SET used_at = now()
-             WHERE used_at IS NULL
-               AND user_id IN (SELECT id FROM users WHERE email = :email)
-            """
-        ),
-        {"email": claim.email},
-    )
+    await retire_resets(session, email=claim.email)
     # Changing a password signs out every existing session — in every workspace, since
     # the password that protected them all has just changed.
     await session.execute(

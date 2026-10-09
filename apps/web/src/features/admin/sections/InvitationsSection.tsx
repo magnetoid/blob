@@ -7,8 +7,11 @@ import { CardNotice } from "../../console/Card.tsx";
 import { useAdminAction } from '../../console/hooks.ts';
 
 export function InvitationsSection({
+  isOwner = false,
   onError,
 }: {
+  /** Roles are the owner's to give, by invitation too: the server refuses anyone else. */
+  isOwner?: boolean;
   onError: (message: string | null) => void;
 }) {
   const [invites, setInvites] = useState<AdminInvite[]>([]);
@@ -67,7 +70,7 @@ export function InvitationsSection({
             onChange={(e) => setRole(e.target.value as "member" | "admin")}
           >
             <option value="member">member</option>
-            <option value="admin">admin</option>
+            {isOwner && <option value="admin">admin</option>}
           </select>
         </label>
         <button className="btn btn-primary" type="submit">

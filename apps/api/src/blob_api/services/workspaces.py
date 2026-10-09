@@ -74,14 +74,17 @@ async def is_instance_admin(session: AsyncSession, email: str) -> bool:
 
 
 async def has_account_elsewhere(session: AsyncSession, email: str, workspace_id: str) -> bool:
-    """Whether this address holds a live account in any workspace but this one."""
+    """Whether this address holds an account in any workspace but this one.
+
+    Deactivated ones count: a reset writes the password to those too
+    (`set_password_everywhere`), and reactivating one would hand it over.
+    """
     row = (
         await session.execute(
             text(
                 """
                 SELECT 1 FROM users
-                 WHERE email = :email AND workspace_id <> :ws
-                   AND deactivated_at IS NULL AND kind = 'human'
+                 WHERE email = :email AND workspace_id <> :ws AND kind = 'human'
                  LIMIT 1
                 """
             ),

@@ -6,6 +6,7 @@ workspace can never be left without an owner.
 
 from __future__ import annotations
 
+import pytest
 import pytest_asyncio
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up
@@ -336,6 +337,22 @@ class TestAResetLinkIsNoWayToTakeAnAccountAbove:
     async def test_an_admin_cannot_take_the_owners_account(self, team: dict) -> None:
         refused = await team["admin"].post(f"/api/admin/users/{team['owner'].user_id}/reset-link")
         assert refused.status == 403, refused.body
+        message = refused.body["error"]["message"]
+        assert "server administrator" in message
+        # No mail here, so the refusal does not send the owner to a link nobody will get.
+        assert "Forgot password" not in message
+
+    async def test_where_mail_works_the_owner_is_pointed_at_forgot_password(
+        self, team: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from blob_api.lib import mail
+
+        async def reachable() -> str:
+            return "ok"
+
+        monkeypatch.setattr(mail, "probe", reachable)
+        refused = await team["admin"].post(f"/api/admin/users/{team['owner'].user_id}/reset-link")
+        assert refused.status == 403, refused.body
         assert "Forgot password" in refused.body["error"]["message"]
 
     async def test_an_admin_cannot_take_another_admins(self, team: dict, client: Client) -> None:
@@ -418,3 +435,93 @@ class TestRolesAreTheOwnersToGiveByInvitationToo:
     async def test_the_owner_invites_an_admin(self, team: dict) -> None:
         made = await team["owner"].post("/api/invites", {"expiresInDays": 1, "role": "admin"})
         assert made.status == 200, made.body
+
+
+class TestALinkMintedForAMemberDoesNotOpenWhatTheyBecome:
+    """The rules are checked when a link is minted, and a link lives an hour."""
+
+    async def _link_for_member(self, team: dict) -> str:
+        made = await team["admin"].post(f"/api/admin/users/{team['member'].user_id}/reset-link")
+        assert made.status == 200, made.body
+        return str(made.body["url"]).rsplit("/", 1)[1]
+
+    async def test_a_promotion_retires_it(self, team: dict) -> None:
+        token = await self._link_for_member(team)
+        promoted = await team["owner"].put(
+            f"/api/admin/users/{team['member'].user_id}/role", {"role": "admin"}
+        )
+        assert promoted.status == 200, promoted.body
+        used = (
+            await team["owner"]
+            .fork()
+            .post("/api/auth/reset-password", {"token": token, "password": "the-admins-choice"})
+        )
+        assert used.status == 400, used.body
+
+    async def test_joining_another_workspace_retires_it(self, team: dict) -> None:
+        from .helpers import PASSWORD
+
+        token = await self._link_for_member(team)
+        founder_elsewhere = team["owner"].fork()
+        await founder_elsewhere.post(
+            "/api/auth/login", {"email": "owner@example.com", "password": PASSWORD}
+        )
+        created = await founder_elsewhere.post("/api/admin/instance/workspaces", {"name": "Else"})
+        await founder_elsewhere.post(f"/api/workspaces/{created.body['id']}/switch")
+        invite = await founder_elsewhere.post("/api/invites", {"expiresInDays": 1})
+        await sign_up(
+            team["owner"].fork(),
+            "Member Else",
+            invite_token=invite.body["url"].split("/join/")[1],
+            email="member@example.com",
+        )
+        used = (
+            await team["owner"]
+            .fork()
+            .post("/api/auth/reset-password", {"token": token, "password": "the-admins-choice"})
+        )
+        assert used.status == 400, used.body
+
+    async def test_a_deactivated_account_elsewhere_still_counts(self, team: dict) -> None:
+        from sqlalchemy import text
+
+        from blob_api.db.engine import SessionFactory
+
+        await self.test_joining_another_workspace_retires_it(team)
+        async with SessionFactory() as session, session.begin():
+            await session.execute(
+                text(
+                    "UPDATE users SET deactivated_at = now()"
+                    " WHERE email = 'member@example.com' AND display_name = 'Member Else'"
+                )
+            )
+        refused = await team["admin"].post(f"/api/admin/users/{team['member'].user_id}/reset-link")
+        assert refused.status == 403, refused.body
+
+
+class TestSigningSomebodyOutEverywhereFollowsTheSameRoles:
+    async def test_an_admin_cannot_sign_the_owner_out(self, team: dict) -> None:
+        refused = await team["admin"].post(
+            f"/api/admin/users/{team['owner'].user_id}/revoke-sessions"
+        )
+        assert refused.status == 403, refused.body
+        assert (await team["owner"].get("/api/bootstrap")).status == 200
+
+    async def test_an_admin_cannot_sign_another_admin_out(self, team: dict) -> None:
+        second = await invite_and_sign_up(team["owner"], "Second Admin", role="admin")
+        refused = await team["admin"].post(f"/api/admin/users/{second.user_id}/revoke-sessions")
+        assert refused.status == 403, refused.body
+
+    async def test_the_owner_signs_an_admin_out(self, team: dict) -> None:
+        done = await team["owner"].post(f"/api/admin/users/{team['admin'].user_id}/revoke-sessions")
+        assert done.status == 200, done.body
+
+    async def test_an_admin_still_signs_a_member_out_and_themselves(self, team: dict) -> None:
+        member = await team["admin"].post(
+            f"/api/admin/users/{team['member'].user_id}/revoke-sessions"
+        )
+        assert member.status == 200, member.body
+        themselves = await team["admin"].post(
+            f"/api/admin/users/{team['admin'].user_id}/revoke-sessions"
+        )
+        assert themselves.status == 200, themselves.body

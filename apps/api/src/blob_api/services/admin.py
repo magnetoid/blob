@@ -20,6 +20,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
+from ..lib import mail
 from ..lib.auth import hash_token
 from ..lib.errors import (
     bad_request,
@@ -54,7 +55,7 @@ from . import audit as audit_service
 from . import channels as channel_service
 from . import handles as handle_service
 from . import workspaces as workspace_service
-from .accounts import revoke_assistant_tokens
+from .accounts import retire_resets, revoke_assistant_tokens
 from .audit import Actor
 from .serialize import USER_COLUMNS, to_user
 
@@ -167,6 +168,17 @@ async def set_role(session: AsyncSession, owner: Actor, user_id: str, role: str)
     await session.execute(
         text("UPDATE users SET role = :role WHERE id = :id"), {"id": user_id, "role": role}
     )
+    # A reset link is checked against the role its target had when it was minted, and
+    # lives an hour: one minted for a member must not open the admin — or owner — that
+    # member has just become. The outgoing owner's go too.
+    changed_emails = (
+        await session.execute(
+            text("SELECT DISTINCT email FROM users WHERE id = ANY(cast(:ids AS uuid[]))"),
+            {"ids": [user_id, owner.id] if role == "owner" else [user_id]},
+        )
+    ).fetchall()
+    for row in changed_emails:
+        await retire_resets(session, email=row.email)
     await audit_service.record(
         session,
         owner,
@@ -293,12 +305,17 @@ async def revoke_sessions(session: AsyncSession, admin: Actor, user_id: str) -> 
     # workspace, and a bare user id would let them sign out anyone on the server.
     target = (
         await session.execute(
-            text("SELECT 1 FROM users WHERE id = :id AND workspace_id = :ws"),
+            text("SELECT role, email FROM users WHERE id = :id AND workspace_id = :ws"),
             {"id": user_id, "ws": admin.workspace_id},
         )
     ).fetchone()
     if target is None:
         raise no_such_person()
+    # It now ends their assistant's token too, so it gets the reset link's role rule: an
+    # admin repeatedly signing the owner out — and cutting off the owner's assistant —
+    # is a nuisance an admin should not be able to cause.
+    if user_id != admin.id:
+        await _may_act_on(session, admin, target, everywhere=False)
     await session.execute(text("DELETE FROM sessions WHERE user_id = :id"), {"id": user_id})
     # "Every device" includes an assistant holding an MCP token: it reads what this
     # person reads and is not in `sessions`. Without this, a stolen session could mint a
@@ -310,17 +327,21 @@ async def revoke_sessions(session: AsyncSession, admin: Actor, user_id: str) -> 
     )
 
 
-async def _may_hand_over_a_reset(session: AsyncSession, admin: Actor, person: Any) -> None:
-    """Refuse a reset link that would hand an admin more than a member's account.
+async def _may_act_on(
+    session: AsyncSession, admin: Actor, person: Any, *, everywhere: bool
+) -> None:
+    """Refuse an admin acting on an account above a member's.
 
-    A link resets the password on every account its address holds and signs whoever
-    opens it in, so minting one is taking the account over. Before this check any admin
-    could take the owner's: the owner of the first workspace is also the server's
-    administrator, so one admin was one link away from the server console and from
-    switching into every other workspace that person belongs to. So: an owner's or a
-    server administrator's account, or anybody's with accounts in other workspaces,
-    only a server administrator may unlock; an admin's, only the owner. Everybody else
-    keeps the path the README promises — a forgotten password still needs an admin.
+    For a reset link, `everywhere`: a link resets the password on every account its
+    address holds and signs whoever opens it in, so minting one is taking the account
+    over — and any admin could mint one for the owner, who on a first workspace is also
+    the server's administrator: one link from the server console and from switching into
+    every other workspace that person belongs to. So an owner's or a server
+    administrator's account, or anybody's with accounts in other workspaces (deactivated
+    ones too: the reset writes to them), only a server administrator may unlock; an
+    admin's, only the owner. Signing somebody out everywhere asks the role half only,
+    since it touches this workspace's account alone. A member's stays any admin's to
+    unlock, the path the README promises.
     """
     caller = (
         await session.execute(
@@ -332,12 +353,20 @@ async def _may_hand_over_a_reset(session: AsyncSession, admin: Actor, person: An
     if await workspace_service.is_instance_admin(session, caller.email):
         return
     if person.role == "owner":
-        raise forbidden(
-            "Only a server administrator can reset the owner's password. The owner can"
-            " use “Forgot password” on the sign-in page."
-        )
+        if not everywhere:
+            raise forbidden("Only a server administrator can sign the owner out.")
+        message = "Only a server administrator can reset the owner's password."
+        if await mail.probe() == "ok":
+            message += " The owner can use “Forgot password” on the sign-in page."
+        raise forbidden(message)
     if person.role == "admin" and caller.role != "owner":
-        raise forbidden("Only the owner can reset another admin's password.")
+        raise forbidden(
+            "Only the owner can reset another admin's password."
+            if everywhere
+            else "Only the owner can sign another admin out."
+        )
+    if not everywhere:
+        return
     if await workspace_service.is_instance_admin(session, person.email):
         raise forbidden("Only a server administrator can reset a server administrator's password.")
     if await workspace_service.has_account_elsewhere(session, person.email, admin.workspace_id):
@@ -374,7 +403,7 @@ async def create_reset_link(session: AsyncSession, admin: Actor, user_id: str) -
     ).fetchone()
     if person is None:
         raise not_found("No such person here.")
-    await _may_hand_over_a_reset(session, admin, person)
+    await _may_act_on(session, admin, person, everywhere=True)
 
     token = new_token()
     row = (

@@ -19,6 +19,7 @@ from ..lib.errors import bad_request, conflict, not_found, unauthorized, unique_
 from ..lib.ids import new_id, new_token
 from ..schemas.base import iso
 from ..schemas.models import CurrentUser
+from . import accounts as account_service
 from . import audit as audit_service
 from . import handles as handle_service
 from . import workspaces as workspace_service
@@ -162,6 +163,11 @@ async def signup(
                     "That email or display name is already taken.", "user_exists"
                 ) from exc
             raise
+        if existing_hash is not None:
+            # The address now holds accounts in two workspaces, which only a server
+            # administrator may unlock (services/admin) — so a reset link minted while
+            # it held one, by an admin of the first, must not outlive the change.
+            await account_service.retire_resets(session, email=email)
 
         defaults = (
             await session.execute(
