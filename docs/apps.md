@@ -439,6 +439,14 @@ and a quarter-hour wall clock. Your run's `context` carries `asked_by_agent` and
 agents in the room so yours can address one by writing `@Name`. Stop on any run stops the
 hops it caused.
 
+**When and where.** Every run's `context` also says when it is happening and where:
+`now` is a JSON string — `utc` (an ISO time ending in `Z`), `timezone` (the IANA zone of
+the person the run acts for, `UTC` if theirs is unknown), `local` (their local time, with
+its offset) and `weekday` — so "tomorrow" and "this morning" mean the person's day, not
+your model's training date. `channel_topic` is the room's topic when it has one, and
+`channel_people` how many people are in it, as a decimal string (agents and deactivated
+accounts are not counted). Read them or ignore them; nothing else depends on it.
+
 **AG-UI is a transport, not a permission.** Your bot still needs `messages:write`, and it
 still has to be a member of a channel to answer in it. In a channel it cannot see, it says
 nothing at all — not even an error, because a private channel's existence is private.
@@ -450,8 +458,13 @@ nothing at all — not even an error, because a private channel's existence is p
 ### Blob's tools
 
 An admin can offer your agent Blob's own tools, on its page in the console: **read**
-(`list_channels`, `read_channel`, `read_thread`, `search_messages`, `list_people`) or
-**write** (those, and `post_message`). They arrive in `RunAgentInput.tools` with a name,
+(`list_channels`, `read_channel`, `read_thread`, `read_file`, `list_tasks`,
+`search_messages`, `list_people`) or **write** (those, and `post_message`). `read_file`
+takes the id of a message — the `id` of an entry in your `messages` — and, when it carries
+several files, a file's name, and answers the text of a text file (notes, code, CSV,
+JSON) up to 512 KB; images and PDFs are not read as text. `list_tasks` lists the team's
+tasks with their owner, status, priority and due date, narrowed by `channel`, `status` or
+`mine`. They arrive in `RunAgentInput.tools` with a name,
 a description and JSON-schema `parameters`, and they are client-executed, the way AG-UI's
 frontend tools are: call one by streaming `TOOL_CALL_START`, `TOOL_CALL_ARGS` and
 `TOOL_CALL_END`, then end the run. Blob runs the call and calls you again — same

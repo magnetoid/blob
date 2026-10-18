@@ -216,7 +216,7 @@ nothing more — and shows up in the audit log as them.
 
 | | Tools |
 |---|---|
-| **Read** | `whoami` · `inbox` (unread conversations, mentions first) · `list_channels` · `list_threads` (followed threads, new replies marked) · `read_channel` · `read_thread` · `search_messages` (paged by cursor) · `list_people` · `run_status` |
+| **Read** | `whoami` · `inbox` (unread conversations, mentions first) · `list_channels` · `list_threads` (followed threads, new replies marked) · `read_channel` · `read_thread` · `read_file` (a text attachment, up to 512 KB) · `list_tasks` (owner, status, due date) · `search_messages` (paged by cursor) · `list_people` · `run_status` |
 | **Write** — a separate tick, off by default | `post_message` · `message_person` (both idempotent on the assistant's own id) · `add_reaction` · `ask_agent` · `answer_decision` · `stop_run` |
 
 Every token ends after 30, 90 or 365 days, and *Admin → Assistants* lists every connection

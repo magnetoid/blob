@@ -123,6 +123,59 @@ CATALOGUE: list[dict[str, Any]] = [
         "readOnly": True,
     },
     {
+        "name": "read_file",
+        "title": "Read a file",
+        "description": (
+            "The text of a file attached to a message — a document, notes, code, a CSV or "
+            "JSON. Name the message it came with; if that message carries more than one "
+            "file, name the file too. Images, PDFs and other binary files cannot be read "
+            "as text, and a file over 512 KB is too long."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "message_id": {
+                    "type": "string",
+                    "description": "The id of the message the file is attached to.",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The file's name, when the message carries several.",
+                },
+            },
+            "required": ["message_id"],
+        },
+        "scope": "read",
+        "readOnly": True,
+    },
+    {
+        "name": "list_tasks",
+        "title": "List tasks",
+        "description": (
+            "Tasks this person can see — the work a team has agreed to do, each with its "
+            "owner, status and due date — newest first. Narrow by channel, by status, or "
+            "to the ones assigned to this person."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "channel": {**_CHANNEL_SCHEMA, "description": "Only tasks in this channel."},
+                "status": {
+                    "type": "string",
+                    "enum": ["todo", "in_progress", "blocked", "done", "cancelled"],
+                    "description": "Only tasks with this status.",
+                },
+                "mine": {
+                    "type": "boolean",
+                    "description": "Only tasks assigned to the person this connection is.",
+                },
+                "limit": _LIMIT_SCHEMA,
+            },
+        },
+        "scope": "read",
+        "readOnly": True,
+    },
+    {
         "name": "search_messages",
         "title": "Search messages",
         "description": (

@@ -138,6 +138,11 @@ class Gathered:
     #: The task this run was handed, as the run input's `task` context item says it — or
     #: None, which is nearly every run (ADR 0023).
     task: dict[str, Any] | None = None
+    #: The time zone of the person the run acts for, for the `now` context item.
+    timezone: str = "UTC"
+    #: The room's topic and how many people are in it (agents and the deactivated aside).
+    topic: str | None = None
+    people: int | None = None
 
 
 @dataclass(slots=True)
@@ -264,6 +269,25 @@ async def _gather(
         except AppError:
             return Gathered([], {}, [], None, thread_key, None, silent=True)
 
+        # The room, and the clock of the person this runs for, in one round trip. Read
+        # after the access check, so nothing about a room the bot cannot see is fetched.
+        where = (
+            await session.execute(
+                text(
+                    """
+                    SELECT c.topic,
+                           (SELECT count(*) FROM channel_members cm
+                              JOIN users u ON u.id = cm.user_id
+                             WHERE cm.channel_id = c.id AND u.kind = 'human'
+                               AND u.deactivated_at IS NULL) AS people,
+                           (SELECT timezone FROM users WHERE id = :person) AS timezone
+                      FROM channels c WHERE c.id = :id
+                    """
+                ),
+                {"id": channel_id, "person": chain.initiated_by_user_id},
+            )
+        ).fetchone()
+
         # The budget answers here — after access, before anything is spent. A refused
         # mention skips the history read and the agent call both, and a bot that cannot
         # see the channel said nothing above rather than "over budget".
@@ -331,6 +355,9 @@ async def _gather(
         refusal,
         memory_person=memory_person,
         task=task,
+        timezone=(where.timezone if where is not None and where.timezone else "UTC"),
+        topic=(where.topic if where is not None and where.topic else None),
+        people=(int(where.people) if where is not None else None),
     )
 
 
@@ -965,6 +992,9 @@ def _run_body(
         protocol_version=agui.PROTOCOL_VERSION if speaks_1_0 else None,
         tools=tools,
         task=gathered.task,
+        now=agui.clock(datetime.now(UTC), gathered.timezone),
+        channel_topic=gathered.topic,
+        channel_people=gathered.people,
     )
 
 

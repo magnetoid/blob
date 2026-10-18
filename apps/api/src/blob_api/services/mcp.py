@@ -36,10 +36,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import SessionFactory, session_scope, transaction
+from ..lib import previews
 from ..lib.auth import hash_token
 from ..lib.errors import bad_request, forbidden, not_found
 from ..lib.ids import new_id
 from ..lib.rate_limit import consume
+from ..lib.storage import get_object_head
 from ..plugins import decisions
 from ..plugins import events as plugin_events
 from ..realtime import hub
@@ -47,8 +49,10 @@ from ..schemas.models import Message
 from . import activity as activity_service
 from . import agent_chains, agent_run_control, mcp_catalogue, task_dispatch
 from . import agent_runs as agent_run_service
+from . import agentic as agentic_service
 from . import audit as audit_service
 from . import channels as channel_service
+from . import files as file_service
 from . import messages as message_service
 from . import reactions as reaction_service
 from . import search as search_service
@@ -418,6 +422,127 @@ async def _read_thread(caller: McpCaller, arguments: dict[str, Any]) -> str:
     count = max(len(everyone) - 1, 0)
     header = f"A thread with {count} repl{'y' if count == 1 else 'ies'}, oldest first."
     return f"{header}\n\n{_transcript(everyone, names)}"
+
+
+#: The most of a file `read_file` hands over. Generous for notes, a spec or a CSV; a
+#: dump past it is not something to read into a model whole.
+READ_FILE_MAX_BYTES = 512 * 1024
+
+
+async def _read_file(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    """A text file's contents, by the rule the file panel uses.
+
+    The person must be able to read the message's channel, and a room-bound agent the
+    room must be able to as well — the same two checks `read_thread` makes. A deleted
+    message's files are gone with it, here as everywhere a reader would look.
+    """
+    message_id = _an_id(_required(arguments, "message_id"), "message")
+    wanted = str(arguments.get("name") or "").strip().lower()
+    async with session_scope() as session:
+        message = await message_service.by_id(session, message_id)
+        if message is None or message.deleted_at:
+            raise not_found("There is no message with that id.")
+        await channel_service.assert_channel_access(session, caller.user_id, message.channel_id)
+        await refuse_outside_the_room(session, caller, message.channel_id)
+        files = await file_service.of_message(session, message_id)
+    # A voice note's words are already the message's body; it is not a file to read.
+    files = [row for row in files if row.kind != "voice"]
+    if not files:
+        raise not_found("That message has no file attached.")
+    if wanted:
+        chosen = [row for row in files if row.filename.lower() == wanted]
+        if not chosen:
+            names = ", ".join(row.filename for row in files)
+            raise not_found(f"That message has no file by that name. It has: {names}.")
+        file = chosen[0]
+    elif len(files) == 1:
+        file = files[0]
+    else:
+        names = ", ".join(row.filename for row in files)
+        raise bad_request(f"That message has {len(files)} files; name one: {names}.")
+
+    if previews.kind_of(file.filename, file.mime) != "text":
+        raise bad_request(
+            f"{file.filename} is {file.mime or 'not text'}; only text files can be read."
+        )
+    # Measured, not trusted: the row's size is the uploader's claim, so storage is asked
+    # for one byte past the cap and no more — the rule the preview route keeps.
+    if int(file.size_bytes or 0) > READ_FILE_MAX_BYTES:
+        raise bad_request(f"{file.filename} is longer than 512 KB; it is too long to read.")
+    body = await get_object_head(file.object_key, READ_FILE_MAX_BYTES + 1)
+    if len(body) > READ_FILE_MAX_BYTES:
+        raise bad_request(f"{file.filename} is longer than 512 KB; it is too long to read.")
+    try:
+        words = body.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise bad_request(f"{file.filename} is not readable as text.") from None
+    return f"{file.filename} — {len(words)} characters:\n\n{words}"
+
+
+async def _list_tasks(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    """Tasks the person can see, bounded to the room for an agent.
+
+    Visibility is the statement's own (`list_tasks_visible_to`: public channels, or ones
+    the person is in); the room ceiling drops whatever lives in a private channel that
+    is not the room the answer is going into — omitted, not refused, so a listing never
+    says such a channel exists.
+    """
+    status = arguments.get("status")
+    if status is not None and status not in ("todo", "in_progress", "blocked", "done", "cancelled"):
+        raise bad_request("`status` is one of todo, in_progress, blocked, done, cancelled.")
+    limit = _limit(arguments)
+    reference = arguments.get("channel")
+    async with session_scope() as session:
+        only_channel = (
+            await _resolve_channel(session, caller, str(reference))
+            if isinstance(reference, str) and reference.strip()
+            else None
+        )
+        tasks = await agentic_service.list_tasks_visible_to(
+            session,
+            caller.user_id,
+            caller.workspace_id,
+            assignee=caller.user_id if arguments.get("mine") is True else None,
+            status=status,
+        )
+        if only_channel is not None:
+            tasks = [task for task in tasks if task.channel_id == only_channel]
+        channel_ids = {task.channel_id for task in tasks}
+        kinds = {
+            str(row.id): row.kind
+            for row in (
+                await session.execute(
+                    text("SELECT id, kind FROM channels WHERE id = ANY(:ids)"),
+                    {"ids": list(channel_ids)},
+                )
+            ).fetchall()
+        }
+        if caller.reads_are_room_bound:
+            tasks = [
+                task
+                for task in tasks
+                if task.channel_id == caller.room_channel_id
+                or kinds.get(task.channel_id) == "public"
+            ]
+        tasks = tasks[:limit]
+        labels = await _channel_names(session, {task.channel_id for task in tasks})
+        people = await _names(
+            session, {task.assignee_user_id for task in tasks if task.assignee_user_id}
+        )
+
+    if not tasks:
+        return "No tasks match."
+    lines = []
+    for task in tasks:
+        owner = people.get(task.assignee_user_id or "", "nobody")
+        due = f" · due {_when(task.due_at)}" if task.due_at else ""
+        where = labels.get(task.channel_id, "a conversation")
+        thread = f" · thread {task.thread_root_id}" if task.thread_root_id else ""
+        lines.append(
+            f"- [{task.status}] {task.title} — {where} · {owner} · {task.priority}"
+            f"{due} · task {task.id}{thread}"
+        )
+    return f"{len(tasks)} task{'' if len(tasks) == 1 else 's'}, newest first.\n" + "\n".join(lines)
 
 
 async def _search_messages(caller: McpCaller, arguments: dict[str, Any]) -> str:
@@ -1009,6 +1134,8 @@ _HANDLERS = {
     "list_channels": _list_channels,
     "read_channel": _read_channel,
     "read_thread": _read_thread,
+    "read_file": _read_file,
+    "list_tasks": _list_tasks,
     "search_messages": _search_messages,
     "list_people": _list_people,
     "post_message": _post_message,

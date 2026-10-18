@@ -145,7 +145,9 @@ class TestWhatARunWasShown:
         assert seen["tools"] == [
             "list_channels",
             "list_people",
+            "list_tasks",
             "read_channel",
+            "read_file",
             "read_thread",
             "search_messages",
         ]

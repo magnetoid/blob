@@ -49,7 +49,15 @@ ACCESS_LEVELS = ("none", "read", "write")
 
 #: The tools an agent may read with. `whoami` is the assistant's — it describes a token —
 #: and is not offered: an agent's identity is its bot, and the person is in the context.
-READ_TOOLS = ("list_channels", "read_channel", "read_thread", "search_messages", "list_people")
+READ_TOOLS = (
+    "list_channels",
+    "read_channel",
+    "read_thread",
+    "read_file",
+    "list_tasks",
+    "search_messages",
+    "list_people",
+)
 #: The tools that act. Each call waits for the person's approval.
 WRITE_TOOLS = ("post_message",)
 

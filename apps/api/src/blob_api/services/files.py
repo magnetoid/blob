@@ -258,6 +258,29 @@ async def for_preview(session: AsyncSession, user: SessionUser, attachment_id: s
     ).fetchone()
 
 
+async def of_message(session: AsyncSession, message_id: str) -> list[Any]:
+    """The finished attachments of one message, in the order they were attached.
+
+    No access check here: the caller has already shown it may read the message
+    (`services/mcp._read_file` asks `assert_channel_access` as the person first).
+    """
+    return list(
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT id, filename, mime, size_bytes, object_key, kind
+                      FROM attachments
+                     WHERE message_id = :id AND uploaded_at IS NOT NULL
+                     ORDER BY created_at, id
+                    """
+                ),
+                {"id": message_id},
+            )
+        ).fetchall()
+    )
+
+
 async def is_shared_picture(session: AsyncSession, workspace_id: str, key: str) -> bool:
     """Avatars and custom emoji are workspace-wide, whatever their upload row says."""
     row = (

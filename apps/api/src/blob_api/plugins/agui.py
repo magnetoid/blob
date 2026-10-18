@@ -41,8 +41,9 @@ import logging
 import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime, tzinfo
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..lib import jsonpatch
 from ..schemas.models import Message
@@ -970,6 +971,27 @@ def _with_attachment_line(message: Message) -> str:
     return f"{message.body}\n{line}" if message.body else line
 
 
+def clock(at: datetime, timezone: str) -> dict[str, str]:
+    """`at` as the `now` context item says it, for a person in `timezone`.
+
+    An unknown zone — a stored value from a browser that sent something odd — falls back
+    to UTC and says so, rather than raising inside a run: the time is a convenience to
+    the agent, never a reason for a run to fail.
+    """
+    try:
+        zone: tzinfo = ZoneInfo(timezone)
+        name = timezone
+    except (ZoneInfoNotFoundError, ValueError):
+        zone, name = UTC, "UTC"
+    local = at.astimezone(zone)
+    return {
+        "utc": at.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "timezone": name,
+        "local": local.isoformat(timespec="seconds"),
+        "weekday": local.strftime("%A"),
+    }
+
+
 def build_run_input(
     *,
     thread_id: str,
@@ -987,6 +1009,9 @@ def build_run_input(
     protocol_version: str | None = None,
     tools: Sequence[Mapping[str, Any]] = (),
     task: Mapping[str, Any] | None = None,
+    now: Mapping[str, str] | None = None,
+    channel_topic: str | None = None,
+    channel_people: int | None = None,
 ) -> dict[str, Any]:
     """The POST body.
 
@@ -1009,6 +1034,13 @@ def build_run_input(
     on, and `participants` the other agents in the room, so an agent can address one.
     `task` is the task this run was handed (ADR 0023), as JSON — id, title, instructions,
     priority and due date — beside the hand-off message that says the same in words.
+
+    `now` is when and where the run happens for the person it acts for (`clock`): the
+    time in UTC, their time zone, and their local time and weekday. Without it a model
+    answers "remind me tomorrow" or "what happened this morning" against its training
+    date. `channel_topic` and `channel_people` are the room's own description and how
+    many people are in it, so an agent knows whether it is speaking to two people or two
+    hundred. Each is a plain context item any agent may read or ignore.
 
     `protocol_version` is the version Blob speaks, and is sent only to an agent that
     declared it speaks it too (`speaks`): AG-UI 1.0 asks a client to omit it for a peer
@@ -1034,6 +1066,12 @@ def build_run_input(
         context.append({"description": "participants", "value": ", ".join(participants)})
     if task is not None:
         context.append({"description": "task", "value": json.dumps(dict(task))})
+    if now is not None:
+        context.append({"description": "now", "value": json.dumps(dict(now))})
+    if channel_topic:
+        context.append({"description": "channel_topic", "value": channel_topic})
+    if channel_people is not None:
+        context.append({"description": "channel_people", "value": str(channel_people)})
     body: dict[str, Any] = {
         "threadId": thread_id,
         "runId": run_id,
