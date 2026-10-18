@@ -214,9 +214,11 @@ class TestWhatTheFoldHears:
     def test_what_each_access_offers(self) -> None:
         assert agui_tools.offered("none") == []
         read = [tool["name"] for tool in agui_tools.offered("read")]
-        assert read == list(agui_tools.READ_TOOLS)  # never `whoami`, never a write
+        # Never `whoami`, never a write. Asking another agent comes with reading: it posts
+        # nothing a reply mentioning that agent could not (`agui_delegate`).
+        assert read == [*agui_tools.READ_TOOLS, "list_agents", "ask_agent"]
         write = [tool["name"] for tool in agui_tools.offered("write")]
-        assert write == [*agui_tools.READ_TOOLS, "post_message"]
+        assert write == [*agui_tools.READ_TOOLS, "list_agents", "post_message", "ask_agent"]
         assert all(
             set(tool) == {"name", "description", "parameters"}
             for tool in agui_tools.offered("write")
@@ -268,7 +270,10 @@ class TestReading:
         )
 
         first, second = requests(team)
-        assert [tool["name"] for tool in first["tools"]] == list(agui_tools.READ_TOOLS)
+        assert [tool["name"] for tool in first["tools"]] == [
+            *agui_tools.READ_TOOLS,
+            *agui_tools.DELEGATE_TOOLS,
+        ]
         # The next round is the same conversation with the agent's turn and its result.
         turn = second["messages"][-2]
         assert turn["role"] == "assistant"

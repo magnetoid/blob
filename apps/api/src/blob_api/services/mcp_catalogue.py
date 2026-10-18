@@ -218,6 +218,26 @@ CATALOGUE: list[dict[str, Any]] = [
         "readOnly": True,
     },
     {
+        "name": "list_agents",
+        "title": "List agents",
+        "description": (
+            "The agents this person may ask — the workspace's, their own, and any lent to "
+            "them — with what each says it does. Name a channel to see which of them are "
+            "in it; an agent answers only where it is a member. Ask one with ask_agent."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    **_CHANNEL_SCHEMA,
+                    "description": "Say which agents are in this channel.",
+                },
+            },
+        },
+        "scope": "read",
+        "readOnly": True,
+    },
+    {
         "name": "post_message",
         "title": "Post a message",
         "description": (

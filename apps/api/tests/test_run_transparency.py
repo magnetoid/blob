@@ -143,6 +143,8 @@ class TestWhatARunWasShown:
         seen = (await the_run(desk))["seen"]
         assert seen["window"] == "channel"
         assert seen["tools"] == [
+            "ask_agent",
+            "list_agents",
             "list_channels",
             "list_people",
             "list_tasks",

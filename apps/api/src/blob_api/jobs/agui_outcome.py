@@ -16,10 +16,11 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -45,7 +46,7 @@ from ..services import channels as channel_service
 from ..services import messages as message_service
 from ..services import work as work_service
 from ..services.serialize import message_event
-from . import agui_tools
+from . import agui_delegate, agui_tools
 from .agui_admission import looks_busy
 from .agui_input import attachment_parts
 from .agui_stream import CardBroadcaster, wait_for_cancel
@@ -1100,6 +1101,23 @@ async def _drive(
     # Offered only when there is somebody to run them as: tools listed to an agent whose
     # calls could never run would be a promise the run cannot keep.
     offered = agui_tools.offered_for(tools.names)
+    # Asking another agent posts in this run's conversation and waits inside this run's
+    # wall clock, so it is bound to both here, once.
+    ask = (
+        partial(
+            agui_delegate.ask,
+            listener,
+            caller=tools.caller,
+            workspace_id=workspace_id,
+            channel_id=channel_id,
+            thread_root_id=thread_root_id,
+            run_id=run_id,
+            may_spawn=spawn,
+            deadline=deadline,
+        )
+        if "ask_agent" in tools.names and tools.caller is not None
+        else None
+    )
     state = gathered.state
     touched = False
     usage: list[dict[str, Any]] = []
@@ -1190,7 +1208,7 @@ async def _drive(
         # next has to read as it happened, words and calls together.
         said = "\n\n".join(post.body for post in streamed.posts if post.body) or None
         turn, results, pending = await _run_calls(
-            listener, calls, tools, card=card, sent_1_0=sent_1_0, said=said
+            listener, calls, tools, card=card, sent_1_0=sent_1_0, said=said, ask=ask
         )
         exchange = [*exchange, turn, *results]
         if pending is not None:
@@ -1310,6 +1328,7 @@ async def _run_calls(
     card: run_card.CardFold,
     sent_1_0: bool,
     said: str | None,
+    ask: Callable[[agui.ToolCall], Awaitable[agui_tools.ToolOutcome]] | None = None,
 ) -> tuple[
     dict[str, Any],
     list[dict[str, Any]],
@@ -1341,6 +1360,15 @@ async def _run_calls(
                     later = list(calls[index + 1 :])
                     return turn, results, (call, prepared, later)
                 outcome = prepared
+                said_of = _outcome_of(outcome)
+            elif call.name == "ask_agent":
+                # Another agent's answer, waited for (`agui_delegate`). Within this run's
+                # own wall clock, which is why it is built per run, in `_drive`.
+                outcome = (
+                    await ask(call)
+                    if ask is not None
+                    else agui_tools.not_run("there is nobody to ask it for")
+                )
                 said_of = _outcome_of(outcome)
             else:
                 outcome = await agui_tools.run_read(tools.caller, call)

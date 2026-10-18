@@ -58,6 +58,10 @@ READ_TOOLS = (
     "search_messages",
     "list_people",
 )
+#: The tools that hand a question to another agent (`jobs/agui_delegate.py`). Offered
+#: with read access as well as write: they post nothing an agent could not already post —
+#: its reply mentioning another agent starts the same hop — they only let it hear back.
+DELEGATE_TOOLS = ("list_agents", "ask_agent")
 #: The tools that act. Each call waits for the person's approval.
 WRITE_TOOLS = ("post_message",)
 
@@ -80,15 +84,23 @@ _FOR_AGENTS = {
         "for is asked to approve it first, and you are told whether they did. Say what it "
         "is: everyone in the channel will read it."
     ),
+    "ask_agent": (
+        "Ask another agent in this conversation and wait for its answer, which comes back "
+        "as this call's result. The question is posted here as you, the other agent "
+        "answers here too, and everyone in the conversation sees both. It runs for the "
+        "person you are working for, inside the workspace's limits on agents asking "
+        "agents; if it takes more than a few minutes you are told it is still working. "
+        "Use list_agents to see who you can ask."
+    ),
 }
 
 
 def offered_names(access: str) -> frozenset[str]:
     """The tools an agent with this access is offered."""
     if access == "read":
-        return frozenset(READ_TOOLS)
+        return frozenset(READ_TOOLS + DELEGATE_TOOLS)
     if access == "write":
-        return frozenset(READ_TOOLS + WRITE_TOOLS)
+        return frozenset(READ_TOOLS + DELEGATE_TOOLS + WRITE_TOOLS)
     return frozenset()
 
 
@@ -103,7 +115,12 @@ def offered(access: str) -> list[dict[str, Any]]:
 #: Parameters an agent is not offered. Blob keys an agent's post by the call that made it
 #: (`run_write`), so an id of the agent's own would be one more thing to get wrong and
 #: would change nothing.
-_NOT_FOR_AGENTS: dict[str, frozenset[str]] = {"post_message": frozenset({"client_msg_id"})}
+_NOT_FOR_AGENTS: dict[str, frozenset[str]] = {
+    "post_message": frozenset({"client_msg_id"}),
+    # An agent asks in the conversation it is answering, and nowhere else: the room is
+    # the run's, so the channel and thread are not the agent's to choose.
+    "ask_agent": frozenset({"channel", "thread_root_id", "client_msg_id"}),
+}
 
 
 def _parameters(tool: dict[str, Any]) -> dict[str, Any]:
@@ -111,10 +128,14 @@ def _parameters(tool: dict[str, Any]) -> dict[str, Any]:
     schema: dict[str, Any] = tool["inputSchema"]
     if not hidden:
         return schema
-    return {
+    trimmed: dict[str, Any] = {
         **schema,
         "properties": {k: v for k, v in schema["properties"].items() if k not in hidden},
     }
+    # A hidden parameter cannot stay required, or no call could ever be valid.
+    if "required" in schema:
+        trimmed["required"] = [name for name in schema["required"] if name not in hidden]
+    return trimmed
 
 
 def offered_for(names: frozenset[str]) -> list[dict[str, Any]]:
@@ -463,6 +484,7 @@ def trim_exchange(exchange: list[dict[str, Any]]) -> list[dict[str, Any]]:
 __all__ = [
     "ACCESS_LEVELS",
     "DECLINED",
+    "DELEGATE_TOOLS",
     "MAX_CALLS_PER_ROUND",
     "MAX_TOOL_ROUNDS",
     "READ_TOOLS",

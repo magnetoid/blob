@@ -44,10 +44,11 @@ from ..lib.rate_limit import consume
 from ..lib.storage import get_object_head
 from ..plugins import decisions
 from ..plugins import events as plugin_events
+from ..plugins.registry import MENTIONABLE_AGENT
 from ..realtime import hub
 from ..schemas.models import Message
 from . import activity as activity_service
-from . import agent_chains, agent_run_control, mcp_catalogue, task_dispatch
+from . import agent_access, agent_chains, agent_run_control, mcp_catalogue, task_dispatch
 from . import agent_runs as agent_run_service
 from . import agentic as agentic_service
 from . import audit as audit_service
@@ -861,6 +862,74 @@ async def _person_id(session: AsyncSession, caller: McpCaller, reference: str) -
     return found
 
 
+async def person_id(session: AsyncSession, caller: McpCaller, reference: str) -> str:
+    """A person or agent named by id or display name, active, in this workspace."""
+    return await _person_id(session, caller, reference)
+
+
+async def _list_agents(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    """The agents this person may set going, and — given a channel — which are in it.
+
+    Only agents the person may command are listed (`agent_access.MAY_COMMAND`, ADR 0018):
+    somebody else's own agent is never named to anyone it is not lent to, the rule that
+    keeps a mention of it silent. A room-bound caller — an agent answering in a channel —
+    is told about that room alone, since that is the only place it can ask.
+    """
+    reference = arguments.get("channel")
+    async with session_scope() as session:
+        if caller.reads_are_room_bound:
+            channel_id: str | None = caller.room_channel_id
+        elif isinstance(reference, str) and reference.strip():
+            channel_id = await _resolve_channel(session, caller, reference)
+        else:
+            channel_id = None
+        rows = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT u.id AS bot_user_id, u.display_name, p.description,
+                           p.owner_user_id,
+                           ({agent_access.MAY_COMMAND}) AS may_here,
+                           ({agent_access.MAY_COMMAND_SOMEWHERE}) AS may_somewhere,
+                           EXISTS (
+                             SELECT 1 FROM channel_members cm
+                              WHERE cm.channel_id = cast(:channel_id AS uuid)
+                                AND cm.user_id = u.id
+                           ) AS in_channel
+                      FROM plugins p
+                      JOIN users u ON u.bot_plugin_id = p.id
+                     WHERE p.workspace_id = :ws
+                       AND p.status = 'enabled'
+                       AND u.deactivated_at IS NULL
+                       AND {MENTIONABLE_AGENT}
+                     ORDER BY lower(u.display_name)
+                    """
+                ),
+                {"ws": caller.workspace_id, "actor_id": caller.user_id, "channel_id": channel_id},
+            )
+        ).fetchall()
+        label = (
+            (await _channel_names(session, {channel_id})).get(channel_id) if channel_id else None
+        )
+
+    mine = [row for row in rows if (row.may_here if channel_id else row.may_somewhere)]
+    if caller.reads_are_room_bound:
+        mine = [row for row in mine if row.in_channel]
+    if not mine:
+        return "There are no agents this person can ask" + (f" in {label}." if label else ".")
+    lines = []
+    for row in mine:
+        whose = ""
+        if row.owner_user_id is not None:
+            whose = " (theirs)" if str(row.owner_user_id) == caller.user_id else " (lent to them)"
+        what = (row.description or "").strip() or "no description"
+        where = ""
+        if channel_id and not caller.reads_are_room_bound:
+            where = f" · in {label}" if row.in_channel else f" · not in {label}"
+        lines.append(f"- {row.display_name}{whose} — {what}{where}")
+    return "\n".join(lines)
+
+
 async def _message_person(caller: McpCaller, arguments: dict[str, Any]) -> str:
     if not caller.may_write():
         raise forbidden("This connection may only read.")
@@ -1138,6 +1207,7 @@ _HANDLERS = {
     "list_tasks": _list_tasks,
     "search_messages": _search_messages,
     "list_people": _list_people,
+    "list_agents": _list_agents,
     "post_message": _post_message,
     "inbox": _inbox,
     "list_threads": _list_threads,
@@ -1178,6 +1248,7 @@ __all__ = [
     "call",
     "catalogue",
     "known",
+    "person_id",
     "refuse_outside_the_room",
     "resolve_channel",
     "resolve_token",
