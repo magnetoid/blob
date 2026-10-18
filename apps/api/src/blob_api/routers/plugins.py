@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Request
@@ -113,8 +113,11 @@ class PluginOut(CamelModel):
     #: Whether its run cards show the channel a tail of its reasoning.
     shows_reasoning: bool = False
     #: What it may do with Blob's tools: `none`, `read` (as the person who asked, inside
-    #: the room), or `write` (and post, once that person approves each one). ADR 0022.
+    #: the room), or `write` (and post as itself). ADR 0022.
     tool_access: str = "none"
+    #: Which of its posts wait for that person: `ask` (every one, the default),
+    #: `auto_in_dm` (not those asked for in its own DM with them), `auto_everywhere`.
+    write_approval: Literal["ask", "auto_in_dm", "auto_everywhere"] = "ask"
     #: The console table's two numbers beside the name, and its Access column. A week
     #: is the window a person judges an agent over; "live" is the one thing on the page
     #: worth a glance; the channel count is how many public rooms the bot is a member of.
@@ -247,6 +250,7 @@ async def _build_plugin(
         agui_version=getattr(row, "agui_version", None),
         shows_reasoning=bool(getattr(row, "shows_reasoning", False)),
         tool_access=getattr(row, "tool_access", "none"),
+        write_approval=getattr(row, "write_approval", "ask"),
         runs_last_week=activity[0] if activity else 0,
         running_now=activity[1] if activity else 0,
         channel_count=channel_count,

@@ -77,6 +77,8 @@ class Listener:
     agui_version: str | None = None
     #: What it may do with Blob's tools: `none`, `read` or `write` (ADR 0022).
     tool_access: str = "none"
+    #: Which of its posts wait for the person: `ask`, `auto_in_dm`, `auto_everywhere`.
+    write_approval: str = "ask"
 
     def memory_of(self, person_id: str) -> str | None:
         """Whose memory a run on this person's behalf reads and writes (migration 0050).

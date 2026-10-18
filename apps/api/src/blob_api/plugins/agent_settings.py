@@ -109,13 +109,27 @@ async def set_shows_reasoning(
     )
 
 
+async def set_write_approval(
+    session: AsyncSession, plugin_id: str, workspace_id: str, approval: str
+) -> None:
+    """Which of this agent's posts wait for the person (migration 0054).
+
+    The caller checks the value; the table's CHECK is the second line.
+    """
+    await by_id(session, plugin_id, workspace_id)
+    await session.execute(
+        text("UPDATE plugins SET write_approval = :approval, updated_at = now() WHERE id = :id"),
+        {"id": plugin_id, "approval": approval},
+    )
+
+
 async def set_tool_access(
     session: AsyncSession, plugin_id: str, workspace_id: str, access: str
 ) -> None:
     """What this agent may do with Blob's tools (ADR 0022): `none`, `read`, or `write`.
 
-    The caller checks the value; the table's CHECK is the second line. Every write an
-    agent asks for still waits for the person it is working for, whatever this says.
+    The caller checks the value; the table's CHECK is the second line. Whether a write
+    waits for the person is `write_approval`'s to say, and it waits by default.
     """
     await by_id(session, plugin_id, workspace_id)
     await session.execute(

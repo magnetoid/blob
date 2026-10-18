@@ -202,6 +202,41 @@ describe("what an agent may do with Blob's tools", () => {
     expect([...select.options].map((o) => o.value)).toEqual(['none', 'read', 'write']);
     fireEvent.change(select, { target: { value: 'write' } });
     await waitFor(() => expect(set).toHaveBeenCalledWith('p1', 'write'));
+    // Asking first is the rule until the agent can post at all.
+    expect(screen.queryByLabelText('When Assistant posts')).toBeNull();
+  });
+
+  it('asks when it may post without asking only once it may post, and sends the choice', async () => {
+    useStore.setState({ users: { u1: ME, u2: MATE, u3: BOT } } as never);
+    vi.spyOn(api.admin, 'plugins').mockResolvedValue({
+      plugins: [
+        {
+          ...PLUGIN,
+          aguiUrl: 'https://apps.example.com/agui',
+          aguiVersion: null,
+          showsReasoning: false,
+          tokensLastDay: 0,
+          toolAccess: 'write',
+          writeApproval: 'ask',
+        },
+      ],
+    } as never);
+    vi.spyOn(api.admin, 'appChannels').mockResolvedValue({ channels: [] } as never);
+    vi.spyOn(api.admin, 'pluginCatalog').mockResolvedValue({ scopes: {}, events: {} } as never);
+    vi.spyOn(api.admin, 'pluginRuns').mockResolvedValue({ runs: [] } as never);
+    vi.spyOn(api.admin, 'pluginDeliveries').mockResolvedValue({ deliveries: [] } as never);
+    const set = vi.spyOn(api.admin, 'setPluginTools').mockResolvedValue({} as never);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+
+    const when = (await screen.findByLabelText('When Assistant posts')) as HTMLSelectElement;
+    expect(when.value).toBe('ask');
+    expect([...when.options].map((o) => o.value)).toEqual([
+      'ask',
+      'auto_in_dm',
+      'auto_everywhere',
+    ]);
+    fireEvent.change(when, { target: { value: 'auto_in_dm' } });
+    await waitFor(() => expect(set).toHaveBeenCalledWith('p1', 'write', 'auto_in_dm'));
   });
 });
 

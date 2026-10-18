@@ -63,8 +63,10 @@ def says(body: str) -> bytes:
     )
 
 
-@pytest_asyncio.fixture
-async def team(client: Client, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+@pytest_asyncio.fixture(name="team")
+async def team_fixture(client: Client, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """Named apart from the parameter it fills, so a module importing it
+    (`test_write_approval.py`) does not shadow it."""
     owner = await sign_up(client, "Owner")
     member = await invite_and_sign_up(owner, "Member")
     general = (await owner.get("/api/channels")).body["channels"][0]["id"]

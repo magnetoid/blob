@@ -222,8 +222,8 @@ export function AppSettings({ pluginId, onError }: Props) {
               <div className="pref-hint">
                 With Blob&apos;s tools, an agent can look further than the conversation it
                 was asked in — always as the person who asked, and in a channel only
-                into public channels and that room. Every post it wants to make waits for
-                that person to approve it.
+                into public channels and that room. Posts wait for that person&apos;s
+                approval unless you choose otherwise below.
               </div>
             </div>
             <select
@@ -241,7 +241,39 @@ export function AppSettings({ pluginId, onError }: Props) {
             >
               <option value="none">Only answer what it was asked</option>
               <option value="read">Read and search, as the person who asked</option>
-              <option value="write">Read, and post once they approve</option>
+              <option value="write">Read, and post as itself</option>
+            </select>
+          </div>
+        )}
+
+        {(plugin.aguiUrl || plugin.runtime === "socket") && plugin.toolAccess === "write" && (
+          <div className="pref-row">
+            <div className="grow">
+              <h3 className="pref-label">When it posts</h3>
+              <div className="pref-hint">
+                Asked in its own DM, the only words that reach it are that person&apos;s. In a
+                channel, anyone&apos;s message can try to steer it — so asking first is the
+                safe default there. Either way it can only post where that person and the
+                agent both can, and from a channel only to that room or a public one.
+              </div>
+            </div>
+            <select
+              className="input"
+              aria-label={`When ${plugin.name} posts`}
+              value={plugin.writeApproval ?? "ask"}
+              onChange={(event) =>
+                void act(() =>
+                  api.admin.setPluginTools(
+                    pluginId,
+                    "write",
+                    event.target.value as AdminPlugin["writeApproval"],
+                  ),
+                )
+              }
+            >
+              <option value="ask">Ask the person every time</option>
+              <option value="auto_in_dm">Without asking in its DM with them; ask elsewhere</option>
+              <option value="auto_everywhere">Without asking, anywhere</option>
             </select>
           </div>
         )}

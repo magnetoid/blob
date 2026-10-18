@@ -5687,6 +5687,16 @@
           "version": {
             "title": "Version",
             "type": "string"
+          },
+          "writeApproval": {
+            "default": "ask",
+            "enum": [
+              "ask",
+              "auto_in_dm",
+              "auto_everywhere"
+            ],
+            "title": "Writeapproval",
+            "type": "string"
           }
         },
         "required": [
@@ -7638,6 +7648,22 @@
             ],
             "title": "Access",
             "type": "string"
+          },
+          "approval": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ask",
+                  "auto_in_dm",
+                  "auto_everywhere"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval"
           }
         },
         "required": [
@@ -12535,7 +12561,7 @@
     },
     "/api/admin/plugins/{plugin_id}/tools": {
       "post": {
-        "description": "What this agent may do in the workspace with Blob's tools (ADR 0022).\n\n`read`: it may list, read and search channels and list people \u2014 as the person who\nasked it something, and only inside the room it was asked in (public channels and\nthat room; the person's whole reach only in its own DM with them). `write`: also post,\nas itself, and every post waits for that person to approve it. `none` is the default.",
+        "description": "What this agent may do in the workspace with Blob's tools (ADR 0022).\n\n`read`: it may list, read and search channels and list people \u2014 as the person who\nasked it something, and only inside the room it was asked in (public channels and\nthat room; the person's whole reach only in its own DM with them). `write`: also post,\nas itself. `none` is the default.\n\n`approval` says which posts wait for that person (migration 0054): `ask`, every one \u2014\nthe default; `auto_in_dm`, none asked for in the agent's own DM with them; or\n`auto_everywhere`, none. It never widens where a post may go.",
         "operationId": "set_tool_access_api_admin_plugins__plugin_id__tools_post",
         "parameters": [
           {

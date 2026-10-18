@@ -15,9 +15,11 @@ Three rules make that safe to offer, and this module is where they are kept:
 - **Inside the room.** That caller carries the room the agent was asked in
   (`room_channel_id`), so in a channel the agent reads public channels and that room and
   nothing else; only in its own DM with the person does it get their whole reach.
-- **Writes ask first.** A write is never run when the agent asks for it. It is checked
-  (`prepare_write`) and put to the person as a question; only their Approve runs it
-  (`run_write`), as the agent's bot, where that bot may post.
+- **Writes ask first — unless an admin said otherwise.** A write is checked
+  (`prepare_write`) and, by default, put to the person as a question; only their Approve
+  runs it (`run_write`), as the agent's bot, where that bot may post. An admin may let an
+  agent post without asking in its own DM with the person, or everywhere
+  (`writes_without_asking`); the checks are the same either way.
 
 What a tool says back is data: it reaches the agent as a `tool` message and nowhere else.
 """
@@ -93,6 +95,22 @@ _FOR_AGENTS = {
         "Use list_agents to see who you can ask."
     ),
 }
+
+
+#: Which of an agent's posts wait for the person (`plugins.write_approval`, migration 0054).
+APPROVAL_LEVELS = ("ask", "auto_in_dm", "auto_everywhere")
+
+
+def writes_without_asking(approval: str, *, in_their_dm: bool) -> bool:
+    """Whether this agent's post runs without the person's approval.
+
+    `in_their_dm` is the agent's own DM with the person — the one room where nobody else's
+    words can have steered it, and where the run has no room bound (`room_for`). Anything
+    unknown asks: a value the table should never hold must not read as permission.
+    """
+    if approval == "auto_everywhere":
+        return True
+    return approval == "auto_in_dm" and in_their_dm
 
 
 def offered_names(access: str) -> frozenset[str]:
@@ -483,6 +501,7 @@ def trim_exchange(exchange: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 __all__ = [
     "ACCESS_LEVELS",
+    "APPROVAL_LEVELS",
     "DECLINED",
     "DELEGATE_TOOLS",
     "MAX_CALLS_PER_ROUND",
@@ -504,4 +523,5 @@ __all__ = [
     "run_write",
     "tool_message",
     "trim_exchange",
+    "writes_without_asking",
 ]

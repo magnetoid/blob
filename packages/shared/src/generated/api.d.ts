@@ -1203,7 +1203,11 @@ export interface paths {
          *     `read`: it may list, read and search channels and list people — as the person who
          *     asked it something, and only inside the room it was asked in (public channels and
          *     that room; the person's whole reach only in its own DM with them). `write`: also post,
-         *     as itself, and every post waits for that person to approve it. `none` is the default.
+         *     as itself. `none` is the default.
+         *
+         *     `approval` says which posts wait for that person (migration 0054): `ask`, every one —
+         *     the default; `auto_in_dm`, none asked for in the agent's own DM with them; or
+         *     `auto_everywhere`, none. It never widens where a post may go.
          */
         post: operations["set_tool_access_api_admin_plugins__plugin_id__tools_post"];
         delete?: never;
@@ -5943,6 +5947,12 @@ export interface components {
             updatedAt: string;
             /** Version */
             version: string;
+            /**
+             * Writeapproval
+             * @default ask
+             * @enum {string}
+             */
+            writeApproval: "ask" | "auto_in_dm" | "auto_everywhere";
         };
         /** PluginsOut */
         PluginsOut: {
@@ -6669,6 +6679,8 @@ export interface components {
              * @enum {string}
              */
             access: "none" | "read" | "write";
+            /** Approval */
+            approval?: ("ask" | "auto_in_dm" | "auto_everywhere") | null;
         };
         /** TranslateMessageInput */
         TranslateMessageInput: {

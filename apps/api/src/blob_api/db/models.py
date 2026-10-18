@@ -1385,6 +1385,10 @@ class Plugin(Base):
             name="plugins_tool_access_check",
         ),
         CheckConstraint(
+            "write_approval IN ('ask', 'auto_in_dm', 'auto_everywhere')",
+            name="plugins_write_approval_check",
+        ),
+        CheckConstraint(
             "runtime <> 'container' OR source_repo IS NOT NULL",
             name="plugins_container_needs_repo",
         ),
@@ -1459,6 +1463,10 @@ class Plugin(Base):
     #: person who asked, inside the room — or `write`, where every post waits for that
     #: person's approval. Migration 0047.
     tool_access: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'none'"))
+    #: Which of its posts wait for the person it works for: `ask` (every one),
+    #: `auto_in_dm` (not when asked in its own DM with them), `auto_everywhere` (none).
+    #: Only meaningful with `tool_access = 'write'`. Migration 0054.
+    write_approval: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'ask'"))
     version: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'0.0.0'"))
     request_url: Mapped[str | None] = mapped_column(Text)
     #: An AG-UI endpoint Blob calls when this app's bot is mentioned.

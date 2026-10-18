@@ -212,6 +212,8 @@ async def set_everywhere(
 class ToolsInput(CamelModel):
     #: Required: an absent key must not read as "none" and quietly take an agent's tools.
     access: Literal["none", "read", "write"]
+    #: Optional, and absent means unchanged: which of its posts wait for the person.
+    approval: Literal["ask", "auto_in_dm", "auto_everywhere"] | None = None
 
 
 @router.post("/{plugin_id}/tools", response_model=PluginOut)
@@ -226,7 +228,11 @@ async def set_tool_access(
     `read`: it may list, read and search channels and list people — as the person who
     asked it something, and only inside the room it was asked in (public channels and
     that room; the person's whole reach only in its own DM with them). `write`: also post,
-    as itself, and every post waits for that person to approve it. `none` is the default.
+    as itself. `none` is the default.
+
+    `approval` says which posts wait for that person (migration 0054): `ask`, every one —
+    the default; `auto_in_dm`, none asked for in the agent's own DM with them; or
+    `auto_everywhere`, none. It never widens where a post may go.
     """
     async with transaction() as (session, _after):
         existing = await registry.by_id(session, plugin_id, admin.workspace_id)
@@ -236,13 +242,21 @@ async def set_tool_access(
                 code="not_an_agent",
             )
         await agent_settings.set_tool_access(session, plugin_id, admin.workspace_id, payload.access)
+        if payload.approval is not None:
+            await agent_settings.set_write_approval(
+                session, plugin_id, admin.workspace_id, payload.approval
+            )
         await audit_service.record(
             session,
             actor_for(request, admin),
             "plugin.tools_set",
             target_type="plugin",
             target_id=plugin_id,
-            metadata={"pluginId": plugin_id, "access": payload.access},
+            metadata={
+                "pluginId": plugin_id,
+                "access": payload.access,
+                **({"approval": payload.approval} if payload.approval is not None else {}),
+            },
         )
         row = await registry.by_id(session, plugin_id, admin.workspace_id)
         return await _to_plugin(session, row)

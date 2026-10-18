@@ -324,3 +324,48 @@ semantic search (reopen when a workspace asks), native apps, E2EE, Matrix.
   `approval.pending`); `openapi.json` regenerated per commit.
 - Counters: tools offered in runs 6 → ≥ 14; `blob_tool_calls_total{via="mcp:*"}` > 0 in
   prod; `/readyz` checks 2 → 5; CI jobs 4 → 7 (audit, e2e, image-publish).
+
+---
+
+## Done so far (local, stacked branches; nothing merged)
+
+### M0 — done (branch `m0-truth`)
+
+Shipped as planned, less the two "defects" that turned out to be written product rules
+(muting is absolute; quiet hours leave mentions out of the badge — both in `help.ts`).
+Review found one real gap: a JPEG over the 30 MB thumbnail cap skipped the location
+scrub with the thumbnail. Fixed with `storage.replace_head` — the first 5 MiB read and
+cleaned, the rest copied by storage in a two-part multipart upload onto the same key —
+and tested against an S3 server. The SQL-interpolation rule now counts an upper-case name
+as code only when it is bound at module level, closing the bypass review pointed out.
+
+### A5 — done
+
+`now`, `channel_topic` and `channel_people` in every run's context; `read_file` and
+`list_tasks` in the catalogue, for MCP and for agents. Both room ceilings proven by
+mutation.
+
+### A2 — done, with one item dropped
+
+`list_agents` and `ask_agent` (awaited, `jobs/agui_delegate.py`): the question is a hop of
+the same chain, admitted by its rules, on the root person's authority; the answer comes
+back as the call's result. **Dropped:** dispatching tasks an app creates through the bot
+API — ADR 0023 makes a hand-off a person's message, and an app is not one. `ask_agent`
+covers agent-to-agent delegation.
+
+### A3 — done as the per-agent write policy; three parts not built, on purpose
+
+`plugins.write_approval` (migration 0054): `ask` (default, every row), `auto_in_dm`,
+`auto_everywhere`, set beside tool access on the agent's console page. A post the policy
+allows runs at once through the same `run_write` checks an approval would, keyed the same
+way, and is counted `auto` in `blob_tool_calls_total`. Never widens where a post may go.
+
+- **No Approvals page.** Only the person who asked may approve, and Home's "Needs a
+  decision" already lists exactly theirs; an admin queue of approvals nobody but the asker
+  can act on would be a list with no buttons.
+- **No Share / Keep private.** Mattermost needs it because its tool results can exceed
+  what the room may read. Blob's cannot: reads are bounded by the room ceiling, so a
+  result is never more private than the room it lands in.
+- **No delegate approver, no MCP `input_required`.** Neither has a caller yet; the review
+  of 2026-10-05 reached the same conclusion for MRTR. Revisit when follow mode (A1) makes
+  runs with nobody present common — those get only tools that need no approval.

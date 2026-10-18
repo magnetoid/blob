@@ -32,7 +32,7 @@ log = logging.getLogger("blob.jobs.agui")
 _LISTENER_SELECT = f"""
     SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
            p.runtime, s.signing_secret, p.owner_user_id,
-           p.agui_version, p.shows_reasoning, p.tool_access,
+           p.agui_version, p.shows_reasoning, p.tool_access, p.write_approval,
            -- Whose text this is, asked here rather than trusted from the column: the
            -- routes only ever write it onto the seeded agent, but a row can hold text
            -- those routes never wrote — a backup taken before the rule, a psql prompt.
@@ -74,6 +74,7 @@ def _listener(row: Any) -> Listener:
         agui_version=row.agui_version,
         shows_reasoning=bool(row.shows_reasoning),
         tool_access=row.tool_access,
+        write_approval=row.write_approval,
     )
 
 

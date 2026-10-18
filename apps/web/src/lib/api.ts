@@ -371,6 +371,12 @@ export interface AdminPlugin {
    * waiting for that person's approval. `none` by default.
    */
   toolAccess: "none" | "read" | "write";
+  /**
+   * Which of its posts wait for the person it works for (migration 0054): `ask` — every
+   * one, the default; `auto_in_dm` — none asked for in its own DM with them; or
+   * `auto_everywhere` — none. Never widens where a post may go.
+   */
+  writeApproval: "ask" | "auto_in_dm" | "auto_everywhere";
   /** The console table's numbers: a week of runs, runs in flight, public channels joined. */
   runsLastWeek: number;
   runningNow: number;
@@ -1374,8 +1380,15 @@ export const api = {
     setPluginReasoning: (pluginId: string, shown: boolean) =>
       post<AdminPlugin>(`/api/admin/plugins/${pluginId}/reasoning`, { shown }),
     /** What the agent may do with Blob's tools. Every post still waits for approval. */
-    setPluginTools: (pluginId: string, access: AdminPlugin["toolAccess"]) =>
-      post<AdminPlugin>(`/api/admin/plugins/${pluginId}/tools`, { access }),
+    setPluginTools: (
+      pluginId: string,
+      access: AdminPlugin["toolAccess"],
+      approval?: AdminPlugin["writeApproval"],
+    ) =>
+      post<AdminPlugin>(
+        `/api/admin/plugins/${pluginId}/tools`,
+        approval ? { access, approval } : { access },
+      ),
     rotatePluginSecret: (pluginId: string) =>
       post<{ signingSecret: string }>(`/api/admin/plugins/${pluginId}/secret`),
     issuePluginToken: (pluginId: string) =>

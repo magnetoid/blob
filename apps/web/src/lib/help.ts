@@ -825,8 +825,9 @@ export const SECTIONS: Section[] = [
         body: [
           'Only the person who started the request can answer — the question is visible to the channel, but the decision is yours. Your answer is posted as your own message, so everybody sees what was decided, and the agent picks up with everything it knew when it stopped.',
           'A question nobody answers within a day expires: the buttons go, the card says so, and the agent does not carry on. Mention it again if you still want the work done.',
+          'A post an agent wants to make is a question of this kind: “Helper wants to post in #general”, with Approve and Deny. That is the default for every agent. An admin can let one post without asking in its own DM with you — where nobody else’s words reach it — or anywhere, from the agent’s page in Agents & apps. Either way it can only post where you and it both can, and from a channel only to that channel or a public one.',
         ],
-        keywords: ['decision', 'question', 'approve', 'confirm', 'interrupt', 'resume', 'buttons'],
+        keywords: ['decision', 'question', 'approve', 'confirm', 'interrupt', 'resume', 'buttons', 'post'],
       },
       {
         id: 'agent-memory',

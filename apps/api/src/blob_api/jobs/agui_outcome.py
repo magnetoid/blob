@@ -1118,6 +1118,17 @@ async def _drive(
         if "ask_agent" in tools.names and tools.caller is not None
         else None
     )
+    # Whether this agent's posts skip the person's approval in this room, decided once:
+    # the admin's setting (migration 0054), and whether this is its own DM with them.
+    write_now = (
+        partial(_write_now, listener, tools, run_id=run_id, workspace_id=workspace_id)
+        if "post_message" in tools.names
+        and tools.caller is not None
+        and agui_tools.writes_without_asking(
+            listener.write_approval, in_their_dm=tools.caller.room_channel_id is None
+        )
+        else None
+    )
     state = gathered.state
     touched = False
     usage: list[dict[str, Any]] = []
@@ -1208,7 +1219,14 @@ async def _drive(
         # next has to read as it happened, words and calls together.
         said = "\n\n".join(post.body for post in streamed.posts if post.body) or None
         turn, results, pending = await _run_calls(
-            listener, calls, tools, card=card, sent_1_0=sent_1_0, said=said, ask=ask
+            listener,
+            calls,
+            tools,
+            card=card,
+            sent_1_0=sent_1_0,
+            said=said,
+            ask=ask,
+            write_now=write_now,
         )
         exchange = [*exchange, turn, *results]
         if pending is not None:
@@ -1329,6 +1347,10 @@ async def _run_calls(
     sent_1_0: bool,
     said: str | None,
     ask: Callable[[agui.ToolCall], Awaitable[agui_tools.ToolOutcome]] | None = None,
+    write_now: Callable[
+        [agui.ToolCall, agui_tools.PreparedWrite], Awaitable[agui_tools.ToolOutcome]
+    ]
+    | None = None,
 ) -> tuple[
     dict[str, Any],
     list[dict[str, Any]],
@@ -1353,14 +1375,20 @@ async def _run_calls(
                 prepared = await agui_tools.prepare_write(
                     tools.caller, call, bot_user_id=listener.bot_user_id
                 )
-                if isinstance(prepared, agui_tools.PreparedWrite):
+                if isinstance(prepared, agui_tools.PreparedWrite) and write_now is not None:
+                    # The admin let this agent post here without asking (migration 0054).
+                    # Counted apart, so how often nobody was asked stays visible.
+                    outcome = await write_now(call, prepared)
+                    said_of = "auto" if outcome.error is None else _outcome_of(outcome)
+                elif isinstance(prepared, agui_tools.PreparedWrite):
                     # Put to the person; their answer is counted when it comes.
                     tool_span.set_attribute("blob.tool.outcome", "asked")
                     await metrics.tool_called("agent", call.name, "asked")
                     later = list(calls[index + 1 :])
                     return turn, results, (call, prepared, later)
-                outcome = prepared
-                said_of = _outcome_of(outcome)
+                else:
+                    outcome = prepared
+                    said_of = _outcome_of(outcome)
             elif call.name == "ask_agent":
                 # Another agent's answer, waited for (`agui_delegate`). Within this run's
                 # own wall clock, which is why it is built per run, in `_drive`.
@@ -1458,9 +1486,20 @@ async def _approved_write(
         # Asked when the agent could write; since then its access, or the person, is gone.
         return agui_tools.ToolOutcome("", "Approved, but it can no longer be posted.")
 
+    return await agui_tools.run_write(
+        tools.caller,
+        prepared,
+        bot_user_id=listener.bot_user_id,
+        key=f"agui-tool:{run_id}:{call_id}",
+        post=_tool_post(listener, workspace_id),
+    )
+
+
+def _tool_post(listener: Listener, workspace_id: str) -> agui_tools.Post:
+    """How a tool's post is made: as the agent — it is the agent speaking — and never a
+    hop: a message Blob posted for a tool call starts no run (ADR 0022)."""
+
     async def post(target: str, thread_root_id: str | None, body: str, key: str) -> str | None:
-        # As the agent — it is the agent speaking — and never a hop: a message Blob posted
-        # for a tool call starts no run (ADR 0022).
         return await post_as_bot(
             listener,
             workspace_id=workspace_id,
@@ -1472,10 +1511,27 @@ async def _approved_write(
             spawn=False,
         )
 
+    return post
+
+
+async def _write_now(
+    listener: Listener,
+    tools: _Tools,
+    call: agui.ToolCall,
+    prepared: agui_tools.PreparedWrite,
+    *,
+    run_id: str,
+    workspace_id: str,
+) -> agui_tools.ToolOutcome:
+    """A post the admin let this agent make without asking — the same checks, at once.
+
+    Keyed exactly as an approved post of the same call would be, so a round repeated after
+    a crash posts nothing new.
+    """
     return await agui_tools.run_write(
         tools.caller,
         prepared,
         bot_user_id=listener.bot_user_id,
-        key=f"agui-tool:{run_id}:{call_id}",
-        post=post,
+        key=f"agui-tool:{run_id}:{call.id}",
+        post=_tool_post(listener, workspace_id),
     )

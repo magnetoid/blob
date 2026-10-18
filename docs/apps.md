@@ -481,10 +481,13 @@ What a call can reach is not yours to widen:
 - **Inside the room.** Asked in a channel, you read public channels and that channel and
   nothing else; a private channel outside it answers "there is no channel by that name".
   Only in your own DM with the person do you get their whole reach.
-- **Writes ask first.** A `post_message` call stops the run and asks the person — "Helper
-  wants to post in #general: …" with Approve and Deny. Approved, it is posted as your bot,
-  in a channel your bot is a member of; denied, you are told so. Either way you are
-  called again with the result. A post your bot could not make is answered at once,
+- **Writes ask first, by default.** A `post_message` call stops the run and asks the
+  person — "Helper wants to post in #general: …" with Approve and Deny. Approved, it is
+  posted as your bot, in a channel your bot is a member of; denied, you are told so.
+  Either way you are called again with the result. An admin may let your agent post
+  without asking in its own DM with the person (`auto_in_dm`) or anywhere
+  (`auto_everywhere`); then the post is made at once, with the same checks, and the run
+  carries on in the same round. A post your bot could not make is answered at once,
   without asking anybody. A post never starts another agent's run.
 - **Bounded.** Eight rounds of calls per run, eight calls per round, results of at most
   24,000 characters, and the run's ten-minute wall covers every round.
