@@ -18,7 +18,7 @@ from ..services import messages as message_service
 from ..services import reactions as reaction_service
 from .engine import close_engine, transaction
 
-PASSWORD = "correct-horse-battery"
+PASSWORD = "correct-horse-battery"  # noqa: S105 — the demo workspace's documented password
 
 PEOPLE = [
     ("Ana Petrov", "ana@example.com", "Engineering lead", "owner"),

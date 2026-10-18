@@ -51,7 +51,7 @@ def iso(value: datetime | str | None) -> str | None:
 
 def require_iso(value: datetime | str) -> str:
     result = iso(value)
-    assert result is not None
+    assert result is not None  # noqa: S101 — narrows a type; never an access check
     return result
 
 

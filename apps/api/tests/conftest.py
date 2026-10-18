@@ -73,7 +73,7 @@ import pytest_asyncio
 from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory, close_engine
-from blob_api.lib import livekit
+from blob_api.lib import livekit, readiness
 from blob_api.lib.logbuf import close_log_buffer
 from blob_api.lib.redis import close_redis, redis
 from blob_api.realtime import hub
@@ -118,6 +118,7 @@ async def _clean_state() -> None:
     # runs — a previous run's signup attempts would exhaust this run's budget.
     await redis.flushdb()
     hub.reset_for_tests()
+    readiness.reset_for_tests()
 
 
 @pytest.fixture(autouse=True)

@@ -33,6 +33,11 @@ LIMITS: dict[str, Limit] = {
     # still costs a database round trip apiece, so it gets a ceiling like sign-in.
     "password_reset_finish": Limit(10, 900),
     "send_message": Limit(30, 60),
+    # Adding and taking away share one bucket: each is a frame to every member of the
+    # channel and an event to every app subscribed to it, the same fan-out a message has,
+    # and toggling one emoji in a loop was the cheapest way to make a room's sockets busy.
+    # Twice `send_message`, because a person clearing a few reactions in a row is normal.
+    "react": Limit(60, 60),
     "upload": Limit(20, 60),
     # Opening files in the side panel. A preview reads the bytes through this process,
     # so it is not free, but somebody flicking through a channel's files opens many.

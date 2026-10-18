@@ -19,6 +19,7 @@ and what it did — runs, their events, its memory, its deliveries — is
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -278,7 +279,8 @@ async def agent_bridge_source(_admin: SessionUser = Depends(require_admin)) -> s
     """
     source = Path(agent_bridge.__file__)
     try:
-        return source.read_text(encoding="utf-8")
+        # Off the event loop: a file read blocks every other request this process serves.
+        return await asyncio.to_thread(source.read_text, encoding="utf-8")
     except OSError as error:  # pragma: no cover — only if the image is broken
         raise not_found("The bridge script is not available on this server.") from error
 

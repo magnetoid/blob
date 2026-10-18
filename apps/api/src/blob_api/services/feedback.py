@@ -89,7 +89,7 @@ async def create(workspace_id: str, reporter_id: str, payload: FeedbackInput) ->
             )
         ).fetchone()
 
-    assert row is not None
+    assert row is not None  # noqa: S101 — narrows a type; never an access check
     return to_feedback_ticket(row)
 
 

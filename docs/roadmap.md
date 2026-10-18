@@ -483,6 +483,11 @@ gaps were.
 
 ## Q2 — Features (mid-Dec → mid-Mar)
 
+> **Superseded 2026-10-18** by [the agent-first plan](superpowers/specs/2026-10-18-agent-first-plan.md),
+> which absorbs every item below into its milestones M1–M3 and adds what the 2026 market
+> moved to (agents that follow channels, schedules, agent-to-agent answers, outbound MCP
+> tools, approvals as policy). What follows is kept as the record of what was planned.
+
 ### M1 (Dec 15 → Jan 15) · Agents you can trust
 
 - **Free-text answer to an interrupted run — done 2026-09-13, and the gap was not where

@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     S3_REGION: str = "us-east-1"
     S3_BUCKET: str = "blob-files"
     S3_ACCESS_KEY: str = "blobadmin"
-    S3_SECRET_KEY: str = "blobadmin123"
+    S3_SECRET_KEY: str = "blobadmin123"  # noqa: S105 — development default; refused in production below
     S3_FORCE_PATH_STYLE: bool = True
 
     SMTP_HOST: str = "localhost"
@@ -290,6 +290,33 @@ class Settings(BaseSettings):
     @classmethod
     def _blank_janus_name_is_default(cls, value: str) -> str:
         return value if value.strip() else "Janus"
+
+    @model_validator(mode="after")
+    def _no_public_storage_login_in_production(self) -> Settings:
+        """Refuse to start in production on the storage login printed in this repo.
+
+        `blobadmin` / `blobadmin123` are the development defaults, and they were also what
+        the production compose fell back to — so a deployment that never set the pair ran
+        MinIO with a root login anyone can read on GitHub, behind a bucket hostname that is
+        public by design. Both production instances were found that way on 2026-10-09.
+        Failing at boot is the only place the mistake cannot be missed: the app was
+        otherwise perfectly happy, and so was every health check.
+        """
+        if not self.is_prod:
+            return self
+        defaults = {"blobadmin", "blobadmin123"}
+        if (
+            not self.S3_ACCESS_KEY
+            or not self.S3_SECRET_KEY
+            or self.S3_ACCESS_KEY in defaults
+            or self.S3_SECRET_KEY in defaults
+        ):
+            raise ValueError(
+                "S3_ACCESS_KEY and S3_SECRET_KEY are unset or still the development "
+                "defaults. Set both to your own values (the same pair MinIO's root login "
+                "uses, if you run the bundled MinIO) before starting in production."
+            )
+        return self
 
     @property
     def is_prod(self) -> bool:

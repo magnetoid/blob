@@ -1,0 +1,8 @@
+# Test fixtures, reviewed 2026-10-18: the suite's throwaway SESSION_SECRET, the CI one,
+# a fake METRICS_TOKEN, and a variable named `key`. None is a credential.
+04c11d1770d05c498cd582c2e18ebaa9cb42346e:apps/api/tests/test_agent_files.py:generic-api-key:339
+5b8aeccbfcf3dcd16d18b92d753714cadcc00291:apps/api/tests/test_observability.py:generic-api-key:341
+728d79933fdb3b20dd4acc87812adf09d1f45d90:apps/api/tests/test_janus_agent.py:generic-api-key:15
+daa7153ddd763f9b58f1544d5c04f7dfd8afed2c:apps/api/tests/test_llm_config.py:generic-api-key:25
+5bed7f5600348084047cf3b25c2485eb0ee81cab:.github/workflows/ci.yml:generic-api-key:42
+e7420b38369821e187fe813ab6451f07139fcab1:apps/api/tests/conftest.py:generic-api-key:16

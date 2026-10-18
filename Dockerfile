@@ -98,7 +98,14 @@ ENTRYPOINT ["blob-entrypoint"]
 # is a value the caller chooses, and nothing in this codebase may use it for identity.
 # `lib/caller.client_ip` counts from the right instead, using TRUSTED_PROXY_HOPS, and a
 # test fails the build if any module reads `.client.host` directly.
+#
+# --ws-max-size: uvicorn's default is 16 MiB per WebSocket message, read into memory
+# before any handler sees it. No socket here legitimately sends more than the agent
+# socket's 512 KB frame (`plugins/gateway.MAX_FRAME_BYTES`), and `/ws` carries only
+# small control frames, so 1 MiB is twice the largest honest frame. Request bodies have
+# their own ceiling in `lib/body_limit.py`.
 CMD ["uvicorn", "blob_api.main:app", \
      "--host", "0.0.0.0", "--port", "3000", \
      "--proxy-headers", "--forwarded-allow-ips", "*", \
+     "--ws-max-size", "1048576", \
      "--no-server-header"]

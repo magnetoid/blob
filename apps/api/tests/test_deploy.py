@@ -130,7 +130,64 @@ async def test_readiness_checks_the_datastores(client: Client) -> None:
     assert response.status == 200
     # No SOURCE_COMMIT in the test environment: the key is present and honest about it,
     # so the deploy job's `jq '.commit // empty'` sees "nothing yet" rather than a lie.
-    assert response.body == {"ok": True, "commit": None}
+    assert response.body["ok"] is True
+    assert response.body["commit"] is None
+    assert response.body["checks"]["schema"] == "current"
+
+
+async def test_readiness_reports_the_worker_by_its_heartbeat(client: Client) -> None:
+    from blob_api.lib import readiness
+    from blob_api.lib.redis import WORKER_HEARTBEAT_KEY, redis
+
+    await redis.delete(WORKER_HEARTBEAT_KEY)
+    assert (await client.get("/readyz")).body["checks"]["worker"] == "missing"
+
+    await readiness.beat()
+    assert (await client.get("/readyz")).body["checks"]["worker"] == "ok"
+
+    from datetime import UTC, datetime, timedelta
+
+    old = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+    await redis.set(WORKER_HEARTBEAT_KEY, old)
+    response = await client.get("/readyz")
+    # A dead worker is reported and never fails readiness: chat still works without it.
+    assert response.body["checks"]["worker"] == "stale"
+    assert response.status == 200 and response.body["ok"] is True
+
+
+async def test_a_schema_behind_this_build_fails_readiness(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from blob_api.lib import readiness
+
+    monkeypatch.setattr(readiness, "_heads", lambda: frozenset({"9999_not_applied"}))
+    response = await client.get("/readyz")
+    assert response.status == 503
+    assert response.body["ok"] is False
+    assert response.body["checks"]["schema"] == "behind"
+
+
+async def test_storage_is_reported_and_cached(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from blob_api.lib import readiness, storage
+
+    calls = 0
+
+    async def probe() -> str:
+        nonlocal calls
+        calls += 1
+        return "unreachable"
+
+    readiness.reset_for_tests()
+    monkeypatch.setattr(storage, "probe", probe)
+    first = await client.get("/readyz")
+    second = await client.get("/readyz")
+    assert first.body["checks"]["storage"] == "unreachable"
+    assert first.status == 200, "storage being down never takes readiness with it"
+    assert calls == 1, "a public URL must not make the server fetch on every request"
+    assert second.body["checks"]["storage"] == "unreachable"
+    readiness.reset_for_tests()
 
 
 async def test_readiness_names_the_commit_it_serves(

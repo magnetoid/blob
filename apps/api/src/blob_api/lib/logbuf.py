@@ -34,6 +34,7 @@ which is not something a shared pool can survive.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import traceback
@@ -85,10 +86,9 @@ async def _discard_client() -> None:
     client, _client = _client, None
     if client is None:
         return
-    try:
+    # Shutting down: a client that fails to close has nothing left to lose.
+    with contextlib.suppress(Exception):
         await client.aclose()
-    except Exception:
-        pass
 
 
 async def close_log_buffer() -> None:

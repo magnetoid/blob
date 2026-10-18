@@ -208,7 +208,7 @@ class Bridge:
             except Exception:
                 log.exception("unexpected failure in the connection loop")
 
-            wait = random.uniform(0, delay)
+            wait = random.uniform(0, delay)  # noqa: S311 — reconnect jitter, not cryptography
             log.info("reconnecting in %.1fs", wait)
             await asyncio.sleep(wait)
             delay = min(delay * 2, RECONNECT_MAX_SEC)

@@ -222,7 +222,7 @@ async def caller_for(
         return None
     return mcp_service.McpCaller(
         token_id="",
-        token_name="agent run",
+        token_name="agent run",  # noqa: S106 — a parameter name, not a secret
         user_id=person_id,
         workspace_id=workspace_id,
         display_name=row.display_name,

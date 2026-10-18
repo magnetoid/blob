@@ -20,6 +20,7 @@ Whose agent something is is the private part, the same way a private channel's e
 
 from __future__ import annotations
 
+import asyncio
 import re
 from pathlib import Path
 from typing import Any
@@ -95,6 +96,10 @@ class AgentChannelsOut(CamelModel):
     channels: list[AgentChannel]
 
 
+#: Resolved once at import, not per request: resolving touches the filesystem too.
+_BRIDGE_SOURCE = Path(__file__).resolve().parent.parent / "tools" / "agent_bridge.py"
+
+
 @router.get("/bridge", response_class=PlainTextResponse)
 async def bridge_source(_user: SessionUser = Depends(current_user)) -> str:
     """The bridge script, for anybody with an agent to connect.
@@ -103,8 +108,8 @@ async def bridge_source(_user: SessionUser = Depends(current_user)) -> str:
     setup screen cannot link there. The script itself holds nothing secret — the token
     and the secret travel in the environment the person sets up beside it.
     """
-    path = Path(__file__).resolve().parent.parent / "tools" / "agent_bridge.py"
-    return path.read_text(encoding="utf-8")
+    # Off the event loop: a file read blocks every other request this process serves.
+    return await asyncio.to_thread(_BRIDGE_SOURCE.read_text, encoding="utf-8")
 
 
 class WorkspaceAgentOut(CamelModel):

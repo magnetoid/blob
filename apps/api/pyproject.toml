@@ -62,12 +62,21 @@ target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "RUF"]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "RUF", "S", "ASYNC"]
 ignore = [
     "A003",   # class attribute shadowing a builtin is fine for ORM columns
     "B008",   # FastAPI's Depends() in defaults is the documented idiom
     "RUF012", # ClassVar annotations on SQLAlchemy/Pydantic config dicts
+    # Every statement is text() with bound parameters, assembled from shared fragments by
+    # f-string. S608 flags all 64 of those and cannot tell a constant from a request
+    # value; tests/test_sql_interpolation.py holds the real rule (only code is
+    # interpolated) and was proven to fail on a mutation that interpolates input.
+    "S608",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert, use fixed passwords and fake tokens, and take timeouts as parameters.
+"tests/**" = ["S", "ASYNC109", "ASYNC110"]
 
 [tool.mypy]
 python_version = "3.12"

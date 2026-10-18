@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 EVERYONE_TOKENS = ("channel", "everyone")
-HERE_TOKEN = "here"
+HERE_TOKEN = "here"  # noqa: S105 — the literal `@here`, not a secret
 
 #: Longest display name we will try to match, in words.
 MAX_NAME_WORDS = 4
@@ -41,15 +41,12 @@ class MentionResult:
     everyone: bool = False
     #: True specifically for @here.
     #:
-    #: Parsed, and *not yet acted on*: `services/notify.py` reads `everyone` and nothing
-    #: reads this, so @here currently notifies exactly who @channel does. The comment
-    #: here used to say "notify only active members", which described an intention as
-    #: though it were behaviour — someone typing @here to spare the people who are away
-    #: is not sparing them.
-    #:
-    #: Wiring it up is a product decision rather than a fix, because it turns on what
-    #: "active" means, and the failure mode of guessing is somebody never learning they
-    #: were addressed. The parser keeps the distinction so the decision stays available.
+    #: Acted on at notify time: `jobs/notify.py` re-parses the body, reads presence for
+    #: the recipients, and `services/notify._reached_by_everyone` spares the ones who are
+    #: not active. When presence cannot be read it fails toward telling everybody, which
+    #: is what @here did before it learned to be quieter — somebody never learning they
+    #: were addressed is the worse mistake. (This comment said "not yet acted on" for a
+    #: while after it was; the notify module is the place to check, not this one.)
     here_only: bool = False
 
 

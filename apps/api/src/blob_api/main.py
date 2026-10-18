@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -18,8 +19,9 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .config import served_commit, settings
 from .db.engine import SessionFactory, close_engine
-from .lib import storage, telemetry
+from .lib import readiness, storage, telemetry
 from .lib.auth import SESSION_COOKIE, resolve_session
+from .lib.body_limit import BodyLimitMiddleware
 from .lib.errors import AppError
 from .lib.logbuf import close_log_buffer, install_log_capture
 from .lib.logging import RequestIdMiddleware
@@ -209,6 +211,9 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(SessionMiddleware)
+    # Outside the session lookup, so an oversized body costs no database round trip, and
+    # inside the security headers, so its 413 carries them like every other answer.
+    app.add_middleware(BodyLimitMiddleware)
     # Added after, so it wraps SessionMiddleware: the 401 and 403 that middleware writes
     # itself carry the headers too. Starlette applies the last-added middleware outermost.
     app.add_middleware(SecurityHeadersMiddleware)
@@ -278,8 +283,8 @@ def create_app() -> FastAPI:
         """
         return {"ok": True}
 
-    @app.get("/readyz")
-    async def readyz() -> dict[str, Any]:
+    @app.get("/readyz", response_model=None)
+    async def readyz() -> JSONResponse:
         """Readiness: can this process serve, and which build is it?
 
         The commit is here for the deploy job. Coolify builds the tip of main rather than
@@ -287,11 +292,32 @@ def create_app() -> FastAPI:
         noticing — the job now reads this after it asks for a deploy and fails if the
         commit is not its own. It is not new exposure: `bootstrap.serverCommit` already
         shows the same value to anyone signed in, and the repository is public.
+
+        `checks` adds the three things this used to be blind to (`lib/readiness.py`).
+        Only the schema can fail the probe — a process on a schema it was not written for
+        cannot serve — so it answers 503 then. The worker and storage are reported and
+        never fail it: the app serves without them, and a readiness failure would take
+        chat down to say that reminders are late.
         """
         async with SessionFactory() as session:
-            await session.execute(text("SELECT 1"))
+            applied = set(
+                (await session.execute(text("SELECT version_num FROM alembic_version")))
+                .scalars()
+                .all()
+            )
         await redis.ping()
-        return {"ok": True, "commit": served_commit()}
+        schema, worker, storage_seen = await asyncio.gather(
+            readiness.schema_state(applied),
+            readiness.worker_state(),
+            readiness.storage_state(),
+        )
+        ok = schema == "current"
+        body = {
+            "ok": ok,
+            "commit": served_commit(),
+            "checks": {"schema": schema, "worker": worker, "storage": storage_seen},
+        }
+        return JSONResponse(body, status_code=200 if ok else 503)
 
     from .realtime.ws import router as ws_router
     from .routers.activity import router as activity_router

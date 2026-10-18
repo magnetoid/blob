@@ -64,7 +64,7 @@ def backoff_for(attempts: int, *, jitter: float | None = None) -> float | None:
     if attempts < 1 or attempts > len(BACKOFF_SEC):
         return None
     base = BACKOFF_SEC[attempts - 1]
-    spread = random.uniform(0, JITTER) if jitter is None else jitter
+    spread = random.uniform(0, JITTER) if jitter is None else jitter  # noqa: S311 — retry jitter, not cryptography
     return base * (1 + spread)
 
 

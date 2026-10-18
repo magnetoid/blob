@@ -384,20 +384,26 @@ Named because they are coming, and because a README that implies otherwise waste
 afternoon:
 
 - **Huddles.** The audio-first counterpart to a video meetup — same call, same access
-  rules, but the camera never comes on just from joining. The button is in the top bar and
-  disabled today.
-- **Voice messages.** The server already accepts a voice note as its own kind of
-  attachment, with a duration and a waveform, and plays it inline. The recorder, the player
-  and the transcript are the next slices.
-- **Search scopes in ⌘K** (channels · people · messages · files as sections) and a lightly
-  tinted sidebar are the next two steps on the Slack-parity path.
+  rules, but the camera never comes on just from joining. The server side is done; the
+  button in the top bar is disabled until the entry points and the admin settings ship.
+- **Voice messages.** The server accepts a voice note as its own kind of attachment, with a
+  duration and a waveform. The recorder, an inline player and the transcript are not built:
+  today a voice note shows as an ordinary file.
+- **Agents that act without being asked.** An agent answers a mention, a DM, a task handed
+  to it or a scheduled message that names it. Following a channel, schedules of its own,
+  and asking another agent and getting the answer back are the next agentic milestone.
 - **Canvases and workflows** — not started.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
-- **SSO, SAML, OIDC and 2FA** — email and password is the only way in.
-- **Moderation, Approvals, Storage and Import/export** in the admin console — not built,
-  and not listed there until they are.
+- **SSO, SAML, OIDC, 2FA and passkeys** — email and password is the only way in, and
+  there are no guest accounts.
+- **Export, import and retention.** No workspace or personal export, no Slack import, and
+  the retention setting covers the audit log only — messages and files are kept.
+- **Moderation, Approvals and Storage** in the admin console — not built, and not listed
+  there until they are.
 
-The whole six-month plan, with what each slice measures, is in
+The current plan — what ships next, in what order, and why — is
+[docs/superpowers/specs/2026-10-18-agent-first-plan.md](docs/superpowers/specs/2026-10-18-agent-first-plan.md).
+The six-month plan it replaces the second half of, with what each slice measures, is
 [docs/roadmap.md](docs/roadmap.md).
 
 ---
@@ -522,7 +528,7 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 | `S3_PUBLIC_ENDPOINT` | falls back to `S3_ENDPOINT` | Where the **browser** talks to it. Presigned URLs are signed for one specific host, so if these two disagree every attachment link resolves somewhere the browser cannot reach. |
 | `S3_BUCKET` | `blob-files` | |
 | `S3_REGION` | `us-east-1` | |
-| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | `blobadmin` / `blobadmin123` | Change these anywhere real. |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | `blobadmin` / `blobadmin123` | Development only: in production the app refuses to start on these, and on Coolify the compose file has a pair generated when you set none. |
 | `S3_FORCE_PATH_STYLE` | `true` | MinIO wants path style; most managed S3 does not. |
 
 </details>
@@ -718,8 +724,11 @@ Migrations run from the **app** container's entrypoint on every boot, under a Po
 advisory lock, so replicas booting together serialize rather than race, and a failed
 migration stops the container instead of serving against a schema it does not have. The
 worker runs the same image with `RUN_MIGRATIONS=false` and waits on the app's health check.
-`/healthz` is liveness and touches nothing; `/readyz` checks Postgres and Redis and names the
-commit it is serving.
+`/healthz` is liveness and touches nothing; `/readyz` checks Postgres and Redis, names the
+commit it is serving, and reports three `checks`: `schema` (at this build's head, or 503
+when it is not), `worker` (its once-a-minute heartbeat) and `storage` (reachable the way a
+browser reaches it). The last two are reported and never fail readiness — chat works
+without them.
 
 ### Coolify
 

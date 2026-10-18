@@ -18597,17 +18597,13 @@
     },
     "/readyz": {
       "get": {
-        "description": "Readiness: can this process serve, and which build is it?\n\nThe commit is here for the deploy job. Coolify builds the tip of main rather than\nthe commit CI tested, so a green run could ship something else without anybody\nnoticing \u2014 the job now reads this after it asks for a deploy and fails if the\ncommit is not its own. It is not new exposure: `bootstrap.serverCommit` already\nshows the same value to anyone signed in, and the repository is public.",
+        "description": "Readiness: can this process serve, and which build is it?\n\nThe commit is here for the deploy job. Coolify builds the tip of main rather than\nthe commit CI tested, so a green run could ship something else without anybody\nnoticing \u2014 the job now reads this after it asks for a deploy and fails if the\ncommit is not its own. It is not new exposure: `bootstrap.serverCommit` already\nshows the same value to anyone signed in, and the repository is public.\n\n`checks` adds the three things this used to be blind to (`lib/readiness.py`).\nOnly the schema can fail the probe \u2014 a process on a schema it was not written for\ncannot serve \u2014 so it answers 503 then. The worker and storage are reported and\nnever fail it: the app serves without them, and a readiness failure would take\nchat down to say that reminders are late.",
         "operationId": "readyz_readyz_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Readyz Readyz Get",
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"

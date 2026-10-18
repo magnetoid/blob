@@ -59,7 +59,7 @@ async def search_messages(
     user: SessionUser = Depends(current_user),
 ) -> SearchOut:
     await consume("search", user.id)
-    assert sort in SORTS  # the pattern above is the guard; this is the reminder
+    assert sort in SORTS  # the pattern above is the guard; this is the reminder  # noqa: S101
     parsed = parse_query(q)
     # Modifiers name people and channels by label; the client shows what it parsed.
     parsed_payload = {

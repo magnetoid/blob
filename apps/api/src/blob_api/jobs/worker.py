@@ -16,7 +16,7 @@ from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import close_engine, session_scope, transaction
-from ..lib import telemetry
+from ..lib import readiness, telemetry
 from ..lib.queue import close_queue, redis_settings
 from ..lib.redis import close_redis
 from ..lib.storage import delete_object
@@ -177,6 +177,12 @@ async def sweep_calls(_ctx: dict[str, Any]) -> None:
         log.info("call sweep changed %d call(s)", changed)
 
 
+async def heartbeat(_ctx: dict[str, Any]) -> None:
+    """Tell `/readyz` the worker is alive. Its own job rather than a side effect of
+    another, so a quiet workspace with nothing to deliver still reads as up."""
+    await readiness.beat()
+
+
 async def startup(_ctx: dict[str, Any]) -> None:
     # Runs are the worker's, so their traces start here — when there is an endpoint.
     telemetry.configure("worker")
@@ -258,6 +264,9 @@ class WorkerSettings:
         # :45, so it does not share a second with the outbox (:00), reminders (:30) or
         # scheduled sends (:15).
         cron(sweep_calls, second=45),  # type: ignore[arg-type]
+        # :50, the last free slot in the minute; at startup too, so a fresh deploy reads
+        # as up on the first readiness check rather than a minute later.
+        cron(heartbeat, second=50, run_at_startup=True),  # type: ignore[arg-type]
         # At startup because a fresh deploy is exactly when the stored callback URL is
         # most likely stale, then on a slow cycle so a domain change heals unwatched.
         cron(

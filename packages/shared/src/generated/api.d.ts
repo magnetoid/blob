@@ -3790,6 +3790,12 @@ export interface paths {
          *     noticing — the job now reads this after it asks for a deploy and fails if the
          *     commit is not its own. It is not new exposure: `bootstrap.serverCommit` already
          *     shows the same value to anyone signed in, and the repository is public.
+         *
+         *     `checks` adds the three things this used to be blind to (`lib/readiness.py`).
+         *     Only the schema can fail the probe — a process on a schema it was not written for
+         *     cannot serve — so it answers 503 then. The worker and storage are reported and
+         *     never fail it: the app serves without them, and a readiness failure would take
+         *     chat down to say that reminders are late.
          */
         get: operations["readyz_readyz_get"];
         put?: never;
@@ -13879,9 +13885,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
         };

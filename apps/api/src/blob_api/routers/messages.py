@@ -462,6 +462,7 @@ async def update_later(
 async def add_reaction(
     message_id: IdParam, payload: ReactionInput, user: SessionUser = Depends(current_user)
 ) -> OkOut:
+    await consume("react", user.id)
     async with transaction() as (session, after):
         existing = await message_service.load_for(
             session, user.id, message_id, require_member=True, require_writable=True
@@ -496,6 +497,7 @@ async def remove_reaction(
     emoji: Annotated[str, Query(min_length=1, max_length=64)],
     user: SessionUser = Depends(current_user),
 ) -> OkOut:
+    await consume("react", user.id)
     async with transaction() as (session, after):
         # Removing a reaction can only ever touch your own, so nothing here is
         # destroyable — the access check exists because answering 200 for a message in

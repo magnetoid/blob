@@ -1,15 +1,20 @@
 """Typed readers over the workspace_settings JSONB blob.
 
 The table is one JSON document per workspace, merged on write. Callers used to poke
-string keys (`signupPolicy`, `retentionDays`) with no default and no type, so a typo
+string keys (`retentionDays`, `uploadLimitBytes`) with no default and no type, so a typo
 or a missing row meant "whatever the if-not-None branch did". These readers are the
 contract: unknown keys are ignored, missing keys are defaults, bad values fall back.
+
+Only keys something acts on are read. `signupPolicy` and `banner` were parsed here for
+months with nothing behind them — no open sign-up path, no banner drawn — which is a
+setting that looks like a feature to anyone reading the code. They went on 2026-10-18;
+a stored value is simply ignored, like any other unknown key.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy import text
@@ -18,26 +23,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db.engine import session_scope
 from ..schemas.calls import CallSettings, HuddleSettings, MeetupSettings
 
-SignupPolicy = Literal["invite", "open"]
-
 DEFAULT_RETENTION_DAYS = 365
 DEFAULT_UPLOAD_LIMIT = 100 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
 class TypedSettings:
-    signup_policy: SignupPolicy = "invite"
     retention_days: int = DEFAULT_RETENTION_DAYS
     upload_limit_bytes: int = DEFAULT_UPLOAD_LIMIT
     agents_enabled: bool = True
-    banner: str | None = None
 
 
 def parse(raw: dict[str, Any] | None) -> TypedSettings:
     data = raw or {}
-    policy = data.get("signupPolicy", "invite")
-    signup_policy: SignupPolicy = policy if policy in ("invite", "open") else "invite"
-
     try:
         retention = int(data.get("retentionDays", DEFAULT_RETENTION_DAYS))
     except (TypeError, ValueError):
@@ -51,14 +49,10 @@ def parse(raw: dict[str, Any] | None) -> TypedSettings:
     upload = max(1024, min(upload, 1024 * 1024 * 1024))
 
     agents = data.get("agentsEnabled", True)
-    banner_raw = data.get("banner")
-    banner = banner_raw.strip() if isinstance(banner_raw, str) and banner_raw.strip() else None
     return TypedSettings(
-        signup_policy=signup_policy,
         retention_days=retention,
         upload_limit_bytes=upload,
         agents_enabled=bool(agents) if not isinstance(agents, str) else agents.lower() != "false",
-        banner=banner,
     )
 
 

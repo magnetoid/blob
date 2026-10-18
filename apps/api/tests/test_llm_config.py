@@ -112,3 +112,22 @@ class TestProviderHosts:
         monkeypatch.setattr(settings, "LLM_PROVIDER", "deepseek")
         monkeypatch.setattr(settings, "LLM_BASE_URL", "")
         assert llm._base() == "https://api.deepseek.com"
+
+
+class TestStorageLoginInProduction:
+    """The repo's development MinIO login must never be what production runs on."""
+
+    @pytest.mark.parametrize(
+        ("key", "secret"),
+        [("blobadmin", "blobadmin123"), ("blobadmin", "a-real-secret-1"), ("real-user", "")],
+    )
+    def test_production_refuses_the_defaults_or_nothing(self, key: str, secret: str) -> None:
+        with pytest.raises(ValueError, match="S3_ACCESS_KEY and S3_SECRET_KEY"):
+            build(NODE_ENV="production", S3_ACCESS_KEY=key, S3_SECRET_KEY=secret)
+
+    def test_production_starts_on_a_pair_of_its_own(self) -> None:
+        settings = build(NODE_ENV="production", S3_ACCESS_KEY="blob-1f3a", S3_SECRET_KEY="x" * 40)
+        assert settings.is_prod
+
+    def test_development_keeps_the_defaults(self) -> None:
+        assert build().S3_ACCESS_KEY == "blobadmin"

@@ -24,6 +24,7 @@ from ..lib.errors import bad_request, no_preview, no_such_file, not_found, previ
 from ..lib.ids import IdParam, looks_like_id, new_id
 from ..lib.rate_limit import consume
 from ..lib.storage import (
+    MIN_PART_BYTES,
     build_object_key,
     delete_object,
     ensure_bucket,
@@ -34,6 +35,7 @@ from ..lib.storage import (
     presign_upload,
     public_file_url,
     put_object,
+    replace_head,
     stream_object,
 )
 from ..schemas.base import CamelModel, OkOut
@@ -294,7 +296,18 @@ async def complete_upload(
             rendered = await asyncio.to_thread(images.render, source)
         except Exception:
             log.warning("could not read %s back for a thumbnail", attachment_id, exc_info=True)
-            rendered = None
+            source, rendered = b"", None
+        # Where the photo was taken comes off the original too, since Download hands
+        # the original to the whole room. Same length, so the size this upload was
+        # signed and checked for above still holds. A failure keeps the original as
+        # uploaded: an attachment is never refused over its metadata.
+        if source and attachment.mime.lower() == "image/jpeg":
+            try:
+                cleaned = await asyncio.to_thread(images.without_location, source)
+                if cleaned is not None:
+                    await put_object(attachment.object_key, cleaned, attachment.mime)
+            except Exception:
+                log.warning("could not clear the location from %s", attachment_id, exc_info=True)
         if rendered is not None:
             key = images.thumb_key_for(attachment.object_key)
             try:
@@ -305,6 +318,11 @@ async def complete_upload(
                 width, height = rendered.width, rendered.height
             except Exception:
                 log.warning("could not store the thumbnail for %s", attachment_id, exc_info=True)
+    elif attachment.mime.lower() == "image/jpeg" and stored > images.MAX_SOURCE_BYTES:
+        # Too big to thumbnail, and still a photo of somewhere. Its metadata sits in the
+        # segments before the image data, a few kilobytes at its start, so only a head is
+        # read and only a head is rewritten; storage copies the rest (`replace_head`).
+        await _clear_location_from_the_head(attachment, attachment_id, stored)
 
     async with transaction() as (session, _):
         recorded = await file_service.mark_uploaded(
@@ -320,6 +338,22 @@ async def complete_upload(
     if not recorded:
         raise not_found("That upload has expired.")
     return OkOut()
+
+
+#: How much of a JPEG too large to thumbnail is read for its location. Every metadata
+#: segment comes before the image data and each is at most 64 KB, so a megabyte would
+#: do; it is S3's minimum part size because that is the least a rewritten head can be.
+LOCATION_HEAD_BYTES = MIN_PART_BYTES
+
+
+async def _clear_location_from_the_head(attachment: Any, attachment_id: str, stored: int) -> None:
+    try:
+        head = await get_object_head(attachment.object_key, LOCATION_HEAD_BYTES)
+        cleaned = await asyncio.to_thread(images.without_location, head)
+        if cleaned is not None:
+            await replace_head(attachment.object_key, cleaned, total=stored, mime=attachment.mime)
+    except Exception:
+        log.warning("could not clear the location from %s", attachment_id, exc_info=True)
 
 
 @router.get("/api/attachments/{attachment_id}/preview", response_model=None)
@@ -439,7 +473,7 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
                 raise no_such_file()
             return _redirect(presign_download(key, mime="image/png"))
 
-    assert file is not None  # allowed implies a row
+    assert file is not None  # allowed implies a row  # noqa: S101
     if file.thumb_key == key:
         # Inline, and its own type: the thumbnail is a WebP whatever the original was.
         return _redirect(presign_download(key, mime=images.THUMB_MIME))

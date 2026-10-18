@@ -19,6 +19,9 @@ redis_sub: Redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
 #: Channel on which app processes exchange WebSocket events.
 EVENTS_CHANNEL = "ws:events"
 
+#: When the arq worker last ran its once-a-minute heartbeat (`lib/readiness.py`).
+WORKER_HEARTBEAT_KEY = "worker:heartbeat"
+
 
 def presence_key(user_id: str) -> str:
     return f"presence:{user_id}"

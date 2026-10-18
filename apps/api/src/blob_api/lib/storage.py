@@ -8,6 +8,7 @@ request.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -282,6 +283,69 @@ async def put_object(key: str, body: bytes, mime: str) -> None:
     await asyncio.to_thread(
         _client().put_object, Bucket=settings.S3_BUCKET, Key=key, Body=body, ContentType=mime
     )
+
+
+#: S3's smallest part other than the last. A head rewritten by `replace_head` has to be at
+#: least this long, which is why the location scrub reads that much of a large file.
+MIN_PART_BYTES = 5 * 1024 * 1024
+
+
+async def replace_head(key: str, head: bytes, *, total: int, mime: str) -> None:
+    """Rewrite the first `len(head)` bytes of an object, keeping the rest — server side.
+
+    S3 cannot overwrite part of an object, and downloading a 90 MB photo to change a few
+    bytes at its start would hold the whole thing in this process. So the object is
+    rebuilt as a two-part multipart upload onto its own key: the new head uploaded, the
+    unchanged tail copied by storage from the current object (`UploadPartCopy` with a
+    range). Nothing past the head passes through here. The head has to be at least
+    `MIN_PART_BYTES`, S3's rule for every part but the last, and shorter than the object.
+
+    An abandoned upload is aborted, so a failure leaves the original exactly as it was.
+    """
+    if len(head) < MIN_PART_BYTES or len(head) >= total:
+        raise ValueError("the head must be at least one part long and shorter than the object")
+    client = _client()
+    bucket = settings.S3_BUCKET
+    created = await asyncio.to_thread(
+        client.create_multipart_upload, Bucket=bucket, Key=key, ContentType=mime
+    )
+    upload_id = created["UploadId"]
+    try:
+        first = await asyncio.to_thread(
+            client.upload_part,
+            Bucket=bucket,
+            Key=key,
+            UploadId=upload_id,
+            PartNumber=1,
+            Body=head,
+        )
+        second = await asyncio.to_thread(
+            client.upload_part_copy,
+            Bucket=bucket,
+            Key=key,
+            UploadId=upload_id,
+            PartNumber=2,
+            CopySource={"Bucket": bucket, "Key": key},
+            CopySourceRange=f"bytes={len(head)}-{total - 1}",
+        )
+        await asyncio.to_thread(
+            client.complete_multipart_upload,
+            Bucket=bucket,
+            Key=key,
+            UploadId=upload_id,
+            MultipartUpload={
+                "Parts": [
+                    {"PartNumber": 1, "ETag": first["ETag"]},
+                    {"PartNumber": 2, "ETag": second["CopyPartResult"]["ETag"]},
+                ]
+            },
+        )
+    except BaseException:
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(
+                client.abort_multipart_upload, Bucket=bucket, Key=key, UploadId=upload_id
+            )
+        raise
 
 
 #: Long enough for a proxy hop, short enough that the health page never hangs on it.

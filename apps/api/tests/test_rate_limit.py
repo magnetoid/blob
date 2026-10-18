@@ -68,3 +68,21 @@ async def test_the_workspace_stays_usable_end_to_end(
     monkeypatch.setattr(rate_limit, "redis", _DeadPipeline())
     response = await send_message(owner, general["id"], "still here")
     assert response.status in (200, 201), response.body
+
+
+async def test_toggling_a_reaction_in_a_loop_is_limited(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Adding and removing share one bucket, because both fan out to the whole room."""
+    owner = await sign_up(client, "Owner")
+    channels = (await owner.get("/api/channels")).body["channels"]
+    general = next(c for c in channels if c["name"] == "general")
+    sent = await send_message(owner, general["id"], "react to me")
+    message_id = sent.body["message"]["id"]
+
+    monkeypatch.setitem(rate_limit.LIMITS, "react", rate_limit.Limit(2, 60))
+    first = await owner.put(f"/api/messages/{message_id}/reactions", {"emoji": "👍"})
+    second = await owner.delete(f"/api/messages/{message_id}/reactions?emoji=👍")
+    third = await owner.put(f"/api/messages/{message_id}/reactions", {"emoji": "👍"})
+    assert (first.status, second.status) == (200, 200), (first.body, second.body)
+    assert third.status == 429, third.body

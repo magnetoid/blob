@@ -189,7 +189,7 @@ def _tokens(pointer: str) -> list[str]:
 
 
 def _index(container: list[Any], token: str, *, allow_end: bool) -> int:
-    if token == "-" and allow_end:
+    if token == "-" and allow_end:  # noqa: S105 — a JSON Pointer token, not a secret
         return len(container)
     if not token.isdigit():
         raise PatchError(f"{token!r} is not an array index")

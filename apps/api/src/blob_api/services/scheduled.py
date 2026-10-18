@@ -138,7 +138,7 @@ async def schedule(
             },
         )
     ).fetchone()
-    assert row is not None
+    assert row is not None  # noqa: S101 — narrows a type; never an access check
     return _row_to_model(row)
 
 
@@ -298,7 +298,7 @@ async def advance(session: AsyncSession, item: dict[str, object], message_id: st
         return False
 
     previous = item["send_at"]
-    assert isinstance(previous, datetime)
+    assert isinstance(previous, datetime)  # noqa: S101 — narrows a type; never an access check
     timezone = str(item.get("timezone") or "UTC")
 
     now = datetime.now(UTC)

@@ -1057,7 +1057,7 @@ async def announce(
             )
 
         for member_id, view in opened_views.items():
-            assert opened is not None  # opened_views is empty otherwise
+            assert opened is not None  # opened_views is empty otherwise  # noqa: S101
             hub.subscribe_users([member_id], [opened.id])
             if view is not None:
                 hub.to_users([member_id], channel_event("channel.created", view))
