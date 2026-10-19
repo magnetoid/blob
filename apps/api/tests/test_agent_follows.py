@@ -25,8 +25,14 @@ from .test_agent_tools import says
 from .test_agui import (
     _resolve_the_example_host,  # noqa: F401 — autouse in its own module
     frame,
+    install,
+    join_channel,
 )
-from .test_task_dispatch import desk_fixture  # noqa: F401 — the fake agent and its room
+from .test_task_dispatch import (
+    STOPS_TO_ASK,
+    desk_fixture,  # noqa: F401 — the fake agent and its room
+)
+from .test_work_channels import PLANNER, PUBLISHES_A_DIFF
 
 QUIET = b"".join(
     (
@@ -176,6 +182,59 @@ class TestHearing:
         [run] = await runs(desk)
         assert run.addressed is True
         assert len(desk["state"]["seen"]) == 1
+
+
+class TestLookingNotActing:
+    """It may look and answer in its own words — and nothing else (review of A1)."""
+
+    async def test_its_own_question_asks_nobody_and_waits_on_nobody(
+        self, desk: dict[str, Any]
+    ) -> None:
+        await follow(desk)
+        await say(desk, "should we ship on Friday?", STOPS_TO_ASK)
+        [run] = await runs(desk)
+        assert run.status == "succeeded"
+        assert not any(m["body"].startswith("Needs a decision") for m in await messages(desk))
+        assert run_frames(desk) == []
+
+    async def test_its_reply_naming_another_agent_starts_no_hop(self, desk: dict[str, Any]) -> None:
+        planner = await install(desk["owner"], **PLANNER)
+        await join_channel(desk["owner"], planner, desk["general"])
+        await follow(desk)
+        await say(desk, "who has the plan?", says("@Planner would know."))
+        assert "@Planner would know." in [m["body"] for m in await messages(desk)]
+        hops = [job for job in desk["enqueued"] if job[0] == "agui_run" and len(job) == 3]
+        assert hops == [], "a hop is a job with a parent run; a follow starts none"
+
+    async def test_it_publishes_nothing_into_a_work_channel_it_follows(
+        self, desk: dict[str, Any]
+    ) -> None:
+        root = await send_message(desk["owner"], desk["general"], "Rate limiting for the API")
+        started = await desk["owner"].post(
+            "/api/work",
+            {
+                "rootMessageId": root.body["message"]["id"],
+                "title": "Rate limiting",
+                "agentPluginIds": [desk["plugin_id"]],
+            },
+        )
+        assert started.status == 201, started.body
+        work_channel = started.body["channel"]["id"]
+        assert (await follow(desk, work_channel)).status == 200
+        before = await count_artifacts()
+        desk["state"]["scripts"] = [b"".join(PUBLISHES_A_DIFF)]
+        sent = await send_message(desk["owner"], work_channel, "how is it going?")
+        await agui_job.handle_agui_run(str(sent.body["message"]["id"]))
+        # The run itself went through — it is the artifacts that were withheld.
+        assert [(r.status, r.addressed) for r in await runs(desk)][-1] == ("succeeded", False)
+        assert await count_artifacts() == before
+
+
+async def count_artifacts() -> int:
+    async with SessionFactory() as session:
+        return int(
+            (await session.execute(text("SELECT count(*) FROM work_artifacts"))).scalar_one()
+        )
 
 
 class TestRestraint:

@@ -49,7 +49,10 @@ for that agent, marked as not addressed to it.**
   there need, or finish without a word. An addressed run's input is unchanged.
 - **It may look, not act.** Blob's read tools only, whatever its access: no post through a
   tool, no question to another agent. Nobody asked it anything, so nothing it does may
-  wait on a person's approval.
+  wait on a person's approval. The same holds for what the agent sends of its own accord,
+  whatever its framework does: its own interrupt asks nobody anything (the question is
+  dropped and the run ends as what it said), an artifact it emits is not published into a
+  work channel, and a reply naming another agent starts no hop.
 - **The room sees what it says, and nothing else.** No card, no typing, no run events in
   the channel. Its messages arrive as anyone's do. A run that said nothing appears in no
   list — not the channel's cards, not Home, not run history — only in the admin's run log,
@@ -75,6 +78,9 @@ run deliberately lacks.
   `jobs/agui_outcome.py` keeps every run event of an unaddressed run out of the room.
 - `GET/PUT/DELETE /api/admin/plugins/{id}/follows[/{channel}]`, audited as
   `plugin.follow_set`.
+- `messages.announce` queues the run job for a person's message in a followed channel
+  (`agent_follows.is_followed`); before that, only a mention or an agent's DM did, and a
+  test that calls the job directly does not cross that step.
 - An agent that does not read the `addressed` item will answer every message it hears, at
   most once per cooldown. That is why following is opt-in per channel and why the console
   says so; an agent built for it — or the seeded agent, told through the same item — keeps

@@ -453,7 +453,10 @@ mention, and the run's `context` carries an `addressed` item saying it was not m
 and should answer only with something the people there need — or finish without a word,
 which posts nothing. Such a run is offered Blob's read tools only, shows the channel no
 card and no typing, and is throttled: at most one every two minutes per channel and forty
-a day. If your agent cannot keep quiet, ask the admin not to switch this on for it.
+a day. What it says is posted; nothing else it sends acts — an interrupt it ends on is
+dropped rather than put to anyone, an artifact is not published, and a reply naming
+another agent starts no hop. If your agent cannot keep quiet, ask the admin not to switch
+this on for it.
 
 **AG-UI is a transport, not a permission.** Your bot still needs `messages:write`, and it
 still has to be a member of a channel to answer in it. In a channel it cannot see, it says

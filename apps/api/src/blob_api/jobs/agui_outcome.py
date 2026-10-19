@@ -560,7 +560,11 @@ async def _finish(
         else "failed"
         if reason
         else "interrupted"
-        if approval is not None or fold.interrupt
+        # A run nobody addressed asks nobody anything (ADR 0026): an agent's own interrupt
+        # — its framework's human-in-the-loop, which Blob's tools do not govern — would
+        # post "Needs a decision" at somebody who only said something in a channel it
+        # follows. Its question is dropped and the run ends as what it said.
+        if approval is not None or (fold.interrupt and listener.addressed)
         # The agent ended the run as cancelled itself — after Blob's cancel frame, or its
         # own decision. Neither an answer nor a failure, and the card should not say
         # either.
@@ -645,7 +649,9 @@ async def _finish(
                 person_id=memory_person,
                 state_json=shared_state,
             )
-        if fold.artifacts and status in ("succeeded", "interrupted"):
+        # A follow looks; it does not act (ADR 0026) — no artifacts into a work channel
+        # it merely overheard, however the agent sent them.
+        if fold.artifacts and listener.addressed and status in ("succeeded", "interrupted"):
             # What the agent made, into the work this channel is — if it is one. Elsewhere
             # the events were inert, on purpose: an artifact needs the tabs to be seen in.
             work = await work_service.by_channel(session, channel_id)
@@ -825,6 +831,7 @@ async def run_one(
                             agent=listener.slug,
                             chain_id=chain.chain_id,
                             plugin_id=listener.plugin_id,
+                            addressed=listener.addressed,
                         )
                     )
             raise
@@ -1103,7 +1110,9 @@ async def _drive(
     card = run_card.CardFold(show_reasoning=listener.shows_reasoning)
     # Whether a reply from this run may carry the chain a hop further. Decided once, here,
     # from the depth budget; the job that picks the hop up applies the rest of the rules.
-    spawn = agent_chains.can_spawn(chain, max_depth)
+    # Never for a run nobody addressed (ADR 0026): its reply mentioning another agent would
+    # bring that agent into the room on its own initiative — `ask_agent` by another name.
+    spawn = listener.addressed and agent_chains.can_spawn(chain, max_depth)
 
     # What the run this one resumes had already exchanged, and this run's own rounds.
     carried: list[dict[str, Any]] = list(chain.exchange)
