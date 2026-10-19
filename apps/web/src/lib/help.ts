@@ -74,6 +74,18 @@ export const SECTIONS: Section[] = [
         keywords: ['layout', 'sidebar', 'top bar', 'navigation', 'where'],
       },
       {
+        id: 'home',
+        title: 'Home',
+        blurb: 'Where you stand, what needs you, and what the agents are doing — and the place to deal with most of it.',
+        body: [
+          'Home opens with a sentence saying what is waiting for you, and each part of it takes you to what it counts. Below it you can ask the workspace’s agent anything, and each of the four numbers leads to the things it counts.',
+          'A question an agent stopped to ask you is shown in full under Needs a decision, with its choices as buttons, or a line to type in when it wants words. Answering there is the same as answering under the message: your answer is posted in the conversation as your own, and the agent carries on.',
+          'Tick a task off under Your tasks and it is marked done. Mark all read clears everything unread at once.',
+        ],
+        path: '/',
+        keywords: ['home', 'dashboard', 'overview', 'decision', 'answer', 'tasks', 'done', 'mark all read'],
+      },
+      {
         id: 'first-day',
         title: 'Your first ten minutes',
         blurb: 'Say who you are, join what you care about, and learn one shortcut.',

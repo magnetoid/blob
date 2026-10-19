@@ -11,7 +11,7 @@
  * that failed or was refused, one waiting for an answer — keeps the card.
  */
 
-import { memo, useEffect, useState, type FormEvent } from 'react';
+import { memo, useState, type FormEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type {
   AgentRunCard as RunCard,
@@ -24,6 +24,7 @@ import { formatTokens } from '../../lib/format.ts';
 import { useStore } from '../../lib/store.ts';
 import { useRun } from '../../lib/useRuns.ts';
 import { showError } from '../../lib/toasts.ts';
+import { useMinute } from '../../lib/useMinute.ts';
 import { ChevronDownIcon } from '../../components/Icon.tsx';
 
 interface Props {
@@ -354,22 +355,6 @@ function ChainLine({ run }: { run: AgentRunView }) {
   );
 }
 
-/** The time now, refreshed once a minute while `on` — for a deadline shown as time left. */
-function useMinute(on: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!on) return;
-    // At once as well as every minute: a card that started waiting long after it was
-    // first drawn would otherwise count down from the moment it mounted.
-    const first = setTimeout(() => setNow(Date.now()), 0);
-    const timer = setInterval(() => setNow(Date.now()), 60_000);
-    return () => {
-      clearTimeout(first);
-      clearInterval(timer);
-    };
-  }, [on]);
-  return now;
-}
 
 function timeLeft(expiresAt: string, now: number): string {
   const ms = new Date(expiresAt).getTime() - now;

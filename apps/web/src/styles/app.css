@@ -10058,13 +10058,6 @@ button.person-trigger:hover {
   max-width: 400px;
 }
 
-.home-run-go {
-  margin-left: auto;
-  color: var(--accent);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
 /* ─── home ────────────────────────────────────────────────────────────────────
    The board a workspace opens on. A column that reads rather than a dashboard stretched
    to the window: past ~1040px the cards only grew emptier. Opens with where you stand in
@@ -10104,6 +10097,35 @@ button.person-trigger:hover {
   margin: 0;
   font-size: var(--text-base);
   color: var(--text-3);
+}
+
+/* Each part of the sentence is the way to what it counts. Underlined quietly, the way a
+   link in running text is, so the sentence still reads as a sentence. */
+.home-summary-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--text-2);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--hairline-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-color),
+    text-decoration-color var(--dur-fast) var(--ease-color);
+}
+
+.home-summary-link:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.home-summary-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
 }
 
 /* The ask: Meadow's ambient strip — the forest ✦ and a line to type in. Drawn as the
@@ -10242,6 +10264,39 @@ button.home-stat:active {
 .home-stat[data-tone='clay'] .home-stat-icon {
   background: var(--clay);
   color: var(--clay-text);
+}
+
+.home-stat-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Who is here, as faces beside the count: a number of people says less than the people. */
+.home-faces {
+  display: flex;
+  padding-bottom: 2px;
+}
+
+.home-faces > .avatar {
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.home-faces > .avatar + .avatar {
+  margin-left: -6px;
+}
+
+/* A count that changed in front of you rises into place (`Count`); one that was simply
+   drawn sits still. Inline-block, or the transform would not apply. */
+.home-stat-digits,
+.home-card-digits {
+  display: inline-block;
+}
+
+.home-stat-digits[data-changed='true'],
+.home-card-digits[data-changed='true'] {
+  animation: count-tick var(--dur-fast) var(--ease-out);
 }
 
 .home-stat-value {
@@ -10386,8 +10441,311 @@ button.home-stat:active {
   margin-top: 8px;
 }
 
-.home-pulse p {
-  margin: 0 0 6px;
+/* In a channel the run card sits under its message, offset by the avatar's width. Here
+   it is the row's own content, so it starts where the card's text does. */
+.home-run .agent-run-card {
+  margin: 0;
+  max-width: none;
+}
+
+.home-pulse .home-row {
+  font-weight: 400;
+}
+
+.home-pulse .home-row strong {
+  display: inline;
+}
+
+/* Where a card's list goes on from — all the agents, all the tasks — or what clears it. */
+.home-card-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.home-card-link {
+  padding: 4px 6px;
+  margin-right: -6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.home-card-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.home-card-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* A row somebody finished with leaves by closing: its height folds to nothing as it
+   fades, so the rows below close the gap instead of jumping into it. The exit timing
+   every overlay uses. Under reduced motion only the fade remains (below). */
+.home-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--dur-exit) var(--ease-in),
+    opacity var(--dur-exit) var(--ease-in);
+}
+
+.home-collapse-inner {
+  min-height: 0;
+}
+
+.home-collapse[data-state='closed'] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.home-collapse[data-state='closed'] > .home-collapse-inner {
+  overflow: hidden;
+}
+
+/* A question an agent stopped to ask you, answered where it stands. Iris, with the run
+   card's rail, because the words are the agent's; green once answered, because then the
+   last word was yours. */
+.home-decision {
+  margin-top: 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--iris-border);
+  border-left: 3px solid var(--iris);
+  border-radius: var(--radius-md);
+  background: var(--iris-surface);
+  transition:
+    border-color var(--dur-open) var(--ease-standard),
+    background-color var(--dur-open) var(--ease-standard);
+}
+
+.home-decision[data-state='answered'] {
+  border-color: var(--accent-border);
+  border-left-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.home-decision-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.home-decision-agent {
+  font-weight: 700;
+  color: var(--iris-strong);
+}
+
+.home-decision-where {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.home-decision-where:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.home-decision-where:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.home-decision-due {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-decision-prompt {
+  margin: 6px 0 10px;
+  font-size: var(--text-row);
+  line-height: 1.45;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/* Inside the row the link starts where the question's words do, not 6px in. */
+.home-decision .home-card-link {
+  margin-left: -6px;
+}
+
+.home-decision-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.home-decision-reply {
+  display: flex;
+  gap: 6px;
+}
+
+.home-decision-reply .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-decision-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* The one acknowledgement on the board: the check arrives with the badge's pop. */
+.home-decision-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  animation: badge-pop var(--dur-open) var(--ease-out);
+}
+
+/* One of your tasks: a box to tick it off, its title the way to its thread. */
+.home-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+}
+
+.home-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  cursor: pointer;
+}
+
+.home-check::before {
+  content: '';
+  grid-area: 1 / 1;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  transition:
+    border-color var(--dur-fast) var(--ease-color),
+    background-color var(--dur-fast) var(--ease-color);
+}
+
+.home-check > svg {
+  grid-area: 1 / 1;
+  position: relative;
+  color: var(--accent-contrast);
+  animation: badge-pop var(--dur-open) var(--ease-out);
+}
+
+.home-check:hover::before {
+  border-color: var(--accent);
+}
+
+.home-check[aria-checked='true']::before {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.home-check[aria-disabled='true'] {
+  cursor: default;
+}
+
+.home-check:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+.home-task-title {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-color);
+}
+
+.home-task-title:hover {
+  color: var(--accent);
+}
+
+.home-task-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.home-task[data-done='true'] .home-task-title {
+  color: var(--text-4);
+  text-decoration: line-through;
+}
+
+.home-task-due {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-collapse {
+    transition: opacity var(--dur-exit) var(--ease-in);
+  }
+}
+
+@media (pointer: coarse) {
+  .home-check {
+    width: 44px;
+    height: 44px;
+    margin-left: -12px;
+  }
+
+  /* Not the summary's links: they sit inside a sentence, which a 44px box would break,
+     and an inline target is exempt from the size rule (WCAG 2.5.8). */
+  .home-card-link {
+    min-height: 44px;
+  }
 }
 
 @media (max-width: 860px) {
