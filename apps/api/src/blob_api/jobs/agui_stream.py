@@ -26,15 +26,22 @@ class CardBroadcaster:
     state travels with `agent_run.finished`, so nothing is lost to the trailing edge.
     """
 
-    def __init__(self, run_id: str, channel_id: str, card: run_card.CardFold) -> None:
+    def __init__(
+        self, run_id: str, channel_id: str, card: run_card.CardFold, *, silent: bool = False
+    ) -> None:
         self._run_id = run_id
         self._channel_id = channel_id
         self._card = card
+        #: A run nobody addressed (ADR 0026) keeps its card — the run log reads it — and
+        #: sends the room none of it.
+        self._silent = silent
         self._dirty = False
         self._task: asyncio.Task[None] | None = None
 
     def on_event(self, event: Mapping[str, Any]) -> None:
         if not self._card.feed(event):
+            return
+        if self._silent:
             return
         self._dirty = True
         if self._task is None:

@@ -831,6 +831,10 @@ class AgentRun(Base):
     #: (`plugins/run_trail.py`). For an admin explaining a run; emptied after seven days
     #: while the run is kept for its thirty (migration 0052).
     events: Mapped[Any | None] = mapped_column(JSONB)
+    #: False for a run a followed channel started (ADR 0026, migration 0055): not addressed
+    #: to the agent, so it shows no card in the room, and if it said nothing it is left out
+    #: of every list but the admin's run log.
+    addressed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
 
 class AgentState(Base):
@@ -1613,6 +1617,35 @@ class AgentDelegation(Base):
     revoked_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
+class AgentFollow(Base):
+    """A channel an agent follows: it hears people's messages there without a mention.
+
+    Set by an admin, per agent and channel (ADR 0026). Each message a person posts in the
+    channel is handed to the agent marked as not addressed to it — read tools only, a
+    cooldown and a daily cap — so it can stay quiet unless it has something to add.
+    Following is not membership: the bot must already be in the channel, and leaving it
+    is not unfollowing it.
+    """
+
+    __tablename__ = "agent_follows"
+    __table_args__ = (Index("agent_follows_channel", "channel_id"),)
+
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), primary_key=True
+    )
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), primary_key=True
+    )
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    #: The admin who switched it on, kept for the audit trail's sake.
+    created_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class BotToken(Base):
     __tablename__ = "bot_tokens"
     __table_args__ = (Index("bot_tokens_plugin", "plugin_id"),)
@@ -1739,6 +1772,7 @@ class McpToken(Base):
 
 
 __all__ = [
+    "AgentFollow",
     "AgentTask",
     "Attachment",
     "AuditEvent",

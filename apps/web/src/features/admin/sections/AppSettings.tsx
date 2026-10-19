@@ -27,6 +27,7 @@ import { DialogPresence } from "../../../components/Dialog.tsx";
 import { showError } from "../../../lib/toasts.ts";
 import { Card, CardNotice } from "../../console/Card.tsx";
 import { AppChannelList } from "./apps/AppChannelList.tsx";
+import { AgentFollows } from "./apps/AgentFollows.tsx";
 import { PluginCard } from "./apps/PluginCard.tsx";
 import { RecentErrors } from "./apps/RecentErrors.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
@@ -307,6 +308,17 @@ export function AppSettings({ pluginId, onError }: Props) {
       <Card title="Channels">
         <AppChannelList pluginId={pluginId} channels={channels} act={act} />
       </Card>
+
+      {(plugin.aguiUrl || plugin.runtime === "socket") && (
+        <Card title="Channels it follows">
+          <AgentFollows
+            pluginId={pluginId}
+            agentName={plugin.name}
+            channels={channels}
+            act={act}
+          />
+        </Card>
+      )}
 
       {secretNotice?.botToken && (
         <Card title="New credentials">

@@ -906,6 +906,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/plugins/{plugin_id}/follows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Follows
+         * @description The channels this agent follows: it hears people's messages there without a mention.
+         */
+        get: operations["list_follows_api_admin_plugins__plugin_id__follows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/plugins/{plugin_id}/follows/{channel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Follow Channel
+         * @description Let this agent hear every message a person posts in this channel (ADR 0026).
+         *
+         *     Not addressed to it, so it can stay quiet: each such run is read-only, shows no card
+         *     in the room, and is throttled — a cooldown per channel and a daily cap. The agent's
+         *     bot must already be in the channel; following is not joining.
+         */
+        put: operations["follow_channel_api_admin_plugins__plugin_id__follows__channel_id__put"];
+        post?: never;
+        /**
+         * Unfollow Channel
+         * @description Stop this agent hearing the channel. It stays a member; a mention still reaches it.
+         */
+        delete: operations["unfollow_channel_api_admin_plugins__plugin_id__follows__channel_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/plugins/{plugin_id}/instructions": {
         parameters: {
             query?: never;
@@ -5194,6 +5242,22 @@ export interface components {
             /** Nextcursor */
             nextCursor?: string | null;
         };
+        /** FollowedChannelOut */
+        FollowedChannelOut: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string | null;
+            /** Since */
+            since: string;
+        };
+        /** FollowsOut */
+        FollowsOut: {
+            /** Channels */
+            channels: components["schemas"]["FollowedChannelOut"][];
+        };
         /** FollowThreadInput */
         FollowThreadInput: {
             /** Following */
@@ -7215,6 +7279,8 @@ export type FeedbackStatusInput = components['schemas']['FeedbackStatusInput'];
 export type FeedbackTicket = components['schemas']['FeedbackTicket'];
 export type FileEntry = components['schemas']['FileEntry'];
 export type FileListOut = components['schemas']['FileListOut'];
+export type FollowedChannelOut = components['schemas']['FollowedChannelOut'];
+export type FollowsOut = components['schemas']['FollowsOut'];
 export type FollowThreadInput = components['schemas']['FollowThreadInput'];
 export type ForgotOut = components['schemas']['ForgotOut'];
 export type ForgotPasswordInput = components['schemas']['ForgotPasswordInput'];
@@ -8989,6 +9055,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PluginOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_follows_api_admin_plugins__plugin_id__follows_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    follow_channel_api_admin_plugins__plugin_id__follows__channel_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unfollow_channel_api_admin_plugins__plugin_id__follows__channel_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowsOut"];
                 };
             };
             /** @description Validation Error */

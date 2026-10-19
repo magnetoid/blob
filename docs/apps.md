@@ -447,6 +447,14 @@ your model's training date. `channel_topic` is the room's topic when it has one,
 `channel_people` how many people are in it, as a decimal string (agents and deactivated
 accounts are not counted). Read them or ignore them; nothing else depends on it.
 
+**Following a channel.** An admin can let your agent follow a channel it is in (ADR
+0026). Then every message a person posts there starts a run for it, even without a
+mention, and the run's `context` carries an `addressed` item saying it was not mentioned
+and should answer only with something the people there need — or finish without a word,
+which posts nothing. Such a run is offered Blob's read tools only, shows the channel no
+card and no typing, and is throttled: at most one every two minutes per channel and forty
+a day. If your agent cannot keep quiet, ask the admin not to switch this on for it.
+
 **AG-UI is a transport, not a permission.** Your bot still needs `messages:write`, and it
 still has to be a member of a channel to answer in it. In a channel it cannot see, it says
 nothing at all — not even an error, because a private channel's existence is private.

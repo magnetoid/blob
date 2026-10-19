@@ -41,7 +41,7 @@ from ..services import messages as message_service
 from ..services import policies as policy_service
 from ..services.serialize import message_event
 from ..services.workspace_settings import parse as parse_settings
-from .agui_admission import listeners_for, personal_agent_for
+from .agui_admission import followers_for, listeners_for, may_follow_now, personal_agent_for
 from .agui_outcome import refuse, run_one
 
 log = logging.getLogger("blob.jobs.agui")
@@ -190,6 +190,23 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
                 # out of habit, and it must not answer twice for one message.
                 listeners = [*listeners, personal]
 
+            # An agent following this channel hears a person's message it was not
+            # addressed in (ADR 0026). Only on a person's own message — `is_root` — and
+            # never twice: an agent the message mentioned, or whose DM this is, answers as
+            # itself, addressed. Following is set on channels only, never on a
+            # conversation between people (`agent_follows.follow`).
+            followers = await followers_for(
+                session, workspace_id=trigger.workspace_id, channel_id=trigger.channel_id
+            )
+            listeners = [
+                *listeners,
+                *(
+                    follower
+                    for follower in followers
+                    if all(known.plugin_id != follower.plugin_id for known in listeners)
+                ),
+            ]
+
         if not listeners:
             return
 
@@ -218,6 +235,20 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
                 trigger.channel_id,
             )
         listeners = [known for known in listeners if known.bot_user_id in allowed_bots]
+
+        # A follow is never worth a word in the room when it cannot go: over the agent's
+        # budget, or inside its quiet period in this channel, or past the day's cap, it is
+        # dropped here in silence — a refusal card under every message of a busy channel
+        # would be the noise following must never make. A mention keeps its refusals.
+        heard: list[Listener] = []
+        for known in listeners:
+            if not known.addressed:
+                if await agent_run_service.check_budget(session, plugin_id=known.plugin_id):
+                    continue
+                if not await may_follow_now(known.plugin_id, trigger.channel_id):
+                    continue
+            heard.append(known)
+        listeners = heard
         if not listeners:
             return
 
@@ -268,8 +299,9 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
     if not agents_enabled:
         # The kill switch is workspace-wide: every mentioned agent is refused, none is
         # called, and the run log is how "I mentioned it and nothing happened" is answered.
+        # A follow is simply not heard: nobody asked, so there is nobody to answer.
         async with transaction() as (session, after):
-            for known in listeners:
+            for known in (known for known in listeners if known.addressed):
                 await refuse(
                     session,
                     after,

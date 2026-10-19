@@ -73,6 +73,18 @@ def _being_cancelled() -> bool:
     return current is not None and current.cancelling() > 0
 
 
+def _announce(listener: Listener, channel_id: str, event: dict[str, Any]) -> None:
+    """A run's own event — started, updated, finished — to the room it runs in.
+
+    Never for a run nobody addressed (ADR 0026): an agent following a channel hears every
+    message there, and a card and a typing line under each one would turn listening into
+    noise. Its messages, if it has something to say, reach the room as every message
+    does; its run is the admin's to read in the run log.
+    """
+    if listener.addressed:
+        hub.to_channel(channel_id, event)
+
+
 async def refuse(
     session: AsyncSession,
     after: Any,
@@ -105,7 +117,7 @@ async def refuse(
     # the service reads every run — one shape, not a second one built by hand here.
     view = await agent_run_service.view_of(session, refused_id)
     if view is not None:
-        after.add(lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": view}))
+        after.add(lambda: _announce(listener, channel_id, {"t": "agent_run.started", "run": view}))
     after.add(lambda: queue_lib.fire_and_forget(metrics.run_ended(listener.slug, "refused")))
     if chain_id is not None:
         await task_dispatch.settle(
@@ -393,6 +405,7 @@ async def _start(
             initiated_by_user_id=chain.initiated_by_user_id,
             parent_run_id=chain.parent_run_id,
             depth=chain.depth,
+            addressed=listener.addressed,
         )
         if run_id is None:
             return None
@@ -401,7 +414,7 @@ async def _start(
         run_view = await agent_run_service.view_of(session, run_id)
         if run_view is not None:
             after.add(
-                lambda: hub.to_channel(channel_id, {"t": "agent_run.started", "run": run_view})
+                lambda: _announce(listener, channel_id, {"t": "agent_run.started", "run": run_view})
             )
 
     return run_id
@@ -422,7 +435,7 @@ async def _stream(
 ) -> Streamed:
     """Run the agent under the Stop button, showing the card as it forms and keeping
     what it streams for the run's event log."""
-    broadcaster = CardBroadcaster(run_id, channel_id, card)
+    broadcaster = CardBroadcaster(run_id, channel_id, card, silent=not listener.addressed)
     cancelled = False
 
     def on_event(event: Mapping[str, Any]) -> None:
@@ -450,7 +463,7 @@ async def _stream(
             fold, posts, transport_error = agui.Fold(), [], None
             cancelled = True
         else:
-            async with looks_busy(listener, channel_id, thread_root_id):
+            async with looks_busy(listener, channel_id, thread_root_id, shown=listener.addressed):
                 stream_task = asyncio.create_task(
                     stream_run(listener, run_input, on_event=on_event, wall_sec=wall_sec)
                 )
@@ -658,12 +671,13 @@ async def _finish(
             "error": reason,
             "postCount": post_count,
         }
-        after.add(lambda: hub.to_channel(channel_id, finished_event))
+        after.add(lambda: _announce(listener, channel_id, finished_event))
         if final_card is not None:
             # One last snapshot with the final fold, so the finished card is whole
             # even when the run ended between throttle ticks.
             after.add(
-                lambda: hub.to_channel(
+                lambda: _announce(
+                    listener,
                     channel_id,
                     {
                         "t": "agent_run.updated",
@@ -679,8 +693,8 @@ async def _finish(
             waiting_view = await agent_run_service.view_of(session, run_id)
             if waiting_view is not None:
                 after.add(
-                    lambda: hub.to_channel(
-                        channel_id, {"t": "agent_run.started", "run": waiting_view}
+                    lambda: _announce(
+                        listener, channel_id, {"t": "agent_run.started", "run": waiting_view}
                     )
                 )
 
@@ -827,6 +841,7 @@ async def run_one(
                         agent=listener.slug,
                         chain_id=chain.chain_id,
                         plugin_id=listener.plugin_id,
+                        addressed=listener.addressed,
                     )
         _describe(run_span, progress)
 
@@ -877,9 +892,10 @@ async def _abandon(
     agent: str,
     chain_id: str | None = None,
     plugin_id: str | None = None,
+    addressed: bool = True,
 ) -> None:
     """Close a run that will not reach `_finish`, and tell the channel it ended — and the
-    task it was handed, if it was handed one."""
+    task it was handed, if it was handed one. A run nobody addressed tells nobody."""
     post_count = progress.posted
     async with transaction() as (session, after):
         closed = await agent_run_service.abandon(
@@ -907,7 +923,8 @@ async def _abandon(
                 "error": reason,
                 "postCount": post_count,
             }
-            after.add(lambda: hub.to_channel(channel_id, finished_event))
+            if addressed:
+                after.add(lambda: hub.to_channel(channel_id, finished_event))
     if closed:
         await metrics.run_ended(agent, "failed", seconds=time.monotonic() - progress.started)
 
@@ -996,6 +1013,7 @@ def _run_body(
         now=agui.clock(datetime.now(UTC), gathered.timezone),
         channel_topic=gathered.topic,
         channel_people=gathered.people,
+        addressed=listener.addressed,
     )
 
 
@@ -1025,6 +1043,10 @@ async def _tools_for(
 ) -> _Tools:
     """The tools this run may call, and the person they run as, inside the room."""
     names = agui_tools.offered_names(listener.tool_access)
+    if not listener.addressed:
+        # Nobody asked it anything (ADR 0026): it may look, and answer in its own words,
+        # but nothing it could post or ask through a tool waits on a person who asked.
+        names = names & frozenset(agui_tools.READ_TOOLS)
     if not names:
         return _Tools(frozenset())
     room = await agui_tools.room_for(
@@ -1075,6 +1097,7 @@ async def _drive(
         "task": gathered.task is not None,
         "tools": sorted(tools.names),
         "protocol": agui.PROTOCOL_VERSION if sent_1_0 else None,
+        **({} if listener.addressed else {"addressed": False}),
     }
     deadline = time.monotonic() + settings.AGUI_MAX_RUN_SEC
     card = run_card.CardFold(show_reasoning=listener.shows_reasoning)
@@ -1184,7 +1207,8 @@ async def _drive(
         if card.posted():
             # What the agent wrote is in the channel now, so its draft leaves the card —
             # sent once more, because the stream that would have carried it has ended.
-            hub.to_channel(
+            _announce(
+                listener,
                 channel_id,
                 {
                     "t": "agent_run.updated",

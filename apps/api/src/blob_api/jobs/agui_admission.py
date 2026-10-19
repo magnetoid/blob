@@ -13,11 +13,14 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
+from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..lib.redis import redis
 from ..plugins.registry import MENTIONABLE_AGENT
 from ..plugins.streams import Listener
 from ..realtime import presence
@@ -161,11 +164,70 @@ async def personal_agent_for(
     return _listener(row) if row is not None else None
 
 
+#: How long a followed channel stays quiet to an agent after one of its messages started
+#: a run there, and how many such runs one agent may have in one channel a day. A channel
+#: in full flow is one conversation, not forty questions; the cap is the dam behind it.
+FOLLOW_COOLDOWN_SEC = 120
+FOLLOW_DAILY_CAP = 40
+
+
+async def followers_for(
+    session: AsyncSession, *, workspace_id: str, channel_id: str
+) -> list[Listener]:
+    """The agents following this channel that could answer in it (ADR 0026), marked as not
+    addressed. The same reachability a mention needs (`_ANSWERS`), and the bot still a
+    member: an admin follows a channel *for* an agent, and a bot removed since has nothing
+    to hear it with."""
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                {_LISTENER_SELECT}
+                  JOIN agent_follows f ON f.plugin_id = p.id AND f.channel_id = :channel_id
+                  JOIN channel_members m ON m.channel_id = f.channel_id AND m.user_id = u.id
+                 WHERE {_ANSWERS}
+                """
+            ),
+            {"ws": workspace_id, "channel_id": channel_id},
+        )
+    ).fetchall()
+    return [replace(_listener(row), addressed=False) for row in rows]
+
+
+async def may_follow_now(plugin_id: str, channel_id: str) -> bool:
+    """Whether a followed message may start a run now: off cooldown, under the day's cap.
+
+    In Redis, so every worker shares one answer, and set-if-absent so two messages a
+    moment apart cannot both pass. **Fails closed**, unlike the rate limiter: a guard that
+    lets a follow through when Redis is away would send an agent every line of a busy
+    channel — the one thing following must never do. A mention still works; only the
+    unasked runs pause.
+    """
+    try:
+        quiet = await redis.set(
+            f"follow:quiet:{plugin_id}:{channel_id}", "1", nx=True, ex=FOLLOW_COOLDOWN_SEC
+        )
+        if not quiet:
+            return False
+        day = datetime.now(UTC).strftime("%Y-%m-%d")
+        key = f"follow:count:{plugin_id}:{channel_id}:{day}"
+        count = int(await redis.incr(key))
+        if count == 1:
+            await redis.expire(key, 2 * 24 * 3600)
+        return count <= FOLLOW_DAILY_CAP
+    except Exception:
+        log.warning("follow throttle unavailable; not following for now", exc_info=True)
+        return False
+
+
 @asynccontextmanager
 async def looks_busy(
-    listener: Listener, channel_id: str, thread_root_id: str | None
+    listener: Listener, channel_id: str, thread_root_id: str | None, *, shown: bool = True
 ) -> AsyncIterator[None]:
     """Show the agent typing for as long as it is thinking.
+
+    Not `shown` for a run nobody addressed (ADR 0026): an agent following a channel would
+    otherwise type under every message posted there.
 
     Nothing reaches the client until an answer is *sealed* — `Fold` emits a post on
     TEXT_MESSAGE_END, not per delta — so a run is up to two minutes of an empty room. In
@@ -181,6 +243,9 @@ async def looks_busy(
     Failures are swallowed on purpose. A cosmetic indicator must never be able to stop an
     answer from being written.
     """
+    if not shown:
+        yield
+        return
     interval = max(1.0, (TYPING_TTL_MS / 1000) * 0.6)
 
     async def signal() -> None:

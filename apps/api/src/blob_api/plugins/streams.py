@@ -79,6 +79,9 @@ class Listener:
     tool_access: str = "none"
     #: Which of its posts wait for the person: `ask`, `auto_in_dm`, `auto_everywhere`.
     write_approval: str = "ask"
+    #: False when the agent was not addressed — it follows the channel and somebody
+    #: posted there (ADR 0026). Such a run is read-only, shows no card, and is told so.
+    addressed: bool = True
 
     def memory_of(self, person_id: str) -> str | None:
         """Whose memory a run on this person's behalf reads and writes (migration 0050).

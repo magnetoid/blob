@@ -93,6 +93,7 @@ async def start(
     initiated_by_user_id: str | None,
     parent_run_id: str | None = None,
     depth: int = 0,
+    addressed: bool = True,
 ) -> str | None:
     """Record that a run began, before the agent is called — or None if it already did.
 
@@ -147,12 +148,13 @@ async def start(
             INSERT INTO agent_runs
               (id, workspace_id, plugin_id, channel_id, thread_root_id,
                trigger_message_id, trigger_user_id, transport, status,
-               chain_id, parent_run_id, depth, initiated_by_user_id)
+               chain_id, parent_run_id, depth, initiated_by_user_id, addressed)
             VALUES
               (:id, :ws, :plugin_id, :channel_id, cast(:thread_root_id AS uuid),
                cast(:trigger_message_id AS uuid), cast(:trigger_user_id AS uuid),
                :transport, 'running',
-               :chain_id, cast(:parent_run_id AS uuid), :depth, cast(:initiated_by AS uuid))
+               :chain_id, cast(:parent_run_id AS uuid), :depth, cast(:initiated_by AS uuid),
+               :addressed)
             """
         ),
         {
@@ -168,6 +170,7 @@ async def start(
             "parent_run_id": parent_run_id,
             "depth": depth,
             "initiated_by": initiated_by_user_id,
+            "addressed": addressed,
         },
     )
     return run_id
@@ -885,6 +888,8 @@ async def history(
                    AND (cast(:plugin_id AS uuid) IS NULL
                         OR r.plugin_id = cast(:plugin_id AS uuid))
                    AND (cast(:before AS uuid) IS NULL OR r.id < cast(:before AS uuid))
+                   -- A follow that said nothing is nothing to show anyone (ADR 0026).
+                   AND (r.addressed OR r.post_count > 0 OR r.status = 'interrupted')
                  ORDER BY r.id DESC
                  LIMIT :limit
                 """
@@ -924,6 +929,9 @@ async def views_for_channel(
                    AND (r.status = 'running'
                         OR (r.status = 'interrupted' AND r.answered_at IS NULL)
                         OR r.started_at > now() - interval '1 hour')
+                   -- A run a followed channel started shows no card under the message
+                   -- (ADR 0026); what it said is in the conversation as a message.
+                   AND r.addressed
                  ORDER BY r.started_at DESC
                  LIMIT :limit
                 """
@@ -961,6 +969,8 @@ async def views_for_member(
                    AND (r.status = 'running'
                         OR (r.status = 'interrupted' AND r.answered_at IS NULL)
                         OR r.started_at > now() - interval '1 day')
+                   -- A follow that said nothing is nothing to show anyone (ADR 0026).
+                   AND (r.addressed OR r.post_count > 0 OR r.status = 'interrupted')
                  ORDER BY
                    CASE r.status
                      WHEN 'running' THEN 0

@@ -379,3 +379,19 @@ way, and is counted `auto` in `blob_tool_calls_total`. Never widens where a post
 - **No delegate approver, no MCP `input_required`.** Neither has a caller yet; the review
   of 2026-10-05 reached the same conclusion for MRTR. Revisit when follow mode (A1) makes
   runs with nobody present common — those get only tools that need no approval.
+
+### A4 — done
+
+`/agents`: every agent the person may command, with whose it is, what it says it does and
+where it stands (working, waiting for you, last ran) — read from runs through `useRunIds`,
+never presence. Reached from the sidebar's Agents heading, ⌘K and the guide. Checked in
+Chrome, light, dark and at 400px.
+
+### A1 — follow mode done (ADR 0026); schedules and events as ADR 0023 left them
+
+An admin lets an agent follow a channel it is in; a person's message there starts a run
+marked not addressed — a context item says so, read tools only, no card or typing in the
+room, a cooldown and daily cap in Redis that fail closed, and a silent run visible only in
+the admin's run log (`agent_runs.addressed`, migration 0055). A scheduled run stays a
+scheduled message that mentions an agent; event triggers and an agent scheduling its own
+follow-up are not built, for the reasons ADR 0026 records.

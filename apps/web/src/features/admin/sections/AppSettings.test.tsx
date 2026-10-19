@@ -8,7 +8,7 @@
  * agent and never think to look again — so what these pin is that the control tells the
  * truth about who owns it, including when the owner is somebody the client cannot name.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AppSettings } from './AppSettings.tsx';
 import { api } from '../../../lib/api.ts';
@@ -17,6 +17,11 @@ import { useStore } from '../../../lib/store.ts';
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+
+// An agent's page also lists the channels it follows (`AgentFollows`); none, here.
+beforeEach(() => {
+  vi.spyOn(api.admin, 'agentFollows').mockResolvedValue({ channels: [] });
 });
 
 const ME = { id: 'u1', kind: 'human', displayName: 'Marko', deactivated: false };

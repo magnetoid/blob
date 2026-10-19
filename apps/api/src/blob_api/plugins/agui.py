@@ -971,6 +971,15 @@ def _with_attachment_line(message: Message) -> str:
     return f"{message.body}\n{line}" if message.body else line
 
 
+#: What a run started by a followed channel is told (ADR 0026). Words, because the reader
+#: is a model; the shape — a context item called `addressed` — is the contract.
+NOT_ADDRESSED = (
+    "no — you follow this channel and this message did not mention you. Reply only if "
+    "you can add something the people here need right now; otherwise finish without "
+    "saying anything. Nobody is waiting for an answer from you."
+)
+
+
 def clock(at: datetime, timezone: str) -> dict[str, str]:
     """`at` as the `now` context item says it, for a person in `timezone`.
 
@@ -1012,6 +1021,7 @@ def build_run_input(
     now: Mapping[str, str] | None = None,
     channel_topic: str | None = None,
     channel_people: int | None = None,
+    addressed: bool = True,
 ) -> dict[str, Any]:
     """The POST body.
 
@@ -1041,6 +1051,12 @@ def build_run_input(
     date. `channel_topic` and `channel_people` are the room's own description and how
     many people are in it, so an agent knows whether it is speaking to two people or two
     hundred. Each is a plain context item any agent may read or ignore.
+
+    `addressed` is False when the agent follows this channel and the message did not
+    address it (ADR 0026). The run then carries an `addressed` item saying so, in words a
+    model reads as an instruction — the one context item that asks something of the
+    agent: answer only with something the people there need, or finish without a word.
+    An addressed run's input is exactly what it was before this existed.
 
     `protocol_version` is the version Blob speaks, and is sent only to an agent that
     declared it speaks it too (`speaks`): AG-UI 1.0 asks a client to omit it for a peer
@@ -1072,6 +1088,8 @@ def build_run_input(
         context.append({"description": "channel_topic", "value": channel_topic})
     if channel_people is not None:
         context.append({"description": "channel_people", "value": str(channel_people)})
+    if not addressed:
+        context.append({"description": "addressed", "value": NOT_ADDRESSED})
     body: dict[str, Any] = {
         "threadId": thread_id,
         "runId": run_id,

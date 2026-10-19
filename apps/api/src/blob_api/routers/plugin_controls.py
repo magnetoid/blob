@@ -18,9 +18,9 @@ from ..lib.auth import SessionUser, require_admin
 from ..lib.errors import bad_request
 from ..lib.ids import IdParam
 from ..plugins import agent_settings, registry
-from ..schemas.base import CamelModel
+from ..schemas.base import CamelModel, require_iso
+from ..services import agent_follows, janus_agent
 from ..services import audit as audit_service
-from ..services import janus_agent
 from ..services.audit import actor_for
 from .plugins import PluginOut, _to_plugin
 
@@ -293,3 +293,97 @@ async def set_reasoning_shown(
         )
         row = await registry.by_id(session, plugin_id, admin.workspace_id)
         return await _to_plugin(session, row)
+
+
+# ─── channels it follows (ADR 0026) ──────────────────────────────────────────
+
+
+class FollowedChannelOut(CamelModel):
+    id: str
+    name: str | None
+    kind: str
+    #: When an admin set it following there.
+    since: str
+
+
+class FollowsOut(CamelModel):
+    channels: list[FollowedChannelOut]
+
+
+async def _follows(session: Any, workspace_id: str, plugin_id: str) -> FollowsOut:
+    rows = await agent_follows.channels_of(session, workspace_id=workspace_id, plugin_id=plugin_id)
+    return FollowsOut(
+        channels=[
+            FollowedChannelOut(
+                id=str(row.id), name=row.name, kind=row.kind, since=require_iso(row.created_at)
+            )
+            for row in rows
+        ]
+    )
+
+
+@router.get("/{plugin_id}/follows", response_model=FollowsOut)
+async def list_follows(
+    plugin_id: IdParam, admin: SessionUser = Depends(require_admin)
+) -> FollowsOut:
+    """The channels this agent follows: it hears people's messages there without a mention."""
+    async with transaction() as (session, _after):
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        return await _follows(session, admin.workspace_id, plugin_id)
+
+
+@router.put("/{plugin_id}/follows/{channel_id}", response_model=FollowsOut)
+async def follow_channel(
+    plugin_id: IdParam,
+    channel_id: IdParam,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> FollowsOut:
+    """Let this agent hear every message a person posts in this channel (ADR 0026).
+
+    Not addressed to it, so it can stay quiet: each such run is read-only, shows no card
+    in the room, and is throttled — a cooldown per channel and a daily cap. The agent's
+    bot must already be in the channel; following is not joining.
+    """
+    async with transaction() as (session, _after):
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        await agent_follows.follow(
+            session,
+            workspace_id=admin.workspace_id,
+            plugin_id=plugin_id,
+            channel_id=channel_id,
+            by=admin.id,
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "plugin.follow_set",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"pluginId": plugin_id, "channelId": channel_id, "following": True},
+        )
+        return await _follows(session, admin.workspace_id, plugin_id)
+
+
+@router.delete("/{plugin_id}/follows/{channel_id}", response_model=FollowsOut)
+async def unfollow_channel(
+    plugin_id: IdParam,
+    channel_id: IdParam,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> FollowsOut:
+    """Stop this agent hearing the channel. It stays a member; a mention still reaches it."""
+    async with transaction() as (session, _after):
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        if await agent_follows.unfollow(
+            session, workspace_id=admin.workspace_id, plugin_id=plugin_id, channel_id=channel_id
+        ):
+            await audit_service.record(
+                session,
+                actor_for(request, admin),
+                "plugin.follow_set",
+                target_type="plugin",
+                target_id=plugin_id,
+                metadata={"pluginId": plugin_id, "channelId": channel_id, "following": False},
+            )
+        return await _follows(session, admin.workspace_id, plugin_id)

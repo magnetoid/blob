@@ -898,6 +898,17 @@ export const SECTIONS: Section[] = [
         keywords: ['agents', 'agent', 'bots', 'directory', 'who can i ask', 'status', 'working', 'ai'],
       },
       {
+        id: 'agent-follows',
+        title: 'An agent that follows a channel',
+        blurb: 'An agent an admin set following a channel hears every message there, not only the ones that mention it.',
+        body: [
+          'Normally an agent answers only when it is mentioned, in its DM, or handed a task. An admin can let one follow a channel it is in, from its page in Agents & apps. It then hears each message people post there, told it was not mentioned, and speaks up only when it has something to add — the rest of the time it says nothing at all.',
+          'It works for the person whose message it heard, and sees no further than you could in that channel. It can look things up, but it cannot post anywhere else or ask another agent. While it thinks, the channel sees nothing — no card, no typing — and it hears at most one message every couple of minutes. A message that mentions it still gets an ordinary answer.',
+        ],
+        audience: 'admins',
+        keywords: ['follow', 'follows', 'ambient', 'listen', 'unprompted', 'without mention', 'watch channel'],
+      },
+      {
         id: 'agent-terminal',
         title: 'A terminal in an agent',
         blurb: '/cli in a direct message with an agent opens a terminal panel beside the conversation.',

@@ -513,6 +513,14 @@ export interface AppChannel {
   joined: boolean;
 }
 
+/** A channel an agent follows: it hears people's messages there without a mention (ADR 0026). */
+export interface FollowedChannel {
+  id: string;
+  name: string | null;
+  kind: string;
+  since: string;
+}
+
 export interface AdminPluginCatalog {
   scopes: Record<string, string>;
   events: Record<string, string>;
@@ -1448,6 +1456,19 @@ export const api = {
       ),
     appLeaveChannel: (pluginId: string, channelId: string) =>
       del<{ ok: true }>(`/api/admin/plugins/${pluginId}/channels/${channelId}`),
+
+    // Channels an agent follows (ADR 0026): it is sent people's messages there without a
+    // mention, marked as not addressed to it. An admin's switch, per agent and channel.
+    agentFollows: (pluginId: string) =>
+      get<{ channels: FollowedChannel[] }>(`/api/admin/plugins/${pluginId}/follows`),
+    followChannel: (pluginId: string, channelId: string) =>
+      put<{ channels: FollowedChannel[] }>(
+        `/api/admin/plugins/${pluginId}/follows/${channelId}`,
+      ),
+    unfollowChannel: (pluginId: string, channelId: string) =>
+      del<{ channels: FollowedChannel[] }>(
+        `/api/admin/plugins/${pluginId}/follows/${channelId}`,
+      ),
 
     // Agents installed from a repository. Preview first: the scopes have to be seen
     // before anything is approved.
