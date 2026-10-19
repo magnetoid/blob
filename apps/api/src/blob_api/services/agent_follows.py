@@ -125,4 +125,18 @@ async def channels_of(session: AsyncSession, *, workspace_id: str, plugin_id: st
     )
 
 
-__all__ = ["channels_of", "follow", "unfollow"]
+async def is_followed(session: AsyncSession, *, channel_id: str) -> bool:
+    """Whether any agent follows this channel — asked as a message is sent, so a person's
+    message there is handed to the run job even though it mentions nobody. One indexed
+    lookup (`agent_follows_channel`); which agents, and whether they may go, is the job's."""
+    return bool(
+        (
+            await session.execute(
+                text("SELECT EXISTS (SELECT 1 FROM agent_follows WHERE channel_id = :channel)"),
+                {"channel": channel_id},
+            )
+        ).scalar_one()
+    )
+
+
+__all__ = ["channels_of", "follow", "is_followed", "unfollow"]

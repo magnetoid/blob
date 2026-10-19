@@ -782,6 +782,11 @@ async def announce(
     by_the_room = result.message.kind == "user" and await addressed_by_the_room(
         session, channel_id=channel_id
     )
+    # An agent following this channel hears a person's message that mentions nobody
+    # (ADR 0026), so that message goes to the run job too; who may hear it is decided there.
+    from .agent_follows import is_followed
+
+    followed = result.message.kind == "user" and await is_followed(session, channel_id=channel_id)
 
     def broadcast() -> None:
         hub.to_channel(channel_id, message_event("message.new", result.message))
@@ -797,7 +802,7 @@ async def announce(
         # False for exactly one caller: the message that answers a decision an agent
         # was waiting on. That message *resumes* the run that asked, and rooting a
         # second chain from it would race the resume for the same agent.
-        if start_agent_runs and (result.message.mention_user_ids or by_the_room):
+        if start_agent_runs and (result.message.mention_user_ids or by_the_room or followed):
             fire_and_forget(enqueue("agui_run", result.message.id))
         # The outbox drains on a timer too, so this is latency rather than delivery.
         fire_and_forget(enqueue("deliver_plugin_events"))

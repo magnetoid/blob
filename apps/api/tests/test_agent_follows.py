@@ -104,6 +104,24 @@ class TestSwitchingItOn:
         assert await runs(desk) == []
 
 
+class TestReachingTheJob:
+    async def test_a_message_that_mentions_nobody_is_still_handed_to_the_run_job(
+        self, desk: dict[str, Any]
+    ) -> None:
+        """Found by running it for real: the send path queued a run only for a mention or
+        an agent's DM, so a followed channel's messages never reached the job at all.
+        These go through the send path rather than calling the job directly."""
+        await follow(desk)
+        sent = await send_message(desk["owner"], desk["general"], "the notes are late")
+        assert ("agui_run", sent.body["message"]["id"]) in desk["enqueued"]
+
+    async def test_an_unfollowed_channel_queues_nothing_for_a_plain_message(
+        self, desk: dict[str, Any]
+    ) -> None:
+        sent = await send_message(desk["owner"], desk["general"], "the notes are late")
+        assert ("agui_run", sent.body["message"]["id"]) not in desk["enqueued"]
+
+
 class TestHearing:
     async def test_a_persons_message_starts_a_run_that_knows_it_was_not_addressed(
         self, desk: dict[str, Any]
