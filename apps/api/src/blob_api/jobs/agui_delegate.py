@@ -17,6 +17,20 @@ conversation for everyone, as every agent's does. What the asking agent gets is 
 What is waited on is bounded by the asking run's own wall clock, and never longer than
 `ASK_WAIT_SEC`. Past that the call answers that the other agent is still working and
 will answer in the conversation — the truth, and the agent can say so.
+
+**A waiting run holds a worker slot, and that is the cost to bound.** The wait happens
+inside the asking run's own job, and the hop it waits for is a job too — as is every
+notification, unfurl and delivery, all on the same queue. Review found that eight asks
+at once (`WorkerSettings.max_jobs`) would hold every slot polling while the hops they
+waited on sat in the queue, and the whole worker would stall until the waits ran out:
+the opposite of failing toward the workspace staying up. So one worker lets at most
+`MAX_WAITERS` runs wait — half its slots, leaving the other half for hops and everything
+else — and past that the question is still asked and still answered in the room; the
+asking run simply does not wait for it, and is told so.
+
+The shape that holds no slot at all is the one approvals already use: end the round,
+and resume the run when the hop answers. It needs a run state of its own and a card that
+draws it, so it is recorded in the plan as the next step rather than done here.
 """
 
 from __future__ import annotations
@@ -40,9 +54,14 @@ from .agui_tools import ToolOutcome
 
 log = logging.getLogger("blob.jobs.agui")
 
-#: The longest one call waits for the other agent, in seconds. Less than the run's own
-#: ten-minute wall, so the asking agent still has time to use what it heard.
-ASK_WAIT_SEC = 240.0
+#: The longest one call waits for the other agent, in seconds. Well inside the run's own
+#: ten-minute wall, and short because every second of it holds a worker slot.
+ASK_WAIT_SEC = 180.0
+#: How many runs one worker process lets wait at once. Half of `WorkerSettings.max_jobs`
+#: (8): the other half is what the hops being waited on, and every notification, run in.
+#: `tests/test_ask_agent.py` holds the two numbers together.
+MAX_WAITERS = 4
+_waiting = 0
 #: How long a hop has to appear at all. A hop the chain refuses never gets a run row;
 #: this is how long it takes to be sure that is what happened.
 NO_RUN_GRACE_SEC = 20.0
@@ -151,14 +170,27 @@ async def ask(
         if message_id is None:
             return ToolOutcome("", "The question could not be asked; try again.")
 
-    return await _wait_for_answer(
-        workspace_id=workspace_id,
-        run_id=run_id,
-        message_id=message_id,
-        plugin_id=agent.plugin_id,
-        name=agent.name,
-        until=min(deadline - RESERVE_SEC, time.monotonic() + ASK_WAIT_SEC),
-    )
+    global _waiting
+    if _waiting >= MAX_WAITERS:
+        # Asked, and it will answer — just not into this run: this worker already has as
+        # many runs waiting as it can hold without starving the hops they wait for.
+        return ToolOutcome(
+            f"Asked {agent.name} in this conversation. It will answer there, but this run "
+            "cannot wait for it right now — tell the person to look for its answer rather "
+            "than guessing at it."
+        )
+    _waiting += 1
+    try:
+        return await _wait_for_answer(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            message_id=message_id,
+            plugin_id=agent.plugin_id,
+            name=agent.name,
+            until=min(deadline - RESERVE_SEC, time.monotonic() + ASK_WAIT_SEC),
+        )
+    finally:
+        _waiting -= 1
 
 
 async def _question_already_asked(listener: Listener, channel_id: str, key: str) -> str | None:
@@ -212,10 +244,13 @@ async def _wait_for_answer(
             if told is not None:
                 return told
         elif time.monotonic() - began >= NO_RUN_GRACE_SEC:
+            # Not "it was refused": a hop the chain turns away leaves no run, but so does
+            # one still queued behind other work, and the two cannot be told apart here.
             return ToolOutcome(
                 "",
-                f"{name} did not start: the workspace's limits on agents asking agents "
-                "stopped it, or it is over its budget for today.",
+                f"{name} has not started. It may still be queued behind other work, or the "
+                "workspace's limits on agents asking agents — or its budget for today — "
+                "stopped it. If it runs, it will answer in this conversation.",
             )
         if time.monotonic() >= until:
             return ToolOutcome(
@@ -246,4 +281,4 @@ def _told(hop: dict[str, Any], answer: list[str], name: str) -> ToolOutcome | No
     return ToolOutcome("", f"{name}'s run {ended}" + (f": {why}" if why else "."))
 
 
-__all__ = ["ASK_WAIT_SEC", "NO_RUN_GRACE_SEC", "ask", "question_key"]
+__all__ = ["ASK_WAIT_SEC", "MAX_WAITERS", "NO_RUN_GRACE_SEC", "ask", "question_key"]

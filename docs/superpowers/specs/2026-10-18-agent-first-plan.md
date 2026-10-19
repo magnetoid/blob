@@ -353,6 +353,16 @@ back as the call's result. **Dropped:** dispatching tasks an app creates through
 API — ADR 0023 makes a hand-off a person's message, and an app is not one. `ask_agent`
 covers agent-to-agent delegation.
 
+**Review fix, and the follow-up it leaves.** The wait happens inside the asking run's
+job, which holds a worker slot; eight asks at once would have held all eight while the
+hops they waited for sat in the queue, stalling notifications with them. One worker now
+lets at most `MAX_WAITERS` (half its slots) wait; past that the question is still asked
+and answered in the room, and the asking run is told it cannot wait. The wait is 180 s.
+**Next:** hold no slot at all — end the round the way a tool approval does
+(`agent_runs.interrupt`, kind `agent_answer`) and resume the asking run when the hop
+finishes (`_finish` enqueues the parent's resume). It needs a run status that is not
+"waiting for a person" and a card that draws it, so it is its own slice.
+
 ### A3 — done as the per-agent write policy; three parts not built, on purpose
 
 `plugins.write_approval` (migration 0054): `ask` (default, every row), `auto_in_dm`,

@@ -255,6 +255,35 @@ class TestAskingAndHearingBack:
         assert ("Planner", "Here is the outline.") in await bodies(pair)
 
 
+class TestTheWorkerStaysUp:
+    def test_waiting_runs_never_take_more_than_half_the_workers_slots(self) -> None:
+        """A waiting run holds a slot, and so does the hop it waits for: if waiters could
+        fill every slot, the hops would never start and nothing else would either."""
+        from blob_api.jobs.worker import WorkerSettings
+
+        assert 1 <= agui_delegate.MAX_WAITERS <= WorkerSettings.max_jobs // 2
+
+    async def test_past_the_cap_the_question_is_asked_and_not_waited_for(
+        self, pair: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(agui_delegate, "MAX_WAITERS", 0)
+        await ask_helper(
+            pair,
+            "@Helper plan the launch",
+            agui=[
+                calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"})),
+                says("Planner will answer below."),
+            ],
+            planner=[says("Here is the outline.")],
+        )
+        assert "cannot wait for it right now" in tool_results(pair)[-1]
+        said = await bodies(pair)
+        # Asked, and answered, in the room — only the asking run did not wait.
+        assert ("Helper", "@Planner outline it") in said
+        assert ("Planner", "Here is the outline.") in said
+        assert agui_delegate._waiting == 0, "the count of waiting runs went back down"
+
+
 class TestWhatItWillNotDo:
     async def test_an_agent_not_in_this_conversation_is_refused_and_nothing_is_posted(
         self, pair: dict[str, Any]
