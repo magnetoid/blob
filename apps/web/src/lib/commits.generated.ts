@@ -11,6 +11,20 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "de1e785b53a46cd82c0987db90c07424a657268c",
+    "shortSha": "de1e785b",
+    "subject": "feat: Home you can act on — answer an agent, tick off a task, clear what's unread, all in place",
+    "date": "2026-10-19T04:42:49+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "b8ede1ecc0ed4a14462c0c4269ace36ddd734b99",
+    "shortSha": "b8ede1ec",
+    "subject": "release: 1.11.0 — agents that work alongside you",
+    "date": "2026-10-19T04:03:23+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "3ab285e75f4361c31634fd689e68e8fce636e61a",
     "shortSha": "3ab285e7",
     "subject": "fix: a followed channel's run asks nobody, publishes nothing and starts no hop — review of A1",
@@ -414,20 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "58be134b",
     "subject": "fix: keep each stack's Janus on its own network",
     "date": "2026-09-18T04:45:32+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e8c49f156fa3bf93ffd6e566ccec538fcb423644",
-    "shortSha": "e8c49f15",
-    "subject": "docs: the README says what Blob is, and shows it",
-    "date": "2026-09-17T21:03:24+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "90aa14720659f903dc558b4951cc17f760a5a980",
-    "shortSha": "90aa1472",
-    "subject": "feat: the Janus page — a workspace configures its agent, a server configures Janus",
-    "date": "2026-09-17T06:35:19+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

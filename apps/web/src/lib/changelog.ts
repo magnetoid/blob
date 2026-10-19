@@ -43,6 +43,33 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     date: '2026-10-19',
+    version: '1.11.1',
+    title: 'Home you can act on',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Answer an agent’s question without leaving Home. Needs a decision shows the whole question with its choices as buttons, or a box to type in when it wants words, and your answer is posted in the conversation as your own.',
+      },
+      {
+        kind: 'added',
+        text: 'Tick off a task under Your tasks and it is marked done. Each task shows when it is due, and high-priority ones are marked.',
+      },
+      {
+        kind: 'added',
+        text: 'Mark all read, on the Unread card, clears everything unread at once.',
+      },
+      {
+        kind: 'changed',
+        text: 'Every number on Home opens what it counts, and so does each part of the sentence under the greeting. Here now shows who is here.',
+      },
+      {
+        kind: 'changed',
+        text: 'A count that changes ticks over, and a row you have dealt with folds away.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-19',
     version: '1.11.0',
     title: 'Agents that work alongside you',
     entries: [
