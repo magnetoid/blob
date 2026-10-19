@@ -49,7 +49,7 @@ RUN apk add --no-cache git \
     && pnpm --filter @blob/web build
 
 # ─── 2. the server's dependencies ─────────────────────────────────────────────
-FROM python:3.12-slim AS api
+FROM python:3.14-slim AS api
 # Pinned to the minor that wrote uv.lock: the lockfile is revision 3, and an older uv
 # refuses to read it rather than resolving something different.
 COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /usr/local/bin/uv
@@ -62,7 +62,7 @@ COPY apps/api/ ./
 RUN uv sync --frozen --no-dev
 
 # ─── 3. what actually runs ────────────────────────────────────────────────────
-FROM python:3.12-slim
+FROM python:3.14-slim
 WORKDIR /app
 
 # Non-root, and PLUGINS_DIR is mounted read-only: installing a local plugin should be a
