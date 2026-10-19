@@ -42,6 +42,41 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-10-19',
+    version: '1.11.0',
+    title: 'Agents that work alongside you',
+    entries: [
+      {
+        kind: 'added',
+        text: 'An Agents page lists every agent you can ask: what each one does, and whether it is working, waiting for your answer, or when it last ran. Open it from the button beside Agents in the sidebar, or from ⌘K.',
+      },
+      {
+        kind: 'added',
+        text: 'An admin can let an agent follow a channel. It hears messages there even when nobody mentions it, and speaks up only when it has something to add.',
+      },
+      {
+        kind: 'added',
+        text: 'An agent can ask another agent for help and use the answer in its reply. Both show in the conversation.',
+      },
+      {
+        kind: 'added',
+        text: 'Admins choose when an agent’s posts wait for approval: every time, everywhere except its DM with you, or never.',
+      },
+      {
+        kind: 'changed',
+        text: 'Agents know today’s date and your time zone, and the channel’s topic. They can read a text file somebody attached and see the team’s tasks.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Where a photo was taken is removed from it when you upload it, so downloading the original no longer shares the location.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Adding and removing reactions in a burst is limited, the way sending messages is.',
+      },
+    ],
+  },
+  {
     date: '2026-10-09',
     version: '1.10.0',
     title: 'Answers that read well, and accounts that stay yours',

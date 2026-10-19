@@ -11,6 +11,76 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "3ab285e75f4361c31634fd689e68e8fce636e61a",
+    "shortSha": "3ab285e7",
+    "subject": "fix: a followed channel's run asks nobody, publishes nothing and starts no hop — review of A1",
+    "date": "2026-10-19T03:58:18+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "5c922cabcc71f99c8da8364063dae1e821aae095",
+    "shortSha": "5c922cab",
+    "subject": "fix: a followed channel's messages reach the run job — found by running follow mode for real",
+    "date": "2026-10-19T03:25:54+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "5ca4377f7e6438dc5270a25d8117077f7d18e937",
+    "shortSha": "5ca4377f",
+    "subject": "feat: an agent can follow a channel — it hears what was not addressed to it, and keeps quiet unless it has something to add",
+    "date": "2026-10-19T03:20:37+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "b45757b066ecef518f5db9cf52341035ee7c83d7",
+    "shortSha": "b45757b0",
+    "subject": "fix: an agent waiting on another never takes the worker's last slots — review of A2",
+    "date": "2026-10-19T02:33:58+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "15563f952032aeee7094600f5ffa01c6cf2d443b",
+    "shortSha": "15563f95",
+    "subject": "feat: an Agents page — every agent you can ask, what it does, and what it is doing now",
+    "date": "2026-10-19T02:32:06+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "42f106bea687b6e22ec67110a26d894fead2e355",
+    "shortSha": "42f106be",
+    "subject": "feat: an admin decides when an agent's posts wait for the person — ask, in its DM without asking, or never",
+    "date": "2026-10-18T22:53:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "0524ea38fbfae77efa21a08f6c6f63f0bc898bc6",
+    "shortSha": "0524ea38",
+    "subject": "feat: an agent can ask another agent and hear its answer",
+    "date": "2026-10-18T22:39:50+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "c879b782ef8b91394ccb50bbcfe1376ca4795a1a",
+    "shortSha": "c879b782",
+    "subject": "feat: an agent knows when and where it is, and can read a file and the team's tasks",
+    "date": "2026-10-18T22:11:21+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "afaaeafabd4e6669281ffd7a5884d7ec3ca26ebe",
+    "shortSha": "afaaeafa",
+    "subject": "fix: what M0 found — a photo's location, reaction floods, storage defaults, oversized bodies, and a readiness probe that sees the worker",
+    "date": "2026-10-18T21:59:02+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d90c8bf37000cc9ab65bd5f593f1a2d2f92c74a7",
+    "shortSha": "d90c8bf3",
+    "subject": "release: 1.10.0 — answers that read well, and accounts that stay yours",
+    "date": "2026-10-09T04:54:47+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "7b26618caf0e1fe47c09e9f2e1fb4cf39480b31d",
     "shortSha": "7b26618c",
     "subject": "fix: the reset rules hold for the hour a link lives, resets for one address go one at a time, and a patch's work is capped too — security phase 1 review",
@@ -358,76 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "90aa1472",
     "subject": "feat: the Janus page — a workspace configures its agent, a server configures Janus",
     "date": "2026-09-17T06:35:19+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "baaecf7b654aca269f6b3a62f3f8d5d9d40c9169",
-    "shortSha": "baaecf7b",
-    "subject": "feat: small motions — the client's small moments enter, leave and settle",
-    "date": "2026-09-16T23:05:01+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d5efddee229cec45dc7d814d155af5a7b773a2e1",
-    "shortSha": "d5efddee",
-    "subject": "docs: three docstrings, said right",
-    "date": "2026-09-16T16:01:26+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "86e0fcebcc10b6e0178b11b42d25ac457e52cf2c",
-    "shortSha": "86e0fceb",
-    "subject": "fix: the home view asks the resident agent, and the last words the review found",
-    "date": "2026-09-16T15:52:37+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "88ea0aa6ebab15d4d1bc417eb199b68dcecc9aa3",
-    "shortSha": "88ea0aa6",
-    "subject": "docs: say where the model key is read, and tidy what the reviews left",
-    "date": "2026-09-16T15:26:23+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "5d02b43e3a394a88d77ac5a3597b48844d2c7f4b",
-    "shortSha": "5d02b43e",
-    "subject": "test: a mention in a channel founded after seeding is answered",
-    "date": "2026-09-16T15:25:21+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "9353e046017ac88d31376a3d5826c6964fad0bc4",
-    "shortSha": "9353e046",
-    "subject": "docs: record that Blob ships no agent of its own",
-    "date": "2026-09-16T03:57:03+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "f01289fcef54ad903d67eef9d2b8d16c98b0232b",
-    "shortSha": "f01289fc",
-    "subject": "feat: the home view asks whichever agent is here",
-    "date": "2026-09-16T03:30:19+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "2f70f14651f423f90b6dd30f761af3e136ec7ef9",
-    "shortSha": "2f70f146",
-    "subject": "refactor: fold the seeding loop back into the one seeder left",
-    "date": "2026-09-16T03:09:55+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "9c75263ba6d47516550678e486e93f1b69a40db0",
-    "shortSha": "9c75263b",
-    "subject": "refactor: drop the agent-reads bound with the agent it bounded",
-    "date": "2026-09-16T02:37:14+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "19eaae6b3799b6b3478faef96cc9e56292036569",
-    "shortSha": "19eaae6b",
-    "subject": "fix: say what the retirement really costs, and finish clearing what it left",
-    "date": "2026-09-16T01:41:04+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
