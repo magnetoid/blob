@@ -80,6 +80,7 @@ export type Route =
   | { view: 'threads' }
   | { view: 'activity'; kind?: 'mention' }
   | { view: 'tasks' }
+  | { view: 'agents' }
   | { view: 'saved' }
   | { view: 'browse' }
   | { view: 'files' }
@@ -142,6 +143,7 @@ export function parseRoute(path: string): Route {
   if (clean === '/activity') return { view: 'activity' };
   if (clean === '/mentions') return { view: 'activity', kind: 'mention' };
   if (clean === '/tasks') return { view: 'tasks' };
+  if (clean === '/agents') return { view: 'agents' };
   if (clean === '/later') return { view: 'saved' };
   if (clean === '/channels') return { view: 'browse' };
   if (clean === '/files') return { view: 'files' };
@@ -235,6 +237,8 @@ export function pathForRoute(route: Route): string {
       return route.kind === 'mention' ? '/mentions' : '/activity';
     case 'tasks':
       return '/tasks';
+    case 'agents':
+      return '/agents';
     case 'saved':
       return '/later';
     case 'browse':

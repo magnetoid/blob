@@ -35,7 +35,15 @@ const users: Record<string, User> = {
 };
 
 function agent(botUserId: string, mine = false): WorkspaceAgent {
-  return { id: `p-${botUserId}`, name: botUserId, botUserId, mine, online: null };
+  return {
+    id: `p-${botUserId}`,
+    name: botUserId,
+    botUserId,
+    mine,
+    lent: false,
+    description: null,
+    online: null,
+  };
 }
 
 /** Janus is the workspace's, Pip is Ana's own, Lent is somebody's lent to her; Scout is

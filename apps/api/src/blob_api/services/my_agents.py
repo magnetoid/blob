@@ -41,7 +41,8 @@ async def available(session: AsyncSession, user: SessionUser) -> list[Any]:
             await session.execute(
                 text(
                     f"""
-                    SELECT p.id, p.name, p.runtime, p.owner_user_id, u.id AS bot_user_id
+                    SELECT p.id, p.name, p.description, p.runtime, p.owner_user_id,
+                           u.id AS bot_user_id
                       FROM plugins p JOIN users u ON u.bot_plugin_id = p.id
                      WHERE p.workspace_id = :ws AND p.status = 'enabled'
                        AND u.deactivated_at IS NULL

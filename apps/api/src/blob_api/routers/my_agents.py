@@ -118,6 +118,10 @@ class WorkspaceAgentOut(CamelModel):
     bot_user_id: str
     #: Whether this one is the caller's own. The workspace's (unowned) ones are everybody's.
     mine: bool
+    #: Somebody else's own agent, listed because they lent it to the caller everywhere.
+    lent: bool = False
+    #: What the agent says it does — its manifest's description — or None.
+    description: str | None = None
     online: bool | None = None
 
 
@@ -146,6 +150,8 @@ async def list_available(user: SessionUser = Depends(current_user)) -> Workspace
                 # Yours: owned by the person asking. An agent somebody lent them is in the
                 # list too, and is not theirs — the picker labels this one "yours".
                 mine=row.owner_user_id is not None and str(row.owner_user_id) == user.id,
+                lent=row.owner_user_id is not None and str(row.owner_user_id) != user.id,
+                description=(row.description or "").strip() or None,
                 online=await gateway.is_online(str(row.id)) if row.runtime == "socket" else None,
             )
         )

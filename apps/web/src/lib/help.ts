@@ -886,6 +886,18 @@ export const SECTIONS: Section[] = [
         keywords: ['task', 'todo', 'assign', 'queue', 'action item'],
       },
       {
+        id: 'agents-page',
+        title: 'Agents',
+        blurb: 'Every agent you can ask, what each one does, and what it is doing right now.',
+        body: [
+          'Open it from the button beside the Agents heading in the sidebar, or from ⌘K. Each row is one agent you can set going: the workspace’s, your own, or one somebody lent you. Somebody else’s own agent is not listed, because it would not answer you.',
+          'Under each name is what the agent says it does, and where it stands: working in a channel, waiting for your answer to a question it asked, or when it last ran. That line is read from its runs, which is why it is honest — Blob shows no presence for apps, so an agent is never “online” here, only busy or not.',
+          'Message opens your direct message with it. Runs shows what it has done that you can see. Settings appears for your own agents, and for an admin on the workspace’s.',
+        ],
+        path: '/agents',
+        keywords: ['agents', 'agent', 'bots', 'directory', 'who can i ask', 'status', 'working', 'ai'],
+      },
+      {
         id: 'agent-terminal',
         title: 'A terminal in an agent',
         blurb: '/cli in a direct message with an agent opens a terminal panel beside the conversation.',

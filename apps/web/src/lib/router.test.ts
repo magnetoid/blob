@@ -18,6 +18,7 @@ describe('parseRoute', () => {
     expect(parseRoute('/threads')).toEqual({ view: 'threads' });
     expect(parseRoute('/later')).toEqual({ view: 'saved' });
     expect(parseRoute('/files')).toEqual({ view: 'files' });
+    expect(parseRoute('/agents')).toEqual({ view: 'agents' });
     expect(parseRoute('/m/abc123')).toEqual({ view: 'permalink', messageId: 'abc123' });
     expect(parseRoute('/help')).toEqual({ view: 'help' });
     expect(parseRoute('/settings')).toEqual({ view: 'settings', section: 'preferences' });
@@ -121,6 +122,7 @@ describe('pathForRoute', () => {
       { view: 'activity', kind: 'mention' },
       { view: 'saved' },
       { view: 'files' },
+      { view: 'agents' },
       { view: 'help' },
       { view: 'permalink', messageId: 'abc123' },
       ...SETTINGS_SECTIONS.map((section) => ({ view: 'settings' as const, section })),

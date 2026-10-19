@@ -8832,9 +8832,25 @@
             "title": "Botuserid",
             "type": "string"
           },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "lent": {
+            "default": false,
+            "title": "Lent",
+            "type": "boolean"
           },
           "mine": {
             "title": "Mine",

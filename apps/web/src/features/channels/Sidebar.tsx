@@ -26,6 +26,7 @@ import {
   PlusIcon,
   ReplyIcon,
   SearchIcon,
+  SparkIcon,
   VideoIcon,
 } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
@@ -186,7 +187,21 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
             when a workspace has none, so a server with no model shows no empty shelf. */}
         {agents.length + agentDms.length > 0 && (
           <section className="sidebar-section">
-            {!collapsed && <h2 className="section-label">Agents</h2>}
+            {!collapsed && (
+              <div className="section-label-row">
+                <h2 className="section-label">Agents</h2>
+                <button
+                  className="sidebar-inline-add"
+                  onClick={() => navigate('/agents')}
+                  aria-label="All agents"
+                  aria-current={activeView === 'agents' ? 'page' : undefined}
+                  data-tooltip="All agents"
+                  data-tooltip-align="end"
+                >
+                  <SparkIcon size="sm" />
+                </button>
+              </div>
+            )}
             {agentDms.map((channel) => (
               <ChannelRow
                 key={channel.id}

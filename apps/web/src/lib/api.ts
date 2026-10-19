@@ -189,6 +189,10 @@ export interface WorkspaceAgent {
   botUserId: string;
   /** Yours: you own it. One somebody lent you is listed, and is not yours. */
   mine: boolean;
+  /** Somebody else's own agent, listed because they lent it to you everywhere. */
+  lent: boolean;
+  /** What it says it does — its manifest's description — or null. */
+  description: string | null;
   online: boolean | null;
 }
 

@@ -243,6 +243,13 @@ export function CommandPalette({
         run: () => setPrefs({ theme: theme === "dark" ? "light" : "dark" }),
       },
       {
+        id: "a-agents",
+        label: "Agents — who you can ask, and what each is doing",
+        kind: "Action",
+        section: "Actions",
+        run: () => navigate("/agents"),
+      },
+      {
         id: "a-browse",
         label: "Browse channels…",
         kind: "Action",

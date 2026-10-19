@@ -19,6 +19,7 @@ import { ThreadsView } from '../features/messages/ThreadsView.tsx';
 import { ActivityView } from '../features/messages/ActivityView.tsx';
 import { ImageLightbox } from '../features/messages/ImageLightbox.tsx';
 import { TasksView } from '../features/agentic/TasksView.tsx';
+import { AgentsView } from '../features/agentic/AgentsView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
 import { FilesView } from '../features/messages/FilesView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
@@ -548,6 +549,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           />
         )}
         {view === 'tasks' && <TasksView />}
+        {view === 'agents' && <AgentsView />}
         {view === 'saved' && <SavedView />}
         {view === 'browse' && <BrowseChannels />}
         {view === 'files' && <FilesView />}

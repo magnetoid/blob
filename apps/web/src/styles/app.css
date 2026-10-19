@@ -8348,6 +8348,93 @@ a.build-commit-sha:hover {
   }
 }
 
+/* ─── The Agents page (features/agentic/AgentsView.tsx) ───────────────────────
+   One row per agent you can ask. Drawn like a search result — the card on the page,
+   not an elevated surface — because it sits in the same pane the results do. The row
+   itself is not a button: it holds three, and a button inside a button is not one. */
+.agent-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-md);
+}
+
+.agent-row-what {
+  margin: 3px 0 0;
+  font-size: var(--text-row);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.agent-row-standing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-label);
+}
+
+.agent-row-standing[data-state='waiting'] {
+  color: var(--accent);
+}
+
+/* In the sidebar the dot sits at the row's end; here it leads the line it explains. */
+.agent-row-standing .agent-live-dot {
+  margin-left: 0;
+  margin-right: 2px;
+}
+
+.agent-row-where {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.agent-row-where:hover {
+  text-decoration: underline;
+}
+
+.agent-row-where:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.agent-row-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* A phone has no room beside the words: the buttons take their own line, as the
+   console's rows do at this width. */
+@media (max-width: 600px) {
+  .agent-row {
+    flex-wrap: wrap;
+  }
+
+  .agent-row-actions {
+    flex-basis: 100%;
+  }
+}
+
 .agent-badge {
   flex: none;
   align-self: center;

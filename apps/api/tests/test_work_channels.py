@@ -245,8 +245,11 @@ class TestStarting:
         # Lent, not given: offered to Ana, and not labelled hers. Its owner's list says it
         # is theirs.
         assert [a["mine"] for a in offered if a["id"] == planner_id] == [False]
+        # And the Agents page says so: lent to Ana, Marko's own in his list.
+        assert [a["lent"] for a in offered if a["id"] == planner_id] == [True]
         owners = (await team["marko"].get("/api/agents")).body["agents"]
         assert [a["mine"] for a in owners if a["id"] == planner_id] == [True]
+        assert [a["lent"] for a in owners if a["id"] == planner_id] == [False]
         started = await start(team, team["ana"], agentPluginIds=[planner_id])
         assert started["work"]["status"] == "open"
 

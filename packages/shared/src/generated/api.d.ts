@@ -7036,8 +7036,15 @@ export interface components {
         WorkspaceAgentOut: {
             /** Botuserid */
             botUserId: string;
+            /** Description */
+            description?: string | null;
             /** Id */
             id: string;
+            /**
+             * Lent
+             * @default false
+             */
+            lent: boolean;
             /** Mine */
             mine: boolean;
             /** Name */
