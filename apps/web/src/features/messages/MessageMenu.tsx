@@ -11,6 +11,10 @@ import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { MoreIcon } from "../../components/Icon.tsx";
 import { Menu } from "../../components/Menu.tsx";
+import { DialogPresence } from "../../components/Dialog.tsx";
+import { navigate } from "../../lib/router.ts";
+import { DecisionDialog } from "../decisions/DecisionDialog.tsx";
+import { firstDraft } from "../decisions/decisionText.ts";
 
 /** Slack's set, because those are the ones in people's fingers. */
 const REMIND_PRESETS: Array<{ label: string; at: () => Date }> = [
@@ -63,6 +67,7 @@ export function MessageMenu({
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
+  const [deciding, setDeciding] = useState(false);
   const markUnread = useStore((s) => s.markUnread);
   const toggleSaved = useStore((s) => s.toggleSaved);
   // Subscribed to the boolean rather than the Set, so saving one message does not
@@ -209,6 +214,21 @@ export function MessageMenu({
         >
           {message.pinnedAt ? "Unpin" : "Pin to channel"}
         </button>
+        {/* Beside Pin: both mark a message for the whole channel. A message is the
+              source of one standing decision at a time, so one that already is opens
+              the log instead. */}
+        <button
+          className="menu-item"
+          role="menuitem"
+          type="button"
+          onClick={() => {
+            setMenuOpen(false);
+            if (message.decisionId) navigate("/decisions");
+            else setDeciding(true);
+          }}
+        >
+          {message.decisionId ? "Open the decision" : "Record as a decision"}
+        </button>
         {mine && (
           <button
             className="menu-item"
@@ -236,6 +256,24 @@ export function MessageMenu({
           </button>
         )}
       </Menu>
+      <DialogPresence when={deciding ? message : null}>
+        {(source) => (
+          <DecisionDialog
+            heading="Record a decision"
+            initialTitle={firstDraft(source.body)}
+            saveLabel="Record"
+            onSave={(title, rationale, clientId) =>
+              api.decisions.record(source.channelId, {
+                title,
+                rationale: rationale || undefined,
+                messageId: source.id,
+                clientId,
+              })
+            }
+            onClose={() => setDeciding(false)}
+          />
+        )}
+      </DialogPresence>
     </div>
   );
 }

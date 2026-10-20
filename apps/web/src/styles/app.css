@@ -6954,6 +6954,15 @@ dialog.lightbox-host::backdrop {
   box-shadow: var(--elev-2);
 }
 
+/* Above its trigger instead, where the box that clips it has more room there — the ••• on
+   the newest message, at the foot of the conversation (components/Menu.tsx decides). By
+   role, not class: every panel the shared Menu draws takes it, whatever it is called. */
+[role='menu'][data-placement='above'] {
+  top: auto;
+  bottom: calc(100% + 4px);
+  transform-origin: bottom center;
+}
+
 /* The message ••• hangs from the right of its trigger, at the right edge of the row,
    and is narrower than a channel menu because its rows are single words. Everything
    else about it — the panel, the rows, the dismissal — is now the shared menu. */
@@ -11370,5 +11379,272 @@ button.call-bar-where {
   .mcp-tool > .input {
     flex-basis: 100%;
     max-width: none;
+  }
+}
+
+/* ── The decision log (M2 · A8) ──────────────────────────────────────────────────── */
+/* Forest, Meadow's colour for what is confirmed: a decision is the conversation saying
+   "yes, this". Rows follow the Agents page's, so the two lists read as one family. */
+
+/* Under a message that is a decision's source, on every row of a group. */
+.message-decision {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 1px 8px 1px 6px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-full);
+  background: var(--accent-wash);
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.message-decision:hover {
+  border-color: var(--accent);
+}
+
+.message-decision:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.decisions-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  /* The list's own gutter, so the filters line up with the rows at every width. */
+  padding: 14px var(--pane-gutter) 0;
+}
+
+.decisions-filters > input[type='search'] {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.decisions-filters > select {
+  flex: 0 1 auto;
+  width: auto;
+}
+
+.decisions-revoked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.decision-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.decision-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-md);
+}
+
+.decision-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.decision-title {
+  color: var(--text);
+  font-size: var(--text-row);
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* No longer standing: kept, struck through, and quieter than one that stands. */
+.decision-row[data-standing='false'] .decision-title {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.decision-row[data-standing='false'] .decision-mark {
+  background: var(--surface-muted);
+  color: var(--text-4);
+}
+
+.decision-why {
+  margin: 3px 0 0;
+  color: var(--text-2);
+  font-size: var(--text-row);
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.decision-meta {
+  margin-top: 6px;
+  color: var(--text-label);
+  font-size: var(--text-sm);
+}
+
+.decision-where {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.decision-where:hover {
+  text-decoration: underline;
+}
+
+.decision-where:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.decision-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.decisions-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 4px;
+}
+
+.decision-why-input {
+  min-height: 72px;
+  resize: vertical;
+}
+
+@media (max-width: 600px) {
+  .decision-row {
+    flex-wrap: wrap;
+  }
+
+  .decision-actions {
+    width: 100%;
+    padding-left: 40px;
+  }
+}
+
+/* A summary's decision, made one the log keeps. */
+.summary-record {
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.summary-record:hover {
+  background: var(--accent-wash);
+}
+
+.summary-recorded {
+  margin-left: 8px;
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+/* Home: what was decided lately, a line each. */
+.home-decided-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-decided-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-decided-row:hover {
+  background: var(--surface-muted);
+}
+
+.home-decided-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.home-decided-mark {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.home-decided-title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-row);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-decided-where {
+  color: var(--text-label);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .home-decided-row {
+    grid-template-columns: auto 1fr;
+  }
+
+  .home-decided-where {
+    grid-column: 2;
+  }
+}
+
+/* The Home row is a target of its own; the chip, the summary's Record and the "where"
+   link sit inline in text, and are exempt as inline links are. */
+@media (pointer: coarse) {
+  .home-decided-row {
+    min-height: 44px;
   }
 }

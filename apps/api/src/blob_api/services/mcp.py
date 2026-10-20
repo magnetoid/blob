@@ -46,9 +46,17 @@ from ..plugins import decisions
 from ..plugins import events as plugin_events
 from ..plugins.registry import MENTIONABLE_AGENT
 from ..realtime import hub
+from ..schemas.base import iso
 from ..schemas.models import Message
 from . import activity as activity_service
-from . import agent_access, agent_chains, agent_run_control, mcp_catalogue, task_dispatch
+from . import (
+    agent_access,
+    agent_chains,
+    agent_run_control,
+    decision_log,
+    mcp_catalogue,
+    task_dispatch,
+)
 from . import agent_runs as agent_run_service
 from . import agentic as agentic_service
 from . import audit as audit_service
@@ -544,6 +552,82 @@ async def _list_tasks(caller: McpCaller, arguments: dict[str, Any]) -> str:
             f"{due} · task {task.id}{thread}"
         )
     return f"{len(tasks)} task{'' if len(tasks) == 1 else 's'}, newest first.\n" + "\n".join(lines)
+
+
+async def _list_decisions(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    """The decision log (M2 · A8), as the person sees it, bounded to the room for an agent.
+
+    Membership is the boundary, as in search; the room ceiling leaves out a private channel
+    that is not the room the answer goes into — omitted, never refused, so a listing does
+    not say such a channel exists.
+    """
+    limit = _limit(arguments)
+    reference = arguments.get("channel")
+    query = arguments.get("query")
+    async with session_scope() as session:
+        only_channel = (
+            await _resolve_channel(session, caller, str(reference))
+            if isinstance(reference, str) and reference.strip()
+            else None
+        )
+        found = await decision_log.list_for(
+            session,
+            user_id=caller.user_id,
+            workspace_id=caller.workspace_id,
+            channel_id=only_channel,
+            query=query if isinstance(query, str) else None,
+            include_revoked=arguments.get("include_revoked") is True,
+            audience=caller.room_channel_id if caller.reads_are_room_bound else None,
+            limit=limit,
+        )
+        people = await _names(session, {d.decided_by for d in found if d.decided_by})
+    if not found:
+        return "No decisions match."
+    lines = []
+    for decision in found:
+        where = f"#{decision.channel_name}" if decision.channel_name else "a conversation"
+        who = people.get(decision.decided_by or "", "somebody")
+        proposed = f", proposed by {decision.proposed_by_name}" if decision.proposed_by_name else ""
+        gone = " · no longer stands" if decision.revoked_at else ""
+        source = f" · message {decision.message_id}" if decision.message_id else ""
+        lines.append(
+            f"- {decision.title} — {where} · decided by {who}{proposed} · "
+            f"{_when(iso(decision.created_at))}{gone} · decision {decision.id}{source}"
+        )
+        if decision.rationale:
+            lines.append(f"  Why: {decision.rationale}")
+    count = len(found)
+    return f"{count} decision{'' if count == 1 else 's'}, newest first.\n" + "\n".join(lines)
+
+
+async def _record_decision(caller: McpCaller, arguments: dict[str, Any]) -> str:
+    """Record a decision in the person's name. An assistant is the person (ADR 0016); an
+    agent never reaches here — its proposals wait for the person (`jobs/agui_tools`)."""
+    if not caller.may_write():
+        raise forbidden("This connection may only read.")
+    reference = _required(arguments, "channel")
+    title = _required(arguments, "title")
+    rationale = arguments.get("rationale")
+    message_id = arguments.get("message_id")
+    await consume("send_message", caller.user_id)
+    async with transaction() as (session, after):
+        channel_id = await _resolve_channel(session, caller, reference)
+        found, made = await decision_log.record(
+            session,
+            workspace_id=caller.workspace_id,
+            user_id=caller.user_id,
+            channel_id=channel_id,
+            title=title,
+            rationale=rationale if isinstance(rationale, str) else None,
+            message_id=_an_id(str(message_id), "message") if message_id else None,
+            client_id=_client_id(caller, arguments),
+        )
+        if made:
+            await decision_log.announce_source(session, after, found)
+    if not made:
+        return f"Already recorded, as decision {found.id}: nothing new was written."
+    where = f"#{found.channel_name}" if found.channel_name else "that conversation"
+    return f"Recorded in {where} as {caller.display_name}'s decision. Decision id {found.id}."
 
 
 async def _search_messages(caller: McpCaller, arguments: dict[str, Any]) -> str:
@@ -1205,10 +1289,12 @@ _HANDLERS = {
     "read_thread": _read_thread,
     "read_file": _read_file,
     "list_tasks": _list_tasks,
+    "list_decisions": _list_decisions,
     "search_messages": _search_messages,
     "list_people": _list_people,
     "list_agents": _list_agents,
     "post_message": _post_message,
+    "record_decision": _record_decision,
     "inbox": _inbox,
     "list_threads": _list_threads,
     "message_person": _message_person,

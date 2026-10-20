@@ -183,6 +183,14 @@ export const PinIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** A planted flag: something the conversation settled (the decision log). */
+export const DecisionIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 21V4" />
+    <path d="M5 4h11l-2 4 2 4H5" />
+  </Svg>
+);
+
 export const CloseIcon = (p: IconProps) => (
   <Svg boost={0.4} {...p}>
     <path d="M6 6l12 12M18 6L6 18" />

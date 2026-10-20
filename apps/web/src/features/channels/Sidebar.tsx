@@ -23,6 +23,7 @@ import {
   HuddleIcon,
   MentionIcon,
   PinIcon,
+  DecisionIcon,
   PlusIcon,
   ReplyIcon,
   SearchIcon,
@@ -129,6 +130,13 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
             label="Tasks"
             active={activeView === 'tasks'}
             onClick={() => navigate('/tasks')}
+          />
+          <SidebarNavButton
+            collapsed={collapsed}
+            icon={<DecisionIcon size="sm" />}
+            label="Decisions"
+            active={activeView === 'decisions'}
+            onClick={() => navigate('/decisions')}
           />
           <SidebarNavButton
             collapsed={collapsed}

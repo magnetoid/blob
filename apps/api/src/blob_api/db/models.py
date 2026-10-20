@@ -1646,6 +1646,67 @@ class AgentFollow(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class Decision(Base):
+    """Something a conversation settled, recorded so it outlives the scroll.
+
+    Rooted in the message it was settled in — the source a reader can go back to — and in
+    that message's channel, under that channel's membership: a private channel's decisions
+    are as private as its messages. A person records one, from a message, a summary or
+    `/decision`; an agent may only propose one, and it is recorded in the name of the person
+    who approved it (`proposed_by` keeps which agent asked). Revoked rather than deleted: a
+    decision that no longer stands is still part of how the team got where it is.
+    """
+
+    __tablename__ = "decisions"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "client_id", name="decisions_client_uniq"),
+        # A message is the source of at most one standing decision, and the message list
+        # asks this index for every row it draws.
+        Index(
+            "decisions_message_live",
+            "message_id",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL AND message_id IS NOT NULL"),
+        ),
+        Index("decisions_channel", "channel_id", text("created_at DESC")),
+        Index("decisions_workspace", "workspace_id", text("created_at DESC")),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="SET NULL")
+    )
+    #: The thread it was settled in, when it was settled in one.
+    thread_root_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="SET NULL")
+    )
+    #: What was decided, in one line.
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Why, if anybody said.
+    rationale: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    decided_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    #: The agent that proposed it, when one did; a person approved it either way.
+    proposed_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="SET NULL")
+    )
+    #: The client's id for the write, so a retry records nothing twice.
+    client_id: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    revoked_at: Mapped[Any | None] = mapped_column(Timestamp)
+    revoked_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
 class McpServer(Base):
     """A server an admin connected, whose tools chosen agents may use (ADR 0027).
 
@@ -1892,6 +1953,7 @@ __all__ = [
     "Channel",
     "ChannelMember",
     "CustomEmoji",
+    "Decision",
     "FeedbackTicket",
     "Invite",
     "McpServer",

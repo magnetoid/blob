@@ -357,6 +357,18 @@ export const SECTIONS: Section[] = [
         path: '/tasks',
         keywords: ['summary', 'summarise', 'ai', 'ai summary', 'model', 'sources', 'action items', 'decisions', 'tasks'],
       },
+      {
+        id: 'decisions',
+        title: 'Decisions',
+        blurb: 'Record what a conversation settled, and find it again on the Decisions page.',
+        body: [
+          'When a conversation settles something, record it: choose Record as a decision from a message’s menu, press Record beside a decision in a thread’s summary, or type /decision and what was decided. The message it rests on is marked Decision, and the decision is kept on the Decisions page with where it was made, who decided, and why.',
+          'An agent can propose a decision, but only a person makes it one: you are asked first, and it is recorded in your name. A decision that no longer stands can be revoked by whoever recorded it or an admin — it stays on the page, struck through. Decisions in a private channel are seen only by its members.',
+        ],
+        path: '/decisions',
+        commands: ['decision'],
+        keywords: ['decision', 'decisions', 'decided', 'log', 'record', 'settled', 'agreed', 'adr'],
+      },
     ],
   },
 

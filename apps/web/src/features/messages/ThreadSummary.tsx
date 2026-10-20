@@ -7,6 +7,9 @@ import { showError } from "../../lib/toasts.ts";
 import { showMessage } from "../../lib/navigation.ts";
 import { renderInline, renderMarkdown, type RenderOptions } from "../../lib/markdown.tsx";
 import { errorMessage, formatWhen } from "./threadTools.ts";
+import { DialogPresence } from "../../components/Dialog.tsx";
+import { DecisionDialog } from "../decisions/DecisionDialog.tsx";
+import { firstDraft } from "../decisions/decisionText.ts";
 
 /** `llm:<model>` is the model; anything else is the keyword scan the server falls back to. */
 function isModelWritten(summary: Summary): boolean {
@@ -38,6 +41,53 @@ function Cite({ messageId }: { messageId: string | null }) {
     >
       ↗
     </button>
+  );
+}
+
+/**
+ * A decision the summary found, made one the log keeps (M2 · A8). A summary is rewritten
+ * every time somebody refreshes it; recording is the person saying "yes, this was settled",
+ * which the next refresh cannot take back.
+ */
+function RecordFromSummary({
+  channelId,
+  messageId,
+  text,
+}: {
+  channelId: string;
+  messageId: string;
+  text: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [recorded, setRecorded] = useState(false);
+  if (recorded) {
+    return <span className="summary-recorded">Recorded</span>;
+  }
+  return (
+    <>
+      <button type="button" className="summary-record" onClick={() => setOpen(true)}>
+        Record
+      </button>
+      <DialogPresence when={open ? text : null}>
+        {(draft) => (
+          <DecisionDialog
+            heading="Record a decision"
+            initialTitle={firstDraft(draft)}
+            saveLabel="Record"
+            onSave={async (title, rationale, clientId) => {
+              await api.decisions.record(channelId, {
+                title,
+                rationale: rationale || undefined,
+                messageId,
+                clientId,
+              });
+              setRecorded(true);
+            }}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </DialogPresence>
+    </>
   );
 }
 
@@ -124,6 +174,11 @@ export function ThreadSummaryCard({
                   <li key={`${item.messageId ?? "decision"}-${index}`}>
                     {renderInline(item.text, renderOptions)}
                     <Cite messageId={item.messageId} />
+                    <RecordFromSummary
+                      channelId={summary.channelId}
+                      messageId={item.messageId ?? rootId}
+                      text={item.text}
+                    />
                   </li>
                 ))}
               </ul>

@@ -245,6 +245,8 @@ class Message(CamelModel):
     edited_at: str | None = None
     deleted_at: str | None = None
     pinned_at: str | None = None
+    #: The standing decision this message is the source of (M2 · A8), or None.
+    decision_id: str | None = None
     created_at: str
     reactions: list[Reaction] = Field(default_factory=list)
     attachments: list[Attachment] = Field(default_factory=list)

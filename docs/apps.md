@@ -476,7 +476,12 @@ takes the id of a message — the `id` of an entry in your `messages` — and, w
 several files, a file's name, and answers the text of a text file (notes, code, CSV,
 JSON) up to 512 KB; images and PDFs are not read as text. `list_tasks` lists the team's
 tasks with their owner, status, priority and due date, narrowed by `channel`, `status` or
-`mine`. They arrive in `RunAgentInput.tools` with a name,
+`mine`. `list_decisions` reads the team's decision log — what was decided, where, by whom
+and why — narrowed by channel or words (ADR 0028). With **write** access you may also call
+`record_decision(title, rationale?, message_id?)` to propose one in the conversation you
+were asked in: it is always put to the person first, whatever your posts may do without
+asking, and recorded in their name with your agent named as the one that proposed it.
+They arrive in `RunAgentInput.tools` with a name,
 a description and JSON-schema `parameters`, and they are client-executed, the way AG-UI's
 frontend tools are: call one by streaming `TOOL_CALL_START`, `TOOL_CALL_ARGS` and
 `TOOL_CALL_END`, then end the run. Blob runs the call and calls you again — same

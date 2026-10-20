@@ -176,6 +176,36 @@ CATALOGUE: list[dict[str, Any]] = [
         "readOnly": True,
     },
     {
+        "name": "list_decisions",
+        "title": "List decisions",
+        "description": (
+            "What the team decided, newest first — each decision with where it was made, "
+            "who recorded it, and why when somebody said. Narrow by channel or by words in "
+            "it. Decisions that no longer stand are left out unless asked for. Not "
+            "answer_decision, which answers a question an agent asked."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    **_CHANNEL_SCHEMA,
+                    "description": "Only decisions made in this channel.",
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Only decisions whose words match this.",
+                },
+                "include_revoked": {
+                    "type": "boolean",
+                    "description": "Also list decisions that no longer stand.",
+                },
+                "limit": _LIMIT_SCHEMA,
+            },
+        },
+        "scope": "read",
+        "readOnly": True,
+    },
+    {
         "name": "search_messages",
         "title": "Search messages",
         "description": (
@@ -256,6 +286,35 @@ CATALOGUE: list[dict[str, Any]] = [
                 "client_msg_id": _CLIENT_ID_SCHEMA,
             },
             "required": ["channel", "text"],
+        },
+        "scope": "write",
+        "readOnly": False,
+    },
+    {
+        "name": "record_decision",
+        "title": "Record a decision",
+        "description": (
+            "Add something a conversation settled to the team's decision log, in the name "
+            "of the person this connection belongs to. Say what was decided in one line, "
+            "and why if anybody said. Point it at the message it was settled in, when "
+            "there is one: that message then shows it is a decision."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "channel": {**_CHANNEL_SCHEMA, "description": "Where it was decided."},
+                "title": {
+                    "type": "string",
+                    "description": "What was decided, in one line of at most 200 characters.",
+                },
+                "rationale": {"type": "string", "description": "Why, if anybody said."},
+                "message_id": {
+                    "type": "string",
+                    "description": "The message it was settled in, if there is one.",
+                },
+                "client_msg_id": _CLIENT_ID_SCHEMA,
+            },
+            "required": ["channel", "title"],
         },
         "scope": "write",
         "readOnly": False,

@@ -2411,6 +2411,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels/{channel_id}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Decision
+         * @description Record what this conversation decided, in your name — from a message (`messageId`),
+         *     or on its own. A repeat of the same `clientId` answers the decision already made.
+         */
+        post: operations["record_decision_api_channels__channel_id__decisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/channels/{channel_id}/join": {
         parameters: {
             query?: never;
@@ -2656,6 +2677,67 @@ export interface paths {
         put?: never;
         /** Run Command */
         post: operations["run_command_api_commands_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Decisions
+         * @description What was decided in the conversations this person is in, newest first.
+         */
+        get: operations["list_decisions_api_decisions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/decisions/{decision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Decision */
+        get: operations["get_decision_api_decisions__decision_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change Decision
+         * @description Reword it, or say why. The person who recorded it, or an admin.
+         */
+        patch: operations["change_decision_api_decisions__decision_id__patch"];
+        trace?: never;
+    };
+    "/api/decisions/{decision_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Decision
+         * @description It no longer stands — or it does again. Kept either way.
+         */
+        post: operations["revoke_decision_api_decisions__decision_id__revoke_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5099,6 +5181,64 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** DecisionIn */
+        DecisionIn: {
+            /** Clientid */
+            clientId: string;
+            /** Messageid */
+            messageId?: string | null;
+            /** Rationale */
+            rationale?: string | null;
+            /** Title */
+            title: string;
+        };
+        /** DecisionOut */
+        DecisionOut: {
+            /** Channelid */
+            channelId: string;
+            /** Channelkind */
+            channelKind: string;
+            /** Channelname */
+            channelName: string | null;
+            /** Createdat */
+            createdAt: string;
+            /** Decidedby */
+            decidedBy: string | null;
+            /** Id */
+            id: string;
+            /** Messageid */
+            messageId: string | null;
+            /** Proposedby */
+            proposedBy: string | null;
+            /** Proposedbyname */
+            proposedByName: string | null;
+            /** Rationale */
+            rationale: string;
+            /** Revokedat */
+            revokedAt: string | null;
+            /** Revokedby */
+            revokedBy: string | null;
+            /** Threadrootid */
+            threadRootId: string | null;
+            /** Title */
+            title: string;
+            /** Updatedat */
+            updatedAt: string;
+        };
+        /** DecisionPatch */
+        DecisionPatch: {
+            /** Rationale */
+            rationale?: string | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** DecisionsOut */
+        DecisionsOut: {
+            /** Decisions */
+            decisions: components["schemas"]["DecisionOut"][];
+            /** Nextbefore */
+            nextBefore?: string | null;
+        };
         /** DeleteMessageInput */
         DeleteMessageInput: {
             /** Messageid */
@@ -5988,6 +6128,8 @@ export interface components {
             clientMsgId: string;
             /** Createdat */
             createdAt: string;
+            /** Decisionid */
+            decisionId?: string | null;
             /** Deletedat */
             deletedAt?: string | null;
             /** Editedat */
@@ -6515,6 +6657,14 @@ export interface components {
             password: string;
             /** Token */
             token: string;
+        };
+        /** RevokeIn */
+        RevokeIn: {
+            /**
+             * Revoked
+             * @default true
+             */
+            revoked: boolean;
         };
         /** RoleInput */
         RoleInput: {
@@ -7490,6 +7640,10 @@ export type CurrentUserOut = components['schemas']['CurrentUserOut'];
 export type CustomEmoji = components['schemas']['CustomEmoji'];
 export type CustomEmojiListOut = components['schemas']['CustomEmojiListOut'];
 export type CustomEmojiOut = components['schemas']['CustomEmojiOut'];
+export type DecisionIn = components['schemas']['DecisionIn'];
+export type DecisionOut = components['schemas']['DecisionOut'];
+export type DecisionPatch = components['schemas']['DecisionPatch'];
+export type DecisionsOut = components['schemas']['DecisionsOut'];
 export type DeleteMessageInput = components['schemas']['DeleteMessageInput'];
 export type DeliveriesOut = components['schemas']['DeliveriesOut'];
 export type DeliveryDetailOut = components['schemas']['DeliveryDetailOut'];
@@ -7588,6 +7742,7 @@ export type RepoInput = components['schemas']['RepoInput'];
 export type RepoPreviewOut = components['schemas']['RepoPreviewOut'];
 export type ResetLinkOut = components['schemas']['ResetLinkOut'];
 export type ResetPasswordInput = components['schemas']['ResetPasswordInput'];
+export type RevokeIn = components['schemas']['RevokeIn'];
 export type RoleInput = components['schemas']['RoleInput'];
 export type RunCommandInput = components['schemas']['RunCommandInput'];
 export type RunEventOut = components['schemas']['RunEventOut'];
@@ -11815,6 +11970,41 @@ export interface operations {
             };
         };
     };
+    record_decision_api_channels__channel_id__decisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     join_channel_api_channels__channel_id__join_post: {
         parameters: {
             query?: never;
@@ -12299,6 +12489,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_decisions_api_decisions_get: {
+        parameters: {
+            query?: {
+                before?: string | null;
+                channelId?: string | null;
+                limit?: number;
+                q?: string | null;
+                revoked?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_api_decisions__decision_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_decision_api_decisions__decision_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_decision_api_decisions__decision_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionOut"];
                 };
             };
             /** @description Validation Error */

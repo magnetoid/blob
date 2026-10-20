@@ -119,6 +119,11 @@ describe('the types the client is written against are the ones the server descri
     expectTypeOf<ClientMessage>().toMatchTypeOf<ServerMessage>();
   });
 
+  it('agrees about a decision in the log', () => {
+    expectTypeOf<Norm<Gen.DecisionOut>>().toMatchTypeOf<Norm<Hand.Decision>>();
+    expectTypeOf<Norm<Hand.Decision>>().toMatchTypeOf<Norm<Gen.DecisionOut>>();
+  });
+
   it('agrees about calls', () => {
     expectTypeOf<Norm<Gen.Call>>().toMatchTypeOf<Norm<Hand.Call>>();
     expectTypeOf<Norm<Hand.Call>>().toMatchTypeOf<Norm<Gen.Call>>();

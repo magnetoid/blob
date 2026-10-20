@@ -334,6 +334,7 @@ def create_app() -> FastAPI:
     from .routers.calls import router as calls_router
     from .routers.channels import router as channel_router
     from .routers.commands import router as command_router
+    from .routers.decision_log import router as decisions_router
     from .routers.feedback import router as feedback_router
     from .routers.files import router as file_router
     from .routers.groups import member_router as group_member_router
@@ -363,6 +364,7 @@ def create_app() -> FastAPI:
     app.include_router(message_router)
     app.include_router(command_router)
     app.include_router(agentic_router)
+    app.include_router(decisions_router)
     app.include_router(search_router)
     app.include_router(activity_router)
     app.include_router(mcp_router)

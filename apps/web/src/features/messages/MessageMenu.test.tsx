@@ -93,3 +93,45 @@ describe('the message ••• menu', () => {
     expect(document.activeElement?.getAttribute('role')).toBe('menuitem');
   });
 });
+
+describe('recording a decision from a message (M2 · A8)', () => {
+  it('starts from the message’s words and rests the decision on it', async () => {
+    const { api } = await import('../../lib/api.ts');
+    const record = vi.spyOn(api.decisions, 'record').mockResolvedValue({} as never);
+    open();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Record as a decision' }));
+    const field = await screen.findByLabelText('What was decided');
+    expect((field as HTMLInputElement).value).toBe('hello');
+    fireEvent.change(screen.getByLabelText('Why (optional)'), { target: { value: 'Because.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Record' }));
+    await waitFor(() =>
+      expect(record).toHaveBeenCalledWith('c1', {
+        title: 'hello',
+        rationale: 'Because.',
+        messageId: MESSAGE.id,
+        clientId: expect.any(String),
+      }),
+    );
+    vi.restoreAllMocks();
+  });
+
+  it('opens the log instead for a message that already is a decision', async () => {
+    const router = await import('../../lib/router.ts');
+    const go = vi.spyOn(router, 'navigate').mockImplementation(() => {});
+    useStore.setState({ savedMessageIds: new Set(), activeThreadRootId: null } as never);
+    render(
+      <MessageMenu
+        message={{ ...MESSAGE, decisionId: 'd1' }}
+        mine
+        onCopyLink={vi.fn()}
+        onForward={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('More actions'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open the decision' }));
+    expect(go).toHaveBeenCalledWith('/decisions');
+    vi.restoreAllMocks();
+  });
+});

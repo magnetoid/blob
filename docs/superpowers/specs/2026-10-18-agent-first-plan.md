@@ -420,3 +420,15 @@ legacy server exercises the handshake, the session and its expiry.
 each person's own, which is what would let a write be made as the person — is the next
 slice here; the client-credentials extension (a draft nobody implements), resources,
 prompts, subscriptions, tasks, MCP Apps and stdio servers.
+
+### A8, first half — the decision log (ADR 0028)
+
+`decisions` (migration 0057): a row rooted in the message it was settled in, read under its
+channel's membership, recorded by a person from a message's menu, a summary's decision or
+`/decision`, revoked rather than deleted. An agent may only propose one — `record_decision`
+always asks, whatever `write_approval` says, and records in the person's name with the agent
+as `proposed_by`. A message carries `decisionId` from one index probe in the shared select.
+A Decisions page, a Home card, a mark under the source message. Checked live through the
+worker with a stub agent; the run found the message menu clipped at the foot of a
+conversation (fixed in the shared `Menu`: it opens upward when there is more room there).
+Next: agent notes.

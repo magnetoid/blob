@@ -36,6 +36,7 @@ from ..schemas.models import ChannelWithState, Message, User
 from ..schemas.requests import ChannelNameMixin
 from . import agent_access
 from . import channels as channel_service
+from . import decision_log as decision_service
 from . import messages as message_service
 from . import reminders as reminder_service
 from .serialize import USER_COLUMNS, to_user
@@ -144,6 +145,48 @@ async def _shrug(ctx: CommandContext) -> CommandResult:
         client_msg_id=ctx.client_msg_id,
     )
     return CommandResult(message=result.message, thread_update=result.thread_update)
+
+
+async def _decision(ctx: CommandContext) -> CommandResult:
+    """Say what was decided, and add it to the decision log (M2 · A8).
+
+    Posted as the person's own words, where the conversation can read them, and recorded as
+    a decision resting on that message in the same transaction — so there is never a
+    decision without its message, or a message that says it is one and is not.
+    """
+    said = " ".join(ctx.args.split())
+    if not said:
+        return CommandResult(
+            ephemeral="`/decision` needs what was decided — try `/decision We ship on Friday`."
+        )
+    if len(said) > decision_service.TITLE_MAX:
+        return CommandResult(
+            ephemeral=(
+                f"A decision is one line of at most {decision_service.TITLE_MAX} characters. "
+                "Say the rest in the thread, and record the decision from its message."
+            )
+        )
+    result = await message_service.send(
+        ctx.session,
+        workspace_id=ctx.user.workspace_id,
+        channel_id=ctx.channel_id,
+        author_id=ctx.user.id,
+        body=said,
+        client_msg_id=ctx.client_msg_id,
+    )
+    if result.created:
+        await decision_service.record(
+            ctx.session,
+            workspace_id=ctx.user.workspace_id,
+            user_id=ctx.user.id,
+            channel_id=ctx.channel_id,
+            title=said,
+            message_id=result.message.id,
+            client_id=f"command:{ctx.client_msg_id}",
+        )
+    # Read again: the message now says it is a decision, and that is what is broadcast.
+    message = await message_service.by_id(ctx.session, result.message.id) or result.message
+    return CommandResult(message=message, thread_update=result.thread_update)
 
 
 async def _me(ctx: CommandContext) -> CommandResult:
@@ -734,6 +777,13 @@ COMMANDS: dict[str, Command] = {
         Command("help", "", "List the commands this workspace knows.", _help),
         Command("shrug", "[text]", "Post a message with a shrug on the end.", _shrug, writes=True),
         Command("me", "<text>", "Post an action, in italics.", _me, writes=True),
+        Command(
+            "decision",
+            "<what was decided>",
+            "Post a decision and add it to the decision log.",
+            _decision,
+            writes=True,
+        ),
         Command("topic", "[text]", "Set the channel topic, or clear it.", _topic, writes=True),
         Command("leave", "", "Leave this channel.", _leave),
         Command("away", "", "Toggle whether you show as away.", _away),

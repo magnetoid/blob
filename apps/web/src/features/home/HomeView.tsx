@@ -46,6 +46,7 @@ import { AgentRunCard } from '../messages/AgentRunCard.tsx';
 import { ListSkeleton } from '../../components/ListSkeleton.tsx';
 import { formatRelative } from '../messages/messageFormatting.ts';
 import { useFetch } from '../../lib/useFetch.ts';
+import { RecentDecisions } from './RecentDecisions.tsx';
 
 /** How long an answered question or a ticked-off task stays to say so, before it leaves. */
 export const CONFIRM_MS = 1600;
@@ -394,6 +395,8 @@ export function HomeView() {
             )}
           </section>
         </div>
+
+        <RecentDecisions />
 
         {/* Who is here is in its tile, as faces; Pulse is what the agents finished. */}
         {doneToday.length > 0 && (

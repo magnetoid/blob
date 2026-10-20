@@ -1303,6 +1303,7 @@ async def _drive(
             ask=ask,
             write_now=write_now,
             deadline=deadline,
+            channel_id=channel_id,
         )
         exchange = [*exchange, turn, *results]
         if pending is not None:
@@ -1428,12 +1429,13 @@ async def _run_calls(
     ]
     | None = None,
     deadline: float | None = None,
+    channel_id: str | None = None,
 ) -> tuple[
     dict[str, Any],
     list[dict[str, Any]],
     tuple[
         agui.ToolCall,
-        agui_tools.PreparedWrite | agui_tools.PreparedOutside,
+        agui_tools.PreparedWrite | agui_tools.PreparedOutside | agui_tools.PreparedDecision,
         list[agui.ToolCall],
     ]
     | None,
@@ -1476,6 +1478,20 @@ async def _run_calls(
                 else:
                     outcome = prepared
                     said_of = _outcome_of(outcome)
+            elif call.name in agui_tools.DECISION_TOOLS:
+                # A decision for the log (M2 · A8): always the person's to make, so always
+                # put to them, in the conversation the agent was asked in.
+                checked_decision = (
+                    await agui_tools.prepare_decision(tools.caller, call, channel_id=channel_id)
+                    if channel_id is not None
+                    else agui_tools.not_run("there is no conversation to record it in")
+                )
+                if isinstance(checked_decision, agui_tools.PreparedDecision):
+                    tool_span.set_attribute("blob.tool.outcome", "asked")
+                    await metrics.tool_called("agent", call.name, "asked")
+                    return turn, results, (call, checked_decision, list(calls[index + 1 :]))
+                outcome = checked_decision
+                said_of = _outcome_of(outcome)
             elif call.name == "ask_agent":
                 # Another agent's answer, waited for (`agui_delegate`). Within this run's
                 # own wall clock, which is why it is built per run, in `_drive`.
@@ -1557,10 +1573,16 @@ async def _settle_approval(
     the round to carry on in."""
     call_id = str(resumed.call.get("id") or "")
     tool_name = str(resumed.call.get("name") or "post_message")
-    outside = agui_tools.is_outside(resumed.prepared)
+    kind = agui_tools.kind_of(resumed.prepared)
+    outside = kind == "mcp"
+    server = ""
     with _tool_span(tool_name, call_id) as tool_span:
         if outside:
             outcome, server = await _approved_call(resumed, tools, deadline=deadline)
+        elif kind == "decision":
+            outcome = await _approved_decision(
+                listener, resumed, tools, run_id=run_id, call_id=call_id
+            )
         else:
             outcome = await _approved_write(
                 listener, resumed, tools, run_id=run_id, workspace_id=workspace_id, call_id=call_id
@@ -1573,7 +1595,7 @@ async def _settle_approval(
         )
     else:
         await metrics.tool_called("agent", tool_name, said_of)
-    waited = "a call" if outside else "a post"
+    waited = {"mcp": "a call", "decision": "a decision"}.get(kind, "a post")
     results = [agui_tools.tool_message(call_id, outcome, speaks_1_0=sent_1_0)]
     for later in resumed.later:
         results.append(
@@ -1584,6 +1606,29 @@ async def _settle_approval(
             )
         )
     return [*resumed.exchange, *results], resumed.round + 1
+
+
+async def _approved_decision(
+    listener: Listener,
+    resumed: agent_chains.ToolResume,
+    tools: _Tools,
+    *,
+    run_id: str,
+    call_id: str,
+) -> agui_tools.ToolOutcome:
+    """The decision the person answered: declined, no longer possible, or recorded in
+    their name — keyed by the call that proposed it, so a repeated resume records once."""
+    prepared = agui_tools.PreparedDecision.from_dict(resumed.prepared)
+    if not resumed.approved:
+        return agui_tools.DECLINED_DECISION
+    if prepared is None or tools.caller is None or "record_decision" not in tools.names:
+        return agui_tools.ToolOutcome("", "Approved, but it can no longer be recorded.")
+    return await agui_tools.run_decision(
+        tools.caller,
+        prepared,
+        plugin_id=listener.plugin_id,
+        key=f"agui-decision:{run_id}:{call_id}",
+    )
 
 
 async def _approved_call(

@@ -15,9 +15,19 @@
  * caller's own class so each menu's existing CSS continues to key on its own name.
  */
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { usePresence } from '../lib/usePresence.ts';
 import { useEscape } from '../lib/useEscape.ts';
+import { fitPanel, type Fit } from '../lib/menuFit.ts';
+
+/** The nearest ancestor that clips what overflows it — the conversation's scroll area, a
+ *  thread panel — or null, when only the viewport does. */
+function clippingAncestor(node: HTMLElement): HTMLElement | null {
+  for (let el = node.parentElement; el; el = el.parentElement) {
+    if (getComputedStyle(el).overflowY !== 'visible') return el;
+  }
+  return null;
+}
 
 /** Every focusable menu item, in DOM order. Disabled ones cannot take focus, so
  *  offering them to the arrows would strand the roving focus on the way past. */
@@ -46,6 +56,23 @@ export function Menu({
   // it. Focus goes back there on close so a keyboard user is not stranded on <body>.
   const openerRef = useRef<HTMLElement | null>(null);
   const { present, state } = usePresence(open, panelRef);
+  const [fit, setFit] = useState<Fit>({ above: false, maxHeight: null });
+
+  // Where the panel goes so all of it can be seen (`lib/menuFit.ts`). Before paint, so a
+  // panel that belongs above its trigger is never drawn below it first; once per opening,
+  // and nothing is measured while it stays open.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    const anchor = panel?.offsetParent ?? panel?.parentElement;
+    if (!panel || !anchor) return;
+    const clip = clippingAncestor(panel)?.getBoundingClientRect();
+    const bounds = {
+      top: Math.max(clip?.top ?? 0, 0),
+      bottom: Math.min(clip?.bottom ?? window.innerHeight, window.innerHeight),
+    };
+    setFit(fitPanel({ height: panel.scrollHeight }, anchor.getBoundingClientRect(), bounds));
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -157,6 +184,8 @@ export function Menu({
       role="menu"
       ref={panelRef}
       data-state={state}
+      data-placement={fit.above ? 'above' : undefined}
+      style={fit.maxHeight !== null ? { maxHeight: fit.maxHeight, overflowY: 'auto' } : undefined}
       inert={state === 'closed' ? true : undefined}
     >
       {children}

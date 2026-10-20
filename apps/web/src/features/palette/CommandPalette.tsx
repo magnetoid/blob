@@ -250,6 +250,13 @@ export function CommandPalette({
         run: () => navigate("/agents"),
       },
       {
+        id: "a-decisions",
+        label: "Decisions — what the team settled, and where",
+        kind: "Action",
+        section: "Actions",
+        run: () => navigate("/decisions"),
+      },
+      {
         id: "a-browse",
         label: "Browse channels…",
         kind: "Action",

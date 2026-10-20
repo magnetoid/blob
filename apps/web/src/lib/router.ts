@@ -82,6 +82,8 @@ export type Route =
   | { view: 'activity'; kind?: 'mention' }
   | { view: 'tasks' }
   | { view: 'agents' }
+  /** The decision log: what conversations settled (M2 · A8). */
+  | { view: 'decisions' }
   | { view: 'saved' }
   | { view: 'browse' }
   | { view: 'files' }
@@ -145,6 +147,7 @@ export function parseRoute(path: string): Route {
   if (clean === '/mentions') return { view: 'activity', kind: 'mention' };
   if (clean === '/tasks') return { view: 'tasks' };
   if (clean === '/agents') return { view: 'agents' };
+  if (clean === '/decisions') return { view: 'decisions' };
   if (clean === '/later') return { view: 'saved' };
   if (clean === '/channels') return { view: 'browse' };
   if (clean === '/files') return { view: 'files' };
@@ -240,6 +243,8 @@ export function pathForRoute(route: Route): string {
       return '/tasks';
     case 'agents':
       return '/agents';
+    case 'decisions':
+      return '/decisions';
     case 'saved':
       return '/later';
     case 'browse':

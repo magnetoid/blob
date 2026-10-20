@@ -217,6 +217,7 @@ def to_message(row: Any) -> Message:
         edited_at=iso(row.edited_at),
         deleted_at=iso(row.deleted_at),
         pinned_at=iso(row.pinned_at),
+        decision_id=None if deleted else _decision_of(row),
         created_at=require_iso(row.created_at),
         reactions=reactions,
         attachments=attachments,
@@ -224,6 +225,13 @@ def to_message(row: Any) -> Message:
         plugin_id=getattr(row, "plugin_id", None),
         link_preview=LinkPreview.model_validate(preview) if preview else None,
     )
+
+
+def _decision_of(row: Any) -> str | None:
+    """The standing decision a message is the source of — absent from a select that did
+    not ask, which reads as none."""
+    found = getattr(row, "decision_id", None)
+    return str(found) if found else None
 
 
 def _as_datetime(value: Any) -> datetime:
@@ -396,7 +404,11 @@ MESSAGE_SELECT = f"""
              'transcript_provider', a.transcript_provider) ORDER BY a.created_at)
       FROM attachments a
      WHERE a.message_id = m.id
-  ), '[]'::json) AS attachments
+  ), '[]'::json) AS attachments,
+  -- The standing decision this message is the source of (M2 · A8): one probe of
+  -- `decisions_message_live` per row, so no column on messages has to be kept in step.
+  (SELECT d.id FROM decisions d
+    WHERE d.message_id = m.id AND d.revoked_at IS NULL) AS decision_id
 """
 
 

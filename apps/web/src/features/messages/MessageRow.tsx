@@ -40,7 +40,8 @@ import { Count } from "../../components/Count.tsx";
 import { Confirmation } from "../../components/Confirmation.tsx";
 import { revealIfCached, revealOnError, revealOnLoad } from "../../lib/imageReveal.ts";
 import { EmojiPicker } from "../../components/EmojiPicker.tsx";
-import { DownloadIcon, FileIcon, PinIcon, ReplyIcon } from "../../components/Icon.tsx";
+import { DecisionIcon, DownloadIcon, FileIcon, PinIcon, ReplyIcon } from "../../components/Icon.tsx";
+import { navigate } from "../../lib/router.ts";
 import { resolveReaction } from "../../lib/emoji.ts";
 import { formatBytes } from "../../lib/format.ts";
 import {
@@ -429,6 +430,21 @@ export const MessageRow = memo(function MessageRow({
               </>
             )}
           </div>
+        )}
+
+        {/* A word and a flag, under the words it marks, on every row of a group: the
+            conversation should be able to see what it settled without opening the log. */}
+        {message.decisionId && !editing && (
+          <button
+            type="button"
+            className="message-decision"
+            tabIndex={tab}
+            onClick={() => navigate("/decisions")}
+            title="Recorded as a decision — open the decision log"
+          >
+            <DecisionIcon size="sm" />
+            Decision
+          </button>
         )}
 
         {message.blocks && message.blocks.length > 0 && (

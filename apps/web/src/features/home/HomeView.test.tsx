@@ -9,6 +9,7 @@ vi.mock('../../lib/api.ts', () => ({
     agentic: { listTasks: vi.fn(async () => ({ tasks: [] })), updateTask: vi.fn() },
     channels: { markAllRead: vi.fn(async () => ({ readStates: [] })) },
     messages: { send: vi.fn() },
+    decisions: { list: vi.fn(async () => ({ decisions: [] })) },
   },
 }));
 
@@ -17,6 +18,7 @@ vi.mock('../../lib/toasts.ts', () => ({ showError: vi.fn() }));
 vi.mock('../../lib/navigation.ts', () => ({
   showChannel: vi.fn(),
   showThread: vi.fn(),
+  showMessage: vi.fn(async () => true),
 }));
 
 // Partial: the rest of what the router exports is real, `navigate` is recorded.

@@ -42,14 +42,14 @@ from typing import Any
 from sqlalchemy import text
 
 from ..config import settings
-from ..db.engine import session_scope
+from ..db.engine import session_scope, transaction
 from ..lib.errors import AppError
 from ..lib.ids import new_id
 from ..plugins import mcp_client
 from ..plugins.agui import ToolCall
 from ..services import channels as channel_service
+from ..services import decision_log, mcp_catalogue, mcp_servers
 from ..services import mcp as mcp_service
-from ..services import mcp_catalogue, mcp_servers
 
 log = logging.getLogger("blob.jobs.agui")
 
@@ -66,6 +66,7 @@ READ_TOOLS = (
     "read_thread",
     "read_file",
     "list_tasks",
+    "list_decisions",
     "search_messages",
     "list_people",
 )
@@ -75,6 +76,10 @@ READ_TOOLS = (
 DELEGATE_TOOLS = ("list_agents", "ask_agent")
 #: The tools that act. Each call waits for the person's approval.
 WRITE_TOOLS = ("post_message",)
+#: Proposing a decision for the log (M2 · A8). Offered with write access, and *always*
+#: put to the person, whatever the admin let the agent's posts do: it is recorded in their
+#: name, and "who decided" has to stay true.
+DECISION_TOOLS = ("record_decision",)
 
 #: Rounds of tool calls one run may make, and calls in one round. A run that keeps
 #: calling past them is not converging on an answer.
@@ -94,6 +99,12 @@ _FOR_AGENTS = {
         "Post a message to a channel or a thread, as yourself. The person you are working "
         "for is asked to approve it first, and you are told whether they did. Say what it "
         "is: everyone in the channel will read it."
+    ),
+    "record_decision": (
+        "Propose a decision this conversation reached, for the team's decision log. The "
+        "person you are working for is asked to approve it, and it is recorded in their "
+        "name, in this conversation. Say what was decided in one line, and why if somebody "
+        "said; point it at the message it was settled in when there is one."
     ),
     "ask_agent": (
         "Ask another agent in this conversation and wait for its answer, which comes back "
@@ -127,7 +138,7 @@ def offered_names(access: str) -> frozenset[str]:
     if access == "read":
         return frozenset(READ_TOOLS + DELEGATE_TOOLS)
     if access == "write":
-        return frozenset(READ_TOOLS + DELEGATE_TOOLS + WRITE_TOOLS)
+        return frozenset(READ_TOOLS + DELEGATE_TOOLS + WRITE_TOOLS + DECISION_TOOLS)
     return frozenset()
 
 
@@ -147,6 +158,9 @@ _NOT_FOR_AGENTS: dict[str, frozenset[str]] = {
     # An agent asks in the conversation it is answering, and nowhere else: the room is
     # the run's, so the channel and thread are not the agent's to choose.
     "ask_agent": frozenset({"channel", "thread_root_id", "client_msg_id"}),
+    # A decision belongs to the conversation the agent was asked in, like a question to
+    # another agent; and Blob keys it by the call that proposed it.
+    "record_decision": frozenset({"channel", "client_msg_id"}),
 }
 
 
@@ -225,6 +239,129 @@ class PreparedWrite:
             text=str(body),
             thread_root_id=root if isinstance(root, str) and root else None,
         )
+
+
+@dataclass(slots=True)
+class PreparedDecision:
+    """A decision an agent proposed, checked and waiting for the person (M2 · A8)."""
+
+    channel_id: str
+    label: str
+    title: str
+    rationale: str
+    message_id: str | None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "kind": "decision",
+            "channelId": self.channel_id,
+            "label": self.label,
+            "title": self.title,
+            "rationale": self.rationale,
+            "messageId": self.message_id,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> PreparedDecision | None:
+        channel_id, label, title = raw.get("channelId"), raw.get("label"), raw.get("title")
+        if not all(isinstance(v, str) and v for v in (channel_id, label, title)):
+            return None
+        rationale = raw.get("rationale")
+        message_id = raw.get("messageId")
+        return cls(
+            channel_id=str(channel_id),
+            label=str(label),
+            title=str(title),
+            rationale=rationale if isinstance(rationale, str) else "",
+            message_id=message_id if isinstance(message_id, str) and message_id else None,
+        )
+
+
+def kind_of(prepared: dict[str, Any]) -> str:
+    """What a stored approval is for: `post`, `mcp` (a server's tool) or `decision`."""
+    kind = prepared.get("kind")
+    return kind if kind in ("mcp", "decision") else "post"
+
+
+async def prepare_decision(
+    caller: mcp_service.McpCaller, call: ToolCall, *, channel_id: str
+) -> PreparedDecision | ToolOutcome:
+    """Check a proposed decision before the person is asked about it: a line, in a
+    conversation they can write in, resting on a message there if it names one."""
+    arguments = call.parsed_arguments()
+    if arguments is None:
+        return ToolOutcome("", "The arguments were not a JSON object.")
+    title, rationale = arguments.get("title"), arguments.get("rationale")
+    if not isinstance(title, str):
+        return ToolOutcome("", "`title` is required: what was decided, in one line.")
+    message_id = arguments.get("message_id")
+    if message_id is not None and (
+        not isinstance(message_id, str) or not _UUID_RE.match(message_id.strip())
+    ):
+        return ToolOutcome("", "`message_id` has to be the id of a message.")
+    try:
+        cleaned = decision_log.clean_title(title)
+        why = decision_log.clean_rationale(rationale if isinstance(rationale, str) else None)
+        async with session_scope() as session:
+            await channel_service.assert_channel_access(
+                session, caller.user_id, channel_id, require_member=True, require_writable=True
+            )
+            if isinstance(message_id, str):
+                found = (
+                    await session.execute(
+                        text(
+                            """
+                            SELECT 1 FROM messages
+                             WHERE id = :id AND channel_id = :channel AND deleted_at IS NULL
+                            """
+                        ),
+                        {"id": message_id.strip(), "channel": channel_id},
+                    )
+                ).first()
+                if found is None:
+                    return ToolOutcome("", "There is no such message in this conversation.")
+            channel = await channel_service.get_for_user(session, channel_id, caller.user_id)
+    except AppError as error:
+        return ToolOutcome("", error.message)
+    label = f"#{channel.name}" if channel is not None and channel.name else "this conversation"
+    return PreparedDecision(
+        channel_id=channel_id,
+        label=label,
+        title=cleaned,
+        rationale=why,
+        message_id=message_id.strip() if isinstance(message_id, str) else None,
+    )
+
+
+async def run_decision(
+    caller: mcp_service.McpCaller, prepared: PreparedDecision, *, plugin_id: str, key: str
+) -> ToolOutcome:
+    """Record what the person approved, in their name, naming the agent that proposed it —
+    checked again, since time passed. `key` makes a repeat of this resume record nothing
+    new."""
+    try:
+        async with transaction() as (session, after):
+            found, made = await decision_log.record(
+                session,
+                workspace_id=caller.workspace_id,
+                user_id=caller.user_id,
+                channel_id=prepared.channel_id,
+                title=prepared.title,
+                rationale=prepared.rationale,
+                message_id=prepared.message_id,
+                client_id=key,
+                proposed_by=plugin_id,
+            )
+            if made:
+                await decision_log.announce_source(session, after, found)
+    except AppError as error:
+        return ToolOutcome("", f"Approved, but it could not be recorded: {error.message}")
+    except Exception:
+        log.warning("agui: an approved decision failed inside Blob", exc_info=True)
+        return ToolOutcome("", "Approved, but Blob could not record it.", failed=True)
+    return ToolOutcome(
+        f"Recorded in {prepared.label}, in {caller.display_name}'s name. Decision id {found.id}."
+    )
 
 
 #: What one call to a server's tool may carry as arguments, in bytes of JSON.
@@ -534,6 +671,7 @@ async def run_write(
 
 DECLINED = ToolOutcome("", "The person you are working for declined: it was not posted.")
 DECLINED_CALL = ToolOutcome("", "The person you are working for declined: it was not run.")
+DECLINED_DECISION = ToolOutcome("", "The person you are working for declined: it was not recorded.")
 
 
 def not_run(reason: str) -> ToolOutcome:
@@ -541,7 +679,9 @@ def not_run(reason: str) -> ToolOutcome:
 
 
 def approval_item(
-    agent_name: str, call: ToolCall, prepared: PreparedWrite | PreparedOutside
+    agent_name: str,
+    call: ToolCall,
+    prepared: PreparedWrite | PreparedOutside | PreparedDecision,
 ) -> dict[str, Any]:
     """The question an approval puts to the person, in the interrupt shape decisions read.
 
@@ -549,7 +689,13 @@ def approval_item(
     A post shows what would be posted; a call to a server's tool shows what it would be
     sent — the spec's ask of a client, so nothing leaves Blob that the person did not see.
     """
-    if isinstance(prepared, PreparedOutside):
+    if isinstance(prepared, PreparedDecision):
+        why = f"\n\nWhy: {prepared.rationale}" if prepared.rationale else ""
+        message = (
+            f"{agent_name} proposes a decision for the log, in {prepared.label}:\n\n"
+            f"> {prepared.title}{why}\n\nApproved, it is recorded in your name."
+        )
+    elif isinstance(prepared, PreparedOutside):
         message = (
             f"{agent_name} wants to use {prepared.label}, outside Blob, with:\n\n"
             f"{_argument_lines(prepared.arguments)}"
@@ -640,13 +786,16 @@ def trim_exchange(exchange: list[dict[str, Any]]) -> list[dict[str, Any]]:
 __all__ = [
     "ACCESS_LEVELS",
     "APPROVAL_LEVELS",
+    "DECISION_TOOLS",
     "DECLINED",
     "DECLINED_CALL",
+    "DECLINED_DECISION",
     "DELEGATE_TOOLS",
     "MAX_CALLS_PER_ROUND",
     "MAX_TOOL_ROUNDS",
     "READ_TOOLS",
     "WRITE_TOOLS",
+    "PreparedDecision",
     "PreparedOutside",
     "PreparedWrite",
     "ToolOutcome",
@@ -654,13 +803,16 @@ __all__ = [
     "assistant_turn",
     "caller_for",
     "is_outside",
+    "kind_of",
     "not_run",
     "offered",
     "offered_for",
     "offered_names",
+    "prepare_decision",
     "prepare_outside",
     "prepare_write",
     "room_for",
+    "run_decision",
     "run_outside",
     "run_read",
     "run_write",

@@ -220,7 +220,14 @@ class TestWhatTheFoldHears:
         # nothing a reply mentioning that agent could not (`agui_delegate`).
         assert read == [*agui_tools.READ_TOOLS, "list_agents", "ask_agent"]
         write = [tool["name"] for tool in agui_tools.offered("write")]
-        assert write == [*agui_tools.READ_TOOLS, "list_agents", "post_message", "ask_agent"]
+        # Proposing a decision comes with write access, and always asks (M2 · A8).
+        assert write == [
+            *agui_tools.READ_TOOLS,
+            "list_agents",
+            "post_message",
+            "record_decision",
+            "ask_agent",
+        ]
         assert all(
             set(tool) == {"name", "description", "parameters"}
             for tool in agui_tools.offered("write")

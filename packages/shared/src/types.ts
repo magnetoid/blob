@@ -275,6 +275,8 @@ export interface Message {
   clientMsgId: string;
   editedAt: string | null;
   deletedAt: string | null;
+  /** The standing decision this message is the source of (M2 · A8), or null. */
+  decisionId?: string | null;
   pinnedAt: string | null;
   createdAt: string;
   reactions: Reaction[];
@@ -655,4 +657,32 @@ export interface MediaServerStatus {
   openRooms: number | null;
   lastEventAt: string | null;
   webhookUrl: string;
+}
+
+/**
+ * Something a conversation settled, from the decision log (M2 · A8). Rests on the message
+ * it was settled in, and is read under that message's channel.
+ */
+export interface Decision {
+  id: string;
+  channelId: string;
+  channelName: string | null;
+  channelKind: string;
+  /** The message it was settled in, when it rests on one. */
+  messageId: string | null;
+  threadRootId: string | null;
+  /** What was decided, in one line. */
+  title: string;
+  /** Why, if anybody said; empty otherwise. */
+  rationale: string;
+  /** Who recorded it — the person who approved it, when an agent proposed it. */
+  decidedBy: string | null;
+  /** The agent that proposed it, if one did. */
+  proposedBy: string | null;
+  proposedByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Set when it no longer stands. Kept, never deleted. */
+  revokedAt: string | null;
+  revokedBy: string | null;
 }

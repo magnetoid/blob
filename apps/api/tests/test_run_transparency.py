@@ -146,6 +146,7 @@ class TestWhatARunWasShown:
             "ask_agent",
             "list_agents",
             "list_channels",
+            "list_decisions",
             "list_people",
             "list_tasks",
             "read_channel",
