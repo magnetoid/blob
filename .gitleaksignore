@@ -6,3 +6,6 @@
 daa7153ddd763f9b58f1544d5c04f7dfd8afed2c:apps/api/tests/test_llm_config.py:generic-api-key:25
 5bed7f5600348084047cf3b25c2485eb0ee81cab:.github/workflows/ci.yml:generic-api-key:42
 e7420b38369821e187fe813ab6451f07139fcab1:apps/api/tests/conftest.py:generic-api-key:16
+# Reviewed 2026-10-20: `secret=secret` passes a variable named secret to the MCP client's
+# Endpoint (services/mcp_servers.py) — a keyword argument, not a credential.
+1fc150da4ea83fc8d537c0e7da026ab613bf16b3:apps/api/src/blob_api/services/mcp_servers.py:generic-api-key:284
