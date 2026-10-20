@@ -119,6 +119,8 @@ async def refuse(
     if view is not None:
         after.add(lambda: _announce(listener, channel_id, {"t": "agent_run.started", "run": view}))
     after.add(lambda: queue_lib.fire_and_forget(metrics.run_ended(listener.slug, "refused")))
+    # A refused hop is an answer of a kind: the run that asked it hears why at once.
+    await _wake_askers(session, after, run_id=refused_id, plugin_id=listener.plugin_id)
     if chain_id is not None:
         await task_dispatch.settle(
             session,
@@ -554,11 +556,16 @@ async def _finish(
     reason = streamed.transport_error or fold.error or bound_error
     interrupt_items = approval["items"] if approval is not None else fold.interrupts
     touched = fold.state_touched if state_touched is None else state_touched
+    asking_an_agent = approval is not None and approval.get("kind") == "agent_answer"
     status: agent_run_service.RunStatus = (
         "cancelled"
         if cancelled
         else "failed"
         if reason
+        # Waiting on another agent's answer (M2 · A2): nobody is asked anything, and the
+        # other agent's finish carries the run on.
+        else "waiting"
+        if asking_an_agent
         else "interrupted"
         # A run nobody addressed asks nobody anything (ADR 0026): an agent's own interrupt
         # — its framework's human-in-the-loop, which Blob's tools do not govern — would
@@ -597,17 +604,19 @@ async def _finish(
             error=reason,
             post_count=post_count,
             card=final_card,
-            interrupt=interrupt_items if status == "interrupted" else None,
+            interrupt=(
+                interrupt_items if status == "interrupted" else [] if status == "waiting" else None
+            ),
             interrupt_extra=(
                 {key: value for key, value in approval.items() if key != "items"}
-                if approval is not None and status == "interrupted"
+                if approval is not None and status in ("interrupted", "waiting")
                 # The agent's own question after some tool rounds: keep the rounds, so the
                 # run that resumes it is handed the history as it happened.
                 else {"exchange": agui_tools.trim_exchange(exchange)}
                 if exchange and status == "interrupted"
                 else None
             ),
-            state_json=shared_state if status == "interrupted" else None,
+            state_json=shared_state if status in ("interrupted", "waiting") else None,
             expires_at=expires_at,
             usage=fold.usage if usage is None else (usage or None),
             seen=seen,
@@ -695,9 +704,13 @@ async def _finish(
                     },
                 )
             )
-        if status == "interrupted":
-            # The finished event has no room for `expiresAt`; the started event is an
-            # upsert of the whole view, and the client renders the deadline from it.
+        if status not in ("running", "waiting"):
+            # Somebody's `ask_agent` may be waiting on exactly this (M2 · A2): carry it on.
+            await _wake_askers(session, after, run_id=run_id, plugin_id=listener.plugin_id)
+        if status in ("interrupted", "waiting"):
+            # The finished event has no room for `expiresAt` or for whom a run waits on;
+            # the started event is an upsert of the whole view, and the client renders
+            # both from it.
             waiting_view = await agent_run_service.view_of(session, run_id)
             if waiting_view is not None:
                 after.add(
@@ -707,6 +720,23 @@ async def _finish(
                 )
 
     return status, reason, decision
+
+
+async def _wake_askers(session: AsyncSession, after: Any, *, run_id: str, plugin_id: str) -> None:
+    """Every run waiting on this one's answer — asked with `ask_agent`, by the message
+    that started this run — is carried on once this one has stopped (M2 · A2). After the
+    commit, so the resume reads the ending this transaction wrote."""
+    question = (
+        await session.execute(
+            text("SELECT trigger_message_id FROM agent_runs WHERE id = :id"), {"id": run_id}
+        )
+    ).scalar_one_or_none()
+    if question is None:
+        return
+    for waiter in await agent_run_service.waiting_on(
+        session, question_id=str(question), plugin_id=plugin_id
+    ):
+        after.add(partial(queue_lib.fire_and_forget, queue_lib.enqueue("agent_heard", waiter)))
 
 
 async def run_one(
@@ -1194,6 +1224,10 @@ async def _drive(
             sent_1_0=sent_1_0,
             deadline=deadline,
         )
+    elif chain.agent_answer is not None:
+        # Another agent answered a question this one asked (M2 · A2): the answer is the
+        # call's result, and the run carries on from the turn that asked.
+        carried, round_no = _settle_agent_answer(chain.agent_answer, sent_1_0=sent_1_0)
 
     # Offered only when there is somebody to run them as: tools listed to an agent whose
     # calls could never run would be a promise the run cannot keep.
@@ -1201,8 +1235,8 @@ async def _drive(
         *agui_tools.offered_for(tools.names),
         *(tool.as_offered() for tool in tools.outside.values()),
     ]
-    # Asking another agent posts in this run's conversation and waits inside this run's
-    # wall clock, so it is bound to both here, once.
+    # Asking another agent posts in this run's conversation, so it is bound to that here,
+    # once; the run then waits for the answer without holding anything (M2 · A2).
     ask = (
         partial(
             agui_delegate.ask,
@@ -1213,7 +1247,6 @@ async def _drive(
             thread_root_id=thread_root_id,
             run_id=run_id,
             may_spawn=spawn,
-            deadline=deadline,
         )
         if "ask_agent" in tools.names and tools.caller is not None
         else None
@@ -1246,7 +1279,10 @@ async def _drive(
             exchange=exchange,
             state=state,
             speaks_1_0=sent_1_0,
-            first=round_no == 0 and chain.tool_resume is None,
+            # A person's answer resumes at round 0, with AG-UI `resume` entries; a resume
+            # after an approval or another agent's answer carries on past the round that
+            # asked, so never counts as the first.
+            first=round_no == 0 and chain.tool_resume is None and chain.agent_answer is None,
             tools=offered,
             channel_id=channel_id,
             thread_root_id=thread_root_id,
@@ -1336,12 +1372,27 @@ async def _drive(
         exchange = [*exchange, turn, *results]
         if pending is not None:
             call, prepared, later = pending
+            asked_call = {"id": call.id, "name": call.name, "arguments": call.arguments}
+            waited_on = [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in later]
+            if isinstance(prepared, agui_delegate.Asked):
+                # A question to another agent: the run waits for its answer, holding no
+                # worker, and that agent's finish carries it on (M2 · A2).
+                approval = {
+                    "items": [],
+                    "kind": "agent_answer",
+                    "call": asked_call,
+                    "asked": prepared.as_dict(),
+                    "later": waited_on,
+                    "exchange": agui_tools.trim_exchange([*carried, *exchange]),
+                    "round": round_no,
+                }
+                break
             approval = {
                 "items": [agui_tools.approval_item(listener.name, call, prepared)],
                 "kind": "tool_approval",
-                "call": {"id": call.id, "name": call.name, "arguments": call.arguments},
+                "call": asked_call,
                 "prepared": prepared.as_dict(),
-                "later": [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in later],
+                "later": waited_on,
                 "exchange": agui_tools.trim_exchange([*carried, *exchange]),
                 "round": round_no,
             }
@@ -1451,7 +1502,8 @@ async def _run_calls(
     card: run_card.CardFold,
     sent_1_0: bool,
     said: str | None,
-    ask: Callable[[agui.ToolCall], Awaitable[agui_tools.ToolOutcome]] | None = None,
+    ask: Callable[[agui.ToolCall], Awaitable[agui_tools.ToolOutcome | agui_delegate.Asked]]
+    | None = None,
     write_now: Callable[
         [agui.ToolCall, agui_tools.PreparedWrite], Awaitable[agui_tools.ToolOutcome]
     ]
@@ -1464,7 +1516,10 @@ async def _run_calls(
     list[dict[str, Any]],
     tuple[
         agui.ToolCall,
-        agui_tools.PreparedWrite | agui_tools.PreparedOutside | agui_tools.PreparedDecision,
+        agui_tools.PreparedWrite
+        | agui_tools.PreparedOutside
+        | agui_tools.PreparedDecision
+        | agui_delegate.Asked,
         list[agui.ToolCall],
     ]
     | None,
@@ -1530,13 +1585,18 @@ async def _run_calls(
                 outcome = checked_decision
                 said_of = _outcome_of(outcome)
             elif call.name == "ask_agent":
-                # Another agent's answer, waited for (`agui_delegate`). Within this run's
-                # own wall clock, which is why it is built per run, in `_drive`.
-                outcome = (
+                # Another agent's answer (`agui_delegate`): the question is posted, and the
+                # round ends here to wait for it, as it does for a person's approval.
+                asked = (
                     await ask(call)
                     if ask is not None
                     else agui_tools.not_run("there is nobody to ask it for")
                 )
+                if isinstance(asked, agui_delegate.Asked):
+                    tool_span.set_attribute("blob.tool.outcome", "asked")
+                    await metrics.tool_called("agent", call.name, "asked")
+                    return turn, results, (call, asked, list(calls[index + 1 :]))
+                outcome = asked
                 said_of = _outcome_of(outcome)
             elif outside is not None:
                 # A server's tool (ADR 0027): checked, then run at once or put to the
@@ -1593,6 +1653,26 @@ def _tool_ended(tool_span: Any, said_of: str) -> None:
     tool_span.set_attribute("blob.tool.outcome", said_of)
     if said_of in ("refused", "failed", "not_run"):
         telemetry.fail("tool_error", tool_span)
+
+
+def _settle_agent_answer(
+    answered: agent_chains.AgentAnswer, *, sent_1_0: bool
+) -> tuple[list[dict[str, Any]], int]:
+    """What the other agent made of the question, as the `ask_agent` call's result, and the
+    calls that waited behind it answered as not run. Returns the exchange to carry on from,
+    and the round to carry on in."""
+    call_id = str(answered.call.get("id") or "")
+    outcome = agui_tools.ToolOutcome(answered.text, answered.error)
+    results = [agui_tools.tool_message(call_id, outcome, speaks_1_0=sent_1_0)]
+    for later in answered.later:
+        results.append(
+            agui_tools.tool_message(
+                str(later.get("id") or ""),
+                agui_tools.not_run("it waited behind a question to another agent"),
+                speaks_1_0=sent_1_0,
+            )
+        )
+    return [*answered.exchange, *results], answered.round + 1
 
 
 async def _settle_approval(

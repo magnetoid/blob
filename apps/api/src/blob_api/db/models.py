@@ -725,7 +725,7 @@ class AgentRun(Base):
     __table_args__ = (
         CheckConstraint(
             "status IN ('running', 'succeeded', 'failed', 'interrupted', 'cancelled', "
-            "'refused', 'expired')",
+            "'refused', 'expired', 'waiting')",
             name="agent_runs_status_check",
         ),
         CheckConstraint("transport IN ('http', 'socket')", name="agent_runs_transport_check"),

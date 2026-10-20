@@ -267,7 +267,9 @@ the ADR is the place to look before changing them.
   person the chain is on, inside the room it was asked in — a private channel outside it
   is "no such channel" — and every `post_message` stops the run for that person's
   Approve. The run job loops (stream, run the calls, continue) under one wall clock and
-  eight rounds.
+  eight rounds. `ask_agent` ends a round too: the run goes `waiting`, holding no worker,
+  and the asked agent's finish enqueues `agent_heard`, which resumes it with the answer as
+  the call's result — a resume like an approval's, with a minute cron as the net.
 * **Tasks handed to an agent** (`services/task_dispatch.py`, ADR 0023). Assigning a task
   to an agent posts a hand-off from the assigner in the task's thread, mentioning the
   agent alone (`messages.send(mention_user_ids=)`), so its run is an ordinary mention on

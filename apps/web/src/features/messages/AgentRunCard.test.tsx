@@ -530,3 +530,40 @@ describe('AG-UI 1.0 on the card', () => {
     expect(screen.getByText(/4s · 12k tokens/)).toBeTruthy();
   });
 });
+
+describe('waiting on another agent (M2 · A2)', () => {
+  it('says on whom it waits, and offers Stop', async () => {
+    const cancel = vi.spyOn(api.agentRuns, 'cancel').mockResolvedValue({ ok: true });
+    render(
+      <AgentRunCard
+        run={run({ status: 'waiting', askedAgent: 'Researcher', finishedAt: '2026-09-05T10:00:05.000Z' })}
+      />,
+    );
+    expect(screen.getByText('waiting for Researcher')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(cancel).toHaveBeenCalledWith('r1');
+  });
+
+  it('names nobody it cannot name', () => {
+    render(<AgentRunCard run={run({ status: 'waiting', askedAgent: null })} />);
+    expect(screen.getByText('waiting for another agent')).toBeTruthy();
+  });
+});
+
+describe('a run that heard back', () => {
+  it('says whom it asked, not that it answered silently', () => {
+    render(
+      <AgentRunCard
+        run={run({
+          status: 'succeeded',
+          askedAgent: 'Researcher',
+          postCount: 0,
+          answeredAt: '2026-09-05T10:00:09.000Z',
+          finishedAt: '2026-09-05T10:00:01.000Z',
+        })}
+      />,
+    );
+    expect(screen.getByText(/asked Researcher/)).toBeTruthy();
+    expect(screen.queryByText(/answered silently/)).toBeNull();
+  });
+});

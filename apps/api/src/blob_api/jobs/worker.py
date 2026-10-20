@@ -29,7 +29,7 @@ from ..services import oauth as oauth_service
 from ..services import usage as usage_service
 from ..services.calls import reconcile as reconcile_calls
 from .agui import expire_agent_decisions as expire_decisions
-from .agui import handle_agui_run
+from .agui import handle_agent_heard, handle_agui_run, resume_waiting_runs
 from .deployments import sync_hosted_agents
 from .notify import handle_notify
 from .reminders import fire_reminders
@@ -80,6 +80,19 @@ async def agui_run(_ctx: dict[str, Any], message_id: str, parent_run_id: str | N
     of a chain rather than the start of one. See ADR 0013.
     """
     await handle_agui_run(message_id, parent_run_id)
+
+
+async def agent_heard(_ctx: dict[str, Any], run_id: str) -> None:
+    """Carry on a run that asked another agent something, now that it has stopped
+    (M2 · A2). Enqueued by that agent's finish; one try, like a run."""
+    await handle_agent_heard(run_id)
+
+
+async def resume_waiting(_ctx: dict[str, Any]) -> None:
+    """The net under that enqueue: waits whose answer came first, never came, or ran out."""
+    resumed = await resume_waiting_runs()
+    if resumed:
+        log.info("carried on %d run(s) that were waiting on another agent", resumed)
 
 
 async def expire_agent_decisions(_ctx: dict[str, Any]) -> None:
@@ -251,6 +264,8 @@ class WorkerSettings:
         # whatever the first try managed to say. The run marks itself failed on the way
         # out instead (`agui_outcome.run_one`), and the person can ask again.
         func(agui_run, timeout=agui_run_timeout_sec(), max_tries=1),  # type: ignore[arg-type]
+        # A resume is a run too, with the same ceiling and the same single try.
+        func(agent_heard, timeout=agui_run_timeout_sec(), max_tries=1),  # type: ignore[arg-type]
         sweep_orphans,
         sweep_expired,
         sweep_agent_runs,
@@ -282,6 +297,9 @@ class WorkerSettings:
         # :50, the last free slot in the minute; at startup too, so a fresh deploy reads
         # as up on the first readiness check rather than a minute later.
         cron(heartbeat, second=50, run_at_startup=True),  # type: ignore[arg-type]
+        # :05 — a run waiting on another agent hears within the minute when the hop's own
+        # enqueue was missed; the free second nearest the outbox's.
+        cron(resume_waiting, second=5),  # type: ignore[arg-type]
         # At startup because a fresh deploy is exactly when the stored callback URL is
         # most likely stale, then on a slow cycle so a domain change heals unwatched.
         cron(

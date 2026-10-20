@@ -499,7 +499,12 @@ export type AgentRunStatus =
   /** Never started: the agent was over its daily budget when the mention arrived. */
   | 'refused'
   /** Stopped to ask something and nobody answered within a day. */
-  | 'expired';
+  | 'expired'
+  /**
+   * Asked another agent something with `ask_agent` and is waiting for its answer, holding
+   * nothing (M2 · A2); that agent's finish carries it on as a run of its own.
+   */
+  | 'waiting';
 
 /** The live view of what an agent is doing, folded server-side from AG-UI events. */
 export interface AgentRunCard {
@@ -558,6 +563,11 @@ export interface AgentRunView {
    * answer a decision it stops to ask, so "needs you" is a comparison with this.
    */
   initiatedByUserId: string | null;
+  /**
+   * The agent this run asked with `ask_agent` and waited on, by name (M2 · A2) — while it
+   * waits, and after it heard back.
+   */
+  askedAgent?: string | null;
   /**
    * Tokens the agent reported for the run, all providers together; null when it reported
    * none. Optional on the wire, because a view written before 1.0 support has no field.

@@ -12,6 +12,7 @@ and a Stop pressed in the gap must land on one side or the other.
 from __future__ import annotations
 
 from contextlib import suppress
+from functools import partial
 
 from ..db.engine import transaction
 from ..lib.errors import not_found
@@ -25,7 +26,7 @@ async def stop(*, workspace_id: str, run_id: str, user_id: str, actor: audit_ser
     """Stop a run that is going, and every hop it caused. Answers how many hops stopped
     with it. 404 for a run that is not running, or one in a conversation this person
     cannot see — the same answer, for the same reason."""
-    async with transaction() as (session, _after):
+    async with transaction() as (session, after):
         channel_id = await agent_run_service.running_channel(
             session, workspace_id=workspace_id, run_id=run_id
         )
@@ -42,6 +43,15 @@ async def stop(*, workspace_id: str, run_id: str, user_id: str, actor: audit_ser
         descendants = await agent_run_service.request_cancel_descendants(
             session, workspace_id=workspace_id, run_id=run_id
         )
+        if marked["waiting"]:
+            # A run waiting on another agent has no job to hear Stop and redraw its card:
+            # it ended here, so its card is told here (M2 · A2).
+            from ..realtime import hub
+
+            view = await agent_run_service.view_of(session, run_id)
+            if view is not None:
+                room = marked["channelId"]
+                after.add(partial(hub.to_channel, room, {"t": "agent_run.started", "run": view}))
 
     for stopped in (run_id, *descendants):
         with suppress(Exception):

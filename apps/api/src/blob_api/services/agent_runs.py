@@ -28,7 +28,7 @@ from ..plugins.registry import MENTIONABLE_AGENT
 from ..schemas.base import require_iso
 
 RunStatus = Literal[
-    "running", "succeeded", "failed", "interrupted", "cancelled", "refused", "expired"
+    "running", "succeeded", "failed", "interrupted", "cancelled", "refused", "expired", "waiting"
 ]
 
 
@@ -738,12 +738,14 @@ async def live_counts(session: AsyncSession) -> LiveCounts:
             text(
                 f"""
                 SELECT p.slug,
-                       count(r.id) FILTER (WHERE r.status = 'running') AS running,
+                       -- Waiting on another agent is still working, from where anyone
+                       -- stands; only a question for a person is "waiting".
+                       count(r.id) FILTER (WHERE r.status IN ('running', 'waiting')) AS running,
                        count(r.id) FILTER (WHERE r.status = 'interrupted') AS waiting
                   FROM plugins p
                   LEFT JOIN agent_runs r
                     ON r.plugin_id = p.id
-                   AND (r.status = 'running'
+                   AND (r.status IN ('running', 'waiting')
                         OR (r.status = 'interrupted' AND r.answered_at IS NULL))
                  WHERE {MENTIONABLE_AGENT}
                  GROUP BY p.slug
@@ -813,6 +815,7 @@ _VIEW_SELECT = """
            -- approval stores the whole exchange beside it, and a list of forty runs
            -- would carry every one of them.
            r.interrupt -> 'items' AS interrupt_items,
+           r.interrupt -> 'asked' ->> 'name' AS asked_agent,
            pp.name AS asked_by
       FROM agent_runs r
       JOIN plugins p ON p.id = r.plugin_id
@@ -845,6 +848,9 @@ def _view(row: Any) -> dict[str, Any]:
         "expiresAt": require_iso(row.expires_at) if row.expires_at else None,
         "seen": row.seen if isinstance(row.seen, dict) else None,
         "decision": _decision_view(row),
+        # The agent this run asked with `ask_agent` and waited on, by name (M2 · A2): kept
+        # after it heard back, so the card can say what it did rather than "silently".
+        "askedAgent": row.asked_agent,
     }
 
 
@@ -946,7 +952,7 @@ async def views_for_channel(
                 _VIEW_SELECT
                 + """
                  WHERE r.workspace_id = :ws AND r.channel_id = :channel_id
-                   AND (r.status = 'running'
+                   AND (r.status IN ('running', 'waiting')
                         OR (r.status = 'interrupted' AND r.answered_at IS NULL)
                         OR r.started_at > now() - interval '1 hour')
                    -- A run a followed channel started shows no card under the message
@@ -986,7 +992,7 @@ async def views_for_member(
                         WHERE cm.channel_id = c.id AND cm.user_id = :user_id
                      )
                    )
-                   AND (r.status = 'running'
+                   AND (r.status IN ('running', 'waiting')
                         OR (r.status = 'interrupted' AND r.answered_at IS NULL)
                         OR r.started_at > now() - interval '1 day')
                    -- A follow that said nothing is nothing to show anyone (ADR 0026).
@@ -994,6 +1000,7 @@ async def views_for_member(
                  ORDER BY
                    CASE r.status
                      WHEN 'running' THEN 0
+                     WHEN 'waiting' THEN 0
                      WHEN 'interrupted' THEN 1
                      ELSE 2
                    END,
@@ -1077,15 +1084,16 @@ async def view_of(session: AsyncSession, run_id: str) -> dict[str, Any] | None:
 
 
 async def running_channel(session: AsyncSession, *, workspace_id: str, run_id: str) -> str | None:
-    """Where a running run is, or None: finished, cancelled already, or another
-    workspace's — all the same answer, because which of those it is would tell the id
-    holder something they have no business asking."""
+    """Where a running run is — or one waiting on another agent, which Stop also ends —
+    or None: finished, cancelled already, or another workspace's — all the same answer,
+    because which of those it is would tell the id holder something they have no
+    business asking."""
     row = (
         await session.execute(
             text(
                 """
                 SELECT channel_id FROM agent_runs
-                 WHERE id = :id AND workspace_id = :ws AND status = 'running'
+                 WHERE id = :id AND workspace_id = :ws AND status IN ('running', 'waiting')
                 """
             ),
             {"id": run_id, "ws": workspace_id},
@@ -1098,15 +1106,21 @@ async def request_cancel(
     session: AsyncSession, *, workspace_id: str, run_id: str
 ) -> dict[str, Any] | None:
     """Mark the ask durable and return what the publisher needs, or None if no such
-    running run in this workspace — which is also the cross-tenant answer."""
+    running run in this workspace — which is also the cross-tenant answer.
+
+    A run waiting on another agent has no job to hear the ask, so it ends here, as
+    cancelled; `waiting` in the answer says the caller has its card to update itself."""
     row = (
         await session.execute(
             text(
                 """
                 UPDATE agent_runs
-                   SET cancel_requested_at = COALESCE(cancel_requested_at, now())
-                 WHERE id = :id AND workspace_id = :ws AND status = 'running'
-                RETURNING id, channel_id
+                   SET cancel_requested_at = COALESCE(cancel_requested_at, now()),
+                       status = CASE WHEN status = 'waiting' THEN 'cancelled' ELSE status END,
+                       finished_at = CASE WHEN status = 'waiting' THEN now()
+                                          ELSE finished_at END
+                 WHERE id = :id AND workspace_id = :ws AND status IN ('running', 'waiting')
+                RETURNING id, channel_id, status
                 """
             ),
             {"id": run_id, "ws": workspace_id},
@@ -1114,4 +1128,68 @@ async def request_cancel(
     ).fetchone()
     if row is None:
         return None
-    return {"id": str(row.id), "channelId": str(row.channel_id)}
+    return {
+        "id": str(row.id),
+        "channelId": str(row.channel_id),
+        "waiting": row.status == "cancelled",
+    }
+
+
+# ─── a run waiting on another agent (M2 · A2) ────────────────────────────────────────
+
+
+async def waiting_on(session: AsyncSession, *, question_id: str, plugin_id: str) -> list[str]:
+    """The runs waiting for this agent's answer to this question."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT id FROM agent_runs
+                 WHERE status = 'waiting'
+                   AND interrupt -> 'asked' ->> 'message_id' = :question
+                   AND interrupt -> 'asked' ->> 'plugin_id' = :plugin
+                """
+            ),
+            {"question": question_id, "plugin": plugin_id},
+        )
+    ).fetchall()
+    return [str(row.id) for row in rows]
+
+
+async def waiting_to_hear(
+    session: AsyncSession, *, limit_sec: float, grace_sec: float
+) -> list[str]:
+    """Waiting runs with something to hear: the agent they asked has stopped — answered,
+    failed, or stopped to ask a person — or never started within `grace_sec`, or the wait
+    has run past `limit_sec`. The cron's net under the hop's own call, which a run that
+    began waiting a moment after its hop finished would otherwise miss."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT w.id FROM agent_runs w
+                 WHERE w.status = 'waiting'
+                   AND (
+                     w.finished_at < now() - make_interval(secs => :limit)
+                     OR EXISTS (
+                       SELECT 1 FROM agent_runs h
+                        WHERE h.trigger_message_id::text = w.interrupt -> 'asked' ->> 'message_id'
+                          AND h.plugin_id::text = w.interrupt -> 'asked' ->> 'plugin_id'
+                          AND h.status NOT IN ('running', 'waiting')
+                     )
+                     OR (
+                       w.finished_at < now() - make_interval(secs => :grace)
+                       AND NOT EXISTS (
+                         SELECT 1 FROM agent_runs h
+                          WHERE h.trigger_message_id::text = w.interrupt -> 'asked' ->> 'message_id'
+                            AND h.plugin_id::text = w.interrupt -> 'asked' ->> 'plugin_id'
+                       )
+                     )
+                   )
+                 LIMIT 50
+                """
+            ),
+            {"limit": limit_sec, "grace": grace_sec},
+        )
+    ).fetchall()
+    return [str(row.id) for row in rows]

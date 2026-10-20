@@ -287,9 +287,10 @@ async def settle(
 
     A no-op for every run that was not handed a task, which is one read of a partial
     index. A run that stopped to ask leaves its task in progress: the question is in the
-    thread, and the resume that follows the answer settles it.
+    thread, and the resume that follows the answer settles it — as does one waiting on
+    another agent's answer (M2 · A2).
     """
-    if status in ("interrupted", "running"):
+    if status in ("interrupted", "running", "waiting"):
         return None
     row = (
         await session.execute(

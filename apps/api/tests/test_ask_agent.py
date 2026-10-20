@@ -1,4 +1,4 @@
-"""One agent asking another, and hearing the answer (M1 · A2).
+"""One agent asking another, and hearing the answer (M1 · A2, resumed in M2).
 
 A reply that mentions an agent already started a hop (ADR 0013); `ask_agent` lets the
 asking agent *hear* the answer. These pin that it is the same hop — the question posted
@@ -6,6 +6,10 @@ in the room as the asking agent, admitted by the chain's rules, on the root pers
 authority — and that every way it can end comes back to the asking agent as something it
 can act on: the answer, a question the other agent asked, a refusal with the reason, or
 "still working".
+
+And, since M2, that the asking run waits holding nothing: it ends its round `waiting`,
+the other agent's finish carries it on as a resume, a cron catches what that call misses,
+it is carried on exactly once, and Stop ends it.
 """
 
 from __future__ import annotations
@@ -84,6 +88,8 @@ async def pair(client: Client, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any
     def run_for_real(job: str, *args: Any) -> Any:
         if job == "agui_run":
             state["tasks"].append(asyncio.create_task(agui_job.handle_agui_run(*args)))
+        elif job == "agent_heard":
+            state["tasks"].append(asyncio.create_task(agui_job.handle_agent_heard(*args)))
         return nothing()
 
     from blob_api.lib import queue as queue_module
@@ -92,7 +98,6 @@ async def pair(client: Client, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any
     monkeypatch.setattr(queue_module, "enqueue", run_for_real)
     monkeypatch.setattr(agent_chains, "enqueue", run_for_real)
     # The tests are about what happens, not about how long the real limits are.
-    monkeypatch.setattr(agui_delegate, "POLL_SEC", 0.05)
     monkeypatch.setattr(agui_delegate, "NO_RUN_GRACE_SEC", 3.0)
 
     return {
@@ -187,33 +192,31 @@ class TestAskingAndHearingBack:
             ],
             planner=[says("Outline.")],
         )
-        async with SessionFactory() as session:
-            runs = {
-                row.name: row
-                for row in (
-                    await session.execute(
-                        text(
-                            """
-                            SELECT p.name, r.id, r.parent_run_id, r.chain_id, r.depth,
-                                   r.initiated_by_user_id, r.status
-                              FROM agent_runs r JOIN plugins p ON p.id = r.plugin_id
-                            """
-                        )
-                    )
-                ).fetchall()
-            }
-        helper, planner = runs["Helper"], runs["Planner"]
+        runs = await all_runs()
+        helper = next(r for r in runs if r.name == "Helper" and r.parent_run_id is None)
+        resumed = next(r for r in runs if r.name == "Helper" and r.parent_run_id is not None)
+        planner = next(r for r in runs if r.name == "Planner")
         assert planner.parent_run_id == helper.id
-        assert planner.chain_id == helper.chain_id
+        assert planner.chain_id == helper.chain_id == resumed.chain_id
         assert planner.depth == 1
         assert str(planner.initiated_by_user_id) == pair["owner"].user_id
-        assert (helper.status, planner.status) == ("succeeded", "succeeded")
+        # The run that asked ended asking; its continuation is a run of its own, carried
+        # on from it, which keeps its depth — hearing back is not another hop.
+        assert resumed.parent_run_id == helper.id
+        assert resumed.depth == 0
+        assert (helper.status, planner.status, resumed.status) == (
+            "succeeded",
+            "succeeded",
+            "succeeded",
+        )
+        assert helper.answered_at is not None
 
-        # And the asking run's answer is what it said, not the question it asked.
+        # And the asking agent's answer is what it said, not the question it asked.
         from blob_api.services import agent_runs
 
         async with SessionFactory() as session:
-            assert await agent_runs.answer_of(session, str(helper.id)) == ["Done."]
+            assert await agent_runs.answer_of(session, str(helper.id)) == []
+            assert await agent_runs.answer_of(session, str(resumed.id)) == ["Done."]
 
         # Planner was told who asked, as any hop is.
         planner_input = json.loads(pair["state"]["seen"]["/planner"][0].content)
@@ -236,52 +239,228 @@ class TestAskingAndHearingBack:
             "stopped to ask the person this runs for: Include the risks?" in tool_results(pair)[-1]
         )
 
-    async def test_a_slow_hop_is_still_working_and_answers_the_room_later(
-        self, pair: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(agui_delegate, "ASK_WAIT_SEC", 0.5)
+    async def test_a_slow_hop_still_answers_the_run_that_asked(self, pair: dict[str, Any]) -> None:
+        """Three minutes was the old limit, because the wait held a worker; now a slow
+        answer is still an answer."""
         pair["state"]["slow"].add("/planner")
         await ask_helper(
             pair,
             "@Helper plan it",
             agui=[
                 calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"})),
-                says("Planner is on it."),
+                says("Planner says: here is the outline."),
             ],
             planner=[says("Here is the outline.")],
         )
+        assert tool_results(pair)[-1] == "Planner answered:\n\nHere is the outline."
+        assert ("Helper", "Planner says: here is the outline.") in await bodies(pair)
+
+
+async def all_runs() -> list[Any]:
+    async with SessionFactory() as session:
+        return list(
+            (
+                await session.execute(
+                    text(
+                        """
+                        SELECT p.name, r.id, r.parent_run_id, r.chain_id, r.depth, r.status,
+                               r.initiated_by_user_id, r.answered_at, r.interrupt
+                          FROM agent_runs r JOIN plugins p ON p.id = r.plugin_id
+                         ORDER BY r.started_at
+                        """
+                    )
+                )
+            ).fetchall()
+        )
+
+
+async def until(check: Any, what: str, seconds: float = 10.0) -> Any:
+    for _ in range(int(seconds / 0.05)):
+        found = await check()
+        if found:
+            return found
+        await asyncio.sleep(0.05)
+    raise AssertionError(f"never: {what}")
+
+
+class TestWaitingHoldsNothing:
+    async def test_the_asking_runs_job_ends_while_the_other_agent_works(
+        self, pair: dict[str, Any]
+    ) -> None:
+        pair["state"]["slow"].add("/planner")
+        pair["state"]["scripts"] = {
+            "/agui": [
+                calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"})),
+                says("Done."),
+            ],
+            "/planner": [says("Outline.")],
+        }
+        await send_message(pair["owner"], pair["general"], "@Helper plan it")
+
+        async def waiting() -> Any:
+            runs = await all_runs()
+            helper = next((r for r in runs if r.name == "Helper"), None)
+            planner = next((r for r in runs if r.name == "Planner"), None)
+            if helper is not None and helper.status == "waiting" and planner is not None:
+                return helper, planner
+            return None
+
+        helper, planner = await until(waiting, "Helper waiting on Planner")
+        assert planner.status == "running"
+        # The job that ran Helper is over: it holds no worker while it waits.
+        assert pair["state"]["tasks"][0].done()
+        # And the card says on whom it waits.
+        listed = await pair["owner"].get(f"/api/channels/{pair['general']}/agent-runs")
+        view = next(r for r in listed.body["runs"] if r["id"] == str(helper.id))
+        assert (view["status"], view["askedAgent"]) == ("waiting", "Planner")
+
+        await settle(pair)
+        assert tool_results(pair)[-1] == "Planner answered:\n\nOutline."
+
+    async def test_it_is_carried_on_once_whoever_calls(self, pair: dict[str, Any]) -> None:
+        await ask_helper(
+            pair,
+            "@Helper plan it",
+            agui=[
+                calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"})),
+                says("Done."),
+            ],
+            planner=[says("Outline.")],
+        )
+        helper = next(r for r in await all_runs() if r.name == "Helper")
+        # The hop's own call already carried it on; the cron, and a repeat, find nothing.
+        await agui_job.handle_agent_heard(str(helper.id))
+        assert await agui_job.resume_waiting_runs() == 0
+        await settle(pair)
+        assert len([r for r in await all_runs() if r.name == "Helper"]) == 2
+
+    async def test_the_net_catches_an_answer_its_call_missed(
+        self, pair: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The hop finished before anybody was waiting to hear it — a race the call cannot
+        see. The cron finds the finished hop and carries the asker on with its answer."""
+        from blob_api.jobs import agui_outcome
+
+        async def deaf(*_args: Any, **_kwargs: Any) -> None:
+            return None
+
+        monkeypatch.setattr(agui_outcome, "_wake_askers", deaf)
+        await ask_helper(
+            pair,
+            "@Helper plan it",
+            agui=[
+                calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"})),
+                says("Done."),
+            ],
+            planner=[says("Outline.")],
+        )
+        helper = next(r for r in await all_runs() if r.name == "Helper")
+        assert helper.status == "waiting"
+        assert await agui_job.resume_waiting_runs() == 1
+        assert tool_results(pair)[-1] == "Planner answered:\n\nOutline."
+
+    async def test_past_the_chains_wall_it_hears_the_agent_is_still_working(
+        self, pair: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(agui_delegate, "WAIT_LIMIT_SEC", 0.0)
+        pair["state"]["slow"].add("/planner")
+        pair["state"]["scripts"] = {
+            "/agui": [
+                calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"})),
+                says("Planner is on it."),
+            ],
+            "/planner": [says("Here is the outline.")],
+        }
+        await send_message(pair["owner"], pair["general"], "@Helper plan it")
+
+        async def waiting() -> Any:
+            runs = await all_runs()
+            return next((r for r in runs if r.name == "Helper" and r.status == "waiting"), None)
+
+        await until(waiting, "Helper waiting")
+        assert await agui_job.resume_waiting_runs() == 1
+        await settle(pair)
         assert tool_results(pair)[-1].startswith("Planner is still working on it.")
         # It did answer — in the room, where everyone reads it.
         assert ("Planner", "Here is the outline.") in await bodies(pair)
 
-
-class TestTheWorkerStaysUp:
-    def test_waiting_runs_never_take_more_than_half_the_workers_slots(self) -> None:
-        """A waiting run holds a slot, and so does the hop it waits for: if waiters could
-        fill every slot, the hops would never start and nothing else would either."""
-        from blob_api.jobs.worker import WorkerSettings
-
-        assert 1 <= agui_delegate.MAX_WAITERS <= WorkerSettings.max_jobs // 2
-
-    async def test_past_the_cap_the_question_is_asked_and_not_waited_for(
+    async def test_a_hop_the_chain_never_starts_is_said_so_after_the_grace(
         self, pair: dict[str, Any], monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(agui_delegate, "MAX_WAITERS", 0)
+        from blob_api.services import agent_chains
+
+        # One run per chain: the hop is turned away in silence, and leaves no run.
+        monkeypatch.setattr(agent_chains, "MAX_RUNS_PER_CHAIN", 1)
+        monkeypatch.setattr(agui_delegate, "NO_RUN_GRACE_SEC", 0.0)
+        await ask_helper(
+            pair,
+            "@Helper plan it",
+            agui=[
+                calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"})),
+                says("Planner did not start."),
+            ],
+        )
+        assert not [r for r in await all_runs() if r.name == "Planner"]
+        assert await agui_job.resume_waiting_runs() == 1
+        await settle(pair)
+        assert "Planner has not started." in tool_results(pair)[-1]
+
+    async def test_an_agent_asked_may_itself_wait_and_its_answer_still_comes_back(
+        self, pair: dict[str, Any]
+    ) -> None:
+        """Helper asks Planner, Planner asks Scribe. Scribe's answer carries Planner on; the
+        Planner that is carried on keeps Helper's question as what it answers, so its
+        answer carries Helper on in turn."""
+        owner = pair["owner"]
+        await join_channel(owner, pair["scribe"], pair["general"])
+        granted = await owner.post(
+            f"/api/admin/plugins/{pair['planner']['plugin']['id']}/tools", {"access": "read"}
+        )
+        assert granted.status == 200, granted.body
         await ask_helper(
             pair,
             "@Helper plan the launch",
             agui=[
                 calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"})),
-                says("Planner will answer below."),
+                says("Helper: done."),
             ],
-            planner=[says("Here is the outline.")],
+            planner=[
+                calls(("p1", "ask_agent", {"agent": "Scribe", "text": "the dates?"})),
+                says("Outline, with the dates."),
+            ],
+            scribe=[says("Monday and Friday.")],
         )
-        assert "cannot wait for it right now" in tool_results(pair)[-1]
-        said = await bodies(pair)
-        # Asked, and answered, in the room — only the asking run did not wait.
-        assert ("Helper", "@Planner outline it") in said
-        assert ("Planner", "Here is the outline.") in said
-        assert agui_delegate._waiting == 0, "the count of waiting runs went back down"
+        planner_heard = [
+            str(message["content"])
+            for request in pair["state"]["seen"]["/planner"]
+            for message in json.loads(request.content)["messages"]
+            if message.get("role") == "tool"
+        ]
+        assert planner_heard[-1] == "Scribe answered:\n\nMonday and Friday."
+        assert tool_results(pair)[-1] == "Planner answered:\n\nOutline, with the dates."
+        runs = await all_runs()
+        assert [r.status for r in runs if r.status == "waiting"] == []
+        assert ("Helper", "Helper: done.") in await bodies(pair)
+
+    async def test_stop_ends_a_waiting_run_and_what_it_asked(self, pair: dict[str, Any]) -> None:
+        pair["state"]["slow"].add("/planner")
+        pair["state"]["scripts"] = {
+            "/agui": [calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"}))],
+            "/planner": [says("Outline.")],
+        }
+        await send_message(pair["owner"], pair["general"], "@Helper plan it")
+
+        async def waiting() -> Any:
+            runs = await all_runs()
+            return next((r for r in runs if r.name == "Helper" and r.status == "waiting"), None)
+
+        helper = await until(waiting, "Helper waiting")
+        stopped = await pair["owner"].post(f"/api/agent-runs/{helper.id}/cancel")
+        assert stopped.status == 200, stopped.body
+        await settle(pair)
+        runs = await all_runs()
+        assert next(r for r in runs if r.id == helper.id).status == "cancelled"
+        assert len([r for r in runs if r.name == "Helper"]) == 1, "nothing carried it on"
 
 
 class TestWhatItWillNotDo:
@@ -386,3 +565,52 @@ def test_the_question_key_is_one_per_call_and_never_an_answer_key() -> None:
     assert first != agui_delegate.question_key("run-1", "call_" + "x" * 299 + "y")
     assert not first.startswith("agui:")
     assert len(first) < 64
+
+
+class TestWhatAWaitingRunHears:
+    """`heard` on its own: what a waiting run is told, from the state of the hop."""
+
+    @staticmethod
+    def waiting(seconds_ago: float) -> Any:
+        from datetime import UTC, datetime, timedelta
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            interrupt={"asked": {"message_id": "m1", "plugin_id": "p1", "name": "Planner"}},
+            workspace_id="w1",
+            finished_at=datetime.now(UTC) - timedelta(seconds=seconds_ago),
+        )
+
+    async def test_a_hop_carried_on_whose_next_run_has_not_begun_is_no_answer_yet(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from blob_api.services import agent_runs
+
+        async def views(*_args: Any, **_kwargs: Any) -> list[dict[str, Any]]:
+            # It waited on somebody itself, was answered, and is being carried on.
+            return [
+                {
+                    "id": "h1",
+                    "pluginId": "p1",
+                    "status": "succeeded",
+                    "answeredAt": "2026-10-20T10:00:00Z",
+                }
+            ]
+
+        monkeypatch.setattr(agent_runs, "views_for_trigger", views)
+        assert await agui_delegate.heard(None, self.waiting(5)) is None
+        late = await agui_delegate.heard(None, self.waiting(agui_delegate.WAIT_LIMIT_SEC + 1))
+        assert late is not None and late.content.startswith("Planner is still working on it.")
+
+    async def test_no_hop_inside_the_grace_is_no_answer_yet(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from blob_api.services import agent_runs
+
+        async def none(*_args: Any, **_kwargs: Any) -> list[dict[str, Any]]:
+            return []
+
+        monkeypatch.setattr(agent_runs, "views_for_trigger", none)
+        assert await agui_delegate.heard(None, self.waiting(1)) is None
+        told = await agui_delegate.heard(None, self.waiting(agui_delegate.NO_RUN_GRACE_SEC + 1))
+        assert told is not None and told.error and "has not started" in told.error

@@ -89,7 +89,7 @@ export function HomeView() {
   // Which runs are on the board, as ids: the board redraws when one joins or leaves a
   // list, and each row redraws itself as its run moves (`lib/useRuns.ts`).
   const me = currentUser?.id ?? null;
-  const running = useRunIds((r) => r.status === 'running', oldestFirst);
+  const running = useRunIds((r) => r.status === 'running' || r.status === 'waiting', oldestFirst);
   // Yours to decide: only the person a run is on behalf of may answer it, so somebody
   // else's question is not something that needs you, however visible its card is.
   const waiting = useRunIds(

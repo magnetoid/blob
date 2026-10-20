@@ -78,6 +78,9 @@ function FullCard({ run }: { run: AgentRunView }) {
   const yours = useStore((s) => s.currentUser?.id === run.initiatedByUserId);
 
   const running = run.status === 'running';
+  // Waiting on another agent's answer (M2 · A2): still this agent's work in progress, and
+  // Stop ends it, though nothing is being written right now.
+  const onAnother = run.status === 'waiting';
   const card = run.card;
   const doneSteps = card?.steps.filter((s) => s.status === 'done').length ?? 0;
   // Asking: stopped on a question nobody has answered. Waiting: asking, with a deadline.
@@ -88,7 +91,10 @@ function FullCard({ run }: { run: AgentRunView }) {
   return (
     <div className="agent-run-card" data-status={run.status}>
       <div className="agent-run-head">
-        <span className={`agent-run-dot ${running ? 'agent-run-dot-live' : ''}`} aria-hidden />
+        <span
+          className={`agent-run-dot ${running || onAnother ? 'agent-run-dot-live' : ''}`}
+          aria-hidden
+        />
         <span className="agent-run-name">{run.agentName}</span>
         {run.askedBy && (
           // Whose question this is. A card under an agent's message reads as that
@@ -109,7 +115,7 @@ function FullCard({ run }: { run: AgentRunView }) {
             <span className="agent-run-deadline">{` · ${timeLeft(run.expiresAt, now)}`}</span>
           )}
         </span>
-        {running && (
+        {(running || onAnother) && (
           <button
             type="button"
             className="btn btn-agent agent-run-stop"
@@ -451,7 +457,9 @@ function statusLabel(run: AgentRunView, yours: boolean): string {
   switch (run.status) {
     case 'succeeded':
       return [
-        run.postCount > 0 ? '' : 'answered silently',
+        // A run that asked another agent ended on the question; what it did is that, and
+        // the run that heard back says the rest (M2 · A2).
+        run.askedAgent ? `asked ${run.askedAgent}` : run.postCount > 0 ? '' : 'answered silently',
         durationLabel(run),
         // What the agent reported it cost, when it reported anything (AG-UI 1.0).
         run.tokens ? formatTokens(run.tokens) : '',
@@ -475,6 +483,8 @@ function statusLabel(run: AgentRunView, yours: boolean): string {
       return yours ? 'waiting for your answer' : 'waiting for an answer';
     case 'expired':
       return 'nobody answered in time';
+    case 'waiting':
+      return `waiting for ${run.askedAgent ?? 'another agent'}`;
     default:
       return run.status;
   }

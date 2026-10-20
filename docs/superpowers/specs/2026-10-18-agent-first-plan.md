@@ -493,3 +493,17 @@ and what was approved, in the channel and back where the work started.
 
 **Not built, on purpose:** bookmarks and status posts (a channel feature for every channel,
 its own slice), a task linked to a work item, and agents giving verdicts.
+
+### A2's follow-up — done: waiting on another agent holds nothing
+
+`ask_agent` used to wait inside the asking run's job — a worker slot for up to three
+minutes, at most half the slots, and "still working" past that. Now the run posts its
+question and ends the round in a status of its own, `waiting` (migration 0062), keeping its
+tool exchange the way a run waiting on a person's approval does. When the other agent's run
+ends — answered, failed, refused, or stopped to ask a person — its finish enqueues
+`agent_heard`, which carries the asking run on as a resume with the answer as the call's
+result; a minute cron catches a hop that finished a moment before its asker began waiting,
+a hop the chain never started, and a wait past the chain's quarter hour. A hop that itself
+waits keeps its question as its trigger when carried on, so nested asks resolve. Stop ends
+a waiting run and what it asked. The card says "waiting for Planner" with Stop, and an
+agent waiting counts as working on the Agents page and Home.

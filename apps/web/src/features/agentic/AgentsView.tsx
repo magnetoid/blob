@@ -45,12 +45,12 @@ const newest = (a: AgentRunView, b: AgentRunView) => b.startedAt.localeCompare(a
  * from each run — its agent, room and times — is fixed by the time it is in its list.
  */
 function useStandingRuns(me: string | null): AgentRunView[] {
-  const working = useRunIds((r) => r.status === 'running', newest);
+  const working = useRunIds((r) => r.status === 'running' || r.status === 'waiting', newest);
   const waiting = useRunIds(
     (r) => r.status === 'interrupted' && !r.answeredAt && me !== null && r.initiatedByUserId === me,
     newest,
   );
-  const ended = useRunIds((r) => r.status !== 'running', newest);
+  const ended = useRunIds((r) => r.status !== 'running' && r.status !== 'waiting', newest);
   const byId = useStore.getState().agentRuns;
   const ids = new Set([...working, ...waiting, ...ended]);
   return [...ids].map((id) => byId[id]).filter((run): run is AgentRunView => run !== undefined);

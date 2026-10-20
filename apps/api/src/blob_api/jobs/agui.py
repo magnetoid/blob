@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
+from typing import Any
 
 from sqlalchemy import text
 
@@ -41,6 +42,7 @@ from ..services import messages as message_service
 from ..services import policies as policy_service
 from ..services.serialize import message_event
 from ..services.workspace_settings import parse as parse_settings
+from . import agui_delegate
 from .agui_admission import followers_for, listeners_for, may_follow_now, personal_agent_for
 from .agui_outcome import refuse, run_one
 
@@ -352,4 +354,138 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
             )
 
 
-__all__ = ["Listener", "expire_agent_decisions", "handle_agui_run", "listeners_for", "stream_run"]
+async def handle_agent_heard(run_id: str) -> None:
+    """Carry on a run that waited on another agent's answer (M2 · A2) — once that agent
+    has stopped, or the wait has run out. Enqueued by the other agent's finish, and by the
+    cron below for what that misses. Never raises, like a run."""
+    try:
+        await _hear(run_id)
+    except Exception:
+        log.warning("could not carry on run %s after its question", run_id, exc_info=True)
+
+
+async def resume_waiting_runs() -> int:
+    """The net under the hop's own call: a waiting run whose hop finished a moment before
+    it began to wait, whose hop never started, or that has waited past the chain's wall."""
+    async with session_scope() as session:
+        due = await agent_run_service.waiting_to_hear(
+            session,
+            limit_sec=agui_delegate.WAIT_LIMIT_SEC,
+            grace_sec=agui_delegate.NO_RUN_GRACE_SEC,
+        )
+    for run_id in due:
+        await handle_agent_heard(run_id)
+    return len(due)
+
+
+async def _hear(run_id: str) -> None:
+    async with transaction() as (session, after):
+        # Locked and skipped, so the hop's call and the cron cannot both carry it on: the
+        # one that takes the row flips it, and the other finds nothing waiting.
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT r.id, r.workspace_id, r.plugin_id, r.channel_id, r.thread_root_id,
+                           r.trigger_message_id, r.trigger_user_id, r.chain_id, r.depth,
+                           r.initiated_by_user_id, r.interrupt, r.state, r.finished_at,
+                           u.id AS bot_user_id
+                      FROM agent_runs r
+                      JOIN users u ON u.bot_plugin_id = r.plugin_id
+                     WHERE r.id = :id AND r.status = 'waiting'
+                       FOR UPDATE OF r SKIP LOCKED
+                    """
+                ),
+                {"id": run_id},
+            )
+        ).first()
+        if row is None or row.initiated_by_user_id is None or row.trigger_message_id is None:
+            return
+        outcome = await agui_delegate.heard(session, row)
+        if outcome is None:
+            return
+        # It asked, and it was answered: the run that asked is done, and its continuation
+        # is a run of its own. `answered_at` is what tells a waiter on *this* run that it
+        # has been carried on and the answer is still to come.
+        await session.execute(
+            text("UPDATE agent_runs SET status = 'succeeded', answered_at = now() WHERE id = :id"),
+            {"id": run_id},
+        )
+        view = await agent_run_service.view_of(session, run_id)
+        if view is not None:
+            room = str(row.channel_id)
+            after.add(partial(hub.to_channel, room, {"t": "agent_run.started", "run": view}))
+
+        stored: dict[str, Any] = row.interrupt if isinstance(row.interrupt, dict) else {}
+        chain = agent_chains.Chain(
+            chain_id=str(row.chain_id),
+            initiated_by_user_id=str(row.initiated_by_user_id),
+            depth=int(row.depth),
+            parent_run_id=str(row.id),
+            parent_plugin_id=str(row.plugin_id),
+            state=row.state,
+            exchange_after=str(row.trigger_message_id),
+            agent_answer=agent_chains.AgentAnswer(
+                call=_mapping(stored.get("call")),
+                text=outcome.content,
+                error=outcome.error,
+                later=_mappings(stored.get("later")),
+                exchange=_mappings(stored.get("exchange")),
+                round=int(stored.get("round") or 0),
+            ),
+        )
+        listeners = await listeners_for(
+            session, workspace_id=str(row.workspace_id), mention_user_ids=[str(row.bot_user_id)]
+        )
+        names = {
+            str(found.id): found.display_name
+            for found in (
+                await session.execute(
+                    text("SELECT id, display_name FROM users WHERE id = ANY(cast(:ids AS uuid[]))"),
+                    {"ids": [row.trigger_user_id, row.initiated_by_user_id]},
+                )
+            ).fetchall()
+        }
+        channel_name = (
+            await session.execute(
+                text("SELECT name FROM channels WHERE id = :id"), {"id": row.channel_id}
+            )
+        ).scalar_one_or_none()
+        policy = await policy_service.effective_for(session, str(row.workspace_id))
+    if not listeners:
+        # Uninstalled or switched off while it waited: there is nobody to carry it on.
+        return
+    await run_one(
+        listeners[0],
+        workspace_id=str(row.workspace_id),
+        channel_id=str(row.channel_id),
+        thread_root_id=str(row.thread_root_id) if row.thread_root_id else None,
+        trigger_id=str(row.trigger_message_id),
+        trigger_user_id=str(row.trigger_user_id) if row.trigger_user_id else None,
+        asker=names.get(str(row.trigger_user_id)) or "someone",
+        channel_name=channel_name or "a conversation",
+        chain=chain,
+        max_depth=policy.agent_chain_max_depth,
+        on_behalf_of=names.get(str(row.initiated_by_user_id)) if row.depth > 0 else None,
+    )
+
+
+def _mapping(value: object) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _mappings(value: object) -> list[dict[str, Any]]:
+    return (
+        [dict(item) for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+    )
+
+
+__all__ = [
+    "Listener",
+    "expire_agent_decisions",
+    "handle_agent_heard",
+    "handle_agui_run",
+    "listeners_for",
+    "resume_waiting_runs",
+    "stream_run",
+]

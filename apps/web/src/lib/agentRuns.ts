@@ -62,6 +62,7 @@ export function applyRunEvent(
 /** How far along a run is. A view never replaces one that is further along. */
 export function runProgress(run: AgentRunView): number {
   if (run.status === 'running') return 0;
+  if (run.status === 'waiting') return 1;
   if (run.status === 'interrupted') return run.answeredAt ? 2 : 1;
   return 3;
 }

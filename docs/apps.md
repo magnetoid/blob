@@ -511,18 +511,20 @@ What a call can reach is not yours to widen:
 **Asking another agent.** `list_agents` names the agents in your conversation that the
 person you run for may ask, with what each says it does. `ask_agent(agent, text)` posts
 your question in your own conversation, as your bot — `@Planner outline the launch`,
-exactly the message a reply mentioning Planner would be — and waits for Planner's run
-to end, then hands you its answer as the call's result (`Planner answered: …`). It is an
-ordinary hop of your chain: admitted by the workspace's depth budget and per-chain caps,
-run on the authority of the person at the root (an agent they may not command is
-refused, with the reason), stopped when your run is stopped, and answering the room as
-every agent does. The wait is at most three minutes and never past your own ten-minute
-wall; past it you are told the other agent is still working and will answer in the
-conversation. A busy server may not wait at all — a waiting run holds a worker slot, so
-only so many may wait at once — and then you are told the question was asked and will be
-answered in the conversation. A hop that stops to ask the person, fails or is refused is
-said so in the result. It comes with **read** access because it posts nothing a mention
-could not.
+exactly the message a reply mentioning Planner would be — and your run ends that round
+**waiting**, holding nothing. When Planner's run ends, Blob calls you again, the way it
+does after a person approves a write: the same exchange, with Planner's answer as the
+call's result (`Planner answered: …`) and the history to carry on from. So the call is
+the end of one request to you and the start of the next — keep what you need in AG-UI
+`state`, which comes back with it. It is an ordinary hop of your chain: admitted by the
+workspace's depth budget and per-chain caps, run on the authority of the person at the
+root (an agent they may not command is refused, with the reason), stopped when your run
+is stopped, and answering the room as every agent does. Planner may itself ask somebody
+and wait; you hear its final answer. Past the chain's quarter hour you are told the other
+agent is still working and will answer in the conversation, and a hop that never starts
+— the chain's limits, or its budget — is said so within a minute or two. A hop that stops
+to ask the person, fails or is refused is said so in the result. It comes with **read**
+access because it posts nothing a mention could not.
 
 **Notes.** With read access or more you also get `remember(text)`, `recall(query?)` and
 `forget(note_id)`: notes of your own, kept for the conversation you are in — or for the

@@ -74,6 +74,23 @@ class ToolResume:
 
 
 @dataclass(slots=True)
+class AgentAnswer:
+    """What another agent made of a question a run asked it with `ask_agent` (M2 · A2),
+    and what the run needs to carry on from it — the shape a tool approval's resume has,
+    with the other agent's answer where the person's yes or no would be."""
+
+    #: The `ask_agent` call: its id, name and arguments.
+    call: dict[str, Any]
+    #: What the call came back with: the answer, or why there is none.
+    text: str
+    error: str | None
+    #: Calls the agent made after the question in the same turn, which were not run.
+    later: list[dict[str, Any]]
+    exchange: list[dict[str, Any]]
+    round: int
+
+
+@dataclass(slots=True)
 class Chain:
     """Where a run sits, and on whose authority it runs."""
 
@@ -95,6 +112,8 @@ class Chain:
     #: declines) the write and carries the tool exchange on, and the agent is not handed
     #: AG-UI `resume` entries for a question it never asked.
     tool_resume: ToolResume | None = None
+    #: Set on a resume after another agent answered a question this one asked it.
+    agent_answer: AgentAnswer | None = None
     #: On a resume of the agent's own question: the tool exchange of the run that asked,
     #: so the history it is handed still holds the calls it made before it asked.
     exchange: list[dict[str, Any]] = field(default_factory=list)
@@ -109,8 +128,11 @@ class Chain:
 
     @property
     def resuming(self) -> bool:
-        """A person answering a run that stopped — to ask them, or for their approval."""
-        return self.resume is not None or self.tool_resume is not None
+        """A run that stopped being carried on — by a person's answer to it, their
+        approval, or the answer of another agent it asked."""
+        return (
+            self.resume is not None or self.tool_resume is not None or self.agent_answer is not None
+        )
 
 
 def root(trigger: Any) -> Chain:
@@ -490,6 +512,7 @@ __all__ = [
     "INTERRUPT_TTL_SEC",
     "MAX_RUNS_PER_AGENT_PER_CHAIN",
     "MAX_RUNS_PER_CHAIN",
+    "AgentAnswer",
     "Answered",
     "Chain",
     "ToolResume",

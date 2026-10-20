@@ -27,7 +27,10 @@ export function standingOf(
 ): Standing {
   const its = runs.filter((run) => run.pluginId === pluginId);
   const newest = (a: AgentRunView, b: AgentRunView) => b.startedAt.localeCompare(a.startedAt);
-  const working = its.filter((run) => run.status === 'running').sort(newest)[0];
+  // Waiting on another agent's answer is working, from where anybody stands (M2 · A2).
+  const working = its
+    .filter((run) => run.status === 'running' || run.status === 'waiting')
+    .sort(newest)[0];
   if (working) return { kind: 'working', channelId: working.channelId };
   const waiting = its
     .filter(
