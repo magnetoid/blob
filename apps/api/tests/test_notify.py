@@ -341,8 +341,10 @@ class TestUnfurlFollowsRedirectsSafely:
         hops: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
-            hops.append(str(request.url))
-            if request.url.host == "redirector.example.com":
+            # Pinned: the request goes to the checked address and names the host.
+            host = request.headers["host"]
+            hops.append(f"{request.url.scheme}://{host}{request.url.path}")
+            if host == "redirector.example.com":
                 return httpx.Response(302, headers={"location": "http://169.254.169.254/latest/"})
             # Reaching here would mean the guard let the metadata service through.
             return httpx.Response(
@@ -360,16 +362,58 @@ class TestUnfurlFollowsRedirectsSafely:
 
         monkeypatch.setattr(unfurl_job.httpx, "AsyncClient", fake_client)
 
-        async def only_the_link_local_is_private(hostname: str) -> bool:
-            return hostname == "169.254.169.254"
+        from blob_api.lib import net
 
-        monkeypatch.setattr(unfurl_job, "is_private_host", only_the_link_local_is_private)
+        async def dns(hostname: str, port: int | None) -> list[str]:
+            # An address literal resolves to itself; everything else to a public address.
+            return [hostname] if hostname[0].isdigit() else ["93.184.215.14"]
+
+        monkeypatch.setattr(net, "resolve", dns)
 
         result = await unfurl_job.fetch_unfurl("https://redirector.example.com/go")
 
         assert result is None
         # It stopped at the redirect: the private address was never requested.
         assert hops == ["https://redirector.example.com/go"]
+
+    async def test_each_hop_is_fetched_at_the_address_it_was_checked_at(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """DNS rebinding: the name answers the check with a public address and would answer
+        the connection with a private one. Pinned, the request goes to the first answer and
+        DNS is asked once — any member can make Blob fetch a link by posting it."""
+        import httpx
+
+        from blob_api.jobs import unfurl as unfurl_job
+        from blob_api.lib import net
+
+        seen: list[tuple[str, str]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append((request.url.host, request.headers["host"]))
+            return httpx.Response(
+                200, headers={"content-type": "text/html"}, content=b"<title>Pinned</title>"
+            )
+
+        transport = httpx.MockTransport(handler)
+        real_client = httpx.AsyncClient
+
+        def fake_client(**kwargs: object) -> httpx.AsyncClient:
+            kwargs.pop("transport", None)
+            return real_client(**kwargs, transport=transport)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(unfurl_job.httpx, "AsyncClient", fake_client)
+        answers = iter([["93.184.215.14"], ["10.0.0.5"]])
+
+        async def rebinding(hostname: str, port: int | None) -> list[str]:
+            return next(answers)
+
+        monkeypatch.setattr(net, "resolve", rebinding)
+
+        result = await unfurl_job.fetch_unfurl("https://news.example.com/story")
+
+        assert result is not None and result["title"] == "Pinned"
+        assert seen == [("93.184.215.14", "news.example.com")]
 
     async def test_a_redirect_to_a_public_page_is_still_followed(
         self, monkeypatch: pytest.MonkeyPatch
@@ -379,7 +423,7 @@ class TestUnfurlFollowsRedirectsSafely:
         from blob_api.jobs import unfurl as unfurl_job
 
         def handler(request: httpx.Request) -> httpx.Response:
-            if request.url.host == "redirector.example.com":
+            if request.headers["host"] == "redirector.example.com":
                 return httpx.Response(302, headers={"location": "https://example.com/article"})
             return httpx.Response(
                 200,
@@ -396,10 +440,12 @@ class TestUnfurlFollowsRedirectsSafely:
 
         monkeypatch.setattr(unfurl_job.httpx, "AsyncClient", fake_client)
 
-        async def nothing_is_private(hostname: str) -> bool:
-            return False
+        from blob_api.lib import net
 
-        monkeypatch.setattr(unfurl_job, "is_private_host", nothing_is_private)
+        async def dns(hostname: str, port: int | None) -> list[str]:
+            return ["93.184.215.14"]
+
+        monkeypatch.setattr(net, "resolve", dns)
 
         result = await unfurl_job.fetch_unfurl("https://redirector.example.com/go")
 

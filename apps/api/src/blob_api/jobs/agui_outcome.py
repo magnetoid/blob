@@ -676,6 +676,7 @@ async def _finish(
                         body=made["body"],
                         author_user_id=listener.bot_user_id,
                         run_id=run_id,
+                        author_plugin_id=listener.plugin_id,
                     )
                 updated = await work_service.get(session, work.id, workspace_id)
                 work_update = work_service.work_event(updated)

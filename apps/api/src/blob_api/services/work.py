@@ -403,8 +403,14 @@ async def publish(
     body: str,
     author_user_id: str | None,
     run_id: str | None = None,
+    author_plugin_id: str | None = None,
 ) -> Artifact:
     """Put something made into the work. Validated here, whoever made it.
+
+    `author_plugin_id` says the author is an agent or an app — its bot — so what Blob
+    posts in its name is posted as the bot's (`kind="bot"`) and sets nothing going: a
+    bot's own words never start a run, and a version announced in a followed work channel
+    must not either.
 
     The same title and kind as something already published makes its next version: the
     work row is locked first so two publishes cannot both be "v2". When its thread has
@@ -477,6 +483,7 @@ async def publish(
             body=f"Published v{artifact.version} of **{_plain(artifact.title)}**.",
             key=f"work-artifact:{artifact.id}:published",
             thread_root_id=artifact.review_root_id,
+            as_plugin=author_plugin_id,
         )
     return artifact
 
@@ -497,9 +504,11 @@ async def _post(
     key: str,
     thread_root_id: str | None = None,
     mention_user_ids: list[str] | None = None,
+    as_plugin: str | None = None,
 ) -> str:
     """A message Blob composes for somebody — mentioning exactly whom it says, and nobody a
-    title or a note happens to name."""
+    title or a note happens to name. `as_plugin` is a bot author's plugin: the message is
+    then the bot's, as `post_as_bot` would post it, and starts no run (ADR 0013)."""
     result = await message_service.send(
         session,
         workspace_id=workspace_id,
@@ -509,9 +518,16 @@ async def _post(
         client_msg_id=key,
         thread_root_id=thread_root_id,
         mention_user_ids=mention_user_ids or [],
+        kind="bot" if as_plugin else "user",
+        plugin_id=as_plugin,
     )
     await message_service.announce(
-        session, after, result, workspace_id=workspace_id, channel_id=channel_id
+        session,
+        after,
+        result,
+        workspace_id=workspace_id,
+        channel_id=channel_id,
+        start_agent_runs=as_plugin is None,
     )
     return str(result.message.id)
 

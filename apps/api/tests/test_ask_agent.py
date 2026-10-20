@@ -442,6 +442,30 @@ class TestWaitingHoldsNothing:
         assert [r.status for r in runs if r.status == "waiting"] == []
         assert ("Helper", "Helper: done.") in await bodies(pair)
 
+    async def test_an_asker_switched_off_while_it_waits_ends_as_failed(
+        self, pair: dict[str, Any]
+    ) -> None:
+        pair["state"]["slow"].add("/planner")
+        pair["state"]["scripts"] = {
+            "/agui": [calls(("c1", "ask_agent", {"agent": "Planner", "text": "outline it"}))],
+            "/planner": [says("Outline.")],
+        }
+        await send_message(pair["owner"], pair["general"], "@Helper plan it")
+
+        async def waiting() -> Any:
+            runs = await all_runs()
+            return next((r for r in runs if r.name == "Helper" and r.status == "waiting"), None)
+
+        helper = await until(waiting, "Helper waiting")
+        off = await pair["owner"].post(
+            f"/api/admin/plugins/{pair['helper']['plugin']['id']}/enabled", {"enabled": False}
+        )
+        assert off.status == 200, off.body
+        await settle(pair)
+        ended = next(r for r in await all_runs() if r.id == helper.id)
+        assert ended.status == "failed"
+        assert len([r for r in await all_runs() if r.name == "Helper"]) == 1
+
     async def test_stop_ends_a_waiting_run_and_what_it_asked(self, pair: dict[str, Any]) -> None:
         pair["state"]["slow"].add("/planner")
         pair["state"]["scripts"] = {

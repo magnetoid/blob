@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import socket
+from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from .errors import bad_request
@@ -44,6 +45,59 @@ async def is_private_host(hostname: str) -> bool:
         # A name that does not resolve is not a name worth fetching.
         return True
     return any(is_private_address(str(info[4][0])) for info in infos)
+
+
+@dataclass(frozen=True, slots=True)
+class Pinned:
+    """A request aimed at the address that was checked, not at whatever the name resolves
+    to by the time the connection opens.
+
+    `check_outbound_url` resolves a name and refuses a private answer, and then the HTTP
+    client resolves it again to connect — two lookups an attacker's own nameserver can
+    answer differently (DNS rebinding): public for the check, the database's address for
+    the connection. Pinning sends the request to the checked address while TLS still
+    verifies the certificate against the name (`sni_hostname`), and the `Host` header
+    still says the name, so a virtual host answers as itself.
+    """
+
+    url: str
+    headers: dict[str, str]
+    extensions: dict[str, str]
+
+
+async def resolve(hostname: str, port: int | None) -> list[str]:
+    """Every address a name resolves to, for a stream connection. A named seam: a test
+    answers for DNS here rather than patching the event loop."""
+    infos = await asyncio.get_running_loop().getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    return [str(info[4][0]) for info in infos]
+
+
+async def pin_public(raw_url: str) -> Pinned | None:
+    """`raw_url` aimed at one address its name resolves to, every address the name
+    resolves to having been checked — or None for a name that is private, partly
+    private, unresolvable, or not a URL with a hostname at all."""
+    try:
+        parsed = urlparse(raw_url)
+    except ValueError:
+        return None
+    hostname = parsed.hostname
+    if not hostname or parsed.scheme not in ("http", "https"):
+        return None
+    try:
+        addresses = await resolve(hostname, parsed.port)
+    except (socket.gaierror, UnicodeError):
+        return None
+    if not addresses or any(is_private_address(address) for address in addresses):
+        return None
+    address = addresses[0]
+    literal = f"[{address}]" if ":" in address else address
+    netloc = f"{literal}:{parsed.port}" if parsed.port else literal
+    host_header = f"{hostname}:{parsed.port}" if parsed.port else hostname
+    return Pinned(
+        url=parsed._replace(netloc=netloc).geturl(),
+        headers={"host": host_header},
+        extensions={"sni_hostname": hostname},
+    )
 
 
 async def check_outbound_url(raw_url: str, *, require_https: bool) -> str | None:

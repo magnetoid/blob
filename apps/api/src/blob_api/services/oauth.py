@@ -297,16 +297,22 @@ async def _metadata_client(url: str) -> Client:
 async def _fetch_metadata(url: str) -> dict[str, Any]:
     """Read and check a client metadata document. Through the network guard — an address
     inside the server's own network is refused whatever the policy — with no redirects,
-    a few seconds and a few kilobytes."""
-    reason = await net.check_outbound_url(url, require_https=True)
-    if reason is not None:
+    a few seconds and a few kilobytes.
+
+    Pinned to the address the guard checked (`net.pin_public`): any signed-in member can
+    make Blob fetch a URL of their choosing just by opening a consent link, so the name's
+    owner must not be able to answer the check with a public address and the connection
+    with a private one."""
+    pinned = await net.pin_public(url) if url.startswith("https://") else None
+    if pinned is None:
         raise PageError("The app's metadata cannot be fetched from where it says it is.")
     try:
         async with open_client() as client:
             async with client.stream(
                 "GET",
-                url,
-                headers={"accept": "application/json"},
+                pinned.url,
+                headers={"accept": "application/json", **pinned.headers},
+                extensions=pinned.extensions,
                 timeout=httpx.Timeout(METADATA_TIMEOUT_SEC),
             ) as response:
                 if response.status_code != 200:

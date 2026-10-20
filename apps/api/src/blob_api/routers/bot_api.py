@@ -342,6 +342,7 @@ async def publish_artifact(
             title=payload.title,
             body=payload.body,
             author_user_id=bot.user_id,
+            author_plugin_id=bot.plugin_id,
         )
         updated = await work_service.get(session, work.id, bot.workspace_id)
         await audit_service.record(

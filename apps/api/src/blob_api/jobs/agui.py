@@ -404,6 +404,36 @@ async def _hear(run_id: str) -> None:
         outcome = await agui_delegate.heard(session, row)
         if outcome is None:
             return
+        listeners = await listeners_for(
+            session, workspace_id=str(row.workspace_id), mention_user_ids=[str(row.bot_user_id)]
+        )
+        if not listeners:
+            # Uninstalled or switched off while it waited: nobody is left to carry it on, so
+            # it ends as failed — and a task it was handed is told — rather than standing as
+            # an answer that never came.
+            gone = "it was switched off or removed while it waited for an answer"
+            await session.execute(
+                text(
+                    "UPDATE agent_runs SET status = 'failed', error = :error, answered_at = now()"
+                    " WHERE id = :id"
+                ),
+                {"id": run_id, "error": gone},
+            )
+            await task_dispatch.settle(
+                session,
+                after,
+                chain_id=str(row.chain_id),
+                plugin_id=str(row.plugin_id),
+                status="failed",
+                reason=gone,
+            )
+            failed_view = await agent_run_service.view_of(session, run_id)
+            if failed_view is not None:
+                room = str(row.channel_id)
+                after.add(
+                    partial(hub.to_channel, room, {"t": "agent_run.started", "run": failed_view})
+                )
+            return
         # It asked, and it was answered: the run that asked is done, and its continuation
         # is a run of its own. `answered_at` is what tells a waiter on *this* run that it
         # has been carried on and the answer is still to come.
@@ -434,9 +464,6 @@ async def _hear(run_id: str) -> None:
                 round=int(stored.get("round") or 0),
             ),
         )
-        listeners = await listeners_for(
-            session, workspace_id=str(row.workspace_id), mention_user_ids=[str(row.bot_user_id)]
-        )
         names = {
             str(found.id): found.display_name
             for found in (
@@ -452,9 +479,6 @@ async def _hear(run_id: str) -> None:
             )
         ).scalar_one_or_none()
         policy = await policy_service.effective_for(session, str(row.workspace_id))
-    if not listeners:
-        # Uninstalled or switched off while it waited: there is nobody to carry it on.
-        return
     await run_one(
         listeners[0],
         workspace_id=str(row.workspace_id),

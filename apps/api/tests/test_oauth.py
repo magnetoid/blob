@@ -33,6 +33,10 @@ from .helpers import Client, invite_and_sign_up, sign_up
 HOSTED = "https://claude.example.com/api/mcp/auth_callback"
 LOOPBACK = "http://127.0.0.1/callback"
 CIMD = "https://claude.example.com/oauth/client.json"
+#: What example.com names resolve to in these tests: a public address (example.com's own).
+#: Not a documentation range — the guard counts those as not public, rightly.
+PUBLIC_ADDRESS = "93.184.215.14"
+PUBLIC_V6 = "2606:2800:21f:cb07:6820:80da:af6b:8b2c"
 
 
 def resource() -> str:
@@ -547,6 +551,9 @@ class TestClients:
 
     @pytest.fixture
     def metadata_host(self, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+        """The web as the metadata fetch sees it: example.com names resolve to one public
+        address, and the documents are served by a mock that records which address each
+        request was sent to and what name it asked for."""
         fetched: list[str] = []
         document: dict[str, Any] = {
             "client_id": CIMD,
@@ -555,10 +562,13 @@ class TestClients:
         }
 
         def handler(request: httpx.Request) -> httpx.Response:
-            fetched.append(str(request.url))
-            if str(request.url) == CIMD:
+            assert request.url.host == PUBLIC_ADDRESS, "sent to the address that was checked"
+            asked = f"https://{request.headers['host']}{request.url.path}"
+            assert request.extensions["sni_hostname"] == request.headers["host"]
+            fetched.append(asked)
+            if asked == CIMD:
                 return httpx.Response(200, json=document)
-            if str(request.url) == "https://liar.example.com/client.json":
+            if asked == "https://liar.example.com/client.json":
                 return httpx.Response(200, json={**document, "client_id": CIMD})
             return httpx.Response(404)
 
@@ -567,12 +577,14 @@ class TestClients:
             "open_client",
             lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler)),
         )
-        real = net.is_private_host
+        real = net.resolve
 
-        async def public(hostname: str) -> bool:
-            return False if hostname.endswith("example.com") else await real(hostname)
+        async def dns(hostname: str, port: int | None) -> list[str]:
+            if hostname.endswith("example.com"):
+                return [PUBLIC_ADDRESS]
+            return await real(hostname, port)
 
-        monkeypatch.setattr(net, "is_private_host", public)
+        monkeypatch.setattr(net, "resolve", dns)
         return fetched
 
     async def test_a_metadata_document_names_who_vouches_and_is_read_once_a_day(
@@ -602,6 +614,38 @@ class TestClients:
         liar = await ask(team["member"], query("https://liar.example.com/client.json", challenge))
         assert liar.status == 400
         assert "name itself" in liar.body["error"]["message"]
+
+    async def test_a_name_that_answers_differently_the_second_time_is_never_asked_twice(
+        self, metadata_host: list[str], team: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """DNS rebinding: a nameserver answering the check with a public address and the
+        connection with the database's. The name is resolved once and the request goes to
+        that answer, whatever a second lookup would have said."""
+        answers = iter([[PUBLIC_ADDRESS], ["10.0.0.5"]])
+        lookups: list[str] = []
+
+        async def rebinding(hostname: str, port: int | None) -> list[str]:
+            lookups.append(hostname)
+            return next(answers)
+
+        monkeypatch.setattr(net, "resolve", rebinding)
+        _, challenge = pkce()
+        asked = await ask(team["member"], query(CIMD, challenge))
+        assert asked.status == 200, asked.body
+        assert lookups == ["claude.example.com"]
+        assert metadata_host == [CIMD]
+
+    async def test_a_name_with_any_private_address_is_refused(
+        self, metadata_host: list[str], team: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async def split(hostname: str, port: int | None) -> list[str]:
+            return [PUBLIC_ADDRESS, "169.254.169.254"]
+
+        monkeypatch.setattr(net, "resolve", split)
+        _, challenge = pkce()
+        refused = await ask(team["member"], query(CIMD, challenge))
+        assert refused.status == 400
+        assert metadata_host == []
 
     async def test_a_document_inside_the_network_is_never_fetched(
         self, metadata_host: list[str], team: dict[str, Any]
@@ -757,3 +801,38 @@ async def test_the_metadata_is_json_not_the_app(tmp_path: Any) -> None:
         page = await probe.get("/oauth/authorize?client_id=x")
         assert page.status_code == 200
         assert page.text == "<!doctype html>"
+
+
+class TestPinning:
+    """`net.pin_public` on its own: where the request goes and what it says it is for."""
+
+    async def test_the_request_goes_to_the_address_and_names_the_host(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async def dns(hostname: str, port: int | None) -> list[str]:
+            return [PUBLIC_V6] if hostname == "v6.example.com" else [PUBLIC_ADDRESS]
+
+        monkeypatch.setattr(net, "resolve", dns)
+        pinned = await net.pin_public("https://app.example.com:8443/client.json?x=1")
+        assert pinned is not None
+        assert pinned.url == f"https://{PUBLIC_ADDRESS}:8443/client.json?x=1"
+        assert pinned.headers == {"host": "app.example.com:8443"}
+        assert pinned.extensions == {"sni_hostname": "app.example.com"}
+        six = await net.pin_public("https://v6.example.com/c.json")
+        assert six is not None and six.url == f"https://[{PUBLIC_V6}]/c.json"
+
+    async def test_nothing_private_unresolvable_or_hostless_is_pinned(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import socket
+
+        async def dns(hostname: str, port: int | None) -> list[str]:
+            if hostname == "gone.example.com":
+                raise socket.gaierror("no such name")
+            return ["127.0.0.1"]
+
+        monkeypatch.setattr(net, "resolve", dns)
+        assert await net.pin_public("https://inside.example.com/c.json") is None
+        assert await net.pin_public("https://gone.example.com/c.json") is None
+        assert await net.pin_public("file:///etc/passwd") is None
+        assert await net.pin_public("https:///no-host") is None

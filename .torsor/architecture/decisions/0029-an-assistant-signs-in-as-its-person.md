@@ -43,7 +43,13 @@ already resolves.**
 - **Clients are public.** A `client_id` that is an https URL is a Client ID Metadata
   Document: fetched through the network guard (`require_https`, no redirects, 16 KB, five
   seconds), refused unless it names itself, cached a day and used stale when its host is
-  briefly down. Dynamic Client Registration (RFC 7591) stays for clients that still use it
+  briefly down. The fetch is **pinned** to the address the guard checked
+  (`lib/net.pin_public`, TLS still verified against the name): any signed-in member can make
+  Blob fetch a URL of their choosing by opening a consent link, so a nameserver must not be
+  able to answer the check with a public address and the connection with a private one —
+  DNS rebinding, found in review. The admin-only fetches (an app's address, an MCP server's)
+  have the same unpinned check and are the next place to use it. Dynamic Client
+  Registration (RFC 7591) stays for clients that still use it
   — deprecated by the spec, open to anyone, rate-limited per address — and never issues a
   secret. Redirect URIs match exactly, except that a loopback one matches on any port
   (RFC 8252), because Claude Code picks its port when it starts.

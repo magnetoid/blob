@@ -90,6 +90,47 @@ class TestVersions:
         ]
 
 
+class TestAnAgentsVersion:
+    async def test_is_announced_as_the_agent_and_sets_nothing_going(self, team: dict) -> None:
+        """A version an agent publishes into a discussed artifact is said in the thread as
+        the agent's own message — `kind="bot"`, its plugin — so it can never root a run,
+        even in a channel an agent follows (ADR 0013)."""
+        speak(team, *PUBLISHES_A_DIFF)
+        started = await start(team)
+        await run_kickoff(team)
+        work_id = started["work"]["id"]
+        diff = next(
+            a
+            for a in (await team["owner"].get(f"/api/work/{work_id}")).body["artifacts"]
+            if a["kind"] == "diff"
+        )
+        opened = await team["owner"].post(f"/api/work/{work_id}/artifacts/{diff['id']}/discussion")
+        assert opened.status == 200, opened.body
+        # The agent follows its own work channel, so a person's message there would start a
+        # run unaddressed: the notice must not be taken for one.
+        followed = await team["owner"].put(
+            f"/api/admin/plugins/{team['helper']['plugin']['id']}/follows/{started['channel']['id']}"
+        )
+        assert followed.status == 200, followed.body
+
+        again = await send_message(team["owner"], started["channel"]["id"], "@Helper once more")
+        await agui_job.handle_agui_run(str(again.body["message"]["id"]))
+
+        async with SessionFactory() as session:
+            notice = (
+                await session.execute(
+                    text(
+                        "SELECT id, kind, plugin_id, author_id FROM messages"
+                        " WHERE body = 'Published v2 of **Add the rate limit**.'"
+                    )
+                )
+            ).one()
+        assert notice.kind == "bot"
+        assert str(notice.plugin_id) == team["helper"]["plugin"]["id"]
+        assert str(notice.author_id) == team["helper"]["plugin"]["botUserId"]
+        assert not runs_for(team, str(notice.id))
+
+
 class TestDiscussion:
     async def test_one_thread_per_artifact_hears_each_new_version(self, team: dict) -> None:
         started = await start(team, agentPluginIds=[])

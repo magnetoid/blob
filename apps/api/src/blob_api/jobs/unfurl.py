@@ -11,13 +11,12 @@ import json
 import logging
 import re
 from typing import Any
-from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import text
 
 from ..db.engine import transaction
-from ..lib.net import is_private_host
+from ..lib.net import pin_public
 from ..realtime import hub
 from ..services import messages as message_service
 
@@ -56,18 +55,7 @@ def _decode_entities(value: str) -> str:
     return html_module.unescape(value)
 
 
-async def _allowed(url: str) -> bool:
-    """Whether this exact URL may be fetched from this process."""
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        return False
-    return not await is_private_host(parsed.hostname)
-
-
 async def fetch_unfurl(raw_url: str) -> dict[str, Any] | None:
-    if not await _allowed(raw_url):
-        return None
-
     try:
         # Redirects are walked by hand so every hop is checked, not just the one someone
         # typed. Following them automatically meant a link to any public redirector could
@@ -81,17 +69,25 @@ async def fetch_unfurl(raw_url: str) -> dict[str, Any] | None:
             follow_redirects=False,
             headers={"user-agent": "blob-unfurl/1.0", "accept": "text/html"},
         ) as client:
-            for _hop in range(MAX_REDIRECTS + 1):
-                async with client.stream("GET", url) as response:
+            for hop in range(MAX_REDIRECTS + 1):
+                # Every hop pinned to the address its name was checked at (`net.pin_public`):
+                # checking a name and then letting the client resolve it again is two DNS
+                # answers, and a nameserver can make the second one the database's.
+                pinned = await pin_public(url)
+                if pinned is None:
+                    if hop:
+                        log.warning("unfurl refused a redirect into a private address")
+                    return None
+                async with client.stream(
+                    "GET", pinned.url, headers=pinned.headers, extensions=pinned.extensions
+                ) as response:
                     if response.is_redirect:
                         location = response.headers.get("location")
                         if not location:
                             return None
-                        # Relative targets are legal, so resolve before judging.
-                        url = str(response.url.join(location))
-                        if not await _allowed(url):
-                            log.warning("unfurl refused a redirect into a private address")
-                            return None
+                        # Relative targets are legal, so resolve before judging — against the
+                        # name, not the address the request was pinned to.
+                        url = str(httpx.URL(url).join(location))
                         continue
 
                     if response.status_code >= 400:
