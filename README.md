@@ -146,7 +146,9 @@ sequenceDiagram
 - **Agents hand each other work** — a reply may mention another agent, which answers in the
   same channel, and the card says who asked. Every hop runs on the authority of the person
   who started it, inside a depth budget, a per-agent cap that ends ping-pong and a
-  quarter-hour wall clock. Stop cascades. ([ADR 0013](.torsor/architecture/decisions/0013-agent-chains-carry-human-authority.md))
+  quarter-hour wall clock. Stop cascades. With Blob's tools an agent can also *ask* another
+  and hear the answer back: it waits holding nothing, and carries on when the answer comes.
+  ([ADR 0013](.torsor/architecture/decisions/0013-agent-chains-carry-human-authority.md))
 - **Files both ways** — an agent that speaks AG-UI 1.0 is handed the images, PDFs and text
   files shared in the conversation, and can hand files back inside its answer. They meet
   your upload rules and open in the panel beside the conversation.
@@ -163,10 +165,21 @@ sequenceDiagram
   task; a failure or a refusal blocks it with the reason. A scheduled message that mentions
   an agent is a scheduled run — every weekday at nine, if you like.
   ([ADR 0023](.torsor/architecture/decisions/0023-a-task-handed-to-an-agent-is-a-message-from-the-person-who-handed-it.md))
+- **Tools from MCP servers** — an admin connects an MCP server (GitHub, a docs search, your
+  own) and chooses which agents may use it and which of its tools wait for the person who
+  asked. Blob makes every call, with the credential the admin gave it.
+  ([ADR 0027](.torsor/architecture/decisions/0027-an-agent-may-use-an-mcp-servers-tools-through-blob.md))
 - **Work channels** — *Start work from here* on any message spins a private channel for that
   one job, with tabs beside the conversation: Plan (the run cards), Changes (diffs, with a
-  viewer) and Preview (pages and documents). A page runs only on click, in a sandbox with
+  viewer) and Preview (pages and documents). Published again under its title, an artifact
+  gets its next version; people approve a version or send it back with a note, which sets
+  the agent that made it going in the artifact's thread. Mark done says what was made and
+  what was approved, where the work started. A page runs only on click, in a sandbox with
   its own no-network policy. Blob executes nothing an agent publishes.
+- **Decisions that stay decided** — record what a conversation settled from a message, a
+  thread summary or `/decision`; the Decisions page and Home keep them, under the
+  channel's own privacy. An agent may only propose one, and a person says yes.
+  ([ADR 0028](.torsor/architecture/decisions/0028-a-decision-is-a-persons-an-agent-may-only-propose-one.md))
 
 **Whose it is, and what it remembers**
 
@@ -176,6 +189,8 @@ sequenceDiagram
 - **Memory with an owner** — what an agent remembers is the conversation's, or — for an
   agent somebody owns — each person's own, so a loan lends the agent and not what it knows.
   Settings shows you yours and clears it, and a memory nobody writes for 90 days lapses.
+  Agents also keep notes in plain words — remember, recall, forget — that the person they
+  belong to (or an admin, for a conversation's) can read, reword and remove.
   ([ADR 0024](.torsor/architecture/decisions/0024-what-an-agent-remembers-is-somebodys.md))
 - **Bring your own** — any member connects an agent from their laptop under *My agents*:
   Blob mints the token, the agent dials in from behind NAT, and it is theirs from the
@@ -197,6 +212,10 @@ see the room — its last ten errors, and when its secret was rotated and its to
 used. Operators can trace runs, tool calls and MCP requests with OpenTelemetry and scrape
 counters from `/metrics`; both are off until configured.
 ([ADR 0025](.torsor/architecture/decisions/0025-what-an-operator-can-see-of-agents.md))
+The Usage page shows what agents and Blob's own summaries spent — by agent and by the
+person whose request each run answered — priced with the prices you enter per model, and
+an agent's budget can cap the tokens it reports in a day.
+([ADR 0030](.torsor/architecture/decisions/0030-what-agents-cost-is-counted-not-measured.md))
 
 **Any framework, two directions.** [AG-UI](https://ag-ui.com) is the protocol every major
 agent framework already speaks — LangGraph, CrewAI, PydanticAI, Google ADK, AWS Strands,
@@ -907,6 +926,11 @@ The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisi
 | 0023 | A task handed to an agent is a message from the person who handed it |
 | 0024 | What an agent remembers is the conversation's, or one person's |
 | 0025 | What an operator can see of agents — traces, counters, a run's events, an app's errors |
+| 0026 | An agent may follow a channel and hear what was not addressed to it |
+| 0027 | An agent may use an MCP server's tools, through Blob |
+| 0028 | A decision is a person's; an agent may only propose one |
+| 0029 | An assistant signs in as its person |
+| 0030 | What agents cost is counted, not measured |
 
 </details>
 
