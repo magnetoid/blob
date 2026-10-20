@@ -32,6 +32,7 @@ from typing import Any
 from sqlalchemy import text
 
 from ..db.engine import session_scope, transaction
+from ..lib import queue as queue_lib
 from ..lib.redis import redis
 from ..plugins import agui, decisions
 from ..plugins.streams import Listener, stream_run
@@ -366,7 +367,14 @@ async def handle_agent_heard(run_id: str) -> None:
 
 async def resume_waiting_runs() -> int:
     """The net under the hop's own call: a waiting run whose hop finished a moment before
-    it began to wait, whose hop never started, or that has waited past the chain's wall."""
+    it began to wait, whose hop never started, or that has waited past the chain's wall.
+    Answers how many it handed on.
+
+    Each goes to an `agent_heard` job of its own rather than being carried on here: a
+    continuation is an agent run, up to ten minutes long, and this cron runs under the
+    worker's five-minute ceiling — one long answer would have been cut off mid-run.
+    `_hear` decides whether there is anything to tell yet, under its row lock, so a run
+    handed on twice is carried on once."""
     async with session_scope() as session:
         due = await agent_run_service.waiting_to_hear(
             session,
@@ -374,7 +382,7 @@ async def resume_waiting_runs() -> int:
             grace_sec=agui_delegate.NO_RUN_GRACE_SEC,
         )
     for run_id in due:
-        await handle_agent_heard(run_id)
+        await queue_lib.enqueue("agent_heard", run_id)
     return len(due)
 
 

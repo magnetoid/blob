@@ -737,7 +737,15 @@ async def _wake_askers(session: AsyncSession, after: Any, *, run_id: str, plugin
     for waiter in await agent_run_service.waiting_on(
         session, question_id=str(question), plugin_id=plugin_id
     ):
-        after.add(partial(queue_lib.fire_and_forget, queue_lib.enqueue("agent_heard", waiter)))
+        # The enqueue itself is made after the commit, not merely awaited then: built here,
+        # inside the transaction, a queue that starts work at once (as the tests' does)
+        # would hand the resume an ending that is not committed yet, and it would find the
+        # hop still running and wait for a call that has already come.
+        after.add(
+            lambda waiter=waiter: queue_lib.fire_and_forget(
+                queue_lib.enqueue("agent_heard", waiter)
+            )
+        )
 
 
 async def run_one(

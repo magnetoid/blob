@@ -90,9 +90,9 @@ async def agent_heard(_ctx: dict[str, Any], run_id: str) -> None:
 
 async def resume_waiting(_ctx: dict[str, Any]) -> None:
     """The net under that enqueue: waits whose answer came first, never came, or ran out."""
-    resumed = await resume_waiting_runs()
-    if resumed:
-        log.info("carried on %d run(s) that were waiting on another agent", resumed)
+    handed_on = await resume_waiting_runs()
+    if handed_on:
+        log.info("handed on %d run(s) waiting on another agent", handed_on)
 
 
 async def expire_agent_decisions(_ctx: dict[str, Any]) -> None:

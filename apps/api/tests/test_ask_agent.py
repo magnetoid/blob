@@ -357,6 +357,7 @@ class TestWaitingHoldsNothing:
         helper = next(r for r in await all_runs() if r.name == "Helper")
         assert helper.status == "waiting"
         assert await agui_job.resume_waiting_runs() == 1
+        await settle(pair)
         assert tool_results(pair)[-1] == "Planner answered:\n\nOutline."
 
     async def test_past_the_chains_wall_it_hears_the_agent_is_still_working(
@@ -373,11 +374,16 @@ class TestWaitingHoldsNothing:
         }
         await send_message(pair["owner"], pair["general"], "@Helper plan it")
 
-        async def waiting() -> Any:
+        async def both_going() -> Any:
+            # Helper waiting, and Planner's own run under way: before Planner's run exists
+            # the net would rightly say there is nothing to tell yet (it is inside the
+            # grace for a hop to start), and Planner's answer would carry Helper on instead.
             runs = await all_runs()
-            return next((r for r in runs if r.name == "Helper" and r.status == "waiting"), None)
+            helper = any(r.name == "Helper" and r.status == "waiting" for r in runs)
+            planner = any(r.name == "Planner" and r.status == "running" for r in runs)
+            return helper and planner
 
-        await until(waiting, "Helper waiting")
+        await until(both_going, "Helper waiting on a running Planner")
         assert await agui_job.resume_waiting_runs() == 1
         await settle(pair)
         assert tool_results(pair)[-1].startswith("Planner is still working on it.")
@@ -589,6 +595,33 @@ def test_the_question_key_is_one_per_call_and_never_an_answer_key() -> None:
     assert first != agui_delegate.question_key("run-1", "call_" + "x" * 299 + "y")
     assert not first.startswith("agui:")
     assert len(first) < 64
+
+
+class TestTheNetHandsOn:
+    async def test_the_cron_queues_each_resume_rather_than_running_it(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A continuation is an agent run, up to ten minutes; the cron runs under the
+        worker's five. So the cron only hands each waiting run on, as a job of its own."""
+        from blob_api.lib import queue as queue_module
+        from blob_api.services import agent_runs
+
+        async def due(*_args: Any, **_kwargs: Any) -> list[str]:
+            return ["r1", "r2"]
+
+        queued: list[tuple[Any, ...]] = []
+
+        async def record(job: str, *args: Any) -> None:
+            queued.append((job, *args))
+
+        async def must_not_run(run_id: str) -> None:
+            raise AssertionError("the cron carried a run on itself")
+
+        monkeypatch.setattr(agent_runs, "waiting_to_hear", due)
+        monkeypatch.setattr(queue_module, "enqueue", record)
+        monkeypatch.setattr(agui_job, "_hear", must_not_run)
+        assert await agui_job.resume_waiting_runs() == 2
+        assert queued == [("agent_heard", "r1"), ("agent_heard", "r2")]
 
 
 class TestWhatAWaitingRunHears:
