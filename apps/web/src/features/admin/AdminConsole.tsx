@@ -33,6 +33,7 @@ import { GeneralSection } from './sections/GeneralSection.tsx';
 import { GroupsSection } from './sections/GroupsSection.tsx';
 import { InvitationsSection } from './sections/InvitationsSection.tsx';
 import { JanusSection } from './sections/janus/JanusSection.tsx';
+import { McpServersSection } from './sections/McpServersSection.tsx';
 import { MeetupsSection } from './sections/calls/MeetupsSection.tsx';
 import { PeopleHub } from './sections/PeopleHub.tsx';
 import { ThemesSection } from './sections/ThemesSection.tsx';
@@ -84,6 +85,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   meetups: MeetupsSection,
   apps: AppsSection,
   janus: JanusSection,
+  'mcp-servers': McpServersSection,
   webhooks: WebhooksSection,
   deliveries: DeliveriesSection,
   connections: AssistantsAdminSection,

@@ -33,6 +33,7 @@ const EVERY_ROW = [
   'Video meetups',
   'Apps & agents',
   'Janus',
+  'MCP servers',
   'Webhooks',
   'Deliveries',
   'Assistants',
@@ -139,6 +140,7 @@ describe('who each admin page is for', () => {
     // /api/admin/plugins and its controls. What Janus runs on, /api/admin/janus, is the
     // instance admin's, and the page tells anybody else who can change it.
     janus: 'admin',
+    'mcp-servers': 'admin', // /api/admin/mcp-servers, and /api/admin/plugins for its agents
     webhooks: 'admin', // /api/admin/webhooks
     deliveries: 'admin', // /api/admin/deliveries
     connections: 'admin', // /api/admin/mcp-tokens

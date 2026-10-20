@@ -296,6 +296,7 @@ export function SeenLine({ seen }: { seen: AgentRunSeen }) {
     seen.memory ? 'its memory here' : '',
     seen.task ? 'a task' : '',
     seen.tools.length > 0 ? `tools: ${seen.tools.join(', ')}` : '',
+    seen.servers?.length ? `tools from ${seen.servers.join(', ')}` : '',
   ].filter(Boolean);
   return <div className="agent-run-seen">{parts.join(' · ')}</div>;
 }
@@ -405,7 +406,8 @@ export function RunWork({ card }: { card: RunCard }) {
           {card.tools.map((tool, index) => (
             <details key={index} className="agent-run-tool" data-status={tool.status}>
               <summary>
-                <code>{tool.name}</code>
+                <code>{tool.via ? toolNameOnServer(tool.name) : tool.name}</code>
+                {tool.via && <span className="agent-run-tool-via">{tool.via}</span>}
                 <span className="agent-run-tool-state">
                   {tool.status === 'done' ? 'done' : 'running…'}
                 </span>
@@ -432,6 +434,13 @@ export function RunWork({ card }: { card: RunCard }) {
       )}
     </>
   );
+}
+
+/** A server's tool is offered as `<server>__<tool>`; on the card the server is named beside
+ * it, so the name is the server's own (ADR 0027). */
+function toolNameOnServer(name: string): string {
+  const split = name.indexOf('__');
+  return split === -1 ? name : name.slice(split + 2);
 }
 
 function lineage(run: AgentRunView): string {

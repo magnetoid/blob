@@ -921,6 +921,17 @@ export const SECTIONS: Section[] = [
         keywords: ['follow', 'follows', 'ambient', 'listen', 'unprompted', 'without mention', 'watch channel'],
       },
       {
+        id: 'mcp-servers',
+        title: 'Tools from outside Blob',
+        blurb:
+          'An admin can connect an MCP server — GitHub, a docs search, a company’s own — and let chosen agents use its tools.',
+        body: [
+          'An admin connects the server on the MCP servers page and switches it on for the agents that should have it. Its tools then join the agent’s own: anyone who can ask that agent can have it look something up there, or open an issue, with the credential the admin gave Blob rather than their own.',
+          'Each tool runs at once or waits for you, as the admin chose. When one waits, you see the tool, the server and exactly what the agent would send, with Approve and Deny, under your message and on Home. Nothing leaves Blob until you approve it, and the card under your message names the server each call went to.',
+        ],
+        keywords: ['mcp', 'tools', 'connectors', 'integrations', 'github', 'outside', 'approve', 'server'],
+      },
+      {
         id: 'agent-terminal',
         title: 'A terminal in an agent',
         blurb: '/cli in a direct message with an agent opens a terminal panel beside the conversation.',

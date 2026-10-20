@@ -327,7 +327,10 @@ semantic search (reopen when a workspace asks), native apps, E2EE, Matrix.
 
 ---
 
-## Done so far (local, stacked branches; nothing merged)
+## Done so far
+
+M0 and M1 were released as 1.11.0 on 2026-10-19, and the Home pass as 1.11.1 the same
+day. M2 is in progress on branch `m2-tools`.
 
 ### M0 — done (branch `m0-truth`)
 
@@ -395,3 +398,25 @@ room, a cooldown and daily cap in Redis that fail closed, and a silent run visib
 the admin's run log (`agent_runs.addressed`, migration 0055). A scheduled run stays a
 scheduled message that mentions an agent; event triggers and an agent scheduling its own
 follow-up are not built, for the reasons ADR 0026 records.
+
+### A6 — done (ADR 0027): Blob as an MCP client
+
+An admin connects a server on the new MCP servers page; Blob lists its tools before keeping
+it and stores them with a policy each — `off`, `ask`, `auto_in_dm`, `auto_everywhere`,
+`write_approval`'s values, defaulting to `auto_everywhere` for a tool the server calls
+read-only and `ask` otherwise. Granted agents are offered them as `<slug>__<tool>` beside
+Blob's own tools; Blob makes every call with the server's credential, and an `ask` call
+stops the run like a post, showing the person every argument. Follow runs get none.
+
+Checked before building: the protocol moved to **2026-07-28** (stateless — no
+`initialize`, no session, `Mcp-Method`/`Mcp-Name` headers, `x-mcp-header` mirroring, MRTR,
+`server/discover`). The client is dual-era and hand-written, like Blob's own server: the
+official SDKs support the revision, but Blob needs four calls, the network guard in front
+of every request, and no task-group machinery inside a job. Gate met in tests: Blob's
+client lists and calls Blob's own `/api/mcp` over the new revision in-process, and a fake
+legacy server exercises the handshake, the session and its expiry.
+
+**Not built, on purpose** (the ADR says why): OAuth — an admin's for the workspace, and
+each person's own, which is what would let a write be made as the person — is the next
+slice here; the client-credentials extension (a draft nobody implements), resources,
+prompts, subscriptions, tasks, MCP Apps and stdio servers.

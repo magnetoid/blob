@@ -28,6 +28,7 @@ import { showError } from "../../../lib/toasts.ts";
 import { Card, CardNotice } from "../../console/Card.tsx";
 import { AppChannelList } from "./apps/AppChannelList.tsx";
 import { AgentFollows } from "./apps/AgentFollows.tsx";
+import { AgentMcpServers } from "./apps/AgentMcpServers.tsx";
 import { PluginCard } from "./apps/PluginCard.tsx";
 import { RecentErrors } from "./apps/RecentErrors.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
@@ -277,6 +278,10 @@ export function AppSettings({ pluginId, onError }: Props) {
               <option value="auto_everywhere">Without asking, anywhere</option>
             </select>
           </div>
+        )}
+
+        {(plugin.aguiUrl || plugin.runtime === "socket") && (
+          <AgentMcpServers pluginId={pluginId} agentName={plugin.name} />
         )}
 
         {(plugin.aguiUrl || plugin.runtime === "socket") && (

@@ -76,6 +76,7 @@ describe('the console’s nav', () => {
       'Video meetups',
       'Apps & agents',
       'Janus',
+      'MCP servers',
       'Webhooks',
       'Deliveries',
       'Assistants',
@@ -94,13 +95,13 @@ describe('the console’s nav', () => {
     expect(rows).not.toContain('App policy');
     expect(rows).not.toContain('Errors and logs');
     expect(rows).toContain('Health');
-    expect(rows).toHaveLength(14);
+    expect(rows).toHaveLength(15);
   });
 
   it('gives them to the server’s admin when they are a plain admin here', () => {
     signIn('admin', true);
     render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
     expect(navRows()).toContain('Errors and logs');
-    expect(navRows()).toHaveLength(16);
+    expect(navRows()).toHaveLength(17);
   });
 });

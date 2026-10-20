@@ -38,7 +38,7 @@ from ..plugins import agui, decisions, recent_errors, run_card, run_trail
 from ..plugins import events as plugin_events
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub
-from ..services import agent_chains, agent_files, task_dispatch
+from ..services import agent_chains, agent_files, mcp_servers, task_dispatch
 from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
@@ -1039,10 +1039,23 @@ def _after(
 
 @dataclass(slots=True)
 class _Tools:
-    """What one run may do with Blob's tools, decided once, as the run begins."""
+    """What one run may do with tools, decided once, as the run begins: Blob's own, and
+    those of the MCP servers an admin granted the agent (ADR 0027)."""
 
     names: frozenset[str]
     caller: Any = None
+    #: A server's tools, by the name the agent was offered (`<server>__<tool>`).
+    outside: dict[str, mcp_servers.OutsideTool] = field(default_factory=dict)
+
+    @property
+    def callable_names(self) -> frozenset[str]:
+        """Every name a call Blob runs may arrive under."""
+        return self.names | frozenset(self.outside)
+
+    @property
+    def in_their_dm(self) -> bool:
+        """The agent's own DM with the person: the run has no room bound (`room_for`)."""
+        return self.caller is not None and self.caller.room_channel_id is None
 
 
 async def _tools_for(
@@ -1050,11 +1063,22 @@ async def _tools_for(
 ) -> _Tools:
     """The tools this run may call, and the person they run as, inside the room."""
     names = agui_tools.offered_names(listener.tool_access)
+    outside: list[mcp_servers.OutsideTool] = []
     if not listener.addressed:
         # Nobody asked it anything (ADR 0026): it may look, and answer in its own words,
         # but nothing it could post or ask through a tool waits on a person who asked.
         names = names & frozenset(agui_tools.READ_TOOLS)
-    if not names:
+    else:
+        # A server's tools only when somebody addressed the agent (ADR 0027): a call goes
+        # out on the workspace's credential, and a message nobody addressed to the agent
+        # is the one case where no person chose to involve it at all.
+        try:
+            outside = await mcp_servers.tools_for_agent(workspace_id, listener.plugin_id)
+        except Exception:
+            # The servers are one thing; the agent answering is another, and a fault in
+            # reading the first must not cost the second.
+            log.warning("agui: could not read the MCP servers granted to an agent", exc_info=True)
+    if not names and not outside:
         return _Tools(frozenset())
     room = await agui_tools.room_for(
         channel_id=channel_id,
@@ -1066,8 +1090,11 @@ async def _tools_for(
         person_id=chain.initiated_by_user_id,
         room_channel_id=room,
     )
-    # The person the run is on behalf of is gone: there is nobody to read as.
-    return _Tools(names, caller) if caller is not None else _Tools(frozenset())
+    # The person the run is on behalf of is gone: there is nobody to read as, and nobody
+    # whose call a server's tool would be.
+    if caller is None:
+        return _Tools(frozenset())
+    return _Tools(names, caller, mcp_servers.by_offered_name(outside))
 
 
 async def _drive(
@@ -1103,11 +1130,22 @@ async def _drive(
         "memory": gathered.state is not None,
         "task": gathered.task is not None,
         "tools": sorted(tools.names),
+        # A server's tools by the server's name: sixty names of somebody else's tools are
+        # no summary of what a run was shown (ADR 0027).
+        **(
+            {"servers": sorted({tool.server_name for tool in tools.outside.values()})}
+            if tools.outside
+            else {}
+        ),
         "protocol": agui.PROTOCOL_VERSION if sent_1_0 else None,
         **({} if listener.addressed else {"addressed": False}),
     }
     deadline = time.monotonic() + settings.AGUI_MAX_RUN_SEC
-    card = run_card.CardFold(show_reasoning=listener.shows_reasoning)
+    card = run_card.CardFold(
+        show_reasoning=listener.shows_reasoning,
+        # A server's tool shows on the card with the server's name beside it.
+        via={name: tool.server_name for name, tool in tools.outside.items()},
+    )
     # Whether a reply from this run may carry the chain a hop further. Decided once, here,
     # from the depth budget; the job that picks the hop up applies the rest of the rules.
     # Never for a run nobody addressed (ADR 0026): its reply mentioning another agent would
@@ -1128,11 +1166,15 @@ async def _drive(
             run_id=run_id,
             workspace_id=workspace_id,
             sent_1_0=sent_1_0,
+            deadline=deadline,
         )
 
     # Offered only when there is somebody to run them as: tools listed to an agent whose
     # calls could never run would be a promise the run cannot keep.
-    offered = agui_tools.offered_for(tools.names)
+    offered = [
+        *agui_tools.offered_for(tools.names),
+        *(tool.as_offered() for tool in tools.outside.values()),
+    ]
     # Asking another agent posts in this run's conversation and waits inside this run's
     # wall clock, so it is bound to both here, once.
     ask = (
@@ -1232,7 +1274,7 @@ async def _drive(
         if not fold.state_dropped:
             state = fold.state
 
-        calls = fold.client_calls(tools.names) if tools.names else []
+        calls = fold.client_calls(tools.callable_names) if tools.callable_names else []
         if (
             not calls
             or streamed.cancelled
@@ -1260,6 +1302,7 @@ async def _drive(
             said=said,
             ask=ask,
             write_now=write_now,
+            deadline=deadline,
         )
         exchange = [*exchange, turn, *results]
         if pending is not None:
@@ -1384,21 +1427,32 @@ async def _run_calls(
         [agui.ToolCall, agui_tools.PreparedWrite], Awaitable[agui_tools.ToolOutcome]
     ]
     | None = None,
+    deadline: float | None = None,
 ) -> tuple[
     dict[str, Any],
     list[dict[str, Any]],
-    tuple[agui.ToolCall, agui_tools.PreparedWrite, list[agui.ToolCall]] | None,
+    tuple[
+        agui.ToolCall,
+        agui_tools.PreparedWrite | agui_tools.PreparedOutside,
+        list[agui.ToolCall],
+    ]
+    | None,
 ]:
     """Run one round's calls: the reads at once, a write only up to the person.
 
-    Answers the agent's turn as history, the results so far, and — when a write needs the
-    person — that write, checked, with the calls after it, which wait with it. Every call
-    the turn holds gets a result in the end: a model refuses a history with one missing.
+    Answers the agent's turn as history, the results so far, and — when a write or a
+    server's tool needs the person — that call, checked, with the calls after it, which
+    wait with it. Every call the turn holds gets a result in the end: a model refuses a
+    history with one missing.
     """
     turn = agui_tools.assistant_turn(calls, said)
     results: list[dict[str, Any]] = []
+    until = deadline if deadline is not None else time.monotonic() + settings.AGUI_MAX_RUN_SEC
     for index, call in enumerate(calls):
+        outside = tools.outside.get(call.name)
         with _tool_span(call.name, call.id) as tool_span:
+            if outside is not None:
+                tool_span.set_attribute("blob.mcp.server", outside.slug)
             if index >= agui_tools.MAX_CALLS_PER_ROUND:
                 outcome = agui_tools.not_run(
                     f"one turn runs at most {agui_tools.MAX_CALLS_PER_ROUND} calls"
@@ -1431,11 +1485,29 @@ async def _run_calls(
                     else agui_tools.not_run("there is nobody to ask it for")
                 )
                 said_of = _outcome_of(outcome)
+            elif outside is not None:
+                # A server's tool (ADR 0027): checked, then run at once or put to the
+                # person, as the admin's policy for it says.
+                checked = agui_tools.prepare_outside(outside, call)
+                if not isinstance(checked, agui_tools.PreparedOutside):
+                    outcome = checked
+                elif outside.runs_without_asking(in_their_dm=tools.in_their_dm):
+                    outcome = await agui_tools.run_outside(
+                        outside, checked.arguments, deadline=until
+                    )
+                else:
+                    tool_span.set_attribute("blob.tool.outcome", "asked")
+                    await metrics.outside_tool_called(outside.slug, outside.name, "asked")
+                    return turn, results, (call, checked, list(calls[index + 1 :]))
+                said_of = _outcome_of(outcome)
             else:
                 outcome = await agui_tools.run_read(tools.caller, call)
                 said_of = _outcome_of(outcome)
             _tool_ended(tool_span, said_of)
-        await metrics.tool_called("agent", call.name, said_of)
+        if outside is not None:
+            await metrics.outside_tool_called(outside.slug, outside.name, said_of)
+        else:
+            await metrics.tool_called("agent", call.name, said_of)
         # On the card too: what each call came back with, for the people reading along.
         card.feed({"type": "TOOL_CALL_RESULT", "toolCallId": call.id, "content": outcome.summary})
         results.append(agui_tools.tool_message(call.id, outcome, speaks_1_0=sent_1_0))
@@ -1478,28 +1550,71 @@ async def _settle_approval(
     run_id: str,
     workspace_id: str,
     sent_1_0: bool,
+    deadline: float,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Run or decline the write the person answered, and answer the calls that waited
-    behind it. Returns the exchange to carry on from, and the round to carry on in."""
+    """Run or decline what the person answered — a post, or a call to a server's tool —
+    and answer the calls that waited behind it. Returns the exchange to carry on from, and
+    the round to carry on in."""
     call_id = str(resumed.call.get("id") or "")
     tool_name = str(resumed.call.get("name") or "post_message")
+    outside = agui_tools.is_outside(resumed.prepared)
     with _tool_span(tool_name, call_id) as tool_span:
-        outcome = await _approved_write(
-            listener, resumed, tools, run_id=run_id, workspace_id=workspace_id, call_id=call_id
-        )
+        if outside:
+            outcome, server = await _approved_call(resumed, tools, deadline=deadline)
+        else:
+            outcome = await _approved_write(
+                listener, resumed, tools, run_id=run_id, workspace_id=workspace_id, call_id=call_id
+            )
         said_of = "declined" if not resumed.approved else _outcome_of(outcome)
         _tool_ended(tool_span, said_of)
-    await metrics.tool_called("agent", tool_name, said_of)
+    if outside:
+        await metrics.outside_tool_called(
+            server, str(resumed.prepared.get("tool") or "unknown"), said_of
+        )
+    else:
+        await metrics.tool_called("agent", tool_name, said_of)
+    waited = "a call" if outside else "a post"
     results = [agui_tools.tool_message(call_id, outcome, speaks_1_0=sent_1_0)]
     for later in resumed.later:
         results.append(
             agui_tools.tool_message(
                 str(later.get("id") or ""),
-                agui_tools.not_run("it waited behind a post the person was asked about"),
+                agui_tools.not_run(f"it waited behind {waited} the person was asked about"),
                 speaks_1_0=sent_1_0,
             )
         )
     return [*resumed.exchange, *results], resumed.round + 1
+
+
+async def _approved_call(
+    resumed: agent_chains.ToolResume, tools: _Tools, *, deadline: float
+) -> tuple[agui_tools.ToolOutcome, str]:
+    """The call to a server's tool the person answered: declined, no longer possible, or
+    run. Found again by server and tool, as this run is offered them now — a server
+    removed, switched off or no longer granted since the question is not called. Answers
+    the outcome and the server's slug, for counting."""
+    prepared = agui_tools.PreparedOutside.from_dict(resumed.prepared)
+    tool = (
+        next(
+            (
+                candidate
+                for candidate in tools.outside.values()
+                if candidate.server_id == prepared.server_id and candidate.name == prepared.tool
+            ),
+            None,
+        )
+        if prepared is not None
+        else None
+    )
+    server = tool.slug if tool is not None else "removed"
+    if not resumed.approved:
+        return agui_tools.DECLINED_CALL, server
+    if prepared is None or tool is None:
+        return (
+            agui_tools.ToolOutcome("", "Approved, but that tool is no longer one you may use."),
+            server,
+        )
+    return await agui_tools.run_outside(tool, prepared.arguments, deadline=deadline), server
 
 
 async def _approved_write(

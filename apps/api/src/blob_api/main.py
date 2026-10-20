@@ -342,6 +342,7 @@ def create_app() -> FastAPI:
     from .routers.mcp import admin_tokens_router as mcp_admin_tokens_router
     from .routers.mcp import router as mcp_router
     from .routers.mcp import tokens_router as mcp_tokens_router
+    from .routers.mcp_servers import router as mcp_servers_router
     from .routers.messages import router as message_router
     from .routers.metrics import router as metrics_router
     from .routers.my_agents import router as my_agents_router
@@ -367,6 +368,7 @@ def create_app() -> FastAPI:
     app.include_router(mcp_router)
     app.include_router(mcp_tokens_router)
     app.include_router(mcp_admin_tokens_router)
+    app.include_router(mcp_servers_router)
     app.include_router(metrics_router)
     app.include_router(file_router)
     app.include_router(feedback_router)

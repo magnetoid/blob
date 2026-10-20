@@ -490,6 +490,11 @@ export interface AgentRunCard {
     status: 'running' | 'done';
     args: string;
     result: string | null;
+    /**
+     * The MCP server a tool belongs to, by name, when it is one an admin connected rather
+     * than Blob's or the agent's own (ADR 0027). Absent for every other tool.
+     */
+    via?: string;
   }>;
   activity: string | null;
   /**
@@ -571,6 +576,8 @@ export interface AgentRunSeen {
   task: boolean;
   /** Blob's tools it was offered (ADR 0022), by name. */
   tools: string[];
+  /** MCP servers whose tools it was offered (ADR 0027), by name. Absent when none were. */
+  servers?: string[];
   /** The AG-UI it was spoken to in, when it declared one. */
   protocol: string | null;
 }

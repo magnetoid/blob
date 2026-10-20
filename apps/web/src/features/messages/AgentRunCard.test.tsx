@@ -13,7 +13,7 @@ import type { AgentRunCard as RunCard, AgentRunView } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { useToasts } from '../../lib/toasts.ts';
-import { AgentRunCard } from './AgentRunCard.tsx';
+import { AgentRunCard, SeenLine } from './AgentRunCard.tsx';
 
 afterEach(() => {
   cleanup();
@@ -336,6 +336,54 @@ describe('a finished run in a conversation', () => {
     expect(container.querySelector('.agent-run-line')?.textContent).toBe(
       'Helper · asked by Janus · hop 2 · 7s',
     );
+  });
+
+  it('says which MCP servers a run was offered tools from, not every tool on them', () => {
+    render(
+      <SeenLine
+        seen={{
+          messages: 3,
+          window: 'channel',
+          files: 0,
+          instructions: false,
+          memory: false,
+          task: false,
+          tools: ['read_channel'],
+          servers: ['GitHub', 'Linear'],
+          protocol: null,
+        }}
+      />,
+    );
+    expect(
+      screen.getByText('Saw 3 messages of this channel · tools: read_channel · tools from GitHub, Linear'),
+    ).toBeTruthy();
+  });
+
+  it('names the MCP server a tool call went to, beside the tool’s own name', () => {
+    render(
+      <AgentRunCard
+        run={run({
+          status: 'running',
+          card: work({
+            tools: [
+              {
+                name: 'github__create_issue',
+                status: 'done',
+                args: '{}',
+                result: 'Opened #12',
+                via: 'GitHub',
+              },
+              { name: 'read_channel', status: 'done', args: '{}', result: 'ok' },
+            ],
+          }),
+        })}
+      />,
+    );
+    expect(screen.getByText('create_issue')).toBeTruthy();
+    expect(screen.getByText('GitHub')).toBeTruthy();
+    expect(screen.queryByText('github__create_issue')).toBeNull();
+    // Blob's own tools keep their names, with no server beside them.
+    expect(screen.getByText('read_channel')).toBeTruthy();
   });
 
   it('keeps the steps behind one disclosure', () => {

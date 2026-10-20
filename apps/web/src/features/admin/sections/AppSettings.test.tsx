@@ -19,9 +19,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// An agent's page also lists the channels it follows (`AgentFollows`); none, here.
+// An agent's page also lists the channels it follows (`AgentFollows`) and the MCP servers
+// it may use (`AgentMcpServers`); none of either, here.
 beforeEach(() => {
   vi.spyOn(api.admin, 'agentFollows').mockResolvedValue({ channels: [] });
+  vi.spyOn(api.admin, 'mcpServers').mockResolvedValue({ servers: [] });
 });
 
 const ME = { id: 'u1', kind: 'human', displayName: 'Marko', deactivated: false };

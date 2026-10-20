@@ -62,7 +62,8 @@ class ToolResume:
     approved: bool
     #: The call the agent made: its id, name and arguments.
     call: dict[str, Any]
-    #: The write as it was checked and put to the person (`agui_tools.PreparedWrite`).
+    #: What was checked and put to the person: a post (`agui_tools.PreparedWrite`) or a
+    #: call to a server's tool (`agui_tools.PreparedOutside`, `kind: "mcp"`).
     prepared: dict[str, Any]
     #: Calls the agent made after the write in the same turn, which were not run.
     later: list[dict[str, Any]]

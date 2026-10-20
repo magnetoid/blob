@@ -272,6 +272,24 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `/api/admin/mcp-servers` (ADR 0027): any admin's, like the agents it serves.
+    id: 'mcp-servers',
+    label: 'MCP servers',
+    description:
+      'Tools from outside Blob that agents may use — which agents, and which calls wait for the person who asked.',
+    keywords: [
+      'mcp',
+      'tools',
+      'connectors',
+      'integrations',
+      'servers',
+      'github',
+      'linear',
+      'notion',
+    ],
+    access: 'admin',
+  },
+  {
     id: 'webhooks',
     label: 'Webhooks',
     description: 'Incoming URLs that let another system post into a channel here.',

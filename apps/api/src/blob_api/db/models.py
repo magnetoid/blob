@@ -1646,6 +1646,114 @@ class AgentFollow(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class McpServer(Base):
+    """A server an admin connected, whose tools chosen agents may use (ADR 0027).
+
+    Blob is the MCP client: it lists the server's tools when an admin connects or
+    refreshes it, offers them to the agents granted the server, and makes every call
+    itself with the credential in `mcp_server_secrets`. `era` and `protocol_version` are
+    what the server last answered with, so a call need not probe again.
+    """
+
+    __tablename__ = "mcp_servers"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "slug", name="mcp_servers_slug_uniq"),
+        Index("mcp_servers_name_uniq", "workspace_id", func.lower(text("name")), unique=True),
+        CheckConstraint("era IN ('modern', 'legacy')", name="mcp_servers_era_check"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    #: What people call it. Unique in the workspace, whatever the case.
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    #: The prefix of its tools' names as agents see them (`github__create_issue`). Made
+    #: from the name once, and never changed: lowercase letters, digits and hyphens.
+    slug: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    era: Mapped[str | None] = mapped_column(Text)
+    protocol_version: Mapped[str | None] = mapped_column(Text)
+    #: What the server says it is (`serverInfo`). Shown, never trusted.
+    server_name: Mapped[str | None] = mapped_column(Text)
+    server_version: Mapped[str | None] = mapped_column(Text)
+    #: When its tools were last listed.
+    checked_at: Mapped[Any | None] = mapped_column(Timestamp)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    last_error_at: Mapped[Any | None] = mapped_column(Timestamp)
+    created_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class McpServerSecret(Base):
+    """The header a server is called with, apart from the server's row as an app's signing
+    secret is (`plugin_secrets`): read where a request is made, and never returned."""
+
+    __tablename__ = "mcp_server_secrets"
+
+    server_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("mcp_servers.id", ondelete="CASCADE"), primary_key=True
+    )
+    header_name: Mapped[str] = mapped_column(Text, nullable=False)
+    header_value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class McpServerTool(Base):
+    """One tool a server listed, as Blob checked it, and whether agents may call it.
+
+    `policy` is the admin's: `off`, or how a call waits for the person who asked — every
+    time, only outside the agent's DM with them, or never. It starts at `auto_everywhere`
+    for a tool the server says only reads (`read_only`) and at `ask` for anything else.
+    """
+
+    __tablename__ = "mcp_server_tools"
+    __table_args__ = (
+        PrimaryKeyConstraint("server_id", "name", name="mcp_server_tools_pkey"),
+        CheckConstraint(
+            "policy IN ('off', 'ask', 'auto_in_dm', 'auto_everywhere')",
+            name="mcp_server_tools_policy_check",
+        ),
+    )
+
+    server_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("mcp_servers.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    #: The server's own order, kept so an agent is offered the same list every run.
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str | None] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    input_schema: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    read_only: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    policy: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'ask'"))
+
+
+class AgentMcpServer(Base):
+    """An agent an admin let use a server's tools (ADR 0027)."""
+
+    __tablename__ = "agent_mcp_servers"
+    __table_args__ = (Index("agent_mcp_servers_server", "server_id"),)
+
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), primary_key=True
+    )
+    server_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("mcp_servers.id", ondelete="CASCADE"), primary_key=True
+    )
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    created_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class BotToken(Base):
     __tablename__ = "bot_tokens"
     __table_args__ = (Index("bot_tokens_plugin", "plugin_id"),)
@@ -1773,6 +1881,7 @@ class McpToken(Base):
 
 __all__ = [
     "AgentFollow",
+    "AgentMcpServer",
     "AgentTask",
     "Attachment",
     "AuditEvent",
@@ -1785,6 +1894,9 @@ __all__ = [
     "CustomEmoji",
     "FeedbackTicket",
     "Invite",
+    "McpServer",
+    "McpServerSecret",
+    "McpServerTool",
     "Message",
     "PasswordReset",
     "Plugin",

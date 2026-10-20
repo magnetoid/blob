@@ -521,6 +521,50 @@ export interface FollowedChannel {
   since: string;
 }
 
+/** What an admin decided for one tool on an MCP server (ADR 0027): `off`, or when a call
+ * waits for the person who asked — every time, only outside the agent's DM, or never. */
+export type McpToolPolicy = "off" | "ask" | "auto_in_dm" | "auto_everywhere";
+
+export interface McpTool {
+  name: string;
+  title: string | null;
+  description: string;
+  /** What the server says of it. It set the starting policy and nothing more. */
+  readOnly: boolean;
+  policy: McpToolPolicy;
+}
+
+/** A server whose tools chosen agents may use, through Blob (ADR 0027). */
+export interface McpServer {
+  id: string;
+  name: string;
+  /** The prefix of its tools' names as agents see them: `<slug>__<tool>`. */
+  slug: string;
+  url: string;
+  enabled: boolean;
+  auth: "none" | "bearer" | "header";
+  /** The header's name when `auth` is `header`. A secret is never sent back. */
+  authHeader: string | null;
+  era: "modern" | "legacy" | null;
+  protocolVersion: string | null;
+  serverName: string | null;
+  serverVersion: string | null;
+  checkedAt: string | null;
+  lastError: string | null;
+  lastErrorAt: string | null;
+  createdAt: string;
+  tools: McpTool[];
+  agentIds: string[];
+  /** Tools the server listed that Blob left out, with why — only right after a listing. */
+  skipped: string[];
+}
+
+export interface McpServerAuthInput {
+  kind: "none" | "bearer" | "header";
+  value?: string;
+  header?: string;
+}
+
 export interface AdminPluginCatalog {
   scopes: Record<string, string>;
   events: Record<string, string>;
@@ -1469,6 +1513,26 @@ export const api = {
       del<{ channels: FollowedChannel[] }>(
         `/api/admin/plugins/${pluginId}/follows/${channelId}`,
       ),
+
+    // MCP servers (ADR 0027): tools from outside Blob that chosen agents may use. Blob
+    // lists a server before keeping it, holds its credential, and makes every call.
+    mcpServers: () => get<{ servers: McpServer[] }>("/api/admin/mcp-servers"),
+    addMcpServer: (input: { name: string; url: string; auth: McpServerAuthInput }) =>
+      post<McpServer>("/api/admin/mcp-servers", input),
+    changeMcpServer: (
+      serverId: string,
+      input: { name?: string; url?: string; auth?: McpServerAuthInput; enabled?: boolean },
+    ) => patch<McpServer>(`/api/admin/mcp-servers/${serverId}`, input),
+    refreshMcpServer: (serverId: string) =>
+      post<McpServer>(`/api/admin/mcp-servers/${serverId}/refresh`),
+    removeMcpServer: (serverId: string) =>
+      del<{ ok: true }>(`/api/admin/mcp-servers/${serverId}`),
+    setMcpToolPolicy: (serverId: string, name: string, policy: McpToolPolicy) =>
+      put<McpServer>(`/api/admin/mcp-servers/${serverId}/tools`, { name, policy }),
+    grantMcpServer: (serverId: string, pluginId: string) =>
+      put<McpServer>(`/api/admin/mcp-servers/${serverId}/agents/${pluginId}`),
+    revokeMcpServer: (serverId: string, pluginId: string) =>
+      del<McpServer>(`/api/admin/mcp-servers/${serverId}/agents/${pluginId}`),
 
     // Agents installed from a repository. Preview first: the scopes have to be seen
     // before anything is approved.

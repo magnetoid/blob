@@ -8619,6 +8619,9 @@ a.build-commit-sha:hover {
   font-size: var(--text-sm);
   color: var(--text-2);
   overflow-wrap: anywhere;
+  /* An approval quotes what would be posted, or lists what a server's tool would be
+     sent, a line each; collapsed into one run of text it could not be checked. */
+  white-space: pre-line;
 }
 .agent-run-decision-choices {
   display: flex;
@@ -10583,6 +10586,7 @@ button.home-stat:active {
   line-height: 1.45;
   color: var(--text);
   overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
 /* Inside the row the link starts where the question's words do, not 6px in. */
@@ -11264,4 +11268,107 @@ button.call-bar-where {
 }
 .recent-error-at {
   color: var(--text-3);
+}
+
+/* ── MCP servers (ADR 0027) ───────────────────────────────────────────────────────── */
+
+/* On a run card: the server a tool call went to, beside the tool's own name. */
+.agent-run-tool-via {
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--text-3);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+}
+
+/* The admin page: one card per server. */
+/* Its own line above the status sentence, which would otherwise run on from it. */
+.mcp-server-url {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.mcp-server[data-enabled='false'] .console-card-title {
+  color: var(--text-3);
+}
+
+.mcp-server-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.mcp-part {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.mcp-tools {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mcp-tool {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.mcp-tool:first-child {
+  border-top: 0;
+}
+
+.mcp-tool-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+  font-size: var(--text-row);
+  font-weight: 600;
+}
+
+.mcp-tool-desc {
+  display: -webkit-box;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--text-sm);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.mcp-tool > .input {
+  flex: 0 1 300px;
+  max-width: 300px;
+}
+
+.mcp-change > summary {
+  width: fit-content;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.mcp-change[open] > summary {
+  margin-bottom: var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .mcp-tool {
+    flex-wrap: wrap;
+  }
+
+  .mcp-tool > .input {
+    flex-basis: 100%;
+    max-width: none;
+  }
 }

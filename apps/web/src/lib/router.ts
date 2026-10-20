@@ -30,6 +30,7 @@ export const ADMIN_SECTIONS = [
   'meetups',
   'apps',
   'janus',
+  'mcp-servers',
   'webhooks',
   'deliveries',
   'connections',

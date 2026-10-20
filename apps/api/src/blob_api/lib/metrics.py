@@ -66,6 +66,11 @@ TOOL_CALLS = Family(
     "counter",
     "Blob's tools called, by an agent in a run or an assistant over MCP, by outcome.",
 )
+MCP_SERVER_CALLS = Family(
+    "blob_mcp_server_calls_total",
+    "counter",
+    "Tools on MCP servers an admin connected, called by agents, by server, tool and outcome.",
+)
 IN_FLIGHT = Family("blob_agent_runs_in_flight", "gauge", "Agent runs going right now, by agent.")
 WAITING = Family(
     "blob_agent_decisions_waiting",
@@ -74,7 +79,7 @@ WAITING = Family(
 )
 
 #: What a scrape renders from the hash, in this order.
-COUNTED = (RUNS, RUN_SECONDS, TOKENS, TOOL_CALLS)
+COUNTED = (RUNS, RUN_SECONDS, TOKENS, TOOL_CALLS, MCP_SERVER_CALLS)
 
 
 def _escape(value: str) -> str:
@@ -154,6 +159,13 @@ async def run_ended(
 async def tool_called(via: Literal["agent", "mcp"], tool: str, outcome: str) -> None:
     """One call to one of Blob's tools, and what came of it."""
     await count(TOOL_CALLS, {"via": via, "tool": tool, "outcome": outcome})
+
+
+async def outside_tool_called(server: str, tool: str, outcome: str) -> None:
+    """One call to a tool on an MCP server an admin connected (ADR 0027), by the server's
+    slug and the tool's own name: `asked` when it was put to the person, then what came of
+    it — `ok`, `refused`, `failed`, `declined`."""
+    await count(MCP_SERVER_CALLS, {"server": server, "tool": tool[:128], "outcome": outcome})
 
 
 def _sample_name(field: str) -> str:

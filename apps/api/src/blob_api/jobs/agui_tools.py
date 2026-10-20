@@ -21,26 +21,35 @@ Three rules make that safe to offer, and this module is where they are kept:
   agent post without asking in its own DM with the person, or everywhere
   (`writes_without_asking`); the checks are the same either way.
 
+Tools from an MCP server an admin connected (ADR 0027) ride the same path: offered beside
+Blob's own, under `<server>__<tool>` names, and run here with the server's credential —
+at once, or after the person's Approve, as the tool's policy says (`run_outside`,
+`PreparedOutside`). They need no caller: they read nothing of Blob's.
+
 What a tool says back is data: it reaches the agent as a `tool` message and nowhere else.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
+import time
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import text
 
+from ..config import settings
 from ..db.engine import session_scope
 from ..lib.errors import AppError
 from ..lib.ids import new_id
+from ..plugins import mcp_client
 from ..plugins.agui import ToolCall
 from ..services import channels as channel_service
 from ..services import mcp as mcp_service
-from ..services import mcp_catalogue
+from ..services import mcp_catalogue, mcp_servers
 
 log = logging.getLogger("blob.jobs.agui")
 
@@ -216,6 +225,123 @@ class PreparedWrite:
             text=str(body),
             thread_root_id=root if isinstance(root, str) and root else None,
         )
+
+
+#: What one call to a server's tool may carry as arguments, in bytes of JSON.
+OUTSIDE_ARGUMENTS_MAX_BYTES = 64 * 1024
+
+
+@dataclass(slots=True)
+class PreparedOutside:
+    """A call to a server's tool, waiting for the person (ADR 0027).
+
+    Kept by the server's id and the tool's own name, not the name the agent was offered:
+    a server renamed or refreshed while the question waits still finds its tool, and one
+    removed or switched off by then is said to be gone rather than called.
+    """
+
+    server_id: str
+    server_name: str
+    tool: str
+    title: str | None
+    arguments: dict[str, Any]
+
+    @property
+    def label(self) -> str:
+        return f"“{self.title or self.tool}” on {self.server_name}"
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "kind": "mcp",
+            "serverId": self.server_id,
+            "server": self.server_name,
+            "tool": self.tool,
+            "title": self.title,
+            "arguments": self.arguments,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> PreparedOutside | None:
+        server_id, server, tool = raw.get("serverId"), raw.get("server"), raw.get("tool")
+        arguments = raw.get("arguments")
+        if not all(isinstance(v, str) and v for v in (server_id, server, tool)):
+            return None
+        if not isinstance(arguments, dict):
+            return None
+        title = raw.get("title")
+        return cls(
+            server_id=str(server_id),
+            server_name=str(server),
+            tool=str(tool),
+            title=title if isinstance(title, str) and title else None,
+            arguments=arguments,
+        )
+
+
+def is_outside(prepared: dict[str, Any]) -> bool:
+    """Whether a stored approval is for a server's tool rather than a post."""
+    return prepared.get("kind") == "mcp"
+
+
+def prepare_outside(tool: mcp_servers.OutsideTool, call: ToolCall) -> PreparedOutside | ToolOutcome:
+    """Check a call before anyone is asked about it: arguments a server could take."""
+    arguments = call.parsed_arguments()
+    if arguments is None:
+        return ToolOutcome("", "The arguments were not a JSON object.")
+    if len(json.dumps(arguments)) > OUTSIDE_ARGUMENTS_MAX_BYTES:
+        return ToolOutcome("", "The arguments are larger than Blob will send to a server.")
+    return PreparedOutside(
+        server_id=tool.server_id,
+        server_name=tool.server_name,
+        tool=tool.name,
+        title=tool.title,
+        arguments=arguments,
+    )
+
+
+async def run_outside(
+    tool: mcp_servers.OutsideTool, arguments: dict[str, Any], *, deadline: float
+) -> ToolOutcome:
+    """Call a server's tool with the server's credential. Never raises.
+
+    The call's own ceiling is `MCP_CALL_TIMEOUT_SEC`, and never past the run's wall clock.
+    A tool that refused answers the agent with its words; a server that could not be
+    reached says so on its row too, for the admin who connected it.
+    """
+    timeout = min(settings.MCP_CALL_TIMEOUT_SEC, max(1.0, deadline - time.monotonic()))
+    try:
+        result = await mcp_client.call_tool(
+            tool.endpoint, tool.name, tool.input_schema, arguments, timeout_sec=timeout
+        )
+    except mcp_client.McpError as error:
+        await mcp_servers.note_failure(tool.server_id, error.message)
+        return ToolOutcome("", f"{tool.server_name}: {error.message}", failed=True)
+    except Exception:
+        log.warning("agui: a call to %s failed inside Blob", tool.server_name, exc_info=True)
+        return ToolOutcome("", f"Blob could not call {tool.server_name}.", failed=True)
+    if (result.era, result.protocol_version) != (
+        tool.endpoint.era,
+        tool.endpoint.protocol_version,
+    ):
+        await mcp_servers.note_era(tool.server_id, result.era, result.protocol_version)
+    if result.is_error:
+        return ToolOutcome("", _capped(result.text))
+    return ToolOutcome(_capped(result.text))
+
+
+def _argument_lines(arguments: dict[str, Any], *, limit: int = 1500) -> str:
+    """The arguments as a person reads them: one item each, long values cut. A list, so the
+    channel's message and its decision block — both markdown — keep one to a line, as the
+    card and Home do."""
+    lines: list[str] = []
+    for key, value in arguments.items():
+        shown = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        shown = " ".join(str(shown).split())
+        if len(shown) > 300:
+            shown = shown[:299] + "…"
+        lines.append(f"- {key}: {shown}")
+    joined = "\n".join(lines) or "(no arguments)"
+    return joined if len(joined) <= limit else joined[: limit - 1] + "…"
 
 
 async def room_for(*, channel_id: str, bot_user_id: str, person_id: str) -> str | None:
@@ -407,23 +533,35 @@ async def run_write(
 
 
 DECLINED = ToolOutcome("", "The person you are working for declined: it was not posted.")
+DECLINED_CALL = ToolOutcome("", "The person you are working for declined: it was not run.")
 
 
 def not_run(reason: str) -> ToolOutcome:
     return ToolOutcome("", f"Not run: {reason}")
 
 
-def approval_item(agent_name: str, call: ToolCall, prepared: PreparedWrite) -> dict[str, Any]:
+def approval_item(
+    agent_name: str, call: ToolCall, prepared: PreparedWrite | PreparedOutside
+) -> dict[str, Any]:
     """The question an approval puts to the person, in the interrupt shape decisions read.
 
     Its id is the call's, so the answer settles that call; the schema mints two buttons.
+    A post shows what would be posted; a call to a server's tool shows what it would be
+    sent — the spec's ask of a client, so nothing leaves Blob that the person did not see.
     """
-    preview = prepared.text if len(prepared.text) <= 1500 else prepared.text[:1499] + "…"
-    quoted = "\n".join(f"> {line}" if line else ">" for line in preview.splitlines())
+    if isinstance(prepared, PreparedOutside):
+        message = (
+            f"{agent_name} wants to use {prepared.label}, outside Blob, with:\n\n"
+            f"{_argument_lines(prepared.arguments)}"
+        )
+    else:
+        preview = prepared.text if len(prepared.text) <= 1500 else prepared.text[:1499] + "…"
+        quoted = "\n".join(f"> {line}" if line else ">" for line in preview.splitlines())
+        message = f"{agent_name} wants to post in {prepared.label}:\n\n{quoted}"
     return {
         "id": call.id,
         "reason": "tool_approval",
-        "message": f"{agent_name} wants to post in {prepared.label}:\n\n{quoted}",
+        "message": message,
         "responseSchema": {
             "oneOf": [
                 {"const": True, "title": "Approve"},
@@ -503,22 +641,27 @@ __all__ = [
     "ACCESS_LEVELS",
     "APPROVAL_LEVELS",
     "DECLINED",
+    "DECLINED_CALL",
     "DELEGATE_TOOLS",
     "MAX_CALLS_PER_ROUND",
     "MAX_TOOL_ROUNDS",
     "READ_TOOLS",
     "WRITE_TOOLS",
+    "PreparedOutside",
     "PreparedWrite",
     "ToolOutcome",
     "approval_item",
     "assistant_turn",
     "caller_for",
+    "is_outside",
     "not_run",
     "offered",
     "offered_for",
     "offered_names",
+    "prepare_outside",
     "prepare_write",
     "room_for",
+    "run_outside",
     "run_read",
     "run_write",
     "tool_message",

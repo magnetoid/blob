@@ -65,8 +65,13 @@ class CardFold:
     switch (`Listener.shows_reasoning`), and until the console has one, nothing sets it.
     """
 
-    def __init__(self, *, show_reasoning: bool = False) -> None:
+    def __init__(
+        self, *, show_reasoning: bool = False, via: Mapping[str, str] | None = None
+    ) -> None:
         self._show_reasoning = show_reasoning
+        #: The server a tool belongs to, by the name the agent was offered — a tool from an
+        #: MCP server an admin connected (ADR 0027) is drawn with the server's name beside it.
+        self._via = dict(via or {})
         self._steps: list[dict[str, Any]] = []
         self._tools: list[dict[str, Any]] = []
         self._tool_index: dict[str, dict[str, Any]] = {}
@@ -204,7 +209,9 @@ class CardFold:
         if len(self._tools) >= MAX_TOOLS:
             self._dropped += 1
             return False
-        tool = {"name": name, "status": "running", "args": "", "result": None}
+        tool: dict[str, Any] = {"name": name, "status": "running", "args": "", "result": None}
+        if name in self._via:
+            tool["via"] = self._via[name]
         self._tools.append(tool)
         if call_id:
             self._tool_index[call_id] = tool
