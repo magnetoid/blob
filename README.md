@@ -305,8 +305,8 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
   says so rather than inventing a summary.
 - **Later** — save any message to a private shortlist, or have it come back at one of five
   preset times. Pinning tells the channel; this tells nobody.
-- **Home** — what needs you, which agents are running, your open tasks, who is here now,
-  and a box to ask the workspace's agent from.
+- **Home** — what needs you, which agents are running, your open tasks, what was decided
+  lately, who is here now, and a box to ask the workspace's agent from.
 
 </details>
 
@@ -347,6 +347,9 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 
 - **Tasks** — shared work items for people and agents, extracted from a thread or created
   directly, with owners, priorities and due dates, listed on Home.
+- **Decision log** — what a conversation settled, recorded from a message's menu, a
+  summary's decisions or `/decision`, linked back to where it was decided and as private
+  as that conversation. A decision that stops standing is revoked, not deleted.
 - **Thread summaries** — decisions, open questions and action items pulled out of a long
   thread, each pointing at the message it came from. A model writes it when one is
   configured; otherwise a keyword scan does, and says so.
@@ -354,9 +357,9 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
   through a transactional outbox, interactive blocks and buttons, and app-provided slash
   commands that appear in the same list as the built-ins.
 - **Incoming webhooks** — post into a channel from CI or a cron job.
-- **Slash commands** — eighteen built-ins, plus whatever the installed apps add:
-  `/help` `/shrug` `/me` `/topic` `/leave` `/away` `/invite` `/remove` `/join` `/rename`
-  `/mute` `/archive` `/who` `/dm` `/status` `/remind` `/allow` `/disallow`
+- **Slash commands** — nineteen built-ins, plus whatever the installed apps add:
+  `/help` `/shrug` `/me` `/decision` `/topic` `/leave` `/away` `/invite` `/remove` `/join`
+  `/rename` `/mute` `/archive` `/who` `/dm` `/status` `/remind` `/allow` `/disallow`
 
 </details>
 
@@ -364,8 +367,9 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 <summary><b>Running a workspace</b> — two consoles, feedback, What's new</summary>
 
 - **Workspace console** — name, appearance, members and roles, user groups, invitations,
-  every channel including the private ones, apps and agents with their runs and errors,
-  Janus, connected assistants, webhooks, deliveries, custom emoji.
+  every channel including the private ones, apps and agents with their runs, errors and
+  budgets, Janus, MCP servers, usage and prices, connected apps and assistant tokens,
+  webhooks, deliveries, custom emoji.
 - **Server console** — every account and workspace on the instance, per-workspace app
   policy, live health, the audit log, error logs, and feedback filed from inside the app.
 - **Feedback** — anyone can file a bug from the top bar; the ticket carries the browser
@@ -414,9 +418,10 @@ afternoon:
 - **Voice messages.** The server accepts a voice note as its own kind of attachment, with a
   duration and a waveform. The recorder, an inline player and the transcript are not built:
   today a voice note shows as an ordinary file.
-- **Agents that act without being asked.** An agent answers a mention, a DM, a task handed
-  to it or a scheduled message that names it. Following a channel, schedules of its own,
-  and asking another agent and getting the answer back are the next agentic milestone.
+- **Agents that start work on their own.** An agent answers a mention, a DM, a task handed
+  to it or a scheduled message that names it, and an admin can let it follow a channel. It
+  cannot yet schedule its own follow-up or wake on an event — a task coming due, a file
+  shared — and a scheduled run is still a scheduled message that mentions it.
 - **Canvases and workflows** — not started.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
 - **SSO, SAML, OIDC, 2FA and passkeys** — email and password is the only way in, and
@@ -427,9 +432,10 @@ afternoon:
   there until they are.
 
 The current plan — what ships next, in what order, and why — is
-[docs/superpowers/specs/2026-10-18-agent-first-plan.md](docs/superpowers/specs/2026-10-18-agent-first-plan.md).
-The six-month plan it replaces the second half of, with what each slice measures, is
-[docs/roadmap.md](docs/roadmap.md).
+[docs/superpowers/specs/2026-10-18-agent-first-plan.md](docs/superpowers/specs/2026-10-18-agent-first-plan.md):
+its first three milestones are built, and the fourth — sign-in through your identity
+provider, voice, mail, export and backups — is next. The six-month plan it replaces the
+second half of, with what each slice measures, is [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -529,7 +535,7 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 
 | Variable | Default | Notes |
 |---|---|---|
-| `PUBLIC_URL` | `http://localhost:5173` | The public origin, **scheme included**. Every mutating request is checked against it; a mismatch shows up as "Blocked request." on sign-in and nothing else explains it. It has a default, so the app starts without it and then refuses every write from your real domain. |
+| `PUBLIC_URL` | `http://localhost:5173` | The public origin, **scheme included**. Every mutating request is checked against it; a mismatch shows up as "Blocked request." on sign-in and nothing else explains it. It has a default, so the app starts without it and then refuses every write from your real domain. It is also the address assistants sign in against: the connector URL and the OAuth issuer are built from it. |
 | `TRUSTED_PROXY_HOPS` | `0` | How many proxies append to `X-Forwarded-For` **after** the one that names the real caller. **One reverse proxy: `0`. nginx in front of Coolify's Traefik: `1`.** This decides what the login, signup and password-reset rate limits count against and what the audit log records. Set it too high and those become a header the caller writes; too low and everyone shares one bucket — which is why the default is low. |
 
 <details>
@@ -706,6 +712,8 @@ workspace also needs its `may_host_agents` policy turned on from the server cons
 | `AGENT_SHELL` | `disabled`. `ssh` alone does nothing: the terminal also needs `AGENT_SHELL_HOST`, `AGENT_SHELL_KEY` (inline key material, not a path) and `AGENT_SHELL_HOST_KEY`. There is no way to skip host-key verification. |
 | `AGENT_ALLOW_PRIVATE_ENDPOINTS` | `false` — the escape hatch that lets an agent live on a private address. Off means SSRF-guarded. |
 | `AGENT_CHAIN_MAX_DEPTH` | `4` — the server-wide ceiling on how many hops an agent's reply may carry a request between agents. `0` means only people start agents. |
+| `MCP_CALL_TIMEOUT_SEC` | `60` — one call to a tool on an MCP server an admin connected, end to end; the run's own wall clock bounds it too. |
+| `MCP_LIST_TIMEOUT_SEC` | `20` — listing a server's tools when it is connected or refreshed, each page. |
 | `SECURITY_HEADERS` | `true` — every response carries a Content-Security-Policy, `nosniff`, `X-Frame-Options: DENY`, a referrer policy and HSTS over https. Off only when a proxy in front sets its own. |
 | `CSP_EXTRA_SOURCES` | unset — space-separated origins added to `connect-src` and `img-src`, for storage or previews the policy cannot infer from `S3_PUBLIC_ENDPOINT`. |
 
@@ -824,17 +832,19 @@ flowchart LR
     s3[("S3 / MinIO<br/>files")]
     agents["Agents<br/>AG-UI over HTTP, or dialling in"]
     janus["Janus<br/>optional"]
+    mcpservers["MCP servers<br/>optional, an admin connects them"]
     livekit["LiveKit<br/>optional, for calls"]
     web -->|REST + WebSocket| app
     web -->|presigned uploads| s3
     web -.->|WebRTC| livekit
-    assistant -->|MCP| app
+    assistant -->|MCP, after an OAuth sign-in| app
     app --> pg
     app --> redis
     worker --> pg
     worker --> redis
     worker -->|signed runs| agents
     worker -->|signed runs| janus
+    worker -->|tool calls for agents| mcpservers
     app -->|room tokens| livekit
 ```
 
@@ -842,14 +852,15 @@ flowchart LR
 |---|---|
 | Web | React 19 + Vite, zustand, a hand-rolled router |
 | API | FastAPI on Python 3.12, REST for every write |
-| Data | SQLAlchemy 2.0 async + asyncpg, Alembic (53 migrations) |
+| Data | SQLAlchemy 2.0 async + asyncpg, Alembic (62 migrations) |
 | Realtime | FastAPI WebSockets, one event hub, Redis pub/sub between processes |
 | Database | Postgres 16 — messages, full-text search, everything |
 | Ephemera | Redis 7 — presence, typing, rate limits, the job queue, metrics counters |
 | Jobs | arq — agent runs, notifications, unfurls, scheduled sends, plugin delivery, sweeps |
 | Files | S3-compatible (MinIO in dev) with presigned uploads |
 | Agents | AG-UI as the client, over HTTP or a socket the agent opens |
-| Assistants | MCP, one stateless endpoint |
+| Assistants | MCP, one stateless endpoint, with OAuth sign-in for connectors |
+| Tools | An MCP client, calling the servers an admin connects on agents' behalf |
 | Media | LiveKit, optional, for calls |
 | Observability | OpenTelemetry traces and a Prometheus endpoint, both optional |
 
@@ -887,7 +898,8 @@ job, every such run crosses Redis.
 
 **Authority flows from people.** Every agent run carries the person who rooted its chain.
 Tools run as that person and inside the room; writes wait for their Approve; a hop to
-another agent cannot reach an agent only its owner may command. An assistant over MCP *is*
+another agent cannot reach an agent only its owner may command, and a run that asks another
+agent waits holding no worker until the answer carries it on. An assistant over MCP *is*
 its person. No agent ever acts on a service account's authority.
 
 **Hand-tuned SQL stays SQL** — all of it. `db/models.py` exists to define the schema and drive
@@ -895,7 +907,7 @@ Alembic; it is not a query layer. Every read and write in the app is `text()` wi
 parameters, and chat history is keyset-paginated, never `OFFSET`.
 
 <details>
-<summary><b>The twenty-five architecture decisions</b></summary>
+<summary><b>The thirty architecture decisions</b></summary>
 
 The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
@@ -948,7 +960,7 @@ apps/api          FastAPI app, WebSocket tier, arq worker
     jobs/         what the worker runs, agent runs among them
     lib/          auth, errors, storage, telemetry, metrics
     db/           models, migrations, engine, the demo seeder
-  tests/          ~1,900 integration tests against real Postgres and Redis
+  tests/          ~2,150 integration tests against real Postgres and Redis
 apps/web          React client
   src/features/   by domain
   src/lib/        store, api client, router, socket, outbox, help, changelog

@@ -74,7 +74,7 @@ is not a green CI.
 Backend, from `apps/api/`:
 
 ```bash
-uv run pytest -q -n 4                              # ~1,900 tests; needs Postgres + Redis
+uv run pytest -q -n 4                              # ~2,150 tests; needs Postgres + Redis
 uv run pytest -q                                   # the same, serially — slower, one database
 uv run pytest tests/test_messages.py -q            # one file
 uv run pytest tests/test_messages.py::test_sending_is_idempotent_for_a_repeated_client_msg_id -q
@@ -88,7 +88,7 @@ uv run alembic upgrade head
 Frontend, from `apps/web/`:
 
 ```bash
-pnpm exec vitest run                               # ~140 files, happy-dom, no browser needed
+pnpm exec vitest run                               # ~160 files, happy-dom, no browser needed
 pnpm exec vitest run src/lib/outbox.test.ts        # one file
 pnpm exec vitest run -t "stores and reloads queued entries"   # by name
 pnpm typecheck                                     # tsc --noEmit
