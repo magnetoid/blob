@@ -11648,3 +11648,25 @@ button.call-bar-where {
     min-height: 44px;
   }
 }
+
+/* ── An agent's notes (M2 · A8) ─────────────────────────────────────────────────── */
+
+.note-body {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-row);
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.note-edit {
+  display: grid;
+  gap: 8px;
+  max-width: 640px;
+}
+
+.note-edit > textarea {
+  min-height: 72px;
+  resize: vertical;
+}

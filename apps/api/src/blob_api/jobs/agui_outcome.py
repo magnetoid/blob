@@ -38,7 +38,7 @@ from ..plugins import agui, decisions, recent_errors, run_card, run_trail
 from ..plugins import events as plugin_events
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub
-from ..services import agent_chains, agent_files, mcp_servers, task_dispatch
+from ..services import agent_chains, agent_files, agent_notes, mcp_servers, task_dispatch
 from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
@@ -988,6 +988,7 @@ def _run_body(
     channel_id: str,
     thread_root_id: str | None,
     chain: agent_chains.Chain,
+    notes: str | None = None,
 ) -> dict[str, Any]:
     """One round's POST body.
 
@@ -1014,6 +1015,7 @@ def _run_body(
         parent_run_id=chain.parent_agui_run_id if first else None,
         resume=chain.resume if first else None,
         instructions=listener.instructions,
+        notes=notes,
         protocol_version=agui.PROTOCOL_VERSION if speaks_1_0 else None,
         tools=tools,
         task=gathered.task,
@@ -1097,6 +1099,19 @@ async def _tools_for(
     return _Tools(names, caller, mcp_servers.by_offered_name(outside))
 
 
+async def _notes_for(listener: Listener, scope: agent_notes.Scope) -> str | None:
+    """What a run is handed of the notes in its scope — none for an agent that keeps none,
+    which is every agent offered no tools. A fault here costs the run its notes, not its
+    answer."""
+    if listener.tool_access == "none":
+        return None
+    try:
+        return await agent_notes.context_for(scope)
+    except Exception:
+        log.warning("agui: could not read an agent's notes", exc_info=True)
+        return None
+
+
 async def _drive(
     listener: Listener,
     gathered: Gathered,
@@ -1122,12 +1137,21 @@ async def _drive(
     messages, sent_1_0, files = await _base_messages(listener, gathered)
     tools = await _tools_for(listener, chain, channel_id=channel_id, workspace_id=workspace_id)
     # What this run is shown, kept on it when it ends: counts and names, never content.
+    # Whose notes this run keeps and is handed (M2 · A8): its memory's scope, ADR 0024.
+    notes_scope = agent_notes.Scope(
+        workspace_id=workspace_id,
+        plugin_id=listener.plugin_id,
+        channel_id=channel_id,
+        person_id=memory_person,
+    )
+    notes = await _notes_for(listener, notes_scope)
     seen: dict[str, Any] = {
         "messages": len(gathered.history),
         "window": "thread" if thread_root_id else "channel",
         "files": files,
         "instructions": bool(listener.instructions),
         "memory": gathered.state is not None,
+        **({"notes": True} if notes else {}),
         "task": gathered.task is not None,
         "tools": sorted(tools.names),
         # A server's tools by the server's name: sixty names of somebody else's tools are
@@ -1225,6 +1249,7 @@ async def _drive(
             channel_id=channel_id,
             thread_root_id=thread_root_id,
             chain=chain,
+            notes=notes,
         )
         if progress.trail is not None:
             progress.trail.round = round_no
@@ -1304,6 +1329,7 @@ async def _drive(
             write_now=write_now,
             deadline=deadline,
             channel_id=channel_id,
+            notes_scope=notes_scope,
         )
         exchange = [*exchange, turn, *results]
         if pending is not None:
@@ -1430,6 +1456,7 @@ async def _run_calls(
     | None = None,
     deadline: float | None = None,
     channel_id: str | None = None,
+    notes_scope: agent_notes.Scope | None = None,
 ) -> tuple[
     dict[str, Any],
     list[dict[str, Any]],
@@ -1478,6 +1505,14 @@ async def _run_calls(
                 else:
                     outcome = prepared
                     said_of = _outcome_of(outcome)
+            elif call.name in agui_tools.MEMORY_TOOLS:
+                # The agent's own notes: run at once, in its memory's scope (M2 · A8).
+                outcome = (
+                    await agui_tools.run_memory(notes_scope, call)
+                    if notes_scope is not None
+                    else agui_tools.not_run("there is nowhere to keep notes")
+                )
+                said_of = _outcome_of(outcome)
             elif call.name in agui_tools.DECISION_TOOLS:
                 # A decision for the log (M2 · A8): always the person's to make, so always
                 # put to them, in the conversation the agent was asked in.

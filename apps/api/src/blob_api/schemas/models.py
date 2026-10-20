@@ -358,6 +358,20 @@ class AgentTask(CamelModel):
     updated_at: str
 
 
+class AgentNote(CamelModel):
+    """A note an agent kept (M2 · A8), for somebody to read, reword or remove: a person their
+    own, an admin a conversation's — the same split as `AgentMemory`."""
+
+    id: str
+    plugin_id: str
+    agent_name: str
+    channel_id: str
+    channel_name: str | None = None
+    channel_kind: str
+    body: str
+    updated_at: str
+
+
 class AgentMemory(CamelModel):
     """What an agent remembers of one conversation, for somebody to see and clear: a
     person their own (an owned agent's per-person memory), an admin a conversation's."""

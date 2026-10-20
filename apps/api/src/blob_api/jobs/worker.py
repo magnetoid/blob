@@ -22,6 +22,7 @@ from ..lib.redis import close_redis
 from ..lib.storage import delete_object
 from ..plugins import delivery as plugin_delivery
 from ..realtime import hub
+from ..services import agent_notes as agent_notes_service
 from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
 from ..services.calls import reconcile as reconcile_calls
@@ -100,10 +101,14 @@ async def sweep_agent_runs(_ctx: dict[str, Any]) -> None:
         # agent per conversation grew for ever, and a plan from months ago handed to the
         # next run is not memory but confusion (migration 0050).
         forgotten = await agent_state_service.sweep(session)
+        # And the notes agents kept, a conversation's at a time, on the same terms (M2 · A8).
+        unnoted = await agent_notes_service.sweep(session)
     if removed:
         log.info("swept %d agent run(s)", removed)
     if forgotten:
         log.info("forgot %d stale agent memor(ies)", forgotten)
+    if unnoted:
+        log.info("forgot %d stale agent note(s)", unnoted)
 
 
 async def sweep_expired(_ctx: dict[str, Any]) -> None:

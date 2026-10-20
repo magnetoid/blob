@@ -56,3 +56,16 @@ agent somebody owns.**
   goes without memory, only a question of whose.
 - Loans are listed and ended in Settings beside the agent, as `/allow` and `/disallow`
   make and end them in a channel.
+
+## Addendum (2026-10-20, M2 · A8): notes
+
+An agent may now also keep **notes** — sentences it chose to remember, through Blob's
+`remember`, `recall` and `forget` tools — in `agent_notes` (migration 0058). They follow this
+decision exactly: keyed by (agent, conversation, person) with a NULL person for the
+workspace's agent; read, reworded and removed by whoever they belong to — a person their
+own in Settings, an admin a conversation's on the agent's page, in rooms they can see and
+never a person's own; and ended by the nightly sweep ninety days after the last note in a
+conversation, a deleted channel, agent or person taking theirs with it. A run is handed its
+newest notes as a `notes` context item. The notes tools come with read access or more,
+change nothing anybody else reads and so are never asked about, and are not offered in a
+run nobody addressed (ADR 0026).

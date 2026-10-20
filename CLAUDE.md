@@ -26,7 +26,8 @@ twenty-eight ADRs; the principles below are their summary, not a substitute. 001
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
 room bound), that a task handed to an agent is a message from the person who handed it
-(0023), that what an agent remembers is the conversation's or one person's (0024), and
+(0023), that what an agent remembers is the conversation's or one person's (0024 — its readable
+notes too, since M2), and
 what an operator can see of agents — traces, `/metrics`, a run's events, an app's last
 ten errors (0025), that an admin may let an agent follow a channel and hear what was
 not addressed to it (0026), that an admin may connect an MCP server whose tools chosen

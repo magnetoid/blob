@@ -1163,6 +1163,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/plugins/{plugin_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agent Notes
+         * @description What this agent noted of conversations — the notes nobody owns — in the conversations
+         *     you can see. A person's own notes with an agent they own or borrow are theirs.
+         */
+        get: operations["agent_notes_api_admin_plugins__plugin_id__notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/plugins/{plugin_id}/notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Forget Agent Note */
+        delete: operations["forget_agent_note_api_admin_plugins__plugin_id__notes__note_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Reword Agent Note
+         * @description Correct what the agent noted — what an admin does to an agent that learned it wrong.
+         */
+        patch: operations["reword_agent_note_api_admin_plugins__plugin_id__notes__note_id__patch"];
+        trace?: never;
+    };
     "/api/admin/plugins/{plugin_id}/owner": {
         parameters: {
             query?: never;
@@ -1994,6 +2036,46 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/agents/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Notes
+         * @description What agents noted of your own conversations with them — an agent you own, or one lent
+         *     to you. Yours to read, reword and remove. The workspace's agents note conversations,
+         *     not people; those are an admin's, on the agent's page.
+         */
+        get: operations["my_notes_api_agents_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Forget My Note */
+        delete: operations["forget_my_note_api_agents_notes__note_id__delete"];
+        options?: never;
+        head?: never;
+        /** Reword My Note */
+        patch: operations["reword_my_note_api_agents_notes__note_id__patch"];
         trace?: never;
     };
     "/api/agents/terminal/{user_id}": {
@@ -4273,6 +4355,39 @@ export interface components {
             /** Updatedat */
             updatedAt: string;
         };
+        /**
+         * AgentNote
+         * @description A note an agent kept (M2 · A8), for somebody to read, reword or remove: a person their
+         *     own, an admin a conversation's — the same split as `AgentMemory`.
+         */
+        AgentNote: {
+            /** Agentname */
+            agentName: string;
+            /** Body */
+            body: string;
+            /** Channelid */
+            channelId: string;
+            /** Channelkind */
+            channelKind: string;
+            /** Channelname */
+            channelName?: string | null;
+            /** Id */
+            id: string;
+            /** Pluginid */
+            pluginId: string;
+            /** Updatedat */
+            updatedAt: string;
+        };
+        /** AgentNoteIn */
+        AgentNoteIn: {
+            /** Body */
+            body: string;
+        };
+        /** AgentNotesOut */
+        AgentNotesOut: {
+            /** Notes */
+            notes: components["schemas"]["AgentNote"][];
+        };
         /** AgentOwnerInput */
         AgentOwnerInput: {
             /** Userid */
@@ -6239,6 +6354,16 @@ export interface components {
             /** Workspaces */
             workspaces: components["schemas"]["WorkspaceMembership"][];
         };
+        /** NoteIn */
+        NoteIn: {
+            /** Body */
+            body: string;
+        };
+        /** NotesOut */
+        NotesOut: {
+            /** Notes */
+            notes: components["schemas"]["AgentNote"][];
+        };
         /**
          * OkOut
          * @description The answer to a request that has nothing to say beyond "done".
@@ -7570,6 +7695,9 @@ export type AgentChannel = components['schemas']['AgentChannel'];
 export type AgentChannelsOut = components['schemas']['AgentChannelsOut'];
 export type AgentMemoriesOut = components['schemas']['AgentMemoriesOut'];
 export type AgentMemory = components['schemas']['AgentMemory'];
+export type AgentNote = components['schemas']['AgentNote'];
+export type AgentNoteIn = components['schemas']['AgentNoteIn'];
+export type AgentNotesOut = components['schemas']['AgentNotesOut'];
 export type AgentOwnerInput = components['schemas']['AgentOwnerInput'];
 export type AgentRunHistoryOut = components['schemas']['AgentRunHistoryOut'];
 export type AgentRunOut = components['schemas']['AgentRunOut'];
@@ -7716,6 +7844,8 @@ export type MuteGroupInput = components['schemas']['MuteGroupInput'];
 export type MyAgentOut = components['schemas']['MyAgentOut'];
 export type MyAgentsOut = components['schemas']['MyAgentsOut'];
 export type MyWorkspacesOut = components['schemas']['MyWorkspacesOut'];
+export type NoteIn = components['schemas']['NoteIn'];
+export type NotesOut = components['schemas']['NotesOut'];
 export type OkOut = components['schemas']['OkOut'];
 export type PinInput = components['schemas']['PinInput'];
 export type PluginOut = components['schemas']['PluginOut'];
@@ -9961,6 +10091,105 @@ export interface operations {
             };
         };
     };
+    agent_notes_api_admin_plugins__plugin_id__notes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentNotesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_agent_note_api_admin_plugins__plugin_id__notes__note_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reword_agent_note_api_admin_plugins__plugin_id__notes__note_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentNote"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     set_agent_owner_api_admin_plugins__plugin_id__owner_put: {
         parameters: {
             query?: never;
@@ -11266,6 +11495,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_notes_api_agents_notes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotesOut"];
+                };
+            };
+        };
+    };
+    forget_my_note_api_agents_notes__note_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reword_my_note_api_agents_notes__note_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentNote"];
                 };
             };
             /** @description Validation Error */

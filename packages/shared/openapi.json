@@ -684,6 +684,92 @@
         "title": "AgentMemory",
         "type": "object"
       },
+      "AgentNote": {
+        "description": "A note an agent kept (M2 \u00b7 A8), for somebody to read, reword or remove: a person their\nown, an admin a conversation's \u2014 the same split as `AgentMemory`.",
+        "properties": {
+          "agentName": {
+            "title": "Agentname",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "channelKind": {
+            "title": "Channelkind",
+            "type": "string"
+          },
+          "channelName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channelname"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "pluginId": {
+            "title": "Pluginid",
+            "type": "string"
+          },
+          "updatedAt": {
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "pluginId",
+          "agentName",
+          "channelId",
+          "channelKind",
+          "body",
+          "updatedAt"
+        ],
+        "title": "AgentNote",
+        "type": "object"
+      },
+      "AgentNoteIn": {
+        "properties": {
+          "body": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "AgentNoteIn",
+        "type": "object"
+      },
+      "AgentNotesOut": {
+        "properties": {
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/AgentNote"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "AgentNotesOut",
+        "type": "object"
+      },
       "AgentOwnerInput": {
         "properties": {
           "userId": {
@@ -6049,6 +6135,37 @@
           "workspaces"
         ],
         "title": "MyWorkspacesOut",
+        "type": "object"
+      },
+      "NoteIn": {
+        "properties": {
+          "body": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "NoteIn",
+        "type": "object"
+      },
+      "NotesOut": {
+        "properties": {
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/AgentNote"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "NotesOut",
         "type": "object"
       },
       "OkOut": {
@@ -13346,6 +13463,165 @@
         ]
       }
     },
+    "/api/admin/plugins/{plugin_id}/notes": {
+      "get": {
+        "description": "What this agent noted of conversations \u2014 the notes nobody owns \u2014 in the conversations\nyou can see. A person's own notes with an agent they own or borrow are theirs.",
+        "operationId": "agent_notes_api_admin_plugins__plugin_id__notes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNotesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Notes",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/plugins/{plugin_id}/notes/{note_id}": {
+      "delete": {
+        "operationId": "forget_agent_note_api_admin_plugins__plugin_id__notes__note_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget Agent Note",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "description": "Correct what the agent noted \u2014 what an admin does to an agent that learned it wrong.",
+        "operationId": "reword_agent_note_api_admin_plugins__plugin_id__notes__note_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plugin_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Plugin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNote"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reword Agent Note",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/plugins/{plugin_id}/owner": {
       "put": {
         "description": "Give an agent to a person, or hand it back to the workspace.\n\nOwnership is Blob's fact about an install, not something the app declares \u2014 an app\ncannot name its own owner any more than it can grant itself a scope \u2014 so it is its own\nroute rather than a field on the manifest.\n\nOwned means it answers that person and whoever they lend it to. Unowned means it\nanswers everybody, which is what the workspace's own assistant should do.",
@@ -15088,6 +15364,122 @@
           }
         },
         "summary": "Agent End Loan",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
+    "/api/agents/notes": {
+      "get": {
+        "description": "What agents noted of your own conversations with them \u2014 an agent you own, or one lent\nto you. Yours to read, reword and remove. The workspace's agents note conversations,\nnot people; those are an admin's, on the agent's page.",
+        "operationId": "my_notes_api_agents_notes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Notes",
+        "tags": [
+          "my-agents"
+        ]
+      }
+    },
+    "/api/agents/notes/{note_id}": {
+      "delete": {
+        "operationId": "forget_my_note_api_agents_notes__note_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget My Note",
+        "tags": [
+          "my-agents"
+        ]
+      },
+      "patch": {
+        "operationId": "reword_my_note_api_agents_notes__note_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNote"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reword My Note",
         "tags": [
           "my-agents"
         ]

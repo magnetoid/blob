@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import Field
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, require_admin
@@ -20,7 +21,8 @@ from ..lib.ids import IdParam
 from ..plugins import delivery as delivery_log
 from ..plugins import registry
 from ..schemas.base import CamelModel, OkOut, iso, require_iso
-from ..schemas.models import AgentMemory
+from ..schemas.models import AgentMemory, AgentNote
+from ..services import agent_notes as agent_notes_service
 from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
@@ -323,3 +325,88 @@ async def replay_delivery(
             metadata={"deliveryId": delivery_id},
         )
     return _to_delivery(row)
+
+
+# ─── the notes an agent kept of conversations (M2 · A8) ──────────────────────────────
+
+
+class AgentNotesOut(CamelModel):
+    notes: list[AgentNote]
+
+
+class AgentNoteIn(CamelModel):
+    body: str = Field(min_length=1, max_length=2_000)
+
+
+def _note_out(note: agent_notes_service.ListedNote) -> AgentNote:
+    return AgentNote(
+        id=note.id,
+        plugin_id=note.plugin_id,
+        agent_name=note.agent_name,
+        channel_id=note.channel_id,
+        channel_name=note.channel_name,
+        channel_kind=note.channel_kind,
+        body=note.body,
+        updated_at=require_iso(note.updated_at),
+    )
+
+
+@router.get("/{plugin_id}/notes", response_model=AgentNotesOut)
+async def agent_notes(
+    plugin_id: IdParam, admin: SessionUser = Depends(require_admin)
+) -> AgentNotesOut:
+    """What this agent noted of conversations — the notes nobody owns — in the conversations
+    you can see. A person's own notes with an agent they own or borrow are theirs."""
+    async with session_scope() as session:
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        notes = await agent_notes_service.for_conversations(
+            session, workspace_id=admin.workspace_id, plugin_id=plugin_id, viewer_id=admin.id
+        )
+    return AgentNotesOut(notes=[_note_out(note) for note in notes])
+
+
+async def _change_note(
+    request: Request, admin: SessionUser, plugin_id: str, note_id: str, body: str | None
+) -> AgentNote:
+    async with transaction() as (session, _after):
+        await registry.by_id(session, plugin_id, admin.workspace_id)
+        note = await agent_notes_service.change_conversation(
+            session,
+            workspace_id=admin.workspace_id,
+            plugin_id=plugin_id,
+            viewer_id=admin.id,
+            note_id=note_id,
+            body=body,
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, admin),
+            "agent.note_forgotten" if body is None else "agent.note_changed",
+            target_type="plugin",
+            target_id=plugin_id,
+            metadata={"noteId": note_id},
+        )
+    return _note_out(note)
+
+
+@router.patch("/{plugin_id}/notes/{note_id}", response_model=AgentNote)
+async def reword_agent_note(
+    plugin_id: IdParam,
+    note_id: IdParam,
+    payload: AgentNoteIn,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> AgentNote:
+    """Correct what the agent noted — what an admin does to an agent that learned it wrong."""
+    return await _change_note(request, admin, plugin_id, note_id, payload.body)
+
+
+@router.delete("/{plugin_id}/notes/{note_id}", response_model=OkOut)
+async def forget_agent_note(
+    plugin_id: IdParam,
+    note_id: IdParam,
+    request: Request,
+    admin: SessionUser = Depends(require_admin),
+) -> OkOut:
+    await _change_note(request, admin, plugin_id, note_id, None)
+    return OkOut()

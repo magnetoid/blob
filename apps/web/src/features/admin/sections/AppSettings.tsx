@@ -34,6 +34,7 @@ import { RecentErrors } from "./apps/RecentErrors.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
 import { DesktopAgentSetup } from "../../agentic/DesktopAgentSetup.tsx";
 import { MemoryList } from "../../agentic/MemoryList.tsx";
+import { NoteList } from "../../agentic/NoteList.tsx";
 
 interface Props {
   pluginId: string;
@@ -387,6 +388,7 @@ export function AppSettings({ pluginId, onError }: Props) {
       </Card>
 
       <AgentMemoryCard pluginId={pluginId} onError={onError} />
+      <AgentNotesCard pluginId={pluginId} onError={onError} />
 
       <DialogPresence when={uninstalling}>
         {() => (
@@ -417,6 +419,40 @@ export function AppSettings({ pluginId, onError }: Props) {
  * person's own memory with an agent they own or borrow is theirs, in their Settings, and
  * never shown here.
  */
+/** What this agent noted of conversations you can see (M2 · A8) — words, so they can be
+ *  corrected as well as forgotten. A person's own notes with it are theirs, in Settings. */
+function AgentNotesCard({
+  pluginId,
+  onError,
+}: {
+  pluginId: string;
+  onError: (message: string | null) => void;
+}) {
+  const { data, reload } = useAdminData(
+    () => api.admin.agentNotes(pluginId),
+    [pluginId],
+    onError,
+    "Could not load the notes it kept.",
+  );
+  const act = useAdminAction(onError, reload);
+  const notes = data?.notes ?? [];
+  return (
+    <Card title="Notes it kept">
+      {data && notes.length === 0 && (
+        <CardNotice>None, in the conversations you can see.</CardNotice>
+      )}
+      {notes.length > 0 && (
+        <NoteList
+          notes={notes}
+          showAgent={false}
+          onReword={(note, body) => act(() => api.admin.rewordAgentNote(pluginId, note.id, body))}
+          onForget={(note) => void act(() => api.admin.forgetAgentNote(pluginId, note.id))}
+        />
+      )}
+    </Card>
+  );
+}
+
 function AgentMemoryCard({
   pluginId,
   onError,

@@ -1646,6 +1646,39 @@ class AgentFollow(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class AgentNote(Base):
+    """Something an agent chose to remember, in words people can read (M2 · A8).
+
+    Beside the AG-UI state blob (`agent_state`), which is the agent's own and opaque, a note
+    is a sentence it decided to keep — and so something a person can read, correct and
+    remove. Keyed as that blob is (ADR 0024): the conversation's for the workspace's agent
+    (`person_id` NULL), one person's for an agent somebody owns.
+    """
+
+    __tablename__ = "agent_notes"
+    __table_args__ = (
+        Index("agent_notes_scope", "plugin_id", "channel_id", "person_id", text("created_at DESC")),
+        Index("agent_notes_person", "person_id", postgresql_where=text("person_id IS NOT NULL")),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    plugin_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    person_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE")
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class Decision(Base):
     """Something a conversation settled, recorded so it outlives the scroll.
 
@@ -1943,6 +1976,7 @@ class McpToken(Base):
 __all__ = [
     "AgentFollow",
     "AgentMcpServer",
+    "AgentNote",
     "AgentTask",
     "Attachment",
     "AuditEvent",

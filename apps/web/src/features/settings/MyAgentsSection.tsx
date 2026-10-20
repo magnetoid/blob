@@ -16,6 +16,7 @@ import { useState } from "react";
 import { api, type AgentLoan, type AppChannel, type MyAgent } from "../../lib/api.ts";
 import { DesktopAgentSetup } from '../agentic/DesktopAgentSetup.tsx';
 import { MemoryList } from "../agentic/MemoryList.tsx";
+import { NoteList } from "../agentic/NoteList.tsx";
 import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
 import { Card, CardNotice } from "../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../console/hooks.ts";
@@ -127,7 +128,39 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
       </Card>
 
       <RememberedCard onError={onError} />
+      <NotesCard onError={onError} />
     </div>
+  );
+}
+
+/** The notes agents kept of your own conversations with them (M2 · A8): yours to read,
+ *  reword and remove, beside what they remember. */
+function NotesCard({ onError }: { onError: (message: string | null) => void }) {
+  const { data, reload } = useAdminData(
+    () => api.agents.notes(),
+    [],
+    onError,
+    "Could not load the notes agents kept.",
+  );
+  const act = useAdminAction(onError, reload);
+  const notes = data?.notes ?? [];
+  return (
+    <Card title="Notes agents kept of you">
+      {data && notes.length === 0 && (
+        <CardNotice>
+          None yet. An agent you own, or one lent to you, can note what it should know next
+          time — a preference, a name — and it appears here for you to correct or remove.
+        </CardNotice>
+      )}
+      {notes.length > 0 && (
+        <NoteList
+          notes={notes}
+          showAgent
+          onReword={(note, body) => act(() => api.agents.rewordNote(note.id, body))}
+          onForget={(note) => void act(() => api.agents.forgetNote(note.id))}
+        />
+      )}
+    </Card>
   );
 }
 

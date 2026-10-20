@@ -37,8 +37,9 @@ from ..lib.rate_limit import consume
 from ..plugins import gateway, registry
 from ..plugins.manifest import Manifest
 from ..schemas.base import CamelModel, OkOut, require_iso
-from ..schemas.models import AgentMemory
+from ..schemas.models import AgentMemory, AgentNote
 from ..services import agent_access
+from ..services import agent_notes as agent_notes_service
 from ..services import agent_state as agent_state_service
 from ..services import audit as audit_service
 from ..services import channels as channel_service
@@ -458,3 +459,81 @@ async def forget_all_my_memories(
 
 
 __all__ = ["PERSONAL_SCOPES", "router"]
+
+
+# ─── the notes agents kept of you (M2 · A8) ──────────────────────────────────────────
+
+
+class NotesOut(CamelModel):
+    notes: list[AgentNote]
+
+
+class NoteIn(CamelModel):
+    body: str = Field(min_length=1, max_length=2_000)
+
+
+def note_out(note: agent_notes_service.ListedNote) -> AgentNote:
+    return AgentNote(
+        id=note.id,
+        plugin_id=note.plugin_id,
+        agent_name=note.agent_name,
+        channel_id=note.channel_id,
+        channel_name=note.channel_name,
+        channel_kind=note.channel_kind,
+        body=note.body,
+        updated_at=require_iso(note.updated_at),
+    )
+
+
+@router.get("/notes", response_model=NotesOut)
+async def my_notes(user: SessionUser = Depends(current_user)) -> NotesOut:
+    """What agents noted of your own conversations with them — an agent you own, or one lent
+    to you. Yours to read, reword and remove. The workspace's agents note conversations,
+    not people; those are an admin's, on the agent's page."""
+    async with session_scope() as session:
+        notes = await agent_notes_service.for_person(
+            session, workspace_id=user.workspace_id, person_id=user.id
+        )
+    return NotesOut(notes=[note_out(note) for note in notes])
+
+
+@router.patch("/notes/{note_id}", response_model=AgentNote)
+async def reword_my_note(
+    note_id: IdParam, payload: NoteIn, request: Request, user: SessionUser = Depends(current_user)
+) -> AgentNote:
+    async with transaction() as (session, _after):
+        note = await agent_notes_service.change_own(
+            session,
+            workspace_id=user.workspace_id,
+            person_id=user.id,
+            note_id=note_id,
+            body=payload.body,
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, user),
+            "agent.note_changed",
+            target_type="user",
+            target_id=user.id,
+            metadata={"noteId": note_id, "pluginId": note.plugin_id},
+        )
+    return note_out(note)
+
+
+@router.delete("/notes/{note_id}", response_model=OkOut)
+async def forget_my_note(
+    note_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    async with transaction() as (session, _after):
+        note = await agent_notes_service.change_own(
+            session, workspace_id=user.workspace_id, person_id=user.id, note_id=note_id, body=None
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, user),
+            "agent.note_forgotten",
+            target_type="user",
+            target_id=user.id,
+            metadata={"noteId": note_id, "pluginId": note.plugin_id},
+        )
+    return OkOut()

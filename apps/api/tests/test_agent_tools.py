@@ -218,7 +218,13 @@ class TestWhatTheFoldHears:
         read = [tool["name"] for tool in agui_tools.offered("read")]
         # Never `whoami`, never a write. Asking another agent comes with reading: it posts
         # nothing a reply mentioning that agent could not (`agui_delegate`).
-        assert read == [*agui_tools.READ_TOOLS, "list_agents", "ask_agent"]
+        # Its own notes come with reading (M2 · A8): they change nothing anybody else reads.
+        assert read == [
+            *agui_tools.READ_TOOLS,
+            "list_agents",
+            "ask_agent",
+            *agui_tools.MEMORY_TOOLS,
+        ]
         write = [tool["name"] for tool in agui_tools.offered("write")]
         # Proposing a decision comes with write access, and always asks (M2 · A8).
         assert write == [
@@ -227,6 +233,7 @@ class TestWhatTheFoldHears:
             "post_message",
             "record_decision",
             "ask_agent",
+            *agui_tools.MEMORY_TOOLS,
         ]
         assert all(
             set(tool) == {"name", "description", "parameters"}
@@ -282,6 +289,7 @@ class TestReading:
         assert [tool["name"] for tool in first["tools"]] == [
             *agui_tools.READ_TOOLS,
             *agui_tools.DELEGATE_TOOLS,
+            *agui_tools.MEMORY_TOOLS,
         ]
         # The next round is the same conversation with the agent's turn and its result.
         turn = second["messages"][-2]

@@ -431,4 +431,13 @@ as `proposed_by`. A message carries `decisionId` from one index probe in the sha
 A Decisions page, a Home card, a mark under the source message. Checked live through the
 worker with a stub agent; the run found the message menu clipped at the foot of a
 conversation (fixed in the shared `Menu`: it opens upward when there is more room there).
-Next: agent notes.
+
+### A8, second half — agent notes (ADR 0024's addendum)
+
+`agent_notes` (migration 0058): sentences an agent keeps with `remember`, finds with `recall`
+and drops with `forget`, keyed as its memory is — the conversation's for the workspace's
+agent, the person's for somebody's own — handed to each run as a `notes` context item, and
+readable, rewordable and removable by whoever they belong to (Settings, or the agent's page
+for an admin). Not offered to follow runs; swept with memory. **Not built:** workspace
+knowledge documents (`search_knowledge`): nothing asks for them yet that the decision log,
+notes and search do not answer.

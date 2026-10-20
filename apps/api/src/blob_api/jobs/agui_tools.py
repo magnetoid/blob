@@ -47,8 +47,8 @@ from ..lib.errors import AppError
 from ..lib.ids import new_id
 from ..plugins import mcp_client
 from ..plugins.agui import ToolCall
+from ..services import agent_notes, decision_log, mcp_catalogue, mcp_servers
 from ..services import channels as channel_service
-from ..services import decision_log, mcp_catalogue, mcp_servers
 from ..services import mcp as mcp_service
 
 log = logging.getLogger("blob.jobs.agui")
@@ -76,6 +76,10 @@ READ_TOOLS = (
 DELEGATE_TOOLS = ("list_agents", "ask_agent")
 #: The tools that act. Each call waits for the person's approval.
 WRITE_TOOLS = ("post_message",)
+#: The agent's own notes (M2 · A8): kept, found and forgotten in its memory's scope and
+#: nobody else's. Offered with read access or more; never asked about — they change
+#: nothing anybody else reads — and never in a run nobody addressed (ADR 0026).
+MEMORY_TOOLS = ("remember", "recall", "forget")
 #: Proposing a decision for the log (M2 · A8). Offered with write access, and *always*
 #: put to the person, whatever the admin let the agent's posts do: it is recorded in their
 #: name, and "who decided" has to stay true.
@@ -136,9 +140,9 @@ def writes_without_asking(approval: str, *, in_their_dm: bool) -> bool:
 def offered_names(access: str) -> frozenset[str]:
     """The tools an agent with this access is offered."""
     if access == "read":
-        return frozenset(READ_TOOLS + DELEGATE_TOOLS)
+        return frozenset(READ_TOOLS + DELEGATE_TOOLS + MEMORY_TOOLS)
     if access == "write":
-        return frozenset(READ_TOOLS + DELEGATE_TOOLS + WRITE_TOOLS + DECISION_TOOLS)
+        return frozenset(READ_TOOLS + DELEGATE_TOOLS + MEMORY_TOOLS + WRITE_TOOLS + DECISION_TOOLS)
     return frozenset()
 
 
@@ -179,16 +183,58 @@ def _parameters(tool: dict[str, Any]) -> dict[str, Any]:
     return trimmed
 
 
+#: The notes tools, as an agent is offered them. Not in the MCP catalogue: an assistant is
+#: a person (ADR 0016), and has no memory of an agent's to keep.
+_MEMORY_SPECS: tuple[dict[str, Any], ...] = (
+    {
+        "name": "remember",
+        "description": (
+            "Keep a note of something worth knowing the next time you are asked here — a "
+            "preference, a name, how something works. One fact a note, at most 500 "
+            "characters. Notes are kept for this conversation (or for this person, if you "
+            "are somebody's own agent); people can read and remove them; and your newest "
+            "are handed to you at the start of every run."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"text": {"type": "string", "description": "What to remember."}},
+            "required": ["text"],
+        },
+    },
+    {
+        "name": "recall",
+        "description": "Search the notes you kept here, newest first; without a query, the latest.",
+        "parameters": {
+            "type": "object",
+            "properties": {"query": {"type": "string", "description": "Words a note contains."}},
+        },
+    },
+    {
+        "name": "forget",
+        "description": "Remove one of your notes here, by its id — one that stopped being true.",
+        "parameters": {
+            "type": "object",
+            "properties": {"note_id": {"type": "string", "description": "The note's id."}},
+            "required": ["note_id"],
+        },
+    },
+)
+
+
 def offered_for(names: frozenset[str]) -> list[dict[str, Any]]:
-    """`offered`, for a set of names already decided."""
+    """`offered`, for a set of names already decided: Blob's tools in the catalogue's
+    order, then the notes tools."""
     return [
-        {
-            "name": tool["name"],
-            "description": _FOR_AGENTS.get(tool["name"], tool["description"]),
-            "parameters": _parameters(tool),
-        }
-        for tool in mcp_catalogue.CATALOGUE
-        if tool["name"] in names
+        *(
+            {
+                "name": tool["name"],
+                "description": _FOR_AGENTS.get(tool["name"], tool["description"]),
+                "parameters": _parameters(tool),
+            }
+            for tool in mcp_catalogue.CATALOGUE
+            if tool["name"] in names
+        ),
+        *(dict(spec) for spec in _MEMORY_SPECS if spec["name"] in names),
     ]
 
 
@@ -362,6 +408,43 @@ async def run_decision(
     return ToolOutcome(
         f"Recorded in {prepared.label}, in {caller.display_name}'s name. Decision id {found.id}."
     )
+
+
+async def run_memory(scope: agent_notes.Scope, call: ToolCall) -> ToolOutcome:
+    """Keep, find or forget one of the agent's own notes, in its memory's scope. Never
+    raises; nothing here is asked about — a note changes nothing anybody else reads."""
+    arguments = call.parsed_arguments()
+    if arguments is None:
+        return ToolOutcome("", "The arguments were not a JSON object.")
+    try:
+        async with transaction() as (session, _after):
+            if call.name == "remember":
+                said = arguments.get("text")
+                note = await agent_notes.keep(session, scope, said if isinstance(said, str) else "")
+                return ToolOutcome(f"Kept, as note {note.id}.")
+            if call.name == "recall":
+                query = arguments.get("query")
+                notes = await agent_notes.recall(
+                    session, scope, query=query if isinstance(query, str) else None
+                )
+                if not notes:
+                    return ToolOutcome(
+                        "No note here says that." if query else "You keep no notes here yet."
+                    )
+                return ToolOutcome(
+                    _capped("\n".join(f"- {note.body} (note {note.id})" for note in notes))
+                )
+            note_id = arguments.get("note_id")
+            if not isinstance(note_id, str) or not _UUID_RE.match(note_id.strip()):
+                return ToolOutcome("", "`note_id` has to be the id of one of your notes.")
+            if await agent_notes.forget(session, scope, note_id.strip()):
+                return ToolOutcome("Forgot it.")
+            return ToolOutcome("", "There is no such note here.")
+    except AppError as error:
+        return ToolOutcome("", error.message)
+    except Exception:
+        log.warning("agui: a note failed inside Blob", exc_info=True)
+        return ToolOutcome("", "Blob could not reach your notes just now.", failed=True)
 
 
 #: What one call to a server's tool may carry as arguments, in bytes of JSON.
@@ -793,6 +876,7 @@ __all__ = [
     "DELEGATE_TOOLS",
     "MAX_CALLS_PER_ROUND",
     "MAX_TOOL_ROUNDS",
+    "MEMORY_TOOLS",
     "READ_TOOLS",
     "WRITE_TOOLS",
     "PreparedDecision",
@@ -813,6 +897,7 @@ __all__ = [
     "prepare_write",
     "room_for",
     "run_decision",
+    "run_memory",
     "run_outside",
     "run_read",
     "run_write",

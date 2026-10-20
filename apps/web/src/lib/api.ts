@@ -142,6 +142,19 @@ export interface WorkspaceAssistantToken extends AssistantToken {
   ownerName: string;
 }
 
+/** A note an agent kept (M2 · A8) — words, so a person can reword one as well as forget
+ * it. A person's own, in Settings; a conversation's, on the agent's page for an admin. */
+export interface AgentNote {
+  id: string;
+  pluginId: string;
+  agentName: string;
+  channelId: string;
+  channelName: string | null;
+  channelKind: string;
+  body: string;
+  updatedAt: string;
+}
+
 /** What an agent remembers of one conversation (migration 0050): a person's own memory
  * with an agent they own or borrow, or — for an admin — a conversation's. */
 export interface AgentMemory {
@@ -1138,6 +1151,10 @@ export const api = {
     forgetMemory: (memoryId: string) =>
       del<{ ok: true }>(`/api/agents/memory/${memoryId}`),
     forgetAllMemory: () => del<{ ok: true }>("/api/agents/memory"),
+    notes: () => get<{ notes: AgentNote[] }>("/api/agents/notes"),
+    rewordNote: (noteId: string, body: string) =>
+      patch<AgentNote>(`/api/agents/notes/${noteId}`, { body }),
+    forgetNote: (noteId: string) => del<{ ok: true }>(`/api/agents/notes/${noteId}`),
     channels: (agentId: string) =>
       get<{ channels: AppChannel[] }>(`/api/agents/mine/${agentId}/channels`),
     joinChannel: (agentId: string, channelId: string) =>
@@ -1497,6 +1514,12 @@ export const api = {
     /** What this agent remembers of conversations you can see. */
     agentMemory: (pluginId: string) =>
       get<{ memories: AgentMemory[] }>(`/api/admin/plugins/${pluginId}/memory`),
+    agentNotes: (pluginId: string) =>
+      get<{ notes: AgentNote[] }>(`/api/admin/plugins/${pluginId}/notes`),
+    rewordAgentNote: (pluginId: string, noteId: string, body: string) =>
+      patch<AgentNote>(`/api/admin/plugins/${pluginId}/notes/${noteId}`, { body }),
+    forgetAgentNote: (pluginId: string, noteId: string) =>
+      del<{ ok: true }>(`/api/admin/plugins/${pluginId}/notes/${noteId}`),
     forgetAgentMemory: (pluginId: string, memoryId: string) =>
       del<{ ok: true }>(`/api/admin/plugins/${pluginId}/memory/${memoryId}`),
     /** Every conversation's memory of it, rooms you are not in included. */

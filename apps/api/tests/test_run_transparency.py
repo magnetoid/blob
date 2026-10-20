@@ -144,6 +144,7 @@ class TestWhatARunWasShown:
         assert seen["window"] == "channel"
         assert seen["tools"] == [
             "ask_agent",
+            "forget",
             "list_agents",
             "list_channels",
             "list_decisions",
@@ -152,6 +153,8 @@ class TestWhatARunWasShown:
             "read_channel",
             "read_file",
             "read_thread",
+            "recall",
+            "remember",
             "search_messages",
         ]
 

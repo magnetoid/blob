@@ -1001,6 +1001,14 @@ def clock(at: datetime, timezone: str) -> dict[str, str]:
     }
 
 
+#: Above a run's notes in its `notes` context item: what they are, and what it may do with
+#: them. The agent's own words come after, a line each.
+NOTES_PREAMBLE = (
+    "Notes you kept in this conversation, newest first. `recall` finds older ones, "
+    "`remember` keeps another, `forget` removes one that stopped being true.\n"
+)
+
+
 def build_run_input(
     *,
     thread_id: str,
@@ -1022,6 +1030,7 @@ def build_run_input(
     channel_topic: str | None = None,
     channel_people: int | None = None,
     addressed: bool = True,
+    notes: str | None = None,
 ) -> dict[str, Any]:
     """The POST body.
 
@@ -1090,6 +1099,10 @@ def build_run_input(
         context.append({"description": "channel_people", "value": str(channel_people)})
     if not addressed:
         context.append({"description": "addressed", "value": NOT_ADDRESSED})
+    if notes:
+        # What this agent noted here before (M2 · A8), newest first, a line each with the
+        # note's id — so it can forget one that stopped being true.
+        context.append({"description": "notes", "value": NOTES_PREAMBLE + notes})
     body: dict[str, Any] = {
         "threadId": thread_id,
         "runId": run_id,
