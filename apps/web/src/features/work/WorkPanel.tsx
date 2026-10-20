@@ -16,9 +16,8 @@ import { useStore } from "../../lib/store.ts";
 import { useRun, useRunIds } from "../../lib/useRuns.ts";
 import { showError } from "../../lib/toasts.ts";
 import { AgentRunCard } from "../messages/AgentRunCard.tsx";
-import { diffStats, parseDiff } from "./diff.ts";
-import { DiffView } from "./DiffView.tsx";
-import { WorkPreview } from "./WorkPreview.tsx";
+import { groupArtifacts } from "./artifacts.ts";
+import { ArtifactsTab } from "./ArtifactsTab.tsx";
 
 export type WorkTab = "conversation" | "plan" | "changes" | "preview";
 
@@ -33,8 +32,9 @@ export function WorkTabs({
   work: Work | null;
   artifacts: WorkArtifact[];
 }) {
-  const changes = artifacts.filter((a) => a.kind === "diff").length;
-  const previews = artifacts.filter((a) => a.kind !== "diff").length;
+  // Artifacts, not versions: a change published three times is one thing to look at.
+  const changes = groupArtifacts(artifacts.filter((a) => a.kind === "diff")).length;
+  const previews = groupArtifacts(artifacts.filter((a) => a.kind !== "diff")).length;
   const tabs: Array<{ id: WorkTab; label: string }> = [
     { id: "conversation", label: "Conversation" },
     { id: "plan", label: work?.status === "done" ? "Plan · done" : "Plan" },
@@ -73,9 +73,19 @@ export function WorkPanel({
   if (tab === "plan") return <PlanTab channelId={channelId} work={work} />;
   if (tab === "changes")
     return (
-      <ChangesTab artifacts={artifacts.filter((a) => a.kind === "diff")} />
+      <ArtifactsTab
+        which="changes"
+        work={work}
+        artifacts={artifacts.filter((a) => a.kind === "diff")}
+      />
     );
-  return <PreviewTab artifacts={artifacts.filter((a) => a.kind !== "diff")} />;
+  return (
+    <ArtifactsTab
+      which="preview"
+      work={work}
+      artifacts={artifacts.filter((a) => a.kind !== "diff")}
+    />
+  );
 }
 
 /** One run on the plan tab, subscribed to its own run. */
@@ -153,96 +163,6 @@ function PlanTab({
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function ChangesTab({ artifacts }: { artifacts: WorkArtifact[] }) {
-  const [open, setOpen] = useState<string | null>(artifacts[0]?.id ?? null);
-  const displayNameOf = useStore((s) => s.displayNameOf);
-  if (artifacts.length === 0) {
-    return (
-      <div className="work-panel">
-        <p className="pref-hint">
-          No changes published yet. An agent publishes a diff with an AG-UI{" "}
-          <code>blob.artifact</code> event; you can paste one from the ••• menu
-          of this tab later.
-        </p>
-      </div>
-    );
-  }
-  const selected = artifacts.find((a) => a.id === open) ?? artifacts[0]!;
-  return (
-    <div className="work-panel work-split">
-      <ul className="work-list">
-        {artifacts.map((artifact) => {
-          const stats = diffStats(parseDiff(artifact.body));
-          return (
-            <li key={artifact.id}>
-              <button
-                className="menu-item"
-                data-active={selected.id === artifact.id}
-                onClick={() => setOpen(artifact.id)}
-              >
-                <span className="work-list-title">{artifact.title}</span>
-                <span className="work-list-meta">
-                  {artifact.authorUserId
-                    ? displayNameOf(artifact.authorUserId)
-                    : "someone"}{" "}
-                  · <span className="diff-stat-add">+{stats.added}</span>{" "}
-                  <span className="diff-stat-del">−{stats.removed}</span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="work-detail">
-        <DiffView body={selected.body} />
-      </div>
-    </div>
-  );
-}
-
-function PreviewTab({ artifacts }: { artifacts: WorkArtifact[] }) {
-  const [open, setOpen] = useState<string | null>(artifacts[0]?.id ?? null);
-  const displayNameOf = useStore((s) => s.displayNameOf);
-  if (artifacts.length === 0) {
-    return (
-      <div className="work-panel">
-        <p className="pref-hint">
-          Nothing to preview yet. Pages and documents agents publish land here.
-        </p>
-      </div>
-    );
-  }
-  const selected = artifacts.find((a) => a.id === open) ?? artifacts[0]!;
-  return (
-    <div className="work-panel work-split">
-      <ul className="work-list">
-        {artifacts.map((artifact) => (
-          <li key={artifact.id}>
-            <button
-              className="menu-item"
-              data-active={selected.id === artifact.id}
-              onClick={() => setOpen(artifact.id)}
-            >
-              <span className="work-list-title">{artifact.title}</span>
-              <span className="work-list-meta">
-                {artifact.kind} ·{" "}
-                {artifact.authorUserId
-                  ? displayNameOf(artifact.authorUserId)
-                  : "someone"}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      <div className="work-detail">
-        {/* Keyed so switching artifacts resets the run gate: a page you asked to run is
-            not permission for the next one. */}
-        <WorkPreview key={selected.id} artifact={selected} />
-      </div>
     </div>
   );
 }

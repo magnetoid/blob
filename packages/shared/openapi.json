@@ -1278,6 +1278,25 @@
             "title": "Kind",
             "type": "string"
           },
+          "reviewRootId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewrootid"
+          },
+          "reviews": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            },
+            "title": "Reviews",
+            "type": "array"
+          },
           "runId": {
             "anyOf": [
               {
@@ -1289,9 +1308,25 @@
             ],
             "title": "Runid"
           },
+          "supersedesId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedesid"
+          },
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "version": {
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
           },
           "workId": {
             "title": "Workid",
@@ -3536,6 +3571,19 @@
           "status"
         ],
         "title": "DeploymentOut",
+        "type": "object"
+      },
+      "DiscussionOut": {
+        "properties": {
+          "threadRootId": {
+            "title": "Threadrootid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "threadRootId"
+        ],
+        "title": "DiscussionOut",
         "type": "object"
       },
       "EnvInput": {
@@ -7527,6 +7575,73 @@
           "password"
         ],
         "title": "ResetPasswordInput",
+        "type": "object"
+      },
+      "Review": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "userId": {
+            "title": "Userid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "approved",
+              "changes"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "verdict",
+          "at"
+        ],
+        "title": "Review",
+        "type": "object"
+      },
+      "ReviewInput": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "verdict": {
+            "enum": [
+              "approved",
+              "changes"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verdict"
+        ],
+        "title": "ReviewInput",
         "type": "object"
       },
       "RevokeIn": {
@@ -21363,6 +21478,124 @@
           }
         },
         "summary": "Publish Artifact",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/api/work/{work_id}/artifacts/{artifact_id}/discussion": {
+      "post": {
+        "description": "The artifact's thread \u2014 started now, by this person, if nobody has yet.",
+        "operationId": "discuss_artifact_api_work__work_id__artifacts__artifact_id__discussion_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Work Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscussionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discuss Artifact",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/api/work/{work_id}/artifacts/{artifact_id}/review": {
+      "post": {
+        "description": "Approve one version, or send it back with what should change \u2014 said in its thread.",
+        "operationId": "review_artifact_api_work__work_id__artifacts__artifact_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Work Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Artifact",
         "tags": [
           "work"
         ]

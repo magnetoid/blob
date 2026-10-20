@@ -125,6 +125,15 @@ export type WorkArtifactKind = 'diff' | 'html' | 'markdown';
 
 /** Something made in a work channel. Text, drawn by the client — never executed by it,
  * except an `html` page in a sandboxed frame on request. */
+/** One person's verdict on one version of an artifact (M2 · A10). */
+export interface WorkReview {
+  userId: string;
+  verdict: 'approved' | 'changes';
+  /** Why, when changes were asked for. */
+  note: string | null;
+  at: string;
+}
+
 export interface WorkArtifact {
   id: string;
   workId: string;
@@ -134,6 +143,14 @@ export interface WorkArtifact {
   body: string;
   authorUserId: string | null;
   createdAt: string;
+  /** 1, then one more each time the same title and kind is published again. */
+  version: number;
+  /** The version this one replaced. */
+  supersedesId: string | null;
+  /** The message whose thread discusses it — shared by its versions — once started. */
+  reviewRootId: string | null;
+  /** Verdicts on this version, newest first. */
+  reviews: WorkReview[];
 }
 
 /** A channel as it appears in the sidebar, with this user's own state folded in. */

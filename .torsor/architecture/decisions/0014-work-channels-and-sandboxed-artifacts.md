@@ -68,3 +68,30 @@ is what lets a `srcdoc` frame exist at all; that policy landed first, as a prere
   refetches. Both protocol twins changed together.
 - Rate-limited as a send, audited as `work.started` / `work.artifact_published` /
   `work.finished`.
+
+## Addendum (M2 · A10, 2026-10-20): a lifecycle
+
+The tabs showed what agents made and nothing of what people thought of it, so a work
+channel could not carry a change from first draft to agreed. Four additions, none of which
+asks anything new of an agent:
+
+- **Versions by title.** Publishing with the title and kind of an artifact already in the
+  work (case and spacing aside) makes its next version — `version`, `supersedes_id`,
+  migration 0061 — whoever publishes it: a person, an app, a `blob.artifact` event. The
+  work row is locked while the version is chosen, so two publishes cannot both be v2. The
+  work's artifact count counts artifacts, not versions.
+- **One thread per artifact.** `review_root_id` is a message in the work channel — "Discussing
+  the change **X** (v1)", by the first person to ask — whose thread every version shares;
+  each new version is announced there by its author.
+- **Verdicts are a person's, per version.** `work_reviews` holds one verdict per person per
+  version, approved or changes-with-a-note, said in the thread. Sending back an agent's
+  artifact mentions the agent, so its run is an ordinary mention on the reviewer's
+  authority ([[0013]], [[0023]]); an approval mentions a person author and never sets an
+  agent going. Every message Blob composes here sets its mentions outright, so a title or
+  a note naming somebody notifies nobody.
+- **Finishing says how it ended.** Before the channel archives, the finisher's message
+  there and in the thread the work started from lists what was made and where review left
+  each piece.
+
+Not built: bookmarks and status posts (a channel-wide feature, not a work one), linking a
+task to a work item, and an agent giving verdicts.

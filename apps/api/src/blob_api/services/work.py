@@ -22,6 +22,15 @@ Three rules shape it:
 
 Finishing the assignment archives its channel — the history stays searchable, and the
 channel list stays a list of things still happening.
+
+**A lifecycle, since M2 · A10.** Publishing an artifact whose title and kind the work
+already has makes its next version, whoever publishes it — a person, an app, an agent's
+`blob.artifact` event — so an agent iterating on a change needs nothing new from AG-UI.
+Each artifact can be discussed in a thread of the work channel, shared by its versions,
+and each version can be approved or sent back with a note; sending back an agent's work
+mentions the agent in that thread, on the reviewer's authority, so the next version is a
+message away. Finishing posts what was made and what was approved, in the work channel
+and back where the work started.
 """
 
 from __future__ import annotations
@@ -47,6 +56,10 @@ ARTIFACT_KINDS: tuple[str, ...] = ("diff", "html", "markdown")
 TITLE_MAX = 200
 #: An artifact is something to review, not a repository.
 ARTIFACT_BODY_MAX = 200_000
+NOTE_MAX = 2_000
+Verdict = Literal["approved", "changes"]
+#: What an artifact is called where people read about it.
+KIND_WORDS = {"diff": "change", "html": "page", "markdown": "document"}
 #: How much of the starting message the work channel quotes back.
 EXCERPT_MAX = 600
 
@@ -82,6 +95,13 @@ def work_event(work: Work) -> dict[str, Any]:
     }
 
 
+class Review(CamelModel):
+    user_id: str
+    verdict: Verdict
+    note: str | None = None
+    at: str
+
+
 class Artifact(CamelModel):
     id: str
     work_id: str
@@ -91,6 +111,14 @@ class Artifact(CamelModel):
     body: str
     author_user_id: str | None = None
     created_at: str
+    #: 1, then one more each time the same title and kind is published again.
+    version: int = 1
+    supersedes_id: str | None = None
+    #: The message whose thread discusses it — shared by all its versions — once somebody
+    #: has started one.
+    review_root_id: str | None = None
+    #: Verdicts on this version, newest first.
+    reviews: list[Review] = []
 
 
 @dataclass(slots=True)
@@ -101,11 +129,17 @@ class Started:
     member_ids: list[str]
 
 
+#: Artifacts, not versions: a change published three times is one thing to look at.
 _WORK_SELECT = """
     SELECT w.id, w.channel_id, w.root_message_id, w.root_channel_id, w.title, w.status,
            w.created_by, w.created_at, w.done_by, w.done_at,
-           (SELECT count(*) FROM work_artifacts a WHERE a.work_id = w.id) AS artifact_count
+           (SELECT count(DISTINCT (a.kind, lower(a.title)))
+              FROM work_artifacts a WHERE a.work_id = w.id) AS artifact_count
       FROM work_items w
+"""
+_ARTIFACT_COLUMNS = """
+    id, work_id, run_id, kind, title, body, author_user_id, created_at, version,
+    supersedes_id, review_root_id
 """
 
 
@@ -125,7 +159,7 @@ def _work(row: Any) -> Work:
     )
 
 
-def _artifact(row: Any) -> Artifact:
+def _artifact(row: Any, reviews: list[Review] | None = None) -> Artifact:
     return Artifact(
         id=str(row.id),
         work_id=str(row.work_id),
@@ -135,6 +169,10 @@ def _artifact(row: Any) -> Artifact:
         body=row.body,
         author_user_id=str(row.author_user_id) if row.author_user_id else None,
         created_at=require_iso(row.created_at),
+        version=int(row.version),
+        supersedes_id=str(row.supersedes_id) if row.supersedes_id else None,
+        review_root_id=str(row.review_root_id) if row.review_root_id else None,
+        reviews=reviews or [],
     )
 
 
@@ -158,18 +196,60 @@ async def get(session: AsyncSession, work_id: str, workspace_id: str) -> Work:
 
 
 async def artifacts(session: AsyncSession, work_id: str) -> list[Artifact]:
+    """Every version of everything published, oldest first, each with its verdicts."""
     rows = (
         await session.execute(
             text(
-                """
-                SELECT id, work_id, run_id, kind, title, body, author_user_id, created_at
+                f"""
+                SELECT {_ARTIFACT_COLUMNS}
                   FROM work_artifacts WHERE work_id = :w ORDER BY created_at, id
                 """
             ),
             {"w": work_id},
         )
     ).fetchall()
-    return [_artifact(row) for row in rows]
+    verdicts = (
+        await session.execute(
+            text(
+                """
+                SELECT r.artifact_id, r.user_id, r.verdict, r.note, r.updated_at
+                  FROM work_reviews r
+                  JOIN work_artifacts a ON a.id = r.artifact_id
+                 WHERE a.work_id = :w
+                 ORDER BY r.updated_at DESC
+                """
+            ),
+            {"w": work_id},
+        )
+    ).fetchall()
+    by_artifact: dict[str, list[Review]] = {}
+    for verdict in verdicts:
+        by_artifact.setdefault(str(verdict.artifact_id), []).append(
+            Review(
+                user_id=str(verdict.user_id),
+                verdict=verdict.verdict,
+                note=verdict.note,
+                at=require_iso(verdict.updated_at),
+            )
+        )
+    return [_artifact(row, by_artifact.get(str(row.id))) for row in rows]
+
+
+async def _artifact_in(session: AsyncSession, work_id: str, artifact_id: str) -> Any:
+    row = (
+        await session.execute(
+            text(
+                f"""
+                SELECT {_ARTIFACT_COLUMNS}
+                  FROM work_artifacts WHERE id = :id AND work_id = :w
+                """
+            ),
+            {"id": artifact_id, "w": work_id},
+        )
+    ).fetchone()
+    if row is None:
+        raise not_found("There is no artifact by that id in this work.")
+    return row
 
 
 async def start(
@@ -314,7 +394,9 @@ async def start(
 
 async def publish(
     session: AsyncSession,
+    after: Any,
     *,
+    workspace_id: str,
     work_id: str,
     kind: str,
     title: str,
@@ -322,7 +404,12 @@ async def publish(
     author_user_id: str | None,
     run_id: str | None = None,
 ) -> Artifact:
-    """Put something made into the work. Validated here, whoever made it."""
+    """Put something made into the work. Validated here, whoever made it.
+
+    The same title and kind as something already published makes its next version: the
+    work row is locked first so two publishes cannot both be "v2". When its thread has
+    been started, the author says so there, so the people reviewing it see it arrive.
+    """
     if kind not in ARTIFACT_KINDS:
         raise bad_request(f"An artifact is one of {', '.join(ARTIFACT_KINDS)}.", code="bad_kind")
     title = title.strip()
@@ -332,20 +419,38 @@ async def publish(
         raise bad_request("An artifact needs a body.")
     if len(body.encode("utf-8")) > ARTIFACT_BODY_MAX:
         raise bad_request("An artifact is at most 200 KiB.", code="too_large")
-    status = (
-        await session.execute(text("SELECT status FROM work_items WHERE id = :id"), {"id": work_id})
-    ).scalar_one_or_none()
-    if status is None:
+    work = (
+        await session.execute(
+            text("SELECT status, channel_id FROM work_items WHERE id = :id FOR UPDATE"),
+            {"id": work_id},
+        )
+    ).fetchone()
+    if work is None:
         raise not_found("There is no work by that id.")
-    if status != "open":
+    if work.status != "open":
         raise conflict("That work is done; nothing more can be published into it.", "work_done")
 
+    latest = (
+        await session.execute(
+            text(
+                """
+                SELECT id, version, review_root_id FROM work_artifacts
+                 WHERE work_id = :w AND kind = :kind AND lower(title) = lower(:title)
+                 ORDER BY version DESC LIMIT 1
+                """
+            ),
+            {"w": work_id, "kind": kind, "title": title},
+        )
+    ).fetchone()
     artifact_id = new_id()
     await session.execute(
         text(
             """
-            INSERT INTO work_artifacts (id, work_id, run_id, kind, title, body, author_user_id)
-            VALUES (:id, :w, cast(:run AS uuid), :kind, :title, :body, cast(:author AS uuid))
+            INSERT INTO work_artifacts
+                   (id, work_id, run_id, kind, title, body, author_user_id, version,
+                    supersedes_id, review_root_id)
+            VALUES (:id, :w, cast(:run AS uuid), :kind, :title, :body, cast(:author AS uuid),
+                    :version, cast(:supersedes AS uuid), cast(:thread AS uuid))
             """
         ),
         {
@@ -356,34 +461,250 @@ async def publish(
             "title": title,
             "body": body,
             "author": author_user_id,
+            "version": int(latest.version) + 1 if latest else 1,
+            "supersedes": str(latest.id) if latest else None,
+            "thread": str(latest.review_root_id) if latest and latest.review_root_id else None,
         },
     )
-    row = (
-        await session.execute(
-            text(
-                "SELECT id, work_id, run_id, kind, title, body, author_user_id, created_at "
-                "FROM work_artifacts WHERE id = :id"
-            ),
-            {"id": artifact_id},
+    artifact = _artifact(await _artifact_in(session, work_id, artifact_id))
+    if artifact.review_root_id and author_user_id:
+        await _post(
+            session,
+            after,
+            workspace_id=workspace_id,
+            channel_id=str(work.channel_id),
+            author_id=author_user_id,
+            body=f"Published v{artifact.version} of **{_plain(artifact.title)}**.",
+            key=f"work-artifact:{artifact.id}:published",
+            thread_root_id=artifact.review_root_id,
         )
-    ).fetchone()
-    return _artifact(row)
+    return artifact
+
+
+def _plain(title: str) -> str:
+    """A title inside a sentence Blob writes: on one line, with no markdown of its own."""
+    return " ".join(title.replace("*", "").replace("`", "").split())
+
+
+async def _post(
+    session: AsyncSession,
+    after: Any,
+    *,
+    workspace_id: str,
+    channel_id: str,
+    author_id: str,
+    body: str,
+    key: str,
+    thread_root_id: str | None = None,
+    mention_user_ids: list[str] | None = None,
+) -> str:
+    """A message Blob composes for somebody — mentioning exactly whom it says, and nobody a
+    title or a note happens to name."""
+    result = await message_service.send(
+        session,
+        workspace_id=workspace_id,
+        channel_id=channel_id,
+        author_id=author_id,
+        body=body,
+        client_msg_id=key,
+        thread_root_id=thread_root_id,
+        mention_user_ids=mention_user_ids or [],
+    )
+    await message_service.announce(
+        session, after, result, workspace_id=workspace_id, channel_id=channel_id
+    )
+    return str(result.message.id)
+
+
+async def discuss(
+    session: AsyncSession,
+    after: Any,
+    *,
+    work: Work,
+    artifact_id: str,
+    user_id: str,
+    workspace_id: str,
+) -> str:
+    """The thread an artifact is discussed in, started by the first person to ask for it:
+    a message of theirs in the work channel naming it, shared by every version."""
+    row = await _artifact_in(session, work.id, artifact_id)
+    if row.review_root_id:
+        return str(row.review_root_id)
+    word = KIND_WORDS.get(row.kind, "artifact")
+    root_id = await _post(
+        session,
+        after,
+        workspace_id=workspace_id,
+        channel_id=work.channel_id,
+        author_id=user_id,
+        body=f"Discussing the {word} **{_plain(row.title)}** (v{row.version}).",
+        key=f"work-artifact:{artifact_id}:discussion",
+    )
+    await session.execute(
+        text(
+            """
+            UPDATE work_artifacts SET review_root_id = :root
+             WHERE work_id = :w AND kind = :kind AND lower(title) = lower(:title)
+               AND review_root_id IS NULL
+            """
+        ),
+        {"root": root_id, "w": work.id, "kind": row.kind, "title": row.title},
+    )
+    return root_id
+
+
+async def review(
+    session: AsyncSession,
+    after: Any,
+    *,
+    work: Work,
+    artifact_id: str,
+    user_id: str,
+    workspace_id: str,
+    verdict: str,
+    note: str | None,
+) -> Artifact:
+    """A person's verdict on one version, said in its thread. Sending back an agent's work
+    mentions the agent there — on the reviewer's authority, the way any message of theirs
+    would — so it can publish the next version; sending back a person's work mentions
+    them. An approval reaches a person, and never sets an agent going."""
+    if verdict not in ("approved", "changes"):
+        raise bad_request("A verdict is approved or changes.", code="invalid_input")
+    note = (note or "").strip() or None
+    if verdict == "changes" and not note:
+        raise bad_request("Say what should change.", code="invalid_input")
+    if note and len(note) > NOTE_MAX:
+        raise bad_request(f"A note is at most {NOTE_MAX} characters.", code="invalid_input")
+    if work.status != "open":
+        raise conflict("That work is done.", "work_done")
+    row = await _artifact_in(session, work.id, artifact_id)
+    await session.execute(
+        text(
+            """
+            INSERT INTO work_reviews (id, artifact_id, user_id, verdict, note)
+            VALUES (:id, :a, :u, :verdict, :note)
+            ON CONFLICT (artifact_id, user_id) DO UPDATE
+               SET verdict = EXCLUDED.verdict, note = EXCLUDED.note, updated_at = now()
+            """
+        ),
+        {"id": new_id(), "a": artifact_id, "u": user_id, "verdict": verdict, "note": note},
+    )
+    thread = await discuss(
+        session,
+        after,
+        work=work,
+        artifact_id=artifact_id,
+        user_id=user_id,
+        workspace_id=workspace_id,
+    )
+    author = None
+    if row.author_user_id and str(row.author_user_id) != user_id:
+        author = (
+            await session.execute(
+                text("SELECT id, kind, display_name FROM users WHERE id = :id"),
+                {"id": row.author_user_id},
+            )
+        ).fetchone()
+    reach: list[str] = []
+    address = ""
+    if author is not None and (verdict == "changes" or author.kind == "human"):
+        reach = [str(author.id)]
+        address = f"@{author.display_name} — "
+    said = (
+        f"Approved v{row.version}."
+        if verdict == "approved"
+        else f"Changes requested on v{row.version}:"
+    )
+    body = f"{address}{said}" + (f"\n\n{note}" if note else "")
+    await _post(
+        session,
+        after,
+        workspace_id=workspace_id,
+        channel_id=work.channel_id,
+        author_id=user_id,
+        body=body,
+        key=f"work-review:{artifact_id}:{new_id()}",
+        thread_root_id=thread,
+        mention_user_ids=reach,
+    )
+    return next(item for item in await artifacts(session, work.id) if item.id == artifact_id)
+
+
+def closing_summary(found: list[Artifact]) -> str:
+    """What the work made and where review left it, in a sentence or three."""
+    latest: dict[tuple[str, str], Artifact] = {}
+    for artifact in found:
+        key = (artifact.kind, artifact.title.lower())
+        if key not in latest or artifact.version > latest[key].version:
+            latest[key] = artifact
+    if not latest:
+        return "Nothing was published."
+    counts: dict[str, int] = {}
+    for artifact in latest.values():
+        word = KIND_WORDS.get(artifact.kind, "artifact")
+        counts[word] = counts.get(word, 0) + 1
+    made = ", ".join(f"{n} {word}{'s' if n != 1 else ''}" for word, n in sorted(counts.items()))
+    approved = [a for a in latest.values() if any(r.verdict == "approved" for r in a.reviews)]
+    returned = [a for a in latest.values() if any(r.verdict == "changes" for r in a.reviews)]
+    unreviewed = [a for a in latest.values() if not a.reviews]
+
+    def names(items: list[Artifact]) -> str:
+        return ", ".join(f"{_plain(a.title)} (v{a.version})" for a in items)
+
+    parts = [f"{made[0].upper()}{made[1:]}."]
+    if approved:
+        parts.append(f"Approved: {names(approved)}.")
+    if returned:
+        parts.append(f"Changes still requested: {names(returned)}.")
+    if unreviewed:
+        parts.append(f"Not reviewed: {names(unreviewed)}.")
+    return " ".join(parts)
 
 
 async def finish(
-    session: AsyncSession, *, work_id: str, workspace_id: str, user_id: str, is_admin: bool
+    session: AsyncSession,
+    after: Any,
+    *,
+    work_id: str,
+    workspace_id: str,
+    user_id: str,
+    is_admin: bool,
 ) -> Work:
-    """Mark the assignment done and archive its channel.
+    """Mark the assignment done, say what came of it, and archive its channel.
 
     The person who started it or an admin. Archiving is otherwise admin-only, and stays
     so for ordinary channels; a work channel is the starter's to close because it was the
-    starter's to open.
+    starter's to open. The summary goes into the work channel before it closes and into
+    the thread the work started from, so the people who asked for it hear how it ended.
     """
     work = await get(session, work_id, workspace_id)
     if work.status != "open":
         raise conflict("That work is already done.", "work_done")
     if work.created_by != user_id and not is_admin:
         raise forbidden("Only the person who started this, or an admin, can finish it.")
+    summary = closing_summary(await artifacts(session, work_id))
+    await _post(
+        session,
+        after,
+        workspace_id=workspace_id,
+        channel_id=work.channel_id,
+        author_id=user_id,
+        body=f"Done: **{_plain(work.title)}**. {summary}",
+        key=f"work:{work_id}:done",
+    )
+    if work.root_message_id and work.root_channel_id:
+        origin = await message_service.by_id(session, work.root_message_id)
+        if origin is not None and not origin.deleted_at:
+            await _post(
+                session,
+                after,
+                workspace_id=workspace_id,
+                channel_id=work.root_channel_id,
+                author_id=user_id,
+                body=f"Finished **{_plain(work.title)}**. {summary}",
+                key=f"work:{work_id}:done-origin",
+                thread_root_id=origin.thread_root_id or work.root_message_id,
+            )
     await session.execute(
         text(
             """

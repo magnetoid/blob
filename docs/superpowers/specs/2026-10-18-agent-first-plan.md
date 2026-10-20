@@ -479,3 +479,17 @@ the worker, and the owner's card showed only her agent.
 
 **Not built, on purpose:** currency conversion, per-person caps, budget alerts and cost by
 channel — nothing asks for them yet.
+
+### A10 — done (ADR 0014's addendum): work channels with a lifecycle
+
+An artifact published again under its title and kind is its next version (migration 0061),
+whoever publishes it — so an agent iterating needs nothing new from AG-UI. Each artifact has
+one thread, started by the first person to discuss or review it and told of each new
+version. A person approves a version or sends it back with a note; sending back mentions
+the author in the thread, which sets an agent author going on the reviewer's authority. The
+tabs fold versions under one row with a picker, put Approve / Request changes / Discuss
+under the version on screen, and Publish puts one in by hand. Mark done says what was made
+and what was approved, in the channel and back where the work started.
+
+**Not built, on purpose:** bookmarks and status posts (a channel feature for every channel,
+its own slice), a task linked to a work item, and agents giving verdicts.

@@ -335,6 +335,8 @@ async def publish_artifact(
             raise bad_request("That channel is not a work channel.", code="not_work")
         artifact = await work_service.publish(
             session,
+            after,
+            workspace_id=bot.workspace_id,
             work_id=work.id,
             kind=payload.kind,
             title=payload.title,

@@ -22,6 +22,10 @@ function artifact(overrides: Partial<WorkArtifact> = {}): WorkArtifact {
     body: '<h1>hello</h1><script>fetch("https://evil.example")</script>',
     authorUserId: "bot1",
     createdAt: "2026-09-05T10:00:00.000Z",
+    version: 1,
+    supersedesId: null,
+    reviewRootId: null,
+    reviews: [],
     ...overrides,
   };
 }

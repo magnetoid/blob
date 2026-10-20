@@ -924,11 +924,16 @@ class WorkItem(Base):
 
 
 class WorkArtifact(Base):
-    """Something made in a work channel: a diff, a page, a document. Text, capped, data."""
+    """Something made in a work channel: a diff, a page, a document. Text, capped, data.
+
+    Versioned by title and kind (migration 0061): publishing one again makes its next
+    version, which `supersedes_id` links back, and the review thread carries forward.
+    """
 
     __tablename__ = "work_artifacts"
     __table_args__ = (
         CheckConstraint("kind IN ('diff', 'html', 'markdown')", name="work_artifacts_kind_check"),
+        CheckConstraint("version > 0", name="work_artifacts_version_positive"),
         Index("work_artifacts_by_work", "work_id", "created_at"),
         # Behind `run_id`, for the same nightly delete: each run removed looks for the
         # artifacts it published (migration 0053).
@@ -951,6 +956,39 @@ class WorkArtifact(Base):
         UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
     )
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    #: 1 for the first of its title and kind in the work, then one more each time it is
+    #: published again (M2 · A10).
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    supersedes_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("work_artifacts.id", ondelete="SET NULL")
+    )
+    #: The message whose thread is where it is discussed, shared by all its versions.
+    review_root_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="SET NULL")
+    )
+
+
+class WorkReview(Base):
+    """One person's verdict on one version of an artifact (M2 · A10): approved, or changes
+    requested with a note. A new verdict from the same person replaces their last."""
+
+    __tablename__ = "work_reviews"
+    __table_args__ = (
+        CheckConstraint("verdict IN ('approved', 'changes')", name="work_reviews_verdict_check"),
+        UniqueConstraint("artifact_id", "user_id", name="work_reviews_once"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    artifact_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("work_artifacts.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    verdict: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
 class ActivityEvent(Base):
@@ -2126,6 +2164,7 @@ __all__ = [
     "ThreadSummary",
     "User",
     "Webhook",
+    "WorkReview",
     "Workspace",
     "WorkspaceSettings",
 ]

@@ -230,7 +230,10 @@ the ADR is the place to look before changing them.
   Stop, `/allow`, archiving and search all work unchanged, and the row is only what makes
   the client draw the tabs. Artifacts are **data**: a diff is coloured text, a document is
   markdown through the message renderer, a page runs in a sandboxed frame and only after a
-  person asks for it. Blob executes nothing an agent publishes (ADR 0007).
+  person asks for it. Blob executes nothing an agent publishes (ADR 0007). Since M2 · A10
+  an artifact published again under its title is its next version, each artifact has one
+  review thread, and a person's "request changes" mentions the author there — an agent
+  author gets an ordinary run on the reviewer's authority (0014's addendum).
 * **The agent Blob ships with is Janus** (`services/janus_agent.py`, ADR 0019). Seeded
   into every workspace through the ordinary install path when `JANUS_AGUI_URL` and
   `JANUS_SIGNING_SECRET` are set, so it is a `plugins` row with a bot in `users` and an

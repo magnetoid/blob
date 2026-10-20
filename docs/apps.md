@@ -643,5 +643,13 @@ page, shown in a sandboxed frame only after a person clicks *Run preview* — no
 cookies, no access to the workspace) or `markdown` (a document). `body` is capped at
 200 KiB; `title` at 200 characters. Outside a work channel the event is ignored.
 
+**Versions and review.** Publishing again with the same `title` and `kind` (case and
+surrounding spaces aside) makes the artifact's next version rather than a second artifact —
+iterate under one title and the team sees v1, v2, v3 of one thing. People approve a
+version or send it back with a note; sending back *your* artifact posts the note in the
+artifact's thread **mentioning you**, which starts an ordinary run on the reviewer's
+authority, in that thread: read the note, publish the next version under the same title,
+and the thread is told "Published v3". An approval never starts a run.
+
 An app that posts through the bot API can publish the same thing with
 `POST /api/v1/work.publishArtifact {"channel": "…", "kind": "…", "title": "…", "body": "…"}`.

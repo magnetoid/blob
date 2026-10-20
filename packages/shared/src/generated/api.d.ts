@@ -4179,6 +4179,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/work/{work_id}/artifacts/{artifact_id}/discussion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discuss Artifact
+         * @description The artifact's thread — started now, by this person, if nobody has yet.
+         */
+        post: operations["discuss_artifact_api_work__work_id__artifacts__artifact_id__discussion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/work/{work_id}/artifacts/{artifact_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review Artifact
+         * @description Approve one version, or send it back with what should change — said in its thread.
+         */
+        post: operations["review_artifact_api_work__work_id__artifacts__artifact_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/work/{work_id}/done": {
         parameters: {
             query?: never;
@@ -4713,10 +4753,24 @@ export interface components {
             id: string;
             /** Kind */
             kind: string;
+            /** Reviewrootid */
+            reviewRootId?: string | null;
+            /**
+             * Reviews
+             * @default []
+             */
+            reviews: components["schemas"]["Review"][];
             /** Runid */
             runId?: string | null;
+            /** Supersedesid */
+            supersedesId?: string | null;
             /** Title */
             title: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
             /** Workid */
             workId: string;
         };
@@ -5594,6 +5648,11 @@ export interface components {
             status: string;
             /** Url */
             url?: string | null;
+        };
+        /** DiscussionOut */
+        DiscussionOut: {
+            /** Threadrootid */
+            threadRootId: string;
         };
         /** EnvInput */
         EnvInput: {
@@ -7049,6 +7108,30 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** Review */
+        Review: {
+            /** At */
+            at: string;
+            /** Note */
+            note?: string | null;
+            /** Userid */
+            userId: string;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "approved" | "changes";
+        };
+        /** ReviewInput */
+        ReviewInput: {
+            /** Note */
+            note?: string | null;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "approved" | "changes";
+        };
         /** RevokeIn */
         RevokeIn: {
             /**
@@ -8114,6 +8197,7 @@ export type DeliveriesOut = components['schemas']['DeliveriesOut'];
 export type DeliveryDetailOut = components['schemas']['DeliveryDetailOut'];
 export type DeliveryOut = components['schemas']['DeliveryOut'];
 export type DeploymentOut = components['schemas']['DeploymentOut'];
+export type DiscussionOut = components['schemas']['DiscussionOut'];
 export type EnvInput = components['schemas']['EnvInput'];
 export type EnvOut = components['schemas']['EnvOut'];
 export type EnvVarOut = components['schemas']['EnvVarOut'];
@@ -8220,6 +8304,8 @@ export type RepoInput = components['schemas']['RepoInput'];
 export type RepoPreviewOut = components['schemas']['RepoPreviewOut'];
 export type ResetLinkOut = components['schemas']['ResetLinkOut'];
 export type ResetPasswordInput = components['schemas']['ResetPasswordInput'];
+export type Review = components['schemas']['Review'];
+export type ReviewInput = components['schemas']['ReviewInput'];
 export type RevokeIn = components['schemas']['RevokeIn'];
 export type RoleInput = components['schemas']['RoleInput'];
 export type RunCommandInput = components['schemas']['RunCommandInput'];
@@ -15694,6 +15780,74 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discuss_artifact_api_work__work_id__artifacts__artifact_id__discussion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artifact_id: string;
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscussionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_artifact_api_work__work_id__artifacts__artifact_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artifact_id: string;
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

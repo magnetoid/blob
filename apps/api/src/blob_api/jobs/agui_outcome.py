@@ -659,6 +659,8 @@ async def _finish(
                 for made in fold.artifacts:
                     await work_service.publish(
                         session,
+                        after,
+                        workspace_id=workspace_id,
                         work_id=work.id,
                         kind=made["kind"],
                         title=made["title"],

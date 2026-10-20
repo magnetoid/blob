@@ -824,10 +824,11 @@ export const SECTIONS: Section[] = [
           'Turn a conversation into a place to build something: a private channel for one job, with the agents you name, and tabs for what they make.',
         body: [
           'From any message’s ••• menu, choose Start work from here. Give the job a title, tick the agents to bring, and Blob spins a private channel that quotes the message and links back to it from its thread. The agents start at once, on your say‑so, exactly as if you had mentioned them.',
-          'Beside the conversation the channel has three tabs. Plan shows what the agents are doing right now and what they did. Changes lists every diff an agent (or a person) has published, with a viewer. Preview lists pages and documents — a page runs only when you click Run preview, in a sandbox with no network and no access to the workspace.',
-          'You can bring the workspace’s agents and your own. Somebody else’s personal agent is not on offer. When the job is finished, Mark done on the Plan tab archives the channel; its history stays searchable.',
+          'Beside the conversation the channel has three tabs. Plan shows what the agents are doing right now and what they did. Changes lists every diff an agent (or a person) has published, with a viewer. Preview lists pages and documents — a page runs only when you click Run preview, in a sandbox with no network and no access to the workspace. Publish puts one in by hand.',
+          'Published again under the same title, an artifact gets its next version — v2, v3 — and you can step back through them. Under each version, Approve it or Request changes with a note: the note goes into the artifact’s thread and mentions whoever made it, so an agent sets to work on the next version straight away. Discuss opens that thread beside the work.',
+          'You can bring the workspace’s agents and your own. Somebody else’s personal agent is not on offer. When the job is finished, Mark done on the Plan tab says what was made and what was approved — in the channel and back where the work started — and archives the channel; its history stays searchable.',
         ],
-        keywords: ['work', 'work channel', 'assignment', 'code', 'diff', 'preview', 'artifacts', 'build', 'project'],
+        keywords: ['work', 'work channel', 'assignment', 'code', 'diff', 'preview', 'artifacts', 'build', 'project', 'review', 'approve', 'version', 'request changes', 'publish'],
       },
       {
         id: 'agents-together',

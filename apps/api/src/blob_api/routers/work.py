@@ -10,7 +10,7 @@ same 404 they would get opening the channel — its existence is the private par
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import Field
@@ -140,6 +140,8 @@ async def publish_artifact(
         )
         artifact = await work_service.publish(
             session,
+            after,
+            workspace_id=user.workspace_id,
             work_id=work_id,
             kind=payload.kind,
             title=payload.title,
@@ -160,6 +162,77 @@ async def publish_artifact(
     return ArtifactOut(artifact=artifact)
 
 
+class DiscussionOut(CamelModel):
+    #: The message whose thread discusses the artifact; open it like any thread.
+    thread_root_id: str
+
+
+@router.post("/api/work/{work_id}/artifacts/{artifact_id}/discussion", response_model=DiscussionOut)
+async def discuss_artifact(
+    work_id: IdParam, artifact_id: IdParam, user: SessionUser = Depends(current_user)
+) -> DiscussionOut:
+    """The artifact's thread — started now, by this person, if nobody has yet."""
+    await consume("send_message", user.id)
+    async with transaction() as (session, after):
+        work = await work_service.get(session, work_id, user.workspace_id)
+        await channel_service.assert_channel_access(
+            session, user.id, work.channel_id, require_member=True, require_writable=True
+        )
+        root = await work_service.discuss(
+            session,
+            after,
+            work=work,
+            artifact_id=artifact_id,
+            user_id=user.id,
+            workspace_id=user.workspace_id,
+        )
+    return DiscussionOut(thread_root_id=root)
+
+
+class ReviewInput(CamelModel):
+    verdict: Literal["approved", "changes"]
+    note: Annotated[str | None, Field(max_length=work_service.NOTE_MAX)] = None
+
+
+@router.post("/api/work/{work_id}/artifacts/{artifact_id}/review", response_model=ArtifactOut)
+async def review_artifact(
+    work_id: IdParam,
+    artifact_id: IdParam,
+    payload: ReviewInput,
+    request: Request,
+    user: SessionUser = Depends(current_user),
+) -> ArtifactOut:
+    """Approve one version, or send it back with what should change — said in its thread."""
+    await consume("send_message", user.id)
+    async with transaction() as (session, after):
+        work = await work_service.get(session, work_id, user.workspace_id)
+        await channel_service.assert_channel_access(
+            session, user.id, work.channel_id, require_member=True, require_writable=True
+        )
+        artifact = await work_service.review(
+            session,
+            after,
+            work=work,
+            artifact_id=artifact_id,
+            user_id=user.id,
+            workspace_id=user.workspace_id,
+            verdict=payload.verdict,
+            note=payload.note,
+        )
+        await audit_service.record(
+            session,
+            actor_for(request, user),
+            "work.artifact_reviewed",
+            target_type="work",
+            target_id=work_id,
+            metadata={"artifactId": artifact_id, "verdict": payload.verdict},
+        )
+        updated = await work_service.get(session, work_id, user.workspace_id)
+        event = work_service.work_event(updated)
+        after.add(lambda: hub.to_channel(updated.channel_id, event))
+    return ArtifactOut(artifact=artifact)
+
+
 @router.post("/api/work/{work_id}/done", response_model=WorkOut)
 async def finish_work(
     work_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
@@ -172,6 +245,7 @@ async def finish_work(
         )
         work = await work_service.finish(
             session,
+            after,
             work_id=work_id,
             workspace_id=user.workspace_id,
             user_id=user.id,
