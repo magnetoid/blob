@@ -290,6 +290,15 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `/api/admin/usage` (M2 · A9): any admin's — what agents spend is the workspace's.
+    id: 'usage',
+    label: 'Usage',
+    description:
+      'What agents and Blob’s own summaries spent, by agent and by person — priced per model, if you set prices.',
+    keywords: ['cost', 'tokens', 'spend', 'budget', 'billing', 'prices', 'models', 'money'],
+    access: 'admin',
+  },
+  {
     id: 'webhooks',
     label: 'Webhooks',
     description: 'Incoming URLs that let another system post into a channel here.',

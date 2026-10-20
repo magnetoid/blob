@@ -103,6 +103,47 @@ class Turn:
     content: str
 
 
+#: Where each provider puts its counts. Anthropic splits input three ways when prompt
+#: caching is in play; all three are input a price applies to.
+_ANTHROPIC_INPUT = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
+_OPENAI_INPUT = ("prompt_tokens",)
+
+
+def _count(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+
+@dataclass(slots=True)
+class Meter:
+    """What one call cost, as the provider counted it (M2 · A9).
+
+    Handed to a call by a caller that wants the number, and filled in as the provider's
+    counts arrive — on a stream they come in pieces and are cumulative, so each reading
+    keeps the larger. Zero when the provider said nothing, which is a fact about the
+    report rather than the cost. Filled in before a refusal is raised, too: a reply that
+    ran out of room was still paid for.
+    """
+
+    model: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+    @property
+    def spent(self) -> bool:
+        return self.input_tokens > 0 or self.output_tokens > 0
+
+    def read(self, usage: object, *, anthropic: bool) -> None:
+        if not isinstance(usage, Mapping):
+            return
+        keys = _ANTHROPIC_INPUT if anthropic else _OPENAI_INPUT
+        inputs = [_count(usage.get(key)) for key in keys]
+        if any(value is not None for value in inputs):
+            self.input_tokens = max(self.input_tokens, sum(value or 0 for value in inputs))
+        output = _count(usage.get("output_tokens" if anthropic else "completion_tokens"))
+        if output is not None:
+            self.output_tokens = max(self.output_tokens, output)
+
+
 def open_client() -> httpx.AsyncClient:
     """The HTTP client this module talks to a provider with.
 
@@ -127,22 +168,28 @@ def model_name() -> str:
 
 
 async def stream_reply(
-    *, system: str, turns: Sequence[Turn], max_tokens: int | None = None
+    *,
+    system: str,
+    turns: Sequence[Turn],
+    max_tokens: int | None = None,
+    meter: Meter | None = None,
 ) -> AsyncIterator[str]:
     """Yield the reply as it is written.
 
     Text deltas only. Both providers interleave bookkeeping events — token counts, stop
-    reasons, content-block boundaries — and none of it is Blob's business: the recap
-    joins these into one reply and wants the prose.
+    reasons, content-block boundaries — and only the counts are Blob's business, read
+    into `meter` when one is given; the recap joins the deltas into one reply.
     """
     if not configured():
         raise LlmError("no model is configured for this server")
 
     limit = max_tokens or settings.LLM_MAX_TOKENS
+    if meter is not None:
+        meter.model = model_name()
     if settings.LLM_PROVIDER == "anthropic":
-        stream = _anthropic(system=system, turns=turns, max_tokens=limit)
+        stream = _anthropic(system=system, turns=turns, max_tokens=limit, meter=meter)
     else:
-        stream = _openai(system=system, turns=turns, max_tokens=limit)
+        stream = _openai(system=system, turns=turns, max_tokens=limit, meter=meter)
     async for delta in stream:
         yield delta
 
@@ -200,7 +247,9 @@ async def _stream_sse(
         raise LlmError(f"the model could not be reached: {error}") from error
 
 
-async def _anthropic(*, system: str, turns: Sequence[Turn], max_tokens: int) -> AsyncIterator[str]:
+async def _anthropic(
+    *, system: str, turns: Sequence[Turn], max_tokens: int, meter: Meter | None
+) -> AsyncIterator[str]:
     messages = _collapse(turns)
     if not messages:
         return
@@ -226,11 +275,19 @@ async def _anthropic(*, system: str, turns: Sequence[Turn], max_tokens: int) -> 
             delta = event.get("delta")
             if isinstance(delta, dict) and isinstance(delta.get("text"), str):
                 yield delta["text"]
+        elif kind == "message_start" and meter is not None:
+            message = event.get("message")
+            if isinstance(message, dict):
+                meter.read(message.get("usage"), anthropic=True)
+        elif kind == "message_delta" and meter is not None:
+            meter.read(event.get("usage"), anthropic=True)
         elif kind == "error":
             raise LlmError(_provider_error(event))
 
 
-async def _openai(*, system: str, turns: Sequence[Turn], max_tokens: int) -> AsyncIterator[str]:
+async def _openai(
+    *, system: str, turns: Sequence[Turn], max_tokens: int, meter: Meter | None
+) -> AsyncIterator[str]:
     messages = [{"role": "system", "content": system}, *_collapse(turns)]
     if len(messages) == 1:
         return
@@ -241,6 +298,11 @@ async def _openai(*, system: str, turns: Sequence[Turn], max_tokens: int) -> Asy
         "messages": messages,
         "stream": True,
     }
+    if meter is not None and settings.LLM_BASE_URL is None:
+        # OpenAI and DeepSeek send the counts on a last chunk only when asked. A server
+        # behind LLM_BASE_URL is not asked: one that refuses the field would break the
+        # recap to save a number.
+        body["stream_options"] = {"include_usage": True}
     headers = {
         "authorization": f"Bearer {settings.LLM_API_KEY or ''}",
         "content-type": "application/json",
@@ -248,6 +310,8 @@ async def _openai(*, system: str, turns: Sequence[Turn], max_tokens: int) -> Asy
     async for event in _stream_sse(f"{base}/v1/chat/completions", headers, body):
         if event.get("error"):
             raise LlmError(_provider_error(event))
+        if meter is not None:
+            meter.read(event.get("usage"), anthropic=False)
         choices = event.get("choices")
         if not isinstance(choices, list) or not choices:
             continue
@@ -290,6 +354,7 @@ async def complete(
     max_tokens: int,
     timeout_sec: float,
     json_schema: Mapping[str, Any] | None = None,
+    meter: Meter | None = None,
 ) -> str:
     """One reply, whole — for a summary, not a conversation.
 
@@ -307,6 +372,8 @@ async def complete(
     """
     if not configured():
         raise LlmError("no model is configured for this server")
+    if meter is not None:
+        meter.model = model_name()
     if settings.LLM_PROVIDER == "anthropic":
         return await _anthropic_complete(
             system=system,
@@ -314,6 +381,7 @@ async def complete(
             max_tokens=max_tokens,
             timeout_sec=timeout_sec,
             json_schema=json_schema,
+            meter=meter,
         )
     return await _openai_complete(
         system=system,
@@ -321,6 +389,7 @@ async def complete(
         max_tokens=max_tokens,
         timeout_sec=timeout_sec,
         json_schema=json_schema,
+        meter=meter,
     )
 
 
@@ -388,6 +457,7 @@ async def _anthropic_complete(
     max_tokens: int,
     timeout_sec: float,
     json_schema: Mapping[str, Any] | None,
+    meter: Meter | None,
 ) -> str:
     messages = _collapse(turns)
     if not messages:
@@ -414,6 +484,8 @@ async def _anthropic_complete(
             raise
         body.pop("output_config", None)
         data = await _post_json(url, headers, body, timeout_sec=timeout_sec)
+    if meter is not None:
+        meter.read(data.get("usage"), anthropic=True)
     if data.get("type") == "error":
         raise LlmError(_provider_error(data))
     stop = data.get("stop_reason")
@@ -440,6 +512,7 @@ async def _openai_complete(
     max_tokens: int,
     timeout_sec: float,
     json_schema: Mapping[str, Any] | None,
+    meter: Meter | None,
 ) -> str:
     messages = [{"role": "system", "content": system}, *_collapse(turns)]
     if len(messages) == 1:
@@ -481,6 +554,8 @@ async def _openai_complete(
         if not retry:
             raise
         data = await _post_json(url, headers, body, timeout_sec=timeout_sec)
+    if meter is not None:
+        meter.read(data.get("usage"), anthropic=False)
     if data.get("error"):
         raise LlmError(_provider_error(data))
     choices = data.get("choices")
@@ -502,6 +577,7 @@ async def _openai_complete(
 
 __all__ = [
     "LlmError",
+    "Meter",
     "ProviderRefusedError",
     "Turn",
     "complete",

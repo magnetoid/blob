@@ -1,8 +1,9 @@
 /** The meter and the dial on one line: what the trailing day cost, against the caps.
  *
- * Budgets are measured in what Blob can observe — runs begun and wall-clock time
- * occupied. Tokens are on the meter when the agent reports them (AG-UI 1.0 does), but
- * they are its provider's count, not Blob's, so they are shown and never capped. Admins think in
+ * Runs begun and wall-clock time occupied are what Blob observes itself. Tokens are the
+ * agent's own count, reported on its runs' last events (AG-UI 1.0), and since M2 · A9 they
+ * can be capped too — on that count, so an agent that reports none is never stopped by
+ * it, and the field says so. Admins think in
  * minutes, the server stores seconds; the conversion lives here and nowhere else. The
  * component is keyed by its callers on the saved caps, so a save that comes back from
  * the reload reseeds the inputs instead of fighting them.
@@ -31,10 +32,15 @@ export function BudgetRow({
       ? String(Math.round(plugin.budgetSecondsPerDay / 60))
       : "",
   );
+  const [tokens, setTokens] = useState(
+    plugin.budgetTokensPerDay !== null ? String(plugin.budgetTokensPerDay) : "",
+  );
 
   const usedMinutes = Math.round(plugin.secondsLastDay / 60);
   const capped =
-    plugin.budgetRunsPerDay !== null || plugin.budgetSecondsPerDay !== null;
+    plugin.budgetRunsPerDay !== null ||
+    plugin.budgetSecondsPerDay !== null ||
+    plugin.budgetTokensPerDay !== null;
   const used =
     `${plugin.runsLastDay} run${plugin.runsLastDay === 1 ? "" : "s"}` +
     (plugin.budgetRunsPerDay !== null ? ` of ${plugin.budgetRunsPerDay}` : "") +
@@ -42,18 +48,25 @@ export function BudgetRow({
     (plugin.budgetSecondsPerDay !== null
       ? ` of ${Math.round(plugin.budgetSecondsPerDay / 60)}m`
       : "") +
-    (plugin.tokensLastDay > 0 ? ` · ${formatTokens(plugin.tokensLastDay)}` : "");
+    (plugin.budgetTokensPerDay !== null
+      ? ` · ${formatTokens(plugin.tokensLastDay)} of ${formatTokens(plugin.budgetTokensPerDay)}`
+      : plugin.tokensLastDay > 0
+        ? ` · ${formatTokens(plugin.tokensLastDay)}`
+        : "");
 
   const save = () => {
     const runsNum = runs.trim() === "" ? null : Number(runs);
     const minutesNum = minutes.trim() === "" ? null : Number(minutes);
+    const tokensNum = tokens.trim() === "" ? null : Number(tokens);
     if (runsNum !== null && (!Number.isInteger(runsNum) || runsNum < 1)) return;
     if (minutesNum !== null && (!Number.isInteger(minutesNum) || minutesNum < 1))
       return;
+    if (tokensNum !== null && (!Number.isInteger(tokensNum) || tokensNum < 1)) return;
     void act(() =>
       api.admin.setPluginBudget(plugin.id, {
         runsPerDay: runsNum,
         secondsPerDay: minutesNum !== null ? minutesNum * 60 : null,
+        tokensPerDay: tokensNum,
       }),
     ).then(() => setEditing(false));
   };
@@ -84,6 +97,20 @@ export function BudgetRow({
               onChange={(e) => setMinutes(e.target.value)}
             />
           </label>
+          <label
+            className="admin-budget-field"
+            title="Counts the tokens the agent reports. One that reports none is not limited by this."
+          >
+            Tokens / day
+            <input
+              className="input admin-budget-input admin-budget-input-wide"
+              type="number"
+              min={1}
+              placeholder="∞"
+              value={tokens}
+              onChange={(e) => setTokens(e.target.value)}
+            />
+          </label>
           <button className="btn btn-primary" onClick={save}>
             Save
           </button>
@@ -101,6 +128,8 @@ export function BudgetRow({
               plugin.runsLastDay >= plugin.budgetRunsPerDay) ||
             (plugin.budgetSecondsPerDay !== null &&
               plugin.secondsLastDay >= plugin.budgetSecondsPerDay) ||
+            (plugin.budgetTokensPerDay !== null &&
+              plugin.tokensLastDay >= plugin.budgetTokensPerDay) ||
             undefined
           }>
             {used} in the last 24h

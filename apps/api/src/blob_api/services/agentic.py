@@ -35,6 +35,7 @@ from ..lib.times import parse_client_time
 from ..schemas.models import AgentTask, Message, ThreadSummary
 from . import channels as channel_service
 from . import messages as message_service
+from . import usage as usage_service
 from .serialize import to_agent_task, to_thread_summary
 
 _DECISION_RE = re.compile(
@@ -295,9 +296,12 @@ def transcript(
     return numbered, "\n".join(lines)
 
 
-async def model_summary(messages: Sequence[Message], *, names: Mapping[str, str]) -> SummaryPayload:
+async def model_summary(
+    messages: Sequence[Message], *, names: Mapping[str, str], meter: llm.Meter | None = None
+) -> SummaryPayload:
     """Ask the model, then turn its numbers into ids. Raises `llm.LlmError` when it cannot
-    be trusted: no reply, no JSON, no overview, out of room, declined."""
+    be trusted: no reply, no JSON, no overview, out of room, declined. What the call cost
+    is read into `meter` either way."""
     numbered, body = transcript(messages, names)
     if not numbered:
         raise bad_request("There is nothing in that thread yet.", code="empty_thread")
@@ -308,6 +312,7 @@ async def model_summary(messages: Sequence[Message], *, names: Mapping[str, str]
         max_tokens=MAX_OUTPUT_TOKENS,
         timeout_sec=TIMEOUT_SEC,
         json_schema=SUMMARY_SCHEMA,
+        meter=meter,
     )
     try:
         parsed = _ModelSummary.model_validate(llm.extract_json(raw))
@@ -414,19 +419,30 @@ async def read_thread(
 
 
 async def build_summary(
-    messages: Sequence[Message], *, names: Mapping[str, str]
+    messages: Sequence[Message],
+    *,
+    names: Mapping[str, str],
+    workspace_id: str,
+    asked_by: str | None,
 ) -> tuple[SummaryPayload, str]:
-    """The summary and who wrote it. Call with no session held: this is the model call."""
+    """The summary and who wrote it. Call with no session held: this is the model call.
+    A model call is counted against the workspace (M2 · A9) whether or not its answer
+    could be used — it was paid for either way."""
     if not llm.configured():
         return summarize_messages(messages), HEURISTIC_PROVIDER
     numbered, _ = transcript(messages, names)
     if not numbered:
         # Attachments and system rows only: nothing to show a model. The scan copes.
         return summarize_messages(messages), HEURISTIC_PROVIDER
+    meter = llm.Meter()
     try:
-        return await model_summary(messages, names=names), model_provider()
+        return await model_summary(messages, names=names, meter=meter), model_provider()
     except llm.LlmError as error:
         raise AppError(502, "llm_failed", f"The model could not summarise: {error}") from error
+    finally:
+        await usage_service.record_model_call(
+            workspace_id=workspace_id, feature="summary", user_id=asked_by, meter=meter
+        )
 
 
 async def get_summary(session: AsyncSession, thread_root_id: str) -> ThreadSummary | None:

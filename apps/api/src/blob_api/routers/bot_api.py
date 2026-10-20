@@ -451,7 +451,9 @@ async def summarize_thread(
     # app pressing the button is metered like a person would be.
     if llm.configured():
         await consume("summarize", bot.user_id)
-    summary_payload, provider = await agentic_service.build_summary(messages, names=names)
+    summary_payload, provider = await agentic_service.build_summary(
+        messages, names=names, workspace_id=bot.workspace_id, asked_by=bot.user_id
+    )
     async with transaction() as (session, _after):
         summary = await agentic_service.store_summary(
             session,

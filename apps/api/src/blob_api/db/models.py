@@ -1404,6 +1404,10 @@ class Plugin(Base):
             "budget_seconds_per_day IS NULL OR budget_seconds_per_day > 0",
             name="plugins_budget_seconds_positive",
         ),
+        CheckConstraint(
+            "budget_tokens_per_day IS NULL OR budget_tokens_per_day > 0",
+            name="plugins_budget_tokens_positive",
+        ),
         UniqueConstraint("workspace_id", "slug", name="plugins_slug_uniq"),
     )
 
@@ -1502,6 +1506,10 @@ class Plugin(Base):
     #: unlimited. Set by an admin, never by the manifest — an app must not budget itself.
     budget_runs_per_day: Mapped[int | None] = mapped_column(Integer)
     budget_seconds_per_day: Mapped[int | None] = mapped_column(Integer)
+    #: Tokens the agent reported over a trailing day (migration 0060, M2 · A9) — its own
+    #: count, on its runs' last events, so an agent that reports none is never stopped by
+    #: it; the run and minute caps above are what Blob measures itself.
+    budget_tokens_per_day: Mapped[int | None] = mapped_column(BigInteger)
     #: Scopes the latest update asked for that no person has approved yet. Non-empty
     #: exactly while status is `needs_review` over permissions: the consent screen shows
     #: this diff rather than asking an admin to approve blind, approving clears it, and
@@ -1677,6 +1685,37 @@ class AgentNote(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class ModelCall(Base):
+    """One call Blob made to its own model (M2 · A9) — a catch-up or a thread summary.
+
+    Agents report their own usage on their runs (`agent_runs.usage`); this is the other
+    half of what a workspace spends, the part that is Blob's: who asked, which feature,
+    which model, and the provider's token counts. Nothing of what was sent or answered.
+    """
+
+    __tablename__ = "model_calls"
+    __table_args__ = (
+        CheckConstraint("feature IN ('catchup', 'summary')", name="model_calls_feature_check"),
+        CheckConstraint(
+            "input_tokens >= 0 AND output_tokens >= 0", name="model_calls_tokens_check"
+        ),
+        Index("model_calls_recent", "workspace_id", text("created_at DESC")),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    feature: Mapped[str] = mapped_column(Text, nullable=False)
+    user_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
 class Decision(Base):
@@ -2068,6 +2107,7 @@ __all__ = [
     "McpServerSecret",
     "McpServerTool",
     "Message",
+    "ModelCall",
     "OAuthClient",
     "OAuthGrant",
     "OAuthRefreshToken",

@@ -23,6 +23,7 @@ async def set_budget(
     *,
     runs_per_day: int | None,
     seconds_per_day: int | None,
+    tokens_per_day: int | None = None,
 ) -> None:
     """Cap what this agent may spend in a trailing day. NULL lifts the cap.
 
@@ -35,11 +36,16 @@ async def set_budget(
             """
             UPDATE plugins
                SET budget_runs_per_day = :runs, budget_seconds_per_day = :seconds,
-                   updated_at = now()
+                   budget_tokens_per_day = :tokens, updated_at = now()
              WHERE id = :id
             """
         ),
-        {"id": plugin_id, "runs": runs_per_day, "seconds": seconds_per_day},
+        {
+            "id": plugin_id,
+            "runs": runs_per_day,
+            "seconds": seconds_per_day,
+            "tokens": tokens_per_day,
+        },
     )
 
 

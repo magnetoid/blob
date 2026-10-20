@@ -42,6 +42,14 @@ beforeEach(() => {
     channelTitle: (channel: { name: string | null }) => `#${channel.name}`,
   } as never);
   vi.spyOn(api.agents, 'mine').mockResolvedValue({ agents: [AGENT] });
+  vi.spyOn(api.agents, 'usage').mockResolvedValue({
+    days: 7,
+    currency: 'EUR',
+    agents: [],
+    people: [],
+    blob: [],
+    models: [],
+  });
 });
 
 afterEach(cleanup);
@@ -102,5 +110,41 @@ describe('who your agent is lent to', () => {
     fireEvent.click(screen.getByRole('button', { name: 'End' }));
     await waitFor(() => expect(end).toHaveBeenCalledWith('p1', 'l1'));
     expect(await screen.findByText('Nobody else may use it.')).toBeTruthy();
+  });
+});
+
+describe('what your agents spent', () => {
+  it('shows this week’s runs, tokens and cost for your own agents', async () => {
+    vi.spyOn(api.agents, 'memory').mockResolvedValue({ memories: [] });
+    vi.spyOn(api.agents, 'notes').mockResolvedValue({ notes: [] });
+    vi.spyOn(api.agents, 'usage').mockResolvedValue({
+      days: 7,
+      currency: 'EUR',
+      agents: [
+        {
+          id: 'p1',
+          name: 'Pip',
+          ownerName: 'Ana',
+          runs: 9,
+          inputTokens: 40_000,
+          outputTokens: 2_000,
+          tokens: 42_000,
+          cost: 0.15,
+          costComplete: true,
+        },
+      ],
+      people: [],
+      blob: [],
+      models: [],
+    });
+    render(<MyAgentsSection onError={vi.fn()} isOwner={false} />);
+    const heading = await screen.findByRole('heading', { name: 'What they spent' });
+    const row = heading.closest('section')!.querySelector('tbody tr')!;
+    expect(row.textContent).toMatch(/Pip/);
+    expect(row.textContent).toMatch(/9/);
+    expect(row.textContent).toMatch(/€0\.15/);
+    // Every row is the reader's own: no "Ana's" on each one.
+    expect(row.textContent).not.toMatch(/Ana/);
+    expect(api.agents.usage).toHaveBeenCalledWith(7);
   });
 });

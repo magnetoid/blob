@@ -464,3 +464,18 @@ half of A7 — no assistant asks for them that the tools do not already answer),
 step-up for scope (a read-only connection is never offered a write tool), signed access
 tokens, and an admin switch to forbid connecting — the lists and disconnect are the control,
 as they are for tokens.
+
+### A9 — done (ADR 0030): cost you can see
+
+An admin's Usage page: every agent's runs and tokens over a day, a week or thirty days, the
+people whose requests they answered, and Blob's own catch-ups and summaries — which now
+read their provider's counts (`lib/llm.Meter`) into `model_calls`. An admin sets a
+currency and a price per million tokens per model; Blob ships no price list. A model
+nobody priced leaves a row "+ unpriced" rather than cheaper. An agent's budget gains a
+daily token cap, checked like the others before a run, on the tokens the agent reports.
+Owners see their own agents' spend in Settings → My agents. Checked live: prices turned
+the seeded week into euros, the cap refused the stub's next mention in the channel through
+the worker, and the owner's card showed only her agent.
+
+**Not built, on purpose:** currency conversion, per-person caps, budget alerts and cost by
+channel — nothing asks for them yet.

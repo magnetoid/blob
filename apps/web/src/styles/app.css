@@ -4659,6 +4659,57 @@ button.member-row,
   box-shadow: var(--elev-1);
 }
 
+/* ─── usage (M2 · A9) ────────────────────────────────────────────────────── */
+.usage-totals {
+  margin: 0 0 var(--space-3);
+  color: var(--text-2);
+  font-size: var(--text-row);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-totals strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.usage-owner {
+  margin-left: 8px;
+  color: var(--text-4);
+  font-size: var(--text-ui);
+}
+
+/* A cost the prices could not finish is said in words, muted, beside the part that was
+   priced — a row that reads as cheaper than it was is the one mistake this page must not
+   make. */
+.usage-partial,
+.usage-unpriced {
+  color: var(--text-4);
+  font-size: var(--text-ui);
+}
+
+.usage-currency {
+  width: 84px;
+  text-transform: uppercase;
+}
+
+.usage-price {
+  width: 104px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-prices-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.usage-prices-error {
+  color: var(--danger);
+  font-size: var(--text-ui);
+}
+
 /* The connector address and the line for Claude Code (ADR 0029): the same parts as a
    minted token's card, without the secret. */
 .connector-setup {
@@ -5094,6 +5145,11 @@ button.member-row,
 
 .admin-budget-input {
   width: 84px;
+}
+
+/* A token cap runs to six or seven digits. */
+.admin-budget-input-wide {
+  width: 116px;
 }
 
 .admin-budget-edit {

@@ -102,6 +102,7 @@ class PluginOut(CamelModel):
     #: on the same row of the console. None means uncapped.
     budget_runs_per_day: int | None = None
     budget_seconds_per_day: int | None = None
+    budget_tokens_per_day: int | None = None
     runs_last_day: int = 0
     seconds_last_day: int = 0
     #: Tokens the agent reported over the same day (AG-UI 1.0 carries them on the run's
@@ -244,6 +245,7 @@ async def _build_plugin(
         failed_deliveries=int(counts.failed if counts else 0),
         budget_runs_per_day=getattr(row, "budget_runs_per_day", None),
         budget_seconds_per_day=getattr(row, "budget_seconds_per_day", None),
+        budget_tokens_per_day=getattr(row, "budget_tokens_per_day", None),
         runs_last_day=usage[0] if usage else 0,
         seconds_last_day=usage[1] if usage else 0,
         tokens_last_day=usage[2] if usage else 0,

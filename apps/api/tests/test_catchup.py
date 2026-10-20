@@ -6,7 +6,9 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import text
 
+from blob_api.db.engine import SessionFactory
 from blob_api.lib import llm
 
 from .helpers import Client, invite_and_sign_up, send_message, sign_up
@@ -39,8 +41,13 @@ def model_speaks(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     """A model that answers instantly and records what it was asked."""
     calls: list[dict[str, Any]] = []
 
-    async def fake_stream(*, system: str, turns: Any, max_tokens: int | None = None) -> Any:
+    async def fake_stream(
+        *, system: str, turns: Any, max_tokens: int | None = None, meter: Any = None
+    ) -> Any:
         calls.append({"system": system, "turns": turns})
+        if meter is not None:
+            meter.model = "fake-model"
+            meter.input_tokens, meter.output_tokens = 300, 40
         yield "Ana shipped the release; Bo asked for a review."
 
     monkeypatch.setattr(llm, "configured", lambda: True)
@@ -59,6 +66,14 @@ class TestCatchup:
         assert "Ana shipped" in summary["text"]
         assert summary["messageCount"] >= 1
         assert summary["upToMessageId"]
+        # Counted against the workspace as one thing the member asked for (M2 · A9).
+        async with SessionFactory() as session:
+            row = (
+                await session.execute(
+                    text("SELECT feature, model, input_tokens, output_tokens FROM model_calls")
+                )
+            ).one()
+        assert tuple(row) == ("catchup", "fake-model", 300, 40)
 
     async def test_nothing_unread_means_no_summaries_and_no_model_call(
         self, team: dict, model_speaks: list

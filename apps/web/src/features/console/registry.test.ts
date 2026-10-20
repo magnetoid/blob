@@ -34,6 +34,7 @@ const EVERY_ROW = [
   'Apps & agents',
   'Janus',
   'MCP servers',
+  'Usage',
   'Webhooks',
   'Deliveries',
   'Assistants',
@@ -141,6 +142,7 @@ describe('who each admin page is for', () => {
     // instance admin's, and the page tells anybody else who can change it.
     janus: 'admin',
     'mcp-servers': 'admin', // /api/admin/mcp-servers, and /api/admin/plugins for its agents
+    usage: 'admin', // /api/admin/usage and its prices
     webhooks: 'admin', // /api/admin/webhooks
     deliveries: 'admin', // /api/admin/deliveries
     connections: 'admin', // /api/admin/mcp-tokens

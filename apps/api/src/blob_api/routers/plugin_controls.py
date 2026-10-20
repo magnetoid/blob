@@ -28,10 +28,12 @@ router = APIRouter(tags=["admin"], prefix="/api/admin/plugins")
 
 
 class BudgetInput(CamelModel):
-    """Daily caps. None lifts one; both None means unlimited, which is the default."""
+    """Daily caps. None lifts one; all None means unlimited, which is the default."""
 
     runs_per_day: int | None = None
     seconds_per_day: int | None = None
+    #: Tokens the agent reports, over the same day (M2 · A9).
+    tokens_per_day: int | None = None
 
 
 @router.post("/{plugin_id}/budget", response_model=PluginOut)
@@ -41,11 +43,13 @@ async def set_budget(
     request: Request,
     admin: SessionUser = Depends(require_admin),
 ) -> PluginOut:
-    """Cap what an agent may spend in a trailing day — runs begun and seconds occupied.
+    """Cap what an agent may spend in a trailing day — runs begun, seconds occupied, and
+    the tokens it reports.
 
-    Measured in what Blob observes rather than tokens, which belong to the agent's own
-    provider. A capped agent's next mention gets a refused run card in the channel, not
-    silence, so hitting the ceiling is visible where the mention happened.
+    Runs and seconds are what Blob observes; tokens are the agent's own count, so that cap
+    binds only an agent that reports them. A capped agent's next mention gets a refused
+    run card in the channel, not silence, so hitting the ceiling is visible where the
+    mention happened.
     """
     for name, value in (
         ("runsPerDay", payload.runs_per_day),
@@ -55,6 +59,10 @@ async def set_budget(
             raise bad_request(
                 f"{name} must be between 1 and 1000000, or null.", code="invalid_input"
             )
+    if payload.tokens_per_day is not None and not 1 <= payload.tokens_per_day <= 10**12:
+        raise bad_request(
+            "tokensPerDay must be between 1 and 1000000000000, or null.", code="invalid_input"
+        )
     async with transaction() as (session, _after):
         await agent_settings.set_budget(
             session,
@@ -62,6 +70,7 @@ async def set_budget(
             admin.workspace_id,
             runs_per_day=payload.runs_per_day,
             seconds_per_day=payload.seconds_per_day,
+            tokens_per_day=payload.tokens_per_day,
         )
         await audit_service.record(
             session,
@@ -72,6 +81,7 @@ async def set_budget(
             metadata={
                 "runsPerDay": payload.runs_per_day,
                 "secondsPerDay": payload.seconds_per_day,
+                "tokensPerDay": payload.tokens_per_day,
             },
         )
         row = await registry.by_id(session, plugin_id, admin.workspace_id)

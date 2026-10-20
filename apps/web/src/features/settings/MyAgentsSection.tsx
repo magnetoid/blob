@@ -20,6 +20,7 @@ import { NoteList } from "../agentic/NoteList.tsx";
 import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
 import { Card, CardNotice } from "../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../console/hooks.ts";
+import { UsageTable } from "../console/UsageTable.tsx";
 
 interface Minted {
   name: string;
@@ -127,9 +128,39 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
         )}
       </Card>
 
+      {agents.length > 0 && <SpendCard onError={onError} />}
       <RememberedCard onError={onError} />
       <NotesCard onError={onError} />
     </div>
+  );
+}
+
+/** What your own agents spent this week, whoever asked them (M2 · A9) — priced the way
+ *  the workspace prices it, if it does. */
+function SpendCard({ onError }: { onError: (message: string | null) => void }) {
+  const { data } = useAdminData(
+    () => api.agents.usage(7),
+    [],
+    onError,
+    "Could not load what your agents spent.",
+  );
+  if (!data) return null;
+  return (
+    <Card
+      title="What they spent"
+      description="The last 7 days: runs, and the tokens each agent reported — an agent that reports none counts none."
+    >
+      {data.agents.length === 0 ? (
+        <CardNotice>None of your agents ran this week.</CardNotice>
+      ) : (
+        <UsageTable
+          lines={data.agents}
+          currency={data.currency}
+          heading="Agent"
+          showOwner={false}
+        />
+      )}
+    </Card>
   );
 }
 

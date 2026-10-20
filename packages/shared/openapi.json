@@ -1856,7 +1856,7 @@
         "type": "object"
       },
       "BudgetInput": {
-        "description": "Daily caps. None lifts one; both None means unlimited, which is the default.",
+        "description": "Daily caps. None lifts one; all None means unlimited, which is the default.",
         "properties": {
           "runsPerDay": {
             "anyOf": [
@@ -1879,6 +1879,17 @@
               }
             ],
             "title": "Secondsperday"
+          },
+          "tokensPerDay": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokensperday"
           }
         },
         "title": "BudgetInput",
@@ -6032,6 +6043,58 @@
         "title": "MessagesOut",
         "type": "object"
       },
+      "ModelPriceIn": {
+        "properties": {
+          "inputPerMillion": {
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Inputpermillion",
+            "type": "number"
+          },
+          "model": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "outputPerMillion": {
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Outputpermillion",
+            "type": "number"
+          }
+        },
+        "required": [
+          "model",
+          "inputPerMillion",
+          "outputPerMillion"
+        ],
+        "title": "ModelPriceIn",
+        "type": "object"
+      },
+      "ModelPriceOut": {
+        "properties": {
+          "inputPerMillion": {
+            "title": "Inputpermillion",
+            "type": "number"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "outputPerMillion": {
+            "title": "Outputpermillion",
+            "type": "number"
+          }
+        },
+        "required": [
+          "model",
+          "inputPerMillion",
+          "outputPerMillion"
+        ],
+        "title": "ModelPriceOut",
+        "type": "object"
+      },
       "MuteGroupInput": {
         "properties": {
           "muted": {
@@ -6444,6 +6507,17 @@
               }
             ],
             "title": "Budgetsecondsperday"
+          },
+          "budgetTokensPerDay": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budgettokensperday"
           },
           "channelCount": {
             "default": 0,
@@ -6944,6 +7018,62 @@
           "prefs"
         ],
         "title": "PrefsOut",
+        "type": "object"
+      },
+      "PricesIn": {
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{3}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "prices": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPriceIn"
+            },
+            "maxItems": 100,
+            "title": "Prices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prices"
+        ],
+        "title": "PricesIn",
+        "type": "object"
+      },
+      "PricesOut": {
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "prices": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPriceOut"
+            },
+            "title": "Prices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prices"
+        ],
+        "title": "PricesOut",
         "type": "object"
       },
       "PublishArtifactInput": {
@@ -9257,6 +9387,173 @@
           "headers"
         ],
         "title": "UploadTicket",
+        "type": "object"
+      },
+      "UsageLineOut": {
+        "properties": {
+          "cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost"
+          },
+          "costComplete": {
+            "title": "Costcomplete",
+            "type": "boolean"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "inputTokens": {
+            "title": "Inputtokens",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "outputTokens": {
+            "title": "Outputtokens",
+            "type": "integer"
+          },
+          "ownerName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ownername"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          },
+          "tokens": {
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "runs",
+          "inputTokens",
+          "outputTokens",
+          "tokens",
+          "costComplete"
+        ],
+        "title": "UsageLineOut",
+        "type": "object"
+      },
+      "UsageModelOut": {
+        "properties": {
+          "inputPerMillion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inputpermillion"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "outputPerMillion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputpermillion"
+          },
+          "tokens": {
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "tokens"
+        ],
+        "title": "UsageModelOut",
+        "type": "object"
+      },
+      "UsageReportOut": {
+        "properties": {
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/UsageLineOut"
+            },
+            "title": "Agents",
+            "type": "array"
+          },
+          "blob": {
+            "items": {
+              "$ref": "#/components/schemas/UsageLineOut"
+            },
+            "title": "Blob",
+            "type": "array"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/UsageModelOut"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/UsageLineOut"
+            },
+            "title": "People",
+            "type": "array"
+          }
+        },
+        "required": [
+          "days",
+          "agents",
+          "people",
+          "blob",
+          "models"
+        ],
+        "title": "UsageReportOut",
         "type": "object"
       },
       "User": {
@@ -12750,7 +13047,7 @@
     },
     "/api/admin/plugins/{plugin_id}/budget": {
       "post": {
-        "description": "Cap what an agent may spend in a trailing day \u2014 runs begun and seconds occupied.\n\nMeasured in what Blob observes rather than tokens, which belong to the agent's own\nprovider. A capped agent's next mention gets a refused run card in the channel, not\nsilence, so hitting the ceiling is visible where the mention happened.",
+        "description": "Cap what an agent may spend in a trailing day \u2014 runs begun, seconds occupied, and\nthe tokens it reports.\n\nRuns and seconds are what Blob observes; tokens are the agent's own count, so that cap\nbinds only an agent that reports them. A capped agent's next mention gets a refused\nrun card in the channel, not silence, so hitting the ceiling is visible where the\nmention happened.",
         "operationId": "set_budget_api_admin_plugins__plugin_id__budget_post",
         "parameters": [
           {
@@ -14598,6 +14895,112 @@
         ]
       }
     },
+    "/api/admin/usage": {
+      "get": {
+        "operationId": "workspace_usage_api_admin_usage_get",
+        "parameters": [
+          {
+            "description": "1, 7 or 30",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "description": "1, 7 or 30",
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workspace Usage",
+        "tags": [
+          "usage"
+        ]
+      }
+    },
+    "/api/admin/usage/prices": {
+      "get": {
+        "operationId": "prices_api_admin_usage_prices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Prices",
+        "tags": [
+          "usage"
+        ]
+      },
+      "put": {
+        "description": "Replace the currency and the price list whole: what the page shows is what is kept.",
+        "operationId": "set_prices_api_admin_usage_prices_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PricesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Prices",
+        "tags": [
+          "usage"
+        ]
+      }
+    },
     "/api/admin/users": {
       "get": {
         "operationId": "list_users_api_admin_users_get",
@@ -15872,6 +16275,52 @@
           }
         },
         "summary": "Agent Terminal Target"
+      }
+    },
+    "/api/agents/usage": {
+      "get": {
+        "description": "What the agents this person owns spent \u2014 whoever asked them \u2014 priced as the\nworkspace prices it. Nothing of anybody else's agents.",
+        "operationId": "my_agents_usage_api_agents_usage_get",
+        "parameters": [
+          {
+            "description": "1, 7 or 30",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "description": "1, 7 or 30",
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "My Agents Usage",
+        "tags": [
+          "usage"
+        ]
       }
     },
     "/api/attachments": {

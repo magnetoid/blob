@@ -820,11 +820,13 @@ export interface paths {
         put?: never;
         /**
          * Set Budget
-         * @description Cap what an agent may spend in a trailing day — runs begun and seconds occupied.
+         * @description Cap what an agent may spend in a trailing day — runs begun, seconds occupied, and
+         *     the tokens it reports.
          *
-         *     Measured in what Blob observes rather than tokens, which belong to the agent's own
-         *     provider. A capped agent's next mention gets a refused run card in the channel, not
-         *     silence, so hitting the ceiling is visible where the mention happened.
+         *     Runs and seconds are what Blob observes; tokens are the agent's own count, so that cap
+         *     binds only an agent that reports them. A capped agent's next mention gets a refused
+         *     run card in the channel, not silence, so hitting the ceiling is visible where the
+         *     mention happened.
          */
         post: operations["set_budget_api_admin_plugins__plugin_id__budget_post"];
         delete?: never;
@@ -1615,6 +1617,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Workspace Usage */
+        get: operations["workspace_usage_api_admin_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/usage/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Prices */
+        get: operations["prices_api_admin_usage_prices_get"];
+        /**
+         * Set Prices
+         * @description Replace the currency and the price list whole: what the page shows is what is kept.
+         */
+        put: operations["set_prices_api_admin_usage_prices_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -2133,6 +2173,27 @@ export interface paths {
          *     authority for it, so nothing here is a place to get the gate wrong once.
          */
         get: operations["agent_terminal_target_api_agents_terminal__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Agents Usage
+         * @description What the agents this person owns spent — whoever asked them — priced as the
+         *     workspace prices it. Nothing of anybody else's agents.
+         */
+        get: operations["my_agents_usage_api_agents_usage_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4969,13 +5030,15 @@ export interface components {
         };
         /**
          * BudgetInput
-         * @description Daily caps. None lifts one; both None means unlimited, which is the default.
+         * @description Daily caps. None lifts one; all None means unlimited, which is the default.
          */
         BudgetInput: {
             /** Runsperday */
             runsPerDay?: number | null;
             /** Secondsperday */
             secondsPerDay?: number | null;
+            /** Tokensperday */
+            tokensPerDay?: number | null;
         };
         /** Call */
         Call: {
@@ -6426,6 +6489,24 @@ export interface components {
         MessageTranslationOut: {
             translation: components["schemas"]["MessageTranslation"];
         };
+        /** ModelPriceIn */
+        ModelPriceIn: {
+            /** Inputpermillion */
+            inputPerMillion: number;
+            /** Model */
+            model: string;
+            /** Outputpermillion */
+            outputPerMillion: number;
+        };
+        /** ModelPriceOut */
+        ModelPriceOut: {
+            /** Inputpermillion */
+            inputPerMillion: number;
+            /** Model */
+            model: string;
+            /** Outputpermillion */
+            outputPerMillion: number;
+        };
         /** MuteGroupInput */
         MuteGroupInput: {
             /** Muted */
@@ -6565,6 +6646,8 @@ export interface components {
             budgetRunsPerDay?: number | null;
             /** Budgetsecondsperday */
             budgetSecondsPerDay?: number | null;
+            /** Budgettokensperday */
+            budgetTokensPerDay?: number | null;
             /**
              * Channelcount
              * @default 0
@@ -6755,6 +6838,20 @@ export interface components {
         /** PrefsOut */
         PrefsOut: {
             prefs: components["schemas"]["UserPrefs"];
+        };
+        /** PricesIn */
+        PricesIn: {
+            /** Currency */
+            currency?: string | null;
+            /** Prices */
+            prices: components["schemas"]["ModelPriceIn"][];
+        };
+        /** PricesOut */
+        PricesOut: {
+            /** Currency */
+            currency?: string | null;
+            /** Prices */
+            prices: components["schemas"]["ModelPriceOut"][];
         };
         /** PublishArtifactInput */
         PublishArtifactInput: {
@@ -7545,6 +7642,53 @@ export interface components {
             /** Uploadurl */
             uploadUrl: string;
         };
+        /** UsageLineOut */
+        UsageLineOut: {
+            /** Cost */
+            cost?: number | null;
+            /** Costcomplete */
+            costComplete: boolean;
+            /** Id */
+            id?: string | null;
+            /** Inputtokens */
+            inputTokens: number;
+            /** Name */
+            name: string;
+            /** Outputtokens */
+            outputTokens: number;
+            /** Ownername */
+            ownerName?: string | null;
+            /** Runs */
+            runs: number;
+            /** Tokens */
+            tokens: number;
+        };
+        /** UsageModelOut */
+        UsageModelOut: {
+            /** Inputpermillion */
+            inputPerMillion?: number | null;
+            /** Model */
+            model: string;
+            /** Outputpermillion */
+            outputPerMillion?: number | null;
+            /** Tokens */
+            tokens: number;
+        };
+        /** UsageReportOut */
+        UsageReportOut: {
+            /** Agents */
+            agents: components["schemas"]["UsageLineOut"][];
+            /** Blob */
+            blob: components["schemas"]["UsageLineOut"][];
+            /** Currency */
+            currency?: string | null;
+            /** Days */
+            days: number;
+            /** Models */
+            models: components["schemas"]["UsageModelOut"][];
+            /** People */
+            people: components["schemas"]["UsageLineOut"][];
+        };
         /**
          * User
          * @description Public shape of a user. Never includes password_hash or another user's email.
@@ -8033,6 +8177,8 @@ export type Message = components['schemas']['Message'];
 export type MessagesOut = components['schemas']['MessagesOut'];
 export type MessageTranslation = components['schemas']['MessageTranslation'];
 export type MessageTranslationOut = components['schemas']['MessageTranslationOut'];
+export type ModelPriceIn = components['schemas']['ModelPriceIn'];
+export type ModelPriceOut = components['schemas']['ModelPriceOut'];
 export type MuteGroupInput = components['schemas']['MuteGroupInput'];
 export type MyAgentOut = components['schemas']['MyAgentOut'];
 export type MyAgentsOut = components['schemas']['MyAgentsOut'];
@@ -8054,6 +8200,8 @@ export type PolicyInput = components['schemas']['PolicyInput'];
 export type PolicyOut = components['schemas']['PolicyOut'];
 export type PostMessageInput = components['schemas']['PostMessageInput'];
 export type PrefsOut = components['schemas']['PrefsOut'];
+export type PricesIn = components['schemas']['PricesIn'];
+export type PricesOut = components['schemas']['PricesOut'];
 export type PublishArtifactInput = components['schemas']['PublishArtifactInput'];
 export type PublishInput = components['schemas']['PublishInput'];
 export type PushKeyOut = components['schemas']['PushKeyOut'];
@@ -8121,6 +8269,9 @@ export type UpdateProfileInput = components['schemas']['UpdateProfileInput'];
 export type UploadCompleteInput = components['schemas']['UploadCompleteInput'];
 export type UploadRequestInput = components['schemas']['UploadRequestInput'];
 export type UploadTicket = components['schemas']['UploadTicket'];
+export type UsageLineOut = components['schemas']['UsageLineOut'];
+export type UsageModelOut = components['schemas']['UsageModelOut'];
+export type UsageReportOut = components['schemas']['UsageReportOut'];
 export type User = components['schemas']['User'];
 export type UserGroup = components['schemas']['UserGroup'];
 export type UserOut = components['schemas']['UserOut'];
@@ -11013,6 +11164,91 @@ export interface operations {
             };
         };
     };
+    workspace_usage_api_admin_usage_get: {
+        parameters: {
+            query?: {
+                /** @description 1, 7 or 30 */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prices_api_admin_usage_prices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricesOut"];
+                };
+            };
+        };
+    };
+    set_prices_api_admin_usage_prices_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PricesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_users_api_admin_users_get: {
         parameters: {
             query?: {
@@ -11869,6 +12105,38 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_agents_usage_api_agents_usage_get: {
+        parameters: {
+            query?: {
+                /** @description 1, 7 or 30 */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageReportOut"];
                 };
             };
             /** @description Validation Error */

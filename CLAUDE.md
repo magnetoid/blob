@@ -21,8 +21,8 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-twenty-nine ADRs; the principles below are their summary, not a substitute. 0013–0020 and
-0022–0029 are the agentic surface — chains, work channels, summaries and nudges, the MCP
+thirty ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+0022–0030 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
 room bound), that a task handed to an agent is a message from the person who handed it
@@ -32,8 +32,10 @@ what an operator can see of agents — traces, `/metrics`, a run's events, an ap
 ten errors (0025), that an admin may let an agent follow a channel and hear what was
 not addressed to it (0026), that an admin may connect an MCP server whose tools chosen
 agents use through Blob (0027), that a decision in the log is a person's while an agent
-may only propose one (0028), and that an assistant may sign in to `/api/mcp` as its person
-(0029) — and are the ones this digest compresses hardest, so read them before
+may only propose one (0028), that an assistant may sign in to `/api/mcp` as its person
+(0029), and that what agents cost is counted from their reports and priced by the
+workspace, never measured (0030) — and are the ones this digest compresses hardest, so
+read them before
 changing that code. The shortest way in: an agent in a workspace is either the
 workspace's (`plugins.owner_user_id` NULL — an admin installed it for everyone, like the
 `magnetoid/janus` agent, the one Blob seeds) or one person's (set — theirs, listed only

@@ -55,6 +55,7 @@ describe('the server console’s nav', () => {
       'Apps & agents',
       'Janus',
       'MCP servers',
+      'Usage',
       'Webhooks',
       'Deliveries',
       'Assistants',
@@ -109,7 +110,7 @@ describe('the server console’s nav', () => {
     expect(screen.queryAllByRole('heading')).toEqual([]);
 
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: '' } });
-    expect(rowLabels(container)).toHaveLength(17);
+    expect(rowLabels(container)).toHaveLength(18);
   });
 });
 

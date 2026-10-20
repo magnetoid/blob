@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib import llm
 from ..lib.errors import AppError
+from . import usage as usage_service
 
 #: The most unread messages one summary reads. Beyond this the honest summary is
 #: "a lot happened"; the model does not need four hundred messages to say so.
@@ -145,11 +146,14 @@ async def summarise(
             work.append((channel, messages))
 
     semaphore = asyncio.Semaphore(CONCURRENCY)
+    meters: list[llm.Meter] = []
 
     async def one(channel: Any, messages: list[Any]) -> ChannelSummary:
         transcript = "\n".join(f"{row.author or 'someone'}: {row.body}" for row in messages)[
             :24_000
         ]
+        meter = llm.Meter()
+        meters.append(meter)
         async with semaphore:
             reply = "".join(
                 [
@@ -166,6 +170,7 @@ async def summarise(
                             )
                         ],
                         max_tokens=400,
+                        meter=meter,
                     )
                 ]
             )
@@ -181,6 +186,19 @@ async def summarise(
         results = await asyncio.gather(*(one(c, m) for c, m in work))
     except llm.LlmError as error:
         raise AppError(502, "llm_failed", f"The model could not summarise: {error}") from error
+    finally:
+        # One catch-up is one thing a person asked for, however many channels it read:
+        # counted as one call, with every channel's tokens (M2 · A9).
+        await usage_service.record_model_call(
+            workspace_id=workspace_id,
+            feature="catchup",
+            user_id=user_id,
+            meter=llm.Meter(
+                model=next((meter.model for meter in meters if meter.model), llm.model_name()),
+                input_tokens=sum(meter.input_tokens for meter in meters),
+                output_tokens=sum(meter.output_tokens for meter in meters),
+            ),
+        )
     return [summary for summary in results if summary.text]
 
 

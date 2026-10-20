@@ -30,3 +30,27 @@ export function formatEnds(expiresAt: string | null): string {
   const date = at.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   return at.getTime() <= Date.now() ? `ended ${date} — it no longer connects` : `ends ${date}`;
 }
+
+/** A count the way a table reads one: "980", "12.4K", "1.3M". */
+export function formatCount(count: number): string {
+  return new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(
+    count,
+  );
+}
+
+/** Money in the workspace's currency (M2 · A9). Small amounts keep four places, because a
+ * day of one agent's tokens is often a few cents; without a currency, just the number. */
+export function formatCost(amount: number, currency: string | null): string {
+  const places = amount > 0 && amount < 1 ? 4 : 2;
+  if (!currency) return amount.toFixed(places);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: places,
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(places)} ${currency}`;
+  }
+}

@@ -156,6 +156,14 @@ async def run_ended(
                 await count(TOKENS, {**labels, "type": kind}, spent)
 
 
+async def model_called(input_tokens: int, output_tokens: int) -> None:
+    """One of Blob's own model calls (the catch-up, a thread summary), counted beside the
+    agents' tokens under the agent name `blob` — the part of the bill that is Blob's."""
+    for kind, spent in (("input", input_tokens), ("output", output_tokens)):
+        if spent > 0:
+            await count(TOKENS, {"agent": "blob", "type": kind}, spent)
+
+
 async def tool_called(via: Literal["agent", "mcp"], tool: str, outcome: str) -> None:
     """One call to one of Blob's tools, and what came of it."""
     await count(TOOL_CALLS, {"via": via, "tool": tool, "outcome": outcome})

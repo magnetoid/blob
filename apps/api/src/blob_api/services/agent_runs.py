@@ -179,37 +179,47 @@ async def start(
 async def check_budget(session: AsyncSession, *, plugin_id: str) -> str | None:
     """The reason this run must not start, or None.
 
-    The budget is measured in what Blob actually observes — runs begun and wall-clock
-    seconds occupied over the trailing 24 hours — because token counts belong to the
-    agent's own provider and AG-UI does not carry them. A trailing window rather than a
-    calendar day, so the answer never depends on whose midnight.
+    Runs begun and wall-clock seconds occupied are what Blob observes itself; tokens are
+    what the agent reports on its runs' last events (AG-UI 1.0 carries them, M2 · A9), so
+    a token cap stops an agent on its own count and never one that reports nothing. All
+    three over a trailing 24 hours rather than a calendar day, so the answer never depends
+    on whose midnight.
 
     Advisory capacity control, not a security boundary: the check and the insert are
     separate statements, so mentions arriving in the same instant can each pass and
-    overshoot by the concurrency width. A dam, not a turnstile.
+    overshoot by the concurrency width — and a token cap is only ever checked before a
+    run, so the run that crosses it finishes. A dam, not a turnstile.
     """
     budgets = (
         await session.execute(
-            text("SELECT budget_runs_per_day, budget_seconds_per_day FROM plugins WHERE id = :id"),
+            text(
+                """
+                SELECT budget_runs_per_day, budget_seconds_per_day, budget_tokens_per_day
+                  FROM plugins WHERE id = :id
+                """
+            ),
             {"id": plugin_id},
         )
     ).fetchone()
     # The common case — no budget set — costs one primary-key lookup and no aggregate.
     if budgets is None or (
-        budgets.budget_runs_per_day is None and budgets.budget_seconds_per_day is None
+        budgets.budget_runs_per_day is None
+        and budgets.budget_seconds_per_day is None
+        and budgets.budget_tokens_per_day is None
     ):
         return None
 
     usage = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT count(*) AS runs,
                        COALESCE(SUM(EXTRACT(EPOCH FROM
-                           (COALESCE(finished_at, now()) - started_at))), 0) AS seconds
-                  FROM agent_runs
-                 WHERE plugin_id = :plugin_id AND status <> 'refused'
-                   AND started_at > now() - interval '24 hours'
+                           (COALESCE(r.finished_at, now()) - r.started_at))), 0) AS seconds,
+                       COALESCE(SUM({_RUN_TOKENS}), 0) AS tokens
+                  FROM agent_runs r
+                 WHERE r.plugin_id = :plugin_id AND r.status <> 'refused'
+                   AND r.started_at > now() - interval '24 hours'
                 """
             ),
             {"plugin_id": plugin_id},
@@ -217,6 +227,7 @@ async def check_budget(session: AsyncSession, *, plugin_id: str) -> str | None:
     ).fetchone()
     runs = int(usage.runs) if usage else 0
     seconds = int(usage.seconds) if usage else 0
+    tokens = int(usage.tokens) if usage else 0
 
     if budgets.budget_runs_per_day is not None and runs >= budgets.budget_runs_per_day:
         return (
@@ -227,7 +238,16 @@ async def check_budget(session: AsyncSession, *, plugin_id: str) -> str | None:
         minutes = max(1, budgets.budget_seconds_per_day // 60)
         plural = "s" if minutes != 1 else ""
         return f"Daily budget reached: {minutes} minute{plural} of run time in the last 24 hours."
+    if budgets.budget_tokens_per_day is not None and tokens >= budgets.budget_tokens_per_day:
+        return (
+            f"Daily budget reached: {_tokens(budgets.budget_tokens_per_day)} in the last 24 hours."
+        )
     return None
+
+
+def _tokens(count: int) -> str:
+    """ "12,000 tokens" — the cap as the admin set it, in the refusal people read."""
+    return f"{count:,} token{'s' if count != 1 else ''}"
 
 
 async def record_refusal(

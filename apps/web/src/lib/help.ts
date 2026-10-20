@@ -945,6 +945,20 @@ export const SECTIONS: Section[] = [
         keywords: ['mcp', 'tools', 'connectors', 'integrations', 'github', 'outside', 'approve', 'server'],
       },
       {
+        id: 'usage',
+        title: 'What agents cost',
+        blurb:
+          'The Usage page shows each agent’s runs and tokens, whose requests they answered, and what Blob’s own summaries used — priced, if you set prices.',
+        body: [
+          'Tokens are what each agent reports at the end of a run, and what the model provider reports for Blob’s own catch-ups and summaries. An agent that reports nothing counts nothing — that is a fact about its report, not its cost.',
+          'Blob ships no prices, because providers change them and a contract is not the list price. Enter a currency and what each model costs per million input and output tokens, and every row gains a cost; a row with a model you have not priced says so instead of reading as cheaper than it was.',
+          'An agent’s budget, on its page in Agents & apps, can cap the tokens it reports in a day as well as its runs and minutes. The run that crosses the cap finishes; the next mention is refused in the channel, where it happened. Owners see what their own agents spent in Settings → My agents.',
+        ],
+        path: '/admin/usage',
+        audience: 'admins',
+        keywords: ['usage', 'cost', 'tokens', 'spend', 'budget', 'billing', 'price', 'money', 'cap'],
+      },
+      {
         id: 'agent-terminal',
         title: 'A terminal in an agent',
         blurb: '/cli in a direct message with an agent opens a terminal panel beside the conversation.',

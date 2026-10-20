@@ -77,7 +77,9 @@ async def refresh_thread_summary(
         messages, names = await agentic_service.read_thread(session, thread_root_id)
     if llm.configured():
         await consume("summarize", user.id)
-    payload, provider = await agentic_service.build_summary(messages, names=names)
+    payload, provider = await agentic_service.build_summary(
+        messages, names=names, workspace_id=user.workspace_id, asked_by=user.id
+    )
     async with transaction() as (session, _after):
         summary = await agentic_service.store_summary(
             session,

@@ -26,6 +26,7 @@ from ..services import agent_notes as agent_notes_service
 from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
 from ..services import oauth as oauth_service
+from ..services import usage as usage_service
 from ..services.calls import reconcile as reconcile_calls
 from .agui import expire_agent_decisions as expire_decisions
 from .agui import handle_agui_run
@@ -104,6 +105,8 @@ async def sweep_agent_runs(_ctx: dict[str, Any]) -> None:
         forgotten = await agent_state_service.sweep(session)
         # And the notes agents kept, a conversation's at a time, on the same terms (M2 · A8).
         unnoted = await agent_notes_service.sweep(session)
+        # And Blob's own model calls, kept as long as the runs beside them (M2 · A9).
+        await usage_service.sweep(session)
     if removed:
         log.info("swept %d agent run(s)", removed)
     if forgotten:

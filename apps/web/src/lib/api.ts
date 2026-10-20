@@ -142,6 +142,52 @@ export interface WorkspaceAssistantToken extends AssistantToken {
   ownerName: string;
 }
 
+/** One row of the usage page (M2 · A9): an agent, a person, or one of Blob's own
+ * features (`catchup`, `summary`, with a null id). */
+export interface UsageLine {
+  id: string | null;
+  name: string;
+  /** Whose agent it is, for one somebody owns. */
+  ownerName: string | null;
+  /** Runs — or, for Blob's own features, calls. */
+  runs: number;
+  inputTokens: number;
+  outputTokens: number;
+  tokens: number;
+  /** In the workspace's currency; null when nothing could be priced. */
+  cost: number | null;
+  /** False when some tokens had no price. */
+  costComplete: boolean;
+}
+
+/** A model seen in the window, and its price per million tokens if one was set. */
+export interface UsageModel {
+  model: string;
+  tokens: number;
+  inputPerMillion: number | null;
+  outputPerMillion: number | null;
+}
+
+export interface UsageReport {
+  days: number;
+  currency: string | null;
+  agents: UsageLine[];
+  people: UsageLine[];
+  blob: UsageLine[];
+  models: UsageModel[];
+}
+
+export interface ModelPrice {
+  model: string;
+  inputPerMillion: number;
+  outputPerMillion: number;
+}
+
+export interface UsagePrices {
+  currency: string | null;
+  prices: ModelPrice[];
+}
+
 /** An app asking to connect as you (ADR 0029) — what the consent page asks about. */
 export interface OAuthConsentRequest {
   id: string;
@@ -400,6 +446,9 @@ export interface AdminPlugin {
   /** Daily caps (null = uncapped) and what the trailing day actually cost. */
   budgetRunsPerDay: number | null;
   budgetSecondsPerDay: number | null;
+  /** Tokens the agent may report in a trailing day (M2 · A9); its own count, so an agent
+   * that reports none is never stopped by it. */
+  budgetTokensPerDay: number | null;
   runsLastDay: number;
   secondsLastDay: number;
   /**
@@ -1170,6 +1219,9 @@ export const api = {
     list: () => get<{ agents: WorkspaceAgent[] }>("/api/agents"),
     /** Your own agents: attached by you, owned by you, answering only you. */
     mine: () => get<{ agents: MyAgent[] }>("/api/agents/mine"),
+    /** What your own agents spent, whoever asked them (M2 · A9). */
+    usage: (days: 1 | 7 | 30 = 7) =>
+      get<UsageReport>(`/api/agents/usage?days=${days}`),
     attach: (name: string) => post<AttachedAgent>("/api/agents/mine", { name }),
     detach: (agentId: string) => del<{ ok: true }>(`/api/agents/mine/${agentId}`),
     /** Who your agent is lent to, and where. */
@@ -1513,8 +1565,17 @@ export const api = {
       put<{ ok: true }>(`/api/admin/plugins/${pluginId}/owner`, { userId }),
     setPluginBudget: (
       pluginId: string,
-      budget: { runsPerDay: number | null; secondsPerDay: number | null },
+      budget: {
+        runsPerDay: number | null;
+        secondsPerDay: number | null;
+        tokensPerDay?: number | null;
+      },
     ) => post<AdminPlugin>(`/api/admin/plugins/${pluginId}/budget`, budget),
+    /** What agents and Blob's own model spent over a window, priced (M2 · A9). */
+    usage: (days: 1 | 7 | 30) => get<UsageReport>(`/api/admin/usage?days=${days}`),
+    usagePrices: () => get<UsagePrices>("/api/admin/usage/prices"),
+    setUsagePrices: (prices: UsagePrices) =>
+      put<UsagePrices>("/api/admin/usage/prices", prices),
     /**
      * What this workspace tells its agent, or null to clear it.
      *
