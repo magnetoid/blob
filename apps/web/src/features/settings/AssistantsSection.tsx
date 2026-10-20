@@ -5,6 +5,11 @@
  * in a terminal, Claude on the web, an editor — reaches *into* Blob and reads the channels
  * you can read. Blob is the MCP server; the assistant is the client.
  *
+ * Two ways in. An assistant that signs in (ADR 0029) is given the connector address and
+ * finds its own way to the question — Claude and ChatGPT do this — and is listed under
+ * "Connected apps" once you say yes. A tool that cannot sign in takes a pasted token, the
+ * older way, which stays below for exactly those.
+ *
  * Two things this screen has to get across, because both are surprising the first time.
  *
  * **It is you.** Not a bot with its own membership: whatever you can see, it can see, and
@@ -21,6 +26,7 @@ import { formatEnds } from '../../lib/format.ts';
 import { api, type AssistantToken } from '../../lib/api.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import { Card, CardNotice } from '../console/Card.tsx';
+import { ConnectedAppRow } from '../console/ConnectedAppRow.tsx';
 import { useAdminAction, useAdminData } from '../console/hooks.ts';
 
 interface Minted {
@@ -38,6 +44,14 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
     'Could not load your connections.',
   );
   const act = useAdminAction(onError, reload);
+  const apps = useAdminData(
+    () => api.oauth.grants(),
+    [],
+    onError,
+    'Could not load your connected apps.',
+  );
+  const actOnApps = useAdminAction(onError, apps.reload);
+  const grants = apps.data?.grants ?? [];
   const [name, setName] = useState('');
   const [canWrite, setCanWrite] = useState(false);
   const [lifetime, setLifetime] = useState<30 | 90 | 365>(90);
@@ -71,14 +85,36 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
 
   return (
     <div className="console-stack">
+      <ConnectorCard url={apps.data?.url ?? data?.url ?? null} />
+
+      <Card title="Connected apps">
+        {apps.loading && grants.length === 0 && <CardNotice>Loading…</CardNotice>}
+        {!apps.loading && grants.length === 0 && (
+          <CardNotice>
+            None yet. When an assistant signs in and you say yes, it appears here — and you
+            can disconnect it at any time.
+          </CardNotice>
+        )}
+        {grants.length > 0 && (
+          <div className="console-list">
+            {grants.map((grant) => (
+              <ConnectedAppRow
+                key={grant.id}
+                grant={grant}
+                onDisconnect={() => void actOnApps(() => api.oauth.disconnect(grant.id))}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+
       <Card
-        title="Connect an assistant"
+        title="Connect with a token"
         description={
           <>
-            Give an assistant you already use — Claude Code, Claude on the web, your editor —
-            a way to read this workspace. It connects <strong>as you</strong>: the same
-            channels, the same private conversations, nothing more. Anything it posts appears
-            under your name.
+            For a tool that cannot sign in by itself — an editor, a script. It connects{' '}
+            <strong>as you</strong>, the same as an app that signed in: your channels, your
+            private conversations, nothing more. Anything it posts appears under your name.
           </>
         }
       >
@@ -132,10 +168,10 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
 
       {minted && <AssistantSetup minted={minted} />}
 
-      <Card title="Your connections">
+      <Card title="Your tokens">
         {loading && tokens.length === 0 && <CardNotice>Loading…</CardNotice>}
         {!loading && tokens.length === 0 && (
-          <CardNotice>None yet. Connect one above and it will appear here.</CardNotice>
+          <CardNotice>None yet. Make one above and it will appear here.</CardNotice>
         )}
         {tokens.length > 0 && (
           <div className="console-list">
@@ -201,15 +237,8 @@ function TokenRow({
   );
 }
 
-function AssistantSetup({ minted }: { minted: Minted }) {
+function useCopy() {
   const [copied, setCopied] = useState<string | null>(null);
-
-  // The exact line Claude Code takes. `--transport http` and a header is all a remote MCP
-  // server needs; the name is what the assistant will call this workspace.
-  const command =
-    `claude mcp add --transport http blob ${minted.url} ` +
-    `--header "Authorization: Bearer ${minted.secret}"`;
-
   async function copy(what: string, value: string) {
     try {
       await navigator.clipboard.writeText(value);
@@ -219,6 +248,61 @@ function AssistantSetup({ minted }: { minted: Minted }) {
       // A clipboard the browser will not give us is not worth an error: it is on screen.
     }
   }
+  return { copied, copy };
+}
+
+/** The address an assistant that signs in needs, and nothing else: it finds the sign-in
+ * from the endpoint's own answer, and sends the person to the question. */
+function ConnectorCard({ url }: { url: string | null }) {
+  const { copied, copy } = useCopy();
+  // Without a header: Claude Code signs in through `/mcp` once the server is added.
+  const command = url ? `claude mcp add --transport http blob ${url}` : '';
+
+  return (
+    <Card
+      title="Add Blob to your assistant"
+      description={
+        <>
+          Claude, ChatGPT and other assistants that take a custom connector sign in to Blob by
+          themselves. Give them this address; they send you back here to say yes.
+        </>
+      }
+    >
+      {url && (
+        <div className="connector-setup">
+          <div className="draft-chip admin-secret-chip">
+            <span className="admin-secret-label">Connector address</span>
+            <code>{url}</code>
+            <button className="btn btn-ghost" onClick={() => void copy('url', url)}>
+              {copied === 'url' ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <p className="pref-hint m-0">
+            <strong>In Claude or ChatGPT</strong>, add a custom connector and paste the address.
+          </p>
+          <p className="pref-hint m-0">
+            <strong>In Claude Code</strong>, run this, then <code>/mcp</code> to sign in:
+          </p>
+          <pre className="admin-command-block">
+            <code>{command}</code>
+          </pre>
+          <button className="btn btn-ghost" onClick={() => void copy('command', command)}>
+            {copied === 'command' ? 'Copied' : 'Copy the command'}
+          </button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function AssistantSetup({ minted }: { minted: Minted }) {
+  const { copied, copy } = useCopy();
+
+  // The exact line Claude Code takes. `--transport http` and a header is all a remote MCP
+  // server needs; the name is what the assistant will call this workspace.
+  const command =
+    `claude mcp add --transport http blob ${minted.url} ` +
+    `--header "Authorization: Bearer ${minted.secret}"`;
 
   return (
     <div className="admin-secret-card block">

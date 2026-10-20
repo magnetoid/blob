@@ -43,6 +43,9 @@ async def list_for(session: AsyncSession, user_id: str) -> list[Any]:
                     SELECT id, name, scopes, created_at, last_used_at, expires_at
                       FROM mcp_tokens
                      WHERE user_id = :user_id AND revoked_at IS NULL
+                       -- An assistant that signed in holds an hour-long token minted
+                       -- per hour; it is listed once, as a connected app (ADR 0029).
+                       AND grant_id IS NULL
                      ORDER BY created_at DESC
                     """
                 ),
@@ -139,6 +142,7 @@ async def list_for_workspace(session: AsyncSession, workspace_id: str) -> list[A
                       FROM mcp_tokens t
                       JOIN users u ON u.id = t.user_id
                      WHERE t.workspace_id = :ws AND t.revoked_at IS NULL
+                       AND t.grant_id IS NULL
                      ORDER BY lower(u.display_name), t.created_at DESC
                     """
                 ),

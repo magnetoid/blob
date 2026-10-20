@@ -5,12 +5,17 @@
  * it is still the workspace's business: this page lists every live connection with whose
  * it is, what it may do, when it last connected and when it ends, and lets an admin
  * revoke one. Revoking is audited as the admin, naming whose it was.
+ *
+ * Apps that signed in (ADR 0029) are listed apart from pasted tokens: one is minted a
+ * token an hour, and a list of those would be a list of hours. A connected app is one row
+ * however many it has held, and disconnecting it ends all of them.
  */
 
 import { useState } from 'react';
 import { api, type WorkspaceAssistantToken } from '../../../lib/api.ts';
 import type { ConsoleSectionProps } from '../../console/ConsoleShell.tsx';
 import { Card, CardNotice } from '../../console/Card.tsx';
+import { ConnectedAppRow } from '../../console/ConnectedAppRow.tsx';
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { formatEnds } from '../../../lib/format.ts';
 
@@ -23,21 +28,59 @@ export function AssistantsAdminSection({ onError }: ConsoleSectionProps) {
   );
   const act = useAdminAction(onError, reload);
   const tokens = data?.tokens ?? [];
+  const apps = useAdminData(
+    () => api.admin.oauthGrants(),
+    [],
+    onError,
+    'Could not load the connected apps.',
+  );
+  const actOnApps = useAdminAction(onError, apps.reload);
+  const grants = apps.data?.grants ?? [];
 
   return (
     <div className="console-stack">
       <Card
-        title="Connected assistants"
+        title="Connected apps"
         description={
           <>
-            Each acts <strong>as its person</strong> — what they can see, and what they post if
-            they allowed it. People make and end their own in Settings; an admin can end any.
+            Assistants that signed in — Claude, ChatGPT — each <strong>as its person</strong>,
+            who said yes to it. Disconnecting one ends every token it holds.
+          </>
+        }
+      >
+        {apps.loading && grants.length === 0 && <CardNotice>Loading…</CardNotice>}
+        {!apps.loading && grants.length === 0 && (
+          <CardNotice>No app has signed in to this workspace.</CardNotice>
+        )}
+        {grants.length > 0 && (
+          <div className="console-list">
+            {grants.map((grant) => (
+              <ConnectedAppRow
+                key={grant.id}
+                grant={grant}
+                owner={grant.ownerName}
+                onDisconnect={() =>
+                  void actOnApps(() => api.admin.disconnectOAuthGrant(grant.id))
+                }
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Tokens"
+        description={
+          <>
+            Pasted into tools that cannot sign in. Each acts <strong>as its person</strong> —
+            what they can see, and what they post if they allowed it. People make and end their
+            own in Settings; an admin can end any.
           </>
         }
       >
         {loading && tokens.length === 0 && <CardNotice>Loading…</CardNotice>}
         {!loading && tokens.length === 0 && (
-          <CardNotice>Nobody has connected an assistant to this workspace.</CardNotice>
+          <CardNotice>Nobody has made a token for this workspace.</CardNotice>
         )}
         {tokens.length > 0 && (
           <div className="console-list">

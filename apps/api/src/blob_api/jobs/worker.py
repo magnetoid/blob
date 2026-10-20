@@ -25,6 +25,7 @@ from ..realtime import hub
 from ..services import agent_notes as agent_notes_service
 from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
+from ..services import oauth as oauth_service
 from ..services.calls import reconcile as reconcile_calls
 from .agui import expire_agent_decisions as expire_decisions
 from .agui import handle_agui_run
@@ -115,6 +116,12 @@ async def sweep_expired(_ctx: dict[str, Any]) -> None:
     counts = await sweep_retention()
     if sum(counts.values()):
         log.info("retention sweep %s", counts)
+    # An assistant that signed in is minted an hour-long token every hour and a refresh
+    # link with each (ADR 0029); spent ones are nobody's to keep.
+    async with transaction() as (session, _):
+        spent = await oauth_service.sweep(session)
+    if spent:
+        log.info("swept %d spent assistant credential(s)", spent)
 
 
 async def sweep_orphans(_ctx: dict[str, Any]) -> None:

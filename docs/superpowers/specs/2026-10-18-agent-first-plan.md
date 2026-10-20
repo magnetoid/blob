@@ -441,3 +441,26 @@ readable, rewordable and removable by whoever they belong to (Settings, or the a
 for an admin). Not offered to follow runs; swept with memory. **Not built:** workspace
 knowledge documents (`search_knowledge`): nothing asks for them yet that the decision log,
 notes and search do not answer.
+
+### A7 — done (ADR 0029): Blob as a connector, by signing in
+
+Blob is the OAuth authorization server for its own `/api/mcp`, as the MCP authorization
+spec has it: the 401 names the protected resource metadata, the metadata names Blob, a
+client is identified by its metadata document (or registers itself), PKCE `S256`, `iss` on
+every answer, refresh tokens that rotate and end the connection when replayed. The consent
+page at `/oauth/authorize` names the app, the website that confirms it (or that nothing
+does), and where the answer goes — "a program on this computer" for Claude Code. A grant
+mints ordinary hour-long `mcp_tokens` rows, so the endpoint did not change; Settings →
+Assistants leads with the connector address, lists connected apps and keeps pasted tokens
+for tools that cannot sign in; the admin's page lists both.
+
+Checked before building: the 2026-07-28 authorization spec prefers Client ID Metadata
+Documents to Dynamic Client Registration (kept, deprecated), requires RFC 8707 resource
+indicators and RFC 9207 `iss`, and both Claude and ChatGPT sign in this way, with hosted
+redirect URIs, while Claude Code uses a loopback one on a port it picks.
+
+**Not built, on purpose:** `resources` and `prompts` on the MCP server (the plan's other
+half of A7 — no assistant asks for them that the tools do not already answer), a 403
+step-up for scope (a read-only connection is never offered a write tool), signed access
+tokens, and an admin switch to forbid connecting — the lists and disconnect are the control,
+as they are for tokens.

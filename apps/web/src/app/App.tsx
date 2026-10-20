@@ -7,6 +7,8 @@ import { flushDrafts } from '../lib/drafts.ts';
 import { applyTheme, pickTheme, themeChoices } from '../lib/theme.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
 import { resetTokenFromUrl } from '../features/auth/tokens.ts';
+import { ConsentScreen } from '../features/oauth/ConsentScreen.tsx';
+import { isConsentPath } from '../features/oauth/consent.ts';
 import { Workspace } from './Workspace.tsx';
 import { Toasts } from '../components/Toasts.tsx';
 import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
@@ -19,6 +21,9 @@ export function App() {
   // following the link from their inbox may well still have a valid cookie in this
   // tab — and booting them into the workspace would swallow the only token they have.
   const [resetToken, setResetToken] = useState(resetTokenFromUrl);
+  // An assistant asking to connect (ADR 0029) gets its question instead of the workspace
+  // — after a sign-in, if it takes one, since the address survives it.
+  const [consenting] = useState(() => isConsentPath());
   const [phase, setPhase] = useState<Phase>('loading');
   const [needsSetup, setNeedsSetup] = useState(false);
   const boot = useStore((s) => s.boot);
@@ -147,6 +152,14 @@ export function App() {
           setPhase('signed-in');
         }}
       />
+    );
+  }
+
+  if (consenting) {
+    return (
+      <ErrorBoundary>
+        <ConsentScreen />
+      </ErrorBoundary>
     );
   }
 

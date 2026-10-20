@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AssistantsSection } from './AssistantsSection.tsx';
-import { api } from '../../lib/api.ts';
+import { api, type OAuthGrant } from '../../lib/api.ts';
 
 const TOKEN = {
   id: 't1',
@@ -30,11 +30,24 @@ afterEach(() => {
   cleanup();
 });
 
-function seed(tokens = [TOKEN]) {
+const GRANT: OAuthGrant = {
+  id: 'g1',
+  clientName: 'Claude',
+  vouchedBy: 'claude.ai',
+  scopes: ['read'],
+  createdAt: '2026-10-20T09:00:00.000Z',
+  lastUsedAt: '2026-10-20T10:00:00.000Z',
+};
+
+function seed(tokens = [TOKEN], grants: OAuthGrant[] = []) {
   vi.spyOn(api.assistants, 'list').mockResolvedValue({
     tokens,
     url: 'https://blob.example.com/api/mcp',
   } as never);
+  vi.spyOn(api.oauth, 'grants').mockResolvedValue({
+    grants,
+    url: 'https://blob.example.com/api/mcp',
+  });
 }
 
 async function draw() {
@@ -47,7 +60,7 @@ describe('connecting an assistant', () => {
     seed([]);
     await draw();
     expect(screen.getByText(/as you/i)).toBeTruthy();
-    expect(screen.getByText(/None yet/)).toBeTruthy();
+    expect(screen.getByText(/None yet. Make one above/)).toBeTruthy();
   });
 
   it('mints a read-only connection unless posting is asked for', async () => {
@@ -105,11 +118,13 @@ describe('connecting an assistant', () => {
     fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Laptop' } });
     fireEvent.click(screen.getByRole('button', { name: 'Get a token' }));
 
-    const command = await screen.findByText(/claude mcp add/);
+    expect(await screen.findByText(/shown once/i)).toBeTruthy();
     // The whole point of substituting it: no placeholder to fill in by hand.
-    expect(command.textContent).toContain('https://blob.example.com/api/mcp');
-    expect(command.textContent).toContain('Authorization: Bearer the-only-copy');
-    expect(screen.getByText(/shown once/i)).toBeTruthy();
+    const commands = screen.getAllByText(/claude mcp add/).map((node) => node.textContent);
+    expect(commands).toContain(
+      'claude mcp add --transport http blob https://blob.example.com/api/mcp ' +
+        '--header "Authorization: Bearer the-only-copy"',
+    );
     expect(screen.getByText(/reads only/)).toBeTruthy();
   });
 });
@@ -171,5 +186,31 @@ describe('how long a connection lasts', () => {
     seed([{ ...TOKEN, expiresAt: '2001-01-02T09:00:00.000Z' }]);
     await draw();
     expect(screen.getByText(/ended .*it no longer connects/)).toBeTruthy();
+  });
+});
+
+describe('an assistant that signs in', () => {
+  it('is given the connector address, and Claude Code a line with no secret in it', async () => {
+    seed([]);
+    await draw();
+    expect(await screen.findByText('https://blob.example.com/api/mcp')).toBeTruthy();
+    const commands = screen.getAllByText(/claude mcp add/).map((node) => node.textContent);
+    expect(commands).toEqual(['claude mcp add --transport http blob https://blob.example.com/api/mcp']);
+    expect(screen.getByText(/None yet. When an assistant signs in/)).toBeTruthy();
+  });
+
+  it('lists what it connected as, who confirms it, and disconnects only when asked twice', async () => {
+    seed([], [GRANT, { ...GRANT, id: 'g2', clientName: 'Inspector', vouchedBy: null, scopes: ['read', 'write'] }]);
+    const disconnect = vi.spyOn(api.oauth, 'disconnect').mockResolvedValue({ ok: true });
+    await draw();
+
+    expect(await screen.findByText(/Confirmed by claude\.ai/)).toBeTruthy();
+    expect(screen.getByText(/Registered itself/)).toBeTruthy();
+    expect(screen.getByText('reads and posts')).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Disconnect' })[0]!);
+    expect(disconnect).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect Claude' }));
+    await waitFor(() => expect(disconnect).toHaveBeenCalledWith('g1'));
   });
 });

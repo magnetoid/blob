@@ -715,6 +715,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/oauth-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Workspace Grants
+         * @description Every app connected as one of the workspace's people — the same view an admin has
+         *     of pasted tokens, because a sign-in acts as a colleague just as a token does.
+         */
+        get: operations["workspace_grants_api_admin_oauth_grants_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/oauth-grants/{grant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End Workspace Grant */
+        delete: operations["end_workspace_grant_api_admin_oauth_grants__grant_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/plugins": {
         parameters: {
             query?: never;
@@ -3362,6 +3400,74 @@ export interface paths {
         put?: never;
         /** Translate Message */
         post: operations["translate_message_api_messages__message_id__translate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Authorize */
+        post: operations["authorize_api_oauth_authorize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Grants */
+        get: operations["my_grants_api_oauth_grants_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/grants/{grant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End My Grant */
+        delete: operations["end_my_grant_api_oauth_grants__grant_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide */
+        post: operations["decide_api_oauth_requests__request_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6364,6 +6470,69 @@ export interface components {
             /** Notes */
             notes: components["schemas"]["AgentNote"][];
         };
+        /** OAuthAuthorizeIn */
+        OAuthAuthorizeIn: {
+            /** Query */
+            query: string;
+        };
+        /** OAuthAuthorizeOut */
+        OAuthAuthorizeOut: {
+            /** Redirectto */
+            redirectTo?: string | null;
+            request?: components["schemas"]["OAuthConsentRequestOut"] | null;
+        };
+        /** OAuthConsentIn */
+        OAuthConsentIn: {
+            /** Approve */
+            approve: boolean;
+            /**
+             * Write
+             * @default false
+             */
+            write: boolean;
+        };
+        /** OAuthConsentOut */
+        OAuthConsentOut: {
+            /** Redirectto */
+            redirectTo: string;
+        };
+        /** OAuthConsentRequestOut */
+        OAuthConsentRequestOut: {
+            /** Clientname */
+            clientName: string;
+            /** Id */
+            id: string;
+            /** Local */
+            local: boolean;
+            /** Redirecthost */
+            redirectHost: string;
+            /** Scopes */
+            scopes: string[];
+            /** Vouchedby */
+            vouchedBy: string | null;
+        };
+        /** OAuthGrantOut */
+        OAuthGrantOut: {
+            /** Clientname */
+            clientName: string;
+            /** Createdat */
+            createdAt: string;
+            /** Id */
+            id: string;
+            /** Lastusedat */
+            lastUsedAt?: string | null;
+            /** Scopes */
+            scopes: string[];
+            /** Vouchedby */
+            vouchedBy: string | null;
+        };
+        /** OAuthGrantsOut */
+        OAuthGrantsOut: {
+            /** Grants */
+            grants: components["schemas"]["OAuthGrantOut"][];
+            /** Url */
+            url: string;
+        };
         /**
          * OkOut
          * @description The answer to a request that has nothing to say beyond "done".
@@ -7637,6 +7806,30 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** WorkspaceOAuthGrantOut */
+        WorkspaceOAuthGrantOut: {
+            /** Clientname */
+            clientName: string;
+            /** Createdat */
+            createdAt: string;
+            /** Id */
+            id: string;
+            /** Lastusedat */
+            lastUsedAt?: string | null;
+            /** Ownerid */
+            ownerId: string;
+            /** Ownername */
+            ownerName: string;
+            /** Scopes */
+            scopes: string[];
+            /** Vouchedby */
+            vouchedBy: string | null;
+        };
+        /** WorkspaceOAuthGrantsOut */
+        WorkspaceOAuthGrantsOut: {
+            /** Grants */
+            grants: components["schemas"]["WorkspaceOAuthGrantOut"][];
+        };
         /** WorkspaceSettingsOut */
         WorkspaceSettingsOut: {
             /** Name */
@@ -7846,6 +8039,13 @@ export type MyAgentsOut = components['schemas']['MyAgentsOut'];
 export type MyWorkspacesOut = components['schemas']['MyWorkspacesOut'];
 export type NoteIn = components['schemas']['NoteIn'];
 export type NotesOut = components['schemas']['NotesOut'];
+export type OAuthAuthorizeIn = components['schemas']['OAuthAuthorizeIn'];
+export type OAuthAuthorizeOut = components['schemas']['OAuthAuthorizeOut'];
+export type OAuthConsentIn = components['schemas']['OAuthConsentIn'];
+export type OAuthConsentOut = components['schemas']['OAuthConsentOut'];
+export type OAuthConsentRequestOut = components['schemas']['OAuthConsentRequestOut'];
+export type OAuthGrantOut = components['schemas']['OAuthGrantOut'];
+export type OAuthGrantsOut = components['schemas']['OAuthGrantsOut'];
 export type OkOut = components['schemas']['OkOut'];
 export type PinInput = components['schemas']['PinInput'];
 export type PluginOut = components['schemas']['PluginOut'];
@@ -7936,6 +8136,8 @@ export type Workspace = components['schemas']['Workspace'];
 export type WorkspaceAgentOut = components['schemas']['WorkspaceAgentOut'];
 export type WorkspaceAgentsOut = components['schemas']['WorkspaceAgentsOut'];
 export type WorkspaceMembership = components['schemas']['WorkspaceMembership'];
+export type WorkspaceOAuthGrantOut = components['schemas']['WorkspaceOAuthGrantOut'];
+export type WorkspaceOAuthGrantsOut = components['schemas']['WorkspaceOAuthGrantsOut'];
 export type WorkspaceSettingsOut = components['schemas']['WorkspaceSettingsOut'];
 export type WorkspaceTokensOut = components['schemas']['WorkspaceTokensOut'];
 export type WorkspaceTokenSummary = components['schemas']['WorkspaceTokenSummary'];
@@ -9230,6 +9432,59 @@ export interface operations {
             header?: never;
             path: {
                 token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    workspace_grants_api_admin_oauth_grants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceOAuthGrantsOut"];
+                };
+            };
+        };
+    };
+    end_workspace_grant_api_admin_oauth_grants__grant_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
             };
             cookie?: never;
         };
@@ -13988,6 +14243,127 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageTranslationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    authorize_api_oauth_authorize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthAuthorizeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthAuthorizeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_grants_api_oauth_grants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthGrantsOut"];
+                };
+            };
+        };
+    };
+    end_my_grant_api_oauth_grants__grant_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_api_oauth_requests__request_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthConsentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthConsentOut"];
                 };
             };
             /** @description Validation Error */

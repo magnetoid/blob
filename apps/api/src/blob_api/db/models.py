@@ -1971,6 +1971,80 @@ class McpToken(Base):
     revoked_at: Mapped[Any | None] = mapped_column(Timestamp)
     #: When it stops resolving (migration 0051): chosen at minting, 30 to 365 days out.
     expires_at: Mapped[Any | None] = mapped_column(Timestamp)
+    #: The OAuth grant that minted it (migration 0059), for an assistant that connected
+    #: with a sign-in rather than a pasted token. Such a token lives an hour.
+    grant_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("oauth_grants.id", ondelete="CASCADE")
+    )
+
+
+class OAuthClient(Base):
+    """An assistant that may ask a person to connect it (ADR 0029): one that registered
+    itself (`registered`, RFC 7591, kept for backwards compatibility) or one known by the
+    metadata document its `client_id` URL serves (`metadata`, the 2026 default)."""
+
+    __tablename__ = "oauth_clients"
+    __table_args__ = (
+        CheckConstraint("kind IN ('registered', 'metadata')", name="oauth_clients_kind_check"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    #: As the client presents it: a random string Blob issued, or the metadata URL.
+    client_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    #: What the client calls itself. Its own word: the consent screen says whose domain
+    #: vouches for it, which is only ever the metadata URL's host.
+    client_name: Mapped[str] = mapped_column(Text, nullable=False)
+    client_uri: Mapped[str | None] = mapped_column(Text)
+    redirect_uris: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    #: When a metadata document was last fetched, for its cache.
+    fetched_at: Mapped[Any | None] = mapped_column(Timestamp)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class OAuthGrant(Base):
+    """A person's yes to one assistant: what it may do as them, until they take it back."""
+
+    __tablename__ = "oauth_grants"
+    __table_args__ = (
+        CheckConstraint(
+            "scopes <@ ARRAY['read', 'write']::text[] AND 'read' = ANY(scopes)",
+            name="oauth_grants_scopes_check",
+        ),
+        Index("oauth_grants_person", "user_id", postgresql_where=text("revoked_at IS NULL")),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    client_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("oauth_clients.id", ondelete="CASCADE"), nullable=False
+    )
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    last_used_at: Mapped[Any | None] = mapped_column(Timestamp)
+    revoked_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
+class OAuthRefreshToken(Base):
+    """One link of a grant's refresh chain. Used once: presenting a used one again is
+    somebody replaying a stolen token, and ends the whole grant (OAuth 2.1 §4.3.1)."""
+
+    __tablename__ = "oauth_refresh_tokens"
+    __table_args__ = (Index("oauth_refresh_tokens_grant", "grant_id"),)
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    grant_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("oauth_grants.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    expires_at: Mapped[Any] = mapped_column(Timestamp, nullable=False)
+    used_at: Mapped[Any | None] = mapped_column(Timestamp)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
 __all__ = [
@@ -1994,6 +2068,9 @@ __all__ = [
     "McpServerSecret",
     "McpServerTool",
     "Message",
+    "OAuthClient",
+    "OAuthGrant",
+    "OAuthRefreshToken",
     "PasswordReset",
     "Plugin",
     "PluginDelivery",

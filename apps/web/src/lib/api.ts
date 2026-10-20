@@ -142,6 +142,37 @@ export interface WorkspaceAssistantToken extends AssistantToken {
   ownerName: string;
 }
 
+/** An app asking to connect as you (ADR 0029) — what the consent page asks about. */
+export interface OAuthConsentRequest {
+  id: string;
+  clientName: string;
+  /** The domain whose metadata document names the app; null when it registered itself,
+   * which is only its own word for what it is. */
+  vouchedBy: string | null;
+  /** Where the answer is sent. */
+  redirectHost: string;
+  /** The answer goes to a program on this computer rather than to a website. */
+  local: boolean;
+  /** Always "read"; "write" when the app would like to post as well. */
+  scopes: string[];
+}
+
+/** An app that signed in as you and keeps doing so until it is disconnected. */
+export interface OAuthGrant {
+  id: string;
+  clientName: string;
+  vouchedBy: string | null;
+  scopes: string[];
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+/** A connected app as an admin sees it: whose it is, too. */
+export interface WorkspaceOAuthGrant extends OAuthGrant {
+  ownerId: string;
+  ownerName: string;
+}
+
 /** A note an agent kept (M2 · A8) — words, so a person can reword one as well as forget
  * it. A person's own, in Settings; a conversation's, on the agent's page for an admin. */
 export interface AgentNote {
@@ -1176,6 +1207,26 @@ export const api = {
       del<{ ok: true }>(`/api/me/mcp-tokens/${tokenId}`),
   },
 
+  /** Assistants that sign in instead of holding a pasted token (ADR 0029). */
+  oauth: {
+    /** Check the request the browser arrived at `/oauth/authorize` with. */
+    authorize: (query: string) =>
+      post<{ request: OAuthConsentRequest | null; redirectTo: string | null }>(
+        "/api/oauth/authorize",
+        { query },
+      ),
+    /** The person's answer; either way, where to send the browser next. */
+    decide: (requestId: string, approve: boolean, write = false) =>
+      post<{ redirectTo: string }>(`/api/oauth/requests/${requestId}`, {
+        approve,
+        write,
+      }),
+    grants: () =>
+      get<{ grants: OAuthGrant[]; url: string }>("/api/oauth/grants"),
+    disconnect: (grantId: string) =>
+      del<{ ok: true }>(`/api/oauth/grants/${grantId}`),
+  },
+
   agentic: {
     catchup: (channelId: string | null) =>
       post<{
@@ -1511,6 +1562,11 @@ export const api = {
       get<{ tokens: WorkspaceAssistantToken[] }>("/api/admin/mcp-tokens"),
     revokeAssistantToken: (tokenId: string) =>
       del<{ ok: true }>(`/api/admin/mcp-tokens/${tokenId}`),
+    /** Every app signed in as one of the workspace's people. */
+    oauthGrants: () =>
+      get<{ grants: WorkspaceOAuthGrant[] }>("/api/admin/oauth-grants"),
+    disconnectOAuthGrant: (grantId: string) =>
+      del<{ ok: true }>(`/api/admin/oauth-grants/${grantId}`),
     /** What this agent remembers of conversations you can see. */
     agentMemory: (pluginId: string) =>
       get<{ memories: AgentMemory[] }>(`/api/admin/plugins/${pluginId}/memory`),

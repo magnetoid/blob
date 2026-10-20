@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError } from "../../lib/api.ts";
 import { inviteTokenFromUrl, resetTokenFromUrl } from "./tokens.ts";
+import { isConsentPath } from "../oauth/consent.ts";
 
 type Mode = "login" | "signup" | "forgot" | "reset";
 
@@ -238,6 +239,12 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
           {mode === "forgot" && (
             <p className="auth-subtitle">
               We'll email you a link. It works once and expires in an hour.
+            </p>
+          )}
+          {mode === "login" && isConsentPath() && (
+            <p className="auth-subtitle">
+              An app is asking to connect to your account. Sign in first —
+              nothing is shared until you say yes.
             </p>
           )}
           {mode === "reset" && (

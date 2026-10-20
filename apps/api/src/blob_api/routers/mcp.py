@@ -42,6 +42,7 @@ from ..lib.ids import IdParam
 from ..schemas.base import CamelModel
 from ..services import mcp as mcp_service
 from ..services import mcp_tokens as token_service
+from ..services import oauth as oauth_service
 
 log = logging.getLogger("blob.mcp")
 
@@ -159,33 +160,41 @@ def _tool_error(request_id: Any, message: str) -> dict[str, Any]:
 # --------------------------------------------------------------------------------------
 
 
-async def _caller(request: Request) -> mcp_service.McpCaller | None:
+def _bearer(request: Request) -> str | None:
     header = request.headers.get("authorization", "")
     prefix = "bearer "
     if header[: len(prefix)].lower() != prefix:
         return None
-    return await mcp_service.resolve_token(header[len(prefix) :].strip())
+    return header[len(prefix) :].strip()
 
 
-def _unauthorized() -> Response:
+def _unauthorized(*, presented: bool) -> Response:
     response = _json(
         {
             "jsonrpc": "2.0",
             "id": None,
-            "error": {"code": INVALID_REQUEST, "message": "A Blob assistant token is required."},
+            "error": {
+                "code": INVALID_REQUEST,
+                "message": "Sign in to Blob, or present a Blob assistant token.",
+            },
         },
         status=401,
     )
-    # What tells a client to ask for credentials rather than to give up.
-    response.headers["WWW-Authenticate"] = 'Bearer realm="Blob"'
+    # What tells a client to ask for credentials rather than to give up — and, since ADR
+    # 0029, where to find out how: the protected resource metadata names this server as
+    # its own authorization server, so an assistant given only this URL can sign in.
+    # `invalid_token` when one was presented and is no good (expired, revoked), which is
+    # the client's cue to refresh rather than start over.
+    response.headers["WWW-Authenticate"] = oauth_service.challenge(invalid=presented)
     return response
 
 
 @router.post("/api/mcp")
 async def mcp_endpoint(request: Request) -> Response:
-    caller = await _caller(request)
+    token = _bearer(request)
+    caller = await mcp_service.resolve_token(token) if token else None
     if caller is None:
-        return _unauthorized()
+        return _unauthorized(presented=bool(token))
 
     try:
         body = await request.json()

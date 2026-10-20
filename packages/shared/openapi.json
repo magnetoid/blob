@@ -6168,6 +6168,201 @@
         "title": "NotesOut",
         "type": "object"
       },
+      "OAuthAuthorizeIn": {
+        "properties": {
+          "query": {
+            "maxLength": 8000,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "OAuthAuthorizeIn",
+        "type": "object"
+      },
+      "OAuthAuthorizeOut": {
+        "properties": {
+          "redirectTo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirectto"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OAuthConsentRequestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "OAuthAuthorizeOut",
+        "type": "object"
+      },
+      "OAuthConsentIn": {
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "write": {
+            "default": false,
+            "title": "Write",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "approve"
+        ],
+        "title": "OAuthConsentIn",
+        "type": "object"
+      },
+      "OAuthConsentOut": {
+        "properties": {
+          "redirectTo": {
+            "title": "Redirectto",
+            "type": "string"
+          }
+        },
+        "required": [
+          "redirectTo"
+        ],
+        "title": "OAuthConsentOut",
+        "type": "object"
+      },
+      "OAuthConsentRequestOut": {
+        "properties": {
+          "clientName": {
+            "title": "Clientname",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "local": {
+            "title": "Local",
+            "type": "boolean"
+          },
+          "redirectHost": {
+            "title": "Redirecthost",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "vouchedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouchedby"
+          }
+        },
+        "required": [
+          "id",
+          "clientName",
+          "vouchedBy",
+          "redirectHost",
+          "local",
+          "scopes"
+        ],
+        "title": "OAuthConsentRequestOut",
+        "type": "object"
+      },
+      "OAuthGrantOut": {
+        "properties": {
+          "clientName": {
+            "title": "Clientname",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastusedat"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "vouchedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouchedby"
+          }
+        },
+        "required": [
+          "id",
+          "clientName",
+          "vouchedBy",
+          "scopes",
+          "createdAt"
+        ],
+        "title": "OAuthGrantOut",
+        "type": "object"
+      },
+      "OAuthGrantsOut": {
+        "properties": {
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/OAuthGrantOut"
+            },
+            "title": "Grants",
+            "type": "array"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grants",
+          "url"
+        ],
+        "title": "OAuthGrantsOut",
+        "type": "object"
+      },
       "OkOut": {
         "description": "The answer to a request that has nothing to say beyond \"done\".\n\nSeventeen routers each declared this two-liner for themselves, which is seventeen\nidentically named classes in one OpenAPI document \u2014 the generator had to invent\nsuffixes to tell them apart.",
         "properties": {
@@ -9742,6 +9937,86 @@
         "title": "WorkspaceMembership",
         "type": "object"
       },
+      "WorkspaceOAuthGrantOut": {
+        "properties": {
+          "clientName": {
+            "title": "Clientname",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastusedat"
+          },
+          "ownerId": {
+            "title": "Ownerid",
+            "type": "string"
+          },
+          "ownerName": {
+            "title": "Ownername",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "vouchedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouchedby"
+          }
+        },
+        "required": [
+          "id",
+          "clientName",
+          "vouchedBy",
+          "scopes",
+          "createdAt",
+          "ownerId",
+          "ownerName"
+        ],
+        "title": "WorkspaceOAuthGrantOut",
+        "type": "object"
+      },
+      "WorkspaceOAuthGrantsOut": {
+        "properties": {
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceOAuthGrantOut"
+            },
+            "title": "Grants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "grants"
+        ],
+        "title": "WorkspaceOAuthGrantsOut",
+        "type": "object"
+      },
       "WorkspaceSettingsOut": {
         "properties": {
           "name": {
@@ -12055,6 +12330,75 @@
         "summary": "Revoke Workspace Token",
         "tags": [
           "mcp"
+        ]
+      }
+    },
+    "/api/admin/oauth-grants": {
+      "get": {
+        "description": "Every app connected as one of the workspace's people \u2014 the same view an admin has\nof pasted tokens, because a sign-in acts as a colleague just as a token does.",
+        "operationId": "workspace_grants_api_admin_oauth_grants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceOAuthGrantsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Workspace Grants",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/api/admin/oauth-grants/{grant_id}": {
+      "delete": {
+        "operationId": "end_workspace_grant_api_admin_oauth_grants__grant_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response End Workspace Grant Api Admin Oauth Grants  Grant Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Workspace Grant",
+        "tags": [
+          "oauth"
         ]
       }
     },
@@ -18915,6 +19259,168 @@
         "summary": "Translate Message",
         "tags": [
           "messages"
+        ]
+      }
+    },
+    "/api/oauth/authorize": {
+      "post": {
+        "operationId": "authorize_api_oauth_authorize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthAuthorizeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthAuthorizeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authorize",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/api/oauth/grants": {
+      "get": {
+        "operationId": "my_grants_api_oauth_grants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthGrantsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Grants",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/api/oauth/grants/{grant_id}": {
+      "delete": {
+        "operationId": "end_my_grant_api_oauth_grants__grant_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response End My Grant Api Oauth Grants  Grant Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End My Grant",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/api/oauth/requests/{request_id}": {
+      "post": {
+        "operationId": "decide_api_oauth_requests__request_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthConsentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthConsentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "oauth"
         ]
       }
     },

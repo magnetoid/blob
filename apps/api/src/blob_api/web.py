@@ -28,7 +28,18 @@ IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 DOCUMENT_CACHE = "no-cache"
 
 #: Paths the client owns; everything else here is the API's to answer.
-API_PREFIXES = ("api", "ws", "healthz", "readyz", "docs", "redoc", "openapi.json")
+#: `.well-known` is the server's too (OAuth discovery, ADR 0029): a client probing for a
+#: document this server does not publish must hear 404, not parse index.html as JSON.
+API_PREFIXES = (
+    "api",
+    "ws",
+    "healthz",
+    "readyz",
+    "docs",
+    "redoc",
+    "openapi.json",
+    ".well-known",
+)
 
 
 class SinglePageApp(StaticFiles):

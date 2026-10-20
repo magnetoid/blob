@@ -880,14 +880,15 @@ export const SECTIONS: Section[] = [
         id: 'connect-your-assistant',
         title: 'Reading Blob from your own assistant',
         blurb:
-          'Give Claude Code, Claude on the web or your editor a token, and it can read the channels you can read — and post as you if you let it.',
+          'Add Blob to Claude, ChatGPT or Claude Code as a connector, and it can read the channels you can read — and post as you if you let it.',
         body: [
           'This is the other direction from an agent in a channel. Here the assistant stays where it is and reaches into Blob: ask it “what did I miss in #ops?” or “find the thread about the deploy” and it looks for itself, in the app you were already in.',
-          'It connects as you, not as a bot with its own membership. Whatever you can see it can see, a private channel you are not in stays invisible to it, and the moment you leave a channel it loses that channel too. Posting is a separate tick when you make the connection, and is off unless you turn it on — a message it sends looks exactly like one you typed, because as far as everybody else is concerned, it is.',
-          'Settings → Assistants mints the token and shows the one command to paste. The token is shown once; revoke it there whenever you like, and the connection stops at once.',
+          'Settings → Assistants shows the connector address. Give it to Claude or ChatGPT as a custom connector, or to Claude Code with the line shown there: the assistant sends you to Blob, Blob asks whether to connect it, and once you say yes it appears under Connected apps. The page tells you which website confirms the app is what it says, and where your answer goes — check both before you say yes.',
+          'It connects as you, not as a bot with its own membership. Whatever you can see it can see, a private channel you are not in stays invisible to it, and the moment you leave a channel it loses that channel too. Posting is a separate tick, off unless you turn it on — a message it sends looks exactly like one you typed, because as far as everybody else is concerned, it is.',
+          'A tool that cannot sign in — an editor, a script — takes a token instead, made on the same page and shown once. Disconnect an app or revoke a token there whenever you like, and it stops at once.',
         ],
         path: '/settings/assistants',
-        keywords: ['mcp', 'claude', 'claude code', 'assistant', 'model context protocol', 'token', 'connect', 'editor', 'cursor', 'chatgpt'],
+        keywords: ['mcp', 'claude', 'claude code', 'assistant', 'model context protocol', 'token', 'connect', 'connector', 'oauth', 'sign in', 'editor', 'cursor', 'chatgpt'],
       },
       {
         id: 'watching-a-run',

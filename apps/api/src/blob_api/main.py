@@ -65,6 +65,16 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
 #: every route through the `current_bot` dependency, never falling back to "no user".
 PUBLIC_PREFIXES = ("/api/invites/", "/api/hooks/", "/api/v1/")
 
+#: State-changing routes that read no cookie, and so need no Origin check: an assistant's
+#: sign-in (ADR 0029) trades codes and tokens it holds itself, from wherever it runs, and a
+#: browser-based client sends its own origin. Outside `/api`, so the session check above
+#: never applied to them; listed here so the Origin check below does not either.
+ORIGIN_EXEMPT: set[tuple[str, str]] = {
+    ("POST", "/oauth/token"),
+    ("POST", "/oauth/register"),
+    ("POST", "/oauth/revoke"),
+}
+
 
 def _error(
     status: int,
@@ -142,7 +152,7 @@ class SessionMiddleware:
             return
 
         # Cookies are SameSite=Lax, but check Origin too on state-changing requests.
-        if method not in ("GET", "HEAD", "OPTIONS"):
+        if method not in ("GET", "HEAD", "OPTIONS") and (method, path) not in ORIGIN_EXEMPT:
             origin = request.headers.get("origin")
             if origin and not is_allowed_origin(origin):
                 response = _error(403, "forbidden", "Blocked request.")
@@ -347,6 +357,9 @@ def create_app() -> FastAPI:
     from .routers.messages import router as message_router
     from .routers.metrics import router as metrics_router
     from .routers.my_agents import router as my_agents_router
+    from .routers.oauth import admin_router as oauth_admin_router
+    from .routers.oauth import me_router as oauth_me_router
+    from .routers.oauth import router as oauth_router
     from .routers.plugin_controls import router as plugin_controls_router
     from .routers.plugin_hosting import router as plugin_hosting_router
     from .routers.plugin_logs import router as plugin_logs_router
@@ -371,6 +384,9 @@ def create_app() -> FastAPI:
     app.include_router(mcp_tokens_router)
     app.include_router(mcp_admin_tokens_router)
     app.include_router(mcp_servers_router)
+    app.include_router(oauth_router)
+    app.include_router(oauth_me_router)
+    app.include_router(oauth_admin_router)
     app.include_router(metrics_router)
     app.include_router(file_router)
     app.include_router(feedback_router)

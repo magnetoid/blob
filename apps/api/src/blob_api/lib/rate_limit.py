@@ -80,6 +80,14 @@ LIMITS: dict[str, Limit] = {
     # minting a second connection does not buy a second allowance. A write still spends
     # `send_message` on top of this.
     "mcp_tool": Limit(120, 60),
+    # OAuth for the MCP endpoint (ADR 0029). Registering a client is unauthenticated and
+    # writes a row, so it is held per address. The token endpoint is called by an
+    # assistant's own servers, many people behind one address, so its ceiling only stops
+    # a flood; its codes and refresh tokens are 256 random bits, not guessable either way.
+    # Starting a consent may fetch a client's metadata document, so it is held per person.
+    "oauth_register": Limit(30, 3600),
+    "oauth_token": Limit(600, 60),
+    "oauth_authorize": Limit(30, 600),
 }
 
 

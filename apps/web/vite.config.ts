@@ -120,6 +120,11 @@ export default defineConfig({
     proxy: {
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
       '/ws': { target: 'ws://localhost:3000', ws: true },
+      // An assistant's sign-in (ADR 0029): the discovery documents and the three routes a
+      // client calls are the server's. `/oauth/authorize` is not — it is the consent
+      // page, so it stays with the client like any other route.
+      '/.well-known': { target: 'http://localhost:3000', changeOrigin: true },
+      '^/oauth/(token|register|revoke)$': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },
   build: {

@@ -72,9 +72,9 @@ history stays yours for as long as you keep the database.
 <td width="50%" valign="top">
 
 ### 🧭 Your assistant reads Blob as you
-Blob is an MCP server. Claude Code, Claude on the web or your editor can catch you up,
-search, reply and ask the workspace's agents — with exactly your reach, in the audit log as
-you, on a token that ends.
+Blob is an MCP server. Add it to Claude, ChatGPT or Claude Code as a connector, sign in,
+and it can catch you up, search, reply and ask the workspace's agents — with exactly your
+reach, in the audit log as you.
 
 </td>
 </tr>
@@ -209,21 +209,27 @@ no address at all dials in over a WebSocket instead
 
 ## Your assistant reads Blob as you
 
-Blob is an [MCP](https://modelcontextprotocol.io) server. Under *Settings → Assistants* a
-member mints a token and pastes one command; Claude Code, Claude on the web or an editor
-then works in the workspace **as them** — same channels, same private conversations,
-nothing more — and shows up in the audit log as them.
+Blob is an [MCP](https://modelcontextprotocol.io) server. *Settings → Assistants* shows its
+connector address: give it to Claude or ChatGPT as a custom connector, or to Claude Code,
+and the assistant sends you to Blob to sign in and say yes. It then works in the workspace
+**as you** — same channels, same private conversations, nothing more — and shows up in the
+audit log as you. A tool that cannot sign in takes a token minted on the same page instead.
 
 | | Tools |
 |---|---|
-| **Read** | `whoami` · `inbox` (unread conversations, mentions first) · `list_channels` · `list_threads` (followed threads, new replies marked) · `read_channel` · `read_thread` · `read_file` (a text attachment, up to 512 KB) · `list_tasks` (owner, status, due date) · `search_messages` (paged by cursor) · `list_people` · `list_agents` (who this person may ask) · `run_status` |
-| **Write** — a separate tick, off by default | `post_message` · `message_person` (both idempotent on the assistant's own id) · `add_reaction` · `ask_agent` · `answer_decision` · `stop_run` |
+| **Read** | `whoami` · `inbox` (unread conversations, mentions first) · `list_channels` · `list_threads` (followed threads, new replies marked) · `read_channel` · `read_thread` · `read_file` (a text attachment, up to 512 KB) · `list_tasks` (owner, status, due date) · `list_decisions` · `search_messages` (paged by cursor) · `list_people` · `list_agents` (who this person may ask) · `run_status` |
+| **Write** — a separate tick, off by default | `post_message` · `message_person` (both idempotent on the assistant's own id) · `record_decision` · `add_reaction` · `ask_agent` · `answer_decision` · `stop_run` |
 
-Every token ends after 30, 90 or 365 days, and *Admin → Assistants* lists every connection
-in the workspace and revokes any. One stateless endpoint at `POST /api/mcp` speaks both the
+Signing in is OAuth as the MCP spec has it: protected resource metadata, a client
+identified by its metadata document (or by registering), PKCE, and refresh tokens that
+rotate and end the connection when replayed. The consent page names the app, the website
+that confirms it, and where the answer goes. Access tokens last an hour; a pasted token
+ends after 30, 90 or 365 days; *Admin → Assistants* lists every connected app and token in
+the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks both the
 `initialize` handshake of `2025-06-18`/`2025-11-25` and the per-request metadata of
 `2026-07-28`, with its `resultType` and caching hints.
-([ADR 0016](.torsor/architecture/decisions/0016-an-assistant-token-is-a-person.md))
+([ADR 0016](.torsor/architecture/decisions/0016-an-assistant-token-is-a-person.md),
+[ADR 0029](.torsor/architecture/decisions/0029-an-assistant-signs-in-as-its-person.md))
 
 ---
 

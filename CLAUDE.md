@@ -21,8 +21,8 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-twenty-eight ADRs; the principles below are their summary, not a substitute. 0013–0020 and
-0022–0028 are the agentic surface — chains, work channels, summaries and nudges, the MCP
+twenty-nine ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+0022–0029 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
 room bound), that a task handed to an agent is a message from the person who handed it
@@ -31,8 +31,9 @@ notes too, since M2), and
 what an operator can see of agents — traces, `/metrics`, a run's events, an app's last
 ten errors (0025), that an admin may let an agent follow a channel and hear what was
 not addressed to it (0026), that an admin may connect an MCP server whose tools chosen
-agents use through Blob (0027), and that a decision in the log is a person's while an agent
-may only propose one (0028) — and are the ones this digest compresses hardest, so read them before
+agents use through Blob (0027), that a decision in the log is a person's while an agent
+may only propose one (0028), and that an assistant may sign in to `/api/mcp` as its person
+(0029) — and are the ones this digest compresses hardest, so read them before
 changing that code. The shortest way in: an agent in a workspace is either the
 workspace's (`plugins.owner_user_id` NULL — an admin installed it for everyone, like the
 `magnetoid/janus` agent, the one Blob seeds) or one person's (set — theirs, listed only
@@ -169,7 +170,13 @@ in, holding an `mcp_tokens` row that resolves to a *user*, not a bot, because an
 acting for a person should have exactly that person's reach and show up in the audit log as
 them. It is listed in `PUBLIC_ROUTES` as three exact `(method, path)` pairs and **not** as
 a prefix: `PUBLIC_PREFIXES` is a `startswith` test, and `/api/mcp` as a prefix would also
-open the routes next door that mint credentials.
+open the routes next door that mint credentials. Since ADR 0029 an assistant may also
+*sign in* for that token — Blob is the OAuth authorization server for its own endpoint, so
+Claude or ChatGPT given only the address finds the way from the 401's `WWW-Authenticate`.
+Its routes (`/.well-known/…`, `/oauth/token|register|revoke`) live outside `/api`, read no
+cookie, and are in `ORIGIN_EXEMPT` rather than either allowlist; `/oauth/authorize` is the
+client's consent page, and its two calls are ordinary `/api/oauth/…` routes. A grant mints
+`mcp_tokens` rows with `grant_id` set and an hour to live, which the token lists leave out.
 
 **Errors are a contract.** The codes in `lib/errors.py` are what `apps/web/src/lib/api.ts`
 branches on. Don't rename them, and keep FastAPI's 422 remapped to 400 `invalid_input`.
