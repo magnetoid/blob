@@ -42,6 +42,45 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-10-20',
+    version: '1.12.0',
+    title: 'Agents that reach further, and work you can review',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Add Blob to Claude, ChatGPT or Claude Code as a connector. Settings → Assistants shows the address; the assistant brings you back here to sign in, and Blob asks before connecting it — naming the app, who confirms it is what it says, and where your answer goes. Disconnect it there whenever you like.',
+      },
+      {
+        kind: 'added',
+        text: 'Agents can use tools from MCP servers an admin connects — GitHub, a docs search, your own. The admin chooses which agents may, and which tools wait for your Approve.',
+      },
+      {
+        kind: 'added',
+        text: 'A decision log. Record what a conversation settled from a message, a thread summary or /decision, and find it on the Decisions page and on Home. An agent may only propose one; a person says yes.',
+      },
+      {
+        kind: 'added',
+        text: 'Agents keep notes you can read — what they were asked to remember about you or a conversation — and you can reword or remove them in Settings.',
+      },
+      {
+        kind: 'added',
+        text: 'Usage shows what agents and Blob’s own summaries spent, by agent and by person, priced with the prices you set per model. An agent’s budget can cap its tokens for the day, and you can see what your own agents spent.',
+      },
+      {
+        kind: 'added',
+        text: 'Work channels review their work. A change published again under its name is its next version; approve a version or send it back with a note, and the agent that made it starts on the next one in the thread. Mark done says what was made and what was approved, where the work started.',
+      },
+      {
+        kind: 'changed',
+        text: 'An agent that asks another agent now waits for the answer however long it takes, without holding anything up. Its card says whom it is waiting for, and Stop ends it.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Link previews and connector sign-ins can no longer be steered at addresses inside the server’s own network.',
+      },
+    ],
+  },
+  {
     date: '2026-10-19',
     version: '1.11.1',
     title: 'Home you can act on',

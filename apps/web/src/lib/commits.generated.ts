@@ -11,6 +11,83 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "d4de271eb85630880807f71d2fa3eb5f28b46f80",
+    "shortSha": "d4de271e",
+    "subject": "fix: review findings — pin member-triggered fetches; an agent's version notice is the agent's",
+    "date": "2026-10-20T07:02:44+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "a4dff88e67a6ed4dda5fa7af52a57d1d00f7295b",
+    "shortSha": "a4dff88e",
+    "subject": "docs: README brought up to date with M2",
+    "date": "2026-10-20T06:33:30+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "966127588cb23ac287a2c376923eb30277d3a91b",
+    "shortSha": "96612758",
+    "subject": "docs: README carries M2 — MCP tools, asking agents, work reviews, decisions, notes, usage; ADRs 0026–0030",
+    "date": "2026-10-20T06:27:49+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "92083406f7ef443ce6b481ad392a068d85c0a373",
+    "shortSha": "92083406",
+    "subject": "feat: an agent waiting on another holds nothing — ask_agent resumes on the answer",
+    "date": "2026-10-20T06:26:40+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d8eae0a4d103f3ab2766ba16945775a6faee9c65",
+    "shortSha": "d8eae0a4",
+    "subject": "feat: work channels with a lifecycle — versions, a review thread, verdicts, a closing summary",
+    "date": "2026-10-20T05:43:57+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "24cb44fa17c8d97232bad6b81e22fb92cdaf6058",
+    "shortSha": "24cb44fa",
+    "subject": "feat: cost you can see — usage by agent and person, prices you set, a daily token cap",
+    "date": "2026-10-20T05:00:29+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "60b98429f7717b3a6497a9dd5b40b7f1a8b6836e",
+    "shortSha": "60b98429",
+    "subject": "feat: Blob as a connector — an assistant signs in to /api/mcp as its person",
+    "date": "2026-10-20T04:13:01+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "a3060a3da270c46ae02227be4a0231bed7c5cdb1",
+    "shortSha": "a3060a3d",
+    "subject": "feat: agents keep notes people can read — remember, recall, forget; reworded or removed in Settings and on the agent's page",
+    "date": "2026-10-20T03:30:04+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "e21e8e129e63d498d3e8836841e4ffd80b86ccb2",
+    "shortSha": "e21e8e12",
+    "subject": "feat: a decision log — record what a conversation settled, from a message, a summary or /decision; an agent may only propose one",
+    "date": "2026-10-20T02:58:57+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "1fc150da4ea83fc8d537c0e7da026ab613bf16b3",
+    "shortSha": "1fc150da",
+    "subject": "feat: agents can use tools from an MCP server an admin connects — through Blob, with the person's say-so where it matters",
+    "date": "2026-10-20T02:14:48+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "ec94ff67b5fb7235ca504a77a67cddc8bfc480ee",
+    "shortSha": "ec94ff67",
+    "subject": "release: 1.11.1 — Home you can act on",
+    "date": "2026-10-19T05:10:00+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "de1e785b53a46cd82c0987db90c07424a657268c",
     "shortSha": "de1e785b",
     "subject": "feat: Home you can act on — answer an agent, tick off a task, clear what's unread, all in place",
@@ -351,83 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "7f3d7456",
     "subject": "chore: pin Janus 0.18.0, which hands Blob the files a reply names",
     "date": "2026-09-22T00:03:09+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "178ef4fa9b92e6d3404debbdfb3a6dd13f42258d",
-    "shortSha": "178ef4fa",
-    "subject": "fix: a file's type does not depend on which Python the server runs",
-    "date": "2026-09-21T23:52:16+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "4e20d421c591a56800853d7bfc62219f362fd255",
-    "shortSha": "4e20d421",
-    "subject": "feat: agents hand over files, and a file opens beside the conversation",
-    "date": "2026-09-21T23:41:00+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "7cc58b6ca58a10402234701dca7ef1d904c5af0f",
-    "shortSha": "7cc58b6c",
-    "subject": "feat: harden themes and compositor motion",
-    "date": "2026-09-19T02:53:42+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d45a398802362732eba44fb13a5e60c2fa661157",
-    "shortSha": "d45a3988",
-    "subject": "feat: /search carries the scope it was opened with",
-    "date": "2026-09-18T07:07:37+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e3f7ae7ce017e10aca2118091d3dce0f6208d661",
-    "shortSha": "e3f7ae7c",
-    "subject": "fix: keep the keyboard up, name the scope control, and pin ⌘K's two requests",
-    "date": "2026-09-18T06:36:28+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "2b4c4cc1bb94f8e01e263be09a4b1a457e5e6c1b",
-    "shortSha": "2b4c4cc1",
-    "subject": "feat: ⌘K in four sections, with Tab to narrow",
-    "date": "2026-09-18T06:17:13+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "f099f7e97feafe7006c280e3b24f1046e79df1a9",
-    "shortSha": "f099f7e9",
-    "subject": "feat: filter the files library by filename",
-    "date": "2026-09-18T05:46:27+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "bb172ae76eba40a491ac21f017a9db1a6529553b",
-    "shortSha": "bb172ae7",
-    "subject": "docs: search scopes in ⌘K — spec and plan",
-    "date": "2026-09-18T05:26:11+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "76698c47624a3c6e34af7c8e91b76ca0848a5713",
-    "shortSha": "76698c47",
-    "subject": "chore: pin Janus 0.17.1, which redacts the config file at the source",
-    "date": "2026-09-18T05:07:04+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "ca24e90a863a6277099c0ed601277bc75885c27f",
-    "shortSha": "ca24e90a",
-    "subject": "feat: the channel list starts at the top — 1.2.1",
-    "date": "2026-09-18T05:05:05+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "58be134b99d172624f971b1c163873040c97a918",
-    "shortSha": "58be134b",
-    "subject": "fix: keep each stack's Janus on its own network",
-    "date": "2026-09-18T04:45:32+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
