@@ -37,6 +37,7 @@ import { McpServersSection } from './sections/McpServersSection.tsx';
 import { SsoSection } from './sections/SsoSection.tsx';
 import { UsageSection } from './sections/UsageSection.tsx';
 import { HuddlesSection } from './sections/calls/HuddlesSection.tsx';
+import { ExportSection } from './sections/ExportSection.tsx';
 import { MeetupsSection } from './sections/calls/MeetupsSection.tsx';
 import { PeopleHub } from './sections/PeopleHub.tsx';
 import { ThemesSection } from './sections/ThemesSection.tsx';
@@ -91,6 +92,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   janus: JanusSection,
   'mcp-servers': McpServersSection,
   usage: UsageSection,
+  export: ExportSection,
   webhooks: WebhooksSection,
   deliveries: DeliveriesSection,
   connections: AssistantsAdminSection,

@@ -33,6 +33,7 @@ export const ADMIN_SECTIONS = [
   'janus',
   'mcp-servers',
   'usage',
+  'export',
   'webhooks',
   'deliveries',
   'connections',

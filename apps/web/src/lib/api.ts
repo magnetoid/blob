@@ -985,6 +985,20 @@ export interface DraftSave {
   device: string;
 }
 
+/** An export, asked for or built (M3 · B4). */
+export interface ExportEntry {
+  id: string;
+  scope: "workspace" | "personal";
+  status: "pending" | "running" | "done" | "failed";
+  bytes: number | null;
+  error: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+  requestedByName: string;
+  /** Blob's own link, which checks who is asking; present once it is built. */
+  downloadUrl: string | null;
+}
+
 /** Whose away emails a link stops, and whether they are off now. */
 export interface UnsubscribeInfo {
   email: string;
@@ -1095,6 +1109,9 @@ export const api = {
       patch<{ user: CurrentUser }>("/api/me", input),
     prefs: (input: Partial<UserPrefs>) =>
       patch<{ prefs: UserPrefs }>("/api/me/prefs", input),
+    /** Your own exports — everything you are in (M3 · B4). */
+    exports: () => get<{ exports: ExportEntry[] }>("/api/me/exports"),
+    startExport: () => post<{ exports: ExportEntry[] }>("/api/me/exports", {}),
     pushPublicKey: () => get<{ key: string | null }>("/api/me/push-public-key"),
     subscribePush: (subscription: {
       endpoint: string;
@@ -1765,6 +1782,9 @@ export const api = {
       ),
 
     health: () => get<AdminHealth>("/api/admin/health"),
+    /** The workspace's public conversations, for its admins (M3 · B4). */
+    exports: () => get<{ exports: ExportEntry[] }>("/api/admin/exports"),
+    startExport: () => post<{ exports: ExportEntry[] }>("/api/admin/exports", {}),
     /** A database backup now, rather than tonight (M3 · B4). The server's administrators. */
     backupNow: () => post<{ ok: true }>("/api/admin/instance/backup", {}),
 

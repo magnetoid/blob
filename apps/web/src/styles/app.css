@@ -9673,6 +9673,22 @@ button.person-trigger:hover {
   opacity: 1;
 }
 
+/* An export's row (M3 · B4): when, how it went, and Download once it is built. */
+.export-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.export-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
 /* Save and Cancel under a field that changed. */
 .field-actions {
   display: flex;

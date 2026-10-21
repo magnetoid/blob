@@ -34,6 +34,8 @@ from .agui import handle_agent_heard, handle_agui_run, resume_waiting_runs
 from .away_mail import send_away_mail
 from .backup import run_backup
 from .deployments import sync_hosted_agents
+from .export import build_export as build_export_zip
+from .export import sweep_exports
 from .notify import handle_notify
 from .reminders import fire_reminders
 from .retention import sweep_retention
@@ -150,6 +152,10 @@ async def sweep_expired(_ctx: dict[str, Any]) -> None:
     # A draft nobody has touched in a month (ADR 0037), as the client forgets its own.
     async with transaction() as (session, _):
         await draft_service.sweep(session)
+    # An export a week old (M3 · B4): the zip, then its row.
+    gone = await sweep_exports()
+    if gone:
+        log.info("swept %d expired export(s)", gone)
 
 
 async def sweep_orphans(_ctx: dict[str, Any]) -> None:
@@ -215,6 +221,11 @@ async def sweep_calls(_ctx: dict[str, Any]) -> None:
     changed = await reconcile_calls()
     if changed:
         log.info("call sweep changed %d call(s)", changed)
+
+
+async def build_export(_ctx: dict[str, Any], export_id: str) -> None:
+    """A workspace's or a person's export, zipped into object storage (M3 · B4)."""
+    await build_export_zip(export_id)
 
 
 async def backup(_ctx: dict[str, Any]) -> None:
@@ -287,6 +298,9 @@ class WorkerSettings:
         unfurl,
         # "Back up now" from the Health page; the same ceiling as the nightly one.
         func(backup, timeout=3600, max_tries=1),  # type: ignore[arg-type]
+        # An export is a whole workspace's public history, or a person's everything: an hour,
+        # and once — a retry would build the zip twice for nobody.
+        func(build_export, timeout=3600, max_tries=1),  # type: ignore[arg-type]
         transcribe,
         # Its own ceiling, above the run's wall, and one try. arq retries a job it
         # cancelled — a deploy stopping the worker mid-run is the usual case — and a

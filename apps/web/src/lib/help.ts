@@ -150,6 +150,18 @@ export const SECTIONS: Section[] = [
         keywords: ['guest', 'guests', 'external', 'client', 'contractor', 'single-channel', 'limited access'],
       },
       {
+        id: 'exporting',
+        title: 'Taking your data with you',
+        blurb: 'Export everything you are in — or, as an admin, the workspace’s public channels.',
+        body: [
+          'Export your data, under Profile & preferences, makes a zip of every conversation you are in — channels public and private, direct messages and group messages — with their messages, reactions and the list of their files. It is yours alone; nobody else can download it.',
+          'An admin’s Export page makes the workspace’s: every public channel, archived ones too, and the people in the workspace with their email addresses. Private channels and direct messages are never in it — each person exports their own.',
+          'Both ask you to confirm it is you if your sign-in is more than fifteen minutes old, take a minute or two to build, and are kept for a week. Inside, each .jsonl file holds one JSON object per line, which jq and any script can read; the files themselves are listed, not packed in.',
+        ],
+        path: '/settings/preferences',
+        keywords: ['export', 'download', 'data', 'backup', 'portability', 'leave', 'gdpr', 'archive', 'jsonl'],
+      },
+      {
         id: 'this-build',
         title: 'This guide describes the build you are running',
         blurb:

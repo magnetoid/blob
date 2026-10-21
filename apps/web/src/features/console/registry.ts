@@ -318,6 +318,16 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `/api/admin/exports` (M3 · B4): any admin's, after a recent sign-in — and only ever
+    // the public conversations.
+    id: 'export',
+    label: 'Export',
+    description:
+      'Download the workspace’s public channels and its people as a zip of JSON lines.',
+    keywords: ['export', 'download', 'backup', 'archive', 'data', 'portability', 'jsonl', 'zip'],
+    access: 'admin',
+  },
+  {
     id: 'webhooks',
     label: 'Webhooks',
     description: 'Incoming URLs that let another system post into a channel here.',

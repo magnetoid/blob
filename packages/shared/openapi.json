@@ -4054,6 +4054,99 @@
         "title": "EverywhereInput",
         "type": "object"
       },
+      "ExportOut": {
+        "properties": {
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "downloadUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downloadurl"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "requestedByName": {
+            "title": "Requestedbyname",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "status",
+          "createdAt",
+          "requestedByName"
+        ],
+        "title": "ExportOut",
+        "type": "object"
+      },
+      "ExportsOut": {
+        "properties": {
+          "exports": {
+            "items": {
+              "$ref": "#/components/schemas/ExportOut"
+            },
+            "title": "Exports",
+            "type": "array"
+          }
+        },
+        "required": [
+          "exports"
+        ],
+        "title": "ExportsOut",
+        "type": "object"
+      },
       "FeedbackInput": {
         "properties": {
           "body": {
@@ -12662,6 +12755,41 @@
         ]
       }
     },
+    "/api/admin/exports": {
+      "get": {
+        "operationId": "workspace_exports_api_admin_exports_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Workspace Exports"
+      },
+      "post": {
+        "description": "The workspace's public channels and its people \u2014 never a private channel or a DM.",
+        "operationId": "export_workspace_api_admin_exports_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Export Workspace"
+      }
+    },
     "/api/admin/feedback": {
       "get": {
         "operationId": "listing_api_admin_feedback_get",
@@ -20794,6 +20922,44 @@
         "summary": "Save Draft"
       }
     },
+    "/api/exports/{export_id}/download": {
+      "get": {
+        "operationId": "download_export_api_exports__export_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "export_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Export Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Export"
+      }
+    },
     "/api/feedback": {
       "post": {
         "operationId": "submit_api_feedback_post",
@@ -21387,6 +21553,41 @@
         "tags": [
           "users"
         ]
+      }
+    },
+    "/api/me/exports": {
+      "get": {
+        "operationId": "my_exports_api_me_exports_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Exports"
+      },
+      "post": {
+        "description": "Everything you are in: your channels, your DMs and group DMs.",
+        "operationId": "export_mine_api_me_exports_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Export Mine"
       }
     },
     "/api/me/mcp-tokens": {

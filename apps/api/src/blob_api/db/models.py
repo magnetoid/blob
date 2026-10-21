@@ -790,6 +790,39 @@ class Draft(Base):
     updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class Export(Base):
+    """A request for an export and, once built, where its zip is (M3 · B4, migration 0070).
+
+    `workspace` is the public conversations, an admin's; `personal` is everything one
+    person is in, theirs alone. Gone a week after it was made.
+    """
+
+    __tablename__ = "exports"
+    __table_args__ = (
+        CheckConstraint("scope IN ('workspace', 'personal')", name="exports_scope_check"),
+        CheckConstraint(
+            "status IN ('pending', 'running', 'done', 'failed')", name="exports_status_check"
+        ),
+        Index("exports_requester", "requested_by", "created_at"),
+        Index("exports_workspace", "workspace_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    requested_by: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    scope: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'"))
+    object_key: Mapped[str | None] = mapped_column(Text)
+    bytes: Mapped[int | None] = mapped_column(BigInteger)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    finished_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
 class UserGroup(Base):
     """A named set of people, mentionable as one handle. Slack's user groups.
 
@@ -2349,6 +2382,7 @@ __all__ = [
     "CustomEmoji",
     "Decision",
     "Draft",
+    "Export",
     "FeedbackTicket",
     "Invite",
     "McpServer",

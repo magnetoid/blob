@@ -202,6 +202,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Workspace Exports */
+        get: operations["workspace_exports_api_admin_exports_get"];
+        put?: never;
+        /**
+         * Export Workspace
+         * @description The workspace's public channels and its people — never a private channel or a DM.
+         */
+        post: operations["export_workspace_api_admin_exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/feedback": {
         parameters: {
             query?: never;
@@ -3371,6 +3392,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/exports/{export_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Export */
+        get: operations["download_export_api_exports__export_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -3623,6 +3661,27 @@ export interface paths {
         head?: never;
         /** Update Me */
         patch: operations["update_me_api_me_patch"];
+        trace?: never;
+    };
+    "/api/me/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Exports */
+        get: operations["my_exports_api_me_exports_get"];
+        put?: never;
+        /**
+         * Export Mine
+         * @description Everything you are in: your channels, your DMs and group DMs.
+         */
+        post: operations["export_mine_api_me_exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/me/mcp-tokens": {
@@ -6296,6 +6355,32 @@ export interface components {
         EverywhereInput: {
             /** Enabled */
             enabled: boolean;
+        };
+        /** ExportOut */
+        ExportOut: {
+            /** Bytes */
+            bytes?: number | null;
+            /** Createdat */
+            createdAt: string;
+            /** Downloadurl */
+            downloadUrl?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Finishedat */
+            finishedAt?: string | null;
+            /** Id */
+            id: string;
+            /** Requestedbyname */
+            requestedByName: string;
+            /** Scope */
+            scope: string;
+            /** Status */
+            status: string;
+        };
+        /** ExportsOut */
+        ExportsOut: {
+            /** Exports */
+            exports: components["schemas"]["ExportOut"][];
         };
         /** FeedbackInput */
         FeedbackInput: {
@@ -9107,6 +9192,8 @@ export type EnvInput = components['schemas']['EnvInput'];
 export type EnvOut = components['schemas']['EnvOut'];
 export type EnvVarOut = components['schemas']['EnvVarOut'];
 export type EverywhereInput = components['schemas']['EverywhereInput'];
+export type ExportOut = components['schemas']['ExportOut'];
+export type ExportsOut = components['schemas']['ExportsOut'];
 export type FeedbackInput = components['schemas']['FeedbackInput'];
 export type FeedbackStatusInput = components['schemas']['FeedbackStatusInput'];
 export type FeedbackTicket = components['schemas']['FeedbackTicket'];
@@ -9644,6 +9731,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    workspace_exports_api_admin_exports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportsOut"];
+                };
+            };
+        };
+    };
+    export_workspace_api_admin_exports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportsOut"];
                 };
             };
         };
@@ -15346,6 +15473,37 @@ export interface operations {
             };
         };
     };
+    download_export_api_exports__export_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                export_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_api_feedback_post: {
         parameters: {
             query?: never;
@@ -15796,6 +15954,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_exports_api_me_exports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportsOut"];
+                };
+            };
+        };
+    };
+    export_mine_api_me_exports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportsOut"];
                 };
             };
         };

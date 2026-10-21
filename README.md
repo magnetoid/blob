@@ -394,6 +394,9 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
   Connect. Settings lists every device you are signed in on, in every workspace, with the
   record of your sign-ins; handing out access — a token, a role, a reset link — asks you
   to confirm it is you once your sign-in is fifteen minutes old.
+- **Export** — an admin exports the workspace's public channels and its people; anyone
+  exports every conversation they are in. A zip of JSON lines `jq` reads, never a private
+  conversation that is not yours.
 - **Guests** — someone from outside, invited into named channels: they see those rooms
   and the people in them, never the directory or a public channel they were not given.
 - **Feedback** — anyone can file a bug from the top bar; the ticket carries the browser
@@ -447,8 +450,8 @@ afternoon:
   account is not provisioned or removed from the identity provider, and the second step
   after a password is a passkey, never a six-digit code. A guest's account has no end
   date.
-- **Export, import and retention.** No workspace or personal export, no Slack import, and
-  the retention setting covers the audit log only — messages and files are kept.
+- **Import and retention.** No Slack import, and the retention setting covers the audit
+  log only — messages and files are kept.
 - **Moderation, Approvals and Storage** in the admin console — not built, and not listed
   there until they are.
 
@@ -962,7 +965,7 @@ Alembic; it is not a query layer. Every read and write in the app is `text()` wi
 parameters, and chat history is keyset-paginated, never `OFFSET`.
 
 <details>
-<summary><b>The thirty-seven architecture decisions</b></summary>
+<summary><b>The thirty-eight architecture decisions</b></summary>
 
 The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
@@ -1005,6 +1008,7 @@ The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisi
 | 0035 | A voice message's words are its text |
 | 0036 | Blob emails you only about what waited for you, and only while you were away |
 | 0037 | A draft follows its author between devices, and nobody else |
+| 0038 | An export takes what its asker may take |
 
 </details>
 

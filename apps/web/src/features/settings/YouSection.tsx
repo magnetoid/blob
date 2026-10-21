@@ -13,6 +13,7 @@ import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
 import { ProfileCard } from "./ProfileCard.tsx";
 import { PreferencesCard } from "./PreferencesCard.tsx";
 import { NotificationsCard } from "./NotificationsCard.tsx";
+import { ExportsCard } from "../console/ExportsCard.tsx";
 import { AccountCard } from "./AccountCard.tsx";
 import { useStore } from "../../lib/store.ts";
 
@@ -28,6 +29,12 @@ export function YouSection(props: ConsoleSectionProps) {
       <ProfileCard />
       <PreferencesCard />
       <NotificationsCard />
+      {/* Taking your data with you (M3 · B4): everything you are in, yours alone. */}
+      <ExportsCard
+        scope="personal"
+        title="Export your data"
+        description="Every conversation you are in — channels public and private, direct messages and group messages — with their messages, reactions and the list of their files, as a zip of JSON lines. Kept for a week."
+      />
       <AccountCard {...props} />
     </div>
   );
