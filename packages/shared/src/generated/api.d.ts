@@ -150,6 +150,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/client-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Client Errors */
+        get: operations["list_client_errors_api_admin_client_errors_get"];
+        put?: never;
+        post?: never;
+        /** Clear Client Errors */
+        delete: operations["clear_client_errors_api_admin_client_errors_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/deliveries": {
         parameters: {
             query?: never;
@@ -3348,6 +3366,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/client-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report Client Error */
+        post: operations["report_client_error_api_client_errors_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/commands": {
         parameters: {
             query?: never;
@@ -5965,6 +6000,46 @@ export interface components {
             topic?: string | null;
             /** Workid */
             workId?: string | null;
+        };
+        /** ClientErrorIn */
+        ClientErrorIn: {
+            /** Message */
+            message: string;
+            /**
+             * Path
+             * @default
+             */
+            path: string;
+            /** Release */
+            release?: string | null;
+            /** Stack */
+            stack?: string | null;
+        };
+        /** ClientErrorOut */
+        ClientErrorOut: {
+            /** Browser */
+            browser: string;
+            /** Count */
+            count: number;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Firstat */
+            firstAt: string;
+            /** Lastat */
+            lastAt: string;
+            /** Message */
+            message: string;
+            /** Path */
+            path: string;
+            /** Release */
+            release?: string | null;
+            /** Stack */
+            stack: string;
+        };
+        /** ClientErrorsOut */
+        ClientErrorsOut: {
+            /** Errors */
+            errors: components["schemas"]["ClientErrorOut"][];
         };
         /**
          * CommandDecl
@@ -9332,6 +9407,9 @@ export type ChangePasswordInput = components['schemas']['ChangePasswordInput'];
 export type Channel = components['schemas']['Channel'];
 export type ChannelOut = components['schemas']['ChannelOut'];
 export type ChannelWithState = components['schemas']['ChannelWithState'];
+export type ClientErrorIn = components['schemas']['ClientErrorIn'];
+export type ClientErrorOut = components['schemas']['ClientErrorOut'];
+export type ClientErrorsOut = components['schemas']['ClientErrorsOut'];
 export type CommandDecl = components['schemas']['CommandDecl'];
 export type CommandOut = components['schemas']['CommandOut'];
 export type CommandSpec = components['schemas']['CommandSpec'];
@@ -9834,6 +9912,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_client_errors_api_admin_client_errors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientErrorsOut"];
+                };
+            };
+        };
+    };
+    clear_client_errors_api_admin_client_errors_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
                 };
             };
         };
@@ -15543,6 +15661,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrowseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_client_error_api_client_errors_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientErrorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
                 };
             };
             /** @description Validation Error */

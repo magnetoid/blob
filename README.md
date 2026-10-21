@@ -786,16 +786,19 @@ workspace also needs its `may_host_agents` policy turned on from the server cons
 </details>
 
 <details>
-<summary><b>Watching agents</b> — OpenTelemetry traces and <code>/metrics</code></summary>
+<summary><b>Watching the server and its agents</b> — OpenTelemetry traces, <code>/metrics</code> and browser errors</summary>
 
 Both off by default, and off costs nothing: no exporter is started, no trace id leaves the
 server, and `/metrics` answers 404
 ([ADR 0025](.torsor/architecture/decisions/0025-what-an-operator-can-see-of-agents.md)).
+Errors the client throws in people's browsers are always on: reported once per fault with
+addresses, ids and query strings taken out, and shown to the workspace's admins under
+**Admin → Health → Errors in browsers**.
 
 | Variable | Default |
 |---|---|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset — an OTLP/HTTP collector (an OpenTelemetry Collector, Jaeger, Tempo, Honeycomb…) to send traces of agent runs, tool calls and MCP requests to. Set it on the app and the worker: runs are traced in the worker. Spans carry ids, names, counts and outcomes, never what anybody wrote. Other `OTEL_*` variables — `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_TRACES_SAMPLER` — mean what the SDK says they do. |
-| `METRICS_TOKEN` | unset — the bearer token a Prometheus scrape of `/metrics` presents. Runs by agent and outcome, run duration, tokens, Blob's tools by caller and outcome, and runs in flight and decisions waiting right now. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset — an OTLP/HTTP collector (an OpenTelemetry Collector, Jaeger, Tempo, Honeycomb…) to send traces of agent runs, tool calls, MCP requests and every HTTP request (named by its route template, with its status and nothing else) to. Set it on the app and the worker: runs are traced in the worker. Spans carry ids, names, counts and outcomes, never what anybody wrote. Other `OTEL_*` variables — `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_TRACES_SAMPLER` — mean what the SDK says they do. |
+| `METRICS_TOKEN` | unset — the bearer token a Prometheus scrape of `/metrics` presents. Runs by agent and outcome, run duration, tokens, Blob's tools by caller and outcome, and runs in flight and decisions waiting right now; HTTP requests by route template and status, and how long they took; open WebSockets, database connections in use and idle, and the job queue's depth. |
 
 ```yaml
 # prometheus.yml

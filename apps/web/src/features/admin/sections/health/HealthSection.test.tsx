@@ -42,6 +42,7 @@ vi.mock("../../../../lib/api.ts", async (importOriginal) => {
         health,
         serverLogs,
         audit,
+        clientErrors: vi.fn(async () => ({ errors: [] })),
       },
     },
   };

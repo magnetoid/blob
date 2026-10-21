@@ -77,3 +77,31 @@ may run, and a run's events are as private as the room they came from.
 - Not done: OpenTelemetry metrics over OTLP (the counters are the scrape's), HTTP server
   spans for every route, and propagating a trace from the message that started a run into
   the worker's run span — the run span is a root today.
+
+## Addendum (2026-10-21, M3 · C2): the server itself, and the browsers using it
+
+- **Every request is counted and timed by its route template** — `/api/messages/{message_id}`,
+  never the path asked for — in `blob_http_requests_total{method,route,status}` and
+  `blob_http_request_duration_seconds{method,route}`. A path no route matched is
+  `unmatched` under the server's prefixes and `web` elsewhere, so a scanner's junk is one
+  series and a query string is never a label. Counted in the process (`metrics.tally`) and
+  written to the shared hash every five seconds, because a Redis round trip per request
+  would cost more than what it measures.
+- **The scrape adds up what each API process holds now**: open sockets and database
+  connections in use and idle, reported by each process under a key that expires in a
+  minute — a process that dies stops counting — and the queue's depth from arq's set.
+- **With tracing on, every request is a SERVER span** named `{method} {route}`, continuing
+  the caller's `traceparent`, carrying the method, the route and the status and nothing
+  else. Not OpenTelemetry's contrib auto-instrumentation: it records `url.query` and full
+  outbound URLs, which here are what people search for and the links they post, and this
+  ADR's rule is that what anybody wrote does not leave with a trace.
+- **Browsers report what nothing caught** (`lib/clientErrors.ts`): once per fault a page
+  load, ten at most, only while signed in, and never a refused or aborted request, a
+  dropped connection or an extension's error. `POST /api/client-errors` caps a person at
+  sixty an hour; the server takes out query strings, addresses, ids and anything long
+  enough to be a token, groups reports by fault, and keeps a workspace's hundred most
+  recently seen for thirty days. Its admins see them on the Health page — nobody else, and
+  no other workspace's.
+- Still not done: database spans (SQLAlchemy runs asyncpg in greenlets the trace context
+  does not reliably follow), a Sentry or GlitchTip DSN (the browser errors above are the
+  self-hosted answer), and metrics over OTLP.

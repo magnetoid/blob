@@ -642,7 +642,10 @@ class TestTraces:
         )
         assert response.status_code == 200, response.text
         (server_span,) = named(spans, "tools/call whoami")
-        assert server_span.parent is None
+        # Not the bogus context: the request's own span, local, is all it hangs from.
+        (request,) = named(spans, "POST /api/mcp")
+        assert server_span.parent is not None and not server_span.parent.is_remote
+        assert server_span.parent.span_id == request.context.span_id
 
     async def test_a_method_nobody_knows_does_not_name_a_span(
         self, desk: dict[str, Any], spans: InMemorySpanExporter

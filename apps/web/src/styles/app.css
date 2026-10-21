@@ -9692,6 +9692,27 @@ button.person-trigger:hover {
   padding: 6px 0;
 }
 
+/* A fault a browser reported (ADR 0025's addendum): the message and where, its stack
+   behind the summary. */
+.browser-error summary {
+  display: grid;
+  gap: 2px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.browser-error-stack {
+  margin: 4px 0 8px;
+  padding: 10px 12px;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre;
+}
+
 /* Where a workspace's retention stands, or what a draft of it would remove. */
 .retention-standing {
   display: grid;

@@ -1,4 +1,5 @@
-"""Numbers an operator can scrape: what agents and Blob's tools have done.
+"""Numbers an operator can scrape: what agents and Blob's tools have done, and how the
+server itself is answering.
 
 `GET /metrics` (`routers/metrics.py`) serves them in Prometheus's text format to whoever
 holds `METRICS_TOKEN`, and to nobody while it is unset.
@@ -12,6 +13,13 @@ comes back empty is a counter reset, which Prometheus's `rate()` expects to meet
 
 A write never raises. It runs once the thing it counts has committed, and a Redis that is
 down loses a count rather than a run: fail toward the workspace staying up.
+
+What is counted on every request — HTTP requests, by route template — goes through `tally`
+instead: added up in the process and written to the hash every few seconds by
+`flush_forever`, because a Redis round trip per request would cost more than what it
+measures. And what is true of each process now — its open sockets, its database
+connections — is reported by each one under its own short-lived key and summed at the
+scrape, so a process that died stops counting within a minute.
 """
 
 from __future__ import annotations
@@ -19,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+from collections import defaultdict
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -78,8 +87,51 @@ WAITING = Family(
     "Runs stopped on a question nobody has answered yet, by agent.",
 )
 
+HTTP_REQUESTS = Family(
+    "blob_http_requests_total",
+    "counter",
+    "HTTP requests answered, by method, route template and status.",
+)
+HTTP_SECONDS = Family(
+    "blob_http_request_duration_seconds",
+    "histogram",
+    "How long an HTTP request took to answer, by method and route template.",
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+)
+CLIENT_ERRORS = Family(
+    "blob_client_errors_total",
+    "counter",
+    "Errors browsers reported from the client.",
+)
+WEBSOCKETS = Family(
+    "blob_websocket_connections",
+    "gauge",
+    "WebSockets open right now, over every API process.",
+)
+DB_CONNECTIONS = Family(
+    "blob_db_pool_connections",
+    "gauge",
+    "Database connections the API processes hold, in use or idle.",
+)
+QUEUE_DEPTH = Family("blob_job_queue_depth", "gauge", "Jobs waiting in the worker's queue.")
+
 #: What a scrape renders from the hash, in this order.
-COUNTED = (RUNS, RUN_SECONDS, TOKENS, TOOL_CALLS, MCP_SERVER_CALLS)
+COUNTED = (
+    RUNS,
+    RUN_SECONDS,
+    TOKENS,
+    TOOL_CALLS,
+    MCP_SERVER_CALLS,
+    HTTP_REQUESTS,
+    HTTP_SECONDS,
+    CLIENT_ERRORS,
+)
+
+#: Each process's own numbers, under its own key, gone a minute after it stops reporting.
+PROCESS_KEY = "metrics:process:"
+PROCESS_TTL_SEC = 60
+#: How often `flush_forever` writes the tally and reports the process.
+FLUSH_EVERY_SEC = 5.0
 
 
 def _escape(value: str) -> str:
@@ -135,6 +187,88 @@ async def observe(family: Family, labels: Mapping[str, str], value: float) -> No
         return pipe.execute()
 
     await _bounded(write, family.name)
+
+
+class Tally:
+    """Counts kept in this process and added to the shared hash in one pipeline at a
+    time — for what happens on every request."""
+
+    def __init__(self) -> None:
+        self._pending: defaultdict[str, float] = defaultdict(float)
+
+    def count(self, family: Family, labels: Mapping[str, str], by: float = 1) -> None:
+        if by > 0:
+            self._pending[family.name + _labels(labels)] += by
+
+    def observe(self, family: Family, labels: Mapping[str, str], value: float) -> None:
+        """As `observe`, without the round trip: every bucket written, so a series has
+        all of them from its first value."""
+        if value < 0 or math.isnan(value):
+            return
+        for bound in (*family.buckets, math.inf):
+            field = f"{family.name}_bucket" + _labels({**labels, "le": _bound(bound)})
+            self._pending[field] += 1 if value <= bound else 0
+        self._pending[f"{family.name}_sum" + _labels(labels)] += value
+        self._pending[f"{family.name}_count" + _labels(labels)] += 1
+
+    async def flush(self) -> None:
+        """Write what has been counted since the last flush. Never raises; a Redis that
+        is down loses this batch, as a direct write would have lost its one count."""
+        if not self._pending:
+            return
+        pending, self._pending = self._pending, defaultdict(float)
+
+        def write() -> Awaitable[Any]:
+            pipe = redis.pipeline(transaction=False)
+            for field, value in pending.items():
+                pipe.hincrbyfloat(KEY, field, value)
+            return pipe.execute()
+
+        await _bounded(write, "the tally")
+
+
+#: This process's tally. The request middleware counts into it.
+tally = Tally()
+
+
+async def report_process(process_id: str, numbers: Mapping[str, int]) -> None:
+    """This process's gauges now — open sockets, database connections — under its own
+    key, which expires if the process stops reporting."""
+    key = PROCESS_KEY + process_id
+
+    def write() -> Awaitable[Any]:
+        pipe = redis.pipeline(transaction=False)
+        pipe.hset(key, mapping={name: str(value) for name, value in numbers.items()})
+        pipe.expire(key, PROCESS_TTL_SEC)
+        return pipe.execute()
+
+    await _bounded(write, "this process")
+
+
+async def processes() -> dict[str, int]:
+    """Every live process's gauges, added up."""
+    total: defaultdict[str, int] = defaultdict(int)
+    async for key in redis.scan_iter(match=PROCESS_KEY + "*", count=100):
+        numbers: dict[Any, Any] = await redis.hgetall(key)  # type: ignore[misc]
+        for name, value in numbers.items():
+            label = name.decode() if isinstance(name, bytes) else str(name)
+            try:
+                total[label] += int(float(value))
+            except (TypeError, ValueError):
+                continue
+    return dict(total)
+
+
+async def flush_forever(process_id: str, report: Callable[[], Mapping[str, int]]) -> None:
+    """The API process's loop: the tally into the hash, and this process's gauges under
+    its key, every few seconds until it is cancelled — and once more on the way out."""
+    try:
+        while True:
+            await asyncio.sleep(FLUSH_EVERY_SEC)
+            await tally.flush()
+            await report_process(process_id, report())
+    finally:
+        await tally.flush()
 
 
 async def run_ended(
@@ -218,9 +352,12 @@ def _belongs(family: Family, field: str) -> bool:
     return name == family.name
 
 
-async def render(gauges: Mapping[Family, Mapping[str, int]]) -> str:
-    """The text a scrape gets: the counters every process shares, and the gauges the
-    caller read just now, each keyed by agent.
+async def render(
+    gauges: Mapping[Family, Mapping[str, int]],
+    server: Sequence[tuple[Family, Mapping[str, str], float]] = (),
+) -> str:
+    """The text a scrape gets: the counters every process shares, the gauges the caller
+    read just now keyed by agent, and the server's own gauges with their labels.
 
     Raises if Redis cannot be read — a scrape that silently returned no counters would
     graph as everything having stopped.
@@ -233,5 +370,10 @@ async def render(gauges: Mapping[Family, Mapping[str, int]]) -> str:
         )
     for family, by_agent in gauges.items():
         samples = [(family.name + _labels({"agent": a}), str(n)) for a, n in by_agent.items()]
+        lines.extend(_family_lines(family, samples))
+    grouped: dict[Family, list[tuple[str, str]]] = {}
+    for family, labels, value in server:
+        grouped.setdefault(family, []).append((family.name + _labels(labels), f"{value:g}"))
+    for family, samples in grouped.items():
         lines.extend(_family_lines(family, samples))
     return "\n".join(lines) + "\n"

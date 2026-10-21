@@ -7,6 +7,7 @@
  * section before, which is roughly three times the next largest page in this console.
  */
 
+import { BrowserErrors } from './BrowserErrors.tsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   api,
@@ -591,6 +592,7 @@ export function HealthSection({
           );
         })}
       </div>
+      <BrowserErrors />
     </section>
   );
 }

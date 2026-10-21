@@ -8,6 +8,7 @@
  */
 
 import { Component, type ReactNode } from 'react';
+import { reportClientError } from '../lib/clientErrors.ts';
 
 interface Props {
   children: ReactNode;
@@ -26,6 +27,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: unknown): void {
     console.error('render failed', error);
+    // A render error stops here and never reaches `window`, so it is reported from here.
+    reportClientError(error);
   }
 
   override render(): ReactNode {

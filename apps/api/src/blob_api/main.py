@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 from urllib.parse import urlparse
 
@@ -18,8 +18,8 @@ from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .config import served_commit, settings
-from .db.engine import SessionFactory, close_engine
-from .lib import readiness, storage, telemetry
+from .db.engine import SessionFactory, close_engine, engine
+from .lib import metrics, readiness, storage, telemetry
 from .lib.auth import SESSION_COOKIE, resolve_session
 from .lib.body_limit import BodyLimitMiddleware
 from .lib.errors import AppError
@@ -28,6 +28,7 @@ from .lib.logging import RequestIdMiddleware
 from .lib.logging import configure as configure_logging
 from .lib.queue import close_queue
 from .lib.redis import close_redis, redis
+from .lib.request_metrics import RequestMetricsMiddleware
 from .lib.security_headers import SecurityHeadersMiddleware
 from .realtime import hub
 from .services import janus_agent
@@ -209,7 +210,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
     except Exception:
         log.exception("could not check object storage")
+    # Requests counted in this process reach the shared counters every few seconds, beside
+    # this process's open sockets and database connections (lib/metrics.py).
+    flusher = asyncio.create_task(metrics.flush_forever(hub.PROCESS_ID, _process_numbers))
     yield
+    flusher.cancel()
+    with suppress(asyncio.CancelledError):
+        await flusher
     await hub.stop_redis_bridge()
     await close_log_buffer()
     # The arq pool holds a redis connection bound to this loop; leaving it open at
@@ -218,6 +225,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await close_redis()
     await close_engine()
     telemetry.shutdown()
+
+
+def _process_numbers() -> dict[str, int]:
+    """This process's gauges for `/metrics`: sockets open, connections in use and idle."""
+    pool: Any = engine.sync_engine.pool
+    try:
+        in_use, idle = int(pool.checkedout()), int(pool.checkedin())
+    except Exception:
+        in_use = idle = 0
+    return {"websockets": hub.connection_count(), "db_in_use": in_use, "db_idle": idle}
 
 
 def create_app() -> FastAPI:
@@ -244,6 +261,8 @@ def create_app() -> FastAPI:
     # itself carry the headers too. Starlette applies the last-added middleware outermost.
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestIdMiddleware)
+    # Outermost, so a request is timed whole — the session lookup and the body cap with it.
+    app.add_middleware(RequestMetricsMiddleware)
 
     # Warnings and errors are copied into a capped Redis list so the instance console can
     # show them. Installed here rather than in `lifespan`, so a failure during startup —
@@ -360,6 +379,7 @@ def create_app() -> FastAPI:
     from .routers.bot_api import router as bot_api_router
     from .routers.calls import router as calls_router
     from .routers.channels import router as channel_router
+    from .routers.client_errors import router as client_errors_router
     from .routers.commands import router as command_router
     from .routers.decision_log import router as decisions_router
     from .routers.drafts import router as drafts_router
@@ -402,6 +422,7 @@ def create_app() -> FastAPI:
     app.include_router(drafts_router)
     app.include_router(exports_router)
     app.include_router(retention_router)
+    app.include_router(client_errors_router)
     app.include_router(user_router)
     app.include_router(workspace_router)
     app.include_router(channel_router)

@@ -49,6 +49,7 @@ _CONTEXT_MAX_CHARS = 512
 
 __all__ = [
     "SpanKind",
+    "active",
     "configure",
     "enabled",
     "extract",
@@ -79,6 +80,12 @@ def enabled() -> bool:
         _setting(name)
         for name in ("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
     )
+
+
+def active() -> bool:
+    """Whether spans are being recorded here — the SDK installed, not merely asked for. A
+    span made while this is false is a function call and nothing more."""
+    return _configured
 
 
 def configure(process: str) -> bool:

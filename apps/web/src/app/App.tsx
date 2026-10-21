@@ -5,6 +5,7 @@ import { api, ApiError, type SsoChoice } from '../lib/api.ts';
 import { connectStoreToSocket, useStore } from '../lib/store.ts';
 import { flushDrafts } from '../lib/drafts.ts';
 import { flushDraftSyncs } from '../lib/draftSync.ts';
+import { installClientErrorReporting } from '../lib/clientErrors.ts';
 import { applyTheme, pickTheme, themeChoices } from '../lib/theme.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
 import { resetTokenFromUrl, unsubscribeTokenFromUrl } from '../features/auth/tokens.ts';
@@ -80,6 +81,13 @@ export function App() {
     hydrateDrafts();
     return connectStoreToSocket();
   }, [phase, hydrateOutbox, hydrateDrafts]);
+
+  // What nothing caught, reported for the workspace's admins — while signed in, since a
+  // report is a session's (lib/clientErrors.ts).
+  useEffect(() => {
+    if (phase !== 'signed-in') return undefined;
+    return installClientErrorReporting();
+  }, [phase]);
 
   // Write anything the composer scheduled before the tab goes away. `pagehide` rather
   // than `beforeunload`: it is the one that fires on iOS and when a page goes into the

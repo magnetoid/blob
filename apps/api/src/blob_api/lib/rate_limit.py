@@ -48,6 +48,8 @@ LIMITS: dict[str, Limit] = {
     "draft": Limit(120, 60),
     # Asking for an export (M3 · B4): each builds a zip of a workspace's history.
     "export": Limit(5, 3600),
+    # Errors a browser reports (ADR 0025): a fault in a render loop must not flood Redis.
+    "client_error": Limit(60, 3600),
     # Adding and taking away share one bucket: each is a frame to every member of the
     # channel and an event to every app subscribed to it, the same fan-out a message has,
     # and toggling one emoji in a loop was the cheapest way to make a room's sockets busy.

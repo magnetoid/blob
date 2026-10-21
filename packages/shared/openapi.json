@@ -2750,6 +2750,125 @@
         "title": "ChannelWithState",
         "type": "object"
       },
+      "ClientErrorIn": {
+        "properties": {
+          "message": {
+            "maxLength": 4000,
+            "title": "Message",
+            "type": "string"
+          },
+          "path": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Path",
+            "type": "string"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release"
+          },
+          "stack": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stack"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ClientErrorIn",
+        "type": "object"
+      },
+      "ClientErrorOut": {
+        "properties": {
+          "browser": {
+            "title": "Browser",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "firstAt": {
+            "title": "Firstat",
+            "type": "string"
+          },
+          "lastAt": {
+            "title": "Lastat",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release"
+          },
+          "stack": {
+            "title": "Stack",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "message",
+          "stack",
+          "path",
+          "browser",
+          "count",
+          "firstAt",
+          "lastAt"
+        ],
+        "title": "ClientErrorOut",
+        "type": "object"
+      },
+      "ClientErrorsOut": {
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ClientErrorOut"
+            },
+            "title": "Errors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "errors"
+        ],
+        "title": "ClientErrorsOut",
+        "type": "object"
+      },
       "CommandDecl": {
         "description": "One slash command an app provides.",
         "properties": {
@@ -12981,6 +13100,40 @@
         ]
       }
     },
+    "/api/admin/client-errors": {
+      "delete": {
+        "operationId": "clear_client_errors_api_admin_client_errors_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clear Client Errors"
+      },
+      "get": {
+        "operationId": "list_client_errors_api_admin_client_errors_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientErrorsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Client Errors"
+      }
+    },
     "/api/admin/deliveries": {
       "get": {
         "description": "Every app's recent deliveries, for the console log.",
@@ -21077,6 +21230,44 @@
         "tags": [
           "work"
         ]
+      }
+    },
+    "/api/client-errors": {
+      "post": {
+        "operationId": "report_client_error_api_client_errors_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientErrorIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Client Error"
       }
     },
     "/api/commands": {

@@ -236,6 +236,12 @@ def _apply_control(control: dict[str, Any]) -> None:
                 conn.close()
 
 
+def connection_count() -> int:
+    """Sockets open in this process, every workspace's — for the metrics gauge, which sums
+    the processes. Never shown to a workspace (see `stats`)."""
+    return len(_by_connection)
+
+
 def stats(workspace_id: str) -> dict[str, int]:
     """Live socket counts for one workspace.
 

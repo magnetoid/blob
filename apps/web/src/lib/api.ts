@@ -1020,6 +1020,19 @@ export interface RetentionView {
   heldPeople: { id: string; displayName: string; heldAt: string; heldBy: string | null }[];
 }
 
+/** A fault the client threw in somebody's browser, as the workspace's admins see it. */
+export interface ClientErrorEntry {
+  fingerprint: string;
+  message: string;
+  stack: string;
+  path: string;
+  release: string | null;
+  browser: string;
+  count: number;
+  firstAt: string;
+  lastAt: string;
+}
+
 /** About what the first sweep under some windows would remove. */
 export interface RetentionPreview {
   messages: number;
@@ -1036,6 +1049,15 @@ export interface UnsubscribeInfo {
 }
 
 export const api = {
+  /** A fault the client threw, for the workspace's admins (lib/clientErrors.ts). */
+  clientErrors: {
+    report: (input: {
+      message: string;
+      stack: string | null;
+      path: string;
+      release: string | null;
+    }) => post<{ ok: true }>("/api/client-errors", input),
+  },
   auth: {
     state: () =>
       get<{ needsSetup: boolean; providers?: SsoChoice[] }>("/api/auth/state"),
@@ -1831,6 +1853,10 @@ export const api = {
       put<{ ok: true }>(`/api/admin/channels/${id}/legal-hold`, { held }),
     holdPerson: (id: string, held: boolean) =>
       put<{ ok: true }>(`/api/admin/users/${id}/legal-hold`, { held }),
+
+    /** Errors the client threw in people's browsers here (ADR 0025's addendum). */
+    clientErrors: () => get<{ errors: ClientErrorEntry[] }>("/api/admin/client-errors"),
+    clearClientErrors: () => del<{ ok: true }>("/api/admin/client-errors"),
 
     /**
      * Janus itself: up or down, what it runs on, and every workspace here that has it.
