@@ -21,6 +21,7 @@ SERVER_EVENTS: frozenset[str] = frozenset(
         "message.new",
         "message.updated",
         "message.deleted",
+        "history.trimmed",
         "reaction.added",
         "reaction.removed",
         "thread.updated",

@@ -14,6 +14,7 @@ a stored value is simply ignored, like any other unknown key.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from pydantic import ValidationError
@@ -26,6 +27,13 @@ from ..schemas.calls import CallSettings, HuddleSettings, MeetupSettings
 DEFAULT_RETENTION_DAYS = 365
 DEFAULT_UPLOAD_LIMIT = 100 * 1024 * 1024
 
+#: How long messages and files are kept (ADR 0039). Only `services/retention.py` writes
+#: these keys: the generic settings route refuses them, because a window takes effect a
+#: day after it is saved and saving one asks for a recent sign-in.
+RETENTION_KEYS = ("messageRetentionDays", "fileRetentionDays", "retentionChangedAt")
+MIN_RETENTION_DAYS = 1
+MAX_RETENTION_DAYS = 3650
+
 
 @dataclass(frozen=True, slots=True)
 class TypedSettings:
@@ -34,6 +42,33 @@ class TypedSettings:
     agents_enabled: bool = True
     #: Who may use @channel, @here and @everyone: `everyone` or `admins` (M3 · B3).
     everyone_mentions: str = "everyone"
+    #: Days a message, and a file, is kept; None keeps it for good (ADR 0039).
+    message_retention_days: int | None = None
+    file_retention_days: int | None = None
+    #: When either window last changed — a change waits a day before the sweep acts on it.
+    retention_changed_at: datetime | None = None
+
+
+def retention_days(value: Any) -> int | None:
+    """A retention window, or None for "keep". Anything unreadable or out of range keeps:
+    a bad value in a settings row must never be the reason something was deleted."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        days = int(value)
+    except (TypeError, ValueError):
+        return None
+    return days if MIN_RETENTION_DAYS <= days <= MAX_RETENTION_DAYS else None
+
+
+def _instant(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
 
 
 def parse(raw: dict[str, Any] | None) -> TypedSettings:
@@ -57,6 +92,9 @@ def parse(raw: dict[str, Any] | None) -> TypedSettings:
         upload_limit_bytes=upload,
         agents_enabled=bool(agents) if not isinstance(agents, str) else agents.lower() != "false",
         everyone_mentions="admins" if mentions == "admins" else "everyone",
+        message_retention_days=retention_days(data.get("messageRetentionDays")),
+        file_retention_days=retention_days(data.get("fileRetentionDays")),
+        retention_changed_at=_instant(data.get("retentionChangedAt")),
     )
 
 

@@ -20,7 +20,13 @@ object storage — no temporary file, nothing held in memory — as
 | `BACKUP_HOUR_UTC` | `3` | The dump starts at :30 past this hour. |
 
 Set them on **the app and the worker both**: the worker takes the backup, the app reports
-it. **Admin → Health → Backups** shows the last one — its size and age, or why it failed —
+it.
+
+A workspace with a retention window (Admin → Retention, ADR 0039) has its sweep run an hour
+after the backup begins, at :40 past `BACKUP_HOUR_UTC + 1`, so each night's dump holds what
+that night's sweep is about to remove. Backups keep it for `BACKUP_KEEP_DAYS` more — the
+window in which a retention mistake can still be undone by a restore, and the reason a
+workspace that must forget quickly should keep that number short. **Admin → Health → Backups** shows the last one — its size and age, or why it failed —
 and turns red when a night is missed. The server's administrators also get **Back up now**
 there, for the moment before an upgrade.
 

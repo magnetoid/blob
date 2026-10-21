@@ -80,6 +80,7 @@ describe('the console’s nav', () => {
       'MCP servers',
       'Usage',
       'Export',
+      'Retention',
       'Webhooks',
       'Deliveries',
       'Assistants',
@@ -100,13 +101,13 @@ describe('the console’s nav', () => {
     expect(rows).not.toContain('Single sign-on');
     expect(rows).not.toContain('Errors and logs');
     expect(rows).toContain('Health');
-    expect(rows).toHaveLength(18);
+    expect(rows).toHaveLength(19);
   });
 
   it('gives them to the server’s admin when they are a plain admin here', () => {
     signIn('admin', true);
     render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
     expect(navRows()).toContain('Errors and logs');
-    expect(navRows()).toHaveLength(21);
+    expect(navRows()).toHaveLength(22);
   });
 });

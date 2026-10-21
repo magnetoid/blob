@@ -28,6 +28,7 @@ from ..schemas.models import (
     CommandSpec,
     CurrentUser,
     CustomEmoji,
+    RetentionNotice,
     ThemeSummary,
     User,
     UserGroup,
@@ -38,6 +39,7 @@ from . import channels as channel_service
 from . import commands as command_service
 from . import handles as handle_service
 from . import mention_recency as recency_service
+from . import retention as retention_service
 from . import saved as saved_service
 from . import seeded
 from . import themes as theme_service
@@ -56,6 +58,19 @@ async def _row(session: AsyncSession, user_id: str) -> Any:
     ).fetchone()
 
 
+def _retention_notice(
+    typed: workspace_settings_service.TypedSettings, held: bool
+) -> RetentionNotice | None:
+    """The windows as everyone may know them, and the hold as only its person may."""
+    if typed.message_retention_days is None and typed.file_retention_days is None and not held:
+        return None
+    return RetentionNotice(
+        message_days=typed.message_retention_days,
+        file_days=typed.file_retention_days,
+        held=held,
+    )
+
+
 async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
     """Everything the client needs to render, in one answer."""
     me = await _row(session, user.id)
@@ -67,6 +82,7 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
     ).fetchone()
     if me is None or workspace is None:
         raise not_found("That workspace no longer exists.")
+    typed = await workspace_settings_service.load_in(session, user.workspace_id)
 
     # A guest's workspace is the people in their channels (ADR 0034).
     users = (
@@ -156,9 +172,8 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
         # is the whole of what it can usefully be.
         server_commit=served_commit(),
         translation_enabled=translation_service.configured(),
-        everyone_mentions=(
-            await workspace_settings_service.load_in(session, user.workspace_id)
-        ).everyone_mentions,
+        everyone_mentions=typed.everyone_mentions,
+        retention=_retention_notice(typed, await retention_service.is_held(session, user.id)),
         transcription_enabled=stt.configured(),
         recent_mention_user_ids=tagged.user_ids,
         recent_mention_group_ids=tagged.group_ids,

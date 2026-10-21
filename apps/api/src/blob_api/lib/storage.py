@@ -202,6 +202,29 @@ async def delete_object(key: str) -> None:
     await asyncio.to_thread(_client().delete_object, Bucket=settings.S3_BUCKET, Key=key)
 
 
+async def delete_objects(keys: list[str], *, at_once: int = 8) -> set[str]:
+    """Delete several objects and answer with the keys that could not be deleted.
+
+    One request per key, a few at a time, rather than S3's batch DeleteObjects: the batch
+    call is where S3-compatible stores disagree about checksums (boto3 stopped sending
+    Content-MD5 by default in 1.36), and the retention sweep's few hundred keys a batch do
+    not need it. A key that is already gone counts as deleted — S3 answers 204 for it.
+    """
+    gate = asyncio.Semaphore(at_once)
+    failed: set[str] = set()
+
+    async def one(key: str) -> None:
+        async with gate:
+            try:
+                await delete_object(key)
+            except Exception:
+                log.warning("could not delete %s", key, exc_info=True)
+                failed.add(key)
+
+    await asyncio.gather(*(one(key) for key in dict.fromkeys(keys)))
+    return failed
+
+
 class ObjectTooLargeError(Exception):
     """An object bigger than the caller agreed to hold in memory."""
 

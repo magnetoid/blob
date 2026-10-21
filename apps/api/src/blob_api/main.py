@@ -385,6 +385,7 @@ def create_app() -> FastAPI:
     from .routers.plugin_hosting import router as plugin_hosting_router
     from .routers.plugin_logs import router as plugin_logs_router
     from .routers.plugins import router as plugin_router
+    from .routers.retention import router as retention_router
     from .routers.search import router as search_router
     from .routers.sso import router as sso_router
     from .routers.themes import router as theme_router
@@ -400,6 +401,7 @@ def create_app() -> FastAPI:
     app.include_router(mail_router)
     app.include_router(drafts_router)
     app.include_router(exports_router)
+    app.include_router(retention_router)
     app.include_router(user_router)
     app.include_router(workspace_router)
     app.include_router(channel_router)

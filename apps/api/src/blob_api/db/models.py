@@ -113,6 +113,12 @@ class User(Base):
     bot_plugin_id: Mapped[str | None] = mapped_column(
         UUIDStr, ForeignKey("plugins.id", ondelete="SET NULL")
     )
+    #: A person on legal hold (ADR 0039, migration 0071): what they wrote, and every
+    #: conversation they are in, is skipped by the retention sweep.
+    legal_hold_at: Mapped[Any | None] = mapped_column(Timestamp)
+    legal_hold_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
 
 
 class InstanceAdmin(Base):
@@ -468,6 +474,12 @@ class Channel(Base):
     #: Who may post at the top level: `everyone`, or `admins` — an announcement channel,
     #: where everybody else replies in threads. Migration 0069.
     posting: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'everyone'"))
+    #: On legal hold since, and placed by (ADR 0039, migration 0071): the retention sweep
+    #: skips this conversation while it is set.
+    legal_hold_at: Mapped[Any | None] = mapped_column(Timestamp)
+    legal_hold_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
 
 
 class UnansweredNudge(Base):
@@ -609,6 +621,9 @@ class Message(Base):
         UUIDStr, ForeignKey("plugins.id", ondelete="SET NULL")
     )
     blocks: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    #: Files the retention sweep took from a message that kept its words (ADR 0039,
+    #: migration 0071), so a reader sees that something was there.
+    files_removed: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
 
 
 class Reaction(Base):

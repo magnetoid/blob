@@ -328,6 +328,26 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `/api/admin/retention` (ADR 0039): any admin's; saving a window or a hold asks for a
+    // recent sign-in, which the step-up prompt answers on its own.
+    id: 'retention',
+    label: 'Retention',
+    description:
+      'How long messages and files are kept, and what a legal hold keeps past that.',
+    keywords: [
+      'retention',
+      'delete',
+      'history',
+      'legal hold',
+      'compliance',
+      'gdpr',
+      'ediscovery',
+      'files',
+      'purge',
+    ],
+    access: 'admin',
+  },
+  {
     id: 'webhooks',
     label: 'Webhooks',
     description: 'Incoming URLs that let another system post into a channel here.',

@@ -19,6 +19,7 @@ import { Avatar } from '../../components/Avatar.tsx';
 import { Dialog } from '../../components/Dialog.tsx';
 import { useFetch } from '../../lib/useFetch.ts';
 import { byDisplayName } from '../../lib/format.ts';
+import { keptFor } from '../../lib/retention.ts';
 
 interface Props {
   channel: ChannelWithState;
@@ -33,6 +34,7 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
 
   const users = useStore((s) => s.users);
   const currentUser = useStore((s) => s.currentUser);
+  const retention = useStore((s) => s.retention);
 
   const membershipVersion = useStore((s) => s.membershipVersion[channel.id] ?? 0);
   const [topic, setTopic] = useState(channel.topic ?? '');
@@ -42,6 +44,7 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
   const [savingDescription, setSavingDescription] = useState(false);
   const [savingNudge, setSavingNudge] = useState(false);
   const [savingPosting, setSavingPosting] = useState(false);
+  const [savingHold, setSavingHold] = useState(false);
   const [savingTopic, setSavingTopic] = useState(false);
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState<string | null>(null);
@@ -172,6 +175,25 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
     }
   }
 
+  /** Put this conversation on legal hold, or take it off (ADR 0039). An admin's; the
+   *  server asks for a recent sign-in and tells the room, so the row redraws from that. */
+  async function toggleHold() {
+    setSavingHold(true);
+    setError(null);
+    try {
+      await api.admin.holdConversation(channel.id, !channel.legalHoldAt);
+    } catch (err) {
+      setError({
+        text: err instanceof ApiError ? err.message : 'The hold did not change.',
+        refused: true,
+      });
+    } finally {
+      setSavingHold(false);
+    }
+  }
+
+  const kept = keptFor(retention, channel.legalHoldAt ?? null);
+
   // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
     <Dialog label={`About #${channel.name}`} onClose={onClose}>
@@ -274,6 +296,28 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
             >
               <span />
             </button>
+          </div>
+        )}
+
+        {/* How long this conversation keeps things (ADR 0039): the workspace's rule, or
+            the hold that suspends it here. An admin places or lifts the hold. */}
+        {kept && (
+          <div className="pref-row">
+            <div className="grow">
+              <div className="pref-label">History</div>
+              <div className="pref-hint">{kept}</div>
+            </div>
+            {isAdmin && (
+              <button
+                className="toggle"
+                aria-pressed={Boolean(channel.legalHoldAt)}
+                aria-label="Legal hold"
+                disabled={savingHold}
+                onClick={() => void toggleHold()}
+              >
+                <span />
+              </button>
+            )}
           </div>
         )}
 

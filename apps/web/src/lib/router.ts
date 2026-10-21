@@ -34,6 +34,7 @@ export const ADMIN_SECTIONS = [
   'mcp-servers',
   'usage',
   'export',
+  'retention',
   'webhooks',
   'deliveries',
   'connections',

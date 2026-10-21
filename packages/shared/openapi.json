@@ -1943,6 +1943,16 @@
             "title": "Recentmentionuserids",
             "type": "array"
           },
+          "retention": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetentionNotice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "savedMessageIds": {
             "items": {
               "type": "string"
@@ -2466,6 +2476,17 @@
             ],
             "title": "Lastmessageid"
           },
+          "legalHoldAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legalholdat"
+          },
           "memberIds": {
             "anyOf": [
               {
@@ -2632,6 +2653,17 @@
               }
             ],
             "title": "Lastreadmessageid"
+          },
+          "legalHoldAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legalholdat"
           },
           "memberIds": {
             "anyOf": [
@@ -4683,6 +4715,85 @@
         "title": "HealthOut",
         "type": "object"
       },
+      "HeldConversationOut": {
+        "properties": {
+          "heldAt": {
+            "title": "Heldat",
+            "type": "string"
+          },
+          "heldBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heldby"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "heldAt"
+        ],
+        "title": "HeldConversationOut",
+        "type": "object"
+      },
+      "HeldPersonOut": {
+        "properties": {
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "heldAt": {
+            "title": "Heldat",
+            "type": "string"
+          },
+          "heldBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heldby"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "heldAt"
+        ],
+        "title": "HeldPersonOut",
+        "type": "object"
+      },
       "HistoryOut": {
         "properties": {
           "hasMore": {
@@ -5362,6 +5473,19 @@
           "items"
         ],
         "title": "LaterOut",
+        "type": "object"
+      },
+      "LegalHoldInput": {
+        "properties": {
+          "held": {
+            "title": "Held",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "held"
+        ],
+        "title": "LegalHoldInput",
         "type": "object"
       },
       "LinkPreview": {
@@ -6381,6 +6505,11 @@
               }
             ],
             "title": "Editedat"
+          },
+          "filesRemoved": {
+            "default": 0,
+            "title": "Filesremoved",
+            "type": "integer"
           },
           "id": {
             "title": "Id",
@@ -8304,6 +8433,180 @@
         "title": "ResetPasswordInput",
         "type": "object"
       },
+      "RetentionInput": {
+        "properties": {
+          "fileDays": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filedays"
+          },
+          "messageDays": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messagedays"
+          }
+        },
+        "title": "RetentionInput",
+        "type": "object"
+      },
+      "RetentionNotice": {
+        "description": "The workspace's retention as it reaches you (ADR 0039).",
+        "properties": {
+          "fileDays": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filedays"
+          },
+          "held": {
+            "default": false,
+            "title": "Held",
+            "type": "boolean"
+          },
+          "messageDays": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messagedays"
+          }
+        },
+        "title": "RetentionNotice",
+        "type": "object"
+      },
+      "RetentionOut": {
+        "properties": {
+          "changedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changedat"
+          },
+          "fileDays": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filedays"
+          },
+          "heldConversations": {
+            "items": {
+              "$ref": "#/components/schemas/HeldConversationOut"
+            },
+            "title": "Heldconversations",
+            "type": "array"
+          },
+          "heldPeople": {
+            "items": {
+              "$ref": "#/components/schemas/HeldPersonOut"
+            },
+            "title": "Heldpeople",
+            "type": "array"
+          },
+          "lastSweep": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SweepOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "messageDays": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messagedays"
+          },
+          "nextSweepAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextsweepat"
+          },
+          "takesEffectAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takeseffectat"
+          }
+        },
+        "title": "RetentionOut",
+        "type": "object"
+      },
+      "RetentionPreviewOut": {
+        "properties": {
+          "capped": {
+            "title": "Capped",
+            "type": "boolean"
+          },
+          "files": {
+            "title": "Files",
+            "type": "integer"
+          },
+          "messages": {
+            "title": "Messages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "messages",
+          "files",
+          "capped"
+        ],
+        "title": "RetentionPreviewOut",
+        "type": "object"
+      },
       "Review": {
         "properties": {
           "at": {
@@ -9617,6 +9920,29 @@
           "title"
         ],
         "title": "StartWorkInput",
+        "type": "object"
+      },
+      "SweepOut": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "files": {
+            "default": 0,
+            "title": "Files",
+            "type": "integer"
+          },
+          "messages": {
+            "default": 0,
+            "title": "Messages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "at"
+        ],
+        "title": "SweepOut",
         "type": "object"
       },
       "SwitchedOut": {
@@ -12559,6 +12885,56 @@
         "tags": [
           "admin"
         ]
+      }
+    },
+    "/api/admin/channels/{channel_id}/legal-hold": {
+      "put": {
+        "operationId": "hold_conversation_api_admin_channels__channel_id__legal_hold_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegalHoldInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hold Conversation"
       }
     },
     "/api/admin/channels/{channel_id}/unarchive": {
@@ -16483,6 +16859,127 @@
         ]
       }
     },
+    "/api/admin/retention": {
+      "get": {
+        "operationId": "get_retention_api_admin_retention_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Retention"
+      },
+      "put": {
+        "operationId": "set_retention_api_admin_retention_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Retention"
+      }
+    },
+    "/api/admin/retention/preview": {
+      "get": {
+        "description": "About what the first sweep under these windows would remove.",
+        "operationId": "preview_retention_api_admin_retention_preview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "messageDays",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 3650,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Messagedays"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fileDays",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 3650,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filedays"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionPreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Retention"
+      }
+    },
     "/api/admin/settings": {
       "get": {
         "operationId": "get_settings_api_admin_settings_get",
@@ -16845,6 +17342,56 @@
         "tags": [
           "admin"
         ]
+      }
+    },
+    "/api/admin/users/{user_id}/legal-hold": {
+      "put": {
+        "operationId": "hold_person_api_admin_users__user_id__legal_hold_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegalHoldInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hold Person"
       }
     },
     "/api/admin/users/{user_id}/reactivate": {

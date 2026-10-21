@@ -999,6 +999,35 @@ export interface ExportEntry {
   downloadUrl: string | null;
 }
 
+/** A workspace's retention windows and legal holds, as its admins see them (ADR 0039). */
+export interface RetentionView {
+  /** Days a message, and a file, is kept; null keeps it for good. */
+  messageDays: number | null;
+  fileDays: number | null;
+  changedAt: string | null;
+  /** While the last change is still waiting its day: when it starts to count. */
+  takesEffectAt: string | null;
+  /** The first sweep that applies the windows as they stand; null with none set. */
+  nextSweepAt: string | null;
+  lastSweep: { at: string; messages: number; files: number } | null;
+  heldConversations: {
+    id: string;
+    kind: string;
+    name: string | null;
+    heldAt: string;
+    heldBy: string | null;
+  }[];
+  heldPeople: { id: string; displayName: string; heldAt: string; heldBy: string | null }[];
+}
+
+/** About what the first sweep under some windows would remove. */
+export interface RetentionPreview {
+  messages: number;
+  files: number;
+  /** The counts stopped at their ceiling: "more than". */
+  capped: boolean;
+}
+
 /** Whose away emails a link stops, and whether they are off now. */
 export interface UnsubscribeInfo {
   email: string;
@@ -1787,6 +1816,21 @@ export const api = {
     startExport: () => post<{ exports: ExportEntry[] }>("/api/admin/exports", {}),
     /** A database backup now, rather than tonight (M3 · B4). The server's administrators. */
     backupNow: () => post<{ ok: true }>("/api/admin/instance/backup", {}),
+
+    /** How long messages and files are kept, and what is on legal hold (ADR 0039). */
+    retention: () => get<RetentionView>("/api/admin/retention"),
+    setRetention: (input: { messageDays: number | null; fileDays: number | null }) =>
+      put<RetentionView>("/api/admin/retention", input),
+    retentionPreview: (input: { messageDays: number | null; fileDays: number | null }) => {
+      const query = new URLSearchParams();
+      if (input.messageDays !== null) query.set("messageDays", String(input.messageDays));
+      if (input.fileDays !== null) query.set("fileDays", String(input.fileDays));
+      return get<RetentionPreview>(`/api/admin/retention/preview?${query}`);
+    },
+    holdConversation: (id: string, held: boolean) =>
+      put<{ ok: true }>(`/api/admin/channels/${id}/legal-hold`, { held }),
+    holdPerson: (id: string, held: boolean) =>
+      put<{ ok: true }>(`/api/admin/users/${id}/legal-hold`, { held }),
 
     /**
      * Janus itself: up or down, what it runs on, and every workspace here that has it.

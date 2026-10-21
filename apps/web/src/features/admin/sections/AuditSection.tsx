@@ -10,7 +10,16 @@ import { Card, CardNotice } from "../../console/Card.tsx";
 const PAGE_SIZE = 50;
 
 /** Turns `user.role_changed` into "Role changed". */
+/** Actions whose verb alone would not say what happened. */
+const LABELS: Record<string, string> = {
+  "retention.updated": "Retention changed",
+  "retention.swept": "Retention sweep",
+  "legal_hold.placed": "Legal hold placed",
+  "legal_hold.released": "Legal hold released",
+};
+
 function humanizeAction(action: string): string {
+  if (LABELS[action]) return LABELS[action];
   const [, verb] = action.split(".");
   const words = (verb ?? action).replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -118,7 +127,8 @@ export function AuditSection() {
                     )}
                   </div>
                   <div className="admin-row-meta">
-                    {event.actorName ?? "Someone"} ·{" "}
+                    {/* No actor is Blob itself — the nightly retention sweep (ADR 0039). */}
+                    {event.actorName ?? (event.actorId ? "Someone" : "Blob")} ·{" "}
                     {formatRelative(event.createdAt)}
                     {event.ip && ` · ${event.ip}`}
                     {Object.keys(event.metadata).length > 0 &&

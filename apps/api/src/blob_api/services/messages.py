@@ -364,6 +364,14 @@ async def _mark_author_read(
 #: box promised a broadcast that reached nobody, including the person who ticked it.
 IN_CHANNEL_HISTORY = "(m.thread_root_id IS NULL OR m.also_in_channel)"
 
+#: A deleted message stays in history only while replies hang from it (ADR 0039) — the
+#: tombstone Slack draws where a thread would otherwise lose its root, and nowhere else.
+#: The live client already dropped a deleted message on `message.deleted`, but a reload
+#: brought it back as "This message was deleted", and a year that retention swept would
+#: have come back as a wall of them. The reconnect replay (`changed_since`) still sends
+#: deleted rows, so a client drops what it held.
+STILL_SHOWN = "(m.deleted_at IS NULL OR m.reply_count > 0)"
+
 
 async def history(
     session: AsyncSession,
@@ -386,12 +394,12 @@ async def history(
                     f"""
                     (SELECT {MESSAGE_SELECT} FROM messages m
                       WHERE m.channel_id = :channel_id AND {IN_CHANNEL_HISTORY}
-                        AND m.id <= :around
+                        AND {STILL_SHOWN} AND m.id <= :around
                       ORDER BY m.id DESC LIMIT :half)
                     UNION ALL
                     (SELECT {MESSAGE_SELECT} FROM messages m
                       WHERE m.channel_id = :channel_id AND {IN_CHANNEL_HISTORY}
-                        AND m.id > :around
+                        AND {STILL_SHOWN} AND m.id > :around
                       ORDER BY m.id ASC LIMIT :half)
                     """
                 ),
@@ -410,6 +418,7 @@ async def history(
                 SELECT {MESSAGE_SELECT} FROM messages m
                  WHERE m.channel_id = :channel_id
                    AND {IN_CHANNEL_HISTORY}
+                   AND {STILL_SHOWN}
                    AND (cast(:before AS uuid) IS NULL OR m.id < cast(:before AS uuid))
                    AND (cast(:after AS uuid) IS NULL OR m.id > cast(:after AS uuid))
                  ORDER BY m.id {order}
@@ -446,7 +455,7 @@ async def thread_tail(session: AsyncSession, root_id: str, *, limit: int) -> lis
                 f"""
                 SELECT * FROM (
                     SELECT {MESSAGE_SELECT} FROM messages m
-                     WHERE m.thread_root_id = :root_id
+                     WHERE m.thread_root_id = :root_id AND m.deleted_at IS NULL
                      ORDER BY m.id DESC
                      LIMIT :limit
                 ) newest
@@ -471,7 +480,8 @@ async def thread(session: AsyncSession, root_id: str) -> list[Message]:
             text(
                 f"""
                 SELECT {MESSAGE_SELECT} FROM messages m
-                 WHERE m.id = :root_id OR m.thread_root_id = :root_id
+                 WHERE m.id = :root_id
+                    OR (m.thread_root_id = :root_id AND m.deleted_at IS NULL)
                  ORDER BY m.id ASC
                  LIMIT 1000
                 """
@@ -812,8 +822,50 @@ async def remove(
             text("UPDATE messages SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = :id"),
             {"id": existing.thread_root_id},
         )
+    # The message — or a deleted root whose last reply this was — may have been the newest
+    # thing history shows, and history no longer shows it.
+    await settle_last_message(
+        session,
+        [str(existing.channel_id)],
+        [message_id, *([str(existing.thread_root_id)] if existing.thread_root_id else [])],
+    )
 
     return existing.channel_id, existing.thread_root_id
+
+
+async def settle_last_message(
+    session: AsyncSession, channel_ids: list[str], hidden: list[str]
+) -> dict[str, str | None]:
+    """Move `channels.last_message_id` back to the newest message history still shows,
+    where it named one of `hidden` — messages that may just have left history.
+
+    The client compares the last row it loaded with this pointer to decide whether a live
+    message extends the list (see `send`), so a pointer naming a row history no longer
+    returns would drop every later message from the open view. Answers with the channels
+    whose pointer moved, and where to.
+    """
+    if not channel_ids or not hidden:
+        return {}
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                UPDATE channels c
+                   SET last_message_id = (
+                         SELECT m.id FROM messages m
+                          WHERE m.channel_id = c.id AND {IN_CHANNEL_HISTORY}
+                            AND {STILL_SHOWN}
+                          ORDER BY m.id DESC
+                          LIMIT 1)
+                 WHERE c.id = ANY(cast(:channels AS uuid[]))
+                   AND c.last_message_id = ANY(cast(:hidden AS uuid[]))
+                RETURNING c.id, c.last_message_id
+                """
+            ),
+            {"channels": channel_ids, "hidden": hidden},
+        )
+    ).fetchall()
+    return {str(row.id): str(row.last_message_id) if row.last_message_id else None for row in rows}
 
 
 #: Cheap enough to run on every send, and only decides whether to *ask* for an unfurl.

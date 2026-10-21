@@ -162,6 +162,19 @@ export const SECTIONS: Section[] = [
         keywords: ['export', 'download', 'data', 'backup', 'portability', 'leave', 'gdpr', 'archive', 'jsonl'],
       },
       {
+        id: 'retention',
+        title: 'How long messages and files are kept',
+        blurb: 'An admin can have old messages and files removed — and put a legal hold on what must stay.',
+        body: [
+          'Blob keeps everything unless an admin sets a window on the Retention page: messages, files, or both. Every night, an hour after the backup, a sweep removes what is past it. A message goes the way a delete does — its words, reactions, files and preview — and a thread keeps its shape: a first message whose replies are still inside the window stays as “This message was deleted”.',
+          'A file window shorter than the message window removes files sooner and keeps the words; the message then says how many files were removed. Tasks and decisions are never removed: a thread that reached a decision leaves the decision behind.',
+          'A change waits a day before it counts, so a wrong choice can be put back, and the page says about how much the first sweep would remove before you save. A conversation’s details say how long it keeps things.',
+          'A legal hold keeps a conversation, or everything a person wrote and every conversation they are in, past the windows. The people in a held conversation see the hold in its details; a person on hold is told in their settings. A hold does not stop anybody deleting their own messages.',
+        ],
+        path: '/admin/retention',
+        keywords: ['retention', 'delete', 'history', 'legal hold', 'gdpr', 'compliance', 'files', 'old messages', 'purge'],
+      },
+      {
         id: 'this-build',
         title: 'This guide describes the build you are running',
         blurb:

@@ -29,6 +29,13 @@ export type ServerEvent =
   | { t: 'message.new'; message: Message }
   | { t: 'message.updated'; message: Message }
   | { t: 'message.deleted'; id: string; channelId: string; threadRootId: string | null }
+  /**
+   * Retention removed or changed messages in this conversation, up to and including
+   * `through` (ADR 0039). One frame per conversation per batch rather than one per message;
+   * a client holding history that far back refetches it. `lastMessageId` is present when
+   * the conversation's newest message was among them: the newest one history still shows.
+   */
+  | { t: 'history.trimmed'; channelId: string; through: string; lastMessageId?: string | null }
   | {
       t: 'reaction.added' | 'reaction.removed';
       messageId: string;

@@ -113,6 +113,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/channels/{channel_id}/legal-hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Hold Conversation */
+        put: operations["hold_conversation_api_admin_channels__channel_id__legal_hold_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/channels/{channel_id}/unarchive": {
         parameters: {
             query?: never;
@@ -1664,6 +1681,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Retention */
+        get: operations["get_retention_api_admin_retention_get"];
+        /** Set Retention */
+        put: operations["set_retention_api_admin_retention_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/retention/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Retention
+         * @description About what the first sweep under these windows would remove.
+         */
+        get: operations["preview_retention_api_admin_retention_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/settings": {
         parameters: {
             query?: never;
@@ -1782,6 +1837,23 @@ export interface paths {
         put?: never;
         /** Deactivate */
         post: operations["deactivate_api_admin_users__user_id__deactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/legal-hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Hold Person */
+        put: operations["hold_person_api_admin_users__user_id__legal_hold_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5627,6 +5699,7 @@ export interface components {
             recentMentionGroupIds?: string[];
             /** Recentmentionuserids */
             recentMentionUserIds?: string[];
+            retention?: components["schemas"]["RetentionNotice"] | null;
             /** Savedmessageids */
             savedMessageIds?: string[];
             /** Servercommit */
@@ -5810,6 +5883,8 @@ export interface components {
             kind: "public" | "private" | "dm" | "group_dm";
             /** Lastmessageid */
             lastMessageId?: string | null;
+            /** Legalholdat */
+            legalHoldAt?: string | null;
             /** Memberids */
             memberIds?: string[] | null;
             /** Name */
@@ -5863,6 +5938,8 @@ export interface components {
             lastMessageId?: string | null;
             /** Lastreadmessageid */
             lastReadMessageId?: string | null;
+            /** Legalholdat */
+            legalHoldAt?: string | null;
             /** Memberids */
             memberIds?: string[] | null;
             membership?: components["schemas"]["Membership"] | null;
@@ -6587,6 +6664,30 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** HeldConversationOut */
+        HeldConversationOut: {
+            /** Heldat */
+            heldAt: string;
+            /** Heldby */
+            heldBy?: string | null;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name?: string | null;
+        };
+        /** HeldPersonOut */
+        HeldPersonOut: {
+            /** Displayname */
+            displayName: string;
+            /** Heldat */
+            heldAt: string;
+            /** Heldby */
+            heldBy?: string | null;
+            /** Id */
+            id: string;
+        };
         /** HistoryOut */
         HistoryOut: {
             /** Hasmore */
@@ -6844,6 +6945,11 @@ export interface components {
         LaterOut: {
             /** Items */
             items: components["schemas"]["LaterItemOut"][];
+        };
+        /** LegalHoldInput */
+        LegalHoldInput: {
+            /** Held */
+            held: boolean;
         };
         /** LinkPreview */
         LinkPreview: {
@@ -7159,6 +7265,11 @@ export interface components {
             deletedAt?: string | null;
             /** Editedat */
             editedAt?: string | null;
+            /**
+             * Filesremoved
+             * @default 0
+             */
+            filesRemoved: number;
             /** Id */
             id: string;
             /**
@@ -7877,6 +7988,55 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** RetentionInput */
+        RetentionInput: {
+            /** Filedays */
+            fileDays?: number | null;
+            /** Messagedays */
+            messageDays?: number | null;
+        };
+        /**
+         * RetentionNotice
+         * @description The workspace's retention as it reaches you (ADR 0039).
+         */
+        RetentionNotice: {
+            /** Filedays */
+            fileDays?: number | null;
+            /**
+             * Held
+             * @default false
+             */
+            held: boolean;
+            /** Messagedays */
+            messageDays?: number | null;
+        };
+        /** RetentionOut */
+        RetentionOut: {
+            /** Changedat */
+            changedAt?: string | null;
+            /** Filedays */
+            fileDays?: number | null;
+            /** Heldconversations */
+            heldConversations?: components["schemas"]["HeldConversationOut"][];
+            /** Heldpeople */
+            heldPeople?: components["schemas"]["HeldPersonOut"][];
+            lastSweep?: components["schemas"]["SweepOut"] | null;
+            /** Messagedays */
+            messageDays?: number | null;
+            /** Nextsweepat */
+            nextSweepAt?: string | null;
+            /** Takeseffectat */
+            takesEffectAt?: string | null;
+        };
+        /** RetentionPreviewOut */
+        RetentionPreviewOut: {
+            /** Capped */
+            capped: boolean;
+            /** Files */
+            files: number;
+            /** Messages */
+            messages: number;
+        };
         /** Review */
         Review: {
             /** At */
@@ -8340,6 +8500,21 @@ export interface components {
             rootMessageId: string;
             /** Title */
             title: string;
+        };
+        /** SweepOut */
+        SweepOut: {
+            /** At */
+            at: string;
+            /**
+             * Files
+             * @default 0
+             */
+            files: number;
+            /**
+             * Messages
+             * @default 0
+             */
+            messages: number;
         };
         /** SwitchedOut */
         SwitchedOut: {
@@ -9207,6 +9382,8 @@ export type ForgotPasswordInput = components['schemas']['ForgotPasswordInput'];
 export type GroupOut = components['schemas']['GroupOut'];
 export type GroupsOut = components['schemas']['GroupsOut'];
 export type HealthOut = components['schemas']['HealthOut'];
+export type HeldConversationOut = components['schemas']['HeldConversationOut'];
+export type HeldPersonOut = components['schemas']['HeldPersonOut'];
 export type HistoryOut = components['schemas']['HistoryOut'];
 export type HTTPValidationError = components['schemas']['HTTPValidationError'];
 export type HuddleSettings = components['schemas']['HuddleSettings'];
@@ -9228,6 +9405,7 @@ export type JoinInput = components['schemas']['JoinInput'];
 export type LaterInput = components['schemas']['LaterInput'];
 export type LaterItemOut = components['schemas']['LaterItemOut'];
 export type LaterOut = components['schemas']['LaterOut'];
+export type LegalHoldInput = components['schemas']['LegalHoldInput'];
 export type LinkPreview = components['schemas']['LinkPreview'];
 export type LoanOut = components['schemas']['LoanOut'];
 export type LoansOut = components['schemas']['LoansOut'];
@@ -9307,6 +9485,10 @@ export type RepoPreviewOut = components['schemas']['RepoPreviewOut'];
 export type ResetLinkOut = components['schemas']['ResetLinkOut'];
 export type ResetOut = components['schemas']['ResetOut'];
 export type ResetPasswordInput = components['schemas']['ResetPasswordInput'];
+export type RetentionInput = components['schemas']['RetentionInput'];
+export type RetentionNotice = components['schemas']['RetentionNotice'];
+export type RetentionOut = components['schemas']['RetentionOut'];
+export type RetentionPreviewOut = components['schemas']['RetentionPreviewOut'];
 export type Review = components['schemas']['Review'];
 export type ReviewInput = components['schemas']['ReviewInput'];
 export type RevokeIn = components['schemas']['RevokeIn'];
@@ -9344,6 +9526,7 @@ export type SsoProviderIn = components['schemas']['SsoProviderIn'];
 export type SsoProviderOut = components['schemas']['SsoProviderOut'];
 export type SsoProvidersOut = components['schemas']['SsoProvidersOut'];
 export type StartWorkInput = components['schemas']['StartWorkInput'];
+export type SweepOut = components['schemas']['SweepOut'];
 export type SwitchedOut = components['schemas']['SwitchedOut'];
 export type SyncOut = components['schemas']['SyncOut'];
 export type Theme = components['schemas']['Theme'];
@@ -9568,6 +9751,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hold_conversation_api_admin_channels__channel_id__legal_hold_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalHoldInput"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -12361,6 +12579,91 @@ export interface operations {
             };
         };
     };
+    get_retention_api_admin_retention_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionOut"];
+                };
+            };
+        };
+    };
+    set_retention_api_admin_retention_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_retention_api_admin_retention_preview_get: {
+        parameters: {
+            query?: {
+                fileDays?: number | null;
+                messageDays?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_settings_api_admin_settings_get: {
         parameters: {
             query?: never;
@@ -12606,6 +12909,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hold_person_api_admin_users__user_id__legal_hold_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalHoldInput"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

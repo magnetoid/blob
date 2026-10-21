@@ -137,6 +137,7 @@ def to_channel(row: Any) -> Channel:
         work_id=str(row.work_id) if getattr(row, "work_id", None) else None,
         nudge_unanswered=bool(getattr(row, "nudge_unanswered", False)),
         posting=getattr(row, "posting", None) or "everyone",
+        legal_hold_at=iso(getattr(row, "legal_hold_at", None)),
     )
 
 
@@ -225,6 +226,7 @@ def to_message(row: Any) -> Message:
         blocks=blocks or None,
         plugin_id=getattr(row, "plugin_id", None),
         link_preview=_link_preview(row.id, preview) if preview else None,
+        files_removed=0 if deleted else int(getattr(row, "files_removed", 0) or 0),
     )
 
 
@@ -391,7 +393,7 @@ MESSAGE_COLUMNS = """
   m.last_reply_at, m.mention_user_ids, m.mention_group_ids, m.mentions_everyone,
   m.client_msg_id,
   m.edited_at, m.deleted_at, m.pinned_at, m.pinned_by, m.created_at,
-  m.link_preview, m.plugin_id, m.blocks
+  m.link_preview, m.plugin_id, m.blocks, m.files_removed
 """
 
 MESSAGE_SELECT = f"""

@@ -397,6 +397,11 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 - **Export** — an admin exports the workspace's public channels and its people; anyone
   exports every conversation they are in. A zip of JSON lines `jq` reads, never a private
   conversation that is not yours.
+- **Retention and legal hold** — an admin sets how long messages, and separately files,
+  are kept; a nightly sweep removes what is past the line the way a delete does, keeps
+  threads' shape, and never touches tasks or decisions. A change waits a day before it
+  counts. A conversation, or a person, on legal hold is kept past the windows, and the
+  people it concerns are told.
 - **Guests** — someone from outside, invited into named channels: they see those rooms
   and the people in them, never the directory or a public channel they were not given.
 - **Feedback** — anyone can file a bug from the top bar; the ticket carries the browser
@@ -450,8 +455,11 @@ afternoon:
   account is not provisioned or removed from the identity provider, and the second step
   after a password is a passkey, never a six-digit code. A guest's account has no end
   date.
-- **Import and retention.** No Slack import, and the retention setting covers the audit
-  log only — messages and files are kept.
+- **Slack import.** Nothing reads a Slack export in yet.
+- **A legal hold that keeps deletes.** A hold stops retention, not people: what somebody
+  deletes or edits under a hold is not kept anywhere. Slack's does keep it, silently;
+  whether Blob should — or should refuse the delete instead — is an open decision
+  (ADR 0039).
 - **Moderation, Approvals and Storage** in the admin console — not built, and not listed
   there until they are.
 
@@ -965,7 +973,7 @@ Alembic; it is not a query layer. Every read and write in the app is `text()` wi
 parameters, and chat history is keyset-paginated, never `OFFSET`.
 
 <details>
-<summary><b>The thirty-eight architecture decisions</b></summary>
+<summary><b>The thirty-nine architecture decisions</b></summary>
 
 The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
@@ -1009,6 +1017,7 @@ The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisi
 | 0036 | Blob emails you only about what waited for you, and only while you were away |
 | 0037 | A draft follows its author between devices, and nobody else |
 | 0038 | An export takes what its asker may take |
+| 0039 | Retention removes the talk, never the work, and a hold stops it |
 
 </details>
 

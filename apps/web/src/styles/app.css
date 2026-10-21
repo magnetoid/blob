@@ -9673,8 +9673,10 @@ button.person-trigger:hover {
   opacity: 1;
 }
 
-/* An export's row (M3 · B4): when, how it went, and Download once it is built. */
-.export-list {
+/* An export's row (M3 · B4): when, how it went, and Download once it is built — and a
+   legal hold's (ADR 0039): what is held, since when, and Release. */
+.export-list,
+.hold-list {
   display: grid;
   gap: 4px;
   margin: 0;
@@ -9682,11 +9684,27 @@ button.person-trigger:hover {
   list-style: none;
 }
 
-.export-row {
+.export-row,
+.hold-row {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 6px 0;
+}
+
+/* Where a workspace's retention stands, or what a draft of it would remove. */
+.retention-standing {
+  display: grid;
+  gap: 4px;
+  padding-top: 14px;
+}
+
+/* A message whose files retention took (ADR 0039): it says so where they were. */
+.message-files-removed {
+  margin-top: 4px;
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  font-style: italic;
 }
 
 /* Save and Cancel under a field that changed. */

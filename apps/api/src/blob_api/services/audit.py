@@ -83,6 +83,31 @@ async def record(
     )
 
 
+async def record_system(
+    session: AsyncSession,
+    workspace_id: str,
+    action: str,
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Something Blob did on its own — the nightly retention sweep (ADR 0039) — recorded
+    with no actor and no address, which is what the log shows as Blob."""
+    await session.execute(
+        text(
+            """
+            INSERT INTO audit_events (id, workspace_id, actor_id, action, metadata)
+            VALUES (:id, :ws, NULL, :action, cast(:metadata AS jsonb))
+            """
+        ),
+        {
+            "id": new_id(),
+            "ws": workspace_id,
+            "action": action,
+            "metadata": json.dumps(metadata or {}),
+        },
+    )
+
+
 async def list_events(
     session: AsyncSession,
     workspace_id: str,

@@ -158,6 +158,9 @@ class Channel(CamelModel):
     #: Who may post at the top level: everyone, or the workspace's admins — an
     #: announcement channel, where everybody else replies in threads (M3 · B3).
     posting: Literal["everyone", "admins"] = "everyone"
+    #: On legal hold since (ADR 0039): kept past the workspace's retention. Shown to the
+    #: people in it — a hold on a conversation is not a secret from them.
+    legal_hold_at: str | None = None
 
 
 class BrowsableChannel(CamelModel):
@@ -281,6 +284,9 @@ class Message(CamelModel):
     #: Which app posted this, when one did.
     plugin_id: str | None = None
     link_preview: LinkPreview | None = None
+    #: Files the workspace's retention took from this message, which kept its words
+    #: (ADR 0039) — so a reader sees that something was there.
+    files_removed: int = 0
 
 
 class CustomEmoji(CamelModel):
@@ -480,6 +486,20 @@ class Bootstrap(CamelModel):
     #: `services/mention_recency.py`.
     recent_mention_user_ids: list[str] = Field(default_factory=list)
     recent_mention_group_ids: list[str] = Field(default_factory=list)
+    #: How long this workspace keeps messages and files, and whether you are on legal hold
+    #: (ADR 0039) — null when it keeps everything and you are not.
+    retention: RetentionNotice | None = None
+
+
+class RetentionNotice(CamelModel):
+    """The workspace's retention as it reaches you (ADR 0039)."""
+
+    #: Days a message, and a file, is kept; null keeps it.
+    message_days: int | None = None
+    file_days: int | None = None
+    #: You are on legal hold: what you write, and every conversation you are in, is kept
+    #: past those windows. Yours to know; nobody else is told who is held.
+    held: bool = False
 
 
 class ReadStateOut(CamelModel):

@@ -278,17 +278,77 @@ async def test_you_can_edit_your_own_message_but_not_someone_elses(team: dict) -
     assert theirs.status == 403
 
 
-async def test_deleting_clears_the_body(team: dict) -> None:
+async def test_a_deleted_message_nobody_answered_leaves_history(team: dict) -> None:
+    """A deleted message stays in history only while replies hang from it (ADR 0039):
+    Slack's tombstone, kept where a thread would lose its root and nowhere else. The live
+    client already dropped it on `message.deleted`; a reload used to bring it back as
+    "This message was deleted", and a year retention swept would have been a wall of them."""
     sent = await send_message(team["member"], team["general"]["id"], "delete me")
     message_id = sent.body["message"]["id"]
 
     assert (await team["member"].delete(f"/api/messages/{message_id}")).status == 200
 
     history = await team["owner"].get(f"/api/channels/{team['general']['id']}/messages?limit=100")
-    found = next((m for m in history.body["messages"] if m["id"] == message_id), None)
-    assert found is not None
+    assert message_id not in [m["id"] for m in history.body["messages"]]
+
+
+async def test_a_deleted_root_stays_while_its_replies_do(team: dict) -> None:
+    root = await send_message(team["member"], team["general"]["id"], "delete my words")
+    root_id = root.body["message"]["id"]
+    await send_message(team["owner"], team["general"]["id"], "an answer", threadRootId=root_id)
+
+    assert (await team["member"].delete(f"/api/messages/{root_id}")).status == 200
+
+    history = await team["owner"].get(f"/api/channels/{team['general']['id']}/messages?limit=100")
+    found = next(m for m in history.body["messages"] if m["id"] == root_id)
     assert found["body"] == ""
     assert found["deletedAt"] is not None
+    assert found["replyCount"] == 1
+
+
+async def test_a_deleted_reply_leaves_its_thread(team: dict) -> None:
+    root = await send_message(team["owner"], team["general"]["id"], "a question")
+    root_id = root.body["message"]["id"]
+    kept = await send_message(team["member"], team["general"]["id"], "kept", threadRootId=root_id)
+    gone = await send_message(team["member"], team["general"]["id"], "gone", threadRootId=root_id)
+
+    assert (
+        await team["member"].delete(f"/api/messages/{gone.body['message']['id']}")
+    ).status == 200
+
+    thread = await team["owner"].get(f"/api/messages/{root_id}/thread")
+    assert [m["id"] for m in thread.body["messages"]] == [root_id, kept.body["message"]["id"]]
+
+
+async def test_the_reconnect_replay_still_reports_a_delete(team: dict) -> None:
+    """History leaving a deleted message out is safe only because the replay still says it
+    went: a client that held it drops it there."""
+    import json
+
+    cursor = (await send_message(team["owner"], team["general"]["id"], "seen")).body["message"]
+    doomed = (await send_message(team["owner"], team["general"]["id"], "doomed")).body["message"]
+    assert (await team["owner"].delete(f"/api/messages/{doomed['id']}")).status == 200
+
+    replay = await team["member"].get(
+        f"/api/sync?cursors={json.dumps({team['general']['id']: cursor['id']})}"
+    )
+    found = next(m for m in replay.body["messages"] if m["id"] == doomed["id"])
+    assert found["deletedAt"] is not None
+    assert found["body"] == ""
+
+
+async def test_deleting_the_newest_message_moves_the_channel_pointer_back(team: dict) -> None:
+    """The client compares the last row it loaded with `lastMessageId`. Once history leaves
+    a deleted message out, a pointer still naming it could never match again, and every
+    later live message would be dropped from the open view until a reload."""
+    stays = await send_message(team["owner"], team["general"]["id"], "stays")
+    goes = await send_message(team["owner"], team["general"]["id"], "goes")
+
+    assert (await team["owner"].delete(f"/api/messages/{goes.body['message']['id']}")).status == 200
+
+    channels = (await team["owner"].get("/api/channels")).body["channels"]
+    general = next(c for c in channels if c["id"] == team["general"]["id"])
+    assert general["lastMessageId"] == stays.body["message"]["id"]
 
 
 async def test_an_admin_can_delete_anyone_s_message(team: dict) -> None:

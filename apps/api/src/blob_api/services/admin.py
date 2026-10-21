@@ -59,6 +59,7 @@ from . import workspaces as workspace_service
 from .accounts import record_event, retire_resets, revoke_assistant_tokens
 from .audit import Actor
 from .serialize import USER_COLUMNS, to_user
+from .workspace_settings import RETENTION_KEYS
 
 
 def _now_iso() -> str:
@@ -671,6 +672,11 @@ async def update_settings(
             {"name": payload.name, "ws": admin.workspace_id},
         )
     if payload.settings is not None:
+        # The retention windows have their own route (ADR 0039): it waits a day before a
+        # change takes effect, asks for a recent sign-in and audits the before and after,
+        # none of which a merge of arbitrary keys here would do.
+        if set(payload.settings) & set(RETENTION_KEYS):
+            raise bad_request("Retention is set on the Retention page.")
         # Settings merge rather than replace, matching how user prefs behave.
         await session.execute(
             text(

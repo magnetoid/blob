@@ -37,6 +37,7 @@ const EVERY_ROW = [
   'MCP servers',
   'Usage',
   'Export',
+  'Retention',
   'Webhooks',
   'Deliveries',
   'Assistants',
@@ -148,6 +149,7 @@ describe('who each admin page is for', () => {
     'mcp-servers': 'admin', // /api/admin/mcp-servers, and /api/admin/plugins for its agents
     usage: 'admin', // /api/admin/usage and its prices
     export: 'admin', // /api/admin/exports, after a recent sign-in
+    retention: 'admin', // /api/admin/retention; saving asks for a recent sign-in
     webhooks: 'admin', // /api/admin/webhooks
     deliveries: 'admin', // /api/admin/deliveries
     connections: 'admin', // /api/admin/mcp-tokens

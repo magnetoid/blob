@@ -38,7 +38,7 @@ from .export import build_export as build_export_zip
 from .export import sweep_exports
 from .notify import handle_notify
 from .reminders import fire_reminders
-from .retention import sweep_retention
+from .retention import sweep_history, sweep_retention
 from .scheduled import send_scheduled
 from .transcribe import handle_transcribe
 from .unanswered import nudge_unanswered
@@ -156,6 +156,12 @@ async def sweep_expired(_ctx: dict[str, Any]) -> None:
     gone = await sweep_exports()
     if gone:
         log.info("swept %d expired export(s)", gone)
+
+
+async def sweep_history_job(_ctx: dict[str, Any]) -> None:
+    """Messages and files past the windows a workspace chose, skipping what is on legal
+    hold (ADR 0039). Each workspace's outcome is logged and audited by the sweep itself."""
+    await sweep_history()
 
 
 async def sweep_orphans(_ctx: dict[str, Any]) -> None:
@@ -348,6 +354,16 @@ class WorkerSettings:
             backup,  # type: ignore[arg-type]
             hour=settings.BACKUP_HOUR_UTC,
             minute=30,
+            timeout=3600,
+            unique=True,
+        ),
+        # Retention (ADR 0039): an hour after the backup begins, so the night's removals are
+        # in the dump taken before them — pg_dump reads one snapshot, fixed as it starts. Its
+        # own twenty-minute budget inside; the hour here is the ceiling over that.
+        cron(
+            sweep_history_job,  # type: ignore[arg-type]
+            hour=(settings.BACKUP_HOUR_UTC + 1) % 24,
+            minute=40,
             timeout=3600,
             unique=True,
         ),

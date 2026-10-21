@@ -116,6 +116,9 @@ export interface Channel {
   /** Who may post at the top level: everyone, or the workspace's admins — an
    * announcement channel, where everybody else replies in threads (M3 · B3). */
   posting?: 'everyone' | 'admins';
+  /** On legal hold since (ADR 0039): kept past the workspace's retention. Its members see
+   * it; it is not a secret from the people in it. */
+  legalHoldAt?: string | null;
   createdAt: string;
   /** Present only for dm / group_dm. */
   /** Present only for dm / group_dm; null everywhere else, never absent. */
@@ -327,6 +330,9 @@ export interface Message {
   /** Which app posted this, when one did. */
   pluginId?: string | null;
   linkPreview: LinkPreview | null;
+  /** Files the workspace's retention took from this message, which kept its words
+   * (ADR 0039) — so a reader sees that something was there. */
+  filesRemoved?: number;
 }
 
 export interface Workspace {
@@ -487,6 +493,18 @@ export interface Bootstrap {
    */
   recentMentionUserIds: string[];
   recentMentionGroupIds: string[];
+  /** How long this workspace keeps messages and files, and whether you are on legal hold
+   * (ADR 0039). Null when it keeps everything and you are not. */
+  retention?: RetentionNotice | null;
+}
+
+/** The workspace's retention as it reaches you (ADR 0039). */
+export interface RetentionNotice {
+  /** Days a message, and a file, is kept; null keeps it. */
+  messageDays: number | null;
+  fileDays: number | null;
+  /** You are on legal hold. Yours to know: nobody else is told who is held. */
+  held: boolean;
 }
 
 /** A named set of people, mentionable as one handle: `@platform-team`. */

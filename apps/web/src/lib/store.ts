@@ -18,6 +18,7 @@ import type {
   CustomEmoji,
   Message,
   PresenceState,
+  RetentionNotice,
   ServerEvent,
   Theme,
   Call,
@@ -134,6 +135,9 @@ interface State {
   transcriptionEnabled: boolean;
   /** Who may use @channel, @here and @everyone in this workspace (M3 · B3). */
   everyoneMentions: "everyone" | "admins";
+  /** How long this workspace keeps messages and files, and whether you are on legal hold
+   * (ADR 0039); null when it keeps everything and you are not. */
+  retention: RetentionNotice | null;
   users: Record<string, User>;
   channels: Record<string, ChannelWithState>;
   messages: Record<string, ChannelMessages>;
@@ -605,6 +609,7 @@ export const useStore = create<State>((set, get) => ({
   translationEnabled: false,
   transcriptionEnabled: false,
   everyoneMentions: "everyone",
+  retention: null,
   commands: [],
   users: {},
   channels: {},
@@ -656,6 +661,7 @@ export const useStore = create<State>((set, get) => ({
       translationEnabled: data.translationEnabled ?? false,
       transcriptionEnabled: data.transcriptionEnabled ?? false,
       everyoneMentions: data.everyoneMentions ?? "everyone",
+      retention: data.retention ?? null,
       users: Object.fromEntries(data.users.map((u) => [u.id, u])),
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
     }),
@@ -1500,9 +1506,14 @@ export const useStore = create<State>((set, get) => ({
             // gap invisible — and then `markRead` acked it, marking every unread message
             // in between as read. `openChannel` skips `markRead` for exactly this reason
             // and says so; the skip only covered the moment of arrival.
+            //
+            // Nothing loaded and nothing there is the tail too: an empty conversation's
+            // first message from somebody else used to compare `undefined` with `null`
+            // and be dropped from the open view — and a conversation retention swept bare
+            // (ADR 0039) is exactly that empty.
             const wasAtTail =
-              existing?.items.filter((m) => !m.id.startsWith("pending-")).at(-1)
-                ?.id === s.channels[message.channelId]?.lastMessageId;
+              (existing?.items.filter((m) => !m.id.startsWith("pending-")).at(-1)?.id ??
+                null) === (s.channels[message.channelId]?.lastMessageId ?? null);
             // While the first page is still in flight there is no window to be at the
             // end of, and dropping the message loses it for good: the response used to
             // replace `items` with a snapshot that predated it, and nothing refetches a
@@ -1600,6 +1611,43 @@ export const useStore = create<State>((set, get) => ({
         ) {
           void get().markRead(message.channelId);
         }
+        break;
+      }
+
+      case "history.trimmed": {
+        // Retention removed or changed messages here, up to `through` (ADR 0039). One
+        // frame for the batch rather than one per message, so a list holding any of
+        // them is dropped and fetched again — the reconnect's own remedy — and an open
+        // thread whose root is that old is fetched again too.
+        const before = get();
+        const held = before.messages[event.channelId]?.items.some(
+          (m) => !m.id.startsWith("pending-") && m.id <= event.through,
+        );
+        const thread = before.activeThreadRootId;
+        const threadTouched =
+          thread !== null &&
+          thread <= event.through &&
+          (before.threads[thread] ?? []).some((m) => m.channelId === event.channelId);
+        set((s) => {
+          const next: Partial<State> = {};
+          const channel = s.channels[event.channelId];
+          if (channel && event.lastMessageId !== undefined) {
+            next.channels = {
+              ...s.channels,
+              [event.channelId]: { ...channel, lastMessageId: event.lastMessageId },
+            };
+          }
+          if (held) {
+            next.messages = Object.fromEntries(
+              Object.entries(s.messages).filter(([id]) => id !== event.channelId),
+            );
+          }
+          return next;
+        });
+        if (held && before.activeChannelId === event.channelId) {
+          void get().openChannel(event.channelId);
+        }
+        if (threadTouched && thread) void get().openThread(thread);
         break;
       }
 

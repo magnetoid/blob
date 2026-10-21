@@ -576,6 +576,16 @@ export const MessageRow = memo(function MessageRow({
           </div>
         )}
 
+        {/* Files the workspace's retention took (ADR 0039): said where they were, rather
+            than a message that quietly stopped matching what it says it attached. */}
+        {(message.filesRemoved ?? 0) > 0 && (
+          <div className="message-files-removed">
+            {message.filesRemoved === 1
+              ? "A file was removed by this workspace’s retention."
+              : `${message.filesRemoved} files were removed by this workspace’s retention.`}
+          </div>
+        )}
+
         {message.linkPreview?.title && (
           <a
             className="link-preview"
