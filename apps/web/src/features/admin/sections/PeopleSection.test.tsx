@@ -21,12 +21,13 @@ const person = (id: string, role: AdminUser['role'], displayName: string): Admin
   sessionCount: 2,
   channelCount: 1,
   messageCount: 1,
+  twoStep: false,
 });
 
 const PEOPLE = [
-  person('own', 'owner', 'Olive Owner'),
+  { ...person('own', 'owner', 'Olive Owner'), twoStep: true },
   person('adm', 'admin', 'Adam Admin'),
-  person('mem', 'member', 'Mia Member'),
+  { ...person('mem', 'member', 'Mia Member'), twoStep: true },
   person('me', 'admin', 'Me Myself'),
 ];
 
@@ -54,8 +55,25 @@ async function offered(props: { isOwner: boolean; isInstanceAdmin?: boolean }) {
   return {
     reset: names(/^Make a password reset link for /),
     signOut: names(/^Sign .* out of /),
+    endTwoStep: names(/^Stop asking .* for a passkey$/),
   };
 }
+
+describe('two-step sign-in', () => {
+  it('shows who has it, and offers to end it under the reset link’s rule', async () => {
+    const asAdmin = await offered({ isOwner: false });
+    expect(screen.getAllByText('two-step')).toHaveLength(2);
+    // A member's is any admin's to end; the owner's only the server administrator's.
+    expect(asAdmin.endTwoStep).toEqual(['Stop asking Mia Member for a passkey']);
+    cleanup();
+
+    const asServerAdmin = await offered({ isOwner: false, isInstanceAdmin: true });
+    expect(asServerAdmin.endTwoStep).toEqual([
+      'Stop asking Olive Owner for a passkey',
+      'Stop asking Mia Member for a passkey',
+    ]);
+  });
+});
 
 describe('what an admin is offered on each row', () => {
   it('lets a plain admin act on members, and sign only themselves out besides', async () => {

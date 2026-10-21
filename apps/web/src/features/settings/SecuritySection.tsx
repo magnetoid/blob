@@ -6,8 +6,18 @@
  */
 
 import { useState, type FormEvent } from 'react';
-import { api, ApiError, type AccountEvent, type AuthSession } from '../../lib/api.ts';
+import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
+import { DialogPresence } from '../../components/Dialog.tsx';
+import {
+  api,
+  ApiError,
+  type AccountEvent,
+  type AuthSession,
+  type PasskeyRow,
+} from '../../lib/api.ts';
+import { createPasskey, forgetPasskey, isCancel, passkeysSupported } from '../../lib/passkeys.ts';
 import { useFetch } from '../../lib/useFetch.ts';
+import { formatRelative } from '../messages/messageFormatting.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import { Card, CardNotice } from '../console/Card.tsx';
 import { describeAgent, describeEvent, describeMethod } from './devices.ts';
@@ -21,6 +31,7 @@ export function SecuritySection({ onError }: ConsoleSectionProps) {
   return (
     <div className="console-stack">
       <PasswordCard onError={onError} onChanged={changed} />
+      <PasskeysCard onError={onError} version={version} onChanged={changed} />
       <DevicesCard onError={onError} version={version} onChanged={changed} />
       <ActivityCard version={version} />
     </div>
@@ -80,7 +91,7 @@ function PasswordCard({
           : 'You sign in another way. Set a password to have one more.'
       }
     >
-      <form className="console-stack" onSubmit={submit}>
+      <form className="console-form" onSubmit={submit}>
         <div className="console-form-grid">
           {hasPassword && (
             <label className="field">
@@ -126,6 +137,200 @@ function PasswordCard({
           </span>
         </div>
       </form>
+    </Card>
+  );
+}
+
+/** What went wrong with a passkey, in words — or nothing, when the person simply said no. */
+function passkeyTrouble(err: unknown, fallback: string): string | null {
+  if (isCancel(err)) return null;
+  if (err instanceof ApiError) return err.code === 'reauth_cancelled' ? null : err.message;
+  if (err instanceof DOMException && err.name === 'InvalidStateError') {
+    return 'This device already holds a passkey for you.';
+  }
+  return fallback;
+}
+
+function PasskeysCard({
+  onError,
+  version,
+  onChanged,
+}: {
+  onError: (message: string | null) => void;
+  version: number;
+  onChanged: () => void;
+}) {
+  const { data, error } = useFetch(() => api.passkeys.list(), [version]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<PasskeyRow | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const supported = passkeysSupported();
+  const passkeys = data?.passkeys ?? [];
+
+  async function run(key: string, work: () => Promise<unknown>, fallback: string) {
+    setBusy(key);
+    onError(null);
+    try {
+      await work();
+      onChanged();
+    } catch (err) {
+      const trouble = passkeyTrouble(err, fallback);
+      if (trouble) onError(trouble);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const add = () =>
+    run(
+      'add',
+      async () => {
+        const { options } = await api.passkeys.options();
+        const credential = await createPasskey(options);
+        // Named after where it was made; renamed below if the person likes.
+        await api.passkeys.add(credential, describeAgent(navigator.userAgent));
+      },
+      'That passkey could not be added.',
+    );
+
+  return (
+    <Card
+      title="Passkeys"
+      description="Sign in with your fingerprint, face or device PIN instead of typing a password. A passkey is yours in every workspace here."
+      footer={
+        <button
+          className="btn"
+          disabled={!supported || busy !== null}
+          title={supported ? undefined : 'This browser cannot make passkeys.'}
+          onClick={() => void add()}
+        >
+          {busy === 'add' ? 'Adding…' : 'Add a passkey'}
+        </button>
+      }
+    >
+      {error && <p className="error-text">Could not load your passkeys.</p>}
+      {!error && data === null && <CardNotice>Loading…</CardNotice>}
+      {data !== null && passkeys.length === 0 && (
+        <CardNotice>
+          None yet. Add one and this device can sign you in without your password.
+        </CardNotice>
+      )}
+      {passkeys.map((passkey) => (
+        <div key={passkey.id} className="pref-row" data-passkey={passkey.id}>
+          {renaming?.id === passkey.id ? (
+            <form
+              className="console-inline-form grow"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const name = renaming.name.trim();
+                if (!name) return;
+                setRenaming(null);
+                void run(
+                  'rename',
+                  () => api.passkeys.rename(passkey.id, name),
+                  'It could not be renamed.',
+                );
+              }}
+            >
+              <input
+                className="input"
+                aria-label="Passkey name"
+                value={renaming.name}
+                maxLength={60}
+                onChange={(e) => setRenaming({ id: passkey.id, name: e.target.value })}
+              />
+              <button className="btn btn-primary" type="submit">
+                Save
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setRenaming(null)}>
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <>
+              <div className="grow min-0">
+                <div className="pref-label">{passkey.name}</div>
+                <div className="pref-hint">
+                  {[
+                    passkey.backedUp ? 'synced to your other devices' : 'on one device only',
+                    passkey.createdAt
+                      ? `added ${new Date(passkey.createdAt).toLocaleDateString()}`
+                      : null,
+                    passkey.lastUsedAt
+                      ? `last used ${formatRelative(passkey.lastUsedAt)}`
+                      : 'not used yet',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </div>
+              </div>
+              <button
+                className="btn btn-ghost"
+                disabled={busy !== null}
+                aria-label={`Rename ${passkey.name}`}
+                onClick={() => setRenaming({ id: passkey.id, name: passkey.name })}
+              >
+                Rename
+              </button>
+              <button
+                className="btn btn-ghost"
+                disabled={busy !== null}
+                aria-label={`Remove ${passkey.name}`}
+                onClick={() => setRemoving(passkey)}
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+      ))}
+      {passkeys.length > 0 && (
+        <div className="pref-row">
+          <div className="grow">
+            <div className="pref-label">Ask for a passkey after my password</div>
+            <div className="pref-hint">
+              Then a password alone no longer signs in as you, in any workspace here. Signing in
+              with a passkey alone still works.
+            </div>
+          </div>
+          <button
+            className="toggle"
+            aria-pressed={data?.twoStep ?? false}
+            aria-label="Ask for a passkey after my password"
+            disabled={busy !== null}
+            onClick={() =>
+              void run(
+                'two-step',
+                () => api.passkeys.setTwoStep(!(data?.twoStep ?? false)),
+                'That could not be changed.',
+              )
+            }
+          >
+            <span />
+          </button>
+        </div>
+      )}
+
+      <DialogPresence when={removing}>
+        {(passkey) => (
+          <ConfirmDialog
+            title={`Remove ${passkey.name}?`}
+            body="It will no longer sign you in here. The device or password manager may still offer it until it hears it was removed."
+            confirmLabel="Remove"
+            danger
+            onClose={() => setRemoving(null)}
+            onConfirm={() => {
+              const target = passkey;
+              setRemoving(null);
+              void run(
+                'remove',
+                async () => forgetPasskey((await api.passkeys.remove(target.id)).credentialId),
+                'That passkey could not be removed.',
+              );
+            }}
+          />
+        )}
+      </DialogPresence>
     </Card>
   );
 }
@@ -193,7 +398,7 @@ function DevicesCard({
                   workspaces.size > 1 ? session.workspace : null,
                   how ? `signed in ${how}` : null,
                   session.ip,
-                  `last seen ${new Date(session.lastSeenAt).toLocaleString()}`,
+                  `last seen ${formatRelative(session.lastSeenAt)}`,
                 ]
                   .filter(Boolean)
                   .join(' · ')}

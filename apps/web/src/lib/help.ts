@@ -116,7 +116,7 @@ export const SECTIONS: Section[] = [
         title: 'Signing in',
         blurb: 'An email address and a password of at least ten characters.',
         body: [
-          'Once a workspace exists you cannot sign yourself up: joining needs an invitation link. One address has one password in every workspace it belongs to on this server.',
+          'Once a workspace exists you cannot sign yourself up: joining needs an invitation link. One address has one password in every workspace it belongs to on this server, and can have passkeys too.',
           'Forgot your password sends a link by email. It works once and expires in an hour, which is short on purpose — a password reset link sitting in an inbox for a week is a spare key under the mat. While you are signed in you can change it under Sign-in & security, which signs out every other device. There is no way to change your email address from the app.',
           'A few things ask you to confirm it’s you first, once your sign-in is more than fifteen minutes old: making a token for an assistant, letting one connect, attaching an agent of your own, changing someone’s role, making them a reset link, and installing an app. Enter your password and it goes ahead; you are not asked again for fifteen minutes.',
           'Being signed in is per browser. Sign-in & security lists every session you hold, so a machine you no longer have can be signed out from one you do.',
@@ -773,6 +773,18 @@ export const SECTIONS: Section[] = [
         ],
         path: '/settings/security',
         keywords: ['sessions', 'devices', 'sign out', 'logout', 'security', 'activity', 'history'],
+      },
+      {
+        id: 'passkeys',
+        title: 'Passkeys',
+        blurb: 'Sign in with your fingerprint, face or device PIN instead of a password.',
+        body: [
+          'A passkey lives on your phone, your laptop or in your password manager. Only its public half is kept here, so nothing on this server could sign in as you. Add one under Sign-in & security; it works in every workspace you are in on this server.',
+          'To sign in with it, pick it from the email field’s suggestions or press Sign in with a passkey — no address or password to type. It also answers Confirm it’s you.',
+          'Ask for a passkey after my password makes a password alone not enough to sign in as you. If you lose every device your passkeys were on, an admin can turn that off for you from People; a password reset link does not.',
+        ],
+        path: '/settings/security',
+        keywords: ['passkey', 'passkeys', 'webauthn', 'face id', 'touch id', 'fingerprint', 'security key', 'two-step', '2fa', 'two factor', 'mfa'],
       },
     ],
   },

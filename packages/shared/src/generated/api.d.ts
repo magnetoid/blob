@@ -1763,6 +1763,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users/{user_id}/two-step/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End Two Step
+         * @description Stop asking somebody for a passkey after their password — the way back for a
+         *     person who lost the devices their passkeys were on. Given out like a reset link.
+         */
+        post: operations["end_two_step_api_admin_users__user_id__two_step_end_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/webhooks": {
         parameters: {
             query?: never;
@@ -2370,6 +2391,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/passkey/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign In Options
+         * @description A challenge any of this server's passkeys can answer. Names nobody: the browser
+         *     offers whichever passkeys it holds for this server, or fills one into the form.
+         */
+        post: operations["sign_in_options_api_auth_passkey_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkey/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign In */
+        post: operations["sign_in_api_auth_passkey_sign_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Passkeys */
+        get: operations["list_passkeys_api_auth_passkeys_get"];
+        put?: never;
+        /** Add Passkey */
+        post: operations["add_passkey_api_auth_passkeys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys/{passkey_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Passkey */
+        delete: operations["remove_passkey_api_auth_passkeys__passkey_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Passkey */
+        patch: operations["rename_passkey_api_auth_passkeys__passkey_id__patch"];
+        trace?: never;
+    };
+    "/api/auth/passkeys/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Passkey Options
+         * @description The first half of adding a passkey: what `navigator.credentials.create` needs.
+         */
+        post: operations["passkey_options_api_auth_passkeys_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/password": {
         parameters: {
             query?: never;
@@ -2408,6 +2523,40 @@ export interface paths {
          * @description Confirm it is you with your password, for the next quarter of an hour.
          */
         post: operations["reauth_api_auth_reauth_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/reauth/passkey": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm */
+        post: operations["confirm_api_auth_reauth_passkey_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/reauth/passkey/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Options */
+        post: operations["confirm_options_api_auth_reauth_passkey_options_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2499,6 +2648,31 @@ export interface paths {
         get: operations["auth_state_api_auth_state_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/two-step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Two Step
+         * @description Whether signing in with the password also asks for one of your passkeys.
+         */
+        put: operations["set_two_step_api_auth_two_step_put"];
+        /**
+         * Second Step
+         * @description The passkey after a right password, for a person who asked for both. The flow was
+         *     minted by that password check and names the account it was for.
+         */
+        post: operations["second_step_api_auth_two_step_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4489,6 +4663,15 @@ export interface components {
             /** Userids */
             userIds: string[];
         };
+        /** AddPasskeyIn */
+        AddPasskeyIn: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name?: string | null;
+        };
         /** AdminChannel */
         AdminChannel: {
             /** Archivedat */
@@ -4618,6 +4801,11 @@ export interface components {
             sessionCount: number;
             /** Title */
             title?: string | null;
+            /**
+             * Twostep
+             * @default false
+             */
+            twoStep: boolean;
         };
         /** AdminUsersOut */
         AdminUsersOut: {
@@ -6334,6 +6522,11 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** LoginOut */
+        LoginOut: {
+            twoStep?: components["schemas"]["PasskeyChallengeOut"] | null;
+            user?: components["schemas"]["CurrentUser"] | null;
+        };
         /** LogsOut */
         LogsOut: {
             /** Logs */
@@ -6807,6 +7000,51 @@ export interface components {
              */
             ok: boolean;
         };
+        /** PasskeyAnswerIn */
+        PasskeyAnswerIn: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+            /** Flowid */
+            flowId: string;
+        };
+        /** PasskeyChallengeOut */
+        PasskeyChallengeOut: {
+            /** Flowid */
+            flowId: string;
+            /** Options */
+            options: {
+                [key: string]: unknown;
+            };
+        };
+        /** PasskeyOptionsOut */
+        PasskeyOptionsOut: {
+            /** Options */
+            options: {
+                [key: string]: unknown;
+            };
+        };
+        /** PasskeyOut */
+        PasskeyOut: {
+            /** Backedup */
+            backedUp: boolean;
+            /** Createdat */
+            createdAt: string | null;
+            /** Id */
+            id: string;
+            /** Lastusedat */
+            lastUsedAt: string | null;
+            /** Name */
+            name: string;
+        };
+        /** PasskeysOut */
+        PasskeysOut: {
+            /** Passkeys */
+            passkeys: components["schemas"]["PasskeyOut"][];
+            /** Twostep */
+            twoStep: boolean;
+        };
         /** PinInput */
         PinInput: {
             /** Pinned */
@@ -7189,6 +7427,16 @@ export interface components {
             /** Error */
             error: string;
         };
+        /** RemovedPasskeyOut */
+        RemovedPasskeyOut: {
+            /** Credentialid */
+            credentialId: string;
+        };
+        /** RenamePasskeyIn */
+        RenamePasskeyIn: {
+            /** Name */
+            name: string;
+        };
         /** RepoInput */
         RepoInput: {
             /** Env */
@@ -7233,6 +7481,19 @@ export interface components {
             expiresAt: string;
             /** Url */
             url: string;
+        };
+        /** ResetOut */
+        ResetOut: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+            /**
+             * Signedin
+             * @default true
+             */
+            signedIn: boolean;
         };
         /** ResetPasswordInput */
         ResetPasswordInput: {
@@ -7744,6 +8005,11 @@ export interface components {
             /** Targetlanguage */
             targetLanguage?: string | null;
         };
+        /** TwoStepIn */
+        TwoStepIn: {
+            /** On */
+            on: boolean;
+        };
         /** UpdateAgentTaskInput */
         UpdateAgentTaskInput: {
             /** Assigneeuserid */
@@ -8244,6 +8510,7 @@ export type ActivityDay = components['schemas']['ActivityDay'];
 export type ActivityItemOut = components['schemas']['ActivityItemOut'];
 export type AddEmojiInput = components['schemas']['AddEmojiInput'];
 export type AddMembersInput = components['schemas']['AddMembersInput'];
+export type AddPasskeyIn = components['schemas']['AddPasskeyIn'];
 export type AdminChannel = components['schemas']['AdminChannel'];
 export type AdminChannelsOut = components['schemas']['AdminChannelsOut'];
 export type AdminDeliveriesOut = components['schemas']['AdminDeliveriesOut'];
@@ -8382,6 +8649,7 @@ export type LinkPreview = components['schemas']['LinkPreview'];
 export type LoanOut = components['schemas']['LoanOut'];
 export type LoansOut = components['schemas']['LoansOut'];
 export type LoginInput = components['schemas']['LoginInput'];
+export type LoginOut = components['schemas']['LoginOut'];
 export type LogsOut = components['schemas']['LogsOut'];
 export type Manifest = components['schemas']['Manifest'];
 export type MarkReadInput = components['schemas']['MarkReadInput'];
@@ -8419,6 +8687,11 @@ export type OAuthConsentRequestOut = components['schemas']['OAuthConsentRequestO
 export type OAuthGrantOut = components['schemas']['OAuthGrantOut'];
 export type OAuthGrantsOut = components['schemas']['OAuthGrantsOut'];
 export type OkOut = components['schemas']['OkOut'];
+export type PasskeyAnswerIn = components['schemas']['PasskeyAnswerIn'];
+export type PasskeyChallengeOut = components['schemas']['PasskeyChallengeOut'];
+export type PasskeyOptionsOut = components['schemas']['PasskeyOptionsOut'];
+export type PasskeyOut = components['schemas']['PasskeyOut'];
+export type PasskeysOut = components['schemas']['PasskeysOut'];
 export type PinInput = components['schemas']['PinInput'];
 export type PluginOut = components['schemas']['PluginOut'];
 export type PluginsOut = components['schemas']['PluginsOut'];
@@ -8444,9 +8717,12 @@ export type ReasoningInput = components['schemas']['ReasoningInput'];
 export type ReauthInput = components['schemas']['ReauthInput'];
 export type ReauthStateOut = components['schemas']['ReauthStateOut'];
 export type RecentErrorOut = components['schemas']['RecentErrorOut'];
+export type RemovedPasskeyOut = components['schemas']['RemovedPasskeyOut'];
+export type RenamePasskeyIn = components['schemas']['RenamePasskeyIn'];
 export type RepoInput = components['schemas']['RepoInput'];
 export type RepoPreviewOut = components['schemas']['RepoPreviewOut'];
 export type ResetLinkOut = components['schemas']['ResetLinkOut'];
+export type ResetOut = components['schemas']['ResetOut'];
 export type ResetPasswordInput = components['schemas']['ResetPasswordInput'];
 export type Review = components['schemas']['Review'];
 export type ReviewInput = components['schemas']['ReviewInput'];
@@ -8491,6 +8767,7 @@ export type TokensOut = components['schemas']['TokensOut'];
 export type TokenSummary = components['schemas']['TokenSummary'];
 export type ToolsInput = components['schemas']['ToolsInput'];
 export type TranslateMessageInput = components['schemas']['TranslateMessageInput'];
+export type TwoStepIn = components['schemas']['TwoStepIn'];
 export type UpdateAgentTaskInput = components['schemas']['UpdateAgentTaskInput'];
 export type UpdateChannelInput = components['schemas']['UpdateChannelInput'];
 export type UpdateGroupInput = components['schemas']['UpdateGroupInput'];
@@ -11671,6 +11948,37 @@ export interface operations {
             };
         };
     };
+    end_two_step_api_admin_users__user_id__two_step_end_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_webhooks_api_admin_webhooks_get: {
         parameters: {
             query?: never;
@@ -12549,7 +12857,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SessionOut"];
+                    "application/json": components["schemas"]["LoginOut"];
                 };
             };
             /** @description Validation Error */
@@ -12599,6 +12907,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkOut"];
+                };
+            };
+        };
+    };
+    sign_in_options_api_auth_passkey_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyChallengeOut"];
+                };
+            };
+        };
+    };
+    sign_in_api_auth_passkey_sign_in_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_passkeys_api_auth_passkeys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeysOut"];
+                };
+            };
+        };
+    };
+    add_passkey_api_auth_passkeys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddPasskeyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_passkey_api_auth_passkeys__passkey_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                passkey_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovedPasskeyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_passkey_api_auth_passkeys__passkey_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                passkey_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenamePasskeyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_options_api_auth_passkeys_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptionsOut"];
                 };
             };
         };
@@ -12689,6 +13189,59 @@ export interface operations {
             };
         };
     };
+    confirm_api_auth_reauth_passkey_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_options_api_auth_reauth_passkey_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyChallengeOut"];
+                };
+            };
+        };
+    };
     reset_password_api_auth_reset_password_post: {
         parameters: {
             query?: never;
@@ -12708,7 +13261,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OkOut"];
+                    "application/json": components["schemas"]["ResetOut"];
                 };
             };
             /** @description Validation Error */
@@ -12822,6 +13375,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthStateOut"];
+                };
+            };
+        };
+    };
+    set_two_step_api_auth_two_step_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoStepIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    second_step_api_auth_two_step_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

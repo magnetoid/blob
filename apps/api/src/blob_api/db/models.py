@@ -26,6 +26,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     PrimaryKeyConstraint,
     String,
     Text,
@@ -163,11 +164,13 @@ class AccountEvent(Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('signed_in', 'confirmed', 'failed', 'password_changed', "
-            "'signed_out_elsewhere', 'session_ended')",
+            "'signed_out_elsewhere', 'session_ended', 'passkey_added', 'passkey_removed', "
+            "'two_step_on', 'two_step_off')",
             name="account_events_kind_check",
         ),
         CheckConstraint(
-            "method IS NULL OR method IN ('password', 'passkey', 'sso', 'reset', 'signup')",
+            "method IS NULL OR method IN "
+            "('password', 'passkey', 'sso', 'reset', 'signup', 'two_step')",
             name="account_events_method_check",
         ),
         Index("account_events_person", "email", text("id DESC")),
@@ -182,6 +185,46 @@ class AccountEvent(Base):
     ip: Mapped[str | None] = mapped_column(INET)
     user_agent: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class PasskeyOwner(Base):
+    """An address that has added a passkey (M3 · B1, ADR 0032): the random handle its
+    passkeys carry for it, and whether its password is only half a sign-in."""
+
+    __tablename__ = "passkey_owners"
+    __table_args__ = (UniqueConstraint("user_handle", name="passkey_owners_user_handle_key"),)
+
+    email: Mapped[str] = mapped_column(CITEXT, primary_key=True)
+    user_handle: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    two_step: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class Passkey(Base):
+    """The public half of one WebAuthn credential, and whose it is. The person's, by
+    address, like their password: every workspace they are in on this server."""
+
+    __tablename__ = "passkeys"
+    __table_args__ = (
+        UniqueConstraint("credential_id", name="passkeys_credential_id_key"),
+        Index("passkeys_person", "email"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    email: Mapped[str] = mapped_column(
+        CITEXT, ForeignKey("passkey_owners.email", ondelete="CASCADE"), nullable=False
+    )
+    credential_id: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    public_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    sign_count: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
+    transports: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")
+    )
+    aaguid: Mapped[str | None] = mapped_column(Text)
+    backed_up: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    last_used_at: Mapped[Any | None] = mapped_column(Timestamp)
 
 
 class Invite(Base):
@@ -2187,6 +2230,8 @@ __all__ = [
     "OAuthClient",
     "OAuthGrant",
     "OAuthRefreshToken",
+    "Passkey",
+    "PasskeyOwner",
     "PasswordReset",
     "Plugin",
     "PluginDelivery",

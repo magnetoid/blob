@@ -192,6 +192,32 @@
         "title": "AddMembersInput",
         "type": "object"
       },
+      "AddPasskeyIn": {
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "credential"
+        ],
+        "title": "AddPasskeyIn",
+        "type": "object"
+      },
       "AdminChannel": {
         "properties": {
           "archivedAt": {
@@ -612,6 +638,11 @@
               }
             ],
             "title": "Title"
+          },
+          "twoStep": {
+            "default": false,
+            "title": "Twostep",
+            "type": "boolean"
           }
         },
         "required": [
@@ -5170,6 +5201,32 @@
         "title": "LoginInput",
         "type": "object"
       },
+      "LoginOut": {
+        "properties": {
+          "twoStep": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PasskeyChallengeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurrentUser"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "LoginOut",
+        "type": "object"
+      },
       "LogsOut": {
         "properties": {
           "logs": {
@@ -6606,6 +6663,128 @@
         "title": "OkOut",
         "type": "object"
       },
+      "PasskeyAnswerIn": {
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          },
+          "flowId": {
+            "maxLength": 100,
+            "minLength": 10,
+            "title": "Flowid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "flowId",
+          "credential"
+        ],
+        "title": "PasskeyAnswerIn",
+        "type": "object"
+      },
+      "PasskeyChallengeOut": {
+        "properties": {
+          "flowId": {
+            "title": "Flowid",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": true,
+            "title": "Options",
+            "type": "object"
+          }
+        },
+        "required": [
+          "flowId",
+          "options"
+        ],
+        "title": "PasskeyChallengeOut",
+        "type": "object"
+      },
+      "PasskeyOptionsOut": {
+        "properties": {
+          "options": {
+            "additionalProperties": true,
+            "title": "Options",
+            "type": "object"
+          }
+        },
+        "required": [
+          "options"
+        ],
+        "title": "PasskeyOptionsOut",
+        "type": "object"
+      },
+      "PasskeyOut": {
+        "properties": {
+          "backedUp": {
+            "title": "Backedup",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastusedat"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "createdAt",
+          "lastUsedAt",
+          "backedUp"
+        ],
+        "title": "PasskeyOut",
+        "type": "object"
+      },
+      "PasskeysOut": {
+        "properties": {
+          "passkeys": {
+            "items": {
+              "$ref": "#/components/schemas/PasskeyOut"
+            },
+            "title": "Passkeys",
+            "type": "array"
+          },
+          "twoStep": {
+            "title": "Twostep",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "passkeys",
+          "twoStep"
+        ],
+        "title": "PasskeysOut",
+        "type": "object"
+      },
       "PinInput": {
         "properties": {
           "pinned": {
@@ -7604,6 +7783,34 @@
         "title": "RecentErrorOut",
         "type": "object"
       },
+      "RemovedPasskeyOut": {
+        "properties": {
+          "credentialId": {
+            "title": "Credentialid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "credentialId"
+        ],
+        "title": "RemovedPasskeyOut",
+        "type": "object"
+      },
+      "RenamePasskeyIn": {
+        "properties": {
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "RenamePasskeyIn",
+        "type": "object"
+      },
       "RepoInput": {
         "properties": {
           "env": {
@@ -7722,6 +7929,22 @@
           "expiresAt"
         ],
         "title": "ResetLinkOut",
+        "type": "object"
+      },
+      "ResetOut": {
+        "properties": {
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "signedIn": {
+            "default": true,
+            "title": "Signedin",
+            "type": "boolean"
+          }
+        },
+        "title": "ResetOut",
         "type": "object"
       },
       "ResetPasswordInput": {
@@ -9146,6 +9369,19 @@
           }
         },
         "title": "TranslateMessageInput",
+        "type": "object"
+      },
+      "TwoStepIn": {
+        "properties": {
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "TwoStepIn",
         "type": "object"
       },
       "UpdateAgentTaskInput": {
@@ -15615,6 +15851,50 @@
         ]
       }
     },
+    "/api/admin/users/{user_id}/two-step/end": {
+      "post": {
+        "description": "Stop asking somebody for a passkey after their password \u2014 the way back for a\nperson who lost the devices their passkeys were on. Given out like a reset link.",
+        "operationId": "end_two_step_api_admin_users__user_id__two_step_end_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Two Step",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/webhooks": {
       "get": {
         "operationId": "list_webhooks_api_admin_webhooks_get",
@@ -16909,7 +17189,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionOut"
+                  "$ref": "#/components/schemas/LoginOut"
                 }
               }
             },
@@ -16972,6 +17252,245 @@
         "summary": "Logout Others",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/auth/passkey/options": {
+      "post": {
+        "description": "A challenge any of this server's passkeys can answer. Names nobody: the browser\noffers whichever passkeys it holds for this server, or fills one into the form.",
+        "operationId": "sign_in_options_api_auth_passkey_options_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyChallengeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sign In Options",
+        "tags": [
+          "passkeys"
+        ]
+      }
+    },
+    "/api/auth/passkey/sign-in": {
+      "post": {
+        "operationId": "sign_in_api_auth_passkey_sign_in_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign In",
+        "tags": [
+          "passkeys"
+        ]
+      }
+    },
+    "/api/auth/passkeys": {
+      "get": {
+        "operationId": "list_passkeys_api_auth_passkeys_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeysOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Passkeys",
+        "tags": [
+          "passkeys"
+        ]
+      },
+      "post": {
+        "operationId": "add_passkey_api_auth_passkeys_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddPasskeyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Passkey",
+        "tags": [
+          "passkeys"
+        ]
+      }
+    },
+    "/api/auth/passkeys/options": {
+      "post": {
+        "description": "The first half of adding a passkey: what `navigator.credentials.create` needs.",
+        "operationId": "passkey_options_api_auth_passkeys_options_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Passkey Options",
+        "tags": [
+          "passkeys"
+        ]
+      }
+    },
+    "/api/auth/passkeys/{passkey_id}": {
+      "delete": {
+        "operationId": "remove_passkey_api_auth_passkeys__passkey_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "passkey_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Passkey Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedPasskeyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Passkey",
+        "tags": [
+          "passkeys"
+        ]
+      },
+      "patch": {
+        "operationId": "rename_passkey_api_auth_passkeys__passkey_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "passkey_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Passkey Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenamePasskeyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Passkey",
+        "tags": [
+          "passkeys"
         ]
       }
     },
@@ -17079,6 +17598,68 @@
         ]
       }
     },
+    "/api/auth/reauth/passkey": {
+      "post": {
+        "operationId": "confirm_api_auth_reauth_passkey_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm",
+        "tags": [
+          "passkeys"
+        ]
+      }
+    },
+    "/api/auth/reauth/passkey/options": {
+      "post": {
+        "operationId": "confirm_options_api_auth_reauth_passkey_options_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyChallengeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Confirm Options",
+        "tags": [
+          "passkeys"
+        ]
+      }
+    },
     "/api/auth/reset-password": {
       "post": {
         "operationId": "reset_password_api_auth_reset_password_post",
@@ -17097,7 +17678,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OkOut"
+                  "$ref": "#/components/schemas/ResetOut"
                 }
               }
             },
@@ -17245,6 +17826,88 @@
         "summary": "Auth State",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/auth/two-step": {
+      "post": {
+        "description": "The passkey after a right password, for a person who asked for both. The flow was\nminted by that password check and names the account it was for.",
+        "operationId": "second_step_api_auth_two_step_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Second Step",
+        "tags": [
+          "passkeys"
+        ]
+      },
+      "put": {
+        "description": "Whether signing in with the password also asks for one of your passkeys.",
+        "operationId": "set_two_step_api_auth_two_step_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoStepIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Two Step",
+        "tags": [
+          "passkeys"
         ]
       }
     },

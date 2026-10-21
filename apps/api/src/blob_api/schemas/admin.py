@@ -26,6 +26,8 @@ class AdminUser(CamelModel):
     session_count: int = 0
     channel_count: int = 0
     message_count: int = 0
+    #: Whether this person's sign-in asks for a passkey after the password (ADR 0032).
+    two_step: bool = False
 
 
 class AdminUsersOut(CamelModel):

@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Dialog, DialogPresence } from '../../components/Dialog.tsx';
 import { api, ApiError, type ReauthState } from '../../lib/api.ts';
+import { getPasskey, isCancel, passkeysSupported } from '../../lib/passkeys.ts';
 import { setAsker } from '../../lib/stepUp.ts';
 import { useFetch } from '../../lib/useFetch.ts';
 
@@ -60,6 +61,22 @@ function ConfirmDialog({ onAnswer }: { onAnswer: (confirmed: boolean) => void })
   // Focused on mount, the way every dialog here does it: the one thing to do is type.
   useEffect(() => inputRef.current?.focus(), []);
   const hasPassword = state === null || state.methods.includes('password');
+  const hasPasskey = state !== null && state.methods.includes('passkey') && passkeysSupported();
+
+  async function withPasskey() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { flowId, options } = await api.passkeys.confirmOptions();
+      await api.passkeys.confirm(flowId, await getPasskey(options));
+      onAnswer(true);
+    } catch (err) {
+      if (!isCancel(err)) {
+        setError(err instanceof ApiError ? err.message : 'That passkey could not be checked.');
+      }
+      setBusy(false);
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -80,11 +97,11 @@ function ConfirmDialog({ onAnswer }: { onAnswer: (confirmed: boolean) => void })
       <form className="dialog" onSubmit={submit}>
         <h2 className="dialog-title">Confirm it’s you</h2>
         <p className="pref-hint">
-          This gives someone or something access — an assistant, an app, a role, a way into
-          an account — so it needs your password first. You won’t be asked again for {minutes}{' '}
-          minutes.
+          This gives someone or something access — an assistant, an app, a role, a way into an
+          account — so it needs you to prove it’s you first. You won’t be asked again for{' '}
+          {minutes} minutes.
         </p>
-        {hasPassword ? (
+        {hasPassword && (
           <label className="field">
             <span className="field-label">Password</span>
             <input
@@ -96,10 +113,11 @@ function ConfirmDialog({ onAnswer }: { onAnswer: (confirmed: boolean) => void })
               onChange={(e) => setPassword(e.target.value)}
             />
           </label>
-        ) : (
+        )}
+        {!hasPassword && !hasPasskey && (
           <p className="pref-hint">
-            Your account has no password to confirm with. Set one under Sign-in &amp; security, then
-            try again.
+            Your account has no password or passkey to confirm with. Set a password under Sign-in
+            &amp; security, then try again.
           </p>
         )}
         <div aria-live="polite">{error && <p className="error-text">{error}</p>}</div>
@@ -107,6 +125,16 @@ function ConfirmDialog({ onAnswer }: { onAnswer: (confirmed: boolean) => void })
           <button className="btn" type="button" onClick={() => onAnswer(false)}>
             Cancel
           </button>
+          {hasPasskey && (
+            <button
+              className={hasPassword ? 'btn' : 'btn btn-primary'}
+              type="button"
+              disabled={busy}
+              onClick={() => void withPasskey()}
+            >
+              Use a passkey
+            </button>
+          )}
           {hasPassword && (
             <button className="btn btn-primary" type="submit" disabled={busy || !password}>
               {busy ? 'Confirming…' : 'Confirm'}

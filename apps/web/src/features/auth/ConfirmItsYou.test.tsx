@@ -5,11 +5,27 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 
 const reauthState = vi.fn();
 const reauth = vi.fn();
+const confirmOptions = vi.fn();
+const confirm = vi.fn();
 vi.mock('../../lib/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/api.ts')>();
   return {
     ...actual,
-    api: { ...actual.api, auth: { ...actual.api.auth, reauthState, reauth } },
+    api: {
+      ...actual.api,
+      auth: { ...actual.api.auth, reauthState, reauth },
+      passkeys: { ...actual.api.passkeys, confirmOptions, confirm },
+    },
+  };
+});
+
+const getPasskey = vi.fn();
+vi.mock('../../lib/passkeys.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/passkeys.ts')>();
+  return {
+    ...actual,
+    passkeysSupported: () => true,
+    getPasskey: (...args: unknown[]) => getPasskey(...args),
   };
 });
 
@@ -88,5 +104,32 @@ describe('confirming it is you', () => {
     render(<ConfirmItsYou />);
     void ask();
     expect(await screen.findByText('Confirm it’s you', { selector: 'h2' })).toBeTruthy();
+  });
+
+  it('takes a passkey instead of the password', async () => {
+    reauthState.mockResolvedValue({
+      methods: ['password', 'passkey'],
+      provenAt: null,
+      windowMinutes: 15,
+    });
+    confirmOptions.mockResolvedValue({ flowId: 'flow-1234567890', options: { challenge: 'x' } });
+    getPasskey.mockResolvedValue({ id: 'cred' });
+    confirm.mockResolvedValue({ ok: true });
+    render(<ConfirmItsYou />);
+
+    const answer = ask();
+    fireEvent.click(await screen.findByText('Use a passkey'));
+    expect(await answer).toBe(true);
+    expect(confirm).toHaveBeenCalledWith('flow-1234567890', { id: 'cred' });
+    expect(reauth).not.toHaveBeenCalled();
+  });
+
+  it('makes the passkey the way when there is no password', async () => {
+    reauthState.mockResolvedValue({ methods: ['passkey'], provenAt: null, windowMinutes: 15 });
+    render(<ConfirmItsYou />);
+    void ask();
+    const button = await screen.findByText('Use a passkey');
+    expect(button.className).toContain('btn-primary');
+    expect(screen.queryByLabelText('Password')).toBeNull();
   });
 });

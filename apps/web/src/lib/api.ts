@@ -320,6 +320,8 @@ export interface AdminUser {
   sessionCount: number;
   channelCount: number;
   messageCount: number;
+  /** Their sign-in asks for a passkey after the password (ADR 0032). */
+  twoStep: boolean;
 }
 
 export interface AdminInvite {
@@ -885,12 +887,32 @@ export interface AccountEvent {
     | "failed"
     | "password_changed"
     | "signed_out_elsewhere"
-    | "session_ended";
+    | "session_ended"
+    | "passkey_added"
+    | "passkey_removed"
+    | "two_step_on"
+    | "two_step_off";
   method: string | null;
   ip: string | null;
   userAgent: string | null;
   workspace: string | null;
   createdAt: string;
+}
+
+/** One of your passkeys (ADR 0032). */
+export interface PasskeyRow {
+  id: string;
+  name: string;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+  /** Synced by a password manager to your other devices, rather than held by one. */
+  backedUp: boolean;
+}
+
+/** A challenge for `navigator.credentials.get`, and the flow id that spends it. */
+export interface PasskeyChallenge {
+  flowId: string;
+  options: Record<string, unknown>;
 }
 
 export interface ReauthState {
@@ -910,8 +932,13 @@ export const api = {
       workspaceName?: string;
       inviteToken?: string;
     }) => post<{ user: CurrentUser }>("/api/auth/signup", input),
+    /** `user` when that signed you in; `twoStep` instead when your passkey is asked for
+     *  too, to answer at `passkeys.secondStep`. */
     login: (email: string, password: string) =>
-      post<{ user: CurrentUser }>("/api/auth/login", { email, password }),
+      post<{ user: CurrentUser | null; twoStep: PasskeyChallenge | null }>(
+        "/api/auth/login",
+        { email, password },
+      ),
     logout: () => post<{ ok: true }>("/api/auth/logout"),
     sessions: () => get<{ sessions: AuthSession[] }>("/api/auth/sessions"),
     endSession: (id: string) => del<{ ok: true }>(`/api/auth/sessions/${id}`),
@@ -937,8 +964,39 @@ export const api = {
       post<{ ok: true; mailReachable: boolean }>("/api/auth/forgot-password", {
         email,
       }),
+    /** `signedIn` is false for a person whose sign-in also asks for a passkey. */
     resetPassword: (token: string, password: string) =>
-      post<{ ok: true }>("/api/auth/reset-password", { token, password }),
+      post<{ ok: true; signedIn: boolean }>("/api/auth/reset-password", {
+        token,
+        password,
+      }),
+  },
+
+  passkeys: {
+    list: () =>
+      get<{ passkeys: PasskeyRow[]; twoStep: boolean }>("/api/auth/passkeys"),
+    /** The first half of adding one. Needs a recent sign-in. */
+    options: () =>
+      post<{ options: Record<string, unknown> }>("/api/auth/passkeys/options"),
+    add: (credential: PublicKeyCredentialJSON, name?: string) =>
+      post<PasskeyRow>("/api/auth/passkeys", { credential, name }),
+    rename: (id: string, name: string) =>
+      patch<{ ok: true }>(`/api/auth/passkeys/${id}`, { name }),
+    remove: (id: string) =>
+      del<{ credentialId: string }>(`/api/auth/passkeys/${id}`),
+    setTwoStep: (on: boolean) => put<{ ok: true }>("/api/auth/two-step", { on }),
+    signInOptions: () => post<PasskeyChallenge>("/api/auth/passkey/options"),
+    signIn: (flowId: string, credential: PublicKeyCredentialJSON) =>
+      post<{ user: CurrentUser }>("/api/auth/passkey/sign-in", {
+        flowId,
+        credential,
+      }),
+    secondStep: (flowId: string, credential: PublicKeyCredentialJSON) =>
+      post<{ user: CurrentUser }>("/api/auth/two-step", { flowId, credential }),
+    confirmOptions: () =>
+      post<PasskeyChallenge>("/api/auth/reauth/passkey/options"),
+    confirm: (flowId: string, credential: PublicKeyCredentialJSON) =>
+      post<{ ok: true }>("/api/auth/reauth/passkey", { flowId, credential }),
   },
 
   bootstrap: () => get<Bootstrap>("/api/bootstrap"),
@@ -1517,6 +1575,9 @@ export const api = {
       ),
     revokeSessions: (id: string) =>
       post<{ ok: true }>(`/api/admin/users/${id}/revoke-sessions`),
+    /** Stop asking somebody for a passkey after their password. */
+    endTwoStep: (id: string) =>
+      post<{ ok: true }>(`/api/admin/users/${id}/two-step/end`),
 
     invites: () => get<{ invites: AdminInvite[] }>("/api/admin/invites"),
     revokeInvite: (id: string) => del<{ ok: true }>(`/api/admin/invites/${id}`),

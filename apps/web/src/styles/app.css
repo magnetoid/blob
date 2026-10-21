@@ -4491,6 +4491,14 @@ button.member-row,
   max-width: 760px;
 }
 
+/* A form inside a card — its fields, a line under them, its buttons — closer together than
+   the cards on a page are (`.console-stack`). */
+.console-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 .console-form-actions {
   display: flex;
   flex-wrap: wrap;

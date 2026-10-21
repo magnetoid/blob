@@ -9,6 +9,7 @@ mail that goes out after COMMIT, and the sockets closed past it.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
 
@@ -47,6 +48,7 @@ from ..schemas.requests import (
     SignupInput,
 )
 from ..services import accounts as account_service
+from ..services import passkeys as passkey_service
 from ..services import signup as signup_service
 from ..services import workspaces as workspace_service
 from ..services.audit import actor_for
@@ -61,6 +63,27 @@ class AuthStateOut(CamelModel):
 
 class SessionOut(CamelModel):
     user: CurrentUser
+
+
+class PasskeyChallengeOut(CamelModel):
+    #: Spends the challenge: sent back with the browser's answer.
+    flow_id: str
+    #: As `PublicKeyCredential.parseRequestOptionsFromJSON` takes them.
+    options: dict[str, Any]
+
+
+class LoginOut(CamelModel):
+    user: CurrentUser | None = None
+    #: Instead of `user`, when the password was right and this person asks for a passkey
+    #: as well (ADR 0032): the browser answers it at `POST /api/auth/two-step`.
+    two_step: PasskeyChallengeOut | None = None
+
+
+class ResetOut(CamelModel):
+    ok: bool = True
+    #: False when the person asks for a passkey after their password: a reset proves the
+    #: inbox, not the passkey, so they sign in with both once it is done.
+    signed_in: bool = True
 
 
 class ForgotOut(CamelModel):
@@ -126,7 +149,7 @@ class ReauthStateOut(CamelModel):
     window_minutes: int
 
 
-async def _sign_in(request: Request, response: Response, user_id: str, *, method: str) -> None:
+async def start_session(request: Request, response: Response, user_id: str, *, method: str) -> None:
     """Mint the session, set the cookie, and write the line in the person's history."""
     user_agent = request.headers.get("user-agent")
     ip = client_ip(request)
@@ -145,7 +168,8 @@ async def _sign_in(request: Request, response: Response, user_id: str, *, method
         )
 
 
-async def _record(request: Request, user_id: str, kind: str, method: str | None = None) -> None:
+async def note(request: Request, user_id: str, kind: str, method: str | None = None) -> None:
+    """One line of the person's record, from this request's device and address."""
     async with transaction() as (session, _):
         await account_service.record_event(
             session,
@@ -182,12 +206,12 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
             workspace_name=payload.workspace_name,
             invite_token=payload.invite_token,
         )
-    await _sign_in(request, response, user_id, method="signup")
+    await start_session(request, response, user_id, method="signup")
     return SessionOut(user=user)
 
 
-@router.post("/api/auth/login", response_model=SessionOut)
-async def login(payload: LoginInput, request: Request, response: Response) -> SessionOut:
+@router.post("/api/auth/login", response_model=LoginOut)
+async def login(payload: LoginInput, request: Request, response: Response) -> LoginOut:
     await consume("login", client_key(request))
     async with session_scope() as session:
         row = await account_service.find_for_login(session, payload.email)
@@ -201,13 +225,20 @@ async def login(payload: LoginInput, request: Request, response: Response) -> Se
     if not await verify_password(row.password_hash, payload.password):
         # On the person's own record, where they will see it: a run of these is how
         # somebody learns their address is being tried.
-        await _record(request, row.id, "failed", "password")
+        await note(request, row.id, "failed", "password")
         raise invalid
 
-    await _sign_in(request, response, row.id, method="password")
+    async with session_scope() as session:
+        if await passkey_service.two_step_required(session, row.email):
+            # Half a sign-in: no session until one of their passkeys answers.
+            flow_id, options = await passkey_service.begin_authentication(
+                session, purpose="two_step", email=row.email, user_id=str(row.id)
+            )
+            return LoginOut(two_step=PasskeyChallengeOut(flow_id=flow_id, options=options))
+    await start_session(request, response, row.id, method="password")
     async with session_scope() as session:
         instance_admin = await workspace_service.is_instance_admin(session, row.email)
-    return SessionOut(user=to_current_user(row, is_instance_admin=instance_admin))
+    return LoginOut(user=to_current_user(row, is_instance_admin=instance_admin))
 
 
 @router.post("/api/auth/logout", response_model=OkOut)
@@ -336,10 +367,10 @@ async def reauth(
     async with session_scope() as session:
         current_hash = await workspace_service.password_hash_for(session, user.email)
     if current_hash is None or not await verify_password(current_hash, payload.password):
-        await _record(request, user.id, "failed", "password")
+        await note(request, user.id, "failed", "password")
         raise _wrong_password()
     await mark_proven(user.session_id)
-    await _record(request, user.id, "confirmed", "password")
+    await note(request, user.id, "confirmed", "password")
     return OkOut()
 
 
@@ -356,7 +387,7 @@ async def change_password(
         if payload.current_password is None or not await verify_password(
             current_hash, payload.current_password
         ):
-            await _record(request, user.id, "failed", "password")
+            await note(request, user.id, "failed", "password")
             raise AppError(
                 400,
                 "wrong_password",
@@ -442,10 +473,10 @@ async def forgot_password(payload: ForgotPasswordInput, request: Request) -> For
     return ForgotOut(mail_reachable=await mail.probe() == "ok")
 
 
-@router.post("/api/auth/reset-password", response_model=OkOut)
+@router.post("/api/auth/reset-password", response_model=ResetOut)
 async def reset_password(
     payload: ResetPasswordInput, request: Request, response: Response
-) -> OkOut:
+) -> ResetOut:
     await consume("password_reset_finish", client_key(request))
     async with transaction() as (session, after):
         # The token first, the hash second. Hashing is the expensive half — argon2 at
@@ -460,8 +491,11 @@ async def reset_password(
         # authenticates once, so a socket opened with a since-deleted session keeps
         # delivering until the tab is closed.
         after.add(lambda: hub.close_users(signed_out))
-    await _sign_in(request, response, user_id, method="reset")
-    return OkOut()
+        two_step = await passkey_service.two_step_required(session, claim.email)
+    if two_step:
+        return ResetOut(signed_in=False)
+    await start_session(request, response, user_id, method="reset")
+    return ResetOut()
 
 
 __all__ = ["router"]

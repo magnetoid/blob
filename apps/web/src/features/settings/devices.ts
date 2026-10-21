@@ -36,6 +36,8 @@ export function describeMethod(method: string | null): string | null {
       return 'with a password';
     case 'passkey':
       return 'with a passkey';
+    case 'two_step':
+      return 'with a password and a passkey';
     case 'sso':
       return 'with single sign-on';
     case 'reset':
@@ -63,5 +65,13 @@ export function describeEvent(event: Pick<AccountEvent, 'kind' | 'method'>): str
       return 'Signed out everywhere else';
     case 'session_ended':
       return 'Signed a device out';
+    case 'passkey_added':
+      return 'Passkey added';
+    case 'passkey_removed':
+      return 'Passkey removed';
+    case 'two_step_on':
+      return 'Started asking for a passkey after the password';
+    case 'two_step_off':
+      return 'Stopped asking for a passkey after the password';
   }
 }

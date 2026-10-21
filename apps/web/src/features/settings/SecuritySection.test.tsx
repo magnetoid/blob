@@ -9,6 +9,11 @@ const reauthState = vi.fn();
 const endSession = vi.fn();
 const logoutOthers = vi.fn();
 const changePassword = vi.fn();
+const passkeyList = vi.fn();
+const passkeyOptions = vi.fn();
+const passkeyAdd = vi.fn();
+const passkeyRemove = vi.fn();
+const setTwoStep = vi.fn();
 vi.mock('../../lib/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/api.ts')>();
   return {
@@ -24,7 +29,27 @@ vi.mock('../../lib/api.ts', async (importOriginal) => {
         logoutOthers,
         changePassword,
       },
+      passkeys: {
+        ...actual.api.passkeys,
+        list: passkeyList,
+        options: passkeyOptions,
+        add: passkeyAdd,
+        remove: passkeyRemove,
+        setTwoStep,
+      },
     },
+  };
+});
+
+const createPasskey = vi.fn();
+const forgetPasskey = vi.fn();
+vi.mock('../../lib/passkeys.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/passkeys.ts')>();
+  return {
+    ...actual,
+    passkeysSupported: () => true,
+    createPasskey: (...args: unknown[]) => createPasskey(...args),
+    forgetPasskey: (...args: unknown[]) => forgetPasskey(...args),
   };
 });
 
@@ -53,11 +78,22 @@ function serve({
   devices = [session({ id: 'here', current: true })],
   events = [] as unknown[],
   methods = ['password'],
+  passkeys = [] as unknown[],
+  twoStep = false,
 } = {}) {
   sessions.mockResolvedValue({ sessions: devices });
   activity.mockResolvedValue({ events, keepDays: 90 });
   reauthState.mockResolvedValue({ methods, provenAt: null, windowMinutes: 15 });
+  passkeyList.mockResolvedValue({ passkeys, twoStep });
 }
+
+const LAPTOP_KEY = {
+  id: 'pk1',
+  name: 'Chrome on macOS',
+  createdAt: '2026-10-01T09:00:00Z',
+  lastUsedAt: null,
+  backedUp: true,
+};
 
 afterEach(() => {
   cleanup();
@@ -178,5 +214,89 @@ describe('changing the password', () => {
       }),
     );
     expect(await screen.findByText(/Password changed/)).toBeTruthy();
+  });
+});
+
+describe('passkeys', () => {
+  it('adds one named after the device it was made on', async () => {
+    serve();
+    passkeyOptions.mockResolvedValue({ options: { challenge: 'abc' } });
+    createPasskey.mockResolvedValue({ id: 'cred' });
+    passkeyAdd.mockResolvedValue(LAPTOP_KEY);
+    render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+
+    fireEvent.click(await screen.findByText('Add a passkey'));
+    await waitFor(() => expect(passkeyAdd).toHaveBeenCalled());
+    expect(createPasskey).toHaveBeenCalledWith({ challenge: 'abc' });
+    const [credential, name] = passkeyAdd.mock.calls[0] as [unknown, string];
+    expect(credential).toEqual({ id: 'cred' });
+    expect(typeof name).toBe('string');
+    // The list is asked for again, with the new one in it.
+    await waitFor(() => expect(passkeyList).toHaveBeenCalledTimes(2));
+  });
+
+  it('says nothing when the person closes the browser’s prompt', async () => {
+    serve();
+    passkeyOptions.mockResolvedValue({ options: { challenge: 'abc' } });
+    createPasskey.mockRejectedValue(new DOMException('closed', 'NotAllowedError'));
+    const onError = vi.fn();
+    render(<SecuritySection onError={onError} isOwner={false} />);
+
+    fireEvent.click(await screen.findByText('Add a passkey'));
+    await waitFor(() => expect(createPasskey).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByText('Add a passkey').closest('button')?.disabled).toBe(false),
+    );
+    expect(onError).not.toHaveBeenCalledWith(expect.any(String));
+    expect(passkeyAdd).not.toHaveBeenCalled();
+  });
+
+  it('removes one after asking, and tells the password manager', async () => {
+    serve({ passkeys: [LAPTOP_KEY] });
+    passkeyRemove.mockResolvedValue({ credentialId: 'cred-b64' });
+    render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove Chrome on macOS' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(passkeyRemove).toHaveBeenCalledWith('pk1'));
+    await waitFor(() => expect(forgetPasskey).toHaveBeenCalledWith('cred-b64'));
+  });
+
+  it('offers the second step only once there is a passkey to ask for', async () => {
+    serve();
+    const { unmount } = render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+    await screen.findByText(/None yet/);
+    expect(screen.queryByLabelText('Ask for a passkey after my password')).toBeNull();
+    unmount();
+
+    serve({ passkeys: [LAPTOP_KEY], twoStep: false });
+    setTwoStep.mockResolvedValue({ ok: true });
+    render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+    const toggle = await screen.findByLabelText('Ask for a passkey after my password');
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(setTwoStep).toHaveBeenCalledWith(true));
+  });
+});
+
+describe('the record, in words', () => {
+  it('has a sentence for every kind of line', async () => {
+    const { describeEvent } = await import('./devices.ts');
+    const kinds = [
+      'signed_in',
+      'confirmed',
+      'failed',
+      'password_changed',
+      'signed_out_elsewhere',
+      'session_ended',
+      'passkey_added',
+      'passkey_removed',
+      'two_step_on',
+      'two_step_off',
+    ] as const;
+    for (const kind of kinds) expect(describeEvent({ kind, method: null })).toBeTruthy();
+    expect(describeEvent({ kind: 'signed_in', method: 'two_step' })).toBe(
+      'Signed in with a password and a passkey',
+    );
   });
 });

@@ -36,6 +36,9 @@ LIMITS: dict[str, Limit] = {
     # signed in: both check a password, so both get sign-in's ceiling — per person, since
     # the caller already holds a session and an address would only spread the guesses.
     "reauth": Limit(10, 900),
+    # Asking for a passkey challenge, signed out. Cheap, but each is a key in Redis for
+    # five minutes, and a page that offers passkey autofill asks once per visit.
+    "passkey_options": Limit(30, 600),
     "send_message": Limit(30, 60),
     # Adding and taking away share one bucket: each is a frame to every member of the
     # channel and an event to every app subscribed to it, the same fan-out a message has,

@@ -21,7 +21,7 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-thirty-one ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+thirty-two ADRs; the principles below are their summary, not a substitute. 0013–0020 and
 0022–0030 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
@@ -188,7 +188,12 @@ Anything that hands out lasting reach (an MCP token, approving an assistant, a r
 reset link, an app's token) depends on `require_recent_auth`: 403 `reauth_required` once
 `sessions.reauth_at` is older than fifteen minutes, which the client answers globally by
 asking and resending (`lib/stepUp.ts`). A workspace switch carries `reauth_at` over; never
-mint a session as fresh for anything that did not just check a credential.
+mint a session as fresh for anything that did not just check a credential. Passkeys (ADR 0032)
+are the address's too (`passkeys`, `passkey_owners`): one signs in alone, confirms, or —
+when the person turns on two-step — is asked for after the password, in which case login
+answers a `twoStep` challenge instead of a session and a reset does not sign them in.
+Every ceremony's challenge is single-use in Redis and bound to what began it; the server,
+not `allowCredentials`, checks whose key answered.
 
 **Errors are a contract.** The codes in `lib/errors.py` are what `apps/web/src/lib/api.ts`
 branches on. Don't rename them, and keep FastAPI's 422 remapped to 400 `invalid_input`.

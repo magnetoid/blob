@@ -133,6 +133,17 @@ async def revoke_sessions(
     return OkOut()
 
 
+@router.post("/users/{user_id}/two-step/end", response_model=OkOut)
+async def end_two_step(
+    user_id: IdParam, request: Request, admin: SessionUser = Depends(require_recent_admin)
+) -> OkOut:
+    """Stop asking somebody for a passkey after their password — the way back for a
+    person who lost the devices their passkeys were on. Given out like a reset link."""
+    async with transaction() as (session, _):
+        await admin_service.end_two_step(session, actor_for(request, admin), user_id)
+    return OkOut()
+
+
 @router.post("/users/{user_id}/reset-link", response_model=ResetLinkOut)
 async def create_reset_link(
     user_id: IdParam, request: Request, admin: SessionUser = Depends(require_recent_admin)

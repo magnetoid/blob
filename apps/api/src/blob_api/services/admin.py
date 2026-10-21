@@ -54,8 +54,9 @@ from ..schemas.models import ChannelWithState, User
 from . import audit as audit_service
 from . import channels as channel_service
 from . import handles as handle_service
+from . import passkeys as passkey_service
 from . import workspaces as workspace_service
-from .accounts import retire_resets, revoke_assistant_tokens
+from .accounts import record_event, retire_resets, revoke_assistant_tokens
 from .audit import Actor
 from .serialize import USER_COLUMNS, to_user
 
@@ -100,6 +101,11 @@ async def list_users(
                        (SELECT count(*) FROM messages m
                          WHERE m.author_id = u.id AND m.deleted_at IS NULL)::int
                          AS message_count,
+                       COALESCE((SELECT o.two_step FROM passkey_owners o
+                                  WHERE o.email = u.email
+                                    AND EXISTS (SELECT 1 FROM passkeys p
+                                                 WHERE p.email = o.email)), false)
+                         AS two_step,
                        count(*) OVER ()::int AS total
                   FROM users u
                  WHERE u.workspace_id = :ws
@@ -134,6 +140,7 @@ async def list_users(
                 session_count=row.session_count,
                 channel_count=row.channel_count,
                 message_count=row.message_count,
+                two_step=row.two_step,
             )
             for row in rows
         ],
@@ -324,6 +331,41 @@ async def revoke_sessions(session: AsyncSession, admin: Actor, user_id: str) -> 
     await revoke_assistant_tokens(session, user_id)
     await audit_service.record(
         session, admin, "user.sessions_revoked", target_type="user", target_id=user_id
+    )
+
+
+async def end_two_step(session: AsyncSession, admin: Actor, user_id: str) -> None:
+    """Stop asking somebody for a passkey after their password (ADR 0032).
+
+    The way back for a person who has lost every device their passkeys were on: a reset
+    link proves only the inbox, so it does not lift the second step — this does, and it
+    is given out like a reset link because it unlocks as much. The passkeys themselves
+    stay; the person removes the ones they no longer have.
+    """
+    person = (
+        await session.execute(
+            text(
+                """
+                SELECT id, email, role FROM users
+                 WHERE id = :id AND workspace_id = :ws
+                   AND deactivated_at IS NULL AND kind = 'human'
+                """
+            ),
+            {"id": user_id, "ws": admin.workspace_id},
+        )
+    ).fetchone()
+    if person is None:
+        raise not_found("No such person here.")
+    await _may_act_on(session, admin, person, everywhere=True)
+    await passkey_service.set_two_step(session, email=person.email, on=False)
+    await record_event(session, user_id=str(person.id), kind="two_step_off")
+    await audit_service.record(
+        session,
+        admin,
+        "user.two_step_ended",
+        target_type="user",
+        target_id=str(person.id),
+        metadata={"email": person.email},
     )
 
 

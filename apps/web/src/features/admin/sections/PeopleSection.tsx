@@ -31,6 +31,7 @@ export function PeopleSection({
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [deactivating, setDeactivating] = useState<AdminUser | null>(null);
+  const [endingTwoStep, setEndingTwoStep] = useState<AdminUser | null>(null);
   /** A reset link just minted, shown once so it can be handed over. */
   const [resetLink, setResetLink] = useState<{ name: string; url: string } | null>(
     null,
@@ -96,6 +97,15 @@ export function PeopleSection({
                       deactivated
                     </span>
                   )}
+                  {user.twoStep && !user.deactivatedAt && (
+                    <span
+                      className="role-pill"
+                      data-muted
+                      title="Signs in with a password and a passkey"
+                    >
+                      two-step
+                    </span>
+                  )}
                 </div>
                 <div className="admin-row-meta">
                   {user.email} · {user.messageCount} messages ·{" "}
@@ -143,6 +153,19 @@ export function PeopleSection({
                     Reset link
                   </button>
                 )}
+                {!user.deactivatedAt &&
+                  user.twoStep &&
+                  user.id !== currentUser?.id &&
+                  mayActOn(user) && (
+                    <button
+                      className="btn btn-ghost"
+                      aria-label={`Stop asking ${user.displayName} for a passkey`}
+                      title="For someone who lost the devices their passkeys were on"
+                      onClick={() => setEndingTwoStep(user)}
+                    >
+                      End two-step
+                    </button>
+                  )}
                 {!user.deactivatedAt &&
                   user.sessionCount > 0 &&
                   (user.id === currentUser?.id || mayActOn(user)) && (
@@ -201,6 +224,22 @@ export function PeopleSection({
           </button>
         </div>
       )}
+
+      <DialogPresence when={endingTwoStep}>
+        {(person) => (
+          <ConfirmDialog
+            title={`Stop asking ${person.displayName} for a passkey?`}
+            body="Their password alone will sign them in again, in every workspace on this server. For someone who has lost the devices their passkeys were on; they can turn it back on themselves."
+            confirmLabel="End two-step"
+            onClose={() => setEndingTwoStep(null)}
+            onConfirm={() => {
+              const user = person;
+              setEndingTwoStep(null);
+              void act(() => api.admin.endTwoStep(user.id));
+            }}
+          />
+        )}
+      </DialogPresence>
 
       <DialogPresence when={deactivating}>
         {(deactivating) => (

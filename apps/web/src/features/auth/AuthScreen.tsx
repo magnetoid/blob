@@ -10,7 +10,13 @@
  */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, ApiError } from "../../lib/api.ts";
+import { api, ApiError, type PasskeyChallenge } from "../../lib/api.ts";
+import {
+  autofillAvailable,
+  getPasskey,
+  isCancel,
+  passkeysSupported,
+} from "../../lib/passkeys.ts";
 import { inviteTokenFromUrl, resetTokenFromUrl } from "./tokens.ts";
 import { isConsentPath } from "../oauth/consent.ts";
 
@@ -86,6 +92,20 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   const [mailReachable, setMailReachable] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** The password was right and this person asks for a passkey too: the challenge
+   *  their passkey answers to finish signing in (ADR 0032). */
+  const [twoStep, setTwoStep] = useState<PasskeyChallenge | null>(null);
+  /** A line that is not an error — "your password is changed, now sign in". */
+  const [notice, setNotice] = useState<string | null>(null);
+  /** The passkey autofill waiting on the email field, to stop before anything else asks
+   *  — a browser holds one passkey request at a time. Bumped to start a fresh one. */
+  const autofill = useRef<AbortController | null>(null);
+  const [autofillRound, setAutofillRound] = useState(0);
+  // The latest `onSignedIn` without restarting the autofill every time App re-renders.
+  const signedIn = useRef(onSignedIn);
+  useEffect(() => {
+    signedIn.current = onSignedIn;
+  }, [onSignedIn]);
 
   useEffect(() => {
     if (!inviteToken) return;
@@ -115,15 +135,101 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
     emailRef.current?.focus();
   }, [mode, needsSetup]);
 
+  // Passkeys in the email field's autofill: the browser lists them under the address
+  // suggestions, and picking one signs in with no password typed at all.
+  useEffect(() => {
+    if (needsSetup || mode !== "login" || twoStep) return undefined;
+    const controller = new AbortController();
+    autofill.current = controller;
+    void (async () => {
+      if (!(await autofillAvailable()) || controller.signal.aborted) return;
+      try {
+        const { flowId, options } = await api.passkeys.signInOptions();
+        const credential = await getPasskey(options, {
+          autofill: true,
+          signal: controller.signal,
+        });
+        setBusy(true);
+        await api.passkeys.signIn(flowId, credential);
+        await signedIn.current();
+      } catch (err) {
+        if (controller.signal.aborted || isCancel(err)) return;
+        setRefused(true);
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "That passkey could not sign you in.",
+        );
+        setBusy(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [mode, needsSetup, twoStep, autofillRound]);
+
+  async function signInWithPasskey() {
+    autofill.current?.abort();
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const { flowId, options } = await api.passkeys.signInOptions();
+      await api.passkeys.signIn(flowId, await getPasskey(options));
+      await onSignedIn();
+    } catch (err) {
+      if (!isCancel(err)) {
+        setRefused(true);
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "That passkey could not sign you in.",
+        );
+      }
+      setBusy(false);
+      setAutofillRound((n) => n + 1);
+    }
+  }
+
+  async function finishTwoStep(challenge: PasskeyChallenge) {
+    setError(null);
+    setBusy(true);
+    try {
+      const credential = await getPasskey(challenge.options);
+      await api.passkeys.secondStep(challenge.flowId, credential);
+      await onSignedIn();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // The challenge was spent on a refusal: start over with the password.
+        setTwoStep(null);
+        setPassword("");
+        setRefused(true);
+        setError(err.message);
+      } else if (!isCancel(err)) {
+        setRefused(true);
+        setError("That passkey could not be checked. Try again.");
+      }
+      setBusy(false);
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setBusy(true);
     try {
       switch (mode) {
-        case "login":
-          await api.auth.login(email, password);
+        case "login": {
+          autofill.current?.abort();
+          const answer = await api.auth.login(email, password);
+          if (answer.twoStep) {
+            setTwoStep(answer.twoStep);
+            setBusy(false);
+            // Straight on to the passkey: the click that sent the password is the
+            // gesture its prompt needs. If the browser wants another, the button is there.
+            void finishTwoStep(answer.twoStep);
+            return;
+          }
           break;
+        }
         case "signup":
           await api.auth.signup({
             email,
@@ -151,7 +257,18 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
           // The server sets a fresh session cookie on success, having deleted every
           // old one. So a completed reset is also a sign-in, which is the behaviour
           // somebody clicking a link from their inbox expects.
-          await api.auth.resetPassword(resetToken, password);
+          // `=== false`: a server from before passkeys answers `{ok}` alone, and signed in.
+          if ((await api.auth.resetPassword(resetToken, password)).signedIn === false) {
+            // A reset proves the inbox, not the passkey this person also asks for.
+            window.history.replaceState(null, "", "/");
+            setMode("login");
+            setPassword("");
+            setNotice(
+              "Your password is changed. Sign in with it, then your passkey.",
+            );
+            setBusy(false);
+            return;
+          }
           break;
       }
       // Drop a one-shot token from the URL so a refresh doesn't retry it.
@@ -168,7 +285,9 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
     }
   }
 
-  const title = needsSetup
+  const title = twoStep
+    ? "One more step"
+    : needsSetup
     ? "Set up your workspace"
     : mode === "reset"
       ? "Choose a new password"
@@ -216,8 +335,8 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
     );
   }
 
-  const needsEmail = mode !== "reset";
-  const needsPassword = mode !== "forgot";
+  const needsEmail = mode !== "reset" && !twoStep;
+  const needsPassword = mode !== "forgot" && !twoStep;
 
   return (
     <div className="auth">
@@ -241,7 +360,14 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
               We'll email you a link. It works once and expires in an hour.
             </p>
           )}
-          {mode === "login" && isConsentPath() && (
+          {twoStep && (
+            <p className="auth-subtitle">
+              Your password was right. Use your passkey — on this device, your
+              phone or a security key — to finish signing in.
+            </p>
+          )}
+          {!twoStep && notice && <p className="auth-subtitle">{notice}</p>}
+          {mode === "login" && !twoStep && isConsentPath() && (
             <p className="auth-subtitle">
               An app is asking to connect to your account. Sign in first —
               nothing is shared until you say yes.
@@ -286,7 +412,8 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
           <label className="field">
             <span className="field-label">Email</span>
             {/* Only on login: first-run and invites open in signup, where the
-                workspace-name field already takes focus. */}
+                workspace-name field already takes focus. `webauthn` is what lets
+                the browser list passkeys in this field's suggestions. */}
             <input
               ref={emailRef}
               className="input"
@@ -294,7 +421,7 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              autoComplete="email"
+              autoComplete={mode === "login" ? "username webauthn" : "email"}
             />
           </label>
         )}
@@ -350,19 +477,57 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
           )}
         </div>
 
-        <button className="btn btn-primary" type="submit" disabled={busy}>
-          {busy
-            ? "Working…"
-            : mode === "login"
-              ? "Sign in"
-              : mode === "signup"
-                ? "Create account"
-                : mode === "forgot"
-                  ? "Email me a link"
-                  : "Save and sign in"}
-        </button>
+        {twoStep ? (
+          <button
+            className="btn btn-primary"
+            type="button"
+            disabled={busy}
+            onClick={() => void finishTwoStep(twoStep)}
+          >
+            {busy ? "Waiting for your passkey…" : "Use your passkey"}
+          </button>
+        ) : (
+          <button className="btn btn-primary" type="submit" disabled={busy}>
+            {busy
+              ? "Working…"
+              : mode === "login"
+                ? "Sign in"
+                : mode === "signup"
+                  ? "Create account"
+                  : mode === "forgot"
+                    ? "Email me a link"
+                    : "Save and sign in"}
+          </button>
+        )}
 
-        {mode === "login" && !needsSetup && (
+        {mode === "login" && !twoStep && !needsSetup && passkeysSupported() && (
+          <button
+            className="btn"
+            type="button"
+            disabled={busy}
+            onClick={() => void signInWithPasskey()}
+          >
+            Sign in with a passkey
+          </button>
+        )}
+
+        {twoStep && (
+          <p className="auth-switch">
+            <button
+              type="button"
+              onClick={() => {
+                setTwoStep(null);
+                setPassword("");
+                setError(null);
+                setBusy(false);
+              }}
+            >
+              Back to sign in
+            </button>
+          </p>
+        )}
+
+        {mode === "login" && !twoStep && !needsSetup && (
           <p className="auth-switch">
             <button type="button" onClick={() => setMode("forgot")}>
               Forgot your password?
@@ -393,6 +558,7 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
 
         {!needsSetup &&
           !inviteToken &&
+          !twoStep &&
           (mode === "login" || mode === "signup") && (
             <p className="auth-switch">
               {mode === "login" ? (

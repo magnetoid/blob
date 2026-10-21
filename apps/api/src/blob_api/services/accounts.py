@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..lib.auth import hash_token
 from ..lib.errors import bad_request
 from ..lib.ids import new_id, new_token
+from . import passkeys as passkey_service
 from . import workspaces as workspace_service
 from .serialize import USER_COLUMNS
 
@@ -207,8 +208,12 @@ async def change_password(
 
 async def proofs_for(session: AsyncSession, email: str) -> list[str]:
     """The ways this person can prove who they are, for the confirm prompt to offer."""
-    has_password = await workspace_service.password_hash_for(session, email) is not None
-    return ["password"] if has_password else []
+    proofs = []
+    if await workspace_service.password_hash_for(session, email) is not None:
+        proofs.append("password")
+    if await passkey_service.count_for(session, email) > 0:
+        proofs.append("passkey")
+    return proofs
 
 
 # ─── what happened to the account ─────────────────────────────────────────────
