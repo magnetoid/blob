@@ -731,6 +731,34 @@ class ThreadSubscription(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class NotificationMail(Base):
+    """A message that may go in a person's next away email (ADR 0036, migration 0067).
+
+    Written by the notify job for a DM, a mention or a reply in a followed thread; gone
+    once the email is sent, the message is read, or a day has passed. Not history.
+    """
+
+    __tablename__ = "notification_mail"
+    __table_args__ = (
+        PrimaryKeyConstraint("user_id", "message_id"),
+        CheckConstraint(
+            "reason IN ('dm', 'mention', 'group', 'thread')",
+            name="notification_mail_reason_check",
+        ),
+        Index("notification_mail_queued", "queued_at"),
+        Index("notification_mail_message", "message_id"),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    queued_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class UserGroup(Base):
     """A named set of people, mentionable as one handle. Slack's user groups.
 
@@ -2296,6 +2324,7 @@ __all__ = [
     "McpServerTool",
     "Message",
     "ModelCall",
+    "NotificationMail",
     "OAuthClient",
     "OAuthGrant",
     "OAuthRefreshToken",

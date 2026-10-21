@@ -8,6 +8,7 @@
  */
 
 import { useState } from "react";
+import type { UserPrefs } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import {
   currentPushState,
@@ -87,6 +88,32 @@ export function NotificationsCard() {
       description="When Blob is allowed to interrupt you, and what counts as urgent."
     >
       <PushPanel />
+
+      <div className="pref-row">
+        <div className="grow">
+          <label className="pref-label" htmlFor="email-when-away">
+            Email me when I'm away
+          </label>
+          <div className="pref-hint">
+            Direct messages, mentions and replies in threads you follow that
+            are still unread while you have no Blob open, all in one email.
+          </div>
+        </div>
+        <select
+          id="email-when-away"
+          className="input"
+          value={prefs.emailWhenAway ?? "quarter_hour"}
+          onChange={(e) =>
+            void setPrefs({
+              emailWhenAway: e.target.value as UserPrefs["emailWhenAway"],
+            })
+          }
+        >
+          <option value="quarter_hour">Once every 15 minutes</option>
+          <option value="hourly">Once an hour</option>
+          <option value="off">Never</option>
+        </select>
+      </div>
 
       <div className="pref-row">
         <div className="grow">

@@ -30,6 +30,7 @@ from ..services import usage as usage_service
 from ..services.calls import reconcile as reconcile_calls
 from .agui import expire_agent_decisions as expire_decisions
 from .agui import handle_agent_heard, handle_agui_run, resume_waiting_runs
+from .away_mail import send_away_mail
 from .deployments import sync_hosted_agents
 from .notify import handle_notify
 from .reminders import fire_reminders
@@ -211,6 +212,14 @@ async def sweep_calls(_ctx: dict[str, Any]) -> None:
         log.info("call sweep changed %d call(s)", changed)
 
 
+async def away_mail(_ctx: dict[str, Any]) -> None:
+    """Email whoever has had something addressed to them waiting through their window
+    with no Blob open (ADR 0036)."""
+    sent = await send_away_mail()
+    if sent:
+        log.info("sent %d away email(s)", sent)
+
+
 async def heartbeat(_ctx: dict[str, Any]) -> None:
     """Tell `/readyz` the worker is alive. Its own job rather than a side effect of
     another, so a quiet workspace with nothing to deliver still reads as up."""
@@ -301,6 +310,9 @@ class WorkerSettings:
         # :45, so it does not share a second with the outbox (:00), reminders (:30) or
         # scheduled sends (:15).
         cron(sweep_calls, second=45),  # type: ignore[arg-type]
+        # :40 — a window is fifteen minutes at the shortest, so within the minute is on
+        # time; the free second between reminders (:30) and calls (:45).
+        cron(away_mail, second=40),  # type: ignore[arg-type]
         # :50, the last free slot in the minute; at startup too, so a fresh deploy reads
         # as up on the first readiness check rather than a minute later.
         cron(heartbeat, second=50, run_at_startup=True),  # type: ignore[arg-type]

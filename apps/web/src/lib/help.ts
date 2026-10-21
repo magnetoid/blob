@@ -722,6 +722,18 @@ export const SECTIONS: Section[] = [
         keywords: ['push', 'desktop', 'mobile', 'iphone', 'ios', 'device', 'alert'],
       },
       {
+        id: 'email-when-away',
+        title: 'Email when you’re away',
+        blurb: 'What waited for you unread, in one email, when you have no Blob open.',
+        body: [
+          'When a direct message, a mention of you or of a group you are in, or a reply in a thread you follow arrives while you have no Blob open anywhere, Blob holds on to it. If it is still unread fifteen minutes later — or an hour, if you choose — one email lists everything that waited, each with a link straight to it.',
+          'Nothing is emailed that you have already read, that arrived while you had Blob open, or that came from a room you have since left. @channel and keywords are never emailed: they notify you in the app, not in your inbox. Quiet hours and Pause notifications hold emails too, and the email goes when they end if anything is still unread.',
+          'Choose every 15 minutes, once an hour or never under Notifications in your settings. Every email also ends with a link that stops them without signing in.',
+        ],
+        path: '/settings/preferences',
+        keywords: ['email', 'mail', 'inbox', 'away', 'offline', 'unsubscribe', 'digest'],
+      },
+      {
         id: 'keywords-and-groups',
         title: 'Keywords and group mentions',
         blurb:

@@ -20,6 +20,7 @@ from ..lib.times import clock_length
 from ..lib.webpush import send_push
 from ..realtime import presence
 from ..schemas.models import ReadStateOut
+from ..services import away_mail
 from ..services import notify as notify_service
 from ..services import read_state as read_state_service
 
@@ -38,6 +39,24 @@ def _broadcast_later(user_id: str, state: ReadStateOut) -> Callable[[], None]:
 def _preview(body: str) -> str:
     flat = " ".join(body.split())
     return f"{flat[:117]}…" if len(flat) > 120 else flat
+
+
+async def _hold_for_away_mail(
+    session: Any, message_id: str, decisions: Sequence[notify_service.Decision]
+) -> None:
+    addressed = [d for d in decisions if d.reason in away_mail.MAILED_REASONS]
+    if not addressed:
+        return
+    try:
+        seen = await presence.get_presence([d.user_id for d in addressed])
+    except Exception:  # any Redis failure: hold it for everyone, the job asks again
+        log.warning("presence unavailable while holding %s for away mail", message_id)
+        seen = {}
+    await away_mail.queue(
+        session,
+        message_id,
+        [(d.user_id, d.reason) for d in addressed if seen.get(d.user_id) != "active"],
+    )
 
 
 async def handle_notify(message_id: str) -> None:
@@ -125,6 +144,10 @@ async def handle_notify(message_id: str) -> None:
         )
         for user_id, state in zip(mention_ids, states, strict=False):
             after.add(_broadcast_later(user_id, state))
+
+        # Held for an email to whoever it was addressed to and is not at their desk
+        # (ADR 0036) — somebody with Blob open is told by Blob.
+        await _hold_for_away_mail(session, message.id, decisions)
 
         subs: Sequence[Any] = []
         if settings.push_enabled:

@@ -969,6 +969,13 @@ export interface ReauthState {
   windowMinutes: number;
 }
 
+/** Whose away emails a link stops, and whether they are off now. */
+export interface UnsubscribeInfo {
+  email: string;
+  workspace: string;
+  off: boolean;
+}
+
 export const api = {
   auth: {
     state: () =>
@@ -1451,6 +1458,14 @@ export const api = {
   },
 
   /** Assistants that sign in instead of holding a pasted token (ADR 0029). */
+  /** The link in an away email (ADR 0036): no session, the token is the authority. */
+  mail: {
+    unsubscribeInfo: (token: string) =>
+      get<UnsubscribeInfo>(`/api/mail/unsubscribe?t=${encodeURIComponent(token)}`),
+    unsubscribe: (token: string) =>
+      post<UnsubscribeInfo>(`/api/mail/unsubscribe?t=${encodeURIComponent(token)}`, {}),
+  },
+
   oauth: {
     /** Check the request the browser arrived at `/oauth/authorize` with. */
     authorize: (query: string) =>

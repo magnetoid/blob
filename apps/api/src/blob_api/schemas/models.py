@@ -68,6 +68,10 @@ class UserPrefs(CamelModel):
     enter_to_send: bool = True
     language: str | None = None
     auto_translate: bool = False
+    #: Email about what was addressed to you while you had no Blob open — a DM, a
+    #: mention, a reply in a thread you follow — at most once per window (ADR 0036).
+    #: Slack's default, because it is the one people expect.
+    email_when_away: Literal["quarter_hour", "hourly", "off"] = "quarter_hour"
 
 
 DEFAULT_PREFS = UserPrefs()

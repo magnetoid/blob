@@ -71,6 +71,9 @@ export interface UserPrefs {
   autoTranslate: boolean;
   /** Be reminded when a question of mine goes a day without an answer. */
   nudges: boolean;
+  /** Email about what was addressed to me while I had no Blob open, bundled at most once
+   * per window (ADR 0036). */
+  emailWhenAway: 'quarter_hour' | 'hourly' | 'off';
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -85,6 +88,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   language: null,
   autoTranslate: false,
   nudges: true,
+  emailWhenAway: 'quarter_hour',
 };
 
 export interface Channel {

@@ -222,6 +222,7 @@ class UpdatePrefsInput(CamelModel):
     enter_to_send: bool | None = None
     language: str | None = Field(default=None, min_length=2, max_length=16)
     auto_translate: bool | None = None
+    email_when_away: Literal["quarter_hour", "hourly", "off"] | None = None
 
 
 class UploadRequestInput(CamelModel):

@@ -3516,6 +3516,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mail/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What The Link Stops */
+        get: operations["what_the_link_stops_api_mail_unsubscribe_get"];
+        put?: never;
+        /**
+         * Unsubscribe
+         * @description Turn them off. Answers the same however often it is asked: a mail client may
+         *     send the one-click POST more than once.
+         */
+        post: operations["unsubscribe_api_mail_unsubscribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mcp": {
         parameters: {
             query?: never;
@@ -8309,6 +8331,15 @@ export interface components {
             /** On */
             on: boolean;
         };
+        /** UnsubscribeOut */
+        UnsubscribeOut: {
+            /** Email */
+            email: string;
+            /** Off */
+            off: boolean;
+            /** Workspace */
+            workspace: string;
+        };
         /** UpdateAgentTaskInput */
         UpdateAgentTaskInput: {
             /** Assigneeuserid */
@@ -8351,6 +8382,8 @@ export interface components {
             /** Density */
             density?: ("comfortable" | "compact" | "airy") | null;
             dnd?: components["schemas"]["QuietHours"] | null;
+            /** Emailwhenaway */
+            emailWhenAway?: ("quarter_hour" | "hourly" | "off") | null;
             /** Entertosend */
             enterToSend?: boolean | null;
             /** Keywords */
@@ -8567,6 +8600,12 @@ export interface components {
              */
             density: "comfortable" | "compact" | "airy";
             dnd?: components["schemas"]["QuietHours"] | null;
+            /**
+             * Emailwhenaway
+             * @default quarter_hour
+             * @enum {string}
+             */
+            emailWhenAway: "quarter_hour" | "hourly" | "off";
             /**
              * Entertosend
              * @default true
@@ -9078,6 +9117,7 @@ export type TokenSummary = components['schemas']['TokenSummary'];
 export type ToolsInput = components['schemas']['ToolsInput'];
 export type TranslateMessageInput = components['schemas']['TranslateMessageInput'];
 export type TwoStepIn = components['schemas']['TwoStepIn'];
+export type UnsubscribeOut = components['schemas']['UnsubscribeOut'];
 export type UpdateAgentTaskInput = components['schemas']['UpdateAgentTaskInput'];
 export type UpdateChannelInput = components['schemas']['UpdateChannelInput'];
 export type UpdateGroupInput = components['schemas']['UpdateGroupInput'];
@@ -15359,6 +15399,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LaterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    what_the_link_stops_api_mail_unsubscribe_get: {
+        parameters: {
+            query: {
+                t: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnsubscribeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unsubscribe_api_mail_unsubscribe_post: {
+        parameters: {
+            query: {
+                t: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnsubscribeOut"];
                 };
             };
             /** @description Validation Error */

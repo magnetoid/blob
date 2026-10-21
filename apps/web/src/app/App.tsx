@@ -6,7 +6,8 @@ import { connectStoreToSocket, useStore } from '../lib/store.ts';
 import { flushDrafts } from '../lib/drafts.ts';
 import { applyTheme, pickTheme, themeChoices } from '../lib/theme.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
-import { resetTokenFromUrl } from '../features/auth/tokens.ts';
+import { resetTokenFromUrl, unsubscribeTokenFromUrl } from '../features/auth/tokens.ts';
+import { UnsubscribeScreen } from '../features/mail/UnsubscribeScreen.tsx';
 import { ConsentScreen } from '../features/oauth/ConsentScreen.tsx';
 import { isConsentPath } from '../features/oauth/consent.ts';
 import { Workspace } from './Workspace.tsx';
@@ -22,6 +23,8 @@ export function App() {
   // following the link from their inbox may well still have a valid cookie in this
   // tab — and booting them into the workspace would swallow the only token they have.
   const [resetToken, setResetToken] = useState(resetTokenFromUrl);
+  // The link in an away email (ADR 0036): its own page, signed in or not.
+  const [unsubscribeToken] = useState(unsubscribeTokenFromUrl);
   // An assistant asking to connect (ADR 0029) gets its question instead of the workspace
   // — after a sign-in, if it takes one, since the address survives it.
   const [consenting] = useState(() => isConsentPath());
@@ -111,6 +114,14 @@ export function App() {
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, [prefs, themes]);
+
+  if (unsubscribeToken !== null) {
+    return (
+      <ErrorBoundary>
+        <UnsubscribeScreen token={unsubscribeToken} />
+      </ErrorBoundary>
+    );
+  }
 
   if (phase === 'loading') {
     return (

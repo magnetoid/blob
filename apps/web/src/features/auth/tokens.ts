@@ -19,3 +19,10 @@ export function inviteTokenFromUrl(): string | null {
 export function resetTokenFromUrl(): string | null {
   return window.location.pathname.match(/^\/reset\/(.+)$/)?.[1] ?? null;
 }
+
+/** An away email links to /unsubscribe?t=<token> (ADR 0036): the page works signed out,
+ * whoever is or is not signed in, because the token is the whole of its authority. */
+export function unsubscribeTokenFromUrl(): string | null {
+  if (window.location.pathname.replace(/\/+$/, '') !== '/unsubscribe') return null;
+  return new URLSearchParams(window.location.search).get('t') ?? '';
+}

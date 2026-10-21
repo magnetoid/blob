@@ -9862,6 +9862,29 @@
         "title": "TwoStepIn",
         "type": "object"
       },
+      "UnsubscribeOut": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "off": {
+            "title": "Off",
+            "type": "boolean"
+          },
+          "workspace": {
+            "title": "Workspace",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "workspace",
+          "off"
+        ],
+        "title": "UnsubscribeOut",
+        "type": "object"
+      },
       "UpdateAgentTaskInput": {
         "properties": {
           "assigneeUserId": {
@@ -10081,6 +10104,22 @@
                 "type": "null"
               }
             ]
+          },
+          "emailWhenAway": {
+            "anyOf": [
+              {
+                "enum": [
+                  "quarter_hour",
+                  "hourly",
+                  "off"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emailwhenaway"
           },
           "enterToSend": {
             "anyOf": [
@@ -10789,6 +10828,16 @@
                 "type": "null"
               }
             ]
+          },
+          "emailWhenAway": {
+            "default": "quarter_hour",
+            "enum": [
+              "quarter_hour",
+              "hourly",
+              "off"
+            ],
+            "title": "Emailwhenaway",
+            "type": "string"
           },
           "enterToSend": {
             "default": true,
@@ -20783,6 +20832,85 @@
         "tags": [
           "messages"
         ]
+      }
+    },
+    "/api/mail/unsubscribe": {
+      "get": {
+        "operationId": "what_the_link_stops_api_mail_unsubscribe_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "t",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "title": "T",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnsubscribeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "What The Link Stops"
+      },
+      "post": {
+        "description": "Turn them off. Answers the same however often it is asked: a mail client may\nsend the one-click POST more than once.",
+        "operationId": "unsubscribe_api_mail_unsubscribe_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "t",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "title": "T",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnsubscribeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unsubscribe"
       }
     },
     "/api/mcp": {

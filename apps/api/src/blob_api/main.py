@@ -65,6 +65,10 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("GET", "/metrics"),
     # LiveKit's webhooks: signed with our LiveKit key and verified by the route itself.
     ("POST", "/api/calls/livekit"),
+    # Stopping away emails from the link in one (ADR 0036): the token in the URL is the
+    # authority, and it can do nothing else.
+    ("GET", "/api/mail/unsubscribe"),
+    ("POST", "/api/mail/unsubscribe"),
 }
 
 #: Prefixes whose whole subtree is public (invite previews, incoming webhooks).
@@ -82,6 +86,9 @@ ORIGIN_EXEMPT: set[tuple[str, str]] = {
     ("POST", "/oauth/token"),
     ("POST", "/oauth/register"),
     ("POST", "/oauth/revoke"),
+    # RFC 8058's one-click POST comes from the mailbox provider's servers, carrying
+    # whatever origin they like; the token, not a cookie, is what it presents.
+    ("POST", "/api/mail/unsubscribe"),
 }
 
 
@@ -360,6 +367,7 @@ def create_app() -> FastAPI:
     from .routers.groups import member_router as group_member_router
     from .routers.groups import router as group_router
     from .routers.interactions import router as interaction_router
+    from .routers.mail import router as mail_router
     from .routers.mcp import admin_tokens_router as mcp_admin_tokens_router
     from .routers.mcp import router as mcp_router
     from .routers.mcp import tokens_router as mcp_tokens_router
@@ -387,6 +395,7 @@ def create_app() -> FastAPI:
     app.include_router(passkeys_router)
     app.include_router(sso_router)
     app.include_router(admin_sso_router)
+    app.include_router(mail_router)
     app.include_router(user_router)
     app.include_router(workspace_router)
     app.include_router(channel_router)

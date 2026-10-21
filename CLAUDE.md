@@ -21,7 +21,7 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-thirty-five ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+thirty-six ADRs; the principles below are their summary, not a substitute. 0013–0020 and
 0022–0030 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
@@ -383,6 +383,15 @@ starts it once the words exist; with none coming, the DM's agent still runs and 
 names the recording (`plugins/agui._with_attachment_line`), while a follower is not woken.
 Both production instances run with no speech service, so `transcriptionEnabled` in the
 bootstrap is how the client knows not to promise words.
+
+**Away emails** (`services/away_mail.py`, `jobs/away_mail.py`, ADR 0036) are the only mail
+besides invitations and resets, and both production instances do send mail (through tetra
+since 2026-10-09). The notify job holds a DM, a mention or a followed-thread reply in
+`notification_mail` for whoever has no socket open; a minute cron mails what is still
+unread once the person's window (`prefs.emailWhenAway`) has passed. "Unread" for a mention
+inside an unfollowed thread is the channel's badge cleared since it arrived, because
+reading such a thread records nothing. The unsubscribe token's key is derived for that
+purpose alone — never sign a new kind of token with the raw `SESSION_SECRET` beside it.
 
 **Client.** `features/` by domain, `lib/` for the plumbing: a zustand store keeping
 messages per channel in ascending id order (UUIDv7 sorts chronologically, so a live

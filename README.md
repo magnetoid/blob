@@ -305,6 +305,10 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 - **Notifications** — mentions and DMs by default, per-channel levels down to a hard mute,
   up to thirty keyword alerts, group-mention silencing, quiet hours, a pause with four
   presets, and Web Push when the tab is closed.
+- **Email when you're away** — a DM, a mention or a reply in a thread you follow that is
+  still unread while you have no Blob open arrives in one email, at most every 15 minutes
+  or once an hour, as Slack does it. Never `@channel`, never something you already read,
+  and every email can be stopped from a link without signing in.
 - **Catch up** — a model-written summary of what you have not read, per channel or across
   the workspace, with Mark as read beside each one. Without a configured model the panel
   says so rather than inventing a summary.
@@ -429,7 +433,8 @@ afternoon:
   cannot yet schedule its own follow-up or wake on an event — a task coming due, a file
   shared — and a scheduled run is still a scheduled message that mentions it.
 - **Canvases and workflows** — not started.
-- **Email notifications** — the only mail Blob sends is invitations and password resets.
+- **An email digest.** Blob emails you what waited for you while you were away; it sends
+  no daily or weekly summary of the channels you missed.
 - **SAML, SCIM and authenticator-app codes.** Single sign-on is OpenID Connect only, an
   account is not provisioned or removed from the identity provider, and the second step
   after a password is a passkey, never a six-digit code. A guest's account has no end
@@ -573,7 +578,7 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 </details>
 
 <details>
-<summary><b>Mail</b> — invitations and password resets, <code>SMTP_*</code></summary>
+<summary><b>Mail</b> — invitations, password resets and away emails, <code>SMTP_*</code></summary>
 
 | Variable | Default |
 |---|---|
@@ -590,7 +595,8 @@ server administrator's, or that of anyone with accounts in other workspaces only
 administrator's; whoever runs the server can always print one from inside the app
 container with `python -m blob_api.reset_link someone@example.com`. **System → Health** says
 whether mail is reachable at all, so a server that quietly delivers nothing is visible
-rather than assumed.
+rather than assumed. If the server refuses an away email, Blob stops trying for a quarter
+of an hour and keeps what was waiting for a day.
 
 </details>
 
@@ -935,7 +941,7 @@ Alembic; it is not a query layer. Every read and write in the app is `text()` wi
 parameters, and chat history is keyset-paginated, never `OFFSET`.
 
 <details>
-<summary><b>The thirty-five architecture decisions</b></summary>
+<summary><b>The thirty-six architecture decisions</b></summary>
 
 The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
@@ -976,6 +982,7 @@ The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisi
 | 0033 | Single sign-on is the server's, and the subject decides |
 | 0034 | A guest is in the channels they were invited to |
 | 0035 | A voice message's words are its text |
+| 0036 | Blob emails you only about what waited for you, and only while you were away |
 
 </details>
 
