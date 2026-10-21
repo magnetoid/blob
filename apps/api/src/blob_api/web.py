@@ -50,6 +50,11 @@ class SinglePageApp(StaticFiles):
         if head in API_PREFIXES:
             # Falling through to index.html here would answer a bad API call with HTML.
             raise HTTPException(status_code=404)
+        if path.endswith(".map"):
+            # The build keeps source maps (`sourcemap: 'hidden'`) for whoever runs the
+            # server to read a stack with; nothing in the bundle points at them, and they
+            # are not handed to anyone who guesses the name (the 2026-10 security review).
+            raise HTTPException(status_code=404)
 
         try:
             response = await super().get_response(path, scope)

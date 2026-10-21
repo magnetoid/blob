@@ -68,9 +68,12 @@ async def snapshot(ticket_id: IdParam, user: SessionUser = Depends(require_admin
         content=body.decode("utf-8", errors="replace"),
         headers={
             # Nothing in a snapshot may execute or phone home. The iframe carries its own
-            # sandbox attribute too; this is the half the page cannot remove.
+            # sandbox attribute too; this is the half the page cannot remove — and the half
+            # that still holds when the address is opened on its own, where a captured
+            # page's form would otherwise post an admin's typing anywhere, from this origin.
             "Content-Security-Policy": (
-                "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:"
+                "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; "
+                "form-action 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox"
             ),
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "private, no-store",

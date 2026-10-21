@@ -27,6 +27,7 @@ def build_dist(root: Path) -> Path:
     (dist / "assets").mkdir(parents=True)
     (dist / "index.html").write_text("<!doctype html><title>Blob</title>")
     (dist / "assets" / "main-a1b2c3d4.js").write_text("console.log('hi')")
+    (dist / "assets" / "main-a1b2c3d4.js.map").write_text('{"sources": ["src/secret.ts"]}')
     (dist / "favicon.svg").write_text("<svg/>")
     return dist
 
@@ -50,6 +51,15 @@ async def test_the_root_serves_the_app(web: httpx.AsyncClient) -> None:
     response = await web.get("/")
     assert response.status_code == 200
     assert "<title>Blob</title>" in response.text
+
+
+async def test_a_source_map_is_kept_but_never_served(web: httpx.AsyncClient) -> None:
+    """Built with `sourcemap: 'hidden'`, for whoever runs the server to read a stack with;
+    the bundle names no map, and one asked for by name is not there."""
+    assert (await web.get("/assets/main-a1b2c3d4.js")).status_code == 200
+    response = await web.get("/assets/main-a1b2c3d4.js.map")
+    assert response.status_code == 404
+    assert "secret.ts" not in response.text
 
 
 async def test_a_deep_link_serves_the_app(web: httpx.AsyncClient) -> None:

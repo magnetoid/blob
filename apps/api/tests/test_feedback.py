@@ -90,8 +90,12 @@ async def test_the_snapshot_is_served_back_for_an_admin(client: Client) -> None:
     assert response.status == 200
     assert "the page they were on" in response.body
     # Captured from someone else's browser, so it is served under a policy that lets it
-    # render and nothing else.
-    assert "default-src 'none'" in response.headers["content-security-policy"]
+    # render and nothing else — sandboxed even when opened on its own, so no form in it
+    # can post anywhere from this origin.
+    policy = response.headers["content-security-policy"]
+    assert "default-src 'none'" in policy
+    assert policy.rstrip(";").endswith("sandbox")
+    assert "form-action 'none'" in policy
 
 
 async def test_a_ticket_without_a_snapshot_says_so(client: Client) -> None:
