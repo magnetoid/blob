@@ -6375,6 +6375,11 @@ export interface components {
             deliveredAt?: string | null;
             /** Event */
             event: string;
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
             /** Id */
             id: string;
             /** Lasterror */
@@ -6384,9 +6389,9 @@ export interface components {
             /** Nextattemptat */
             nextAttemptAt?: string | null;
             /** Payload */
-            payload: {
+            payload?: {
                 [key: string]: unknown;
-            };
+            } | null;
             /** Status */
             status: string;
         };

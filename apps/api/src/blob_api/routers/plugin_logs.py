@@ -58,7 +58,10 @@ class DeliveryDetailOut(DeliveryOut):
     is only ever asked about one row at a time.
     """
 
-    payload: dict[str, Any]
+    #: Null when it came from a conversation this admin cannot see — a private channel
+    #: they are not in, somebody's DM — whose words are not theirs to read here.
+    payload: dict[str, Any] | None = None
+    hidden: bool = False
 
 
 def _to_delivery(row: Any) -> DeliveryOut:
@@ -297,7 +300,13 @@ async def read_delivery(
     async with session_scope() as session:
         await registry.by_id(session, plugin_id, admin.workspace_id)
         row = await delivery_log.delivery(session, plugin_id, delivery_id)
-    return DeliveryDetailOut(**_to_delivery(row).model_dump(), payload=row.payload)
+        room = delivery_log.room_of(row)
+        visible = room is None or await delivery_log.room_visible(session, admin.id, room)
+    return DeliveryDetailOut(
+        **_to_delivery(row).model_dump(),
+        payload=row.payload if visible else None,
+        hidden=not visible,
+    )
 
 
 @router.post("/{plugin_id}/deliveries/{delivery_id}/replay", response_model=DeliveryOut)

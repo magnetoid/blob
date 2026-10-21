@@ -744,8 +744,10 @@ export interface AdminPluginDelivery {
 
 export interface AdminPluginDeliveryDetail extends AdminPluginDelivery {
   nextAttemptAt: string | null;
-  /** The body the app was (or will be) sent. */
-  payload: Record<string, unknown>;
+  /** The body the app was (or will be) sent; null when it came from a conversation this
+   * admin cannot see, whose words are not theirs to read here. */
+  payload: Record<string, unknown> | null;
+  hidden?: boolean;
 }
 
 export interface AdminWorkspaceDelivery extends AdminPluginDelivery {

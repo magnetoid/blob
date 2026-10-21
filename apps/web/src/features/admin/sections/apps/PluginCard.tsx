@@ -367,13 +367,16 @@ export function PluginCard({
                               Replay
                             </button>
                           )}
-                          <pre className="log-detail">
-                            {JSON.stringify(
-                              detail.payload,
-                              null,
-                              2,
-                            )}
-                          </pre>
+                          {detail.hidden || detail.payload === null ? (
+                            <p className="muted">
+                              From a conversation you are not in, so what the app was
+                              sent stays there.
+                            </p>
+                          ) : (
+                            <pre className="log-detail">
+                              {JSON.stringify(detail.payload, null, 2)}
+                            </pre>
+                          )}
                         </div>
                       ) : (
                         <p className="muted">Loading delivery…</p>

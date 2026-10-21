@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import transaction
 from ..lib.errors import bad_request, not_found
+from ..lib.ids import looks_like_id
 from . import recent_errors
 from .signing import signed_headers
 
@@ -359,7 +360,7 @@ async def delivery(session: AsyncSession, plugin_id: str, delivery_id: str) -> A
         await session.execute(
             text(
                 f"""
-                SELECT {DELIVERY_COLUMNS}, payload
+                SELECT {DELIVERY_COLUMNS}, payload, channel_id
                   FROM plugin_deliveries
                  WHERE id = :id AND plugin_id = :plugin_id
                 """
@@ -370,6 +371,47 @@ async def delivery(session: AsyncSession, plugin_id: str, delivery_id: str) -> A
     if row is None:
         raise not_found("That delivery is not in this app's log.")
     return row
+
+
+def room_of(row: Any) -> str | None:
+    """The conversation a delivery came from: the column, or for a row written before it
+    existed, the id its payload names."""
+    if row.channel_id:
+        return str(row.channel_id)
+    body = row.payload.get("payload") if isinstance(row.payload, dict) else None
+    if not isinstance(body, dict):
+        return None
+    for key in ("channelId", "channel_id", "channel"):
+        value = body.get(key)
+        if isinstance(value, dict):
+            value = value.get("id")
+        if isinstance(value, str) and looks_like_id(value):
+            return value
+    return None
+
+
+async def room_visible(session: AsyncSession, viewer_id: str, channel_id: str) -> bool:
+    """Whether this admin can see the conversation — the rule a run's events follow: a
+    public channel to anyone here but a guest, anything else to its members."""
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT (c.kind = 'public' AND NOT EXISTS (
+                          SELECT 1 FROM users viewer
+                           WHERE viewer.id = :viewer AND viewer.role = 'guest'))
+                       OR EXISTS (
+                          SELECT 1 FROM channel_members cm
+                           WHERE cm.channel_id = c.id AND cm.user_id = :viewer
+                       ) AS visible
+                  FROM channels c
+                 WHERE c.id = :channel
+                """
+            ),
+            {"viewer": viewer_id, "channel": channel_id},
+        )
+    ).fetchone()
+    return bool(row and row.visible)
 
 
 async def replay_delivery(session: AsyncSession, plugin_id: str, delivery_id: str) -> Any:

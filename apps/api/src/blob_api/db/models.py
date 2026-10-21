@@ -2225,6 +2225,11 @@ class PluginDelivery(Base):
     last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     delivered_at: Mapped[Any | None] = mapped_column(Timestamp)
+    #: The conversation it came from, so the log shows the payload only to an admin who
+    #: can see that conversation (M3 · C3, migration 0072). Null for one from none.
+    channel_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="SET NULL")
+    )
 
 
 class FeedbackTicket(Base):

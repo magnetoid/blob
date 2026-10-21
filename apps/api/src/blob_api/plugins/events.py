@@ -159,8 +159,8 @@ async def emit(
         await session.execute(
             text(
                 """
-                INSERT INTO plugin_deliveries (id, plugin_id, event, payload)
-                VALUES (:id, :plugin_id, :event, cast(:payload AS jsonb))
+                INSERT INTO plugin_deliveries (id, plugin_id, event, payload, channel_id)
+                VALUES (:id, :plugin_id, :event, cast(:payload AS jsonb), :channel_id)
                 """
             ),
             {
@@ -168,6 +168,7 @@ async def emit(
                 "plugin_id": row.id,
                 "event": event,
                 "payload": body,
+                "channel_id": channel_id,
             },
         )
     return ids

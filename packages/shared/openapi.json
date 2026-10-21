@@ -3814,6 +3814,11 @@
             "title": "Event",
             "type": "string"
           },
+          "hidden": {
+            "default": false,
+            "title": "Hidden",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -3852,9 +3857,16 @@
             "title": "Nextattemptat"
           },
           "payload": {
-            "additionalProperties": true,
-            "title": "Payload",
-            "type": "object"
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
           },
           "status": {
             "title": "Status",
@@ -3866,8 +3878,7 @@
           "event",
           "status",
           "attempts",
-          "createdAt",
-          "payload"
+          "createdAt"
         ],
         "title": "DeliveryDetailOut",
         "type": "object"

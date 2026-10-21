@@ -516,6 +516,28 @@ async def test_the_delivery_detail_returns_the_payload_the_app_was_sent(team: di
     assert detail.body["payload"]["payload"]["body"] == "hello"
 
 
+async def test_a_delivery_from_a_room_the_admin_is_not_in_keeps_its_words(team: dict) -> None:
+    """The log shows an app's payload only where the admin can see the room — the rule a
+    run's events follow. A member's private channel with the app in it is not the owner's
+    to read through the app's log."""
+    body = await install(team["owner"])
+    plugin_id = body["plugin"]["id"]
+    made = await team["member"].post("/api/channels", {"name": "hush", "kind": "private"})
+    hush = made.body["channel"]["id"]
+    await team["member"].post(
+        f"/api/channels/{hush}/members", {"userIds": [body["plugin"]["botUserId"]]}
+    )
+    await send_message(team["member"], hush, "the quiet part")
+    listed = await team["owner"].get(f"/api/admin/plugins/{plugin_id}/deliveries")
+    (delivery,) = [d for d in listed.body["deliveries"] if d["event"] == "message.created"]
+
+    detail = await team["owner"].get(f"/api/admin/plugins/{plugin_id}/deliveries/{delivery['id']}")
+
+    assert detail.status == 200
+    assert detail.body["hidden"] is True and detail.body["payload"] is None
+    assert "the quiet part" not in str(detail.body)
+
+
 async def test_a_delivery_belonging_to_another_app_is_not_readable(team: dict) -> None:
     first = (await install(team["owner"]))["plugin"]["id"]
     second = (await install(team["owner"], slug="other-bot", name="Other Bot"))["plugin"]["id"]
