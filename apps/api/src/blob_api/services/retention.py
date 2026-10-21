@@ -557,6 +557,36 @@ async def files_past(
     )
 
 
+async def deleted_files(session: AsyncSession, *, after: str | None, limit: int) -> list[Any]:
+    """Files still kept for messages somebody deleted — every workspace's, oldest first. A
+    delete promised they were gone and the routes already refuse them; this is where
+    storage catches up. A hold does not keep them (ADR 0039: a hold keeps nothing people
+    delete themselves)."""
+    return list(
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT a.message_id, m.channel_id, true AS deleted,
+                           array_agg(a.id) AS attachment_ids,
+                           array_agg(a.object_key)
+                             || array_remove(array_agg(a.thumb_key), NULL) AS object_keys
+                      FROM attachments a
+                      JOIN messages m ON m.id = a.message_id
+                     WHERE m.deleted_at IS NOT NULL
+                       AND (cast(:after AS uuid) IS NULL
+                            OR a.message_id > cast(:after AS uuid))
+                     GROUP BY a.message_id, m.channel_id
+                     ORDER BY a.message_id
+                     LIMIT :limit
+                    """
+                ),
+                {"after": after, "limit": limit},
+            )
+        ).fetchall()
+    )
+
+
 async def drop_files(session: AsyncSession, rows: list[Any]) -> None:
     """Forget files whose objects are gone, and count them on a message that keeps its
     words."""
@@ -703,6 +733,7 @@ __all__ = [
     "Policy",
     "Preview",
     "Swept",
+    "deleted_files",
     "drop_files",
     "drop_pictures",
     "files_past",

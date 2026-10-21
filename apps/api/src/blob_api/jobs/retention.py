@@ -359,6 +359,29 @@ async def _pictures(workspace_id: str, line: str, *, full: bool, deadline: float
     return walked.done
 
 
+async def purge_deleted_files(*, deadline: float) -> int:
+    """Every workspace's files of deleted messages, out of storage and then their rows —
+    whether or not the workspace keeps a retention window. A delete is a delete."""
+    after: str | None = None
+    removed = 0
+    while time.monotonic() < deadline:
+        async with session_scope() as session:
+            batch = await retention_service.deleted_files(session, after=after, limit=BATCH)
+        if not batch:
+            break
+        keys = [key for row in batch for key in (row.object_keys or [])]
+        failed = await storage.delete_objects(keys) if keys else set()
+        ready = [row for row in batch if not set(row.object_keys or []) & failed]
+        if ready:
+            async with transaction() as (session, _):
+                await retention_service.drop_files(session, ready)
+            removed += sum(len(row.attachment_ids) for row in ready)
+        after = str(batch[-1].message_id)
+        if len(batch) < BATCH:
+            break
+    return removed
+
+
 async def _sweep_workspace(
     workspace_id: str, policy: Policy, now: datetime, *, full: bool, deadline: float
 ) -> dict[str, int]:
@@ -423,4 +446,7 @@ async def sweep_history(
         if time.monotonic() >= deadline:
             log.info("retention sweep stopped for the night; the next one carries on")
             break
+    purged = await purge_deleted_files(deadline=deadline)
+    if purged:
+        log.info("purged %d file(s) of deleted messages from storage", purged)
     return outcomes

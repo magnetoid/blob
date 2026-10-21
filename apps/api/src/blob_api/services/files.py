@@ -65,6 +65,9 @@ async def listing(
                   JOIN channel_members cm
                          ON cm.channel_id = m.channel_id AND cm.user_id = :user_id
                  WHERE a.workspace_id = :ws
+                   -- A deleted message's files went with it, as far as anyone reading is
+                   -- concerned; the nightly purge takes them out of storage.
+                   AND m.deleted_at IS NULL
                    AND (
                         CAST(:channel_id AS uuid) IS NULL
                         OR m.channel_id = CAST(:channel_id AS uuid)
@@ -220,7 +223,8 @@ async def for_download(session: AsyncSession, user: SessionUser, key: str) -> An
             text(
                 """
                 SELECT a.filename, a.mime, a.message_id, a.uploader_id,
-                       a.thumb_key, a.kind, cm.user_id AS channel_member
+                       a.thumb_key, a.kind, cm.user_id AS channel_member,
+                       m.deleted_at AS message_deleted_at
                   FROM attachments a
                   LEFT JOIN messages m ON m.id = a.message_id
                   LEFT JOIN channel_members cm
@@ -245,7 +249,8 @@ async def for_preview(session: AsyncSession, user: SessionUser, attachment_id: s
             text(
                 """
                 SELECT a.object_key, a.filename, a.mime, a.size_bytes, a.message_id,
-                       a.uploader_id, a.uploaded_at, cm.user_id AS channel_member
+                       a.uploader_id, a.uploaded_at, cm.user_id AS channel_member,
+                       m.deleted_at AS message_deleted_at
                   FROM attachments a
                   LEFT JOIN messages m ON m.id = a.message_id
                   LEFT JOIN channel_members cm

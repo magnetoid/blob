@@ -423,6 +423,7 @@ async def _previewable(user: SessionUser, attachment_id: str) -> Any:
     allowed = (
         file is not None
         and file.uploaded_at is not None
+        and file.message_deleted_at is None
         and (file.channel_member is not None if file.message_id else file.uploader_id == user.id)
     )
     if not allowed:
@@ -462,8 +463,15 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
 
     async with session_scope() as session:
         file = await file_service.for_download(session, user, key)
-        allowed = file is not None and (
-            file.channel_member is not None if file.message_id else file.uploader_id == user.id
+        # A deleted message's file is gone to everybody, its uploader included: the delete
+        # promised that, and the nightly purge (`jobs/retention.purge_deleted_files`) makes
+        # it true in storage too.
+        allowed = (
+            file is not None
+            and file.message_deleted_at is None
+            and (
+                file.channel_member is not None if file.message_id else file.uploader_id == user.id
+            )
         )
         if not allowed:
             # Avatars and custom emoji are workspace-wide. Checked when the attachment

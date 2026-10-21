@@ -785,8 +785,9 @@ async def remove(
 ) -> tuple[str, str | None]:
     """Soft delete.
 
-    The row survives because thread replies reference it; the body and attachments are
-    cleared so nothing is recoverable through the API.
+    The row survives because thread replies reference it; the body goes now, the files
+    are refused by every route from now on (`routers/files.py`), and the nightly sweep
+    deletes them from storage and then their rows (`jobs/retention.purge_deleted_files`).
     """
     existing = (
         await session.execute(
