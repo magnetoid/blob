@@ -31,7 +31,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 
 from ..config import settings
-from ..lib.auth import SESSION_COOKIE, SessionUser, current_user, resolve_session
+from ..lib.auth import SessionUser, current_user, resolve_session, session_token
 from ..lib.caller import client_ip
 from ..lib.errors import AppError, forbidden
 from ..lib.ids import IdParam
@@ -143,7 +143,7 @@ async def _still_allowed(
     security review). The session the socket opened with has to still resolve, to the
     same person, still an admin, and the agent still has to be one they may open.
     """
-    token = websocket.cookies.get(SESSION_COOKIE)
+    token, _plain = session_token(websocket.cookies)
     if not token:
         return False
     fresh = await resolve_session(token)

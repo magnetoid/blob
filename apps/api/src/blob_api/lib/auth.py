@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Literal
@@ -27,6 +28,29 @@ from .errors import AppError, forbidden, unauthorized
 from .ids import new_id, new_token
 
 SESSION_COOKIE = "blob_session"
+#: The same cookie under the `__Host-` prefix, the name production uses (M3 · C3). A browser
+#: takes a `__Host-` cookie only from this host — Secure, `Path=/`, no `Domain` — so a sibling
+#: subdomain, where hosted agents and storage live, cannot plant or overwrite a session here:
+#: the session fixation a plain name allows to anything that runs script on one.
+HOST_SESSION_COOKIE = "__Host-blob_session"
+
+
+def session_cookie_name() -> str:
+    """The name a session is set under: prefixed in production, where it is served over
+    HTTPS; plain in development, where it often is not and the prefix would be refused."""
+    return HOST_SESSION_COOKIE if settings.is_prod else SESSION_COOKIE
+
+
+def session_token(cookies: Mapping[str, str]) -> tuple[str | None, bool]:
+    """The session token a request carries, and whether it came under the plain name in
+    production — a session from before the prefix, which the next bootstrap moves across
+    (`routers/users.bootstrap`). The prefixed one wins when both arrive."""
+    prefixed = cookies.get(HOST_SESSION_COOKIE)
+    if prefixed:
+        return prefixed, False
+    plain = cookies.get(SESSION_COOKIE)
+    return plain, bool(plain) and settings.is_prod
+
 
 #: How long a proof of identity counts for before a sensitive action asks again (M3 · B1).
 #: Minting a credential, changing who holds a role, handing out a reset link: each is
@@ -206,7 +230,7 @@ async def destroy_session(session_id: str) -> None:
 
 def set_session_cookie(response: Response, token: str) -> None:
     response.set_cookie(
-        SESSION_COOKIE,
+        session_cookie_name(),
         token,
         httponly=True,
         samesite="lax",
@@ -214,10 +238,15 @@ def set_session_cookie(response: Response, token: str) -> None:
         path="/",
         max_age=settings.SESSION_TTL_DAYS * 86_400,
     )
+    if settings.is_prod:
+        # The plain name goes as the prefixed one arrives, so a browser holds one session.
+        response.delete_cookie(SESSION_COOKIE, path="/")
 
 
 def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(SESSION_COOKIE, path="/")
+    if settings.is_prod:
+        response.delete_cookie(HOST_SESSION_COOKIE, path="/", secure=True, httponly=True)
 
 
 def current_user(request: Request) -> SessionUser:

@@ -5,11 +5,11 @@ Shape and authorize; `services/users.py` holds the SQL.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Response
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
-from ..lib.auth import SessionUser, current_user
+from ..lib.auth import SessionUser, current_user, session_token, set_session_cookie
 from ..lib.errors import bad_request
 from ..lib.ids import IdParam
 from ..lib.webpush import is_push_service
@@ -46,8 +46,15 @@ class PrefsOut(CamelModel):
 
 
 @router.get("/api/bootstrap", response_model=Bootstrap)
-async def bootstrap(user: SessionUser = Depends(current_user)) -> Bootstrap:
+async def bootstrap(
+    request: Request, response: Response, user: SessionUser = Depends(current_user)
+) -> Bootstrap:
     """One request that returns everything the client needs to render."""
+    # A session from before the `__Host-` prefix moves across on the first boot that sees
+    # it (M3 · C3): same token, the prefixed name, the plain one cleared.
+    token, plain = session_token(request.cookies)
+    if plain and token:
+        set_session_cookie(response, token)
     # Presets are inserted once per workspace, on the first boot that needs them.
     async with transaction() as (setup, _):
         await theme_service.ensure_presets(setup, user.workspace_id)

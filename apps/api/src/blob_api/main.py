@@ -20,7 +20,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .config import served_commit, settings
 from .db.engine import SessionFactory, close_engine, engine
 from .lib import metrics, readiness, storage, telemetry
-from .lib.auth import SESSION_COOKIE, resolve_session
+from .lib.auth import resolve_session, session_token
 from .lib.body_limit import BodyLimitMiddleware
 from .lib.errors import AppError
 from .lib.logbuf import close_log_buffer, install_log_capture
@@ -139,7 +139,7 @@ class SessionMiddleware:
 
         # HTTPConnection covers both http and websocket scopes; Request asserts http.
         connection = HTTPConnection(scope)
-        token = connection.cookies.get(SESSION_COOKIE)
+        token, _plain = session_token(connection.cookies)
         user = await resolve_session(token) if token else None
         scope.setdefault("state", {})["user"] = user
 
