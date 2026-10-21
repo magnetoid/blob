@@ -134,6 +134,8 @@ async def update_channel(
         )
         if access.kind in ("dm", "group_dm"):
             raise forbidden("Direct messages have no channel settings.")
+        if payload.posting is not None and not user.is_admin:
+            raise forbidden("Only an admin can choose who posts in a channel.")
 
         await channel_service.update_settings(
             session,
@@ -143,6 +145,7 @@ async def update_channel(
             description=payload.description,
             nudge_unanswered=payload.nudge_unanswered,
             given=given,
+            posting=payload.posting,
         )
         channel = await channel_service.get_for_user(session, channel_id, user.id)
         if channel is not None:

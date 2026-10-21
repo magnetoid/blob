@@ -259,7 +259,8 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 
 - **Channels** — public and private, topics, starring, archiving, per-channel notification
   levels, and a searchable directory of every open channel with member counts and
-  join-in-place, and each channel's own Files and description. Sections of your own in the
+  join-in-place, each channel's own Files and description, and announcement channels where
+  admins post and everybody replies in threads. Sections of your own in the
   sidebar — "Clients", "Launch" — fold, rename, and follow you to every device.
 - **Direct messages** — one-to-one, group DMs of up to nine people counting you, and a
   conversation with yourself for notes.
@@ -276,7 +277,7 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 - **Mentions** — `@person`, `@group`, `@channel`, `@here` and `@everyone`, never fired from
   inside a code block. A group is resolved at notify time against current membership, so
   an edit reaches whoever is in it now; `@here` reaches only the people actually at their
-  desk.
+  desk. A workspace can keep the three broadcasts for its admins.
 - **Files** — up to ten per message, 100 MB each, uploaded straight to object storage so
   file bytes never pass through the API process. Executable extensions are refused. An
   image gets a small copy made on upload, turned upright and stripped of its camera

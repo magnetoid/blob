@@ -440,6 +440,7 @@ class Channel(Base):
             postgresql_where=text("dm_key IS NOT NULL"),
         ),
         Index("channels_workspace", "workspace_id"),
+        CheckConstraint("posting IN ('everyone', 'admins')", name="channels_posting_check"),
     )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
@@ -464,6 +465,9 @@ class Channel(Base):
     nudge_unanswered: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
+    #: Who may post at the top level: `everyone`, or `admins` — an announcement channel,
+    #: where everybody else replies in threads. Migration 0069.
+    posting: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'everyone'"))
 
 
 class UnansweredNudge(Base):

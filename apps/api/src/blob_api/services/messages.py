@@ -16,7 +16,14 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import bad_request, forbidden, message_gone, thread_gone
+from ..lib.errors import (
+    bad_request,
+    forbidden,
+    mention_restricted,
+    message_gone,
+    posting_restricted,
+    thread_gone,
+)
 from ..lib.ids import new_id
 from ..lib.mentions import MentionResult, MentionTarget, mention_lookup_phrases, parse_mentions
 from ..schemas.models import Message
@@ -648,6 +655,48 @@ async def preview_picture_key(session: AsyncSession, message_id: str) -> str | N
         )
     ).fetchone()
     return row.key if row is not None else None
+
+
+async def assert_may_post(
+    session: AsyncSession,
+    *,
+    author_id: str,
+    workspace_id: str,
+    channel_id: str,
+    body: str,
+    thread_root_id: str | None,
+) -> None:
+    """Announcement channels and the workspace's @channel rule (M3 · B3), for a person's
+    own message. Somebody who is not an admin posts in an admins-only channel only in its
+    threads, and uses @channel, @here and @everyone only where the workspace allows it.
+    Agents and apps are not checked here: their messages take other paths, under the
+    admin who installed them."""
+    from ..lib.mentions import parse_mentions
+    from .workspace_settings import parse as parse_settings
+
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT u.role, c.posting, c.name, s.settings
+                  FROM users u
+                  JOIN channels c ON c.id = :channel_id
+                  LEFT JOIN workspace_settings s ON s.workspace_id = :workspace_id
+                 WHERE u.id = :author_id
+                """
+            ),
+            {"author_id": author_id, "channel_id": channel_id, "workspace_id": workspace_id},
+        )
+    ).fetchone()
+    if row is None or row.role in ("admin", "owner"):
+        return
+    if thread_root_id is None and row.posting == "admins":
+        raise posting_restricted(row.name)
+    if (
+        parse_mentions(body, {}).everyone
+        and parse_settings(row.settings).everyone_mentions == "admins"
+    ):
+        raise mention_restricted()
 
 
 # ─── voice messages (M3 · B2) ──────────────────────────────────────────────────

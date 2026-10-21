@@ -1254,6 +1254,7 @@ export const api = {
         topic?: string | null;
         description?: string | null;
         nudgeUnanswered?: boolean;
+        posting?: "everyone" | "admins";
       },
     ) => patch<{ channel: ChannelWithState }>(`/api/channels/${id}`, input),
     join: (id: string) =>

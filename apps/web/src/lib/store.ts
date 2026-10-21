@@ -132,6 +132,8 @@ interface State {
   /** Whether the server has a speech service: a voice message says "Transcribing…" until
    * its words arrive, rather than waiting for words that never will. */
   transcriptionEnabled: boolean;
+  /** Who may use @channel, @here and @everyone in this workspace (M3 · B3). */
+  everyoneMentions: "everyone" | "admins";
   users: Record<string, User>;
   channels: Record<string, ChannelWithState>;
   messages: Record<string, ChannelMessages>;
@@ -602,6 +604,7 @@ export const useStore = create<State>((set, get) => ({
   serverCommit: null,
   translationEnabled: false,
   transcriptionEnabled: false,
+  everyoneMentions: "everyone",
   commands: [],
   users: {},
   channels: {},
@@ -652,6 +655,7 @@ export const useStore = create<State>((set, get) => ({
       serverCommit: data.serverCommit ?? null,
       translationEnabled: data.translationEnabled ?? false,
       transcriptionEnabled: data.transcriptionEnabled ?? false,
+      everyoneMentions: data.everyoneMentions ?? "everyone",
       users: Object.fromEntries(data.users.map((u) => [u.id, u])),
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
     }),

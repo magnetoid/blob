@@ -43,6 +43,7 @@ from . import seeded
 from . import themes as theme_service
 from . import translation as translation_service
 from . import user_groups as group_service
+from . import workspace_settings as workspace_settings_service
 from . import workspaces as workspace_service
 from .serialize import USER_COLUMNS, read_prefs, to_current_user, to_user, to_workspace
 
@@ -155,6 +156,9 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
         # is the whole of what it can usefully be.
         server_commit=served_commit(),
         translation_enabled=translation_service.configured(),
+        everyone_mentions=(
+            await workspace_settings_service.load_in(session, user.workspace_id)
+        ).everyone_mentions,
         transcription_enabled=stt.configured(),
         recent_mention_user_ids=tagged.user_ids,
         recent_mention_group_ids=tagged.group_ids,

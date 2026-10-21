@@ -113,6 +113,9 @@ export interface Channel {
   createdBy: string | null;
   archivedAt: string | null;
   lastMessageId: string | null;
+  /** Who may post at the top level: everyone, or the workspace's admins — an
+   * announcement channel, where everybody else replies in threads (M3 · B3). */
+  posting?: 'everyone' | 'admins';
   createdAt: string;
   /** Present only for dm / group_dm. */
   /** Present only for dm / group_dm; null everywhere else, never absent. */
@@ -473,6 +476,8 @@ export interface Bootstrap {
   /** Whether the server has a translation provider. Without one the client draws no
    * Translate action and no translation preference. */
   translationEnabled: boolean;
+  /** Who may use @channel, @here and @everyone here (M3 · B3). */
+  everyoneMentions?: 'everyone' | 'admins';
   /** Whether the server has a speech service for voice messages (M3 · B2). */
   transcriptionEnabled?: boolean;
   /**

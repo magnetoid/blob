@@ -5515,6 +5515,12 @@ export interface components {
             commands: components["schemas"]["CommandSpec"][];
             /** Customemoji */
             customEmoji: components["schemas"]["CustomEmoji"][];
+            /**
+             * Everyonementions
+             * @default everyone
+             * @enum {string}
+             */
+            everyoneMentions: "everyone" | "admins";
             /** Groups */
             groups?: components["schemas"]["UserGroup"][];
             /** Mutedgroupids */
@@ -5717,6 +5723,12 @@ export interface components {
              * @default false
              */
             nudgeUnanswered: boolean;
+            /**
+             * Posting
+             * @default everyone
+             * @enum {string}
+             */
+            posting: "everyone" | "admins";
             /** Topic */
             topic?: string | null;
             /** Workid */
@@ -5770,6 +5782,12 @@ export interface components {
              * @default false
              */
             nudgeUnanswered: boolean;
+            /**
+             * Posting
+             * @default everyone
+             * @enum {string}
+             */
+            posting: "everyone" | "admins";
             /** Topic */
             topic?: string | null;
             /** Workid */
@@ -8455,6 +8473,8 @@ export interface components {
             name?: string | null;
             /** Nudgeunanswered */
             nudgeUnanswered?: boolean | null;
+            /** Posting */
+            posting?: ("everyone" | "admins") | null;
             /** Topic */
             topic?: string | null;
         };

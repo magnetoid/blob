@@ -32,6 +32,8 @@ class TypedSettings:
     retention_days: int = DEFAULT_RETENTION_DAYS
     upload_limit_bytes: int = DEFAULT_UPLOAD_LIMIT
     agents_enabled: bool = True
+    #: Who may use @channel, @here and @everyone: `everyone` or `admins` (M3 · B3).
+    everyone_mentions: str = "everyone"
 
 
 def parse(raw: dict[str, Any] | None) -> TypedSettings:
@@ -49,10 +51,12 @@ def parse(raw: dict[str, Any] | None) -> TypedSettings:
     upload = max(1024, min(upload, 1024 * 1024 * 1024))
 
     agents = data.get("agentsEnabled", True)
+    mentions = data.get("everyoneMentions")
     return TypedSettings(
         retention_days=retention,
         upload_limit_bytes=upload,
         agents_enabled=bool(agents) if not isinstance(agents, str) else agents.lower() != "false",
+        everyone_mentions="admins" if mentions == "admins" else "everyone",
     )
 
 
@@ -64,6 +68,17 @@ async def load(workspace_id: str) -> TypedSettings:
                 {"ws": workspace_id},
             )
         ).fetchone()
+    return parse(row.settings if row else None)
+
+
+async def load_in(session: AsyncSession, workspace_id: str) -> TypedSettings:
+    """`load`, inside the caller's session."""
+    row = (
+        await session.execute(
+            text("SELECT settings FROM workspace_settings WHERE workspace_id = :ws"),
+            {"ws": workspace_id},
+        )
+    ).fetchone()
     return parse(row.settings if row else None)
 
 

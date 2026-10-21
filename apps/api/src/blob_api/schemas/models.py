@@ -155,6 +155,9 @@ class Channel(CamelModel):
     work_id: str | None = None
     #: The room's switch for nudging whoever asked a question nobody answered (ADR 0015).
     nudge_unanswered: bool = False
+    #: Who may post at the top level: everyone, or the workspace's admins — an
+    #: announcement channel, where everybody else replies in threads (M3 · B3).
+    posting: Literal["everyone", "admins"] = "everyone"
 
 
 class BrowsableChannel(CamelModel):
@@ -466,6 +469,9 @@ class Bootstrap(CamelModel):
     #: Translate action and no translation preference at all, rather than controls whose
     #: only possible answer is "not configured".
     translation_enabled: bool = False
+    #: Who may use @channel, @here and @everyone here (M3 · B3): the client offers them
+    #: only to whoever may send them.
+    everyone_mentions: Literal["everyone", "admins"] = "everyone"
     #: Whether this server has a speech service (M3 · B2): with one, a voice message
     #: says "Transcribing…" until its words arrive; without one it is only the recording.
     transcription_enabled: bool = False

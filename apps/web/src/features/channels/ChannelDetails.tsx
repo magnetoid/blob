@@ -41,6 +41,7 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
   const [description, setDescription] = useState(channel.description ?? '');
   const [savingDescription, setSavingDescription] = useState(false);
   const [savingNudge, setSavingNudge] = useState(false);
+  const [savingPosting, setSavingPosting] = useState(false);
   const [savingTopic, setSavingTopic] = useState(false);
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
   const [error, setError] = useState<{ text: string; refused: boolean } | null>(null);
 
   const archived = channel.archivedAt !== null;
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
   const topicChanged = topic.trim() !== (channel.topic ?? '');
   const descriptionChanged = description.trim() !== (channel.description ?? '');
 
@@ -154,6 +156,22 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
     }
   }
 
+  /** Who may post at the top level (M3 · B3). Admins only, like the server says. */
+  async function setPosting(posting: 'everyone' | 'admins') {
+    setSavingPosting(true);
+    setError(null);
+    try {
+      await api.channels.update(channel.id, { posting });
+    } catch (err) {
+      setError({
+        text: err instanceof ApiError ? err.message : 'That setting did not save.',
+        refused: true,
+      });
+    } finally {
+      setSavingPosting(false);
+    }
+  }
+
   // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
     <Dialog label={`About #${channel.name}`} onClose={onClose}>
@@ -209,6 +227,32 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
             >
               Cancel
             </button>
+          </div>
+        )}
+
+        {!archived && isAdmin && (
+          <div className="pref-row">
+            <div className="grow">
+              <label className="pref-label" htmlFor="channel-posting">
+                Who can post
+              </label>
+              <div className="pref-hint">
+                Admins only makes this an announcement channel: everybody else replies in
+                threads.
+              </div>
+            </div>
+            <select
+              id="channel-posting"
+              className="input"
+              value={channel.posting ?? 'everyone'}
+              disabled={savingPosting}
+              onChange={(event) =>
+                void setPosting(event.target.value as 'everyone' | 'admins')
+              }
+            >
+              <option value="everyone">Everyone</option>
+              <option value="admins">Admins only</option>
+            </select>
           </div>
         )}
 

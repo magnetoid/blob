@@ -101,6 +101,8 @@ class UpdateChannelInput(CamelModel, ChannelNameMixin):
     description: str | None = Field(default=None, max_length=2000)
     #: The room's switch for nudging whoever asked a question nobody answered.
     nudge_unanswered: bool | None = None
+    #: Who may post at the top level (M3 · B3). Admins only may change it.
+    posting: Literal["everyone", "admins"] | None = None
 
     @field_validator("name")
     @classmethod

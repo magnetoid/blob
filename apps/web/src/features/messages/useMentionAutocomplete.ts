@@ -42,6 +42,7 @@ export function useMentionAutocomplete(
   const currentUser = useStore((s) => s.currentUser);
   const recentUserIds = useStore((s) => s.recentMentionUserIds);
   const recentGroupIds = useStore((s) => s.recentMentionGroupIds);
+  const everyoneMentions = useStore((s) => s.everyoneMentions);
   const [query, setQuery] = useState<string | null>(null);
   const members = useConversationMembers(channelId);
 
@@ -86,7 +87,12 @@ export function useMentionAutocomplete(
       (g) => groupRecency.get(g.id) ?? groupRecency.size,
     ).map((g) => ({ kind: "group", key: g.id, label: g.handle, hint: g.name }));
 
-    const specials: MentionCandidate[] = ["channel", "here"]
+    // Not offered to somebody the workspace would refuse them from (M3 · B3).
+    const mayBroadcast =
+      everyoneMentions === "everyone" ||
+      currentUser?.role === "admin" ||
+      currentUser?.role === "owner";
+    const specials: MentionCandidate[] = (mayBroadcast ? ["channel", "here"] : [])
       .filter((s) => s.startsWith(q))
       .map((name) => ({ kind: "special", key: `@${name}`, label: name }));
 
@@ -94,7 +100,7 @@ export function useMentionAutocomplete(
     // row is what Enter takes, so the two broadcasts go last, even when what was typed
     // matches them best: a keystroke should never notify a whole channel by default.
     return [...people, ...groups, ...specials];
-  }, [query, users, groupsById, currentUser, recentUserIds, recentGroupIds, members]);
+  }, [query, users, groupsById, currentUser, recentUserIds, recentGroupIds, members, everyoneMentions]);
 
   function apply(name: string) {
     const node = textareaRef.current;

@@ -202,8 +202,9 @@ export const SECTIONS: Section[] = [
           '@channel and @everyone notify everybody in the channel. @here is the quieter one: it reaches only the people who are at their desk, and passes over anyone away or offline. Being passed over is not being silenced — a keyword still fires, and a channel set to Every message still delivers.',
           'A mention is counted separately from ordinary messages, which is why the number beside a channel in the sidebar is a count of mentions rather than of messages.',
           'A group your workspace has defined can be mentioned the same way, and mentioning it counts as mentioning you if you are in it. A mention inside a code block or inline code notifies nobody — pasting a shell snippet with @channel in it is safe.',
+          'An admin can keep @channel, @here and @everyone for admins alone, under General in the admin console. Then they are not offered to anybody else, and a message using one says who may.',
         ],
-        keywords: ['@', 'mention', 'ping', 'notify', 'here', 'channel', 'group'],
+        keywords: ['@', 'mention', 'ping', 'notify', 'here', 'channel', 'group', 'broadcast'],
       },
       {
         id: 'emoji-and-reactions',
@@ -451,6 +452,16 @@ export const SECTIONS: Section[] = [
         ],
         commands: ['topic', 'rename', 'who', 'invite', 'remove'],
         keywords: ['menu', 'details', 'star', 'members', 'topic', 'leave', 'archive', 'rename'],
+      },
+      {
+        id: 'announcement-channels',
+        title: 'Announcement channels',
+        blurb: 'A channel where admins post and everybody else replies in threads.',
+        body: [
+          'An admin sets “Who can post” to Admins only in Channel details. From then on only the workspace’s admins post at the top level; everybody else sees a note at the top of the channel instead of a message box, and replies in a message’s thread — so the channel stays a clean list of announcements with the conversation tucked under each one.',
+          'It holds for messages scheduled earlier too: a scheduled message that can no longer be posted says so under Scheduled instead of going out. Agents and apps an admin installed are not held to it.',
+        ],
+        keywords: ['announcement', 'announcements', 'read-only', 'admins only', 'posting', 'who can post'],
       },
       {
         id: 'sidebar-sections',

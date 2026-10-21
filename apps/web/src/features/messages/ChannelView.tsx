@@ -191,6 +191,9 @@ export function ChannelView() {
   }
 
   const archived = channel.archivedAt !== null;
+  // An announcement channel (M3 · B3): its admins post, everybody replies in threads.
+  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "owner";
+  const announcing = channel.posting === "admins" && !isAdmin;
   const isDm = channel.kind === "dm" || channel.kind === "group_dm";
   const title = channel.name ?? channelTitle(channel);
   // A one-to-one DM whose other member is a bot is the agent's room, and it needs a
@@ -431,6 +434,13 @@ export function ChannelView() {
           <span>This channel is read-only. Its history stays searchable.</span>
         </div>
       )}
+      {!archived && announcing && (
+        <div className="pinned-bar">
+          <PinIcon size="sm" />
+          <span className="pinned-label">Announcements</span>
+          <span>Only admins post here. Reply in a thread to join in.</span>
+        </div>
+      )}
 
       {channel.workId && (
         <WorkTabs
@@ -483,7 +493,7 @@ export function ChannelView() {
             <TypingIndicator key={activeChannelId} names={typingNames} />
           </div>
 
-          {!archived && (
+          {!archived && !announcing && (
             <Composer
               // Keyed to the conversation. Only the prop changed on a channel switch, so the
               // composer's local state survived it — and an attachment that had finished

@@ -124,6 +124,14 @@ async def send_message(
         await channel_service.assert_channel_access(
             session, user.id, channel_id, require_member=True, require_writable=True
         )
+        await message_service.assert_may_post(
+            session,
+            author_id=user.id,
+            workspace_id=user.workspace_id,
+            channel_id=channel_id,
+            body=payload.body,
+            thread_root_id=payload.thread_root_id,
+        )
         result = await message_service.send(
             session,
             workspace_id=user.workspace_id,
@@ -631,6 +639,15 @@ async def schedule_message(
     send_at = parse_client_time(payload.send_at)
 
     async with transaction() as (session, _):
+        # Refused now rather than at nine tomorrow, when nobody is watching.
+        await message_service.assert_may_post(
+            session,
+            author_id=user.id,
+            workspace_id=user.workspace_id,
+            channel_id=channel_id,
+            body=payload.body,
+            thread_root_id=payload.thread_root_id,
+        )
         scheduled = await scheduled_service.schedule(
             session,
             workspace_id=user.workspace_id,

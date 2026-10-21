@@ -1841,6 +1841,15 @@
             "title": "Customemoji",
             "type": "array"
           },
+          "everyoneMentions": {
+            "default": "everyone",
+            "enum": [
+              "everyone",
+              "admins"
+            ],
+            "title": "Everyonementions",
+            "type": "string"
+          },
           "groups": {
             "items": {
               "$ref": "#/components/schemas/UserGroup"
@@ -2429,6 +2438,15 @@
             "title": "Nudgeunanswered",
             "type": "boolean"
           },
+          "posting": {
+            "default": "everyone",
+            "enum": [
+              "everyone",
+              "admins"
+            ],
+            "title": "Posting",
+            "type": "string"
+          },
           "topic": {
             "anyOf": [
               {
@@ -2601,6 +2619,15 @@
             "default": false,
             "title": "Nudgeunanswered",
             "type": "boolean"
+          },
+          "posting": {
+            "default": "everyone",
+            "enum": [
+              "everyone",
+              "admins"
+            ],
+            "title": "Posting",
+            "type": "string"
           },
           "topic": {
             "anyOf": [
@@ -10179,6 +10206,21 @@
               }
             ],
             "title": "Nudgeunanswered"
+          },
+          "posting": {
+            "anyOf": [
+              {
+                "enum": [
+                  "everyone",
+                  "admins"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posting"
           },
           "topic": {
             "anyOf": [

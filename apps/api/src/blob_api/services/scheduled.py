@@ -248,6 +248,16 @@ async def deliver(session: AsyncSession, item: dict[str, object]) -> message_ser
         # own docstring named that as a case it handled — it could never be reached.
         require_writable=True,
     )
+    # And again for the room's posting rule and the workspace's @channel rule, which may
+    # have changed since it was scheduled (M3 · B3).
+    await message_service.assert_may_post(
+        session,
+        author_id=str(item["author_id"]),
+        workspace_id=str(item["workspace_id"]),
+        channel_id=str(item["channel_id"]),
+        body=str(item["body"]),
+        thread_root_id=str(item["thread_root_id"]) if item["thread_root_id"] is not None else None,
+    )
     return await message_service.send(
         session,
         workspace_id=str(item["workspace_id"]),

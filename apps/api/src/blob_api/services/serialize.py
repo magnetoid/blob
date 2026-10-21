@@ -136,6 +136,7 @@ def to_channel(row: Any) -> Channel:
         member_ids=list(member_ids) if member_ids else None,
         work_id=str(row.work_id) if getattr(row, "work_id", None) else None,
         nudge_unanswered=bool(getattr(row, "nudge_unanswered", False)),
+        posting=getattr(row, "posting", None) or "everyone",
     )
 
 

@@ -26,7 +26,7 @@ DEFAULT_CHANNELS = ("general", "random")
 
 CHANNEL_STATE_SELECT = """
   SELECT c.id, c.kind, c.name, c.topic, c.description, c.created_by,
-         c.archived_at, c.last_message_id, c.created_at, c.nudge_unanswered,
+         c.archived_at, c.last_message_id, c.created_at, c.nudge_unanswered, c.posting,
          cm.notify_level, cm.is_starred, cm.joined_at,
          rs.last_read_message_id, rs.mention_count,
          CASE WHEN c.kind IN ('dm', 'group_dm')
@@ -204,6 +204,7 @@ async def update_settings(
     description: str | None,
     nudge_unanswered: bool | None,
     given: set[str],
+    posting: str | None = None,
 ) -> None:
     """The channel's own settings. Topic and description may be cleared, so for those
     "was it sent" (`given`) is what decides, not "is it None"."""
@@ -215,7 +216,8 @@ async def update_settings(
                    topic = CASE WHEN :has_topic THEN :topic ELSE topic END,
                    description = CASE WHEN :has_description THEN :description
                                       ELSE description END,
-                   nudge_unanswered = COALESCE(:nudge_unanswered, nudge_unanswered)
+                   nudge_unanswered = COALESCE(:nudge_unanswered, nudge_unanswered),
+                   posting = COALESCE(:posting, posting)
              WHERE id = :id
             """
         ),
@@ -227,6 +229,7 @@ async def update_settings(
             "has_description": "description" in given,
             "description": description,
             "nudge_unanswered": nudge_unanswered,
+            "posting": posting,
         },
     )
 

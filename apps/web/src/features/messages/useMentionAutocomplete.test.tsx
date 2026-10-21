@@ -287,3 +287,27 @@ describe('a mention you just made', () => {
     ]);
   });
 });
+
+describe('@channel and @here (M3 · B3)', () => {
+  it('are offered to everybody while the workspace lets everybody use them', () => {
+    seed({ people: [person('ana', 'Ana Petrov')] });
+    useStore.setState({ everyoneMentions: 'everyone' } as never);
+    expect(labels(openPicker('')).slice(-2)).toEqual(['channel', 'here']);
+  });
+
+  it('are not offered to somebody the workspace would refuse them from', () => {
+    seed({ people: [person('ana', 'Ana Petrov')] });
+    useStore.setState({ everyoneMentions: 'admins' } as never);
+    expect(labels(openPicker(''))).not.toContain('channel');
+    expect(labels(openPicker('ch'))).toEqual([]);
+  });
+
+  it('are still offered to an admin', () => {
+    seed({ people: [person('ana', 'Ana Petrov')] });
+    useStore.setState((s) => ({
+      everyoneMentions: 'admins',
+      currentUser: { ...s.currentUser, role: 'admin' },
+    }) as never);
+    expect(labels(openPicker('')).slice(-2)).toEqual(['channel', 'here']);
+  });
+});

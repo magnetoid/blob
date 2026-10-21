@@ -1,4 +1,4 @@
-/** What this server is called. */
+/** What this server is called, and who may broadcast in it. */
 
 import { useCallback, useId, useState } from 'react';
 import { api } from '../../../lib/api.ts';
@@ -9,12 +9,16 @@ import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 export function GeneralSection({ onError }: { onError: (message: string | null) => void }) {
   const [name, setName] = useState('');
   const [saved, setSaved] = useState(false);
+  const [broadcast, setBroadcast] = useState<'everyone' | 'admins'>('everyone');
   const fieldId = useId();
   const hintId = useId();
+  const broadcastId = useId();
+  const broadcastHintId = useId();
 
   const load = useCallback(async () => {
     const settings = await api.admin.settings();
     setName(settings.name);
+    setBroadcast(settings.settings.everyoneMentions === 'admins' ? 'admins' : 'everyone');
     return settings;
   }, []);
 
@@ -57,6 +61,31 @@ export function GeneralSection({ onError }: { onError: (message: string | null) 
           onChange={(event) => setName(event.target.value)}
           placeholder="Acme"
         />
+      </Card>
+
+      {/* Who may notify everyone at once (M3 · B3). Saved as it is chosen. */}
+      <Card
+        title={<label htmlFor={broadcastId}>@channel, @here and @everyone</label>}
+        description="Who may notify a whole channel at once. Admins only keeps a big workspace quiet; everybody else can still mention people and groups."
+        descriptionId={broadcastHintId}
+      >
+        <select
+          id={broadcastId}
+          className="input console-input"
+          aria-describedby={broadcastHintId}
+          value={broadcast}
+          onChange={(event) => {
+            const next = event.target.value === 'admins' ? 'admins' : 'everyone';
+            setBroadcast(next);
+            void act(async () => {
+              await api.admin.updateSettings({ settings: { everyoneMentions: next } });
+              useStore.setState({ everyoneMentions: next });
+            });
+          }}
+        >
+          <option value="everyone">Everyone</option>
+          <option value="admins">Admins only</option>
+        </select>
       </Card>
     </form>
   );

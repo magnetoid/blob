@@ -60,6 +60,23 @@ def forbidden(message: str = "You don't have access to that.") -> AppError:
     return AppError(403, "forbidden", message)
 
 
+def posting_restricted(channel_name: str | None) -> AppError:
+    """An announcement channel (M3 · B3): its admins post, everybody replies in threads."""
+    room = f"#{channel_name}" if channel_name else "this channel"
+    return AppError(
+        403, "posting_restricted", f"Only admins post in {room}. Reply in a thread to join in."
+    )
+
+
+def mention_restricted() -> AppError:
+    """This workspace keeps @channel, @here and @everyone for its admins (M3 · B3)."""
+    return AppError(
+        403,
+        "mention_restricted",
+        "Only admins can use @channel, @here or @everyone in this workspace.",
+    )
+
+
 def not_found(message: str = "That doesn't exist.") -> AppError:
     return AppError(404, "not_found", message)
 
