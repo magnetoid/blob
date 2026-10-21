@@ -1066,7 +1066,11 @@ a fixable critical vulnerability in it, boots `docker-compose.prod.yml`, asserts
 people founding a workspace, inviting, messaging live, threading, reacting, searching and
 passing a file through storage, then axe on sixteen pages. Nothing is stubbed.
 
-To run that last part on your machine, boot a fresh server on one origin (the API with
+CI also builds the client and holds its first load — the JavaScript `index.html` asks
+for, gzipped — to a budget (`node scripts/bundle-budget.mjs`), which also fails if the
+call SDK ever reaches it.
+
+To run the browser part on your machine, boot a fresh server on one origin (the API with
 `WEB_DIST=apps/web/dist` after `pnpm build`, or the production compose file) and:
 
 ```bash

@@ -66,6 +66,8 @@ is a shim whose scripts shell out to `uv run`. Root scripts are the normal entry
 | Seed a demo workspace | `pnpm seed` |
 | Regenerate `packages/shared/openapi.json` | `pnpm openapi` |
 | Refresh the history "What's new" shows | `pnpm stamp` (before a release commit) |
+| First load against its gzip budget (CI runs it) | `pnpm build && node scripts/bundle-budget.mjs` |
+| The client against a fresh server, as CI does | `E2E_BASE_URL=… pnpm --filter @blob/e2e e2e` |
 
 `pnpm check` is `typecheck && lint && test` fanned out over the workspace, so the Python
 half rides in through `apps/api/package.json`'s shim. Two things it does **not** run:

@@ -85,6 +85,11 @@ jobs:
 
       - run: pnpm check
 
+      # What the first load costs, gzipped, against its budget — and the call SDK kept out
+      # of it (scripts/bundle-budget.mjs). A ratchet: lowered as the app gets lighter.
+      - name: The first load stays inside its budget
+        run: pnpm build && node scripts/bundle-budget.mjs
+
       # The models must describe the live schema exactly, or the next autogenerate
       # proposes dropping the generated column and the partial indexes. This check was
       # failing unnoticed for two milestones before it was wired up here.
