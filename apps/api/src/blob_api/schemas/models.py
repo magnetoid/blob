@@ -225,7 +225,13 @@ class LinkPreview(CamelModel):
     url: str
     title: str | None = None
     description: str | None = None
+    #: Blob's own copy of the page's picture (`/api/messages/{id}/preview-image`), never
+    #: the page's address for it: a reader's browser fetching it there would tell a third
+    #: party who read the message (M3 · B3).
     image_url: str | None = None
+    #: The picture's size, so the row is the right height before its bytes arrive.
+    image_width: int | None = None
+    image_height: int | None = None
     site_name: str | None = None
 
 

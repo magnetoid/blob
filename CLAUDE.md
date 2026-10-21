@@ -393,6 +393,13 @@ inside an unfollowed thread is the channel's badge cleared since it arrived, bec
 reading such a thread records nothing. The unsubscribe token's key is derived for that
 purpose alone — never sign a new kind of token with the raw `SESSION_SECRET` beside it.
 
+**A link preview's picture is Blob's copy.** `jobs/unfurl.py` fetches the page's `og:image`
+by the same pinned, redirect-checked path as the page, keeps a WebP beside the message, and
+the client draws it from `/api/messages/{id}/preview-image`, which answers only to somebody
+who may read the message. The page's own address for it is never stored or sent: a
+browser fetching it there tells a third party who read the message. `img-src https:`
+stays for apps' block images, not for previews.
+
 **Client.** `features/` by domain, `lib/` for the plumbing: a zustand store keeping
 messages per channel in ascending id order (UUIDv7 sorts chronologically, so a live
 insert is a sorted-position insert and "unread?" is a string comparison — the same trick

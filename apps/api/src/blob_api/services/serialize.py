@@ -223,8 +223,21 @@ def to_message(row: Any) -> Message:
         attachments=attachments,
         blocks=blocks or None,
         plugin_id=getattr(row, "plugin_id", None),
-        link_preview=LinkPreview.model_validate(preview) if preview else None,
+        link_preview=_link_preview(row.id, preview) if preview else None,
     )
+
+
+def _link_preview(message_id: str, stored: dict[str, Any]) -> LinkPreview:
+    """A stored preview as a reader may see it. The picture is Blob's copy, reached through
+    Blob; a preview stored before Blob kept copies still carries the page's own address
+    for it, which is dropped rather than handed to a browser (M3 · B3)."""
+    shown = {k: v for k, v in stored.items() if k not in ("imageUrl", "imageKey")}
+    if stored.get("imageKey"):
+        shown["imageUrl"] = f"/api/messages/{message_id}/preview-image"
+    else:
+        shown.pop("imageWidth", None)
+        shown.pop("imageHeight", None)
+    return LinkPreview.model_validate(shown)
 
 
 def _decision_of(row: Any) -> str | None:

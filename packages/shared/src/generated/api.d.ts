@@ -3752,6 +3752,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/messages/{message_id}/preview-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Picture
+         * @description The picture in a message's link preview: Blob's copy, to whoever may read the
+         *     message — a private channel's preview is as private as the channel (M3 · B3).
+         */
+        get: operations["preview_picture_api_messages__message_id__preview_image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages/{message_id}/reactions": {
         parameters: {
             query?: never;
@@ -6642,8 +6663,12 @@ export interface components {
         LinkPreview: {
             /** Description */
             description?: string | null;
+            /** Imageheight */
+            imageHeight?: number | null;
             /** Imageurl */
             imageUrl?: string | null;
+            /** Imagewidth */
+            imageWidth?: number | null;
             /** Sitename */
             siteName?: string | null;
             /** Title */
@@ -15911,6 +15936,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["blob_api__schemas__models__MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_picture_api_messages__message_id__preview_image_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

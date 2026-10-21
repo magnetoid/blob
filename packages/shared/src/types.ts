@@ -269,7 +269,11 @@ export interface LinkPreview {
   url: string;
   title: string | null;
   description: string | null;
+  /** Blob's own copy of the page's picture, never the page's address for it (M3 · B3). */
   imageUrl: string | null;
+  /** The picture's size, so the row is the right height before its bytes arrive. */
+  imageWidth?: number | null;
+  imageHeight?: number | null;
   siteName: string | null;
 }
 

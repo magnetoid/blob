@@ -42,6 +42,7 @@ from ..schemas.base import CamelModel, OkOut
 from ..schemas.models import Attachment
 from ..schemas.requests import UploadCompleteInput, UploadRequestInput
 from ..services import files as file_service
+from ..services import messages as message_service
 from ..services.workspace_settings import load as load_settings
 
 log = logging.getLogger("blob.files")
@@ -480,6 +481,20 @@ async def download(object_key: str, user: SessionUser = Depends(current_user)) -
     return _redirect(
         presign_download(key, filename=file.filename, mime=file.mime, voice=file.kind == "voice")
     )
+
+
+@router.get("/api/messages/{message_id}/preview-image")
+async def preview_picture(
+    message_id: IdParam, user: SessionUser = Depends(current_user)
+) -> RedirectResponse:
+    """The picture in a message's link preview: Blob's copy, to whoever may read the
+    message — a private channel's preview is as private as the channel (M3 · B3)."""
+    async with session_scope() as session:
+        await message_service.load_for(session, user.id, message_id)
+        key = await message_service.preview_picture_key(session, message_id)
+    if not key:
+        raise no_such_file()
+    return _redirect(presign_download(key, mime=images.THUMB_MIME))
 
 
 def _redirect(url: str) -> RedirectResponse:

@@ -17,10 +17,12 @@ has no policy of its own.
   attributes, and the codebase uses them everywhere. `'unsafe-inline'` on styles admits
   an exfiltration channel in theory (a crafted stylesheet can leak attribute values) and
   nothing else; scripts stay locked.
-- `img-src` and `media-src` allow `https:`. Link previews show the page's own `og:image`,
-  which is wherever the page keeps it, and attachments are served by a 302 to object
-  storage — CSP checks the redirect target, so the storage origin has to be allowed. An
-  image is not code; a wide `img-src` costs nothing scripts could exploit.
+- `img-src` and `media-src` allow `https:`. An app's message blocks may show an image from
+  wherever the app keeps it, and attachments are served by a 302 to object storage — CSP
+  checks the redirect target, so the storage origin has to be allowed. An image is not
+  code; a wide `img-src` costs nothing scripts could exploit. (A link preview's picture is
+  no longer one of these: since M3 · B3 it is Blob's own copy, so a reader's browser never
+  asks the page's server for it.)
 - `connect-src` allows the storage origin. Uploads are a presigned PUT straight from the
   browser to object storage; the API never sees the bytes. Blocking that origin would make
   every upload fail with a console message nobody reads.

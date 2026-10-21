@@ -634,6 +634,22 @@ async def replace_blocks(
     return await by_id(session, message_id)
 
 
+async def preview_picture_key(session: AsyncSession, message_id: str) -> str | None:
+    """Where Blob keeps the picture of this message's link preview, if it kept one."""
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT link_preview->>'imageKey' AS key FROM messages
+                 WHERE id = :id AND deleted_at IS NULL
+                """
+            ),
+            {"id": message_id},
+        )
+    ).fetchone()
+    return row.key if row is not None else None
+
+
 # ─── voice messages (M3 · B2) ──────────────────────────────────────────────────
 
 

@@ -278,13 +278,16 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 - **Files** — up to ten per message, 100 MB each, uploaded straight to object storage so
   file bytes never pass through the API process. Executable extensions are refused. An
   image gets a small copy made on upload, turned upright and stripped of its camera
-  metadata; text, PDFs and pages open in a panel beside the conversation.
+  metadata; several pictures in one message sit as tiles of one size; text, PDFs and pages
+  open in a panel beside the conversation.
 - **Voice messages** — recorded in the composer, up to five minutes, and played inline over
   the waveform measured while recording. With a [speech service](#speech) configured the
   words become the message's text, so search finds them, a notification says them and an
   agent reads them.
 - **Link previews** — the first URL in a message, fetched with an SSRF guard, a 5-second
-  timeout and a 512 KB ceiling.
+  timeout and a 512 KB ceiling, showing the site's name and its picture. The picture is a
+  small copy Blob makes once, so a reader's browser never asks that site for anything and
+  the site never learns who read the message.
 - **Translation** — per message, or automatic for everything arriving in another language,
   through DeepL or LibreTranslate.
 - **Calls** — a huddle (microphones on, kept in a bar while you carry on reading) or a

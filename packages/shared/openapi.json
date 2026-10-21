@@ -5095,6 +5095,17 @@
             ],
             "title": "Description"
           },
+          "imageHeight": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageheight"
+          },
           "imageUrl": {
             "anyOf": [
               {
@@ -5105,6 +5116,17 @@
               }
             ],
             "title": "Imageurl"
+          },
+          "imageWidth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imagewidth"
           },
           "siteName": {
             "anyOf": [
@@ -21467,6 +21489,48 @@
         "summary": "Pin Message",
         "tags": [
           "messages"
+        ]
+      }
+    },
+    "/api/messages/{message_id}/preview-image": {
+      "get": {
+        "description": "The picture in a message's link preview: Blob's copy, to whoever may read the\nmessage \u2014 a private channel's preview is as private as the channel (M3 \u00b7 B3).",
+        "operationId": "preview_picture_api_messages__message_id__preview_image_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Picture",
+        "tags": [
+          "files"
         ]
       }
     },

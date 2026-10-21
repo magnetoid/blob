@@ -461,7 +461,18 @@ export const MessageRow = memo(function MessageRow({
         )}
 
         {message.attachments.length > 0 && (
-          <div className="attachments">
+          <div
+            className="attachments"
+            // Several pictures sit as tiles of one size, the way a phone's gallery shows
+            // them, rather than a ragged column of different heights.
+            data-pictures={
+              message.attachments.filter(
+                (attachment) => attachment.kind !== "voice" && isInlineImage(attachment.mime),
+              ).length > 1
+                ? "many"
+                : undefined
+            }
+          >
             {message.attachments.map((attachment) =>
               // A recording made in the composer plays inline (M3 · B2). Of the rest, only
               // the images storage will serve inline are pictures. An SVG is a file here:
@@ -475,6 +486,7 @@ export const MessageRow = memo(function MessageRow({
               ) : isInlineImage(attachment.mime) ? (
                 <a
                   key={attachment.id}
+                  className="attachment-picture"
                   href={attachment.url}
                   target="_blank"
                   rel="noreferrer"
@@ -572,6 +584,11 @@ export const MessageRow = memo(function MessageRow({
             rel="noreferrer"
             data-arrived={!drawnWith.preview ? "true" : undefined}
           >
+            {message.linkPreview.siteName && (
+              <span className="link-preview-site block">
+                {message.linkPreview.siteName}
+              </span>
+            )}
             <span className="link-preview-title">
               {message.linkPreview.title}
             </span>
@@ -581,6 +598,22 @@ export const MessageRow = memo(function MessageRow({
               >
                 {message.linkPreview.description}
               </span>
+            )}
+            {/* Blob's own copy of the page's picture (M3 · B3): the browser asks Blob,
+                never the page's server, so no third party learns who read this. */}
+            {message.linkPreview.imageUrl && (
+              <img
+                className="link-preview-image"
+                src={message.linkPreview.imageUrl}
+                alt=""
+                width={message.linkPreview.imageWidth ?? undefined}
+                height={message.linkPreview.imageHeight ?? undefined}
+                loading="lazy"
+                decoding="async"
+                ref={revealIfCached}
+                onLoad={revealOnLoad}
+                onError={revealOnError}
+              />
             )}
           </a>
         )}

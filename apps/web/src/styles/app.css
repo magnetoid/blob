@@ -2207,6 +2207,22 @@ p.md-section:first-child {
   word-break: break-word;
 }
 
+/* Several pictures in one message: square tiles of one size, sized to the column — two
+   to a row on a phone, whatever its width, and up to 184px each where there is room. */
+.attachments[data-pictures='many'] > .attachment-picture {
+  flex: 0 1 calc(50% - 4px);
+  max-width: 184px;
+}
+
+.attachments[data-pictures='many'] .attachment-image {
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
 .attachment-image {
   max-width: 360px;
   max-height: 320px;
@@ -2368,6 +2384,26 @@ dialog.lightbox-host::backdrop {
   font-size: var(--text-ui);
   line-height: 1.55;
   color: var(--text-3);
+}
+
+.link-preview-site {
+  margin-bottom: 2px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* The page's picture, under what it says. The width and height attributes give the ratio
+   and reserve the space in a virtualised list; the maximums do the constraining. */
+.link-preview-image {
+  display: block;
+  max-width: min(360px, 100%);
+  max-height: 240px;
+  width: auto;
+  height: auto;
+  margin-top: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
 }
 
 /* ─── typing ─────────────────────────────────────────────────────────────── */
@@ -7085,6 +7121,7 @@ dialog.lightbox-host::backdrop {
    browser's broken image and alt text say which file did not load. The avatar's own
    version of this sits with the avatar. */
 .attachment-image,
+.link-preview-image,
 .files-tile img,
 .block-image {
   opacity: 0;
@@ -7092,12 +7129,14 @@ dialog.lightbox-host::backdrop {
 }
 
 .attachment-image[data-loaded],
+.link-preview-image[data-loaded],
 .files-tile img[data-loaded],
 .block-image[data-loaded] {
   opacity: 1;
 }
 
 .attachment-image[data-loaded='cached'],
+.link-preview-image[data-loaded='cached'],
 .files-tile img[data-loaded='cached'],
 .block-image[data-loaded='cached'] {
   transition: none;
