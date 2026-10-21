@@ -30,6 +30,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.auth import SessionUser
+from ..lib.errors import AppError
 from ..lib.mentions import simple_lower
 from ..realtime import presence
 from ..schemas.models import ChannelWithState, Message, User
@@ -39,6 +40,7 @@ from . import channels as channel_service
 from . import decision_log as decision_service
 from . import messages as message_service
 from . import reminders as reminder_service
+from . import users as user_service
 from .serialize import USER_COLUMNS, to_user
 
 #: What a command may ask the router to do once the transaction has committed.
@@ -696,6 +698,49 @@ async def _remind(ctx: CommandContext) -> CommandResult:
     A scheduled message to yourself, in the conversation you have with yourself — see
     `services/reminders` for why that is the design rather than a workaround.
     """
+    args = ctx.args.strip()
+    try:
+        if args.startswith("@"):
+            # Somebody else (M3 · B3), by the same names the composer offers.
+            people, rest = await _resolve_people(ctx)
+            if len(people) != 1:
+                return CommandResult(
+                    ephemeral="Remind one person at a time: "
+                    "`/remind @Ana to send the deck tomorrow at 9`."
+                )
+            # A guest reminds only somebody they could see (ADR 0034).
+            person = await user_service.get_user(
+                ctx.session,
+                ctx.user.workspace_id,
+                people[0],
+                guest_id=ctx.user.id if ctx.user.is_guest else None,
+            )
+            said, channel = await reminder_service.create_for_person(
+                ctx.session,
+                workspace_id=ctx.user.workspace_id,
+                author_id=ctx.user.id,
+                person_id=people[0],
+                person_name=person.display_name,
+                args=rest,
+            )
+            return CommandResult(ephemeral=said, open_channel=channel, navigate=False)
+        if args.startswith("#"):
+            # A channel (M3 · B3), posted there as you.
+            name, _, rest = args[1:].partition(" ")
+            channel_id = await channel_service.id_by_name(
+                ctx.session, ctx.user.workspace_id, name, user_id=ctx.user.id
+            )
+            said = await reminder_service.create_for_channel(
+                ctx.session,
+                workspace_id=ctx.user.workspace_id,
+                author_id=ctx.user.id,
+                channel_id=channel_id,
+                channel_name=name.lower(),
+                args=rest,
+            )
+            return CommandResult(ephemeral=said, navigate=False)
+    except AppError as refusal:
+        return CommandResult(ephemeral=refusal.message)
     said, channel = await reminder_service.create(
         ctx.session,
         workspace_id=ctx.user.workspace_id,
@@ -800,7 +845,12 @@ COMMANDS: dict[str, Command] = {
         Command("who", "", "List who is in this channel.", _who),
         Command("dm", "@name [text]", "Open a direct message, and optionally say it.", _dm),
         Command("status", "[:emoji: text]", "Set your status, or clear it.", _status),
-        Command("remind", "me to <text> <when>", "Send yourself a note later.", _remind),
+        Command(
+            "remind",
+            "me|@person|#channel to <text> <when>",
+            "A note later — to yourself, somebody else, or a channel.",
+            _remind,
+        ),
         Command("allow", "@agent @name…", "Let somebody command your agent here.", _allow),
         Command("disallow", "@agent @name…", "Stop somebody commanding your agent.", _disallow),
     ]

@@ -121,6 +121,20 @@ class TestARule:
         parsed = when("every week at 9am")
         assert parsed is not None and parsed.repeat == "weekly"
 
+    def test_every_named_day_is_weekly_from_the_next_one(self) -> None:
+        # Wednesday at 14:30: "every friday at 4pm" first fires this Friday, weekly after.
+        parsed = when("every friday at 4pm")
+        assert parsed is not None and parsed.repeat == "weekly"
+        assert parsed.at == local("2026-09-04T16:00")
+        # The same day, its hour gone: next week's.
+        assert when("every wednesday at 9am").at == local("2026-09-09T09:00")  # type: ignore[union-attr]
+
+    def test_every_named_day_leaves_nothing_behind_in_the_words(self) -> None:
+        """It used to be read as a one-off Friday, with "every" left on the end."""
+        parsed = parse_reminder("post the notes every Friday at 4pm", now=NOW, timezone=BELGRADE)
+        assert parsed is not None
+        assert (parsed.body, parsed.repeat) == ("post the notes", "weekly")
+
     def test_a_rule_with_no_hour_is_not_read(self) -> None:
         # "every day" alone names no slot, and picking one for somebody is how a
         # reminder arrives at a time they never chose.

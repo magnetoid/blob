@@ -46,8 +46,9 @@ async def _timezone_of(session: AsyncSession, user_id: str) -> str:
     return str(zone) if zone else "UTC"
 
 
-def _confirmation(at: datetime, repeat: str | None, zone: str) -> str:
-    """Read back the moment that was understood, in their clock.
+def _confirmation(at: datetime, repeat: str | None, zone: str, *, whom: str | None = None) -> str:
+    """Read back the moment that was understood, in their clock — and, for somebody else
+    or a channel, whom it is for.
 
     Read back rather than merely accepted: the parser is small and will sometimes hear a
     different hour than the one that was meant, and the only cheap defence against that is
@@ -56,9 +57,17 @@ def _confirmation(at: datetime, repeat: str | None, zone: str) -> str:
     local = at.astimezone(zone_for(zone))
     stamp = local.strftime("%a %-d %b at %H:%M")
     rule = describe(repeat)
+    what = f"Reminder {whom}" if whom else "Reminder"
     if repeat is None:
-        return f"Reminder set for {stamp}."
-    return f"Reminder set — {rule.lower()} at {local.strftime('%H:%M')}, starting {stamp}."
+        return f"{what} set for {stamp}."
+    return f"{what} set — {rule.lower()} at {local.strftime('%H:%M')}, starting {stamp}."
+
+
+#: The grammar again, for reminding somebody else or a channel.
+HOW_OTHERS = (
+    "I didn't catch a time. Try `/remind @Ana to send the deck tomorrow at 9` or "
+    "`/remind #design to post the notes every Friday at 4pm`."
+)
 
 
 async def create(
@@ -101,4 +110,93 @@ async def create(
     return _confirmation(parsed.at, parsed.repeat, zone), channel
 
 
-__all__ = ["HOW", "create"]
+async def create_for_person(
+    session: AsyncSession,
+    *,
+    workspace_id: str,
+    author_id: str,
+    person_id: str,
+    person_name: str,
+    args: str,
+    now: datetime | None = None,
+) -> tuple[str, ChannelWithState | None]:
+    """`/remind @Ana to send the deck tomorrow at 9` (M3 · B3): a message from you, in the
+    conversation the two of you already have, at that time — which is what a reminder
+    from a colleague is. Slack sends it from its own bot; Blob has none to borrow, and a
+    note in your DM is the one Ana would recognise. The time is yours: you set it."""
+    if person_id == author_id:
+        return await create(
+            session, workspace_id=workspace_id, user_id=author_id, args=args, now=now
+        )
+    zone = await _timezone_of(session, author_id)
+    parsed = parse_reminder(args, now=now or datetime.now(UTC), timezone=zone)
+    if parsed is None:
+        return HOW_OTHERS, None
+    channel_id, created = await channel_service.find_or_create_dm(
+        session, workspace_id, [author_id, person_id]
+    )
+    await scheduled_service.schedule(
+        session,
+        workspace_id=workspace_id,
+        channel_id=channel_id,
+        author_id=author_id,
+        body=f"Reminder: {parsed.body}",
+        send_at=as_utc(parsed.at),
+        client_msg_id=new_id(),
+        repeat=parsed.repeat,
+        timezone=zone,
+        now=now,
+    )
+    channel = (
+        await channel_service.get_for_user(session, channel_id, author_id) if created else None
+    )
+    return _confirmation(parsed.at, parsed.repeat, zone, whom=f"for {person_name}"), channel
+
+
+async def create_for_channel(
+    session: AsyncSession,
+    *,
+    workspace_id: str,
+    author_id: str,
+    channel_id: str,
+    channel_name: str,
+    args: str,
+    now: datetime | None = None,
+) -> str:
+    """`/remind #design to post the notes every Friday at 4pm` (M3 · B3): posted there as
+    you, so only where you could post it now — a member, in a channel that takes your
+    messages, an announcement channel's rule included."""
+    from . import messages as message_service
+
+    await channel_service.assert_channel_access(
+        session, author_id, channel_id, require_member=True, require_writable=True
+    )
+    zone = await _timezone_of(session, author_id)
+    parsed = parse_reminder(args, now=now or datetime.now(UTC), timezone=zone)
+    if parsed is None:
+        return HOW_OTHERS
+    body = f"Reminder: {parsed.body}"
+    await message_service.assert_may_post(
+        session,
+        author_id=author_id,
+        workspace_id=workspace_id,
+        channel_id=channel_id,
+        body=body,
+        thread_root_id=None,
+    )
+    await scheduled_service.schedule(
+        session,
+        workspace_id=workspace_id,
+        channel_id=channel_id,
+        author_id=author_id,
+        body=body,
+        send_at=as_utc(parsed.at),
+        client_msg_id=new_id(),
+        repeat=parsed.repeat,
+        timezone=zone,
+        now=now,
+    )
+    return _confirmation(parsed.at, parsed.repeat, zone, whom=f"in #{channel_name}")
+
+
+__all__ = ["HOW", "HOW_OTHERS", "create", "create_for_channel", "create_for_person"]

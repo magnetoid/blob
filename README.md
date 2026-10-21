@@ -353,7 +353,9 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
   or anyone chiming in comes back to the person who asked, as a reminder in their Later.
   Only to them: Blob has no read receipts to look at.
 - **Reminders** — `/remind me to water the plants tomorrow at 9`, understanding durations,
-  clock times, weekdays and "every weekday at 9am".
+  clock times, weekdays and "every weekday at 9am" — and for somebody else
+  (`/remind @Ana to send the deck tomorrow`) or a channel (`/remind #design to post the
+  notes every Friday at 4pm`).
 
 </details>
 

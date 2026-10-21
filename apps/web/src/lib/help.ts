@@ -675,12 +675,13 @@ export const SECTIONS: Section[] = [
       },
       {
         id: 'reminders',
-        title: 'Reminding yourself',
-        blurb: '/remind me to water the plants tomorrow at 9 — a note that arrives in your own messages.',
+        title: 'Reminders',
+        blurb: '/remind me to water the plants tomorrow at 9 — or @Ana, or #design — a note that arrives later.',
         body: [
           'It reads durations (“in 20 minutes”, “in 2 hours”), clock times (“at 5pm”, “18:30”), days (“tomorrow”, “Monday”) and repeats (“every weekday at 9am”). A time it cannot read is answered with the shapes it does understand rather than with a guess. It has to be typed in a channel: the thread reply box does not read commands at all, and a slash there is just a slash.',
           'Reminders are ordinary scheduled messages to yourself, which is why they show on the Scheduled list with the same Cancel button as everything else — and it is also why they arrive quietly. Blob never notifies you about your own message, so the note appears in your own conversation without a ping. When you want to be interrupted, “Remind me…” on a message is the one that comes back at you.',
           'Times are read in your account’s time zone, which is under Time zone in Preferences — it shows the clock in whatever zone is set, so a wrong one is visible at a glance. Set it before you trust “tomorrow at 9”.',
+          '/remind @Ana to send the deck tomorrow at 9 reminds somebody else: at that time, a message from you arrives in the conversation the two of you have. /remind #design to post the notes every Friday at 4pm posts it in a channel, as you — only one you could post in now. Both are on your Scheduled list, where you can cancel them.',
         ],
         commands: ['remind'],
         path: '/scheduled',

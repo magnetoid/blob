@@ -65,7 +65,10 @@ _CLOCK = r"at\s+(?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s*(?P<meridiem>am|pm)?"
 
 _PATTERNS: list[tuple[str, str]] = [
     ("in", r"in\s+(?P<count>\d{1,4})\s*(?P<unit>[a-z]+)"),
-    ("every", rf"every\s+(?P<every>day|weekday|week)\s+{_CLOCK}"),
+    # "every friday at 4pm" is weekly from the next Friday. Without the day names here it
+    # was read as a one-off Friday by the pattern below, and "every" was left at the end
+    # of the reminder's words.
+    ("every", rf"every\s+(?P<every>day|weekday|week|{'|'.join(_WEEKDAYS)})\s+{_CLOCK}"),
     ("named-day", rf"(?:on\s+)?(?P<day>today|tomorrow|{'|'.join(_WEEKDAYS)})\s+{_CLOCK}"),
     ("clock", _CLOCK),
     ("bare-day", rf"(?:on\s+)?(?P<bare>today|tomorrow|{'|'.join(_WEEKDAYS)})"),
@@ -150,9 +153,15 @@ def _resolve(match: re.Match[str], kind: str, now_local: datetime) -> When | Non
         if clock is None:
             return None
         hour, minute = clock
-        rule = {"day": "daily", "weekday": "weekdays", "week": "weekly"}[
-            match.group("every").lower()
-        ]
+        every = match.group("every").lower()
+        if every in _WEEKDAYS:
+            # The next one of that day, as "on friday at 4pm" reads it, then every week.
+            ahead = (_WEEKDAYS[every] - now_local.weekday()) % 7
+            first = _at_local(now_local + timedelta(days=ahead), hour, minute)
+            if first <= now_local:
+                first = _at_local(first + timedelta(days=7), hour, minute)
+            return When(at=first, repeat="weekly")
+        rule = {"day": "daily", "weekday": "weekdays", "week": "weekly"}[every]
         candidate = _at_local(now_local, hour, minute)
         if candidate <= now_local:
             candidate = _at_local(now_local + timedelta(days=1), hour, minute)
