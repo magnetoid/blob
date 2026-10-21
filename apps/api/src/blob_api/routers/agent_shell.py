@@ -25,12 +25,13 @@ import contextlib
 import json
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 
 from ..config import settings
-from ..lib.auth import SessionUser, current_user
+from ..lib.auth import SESSION_COOKIE, SessionUser, current_user, resolve_session
 from ..lib.caller import client_ip
 from ..lib.errors import AppError, forbidden
 from ..lib.ids import IdParam
@@ -43,6 +44,8 @@ log = logging.getLogger("blob.agents.shell")
 router = APIRouter()
 
 CLOSE_UNAUTHORIZED = 1008
+#: How often an open terminal checks that it is still wanted and still allowed.
+WATCH_EVERY_SEC = 15
 
 #: Terminals open in this process. A cap rather than a queue: waiting for a slot would
 #: show an operator a blank terminal that might start working, which is worse than being
@@ -114,7 +117,11 @@ async def agent_shell_socket(websocket: WebSocket, plugin_id: IdParam) -> None:
     try:
         async with shell_service.open_session(actor, target, cols=cols, rows=rows) as session:
             await _send(websocket, {"t": "ready", "agent": target.name})
-            await _pump(websocket, session)
+
+            async def still_allowed() -> bool:
+                return await _still_allowed(websocket, user, actor, plugin_id)
+
+            await _pump(websocket, session, still_allowed)
     except AppError as exc:
         await _send(websocket, {"t": "error", "message": exc.message})
     except WebSocketDisconnect:
@@ -125,7 +132,33 @@ async def agent_shell_socket(websocket: WebSocket, plugin_id: IdParam) -> None:
             await websocket.close()
 
 
-async def _pump(websocket: WebSocket, session: ShellSession) -> None:
+async def _still_allowed(
+    websocket: WebSocket, user: SessionUser, actor: Actor, plugin_id: str
+) -> bool:
+    """Whether the person who opened this terminal may still have it.
+
+    Asked again while it is open, not only at the upgrade: an open terminal is a root
+    shell, and signing someone out everywhere, deactivating them or taking their admin
+    role used to leave the one they already had open until it went idle (the 2026-10
+    security review). The session the socket opened with has to still resolve, to the
+    same person, still an admin, and the agent still has to be one they may open.
+    """
+    token = websocket.cookies.get(SESSION_COOKIE)
+    if not token:
+        return False
+    fresh = await resolve_session(token)
+    if fresh is None or fresh.id != user.id or not fresh.is_admin:
+        return False
+    try:
+        await shell_service.resolve(actor, plugin_id)
+    except AppError:
+        return False
+    return True
+
+
+async def _pump(
+    websocket: WebSocket, session: ShellSession, still_allowed: Callable[[], Awaitable[bool]]
+) -> None:
     """Bytes both ways until either end stops, then stop the other."""
     last_input = time.monotonic()
     started = last_input
@@ -136,7 +169,7 @@ async def _pump(websocket: WebSocket, session: ShellSession) -> None:
 
     reader = asyncio.create_task(_from_agent(websocket, session))
     writer = asyncio.create_task(_from_browser(websocket, session, touched))
-    idle = asyncio.create_task(_watch_idle(lambda: last_input, started))
+    idle = asyncio.create_task(_watch_idle(lambda: last_input, started, still_allowed))
 
     try:
         done, pending = await asyncio.wait(
@@ -207,16 +240,22 @@ async def _from_browser(websocket: WebSocket, session: ShellSession, touched: An
         # a strict reader turns next month's addition into a terminal that will not open.
 
 
-async def _watch_idle(last_input: Any, started: float) -> None:
-    """Close a session nobody is using, and one that has simply gone on too long.
+async def _watch_idle(
+    last_input: Any, started: float, still_allowed: Callable[[], Awaitable[bool]]
+) -> None:
+    """Close a session nobody is using, one that has simply gone on too long, and one whose
+    opener may no longer have it.
 
     An open terminal is a root shell in a container held by a browser tab, and a tab
-    stays open for days. Both bounds exist because they catch different things: the idle
-    one catches somebody who walked away, the absolute one catches a tab that is being
-    kept alive by something that is not a person.
+    stays open for days. The bounds catch different things: the idle one catches somebody
+    who walked away, the absolute one catches a tab that is being kept alive by something
+    that is not a person, and the last catches a person who is no longer allowed one.
     """
     while True:
-        await asyncio.sleep(15)
+        await asyncio.sleep(WATCH_EVERY_SEC)
+        if not await still_allowed():
+            log.info("closing an agent terminal whose opener may no longer have it")
+            return
         now = time.monotonic()
         if now - last_input() >= settings.AGENT_SHELL_IDLE_SEC:
             log.info("closing an idle agent terminal")

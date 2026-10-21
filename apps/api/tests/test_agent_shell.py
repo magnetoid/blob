@@ -399,3 +399,71 @@ class TestResolveFromADm:
             await agent_shell_service.resolve_for_bot_user(elsewhere, str(bot_user_id))
 
         assert caught.value.code == "not_hosted"
+
+
+class TestAnOpenTerminalIsRecheckedWhileItIsOpen:
+    """An open terminal is a root shell: signing its opener out everywhere, deactivating
+    them or taking their admin role closes it within one watch, rather than leaving it
+    open until it goes idle (the 2026-10 security review)."""
+
+    async def test_the_watch_closes_it_the_moment_its_opener_may_not_have_it(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from blob_api.routers import agent_shell as shell_router
+
+        monkeypatch.setattr(shell_router, "WATCH_EVERY_SEC", 0)
+        asked: list[bool] = []
+
+        async def still_allowed() -> bool:
+            asked.append(True)
+            return len(asked) < 3
+
+        import time as clock
+
+        started = clock.monotonic()
+        await shell_router._watch_idle(lambda: clock.monotonic(), started, still_allowed)
+        assert len(asked) == 3
+
+    async def test_the_check_follows_the_session_the_role_and_the_account(
+        self, client: Client
+    ) -> None:
+        from types import SimpleNamespace
+
+        from blob_api.lib.auth import SESSION_COOKIE, resolve_session
+        from blob_api.routers import agent_shell as shell_router
+
+        from .helpers import invite_and_sign_up, sign_up
+
+        owner = await sign_up(client, "Olga Owner")
+        admin = await invite_and_sign_up(owner, "Adam Admin", role="admin")
+        token = admin._http.cookies.get(SESSION_COOKIE)
+        assert token
+        user = await resolve_session(token)
+        assert user is not None
+        socket = SimpleNamespace(cookies={SESSION_COOKIE: token})
+        actor = Actor(id=user.id, workspace_id=user.workspace_id)
+        resolved: list[str] = []
+
+        async def resolve(_actor: Actor, plugin_id: str) -> None:
+            resolved.append(plugin_id)
+
+        original = agent_shell_service.resolve
+        agent_shell_service.resolve = resolve  # type: ignore[assignment]
+        try:
+            assert await shell_router._still_allowed(socket, user, actor, "p1")  # type: ignore[arg-type]
+
+            # Demoted: no longer an admin.
+            await owner.put(f"/api/admin/users/{admin.user_id}/role", {"role": "member"})
+            assert not await shell_router._still_allowed(socket, user, actor, "p1")  # type: ignore[arg-type]
+            await owner.put(f"/api/admin/users/{admin.user_id}/role", {"role": "admin"})
+            assert await shell_router._still_allowed(socket, user, actor, "p1")  # type: ignore[arg-type]
+
+            # Deactivated: the session no longer resolves.
+            await owner.post(f"/api/admin/users/{admin.user_id}/deactivate", {})
+            assert not await shell_router._still_allowed(socket, user, actor, "p1")  # type: ignore[arg-type]
+
+            # No cookie at all.
+            empty = SimpleNamespace(cookies={})
+            assert not await shell_router._still_allowed(empty, user, actor, "p1")  # type: ignore[arg-type]
+        finally:
+            agent_shell_service.resolve = original  # type: ignore[assignment]
