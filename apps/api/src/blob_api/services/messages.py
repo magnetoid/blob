@@ -725,6 +725,15 @@ async def addressed_by_the_room(session: AsyncSession, *, channel_id: str) -> bo
     return row is not None
 
 
+async def _is_guest(session: AsyncSession, user_id: str | None) -> bool:
+    if user_id is None:
+        return False
+    role = (
+        await session.execute(text("SELECT role FROM users WHERE id = :id"), {"id": user_id})
+    ).scalar_one_or_none()
+    return role == "guest"
+
+
 async def announce(
     session: AsyncSession,
     after: Any,
@@ -787,6 +796,12 @@ async def announce(
     from .agent_follows import is_followed
 
     followed = result.message.kind == "user" and await is_followed(session, channel_id=channel_id)
+    # A guest's message starts no agent run (ADR 0034). A run acts with its asker's reach
+    # through tools written for members — the directory, every public channel — and a
+    # guest's reach is a handful of rooms.
+    from_a_guest = result.message.kind == "user" and await _is_guest(
+        session, result.message.author_id
+    )
 
     def broadcast() -> None:
         hub.to_channel(channel_id, message_event("message.new", result.message))
@@ -802,7 +817,11 @@ async def announce(
         # False for exactly one caller: the message that answers a decision an agent
         # was waiting on. That message *resumes* the run that asked, and rooting a
         # second chain from it would race the resume for the same agent.
-        if start_agent_runs and (result.message.mention_user_ids or by_the_room or followed):
+        if (
+            start_agent_runs
+            and not from_a_guest
+            and (result.message.mention_user_ids or by_the_room or followed)
+        ):
             fire_and_forget(enqueue("agui_run", result.message.id))
         # The outbox drains on a timer too, so this is latency rather than delivery.
         fire_and_forget(enqueue("deliver_plugin_events"))

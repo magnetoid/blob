@@ -90,6 +90,9 @@ function oneLine(body: string): string {
   return body.replace(/\s+/g, " ").trim();
 }
 
+/** Actions a guest has no use for: they browse no channels and use no agents (ADR 0034). */
+const GUEST_HIDDEN = new Set(["a-browse", "a-agents"]);
+
 export function CommandPalette({
   onClose,
   only,
@@ -226,7 +229,7 @@ export function CommandPalette({
   const actionItems = useMemo<Item[]>(() => {
     const theme = currentUser?.prefs.theme ?? "system";
     const density = currentUser?.prefs.density ?? "comfortable";
-    return [
+    const items: Item[] = [
       {
         id: "a-home",
         label: "Home — what needs you",
@@ -304,6 +307,7 @@ export function CommandPalette({
           }),
       },
     ];
+    return currentUser?.role === "guest" ? items.filter((item) => !GUEST_HIDDEN.has(item.id)) : items;
   }, [currentUser, setPrefs]);
 
   const messageItems = useMemo<Item[]>(

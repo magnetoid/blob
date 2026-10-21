@@ -160,7 +160,10 @@ async def for_conversations(
                    -- not the admin's to read either (review of phase 5).
                    AND p.owner_user_id IS NULL
                    AND (
-                     c.kind = 'public'
+                     (c.kind = 'public' AND NOT EXISTS (
+                         SELECT 1 FROM users viewer
+                          WHERE viewer.id = :viewer AND viewer.role = 'guest'
+                     ))
                      OR EXISTS (
                        SELECT 1 FROM channel_members cm
                         WHERE cm.channel_id = c.id AND cm.user_id = :viewer

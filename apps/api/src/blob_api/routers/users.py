@@ -82,13 +82,21 @@ async def update_prefs(
 @router.get("/api/users", response_model=UsersOut)
 async def list_users(user: SessionUser = Depends(current_user)) -> UsersOut:
     async with session_scope() as session:
-        return UsersOut(users=await user_service.list_users(session, user.workspace_id))
+        return UsersOut(
+            users=await user_service.list_users(
+                session, user.workspace_id, guest_id=user.id if user.is_guest else None
+            )
+        )
 
 
 @router.get("/api/users/{user_id}", response_model=UserOut)
 async def get_user(user_id: IdParam, user: SessionUser = Depends(current_user)) -> UserOut:
     async with session_scope() as session:
-        return UserOut(user=await user_service.get_user(session, user.workspace_id, user_id))
+        return UserOut(
+            user=await user_service.get_user(
+                session, user.workspace_id, user_id, guest_id=user.id if user.is_guest else None
+            )
+        )
 
 
 # ─── web push ─────────────────────────────────────────────────────────────────

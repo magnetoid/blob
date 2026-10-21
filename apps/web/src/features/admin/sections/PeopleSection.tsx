@@ -128,11 +128,12 @@ export function PeopleSection({
                         void act(() =>
                           api.admin.setRole(
                             user.id,
-                            e.target.value as "member" | "admin" | "owner",
+                            e.target.value as "member" | "admin" | "owner" | "guest",
                           ),
                         )
                       }
                     >
+                      <option value="guest">guest</option>
                       <option value="member">member</option>
                       <option value="admin">admin</option>
                       <option value="owner">owner</option>

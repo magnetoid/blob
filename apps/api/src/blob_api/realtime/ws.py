@@ -19,6 +19,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import text
 
 from ..db.engine import session_scope
+from ..db.visibility import GUEST_SEES
 from ..lib.auth import SessionUser
 from ..lib.ids import looks_like_id, new_id
 from . import hub, presence
@@ -43,7 +44,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         return
 
     await websocket.accept()
-    conn = hub.new_connection(new_id(), user.id, user.workspace_id)
+    conn = hub.new_connection(new_id(), user.id, user.workspace_id, guest=user.is_guest)
     hub.register(conn)
 
     async with session_scope() as session:
@@ -173,7 +174,10 @@ async def _reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)
                 if isinstance(raw, list)
                 else []
             )
-            user_ids = await _visible_users(asked, user.workspace_id) if asked else []
+            guest_id = user.id if user.is_guest else None
+            user_ids = (
+                await _visible_users(asked, user.workspace_id, guest_id=guest_id) if asked else []
+            )
             hub.set_presence_subs(conn, user_ids)
             states = await presence.get_presence(user_ids)
             for subject, state in states.items():
@@ -199,7 +203,9 @@ async def _reader(websocket: WebSocket, conn: hub.Connection, user: SessionUser)
             return
 
 
-async def _visible_users(user_ids: list[str], workspace_id: str) -> list[str]:
+async def _visible_users(
+    user_ids: list[str], workspace_id: str, *, guest_id: str | None = None
+) -> list[str]:
     """Which of these ids the caller is allowed to know anything about.
 
     Scoped inside the query rather than by comparing afterwards, so there is one place
@@ -210,12 +216,13 @@ async def _visible_users(user_ids: list[str], workspace_id: str) -> list[str]:
         rows = (
             await session.execute(
                 text(
-                    """
-                    SELECT id FROM users
-                     WHERE id = ANY(cast(:ids AS uuid[])) AND workspace_id = :ws
+                    f"""
+                    SELECT u.id FROM users u
+                     WHERE u.id = ANY(cast(:ids AS uuid[])) AND u.workspace_id = :ws
+                       AND (cast(:viewer AS uuid) IS NULL OR {GUEST_SEES})
                     """
                 ),
-                {"ids": user_ids, "ws": workspace_id},
+                {"ids": user_ids, "ws": workspace_id, "viewer": guest_id},
             )
         ).fetchall()
     return [str(row.id) for row in rows]

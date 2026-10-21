@@ -77,7 +77,9 @@ class ResetPasswordInput(CamelModel):
 class CreateInviteInput(CamelModel):
     email: EmailStr | None = None
     expires_in_days: int = Field(default=7, ge=1, le=30)
-    role: Literal["member", "admin"] = "member"
+    role: Literal["member", "admin", "guest"] = "member"
+    #: For a guest, the channels the invitation lets them into — and all they will see.
+    channel_ids: list[IdParam] = Field(default_factory=list, max_length=50)
 
 
 class CreateChannelInput(CamelModel, ChannelNameMixin):

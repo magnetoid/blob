@@ -242,7 +242,10 @@ _ADMIN_SEES = """
     n.workspace_id = :ws AND n.plugin_id = :plugin AND n.person_id IS NULL
     AND p.owner_user_id IS NULL
     AND (
-      c.kind = 'public'
+      (c.kind = 'public' AND NOT EXISTS (
+          SELECT 1 FROM users viewer
+           WHERE viewer.id = :viewer AND viewer.role = 'guest'
+      ))
       OR EXISTS (
         SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = :viewer
       )

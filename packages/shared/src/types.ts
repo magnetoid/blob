@@ -1,6 +1,7 @@
 /** Domain types shared by the server and every client. */
 
-export type UserRole = 'member' | 'admin' | 'owner';
+/** `guest` is in the workspace for the channels they were invited to, and nothing else. */
+export type UserRole = 'member' | 'admin' | 'owner' | 'guest';
 export type UserKind = 'human' | 'bot';
 export type ChannelKind = 'public' | 'private' | 'dm' | 'group_dm';
 export type NotifyLevel = 'all' | 'mentions' | 'none';

@@ -480,6 +480,10 @@ async def _join(ctx: CommandContext) -> CommandResult:
     wanted = ctx.args.strip().lstrip("#").strip()
     if not wanted:
         return CommandResult(ephemeral="Which channel? `/join #name`.")
+    if ctx.user.role == "guest":
+        # A guest is in the channels they were invited to (ADR 0034); the same answer a
+        # missing channel gets, so a name is not confirmed by asking.
+        return CommandResult(ephemeral=f"There's no open channel called #{wanted}.")
 
     row = (
         await ctx.session.execute(

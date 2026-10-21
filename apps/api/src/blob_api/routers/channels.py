@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 
 from ..db.engine import session_scope, transaction
-from ..lib.auth import SessionUser, current_user
+from ..lib.auth import SessionUser, current_user, require_member
 from ..lib.errors import channel_gone, forbidden, not_found
 from ..lib.ids import IdParam
 from ..lib.queue import enqueue, fire_and_forget
@@ -67,7 +67,7 @@ async def browse_channels(
 
 @router.post("/api/channels", response_model=ChannelOut)
 async def create_channel(
-    payload: CreateChannelInput, user: SessionUser = Depends(current_user)
+    payload: CreateChannelInput, user: SessionUser = Depends(require_member)
 ) -> ChannelOut:
     async with transaction() as (session, after):
         channel_id = await channel_service.create_channel(
@@ -266,7 +266,7 @@ async def leave_channel(channel_id: IdParam, user: SessionUser = Depends(current
 
 @router.post("/api/channels/{channel_id}/members", response_model=OkOut)
 async def add_members(
-    channel_id: IdParam, payload: AddMembersInput, user: SessionUser = Depends(current_user)
+    channel_id: IdParam, payload: AddMembersInput, user: SessionUser = Depends(require_member)
 ) -> OkOut:
     async with transaction() as (session, after):
         access = await channel_service.assert_channel_access(
@@ -356,6 +356,13 @@ async def open_dm(payload: CreateDmInput, user: SessionUser = Depends(current_us
 
     async with transaction() as (session, after):
         if not await user_service.all_active(session, user.workspace_id, members):
+            raise not_found("One of those people is unavailable.")
+        # A guest talks to the people in their channels, and to nobody they could only
+        # have found in a directory they do not have (ADR 0034). Somebody they cannot
+        # see is "unavailable", the same as somebody who is not there.
+        if user.is_guest and not await user_service.all_visible_to_guest(
+            session, user.id, [member for member in members if member != user.id]
+        ):
             raise not_found("One of those people is unavailable.")
 
         channel_id, created = await channel_service.find_or_create_dm(

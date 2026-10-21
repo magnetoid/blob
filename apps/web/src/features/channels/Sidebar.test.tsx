@@ -312,3 +312,24 @@ describe('a live call marks its conversation', () => {
     expect(screen.getByRole('img', { name: 'A huddle is on' })).toBeTruthy();
   });
 });
+
+describe('for a guest (ADR 0034)', () => {
+  it('offers nothing to browse and nowhere new to start', () => {
+    seed();
+    useStore.setState({ currentUser: { ...ME, role: 'guest' } } as never);
+    render(<Sidebar />);
+
+    expect(screen.getByText('general')).toBeTruthy();
+    expect(screen.queryByText(/^Browse/)).toBeNull();
+    expect(screen.queryByText('New channel')).toBeNull();
+  });
+
+  it('while a member keeps both', () => {
+    seed();
+    useStore.setState({ currentUser: { ...ME, role: 'member' } } as never);
+    render(<Sidebar />);
+
+    expect(screen.getByText(/^Browse/)).toBeTruthy();
+    expect(screen.getByText('New channel')).toBeTruthy();
+  });
+});

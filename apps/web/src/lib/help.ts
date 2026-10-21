@@ -137,6 +137,19 @@ export const SECTIONS: Section[] = [
         keywords: ['invite', 'invitation', 'join', 'new member', 'link'],
       },
       {
+        id: 'guests',
+        title: 'Guests',
+        blurb: 'Somebody from outside — a client, a contractor — in the channels you choose and nowhere else.',
+        body: [
+          'Invite a guest from Invitations: choose guest, their address, and the channels they may see. They see those channels and the people in them — no other channel, public ones included, and no directory of everyone else.',
+          'A guest cannot start channels, add people, browse the channel list, use agents or connect an assistant. They can write to the people they share a channel with, and anyone here can write to them.',
+          'The owner can turn a member into a guest from People, or a guest into a member. A member made a guest keeps the channels they were already in, and loses every assistant they had connected.',
+        ],
+        audience: 'admins',
+        path: '/admin/invitations',
+        keywords: ['guest', 'guests', 'external', 'client', 'contractor', 'single-channel', 'limited access'],
+      },
+      {
         id: 'this-build',
         title: 'This guide describes the build you are running',
         blurb:

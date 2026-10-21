@@ -36,7 +36,7 @@ class AdminUsersOut(CamelModel):
 
 
 class RoleInput(CamelModel):
-    role: Literal["member", "admin", "owner"]
+    role: Literal["member", "admin", "owner", "guest"]
 
 
 class AdminChannel(CamelModel):

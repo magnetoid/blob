@@ -186,6 +186,10 @@ async def set_role(session: AsyncSession, owner: Actor, user_id: str, role: str)
     ).fetchall()
     for row in changed_emails:
         await retire_resets(session, email=row.email)
+    if role == "guest":
+        # A guest has no reach to lend an assistant (ADR 0034): what they had connected as
+        # a member stops, tokens and signed-in grants alike.
+        await revoke_assistant_tokens(session, user_id)
     await audit_service.record(
         session,
         owner,

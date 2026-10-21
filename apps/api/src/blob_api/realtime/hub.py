@@ -50,6 +50,9 @@ class Connection:
     presence_subs: set[str] = field(default_factory=set)
     #: The channel the user is looking at right now, if any.
     focused_channel_id: str | None = None
+    #: A guest's socket (ADR 0034): it hears its own channels and its own person, and no
+    #: workspace-wide news — a public channel appearing, a profile it cannot see changing.
+    guest: bool = False
     closed: bool = False
     #: Set when this connection is dropped, so whoever owns the socket can tear it down.
     #: `closed` alone is a flag nobody is waiting on: the socket's read loop sits in
@@ -92,12 +95,15 @@ _by_presence_sub: dict[str, set[Connection]] = {}
 _tasks: set[asyncio.Task[Any]] = set()
 
 
-def new_connection(connection_id: str, user_id: str, workspace_id: str) -> Connection:
+def new_connection(
+    connection_id: str, user_id: str, workspace_id: str, *, guest: bool = False
+) -> Connection:
     return Connection(
         id=connection_id,
         user_id=user_id,
         workspace_id=workspace_id,
         outbox=asyncio.Queue(OUTBOX_LIMIT),
+        guest=guest,
     )
 
 
@@ -249,7 +255,8 @@ def _deliver_local(event: ServerEvent, to: dict[str, Any]) -> None:
     workspace_id = to.get("workspace")
     if workspace_id:
         for conn in list(_by_workspace.get(workspace_id, set())):
-            conn.send(event)
+            if not conn.guest:
+                conn.send(event)
         return
     if "channelId" in to:
         for conn in list(_by_channel.get(to["channelId"], set())):

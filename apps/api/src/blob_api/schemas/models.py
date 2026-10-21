@@ -9,7 +9,7 @@ from pydantic import Field, field_validator
 from ..lib.ids import IdParam
 from .base import CamelModel
 
-UserRole = Literal["member", "admin", "owner"]
+UserRole = Literal["member", "admin", "owner", "guest"]
 UserKind = Literal["human", "bot"]
 ChannelKind = Literal["public", "private", "dm", "group_dm"]
 NotifyLevel = Literal["all", "mentions", "none"]

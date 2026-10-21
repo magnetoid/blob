@@ -2906,6 +2906,15 @@
       },
       "CreateInviteInput": {
         "properties": {
+          "channelIds": {
+            "items": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Channelids",
+            "type": "array"
+          },
           "email": {
             "anyOf": [
               {
@@ -2929,7 +2938,8 @@
             "default": "member",
             "enum": [
               "member",
-              "admin"
+              "admin",
+              "guest"
             ],
             "title": "Role",
             "type": "string"
@@ -3119,7 +3129,8 @@
             "enum": [
               "member",
               "admin",
-              "owner"
+              "owner",
+              "guest"
             ],
             "title": "Role",
             "type": "string"
@@ -8068,7 +8079,8 @@
             "enum": [
               "member",
               "admin",
-              "owner"
+              "owner",
+              "guest"
             ],
             "title": "Role",
             "type": "string"
@@ -10631,7 +10643,8 @@
             "enum": [
               "member",
               "admin",
-              "owner"
+              "owner",
+              "guest"
             ],
             "title": "Role",
             "type": "string"

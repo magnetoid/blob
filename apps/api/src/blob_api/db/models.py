@@ -62,7 +62,7 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         UniqueConstraint("workspace_id", "email"),
-        CheckConstraint("role IN ('member', 'admin', 'owner')", name="users_role_check"),
+        CheckConstraint("role IN ('member', 'admin', 'owner', 'guest')", name="users_role_check"),
         CheckConstraint("kind IN ('human', 'bot')", name="users_kind_check"),
         # Mention resolution looks users up by lowercased display name. Partial, so a
         # deactivated user does not hold their name hostage.
@@ -295,7 +295,7 @@ class SsoIdentity(Base):
 class Invite(Base):
     __tablename__ = "invites"
     __table_args__ = (
-        CheckConstraint("role IN ('member', 'admin')", name="invites_role_check"),
+        CheckConstraint("role IN ('member', 'admin', 'guest')", name="invites_role_check"),
         Index("invites_workspace", "workspace_id", text("id DESC")),
     )
 
@@ -317,6 +317,10 @@ class Invite(Base):
     # An invite carries the role it grants, so admins can invite admins.
     role: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'member'"))
     revoked_at: Mapped[Any | None] = mapped_column(Timestamp)
+    #: A guest invitation's channels (ADR 0034); empty for every other kind.
+    channel_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(UUIDStr), nullable=False, server_default=text("'{}'::uuid[]")
+    )
 
 
 class AuditEvent(Base):

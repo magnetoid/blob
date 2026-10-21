@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, type AdminInvite } from "../../../lib/api.ts";
+import { useStore } from "../../../lib/store.ts";
 import { formatRelative } from "../../messages/messageFormatting.ts";
 import { CardNotice } from "../../console/Card.tsx";
 import { useAdminAction } from '../../console/hooks.ts';
@@ -16,7 +17,18 @@ export function InvitationsSection({
 }) {
   const [invites, setInvites] = useState<AdminInvite[]>([]);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"member" | "admin">("member");
+  const [role, setRole] = useState<"member" | "admin" | "guest">("member");
+  /** A guest's channels: the rooms the invitation lets them into, and all they see. */
+  const [guestChannels, setGuestChannels] = useState<string[]>([]);
+  const channels = useStore((s) => s.channels);
+  // What this admin may offer a guest: public channels, and private ones they are in.
+  const offerable = Object.values(channels)
+    .filter(
+      (channel) =>
+        !channel.archivedAt &&
+        (channel.kind === "public" || (channel.kind === "private" && channel.membership)),
+    )
+    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
   const [link, setLink] = useState<string | null>(null);
   /** Whether the invitation actually went by email: null when nobody asked it to. */
   const [emailed, setEmailed] = useState<boolean | null>(null);
@@ -45,21 +57,24 @@ export function InvitationsSection({
             const created = await api.auth.createInvite({
               email: email.trim() || undefined,
               role,
+              channelIds: role === "guest" ? guestChannels : undefined,
             });
             setLink(created.url);
             setEmailed(created.emailed ?? null);
             setEmail("");
+            setGuestChannels([]);
           });
         }}
       >
         <label className="field">
-          <span className="field-label">Email (optional)</span>
+          <span className="field-label">{role === "guest" ? "Email" : "Email (optional)"}</span>
           <input
             className="input"
             type="email"
             value={email}
+            required={role === "guest"}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Leave blank for a shareable link"
+            placeholder={role === "guest" ? "A guest is invited by address" : "Leave blank for a shareable link"}
           />
         </label>
         <label className="field">
@@ -67,16 +82,50 @@ export function InvitationsSection({
           <select
             className="input"
             value={role}
-            onChange={(e) => setRole(e.target.value as "member" | "admin")}
+            onChange={(e) => setRole(e.target.value as "member" | "admin" | "guest")}
           >
             <option value="member">member</option>
+            <option value="guest">guest</option>
             {isOwner && <option value="admin">admin</option>}
           </select>
         </label>
-        <button className="btn btn-primary" type="submit">
+        <button
+          className="btn btn-primary"
+          type="submit"
+          disabled={role === "guest" && guestChannels.length === 0}
+        >
           Create invitation
         </button>
       </form>
+
+      {role === "guest" && (
+        <fieldset className="guest-channels">
+          <legend className="field-label">Channels the guest may see</legend>
+          <p className="pref-hint">
+            A guest sees these channels and the people in them — no others, no directory,
+            no agents.
+          </p>
+          {offerable.map((channel) => (
+            <label key={channel.id} className="guest-channel">
+              <input
+                type="checkbox"
+                checked={guestChannels.includes(channel.id)}
+                onChange={(e) =>
+                  setGuestChannels((chosen) =>
+                    e.target.checked
+                      ? [...chosen, channel.id]
+                      : chosen.filter((id) => id !== channel.id),
+                  )
+                }
+              />
+              <span>
+                #{channel.name}
+                {channel.kind === "private" ? " · private" : ""}
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
 
       {link && emailed === false && (
         <p className="error-text">

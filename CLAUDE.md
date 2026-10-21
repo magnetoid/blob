@@ -21,7 +21,7 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-thirty-three ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+thirty-four ADRs; the principles below are their summary, not a substitute. 0013–0020 and
 0022–0030 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
@@ -199,6 +199,12 @@ the email claim alone: a first sign-in links by address only on `email_verified`
 `true`, within the allowed domains, with no other subject on that address; new people only
 by invitation or a join workspace that names its domains. Every round trip starts with a
 same-origin `POST /api/auth/sso/begin` and its state is bound to the browser by a cookie.
+
+A `guest` (ADR 0034) sees the channels they were let into, the people in them, and
+nothing else. "Public" means public to members: any query where `kind = 'public'` opens a
+channel to somebody who has not joined it must say `AND NOT` `db/visibility.VIEWER_IS_GUEST`,
+and any list of people answered to a guest is filtered by `db/visibility.GUEST_SEES`.
+A new query of either kind that forgets is a leak; `tests/test_guests.py` is the boundary.
 
 **Errors are a contract.** The codes in `lib/errors.py` are what `apps/web/src/lib/api.ts`
 branches on. Don't rename them, and keep FastAPI's 422 remapped to 400 `invalid_input`.

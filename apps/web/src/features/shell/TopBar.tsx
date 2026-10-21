@@ -156,14 +156,17 @@ export function TopBar({
           >
             Files
           </button>
-          <button
-            type="button"
-            className="topbar-tab"
-            aria-pressed={view === 'browse'}
-            onClick={() => navigate(pathForView('browse'))}
-          >
-            Channels
-          </button>
+          {/* A guest has no channel directory to open (ADR 0034). */}
+          {currentUser.role !== 'guest' && (
+            <button
+              type="button"
+              className="topbar-tab"
+              aria-pressed={view === 'browse'}
+              onClick={() => navigate(pathForView('browse'))}
+            >
+              Channels
+            </button>
+          )}
         </nav>
       )}
 

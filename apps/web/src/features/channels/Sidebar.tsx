@@ -46,6 +46,7 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
   const users = useStore((s) => s.users);
   const presence = useStore((s) => s.presence);
   const currentUser = useStore((s) => s.currentUser);
+  const isGuest = currentUser?.role === 'guest';
   const activeView = parseRoute(usePath()).view;
   const savedCount = useStore((s) => s.savedMessageIds.size);
   // Which agents are working right now, by display name — that is what a run carries.
@@ -167,25 +168,31 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
             />
           ))}
 
-          <SidebarNavButton
-            collapsed={collapsed}
-            icon={<SearchIcon size="sm" />}
-            label={browsable.length > 0 ? `Browse ${browsable.length} more` : 'Browse channels'}
-            active={activeView === 'browse'}
-            muted
-            onClick={() => navigate('/channels')}
-          />
+          {/* A guest is in the channels they were invited to and makes no others: there
+              is nothing to browse and nowhere new to start (ADR 0034). */}
+          {!isGuest && (
+            <SidebarNavButton
+              collapsed={collapsed}
+              icon={<SearchIcon size="sm" />}
+              label={browsable.length > 0 ? `Browse ${browsable.length} more` : 'Browse channels'}
+              active={activeView === 'browse'}
+              muted
+              onClick={() => navigate('/channels')}
+            />
+          )}
 
-          <button
-            className="sidebar-add"
-            onClick={() => setCreating(true)}
-            aria-label={collapsed ? 'New channel' : undefined}
-            title="New channel"
-            data-collapsed={collapsed ? 'true' : 'false'}
-          >
-            <PlusIcon size="sm" />
-            {!collapsed && <span>New channel</span>}
-          </button>
+          {!isGuest && (
+            <button
+              className="sidebar-add"
+              onClick={() => setCreating(true)}
+              aria-label={collapsed ? 'New channel' : undefined}
+              title="New channel"
+              data-collapsed={collapsed ? 'true' : 'false'}
+            >
+              <PlusIcon size="sm" />
+              {!collapsed && <span>New channel</span>}
+            </button>
+          )}
         </section>
 
         {/* Agents, between the channels and the people. Their own heading rather than
@@ -193,7 +200,7 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
             differently when some of them are programs — and because an agent that is
             working right now is worth seeing without opening anything. Hidden entirely
             when a workspace has none, so a server with no model shows no empty shelf. */}
-        {agents.length + agentDms.length > 0 && (
+        {!isGuest && agents.length + agentDms.length > 0 && (
           <section className="sidebar-section">
             {!collapsed && (
               <div className="section-label-row">

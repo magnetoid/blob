@@ -16,6 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import served_commit
+from ..db.visibility import GUEST_SEES
 from ..lib.auth import SessionUser
 from ..lib.errors import bad_request, conflict, no_such_person, not_found, unique_violation
 from ..lib.ids import new_id
@@ -65,15 +66,18 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
     if me is None or workspace is None:
         raise not_found("That workspace no longer exists.")
 
+    # A guest's workspace is the people in their channels (ADR 0034).
     users = (
         await session.execute(
             text(
                 f"""
-                SELECT {USER_COLUMNS} FROM users
-                 WHERE workspace_id = :ws ORDER BY lower(display_name)
+                SELECT {USER_COLUMNS} FROM users u
+                 WHERE u.workspace_id = :ws
+                   AND (NOT :guest OR {GUEST_SEES})
+                 ORDER BY lower(u.display_name)
                 """
             ),
-            {"ws": user.workspace_id},
+            {"ws": user.workspace_id, "guest": user.is_guest, "viewer": user.id},
         )
     ).fetchall()
     emoji = (
@@ -301,7 +305,11 @@ async def update_prefs(session: AsyncSession, user_id: str, patch: dict[str, Any
 
 
 async def list_users(
-    session: AsyncSession, workspace_id: str, *, active_only: bool = False
+    session: AsyncSession,
+    workspace_id: str,
+    *,
+    active_only: bool = False,
+    guest_id: str | None = None,
 ) -> list[User]:
     """Everybody in the workspace. The client wants the deactivated too — they still
     wrote messages — where an app asking `users.list` wants who is here now.
@@ -319,7 +327,7 @@ async def list_users(
                 SELECT {USER_COLUMNS},
                        (kind = 'bot' AND NOT EXISTS (
                             SELECT 1 FROM plugins p
-                             WHERE p.id = users.bot_plugin_id AND p.status = 'enabled'
+                             WHERE p.id = u.bot_plugin_id AND p.status = 'enabled'
                         )) AS agent_disabled,
                        -- The resident agent: the one Blob seeded. The home view targets
                        -- it rather than whichever bot sorts first, which may be somebody's
@@ -333,14 +341,15 @@ async def list_users(
                        -- residency. Where the agent sits is not who it is.
                        (kind = 'bot' AND EXISTS (
                             SELECT 1 FROM plugins p
-                             WHERE p.id = users.bot_plugin_id AND {seeded.SEEDED_AGENT}
+                             WHERE p.id = u.bot_plugin_id AND {seeded.SEEDED_AGENT}
                         )) AS agent_resident
-                  FROM users
-                 WHERE workspace_id = :ws AND (NOT :active_only OR deactivated_at IS NULL)
-                 ORDER BY lower(display_name) LIMIT 1000
+                  FROM users u
+                 WHERE u.workspace_id = :ws AND (NOT :active_only OR u.deactivated_at IS NULL)
+                   AND (cast(:viewer AS uuid) IS NULL OR {GUEST_SEES})
+                 ORDER BY lower(u.display_name) LIMIT 1000
                 """
             ),
-            {"ws": workspace_id, "active_only": active_only},
+            {"ws": workspace_id, "active_only": active_only, "viewer": guest_id},
         )
     ).fetchall()
     return [to_user(row) for row in rows]
@@ -367,6 +376,24 @@ async def is_agent(session: AsyncSession, workspace_id: str, user_id: str) -> bo
         )
     ).fetchone()
     return row is not None and row.kind == "bot"
+
+
+async def all_visible_to_guest(session: AsyncSession, guest_id: str, user_ids: list[str]) -> bool:
+    """Is every one of these somebody this guest shares a channel with?"""
+    if not user_ids:
+        return True
+    row = (
+        await session.execute(
+            text(
+                f"""
+                SELECT count(*)::int AS count FROM users u
+                 WHERE u.id = ANY(cast(:ids AS uuid[])) AND {GUEST_SEES}
+                """
+            ),
+            {"ids": user_ids, "viewer": guest_id},
+        )
+    ).fetchone()
+    return (row.count if row else 0) == len(set(user_ids))
 
 
 async def all_active(session: AsyncSession, workspace_id: str, user_ids: list[str]) -> bool:
@@ -398,11 +425,19 @@ async def preferred_language(session: AsyncSession, user_id: str) -> str | None:
     return language if isinstance(language, str) and language.strip() else None
 
 
-async def get_user(session: AsyncSession, workspace_id: str, user_id: str) -> User:
+async def get_user(
+    session: AsyncSession, workspace_id: str, user_id: str, *, guest_id: str | None = None
+) -> User:
     row = (
         await session.execute(
-            text(f"SELECT {USER_COLUMNS} FROM users WHERE id = :id AND workspace_id = :ws"),
-            {"id": user_id, "ws": workspace_id},
+            text(
+                f"""
+                SELECT {USER_COLUMNS} FROM users u
+                 WHERE u.id = :id AND u.workspace_id = :ws
+                   AND (cast(:viewer AS uuid) IS NULL OR {GUEST_SEES})
+                """
+            ),
+            {"id": user_id, "ws": workspace_id, "viewer": guest_id},
         )
     ).fetchone()
     if row is None:

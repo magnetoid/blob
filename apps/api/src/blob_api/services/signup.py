@@ -47,7 +47,7 @@ async def _open_invite(session: AsyncSession, token: str) -> Any:
         await session.execute(
             text(
                 """
-                SELECT id, email, role, workspace_id FROM invites
+                SELECT id, email, role, workspace_id, channel_ids FROM invites
                  WHERE token_hash = :token_hash
                    AND accepted_at IS NULL
                    AND revoked_at IS NULL
@@ -158,6 +158,7 @@ async def signup(
             display_name=display_name,
             role=role,
             elsewhere=existing_hash is not None,
+            channel_ids=[str(channel) for channel in getattr(invite, "channel_ids", None) or []],
         )
         await _accept(session, invite_token, user_id)
 
@@ -193,9 +194,11 @@ async def _create_account(
     display_name: str,
     role: str,
     elsewhere: bool,
+    channel_ids: list[str] | None = None,
 ) -> str:
-    """The row, its handle, the default channels. `elsewhere` when the address already
-    holds an account in another workspace."""
+    """The row, its handle, its channels. `elsewhere` when the address already holds an
+    account in another workspace. A guest joins the channels their invitation named, and
+    no default channel (ADR 0034); everybody else joins the defaults."""
     user_id = new_id()
     try:
         await session.execute(
@@ -229,19 +232,33 @@ async def _create_account(
         # it held one, by an admin of the first, must not outlive the change.
         await account_service.retire_resets(session, email=email)
 
-    defaults = (
-        await session.execute(
-            text(
-                """
-                SELECT id FROM channels
-                 WHERE workspace_id = :ws AND kind = 'public'
-                   AND name = ANY(cast(:names AS text[]))
-                """
-            ),
-            {"ws": workspace_id, "names": list(DEFAULT_CHANNELS)},
-        )
-    ).fetchall()
-    for row in defaults:
+    if role == "guest":
+        joining = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id FROM channels
+                     WHERE id = ANY(cast(:ids AS uuid[])) AND workspace_id = :ws
+                       AND archived_at IS NULL
+                    """
+                ),
+                {"ids": channel_ids or [], "ws": workspace_id},
+            )
+        ).fetchall()
+    else:
+        joining = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id FROM channels
+                     WHERE workspace_id = :ws AND kind = 'public'
+                       AND name = ANY(cast(:names AS text[]))
+                    """
+                ),
+                {"ws": workspace_id, "names": list(DEFAULT_CHANNELS)},
+            )
+        ).fetchall()
+    for row in joining:
         await add_members(session, channel_id=row.id, user_ids=[user_id])
     return user_id
 
@@ -299,6 +316,7 @@ async def join_by_identity(
     """
     email = email.lower()
     role = "member"
+    channel_ids: list[str] = []
     if invite_token:
         invite = await _open_invite(session, invite_token)
         if invite is None:
@@ -313,6 +331,7 @@ async def join_by_identity(
             )
         workspace_id = str(invite.workspace_id)
         role = getattr(invite, "role", None) or "member"
+        channel_ids = [str(channel) for channel in invite.channel_ids or []]
     if workspace_id is None:
         raise AppError(400, "no_account", "There is no account here for that address.")
     present = (
@@ -332,6 +351,7 @@ async def join_by_identity(
         display_name=await _free_name(session, workspace_id, display_name),
         role=role,
         elsewhere=await _has_accounts(session, email),
+        channel_ids=channel_ids,
     )
     if invite_token:
         await _accept(session, invite_token, user_id)
@@ -341,6 +361,33 @@ async def join_by_identity(
 # ─── invitations ──────────────────────────────────────────────────────────────
 
 
+async def _guest_channels(session: AsyncSession, actor: Actor, channel_ids: list[str]) -> list[str]:
+    """The channels a guest invitation may name: live channels of this workspace, public
+    or private — and a private one only by an admin who is in it, so an invitation is not
+    a way to learn a private channel's id or let somebody into one the inviter cannot see."""
+    wanted = list(dict.fromkeys(channel_ids))
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT c.id FROM channels c
+                 WHERE c.id = ANY(cast(:ids AS uuid[]))
+                   AND c.workspace_id = :ws
+                   AND c.archived_at IS NULL
+                   AND (c.kind = 'public'
+                        OR (c.kind = 'private' AND EXISTS (
+                              SELECT 1 FROM channel_members cm
+                               WHERE cm.channel_id = c.id AND cm.user_id = :actor)))
+                """
+            ),
+            {"ids": wanted, "ws": actor.workspace_id, "actor": actor.id},
+        )
+    ).fetchall()
+    if len(rows) != len(wanted):
+        raise bad_request("One of those channels is not one you can invite a guest to.")
+    return [str(row.id) for row in rows]
+
+
 async def create_invite(
     session: AsyncSession,
     actor: Actor,
@@ -348,8 +395,23 @@ async def create_invite(
     email: str | None,
     role: str,
     expires_in_days: int,
+    channel_ids: list[str] | None = None,
 ) -> tuple[str, str, str]:
-    """Mint an invitation. Returns the raw token, when it expires, and the workspace name."""
+    """Mint an invitation. Returns the raw token, when it expires, and the workspace name.
+
+    A guest invitation (ADR 0034) names its person and its channels: a guest is somebody
+    in particular, let into particular rooms, and nothing beyond them.
+    """
+    if role == "guest":
+        if not email:
+            raise bad_request("A guest is invited by address.")
+        if not channel_ids:
+            raise bad_request("Choose at least one channel for the guest.")
+        guest_channels = await _guest_channels(session, actor, channel_ids)
+    elif channel_ids:
+        raise bad_request("Only a guest invitation names its channels.")
+    else:
+        guest_channels = []
     token = new_token()
     invite_id = new_id()
     row = (
@@ -357,9 +419,11 @@ async def create_invite(
             text(
                 """
                 INSERT INTO invites
-                  (id, workspace_id, email, token_hash, created_by, expires_at, role)
+                  (id, workspace_id, email, token_hash, created_by, expires_at, role,
+                   channel_ids)
                 VALUES (:id, :ws, :email, :token_hash, :created_by,
-                        now() + make_interval(days => :days), :role)
+                        now() + make_interval(days => :days), :role,
+                        cast(:channel_ids AS uuid[]))
                 RETURNING expires_at
                 """
             ),
@@ -371,6 +435,7 @@ async def create_invite(
                 "created_by": actor.id,
                 "days": expires_in_days,
                 "role": role,
+                "channel_ids": guest_channels,
             },
         )
     ).fetchone()
@@ -384,7 +449,11 @@ async def create_invite(
         "invite.created",
         target_type="invite",
         target_id=invite_id,
-        metadata={"email": email, "role": role},
+        metadata=(
+            {"email": email, "role": role, "channels": guest_channels}
+            if guest_channels
+            else {"email": email, "role": role}
+        ),
     )
     workspace = (
         await session.execute(

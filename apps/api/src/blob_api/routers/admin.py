@@ -90,6 +90,9 @@ async def set_role(
         def broadcast_roles() -> None:
             for updated in updates:
                 _user_updated(owner.workspace_id, updated)
+            if payload.role == "guest":
+                # A socket learns it is a guest's when it connects; this one reconnects.
+                hub.close_users([user_id])
 
         after.add(broadcast_roles)
     return OkOut()

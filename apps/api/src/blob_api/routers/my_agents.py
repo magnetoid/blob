@@ -30,7 +30,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import Field
 
 from ..db.engine import session_scope, transaction
-from ..lib.auth import SessionUser, current_user, require_recent_auth
+from ..lib.auth import SessionUser, current_user, require_recent_member
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
@@ -139,6 +139,9 @@ async def list_available(user: SessionUser = Depends(current_user)) -> Workspace
     a member people can see — but because offering it would produce a refusal, and a list
     that refuses half its entries is worse than a shorter list.
     """
+    if user.is_guest:
+        # A guest's message starts no agent run (ADR 0034), so there is none to offer.
+        return WorkspaceAgentsOut(agents=[])
     async with session_scope() as session:
         rows = await agent_service.available(session, user)
     agents = []
@@ -168,7 +171,7 @@ async def list_mine(user: SessionUser = Depends(current_user)) -> MyAgentsOut:
 
 @router.post("/mine", response_model=AttachedOut, status_code=201)
 async def attach(
-    payload: AttachInput, request: Request, user: SessionUser = Depends(require_recent_auth)
+    payload: AttachInput, request: Request, user: SessionUser = Depends(require_recent_member)
 ) -> AttachedOut:
     """Register an agent that is yours, and get the token it dials in with.
 

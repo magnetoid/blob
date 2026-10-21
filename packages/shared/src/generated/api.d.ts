@@ -5828,6 +5828,8 @@ export interface components {
         };
         /** CreateInviteInput */
         CreateInviteInput: {
+            /** Channelids */
+            channelIds?: string[];
             /** Email */
             email?: string | null;
             /**
@@ -5840,7 +5842,7 @@ export interface components {
              * @default member
              * @enum {string}
              */
-            role: "member" | "admin";
+            role: "member" | "admin" | "guest";
         };
         /** CreateTokenInput */
         CreateTokenInput: {
@@ -5914,7 +5916,7 @@ export interface components {
              * @default member
              * @enum {string}
              */
-            role: "member" | "admin" | "owner";
+            role: "member" | "admin" | "owner" | "guest";
             /** Statusemoji */
             statusEmoji?: string | null;
             /** Statusexpiresat */
@@ -7675,7 +7677,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "member" | "admin" | "owner";
+            role: "member" | "admin" | "owner" | "guest";
         };
         /**
          * RunCommandInput
@@ -8508,7 +8510,7 @@ export interface components {
              * @default member
              * @enum {string}
              */
-            role: "member" | "admin" | "owner";
+            role: "member" | "admin" | "owner" | "guest";
             /** Statusemoji */
             statusEmoji?: string | null;
             /** Statusexpiresat */

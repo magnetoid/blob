@@ -52,7 +52,9 @@ def build_hasher(profile: str, *, testing: bool) -> PasswordHasher:
 
 _hasher = build_hasher(settings.ARGON2_PROFILE, testing=settings.is_test)
 
-Role = Literal["member", "admin", "owner"]
+#: `guest` (ADR 0034) is somebody in a workspace for the channels they were invited to and
+#: nothing else: no public channel they have not joined, no directory, no agents, no tokens.
+Role = Literal["member", "admin", "owner", "guest"]
 
 
 def hash_token(token: str) -> str:
@@ -90,6 +92,10 @@ class SessionUser:
     @property
     def is_admin(self) -> bool:
         return self.role in ("admin", "owner")
+
+    @property
+    def is_guest(self) -> bool:
+        return self.role == "guest"
 
     @property
     def recently_proven(self) -> bool:
@@ -273,6 +279,15 @@ def assert_recent_auth(user: SessionUser) -> None:
         raise reauth_required()
 
 
+def require_member(request: Request) -> SessionUser:
+    """Signed in, and not a guest (ADR 0034) — for what reaches past a guest's channels:
+    making a channel, minting a token, letting an assistant in, attaching an agent."""
+    user = current_user(request)
+    if user.is_guest:
+        raise forbidden("Guests can't do that here.")
+    return user
+
+
 def require_recent_auth(request: Request) -> SessionUser:
     """Signed in, and proved who they are within REAUTH_WINDOW.
 
@@ -283,6 +298,14 @@ def require_recent_auth(request: Request) -> SessionUser:
     the session.
     """
     user = current_user(request)
+    assert_recent_auth(user)
+    return user
+
+
+def require_recent_member(request: Request) -> SessionUser:
+    """A member lately proven: for handing a member's reach to something else — a token,
+    an agent of their own. A guest has no such reach to hand over (ADR 0034)."""
+    user = require_member(request)
     assert_recent_auth(user)
     return user
 

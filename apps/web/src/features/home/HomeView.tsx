@@ -241,23 +241,26 @@ export function HomeView() {
 
         {/* Meadow's ambient strip: the product's ✦ and a line to type in. A composer, so it
             is allowed the composer's lift and the composer's ring when focused. */}
-        <form className="home-ask" onSubmit={(e) => void submitAsk(e)}>
-          <span className="home-ask-mark" aria-hidden="true">
-            <SparkIcon size="sm" />
-          </span>
-          <input
-            className="home-ask-input"
-            value={ask}
-            onChange={(e) => setAsk(e.target.value)}
-            placeholder={agent ? `Ask @${agent.displayName}…` : 'No agent installed yet'}
-            aria-label="Ask the workspace agent"
-            disabled={!agent || sending}
-          />
-          <button className="btn btn-primary" type="submit" disabled={!agent || !ask.trim() || sending}>
-            <SendIcon size="sm" />
-            {sending ? 'Sending…' : 'Ask'}
-          </button>
-        </form>
+        {/* Not for a guest: their message starts no agent run (ADR 0034). */}
+        {currentUser?.role !== 'guest' && (
+          <form className="home-ask" onSubmit={(e) => void submitAsk(e)}>
+            <span className="home-ask-mark" aria-hidden="true">
+              <SparkIcon size="sm" />
+            </span>
+            <input
+              className="home-ask-input"
+              value={ask}
+              onChange={(e) => setAsk(e.target.value)}
+              placeholder={agent ? `Ask @${agent.displayName}…` : 'No agent installed yet'}
+              aria-label="Ask the workspace agent"
+              disabled={!agent || sending}
+            />
+            <button className="btn btn-primary" type="submit" disabled={!agent || !ask.trim() || sending}>
+              <SendIcon size="sm" />
+              {sending ? 'Sending…' : 'Ask'}
+            </button>
+          </form>
+        )}
 
         <div className="home-stats">
           <Stat

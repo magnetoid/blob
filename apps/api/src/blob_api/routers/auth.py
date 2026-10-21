@@ -457,6 +457,7 @@ async def create_invite(
             email=payload.email,
             role=payload.role,
             expires_in_days=payload.expires_in_days,
+            channel_ids=list(payload.channel_ids),
         )
 
     url = f"{settings.PUBLIC_URL}/join/{token}"

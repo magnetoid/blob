@@ -29,7 +29,7 @@ from ..db.engine import session_scope, transaction
 from ..lib import rate_limit
 from ..lib.auth import SessionUser, assert_recent_auth, current_user, require_admin
 from ..lib.caller import client_key
-from ..lib.errors import AppError, bad_request
+from ..lib.errors import AppError, bad_request, forbidden
 from ..lib.ids import IdParam
 from ..schemas.base import CamelModel, iso
 from ..services import audit as audit_service
@@ -298,7 +298,10 @@ async def decide(
 ) -> OAuthConsentOut:
     if payload.approve:
         # Letting an assistant in hands it this person's reach for as long as the grant
-        # lives — the same thing minting a token does, so the same confirmation.
+        # lives — the same thing minting a token does, so the same confirmation. A guest
+        # has no reach to hand over: the MCP tools are written for members (ADR 0034).
+        if user.is_guest:
+            raise forbidden("Guests can't connect assistants.")
         assert_recent_auth(user)
     try:
         url = await oauth_service.decide(

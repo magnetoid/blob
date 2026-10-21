@@ -13,6 +13,7 @@ from typing import Any, Literal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..db.visibility import VIEWER_IS_GUEST
 from ..lib.errors import channel_gone, conflict, forbidden, not_found, unique_violation
 from ..lib.ids import new_id
 from ..schemas.base import require_iso
@@ -48,10 +49,11 @@ async def list_for_user(
         await session.execute(
             text(
                 CHANNEL_STATE_SELECT
-                + """
+                + f"""
                  WHERE c.workspace_id = :workspace_id
                    AND (cm.user_id IS NOT NULL
-                        OR (c.kind = 'public' AND c.archived_at IS NULL))
+                        OR (c.kind = 'public' AND c.archived_at IS NULL
+                            AND NOT {VIEWER_IS_GUEST}))
                  ORDER BY c.kind, lower(c.name) NULLS LAST, c.created_at
                 """
             ),
@@ -84,7 +86,7 @@ async def browse(
     rows = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT c.id, c.name, c.topic, c.description, c.created_at,
                        c.archived_at,
                        COALESCE(counts.member_count, 0) AS member_count,
@@ -99,6 +101,7 @@ async def browse(
                          ON mine.channel_id = c.id AND mine.user_id = :user_id
                  WHERE c.workspace_id = :workspace_id
                    AND c.kind = 'public'
+                   AND NOT {VIEWER_IS_GUEST}
                    AND (:include_archived OR c.archived_at IS NULL)
                    AND (
                         :query = ''
@@ -140,17 +143,19 @@ async def browse(
 async def visible_to(
     session: AsyncSession, user_id: str, workspace_id: str, *, limit: int
 ) -> list[Channel]:
-    """Channels this member can see: public ones, plus private ones they were let into."""
+    """Channels this member can see: public ones, plus private ones they were let into —
+    and for a guest, only the ones they were let into."""
     rows = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT c.*
                   FROM channels c
                   LEFT JOIN channel_members cm
                          ON cm.channel_id = c.id AND cm.user_id = :user_id
                  WHERE c.workspace_id = :ws
-                   AND (c.kind = 'public' OR cm.user_id IS NOT NULL)
+                   AND ((c.kind = 'public' AND NOT {VIEWER_IS_GUEST})
+                        OR cm.user_id IS NOT NULL)
                    AND c.kind IN ('public', 'private')
                  ORDER BY c.name
                  LIMIT :limit
@@ -173,12 +178,13 @@ async def id_by_name(session: AsyncSession, workspace_id: str, name: str, *, use
     row = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT c.id FROM channels c
                   LEFT JOIN channel_members cm
                          ON cm.channel_id = c.id AND cm.user_id = :user_id
                  WHERE c.workspace_id = :ws AND lower(c.name) = :name
-                   AND (c.kind = 'public' OR cm.user_id IS NOT NULL)
+                   AND ((c.kind = 'public' AND NOT {VIEWER_IS_GUEST})
+                        OR cm.user_id IS NOT NULL)
                 """
             ),
             {"ws": workspace_id, "name": name.lower(), "user_id": user_id},
@@ -297,7 +303,8 @@ async def assert_channel_access(
         await session.execute(
             text(
                 """
-                SELECT c.id, c.kind, c.workspace_id, c.archived_at, cm.user_id AS member
+                SELECT c.id, c.kind, c.workspace_id, c.archived_at, cm.user_id AS member,
+                       u.role AS viewer_role
                   FROM channels c
                   -- Scoped by the caller's own workspace, and joined rather than passed
                   -- in so that no call site can forget it. Without this a channel is
@@ -319,7 +326,9 @@ async def assert_channel_access(
         raise channel_gone()
 
     is_member = row.member is not None
-    is_public = row.kind == "public"
+    # Public to the workspace's members; to a guest, a channel they have not joined is as
+    # private as any other (ADR 0034) — 404, so its name is not confirmed either.
+    is_public = row.kind == "public" and row.viewer_role != "guest"
 
     if not is_member and not is_public:
         raise channel_gone()

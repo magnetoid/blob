@@ -75,7 +75,7 @@ export interface InstanceUser {
   id: string;
   email: string;
   displayName: string;
-  role: "member" | "admin" | "owner";
+  role: "member" | "admin" | "owner" | "guest";
   kind: "human" | "bot";
   workspaceId: string;
   workspaceName: string;
@@ -88,7 +88,7 @@ export interface WorkspaceMembership {
   id: string;
   name: string;
   slug: string;
-  role: "member" | "admin" | "owner";
+  role: "member" | "admin" | "owner" | "guest";
   current: boolean;
 }
 
@@ -313,7 +313,7 @@ export interface AdminUser {
   displayName: string;
   fullName: string | null;
   title: string | null;
-  role: "member" | "admin" | "owner";
+  role: "member" | "admin" | "owner" | "guest";
   deactivatedAt: string | null;
   createdAt: string;
   lastSeenAt: string | null;
@@ -1001,8 +1001,10 @@ export const api = {
       get<{ email: string | null; workspace: string }>(`/api/invites/${token}`),
     createInvite: (input: {
       email?: string;
-      role?: "member" | "admin";
+      role?: "member" | "admin" | "guest";
       expiresInDays?: number;
+      /** A guest's channels — all they will see (ADR 0034). */
+      channelIds?: string[];
     }) =>
       post<{ url: string; expiresAt: string; emailed: boolean | null }>(
         "/api/invites",
@@ -1627,7 +1629,7 @@ export const api = {
         `/api/admin/users?${search}`,
       );
     },
-    setRole: (id: string, role: "member" | "admin" | "owner") =>
+    setRole: (id: string, role: "member" | "admin" | "owner" | "guest") =>
       put<{ ok: true }>(`/api/admin/users/${id}/role`, { role }),
     deactivate: (id: string) =>
       post<{ ok: true }>(`/api/admin/users/${id}/deactivate`),

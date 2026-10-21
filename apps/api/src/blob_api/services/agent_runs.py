@@ -633,7 +633,11 @@ async def list_for_plugin(
                        r.transport, r.status, r.error, r.post_count,
                        r.started_at, r.finished_at, r.depth, r.card, r.seen,
                        pp.name AS asked_by, {_RUN_TOKENS} AS tokens,
-                       (c.kind = 'public' OR EXISTS (
+                       ((c.kind = 'public' AND NOT EXISTS (
+                           SELECT 1 FROM users viewer
+                            WHERE viewer.id = :viewer AND viewer.role = 'guest'
+                       ))
+                        OR EXISTS (
                           SELECT 1 FROM channel_members cm
                            WHERE cm.channel_id = r.channel_id AND cm.user_id = :viewer
                        )) AS visible
@@ -690,7 +694,11 @@ async def events_of(
             text(
                 """
                 SELECT r.events, r.started_at,
-                       (c.kind = 'public' OR EXISTS (
+                       ((c.kind = 'public' AND NOT EXISTS (
+                           SELECT 1 FROM users viewer
+                            WHERE viewer.id = :viewer AND viewer.role = 'guest'
+                       ))
+                        OR EXISTS (
                           SELECT 1 FROM channel_members cm
                            WHERE cm.channel_id = r.channel_id AND cm.user_id = :viewer
                        )) AS visible
@@ -903,7 +911,10 @@ async def history(
                   JOIN channels c ON c.id = r.channel_id
                  WHERE r.workspace_id = :ws
                    AND (
-                     c.kind = 'public'
+                     (c.kind = 'public' AND NOT EXISTS (
+                         SELECT 1 FROM users viewer
+                          WHERE viewer.id = :user_id AND viewer.role = 'guest'
+                     ))
                      OR EXISTS (
                        SELECT 1 FROM channel_members cm
                         WHERE cm.channel_id = c.id AND cm.user_id = :user_id
@@ -986,7 +997,10 @@ async def views_for_member(
                   JOIN channels c ON c.id = r.channel_id
                  WHERE r.workspace_id = :ws
                    AND (
-                     c.kind = 'public'
+                     (c.kind = 'public' AND NOT EXISTS (
+                         SELECT 1 FROM users viewer
+                          WHERE viewer.id = :user_id AND viewer.role = 'guest'
+                     ))
                      OR EXISTS (
                        SELECT 1 FROM channel_members cm
                         WHERE cm.channel_id = c.id AND cm.user_id = :user_id

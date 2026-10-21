@@ -580,7 +580,10 @@ async def list_tasks_visible_to(
                   JOIN channels c ON c.id = t.channel_id
                  WHERE t.workspace_id = :ws
                    AND (
-                     c.kind = 'public'
+                     (c.kind = 'public' AND NOT EXISTS (
+                         SELECT 1 FROM users viewer
+                          WHERE viewer.id = :user_id AND viewer.role = 'guest'
+                     ))
                      OR EXISTS (
                        SELECT 1 FROM channel_members cm
                         WHERE cm.channel_id = c.id AND cm.user_id = :user_id
