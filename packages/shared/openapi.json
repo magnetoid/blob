@@ -1768,6 +1768,11 @@
             },
             "title": "Providers",
             "type": "array"
+          },
+          "setupTokenRequired": {
+            "default": false,
+            "title": "Setuptokenrequired",
+            "type": "boolean"
           }
         },
         "required": [
@@ -9555,6 +9560,18 @@
             "minLength": 10,
             "title": "Password",
             "type": "string"
+          },
+          "setupToken": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setuptoken"
           },
           "workspaceName": {
             "anyOf": [

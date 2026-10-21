@@ -569,6 +569,7 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 |---|---|---|
 | `PUBLIC_URL` | `http://localhost:5173` | The public origin, **scheme included**. Every mutating request is checked against it; a mismatch shows up as "Blocked request." on sign-in and nothing else explains it. It has a default, so the app starts without it and then refuses every write from your real domain. It is also the address assistants sign in against: the connector URL and the OAuth issuer are built from it. |
 | `TRUSTED_PROXY_HOPS` | `0` | How many proxies append to `X-Forwarded-For` **after** the one that names the real caller. **One reverse proxy: `0`. nginx in front of Coolify's Traefik: `1`.** This decides what the login, signup and password-reset rate limits count against and what the audit log records. Set it too high and those become a header the caller writes; too low and everyone shares one bucket — which is why the default is low. |
+| `SETUP_TOKEN` | unset | Asked of whoever founds the first workspace. Unset, the first person to reach a fresh server founds it and becomes its administrator, and the boot log says so; set, the first-run form asks for it, and a link with `?setup=<token>` fills it in. Nothing asks for it once the workspace exists. |
 
 <details>
 <summary><b>Core</b> — <code>NODE_ENV</code>, <code>REDIS_URL</code>, <code>SESSION_TTL_DAYS</code>, <code>WEB_DIST</code></summary>

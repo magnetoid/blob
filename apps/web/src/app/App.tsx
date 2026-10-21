@@ -32,6 +32,7 @@ export function App() {
   const [consenting] = useState(() => isConsentPath());
   const [phase, setPhase] = useState<Phase>('loading');
   const [needsSetup, setNeedsSetup] = useState(false);
+  const [setupTokenRequired, setSetupTokenRequired] = useState(false);
   /** Single sign-on buttons for the sign-in page (ADR 0033). */
   const [providers, setProviders] = useState<SsoChoice[]>([]);
   const boot = useStore((s) => s.boot);
@@ -55,9 +56,14 @@ export function App() {
         if (err instanceof ApiError && err.status === 401) {
           const state = await api.auth
             .state()
-            .catch(() => ({ needsSetup: false, providers: [] as SsoChoice[] }));
+            .catch(() => ({
+              needsSetup: false,
+              setupTokenRequired: false,
+              providers: [] as SsoChoice[],
+            }));
           if (cancelled) return;
           setNeedsSetup(state.needsSetup);
+          setSetupTokenRequired(Boolean(state.setupTokenRequired));
           setProviders(state.providers ?? []);
           setPhase('signed-out');
         } else {
@@ -171,6 +177,7 @@ export function App() {
     return (
       <AuthScreen
         needsSetup={needsSetup}
+        setupTokenRequired={setupTokenRequired}
         providers={providers}
         onSignedIn={async () => {
           boot(await api.bootstrap());

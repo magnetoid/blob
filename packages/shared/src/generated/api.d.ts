@@ -5540,6 +5540,11 @@ export interface components {
              * @default []
              */
             providers: components["schemas"]["SsoChoiceOut"][];
+            /**
+             * Setuptokenrequired
+             * @default false
+             */
+            setupTokenRequired: boolean;
         };
         /** AuthTestOut */
         AuthTestOut: {
@@ -8412,6 +8417,8 @@ export interface components {
             inviteToken?: string | null;
             /** Password */
             password: string;
+            /** Setuptoken */
+            setupToken?: string | null;
             /** Workspacename */
             workspaceName?: string | null;
         };

@@ -210,6 +210,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
     except Exception:
         log.exception("could not check object storage")
+    # A fresh server with no setup token is founded by whoever signs up first, owner and
+    # server administrator both (M3 · C3): said at boot, where the operator is looking.
+    try:
+        async with SessionFactory() as session:
+            fresh = (
+                await session.execute(text("SELECT NOT EXISTS (SELECT 1 FROM workspaces)"))
+            ).scalar()
+        if fresh and not (settings.SETUP_TOKEN or "").strip():
+            log.warning(
+                "this server has no workspace yet, and whoever signs up first will own it "
+                "and administer the server. Set SETUP_TOKEN to ask for a token instead."
+            )
+    except Exception:
+        log.exception("could not tell whether this server has been set up")
     # Requests counted in this process reach the shared counters every few seconds, beside
     # this process's open sockets and database connections (lib/metrics.py).
     flusher = asyncio.create_task(metrics.flush_forever(hub.PROCESS_ID, _process_numbers))

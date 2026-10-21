@@ -10,16 +10,19 @@ no password of its own, carrying the one the address already has if it has one.
 
 from __future__ import annotations
 
+import hmac
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import settings
 from ..lib.auth import hash_password, hash_token, verify_password
 from ..lib.errors import (
     AppError,
     bad_request,
     conflict,
+    forbidden,
     not_found,
     unauthorized,
     unique_violation,
@@ -67,6 +70,7 @@ async def signup(
     display_name: str,
     workspace_name: str | None,
     invite_token: str | None,
+    setup_token: str | None = None,
 ) -> tuple[str, CurrentUser]:
     """Create the account, and say whose it is.
 
@@ -81,6 +85,13 @@ async def signup(
     ).fetchone()
 
     if workspace is None:
+        # A server with a setup token is founded only by whoever has it (M3 · C3): without
+        # one, the first person to reach a fresh deploy owns it and administers the server.
+        expected = (settings.SETUP_TOKEN or "").strip()
+        if expected and not hmac.compare_digest(
+            (setup_token or "").strip().encode(), expected.encode()
+        ):
+            raise forbidden("This server asks for its setup token to create the first workspace.")
         # First ever signup founds the workspace, through the one path that makes one —
         # see services/workspaces.found, which also seeds its default channels. Its
         # founder becomes the server's first instance admin: there is nobody else to

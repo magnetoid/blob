@@ -135,6 +135,10 @@ class Settings(BaseSettings):
     #: What a Prometheus scrape of `/metrics` presents as its bearer token. Unset — the
     #: default — and `/metrics` answers 404: the numbers name every agent on the server.
     METRICS_TOKEN: str | None = None
+    #: Asked of whoever founds the first workspace on a fresh server (M3 · C3). Unset —
+    #: the default — whoever signs up first founds it, becoming its owner and this
+    #: server's administrator, and the boot says so; set, the first-run form asks for it.
+    SETUP_TOKEN: str | None = None
     #: Where traces go: an OTLP/HTTP collector. Unset, nothing is traced. OpenTelemetry's
     #: SDK reads these two itself, from the process environment; they are declared here
     #: only so a `.env` file can set them as it sets everything else, and
@@ -292,6 +296,7 @@ class Settings(BaseSettings):
         "STT_BASE_URL",
         "STT_API_KEY",
         "BACKUP_S3_BUCKET",
+        "SETUP_TOKEN",
         "COOLIFY_API_URL",
         "COOLIFY_TOKEN",
         "COOLIFY_PROJECT_UUID",

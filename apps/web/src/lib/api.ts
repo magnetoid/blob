@@ -1062,13 +1062,17 @@ export const api = {
   },
   auth: {
     state: () =>
-      get<{ needsSetup: boolean; providers?: SsoChoice[] }>("/api/auth/state"),
+      get<{ needsSetup: boolean; setupTokenRequired?: boolean; providers?: SsoChoice[] }>(
+        "/api/auth/state",
+      ),
     signup: (input: {
       email: string;
       password: string;
       displayName: string;
       workspaceName?: string;
       inviteToken?: string;
+      /** The server's setup token, from whoever founds the first workspace. */
+      setupToken?: string;
     }) => post<{ user: CurrentUser }>("/api/auth/signup", input),
     /** `user` when that signed you in; `twoStep` instead when your passkey is asked for
      *  too, to answer at `passkeys.secondStep`. */

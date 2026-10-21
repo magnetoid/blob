@@ -25,6 +25,8 @@ type Mode = "login" | "signup" | "forgot" | "reset";
 
 interface Props {
   needsSetup: boolean;
+  /** Founding the first workspace asks for the server's setup token (M3 · C3). */
+  setupTokenRequired?: boolean;
   /** Single sign-on providers to offer a button for (ADR 0033). */
   providers?: SsoChoice[];
   onSignedIn: () => Promise<void>;
@@ -72,7 +74,12 @@ function BrandPanel() {
   );
 }
 
-export function AuthScreen({ needsSetup, providers = [], onSignedIn }: Props) {
+export function AuthScreen({
+  needsSetup,
+  setupTokenRequired = false,
+  providers = [],
+  onSignedIn,
+}: Props) {
   const inviteToken = inviteTokenFromUrl();
   const resetToken = resetTokenFromUrl();
   const workspaceNameRef = useRef<HTMLInputElement>(null);
@@ -84,6 +91,10 @@ export function AuthScreen({ needsSetup, providers = [], onSignedIn }: Props) {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
+  // A setup link carries it as `?setup=`, so the person who deployed can open one link.
+  const [setupToken, setSetupToken] = useState(
+    () => new URLSearchParams(window.location.search).get("setup") ?? "",
+  );
   const [inviteWorkspace, setInviteWorkspace] = useState<string | null>(null);
   // A provider's round trip that came back refused says why, once.
   const [error, setError] = useState<string | null>(() => {
@@ -275,6 +286,7 @@ export function AuthScreen({ needsSetup, providers = [], onSignedIn }: Props) {
               ? workspaceName || "Workspace"
               : undefined,
             inviteToken: inviteToken ?? undefined,
+            setupToken: needsSetup && setupTokenRequired ? setupToken.trim() : undefined,
           });
           break;
         case "forgot": {
@@ -416,6 +428,26 @@ export function AuthScreen({ needsSetup, providers = [], onSignedIn }: Props) {
             </p>
           )}
         </div>
+
+        {needsSetup && setupTokenRequired && (
+          <>
+            <label className="field">
+              <span className="field-label">Setup token</span>
+              <input
+                className="input"
+                value={setupToken}
+                onChange={(e) => setSetupToken(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                aria-describedby="auth-setup-hint"
+                required
+              />
+            </label>
+            <p id="auth-setup-hint" className="muted m-0">
+              This server&rsquo;s SETUP_TOKEN, from whoever deployed it.
+            </p>
+          </>
+        )}
 
         {needsSetup && (
           <label className="field">

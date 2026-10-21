@@ -65,6 +65,8 @@ class SsoChoiceOut(CamelModel):
 
 class AuthStateOut(CamelModel):
     needs_setup: bool
+    #: Founding the first workspace asks for the server's setup token (M3 · C3).
+    setup_token_required: bool = False
     #: Single sign-on buttons for the sign-in page (ADR 0033).
     providers: list[SsoChoiceOut] = []
 
@@ -202,8 +204,10 @@ async def auth_state() -> AuthStateOut:
     """Is this a fresh install? The first person to sign up founds the workspace."""
     async with session_scope() as session:
         providers = await sso_service.enabled_providers(session)
+        needs_setup = await signup_service.needs_setup(session)
         return AuthStateOut(
-            needs_setup=await signup_service.needs_setup(session),
+            needs_setup=needs_setup,
+            setup_token_required=needs_setup and bool(settings.SETUP_TOKEN),
             providers=[SsoChoiceOut(slug=p.slug, name=p.name) for p in providers],
         )
 
@@ -219,6 +223,7 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
             display_name=payload.display_name,
             workspace_name=payload.workspace_name,
             invite_token=payload.invite_token,
+            setup_token=payload.setup_token,
         )
     await start_session(request, response, user_id, method="signup")
     return SessionOut(user=user)

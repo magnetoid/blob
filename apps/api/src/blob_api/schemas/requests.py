@@ -47,6 +47,8 @@ class SignupInput(CamelModel):
     #: Present unless this is the very first user, who founds the workspace.
     invite_token: str | None = Field(default=None, min_length=10)
     workspace_name: str | None = Field(default=None, max_length=60)
+    #: The server's `SETUP_TOKEN`, when it has one, from whoever founds the first workspace.
+    setup_token: str | None = Field(default=None, max_length=200)
 
 
 class LoginInput(CamelModel):
