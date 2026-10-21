@@ -152,6 +152,25 @@ class TestTheSweep:
 
         assert "sent after leaving" not in await bodies_in_channel(team)
 
+    async def test_a_deactivated_author_s_message_is_not_sent(self, team: dict) -> None:
+        """Deactivating somebody leaves their memberships, so the membership check alone
+        let a recurring message go on posting as a person who can no longer sign in."""
+        channel_id = team["general"]["id"]
+        made = await team["member"].post(
+            f"/api/channels/{channel_id}/schedule",
+            {"body": "from the departed", "sendAt": at(hours=1), "clientMsgId": "gone-1"},
+        )
+        assert made.status == 200, made.body
+        deactivated = await team["owner"].post(
+            f"/api/admin/users/{team['member'].user_id}/deactivate", {}
+        )
+        assert deactivated.status == 200, deactivated.body
+        await make_due(made.body["scheduled"]["id"])
+
+        await send_scheduled({})
+
+        assert "from the departed" not in await bodies_in_channel(team)
+
     async def test_a_message_that_could_not_be_sent_says_why(self, team: dict) -> None:
         channel_id = team["general"]["id"]
         made = await team["member"].post(

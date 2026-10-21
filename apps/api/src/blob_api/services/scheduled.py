@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..lib.errors import bad_request, not_found
+from ..lib.errors import bad_request, forbidden, not_found
 from ..lib.ids import new_id
 from ..schemas.base import require_iso
 from ..schemas.models import ScheduledMessage
@@ -235,6 +235,17 @@ async def due_batch(session: AsyncSession) -> list[dict[str, object]]:
 
 async def deliver(session: AsyncSession, item: dict[str, object]) -> message_service.SendResult:
     """Send one due message, through the path every other message takes."""
+    # Somebody deactivated keeps their memberships for the record, so the membership check
+    # below would still pass and a recurring message would go on posting in the name of
+    # a person who can no longer sign in (the 2026-10 security review).
+    active = (
+        await session.execute(
+            text("SELECT deactivated_at IS NULL AS active FROM users WHERE id = :id"),
+            {"id": str(item["author_id"])},
+        )
+    ).fetchone()
+    if active is None or not active.active:
+        raise forbidden("Its author has been deactivated.")
     # Re-checked here rather than trusted from scheduling time: leaving the channel in
     # between should stop the message, and an author who was removed should not still be
     # able to post through a row they left behind.
