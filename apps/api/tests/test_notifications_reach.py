@@ -25,7 +25,7 @@ class _Sub:
 
     def __init__(self, sub_id: str) -> None:
         self.id = sub_id
-        self.endpoint = f"https://push.example/{sub_id}"
+        self.endpoint = f"https://fcm.googleapis.com/fcm/send/{sub_id}"
         self.p256dh = "p"
         self.auth = "a"
 
@@ -107,6 +107,58 @@ class TestThePushTestButton:
         assert answer.status == 400
         assert "push keys" in answer.body["error"]["message"]
 
+    async def test_only_a_browser_s_push_service_is_a_subscription(
+        self, team: dict[str, Any]
+    ) -> None:
+        """The worker POSTs to whatever endpoint is stored: held to the push services,
+        or any member points it at the metadata service or this stack's Redis."""
+        for endpoint in (
+            "http://169.254.169.254/latest/meta-data",
+            "https://redis:6379/",
+            "https://fcm.googleapis.com.attacker.example/x",
+            "https://user:pass@fcm.googleapis.com/x",
+            "http://fcm.googleapis.com/x",
+        ):
+            refused = await team["owner"].post(
+                "/api/me/push-subscription",
+                {"endpoint": endpoint, "keys": {"p256dh": "p", "auth": "a"}},
+            )
+            assert refused.status == 400, endpoint
+        for endpoint in (
+            "https://fcm.googleapis.com/fcm/send/abc",
+            "https://updates.push.services.mozilla.com/wpush/v2/abc",
+            "https://web.push.apple.com/abc",
+            "https://wns2-par02p.notify.windows.com/w/?token=abc",
+        ):
+            accepted = await team["owner"].post(
+                "/api/me/push-subscription",
+                {"endpoint": endpoint, "keys": {"p256dh": "p", "auth": "a"}},
+            )
+            assert accepted.status == 200, endpoint
+
+    async def test_a_stored_endpoint_outside_them_is_dropped_not_sent_to(self) -> None:
+        from types import SimpleNamespace
+
+        from blob_api.lib import webpush
+
+        sent: list[str] = []
+
+        def fake(**kwargs: Any) -> None:
+            sent.append(kwargs["subscription_info"]["endpoint"])
+
+        import pywebpush
+
+        original = pywebpush.webpush
+        pywebpush.webpush = fake  # type: ignore[assignment]
+        try:
+            result = await webpush.push(
+                [SimpleNamespace(id="s1", endpoint="http://10.0.0.5/x", p256dh="p", auth="a")],
+                {"title": "hi"},
+            )
+        finally:
+            pywebpush.webpush = original  # type: ignore[assignment]
+        assert sent == [] and result.dead == ["s1"]
+
     async def test_it_counts_what_landed_and_what_did_not(
         self, team: dict[str, Any], monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -116,7 +168,7 @@ class TestThePushTestButton:
         subscribed = await team["owner"].post(
             "/api/me/push-subscription",
             {
-                "endpoint": "https://push.example/one",
+                "endpoint": "https://fcm.googleapis.com/fcm/send/one",
                 "keys": {"p256dh": "p", "auth": "a"},
             },
         )

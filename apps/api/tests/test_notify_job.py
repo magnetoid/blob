@@ -52,7 +52,7 @@ class TestPushRunsAfterTheTransaction:
         subscribed = await pair["owner"].post(
             "/api/me/push-subscription",
             {
-                "endpoint": "https://push.example/one",
+                "endpoint": "https://fcm.googleapis.com/fcm/send/one",
                 "keys": {"p256dh": "p", "auth": "a"},
             },
         )

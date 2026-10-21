@@ -17,6 +17,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from ..config import settings
 
@@ -26,6 +27,32 @@ log = logging.getLogger("blob.lib.webpush")
 #: How long one push may take. `pywebpush` does not default this — passing nothing means
 #: `requests` waits for ever, on a thread the worker cannot get back.
 PUSH_TIMEOUT_SEC = 10
+
+#: The push services browsers subscribe through: Google's (Chrome, Edge on Android,
+#: Opera, Samsung), Mozilla's, Apple's and Microsoft's. A subscription's endpoint is a URL
+#: the browser hands over and the worker then POSTs to, so it is held to these — anything
+#: else is a person pointing the worker at an address of their choosing, the metadata
+#: service or this stack's own Redis included (the 2026-10 security review).
+PUSH_SERVICES = (
+    "googleapis.com",
+    "mozilla.com",
+    "mozaws.net",
+    "push.apple.com",
+    "notify.windows.com",
+)
+
+
+def is_push_service(endpoint: str) -> bool:
+    """Whether a subscription points at a browser's push service, over HTTPS."""
+    try:
+        parts = urlsplit(endpoint)
+        port = parts.port
+    except ValueError:
+        return False
+    host = (parts.hostname or "").lower().rstrip(".")
+    if parts.scheme != "https" or parts.username or parts.password or port not in (None, 443):
+        return False
+    return any(host == service or host.endswith("." + service) for service in PUSH_SERVICES)
 
 
 @dataclass(slots=True)
@@ -44,6 +71,11 @@ async def push(subs: Sequence[Any], payload: dict[str, Any]) -> PushResult:
     from pywebpush import WebPushException, webpush
 
     def _one(sub: Any) -> str:
+        # Held to the push services on the way out too: a row stored before the check
+        # existed is dropped as dead rather than sent to.
+        if not is_push_service(str(sub.endpoint)):
+            log.warning("push subscription %s points outside the push services; dropping", sub.id)
+            return "dead"
         try:
             webpush(
                 subscription_info={

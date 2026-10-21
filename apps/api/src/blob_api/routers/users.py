@@ -12,6 +12,7 @@ from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
 from ..lib.errors import bad_request
 from ..lib.ids import IdParam
+from ..lib.webpush import is_push_service
 from ..lib.webpush import push as push_all
 from ..realtime import hub
 from ..schemas.base import CamelModel, OkOut
@@ -164,6 +165,8 @@ async def push_test(user: SessionUser = Depends(current_user)) -> PushTestOut:
 async def add_push_subscription(
     payload: PushSubscriptionInput, user: SessionUser = Depends(current_user)
 ) -> OkOut:
+    if not is_push_service(payload.endpoint):
+        raise bad_request("That is not a browser's push service.", "invalid_input")
     async with transaction() as (session, _):
         await user_service.add_push_subscription(
             session,
