@@ -106,6 +106,17 @@ class TestOnTheWire:
         assert answer.headers.get("x-frame-options") == "DENY"
         assert "script-src 'self'" in answer.headers.get("content-security-policy", "")
 
+    async def test_the_page_may_use_what_a_call_and_a_passkey_need(self, client: Client) -> None:
+        """A meetup turns the camera on and a sign-in asks for a passkey, on this origin
+        and no other. `camera=()` shipped for a month under a working camera button."""
+        policy = (await client.get("/healthz")).headers.get("permissions-policy", "")
+        rules = {rule.split("=")[0].strip(): rule.split("=")[1] for rule in policy.split(",")}
+        assert rules["camera"] == "(self)"
+        assert rules["microphone"] == "(self)"
+        assert rules["publickey-credentials-get"] == "(self)"
+        assert rules["publickey-credentials-create"] == "(self)"
+        assert rules["geolocation"] == "()"
+
     async def test_so_does_a_refusal_from_the_session_middleware(self, client: Client) -> None:
         # The 401 is written by SessionMiddleware itself, so the headers middleware has to
         # sit outside it or the one response an attacker sees most goes out bare.

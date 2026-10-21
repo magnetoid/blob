@@ -130,8 +130,13 @@ def security_headers(*, path: str, secure: bool, existing: MutableHeaders) -> di
         "x-content-type-options": "nosniff",
         "referrer-policy": "strict-origin-when-cross-origin",
         "x-frame-options": "DENY",
-        # Microphone stays available to this origin for voice notes; nothing else is.
-        "permissions-policy": "camera=(), geolocation=(), payment=(), usb=(), microphone=(self)",
+        # This origin keeps the microphone and the camera — calls need both, and a video
+        # meetup's camera button did nothing in Chromium while this said `camera=()` —
+        # and passkeys, which are this origin's by default and stay so. Nothing else.
+        "permissions-policy": (
+            "camera=(self), geolocation=(), payment=(), usb=(), microphone=(self), "
+            "publickey-credentials-get=(self), publickey-credentials-create=(self)"
+        ),
     }
     if secure:
         wanted["strict-transport-security"] = HSTS
