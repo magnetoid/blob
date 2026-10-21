@@ -137,3 +137,23 @@ class TestUnread:
         await team["member"].post(f"/api/messages/{root_id}/thread/read")
 
         assert (await listed(team["member"]))["messages"] == []
+
+
+async def test_following_a_thread_is_no_way_back_into_a_room_you_left(team: dict) -> None:
+    """The Threads view lists only what you can still read: a private channel you left,
+    or were taken out of, keeps its threads — root and replies — to itself."""
+    made = await team["owner"].post("/api/channels", {"name": "inner", "kind": "private"})
+    inner = made.body["channel"]["id"]
+    await team["owner"].post(
+        f"/api/channels/{inner}/members", {"userIds": [team["member"].user_id]}
+    )
+    root = await send_message(team["owner"], inner, "the confidential root")
+    root_id = root.body["message"]["id"]
+    await send_message(team["member"], inner, "my reply", threadRootId=root_id)
+    assert root_id in [m["id"] for m in (await listed(team["member"]))["messages"]]
+
+    await team["member"].post(f"/api/channels/{inner}/leave", {})
+
+    after = await listed(team["member"])
+    assert root_id not in [m["id"] for m in after["messages"]]
+    assert "the confidential root" not in str(after)

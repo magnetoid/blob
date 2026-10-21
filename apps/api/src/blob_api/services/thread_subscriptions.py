@@ -40,7 +40,19 @@ async def threads_for_user(
                   FROM messages m
                   JOIN thread_subscriptions ts
                     ON ts.thread_root_id = m.id AND ts.user_id = :user_id
+                  JOIN channels c ON c.id = m.channel_id
                  WHERE m.deleted_at IS NULL AND ts.muted = false
+                   -- Only where you can still read: following a thread is not a way back
+                   -- into a private channel you left or were taken out of (the 2026-10
+                   -- security review), nor into a public one for a guest.
+                   AND (
+                     (c.kind = 'public' AND NOT EXISTS (
+                        SELECT 1 FROM users viewer
+                         WHERE viewer.id = :user_id AND viewer.role = 'guest'))
+                     OR EXISTS (
+                        SELECT 1 FROM channel_members cm
+                         WHERE cm.channel_id = m.channel_id AND cm.user_id = :user_id)
+                   )
                  ORDER BY m.last_reply_at DESC NULLS LAST
                  LIMIT :limit
                 """
