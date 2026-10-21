@@ -117,7 +117,7 @@ describe('the server console’s nav', () => {
 // Settings is not part of the change, and shares this component: its heading and its
 // rows have to come out exactly as they did.
 describe('the settings nav', () => {
-  it('keeps its heading over its three rows, with nothing else on them', () => {
+  it('keeps its heading over its four rows, with nothing else on them', () => {
     const { container } = render(
       <ConsoleNav groups={SETTINGS_NAV} section="preferences" viewer={ADMIN} basePath="/settings" />,
     );
@@ -128,7 +128,12 @@ describe('the settings nav', () => {
 
     const section = container.querySelector('.sidebar-scroll > section.sidebar-section');
     expect(section?.firstElementChild).toBe(headings[0]);
-    expect(rowLabels(container)).toEqual(['Profile & preferences', 'My agents', 'Assistants']);
+    expect(rowLabels(container)).toEqual([
+      'Profile & preferences',
+      'Sign-in & security',
+      'My agents',
+      'Assistants',
+    ]);
     expect(container.querySelector('.console-nav-badge')).toBeNull();
   });
 
@@ -141,7 +146,12 @@ describe('the settings nav', () => {
         basePath="/settings"
       />,
     );
-    expect(rowLabels(container)).toEqual(['Profile & preferences', 'My agents', 'Assistants']);
+    expect(rowLabels(container)).toEqual([
+      'Profile & preferences',
+      'Sign-in & security',
+      'My agents',
+      'Assistants',
+    ]);
   });
 });
 

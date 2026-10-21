@@ -13,6 +13,7 @@ import logging
 from sqlalchemy import text
 
 from ..db.engine import transaction
+from ..services.accounts import EVENT_KEEP_DAYS
 from ..services.workspace_settings import DEFAULT_RETENTION_DAYS, load_retention_days
 
 log = logging.getLogger("blob.jobs.retention")
@@ -23,7 +24,13 @@ DELIVERY_KEEP_DAYS = 30
 
 async def sweep_retention() -> dict[str, int]:
     retention_days = await load_retention_days()
-    counts = {"sessions": 0, "password_resets": 0, "deliveries": 0, "audit": 0}
+    counts = {
+        "sessions": 0,
+        "password_resets": 0,
+        "deliveries": 0,
+        "audit": 0,
+        "account_events": 0,
+    }
     async with transaction() as (session, _):
         counts["sessions"] = len(
             (
@@ -72,6 +79,22 @@ async def sweep_retention() -> dict[str, int]:
                         """
                     ),
                     {"days": retention_days or DEFAULT_RETENTION_DAYS},
+                )
+            ).fetchall()
+        )
+        # A person's own sign-in record (M3 · B1): a fixed window rather than the
+        # workspace's, because it is the person's, and it spans their workspaces.
+        counts["account_events"] = len(
+            (
+                await session.execute(
+                    text(
+                        """
+                        DELETE FROM account_events
+                         WHERE created_at < now() - make_interval(days => :days)
+                        RETURNING id
+                        """
+                    ),
+                    {"days": EVENT_KEEP_DAYS},
                 )
             ).fetchall()
         )

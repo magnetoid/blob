@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib import mail, storage
-from ..lib.auth import SessionUser, require_admin, require_owner
+from ..lib.auth import SessionUser, require_admin, require_recent_admin, require_recent_owner
 from ..lib.ids import IdParam
 from ..lib.redis import redis
 from ..realtime import hub
@@ -80,7 +80,7 @@ async def set_role(
     user_id: IdParam,
     payload: RoleInput,
     request: Request,
-    owner: SessionUser = Depends(require_owner),
+    owner: SessionUser = Depends(require_recent_owner),
 ) -> OkOut:
     async with transaction() as (session, after):
         updates = await admin_service.set_role(
@@ -135,7 +135,7 @@ async def revoke_sessions(
 
 @router.post("/users/{user_id}/reset-link", response_model=ResetLinkOut)
 async def create_reset_link(
-    user_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
+    user_id: IdParam, request: Request, admin: SessionUser = Depends(require_recent_admin)
 ) -> ResetLinkOut:
     """Mint a password-reset link for somebody, for an admin to hand over."""
     async with transaction() as (session, _):

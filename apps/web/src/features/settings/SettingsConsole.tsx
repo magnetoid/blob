@@ -15,11 +15,13 @@ import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import { YouSection } from './YouSection.tsx';
 import { MyAgentsSection } from './MyAgentsSection.tsx';
 import { AssistantsSection } from './AssistantsSection.tsx';
+import { SecuritySection } from './SecuritySection.tsx';
 
 const NAV_ID = 'settings-console-nav';
 
 const SECTION_COMPONENTS: Record<SettingsSection, ComponentType<ConsoleSectionProps>> = {
   preferences: YouSection,
+  security: SecuritySection,
   'my-agents': MyAgentsSection,
   assistants: AssistantsSection,
 };

@@ -145,6 +145,43 @@ class Session(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     last_seen_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     expires_at: Mapped[Any] = mapped_column(Timestamp, nullable=False)
+    #: How this browser signed in — `password`, `passkey`, `sso`, `reset` or `signup`.
+    method: Mapped[str | None] = mapped_column(Text)
+    #: When this session last proved who it is (M3 · B1): at sign-in, and each time its
+    #: person confirms before a sensitive action. A workspace switch carries it over.
+    reauth_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
+class AccountEvent(Base):
+    """One thing that happened to a person's account, for them to look back on (M3 · B1).
+
+    Keyed on the address as well as the account: a person is one row per workspace and
+    one password across all of them, so what happened to their sign-in did too.
+    """
+
+    __tablename__ = "account_events"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('signed_in', 'confirmed', 'failed', 'password_changed', "
+            "'signed_out_elsewhere', 'session_ended')",
+            name="account_events_kind_check",
+        ),
+        CheckConstraint(
+            "method IS NULL OR method IN ('password', 'passkey', 'sso', 'reset', 'signup')",
+            name="account_events_method_check",
+        ),
+        Index("account_events_person", "email", text("id DESC")),
+        Index("account_events_age", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    email: Mapped[str] = mapped_column(CITEXT, nullable=False)
+    user_id: Mapped[str | None] = mapped_column(UUIDStr, ForeignKey("users.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    method: Mapped[str | None] = mapped_column(Text)
+    ip: Mapped[str | None] = mapped_column(INET)
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
 class Invite(Base):
@@ -2125,6 +2162,7 @@ class OAuthRefreshToken(Base):
 
 
 __all__ = [
+    "AccountEvent",
     "AgentFollow",
     "AgentMcpServer",
     "AgentNote",

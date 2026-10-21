@@ -30,7 +30,7 @@ from fastapi.responses import PlainTextResponse
 
 from ..db.engine import session_scope, transaction
 from ..lib import net
-from ..lib.auth import SessionUser, require_admin
+from ..lib.auth import SessionUser, require_admin, require_recent_admin
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam
 from ..plugins import gateway, recent_errors, registry
@@ -324,7 +324,7 @@ async def activity(admin: SessionUser = Depends(require_admin)) -> ActivityOut:
 
 @router.post("", response_model=InstalledOut, status_code=201)
 async def install_plugin(
-    manifest: Manifest, request: Request, admin: SessionUser = Depends(require_admin)
+    manifest: Manifest, request: Request, admin: SessionUser = Depends(require_recent_admin)
 ) -> InstalledOut:
     if manifest.runtime == "container":
         raise bad_request(
@@ -584,7 +584,7 @@ async def set_enabled(
 
 @router.post("/{plugin_id}/secret", response_model=SecretOut)
 async def rotate_secret(
-    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_recent_admin)
 ) -> SecretOut:
     async with transaction() as (session, _after):
         secret = await registry.rotate_secret(session, plugin_id, admin.workspace_id)
@@ -600,7 +600,7 @@ async def rotate_secret(
 
 @router.post("/{plugin_id}/token", response_model=TokenOut)
 async def issue_token(
-    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_admin)
+    plugin_id: IdParam, request: Request, admin: SessionUser = Depends(require_recent_admin)
 ) -> TokenOut:
     """Mint a fresh bot token. Existing ones keep working until revoked."""
     async with transaction() as (session, _after):

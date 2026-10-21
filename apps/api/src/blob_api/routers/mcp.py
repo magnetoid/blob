@@ -36,7 +36,7 @@ from pydantic import Field
 from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib import metrics, telemetry
-from ..lib.auth import SessionUser, current_user, require_admin
+from ..lib.auth import SessionUser, current_user, require_admin, require_recent_auth
 from ..lib.errors import AppError
 from ..lib.ids import IdParam
 from ..schemas.base import CamelModel
@@ -508,7 +508,7 @@ async def list_tokens(user: SessionUser = Depends(current_user)) -> TokensOut:
 
 @tokens_router.post("", response_model=CreatedTokenOut)
 async def create_token(
-    payload: CreateTokenInput, user: SessionUser = Depends(current_user)
+    payload: CreateTokenInput, user: SessionUser = Depends(require_recent_auth)
 ) -> CreatedTokenOut:
     async with transaction() as (session, _after):
         row, secret = await token_service.mint(

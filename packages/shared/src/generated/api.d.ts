@@ -2278,6 +2278,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Account Activity
+         * @description What has happened to this person's sign-in lately, in every workspace.
+         */
+        get: operations["account_activity_api_auth_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/forgot-password": {
         parameters: {
             query?: never;
@@ -2338,8 +2358,56 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Logout Others */
+        /**
+         * Logout Others
+         * @description Every other browser this person is signed in on, in every workspace, and every
+         *     assistant they have let in (`accounts.sign_out_elsewhere` says why every workspace).
+         */
         post: operations["logout_others_api_auth_logout_others_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description A new password, chosen while signed in. Every other browser is signed out.
+         */
+        post: operations["change_password_api_auth_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/reauth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reauth State
+         * @description What the confirm prompt may offer, and whether this session needs it at all.
+         */
+        get: operations["reauth_state_api_auth_reauth_get"];
+        put?: never;
+        /**
+         * Reauth
+         * @description Confirm it is you with your password, for the next quarter of an hour.
+         */
+        post: operations["reauth_api_auth_reauth_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2375,6 +2443,26 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * End Session
+         * @description Sign one browser out — one the person no longer has, or does not recognise.
+         */
+        delete: operations["end_session_api_auth_sessions__session_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4346,6 +4434,30 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccountActivityOut */
+        AccountActivityOut: {
+            /** Events */
+            events: components["schemas"]["AccountEventRow"][];
+            /** Keepdays */
+            keepDays: number;
+        };
+        /** AccountEventRow */
+        AccountEventRow: {
+            /** Createdat */
+            createdAt: string;
+            /** Id */
+            id: string;
+            /** Ip */
+            ip: string | null;
+            /** Kind */
+            kind: string;
+            /** Method */
+            method: string | null;
+            /** Useragent */
+            userAgent: string | null;
+            /** Workspace */
+            workspace: string | null;
+        };
         /** ActivityDay */
         ActivityDay: {
             /** Date */
@@ -5185,6 +5297,13 @@ export interface components {
             text: string;
             /** Uptomessageid */
             upToMessageId: string;
+        };
+        /** ChangePasswordInput */
+        ChangePasswordInput: {
+            /** Currentpassword */
+            currentPassword?: string | null;
+            /** Newpassword */
+            newPassword: string;
         };
         /** Channel */
         Channel: {
@@ -7049,6 +7168,20 @@ export interface components {
             /** Shown */
             shown: boolean;
         };
+        /** ReauthInput */
+        ReauthInput: {
+            /** Password */
+            password: string;
+        };
+        /** ReauthStateOut */
+        ReauthStateOut: {
+            /** Methods */
+            methods: string[];
+            /** Provenat */
+            provenAt: string | null;
+            /** Windowminutes */
+            windowMinutes: number;
+        };
         /** RecentErrorOut */
         RecentErrorOut: {
             /** At */
@@ -7345,8 +7478,14 @@ export interface components {
             ip: string | null;
             /** Lastseenat */
             lastSeenAt: string;
+            /** Method */
+            method?: string | null;
             /** Useragent */
             userAgent: string | null;
+            /** Workspace */
+            workspace?: string | null;
+            /** Workspaceid */
+            workspaceId?: string | null;
         };
         /** SessionsOut */
         SessionsOut: {
@@ -8099,6 +8238,8 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type AccountActivityOut = components['schemas']['AccountActivityOut'];
+export type AccountEventRow = components['schemas']['AccountEventRow'];
 export type ActivityDay = components['schemas']['ActivityDay'];
 export type ActivityItemOut = components['schemas']['ActivityItemOut'];
 export type AddEmojiInput = components['schemas']['AddEmojiInput'];
@@ -8167,6 +8308,7 @@ export type CatalogOut = components['schemas']['CatalogOut'];
 export type CatchupInput = components['schemas']['CatchupInput'];
 export type CatchupOut = components['schemas']['CatchupOut'];
 export type CatchupSummaryOut = components['schemas']['CatchupSummaryOut'];
+export type ChangePasswordInput = components['schemas']['ChangePasswordInput'];
 export type Channel = components['schemas']['Channel'];
 export type ChannelOut = components['schemas']['ChannelOut'];
 export type ChannelWithState = components['schemas']['ChannelWithState'];
@@ -8299,6 +8441,8 @@ export type ReadStateOut = components['schemas']['ReadStateOut'];
 export type ReadStateResponse = components['schemas']['ReadStateResponse'];
 export type ReadStatesOut = components['schemas']['ReadStatesOut'];
 export type ReasoningInput = components['schemas']['ReasoningInput'];
+export type ReauthInput = components['schemas']['ReauthInput'];
+export type ReauthStateOut = components['schemas']['ReauthStateOut'];
 export type RecentErrorOut = components['schemas']['RecentErrorOut'];
 export type RepoInput = components['schemas']['RepoInput'];
 export type RepoPreviewOut = components['schemas']['RepoPreviewOut'];
@@ -12333,6 +12477,26 @@ export interface operations {
             };
         };
     };
+    account_activity_api_auth_activity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountActivityOut"];
+                };
+            };
+        };
+    };
     forgot_password_api_auth_forgot_password_post: {
         parameters: {
             query?: never;
@@ -12439,6 +12603,92 @@ export interface operations {
             };
         };
     };
+    change_password_api_auth_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reauth_state_api_auth_reauth_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReauthStateOut"];
+                };
+            };
+        };
+    };
+    reauth_api_auth_reauth_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reset_password_api_auth_reset_password_post: {
         parameters: {
             query?: never;
@@ -12488,6 +12738,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionsOut"];
+                };
+            };
+        };
+    };
+    end_session_api_auth_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

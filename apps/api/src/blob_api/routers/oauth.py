@@ -27,7 +27,7 @@ from pydantic import Field
 
 from ..db.engine import session_scope, transaction
 from ..lib import rate_limit
-from ..lib.auth import SessionUser, current_user, require_admin
+from ..lib.auth import SessionUser, assert_recent_auth, current_user, require_admin
 from ..lib.caller import client_key
 from ..lib.errors import AppError, bad_request
 from ..lib.ids import IdParam
@@ -296,6 +296,10 @@ async def decide(
     request: Request,
     user: SessionUser = Depends(current_user),
 ) -> OAuthConsentOut:
+    if payload.approve:
+        # Letting an assistant in hands it this person's reach for as long as the grant
+        # lives — the same thing minting a token does, so the same confirmation.
+        assert_recent_auth(user)
     try:
         url = await oauth_service.decide(
             request_id,

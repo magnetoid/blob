@@ -1,6 +1,98 @@
 {
   "components": {
     "schemas": {
+      "AccountActivityOut": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AccountEventRow"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "keepDays": {
+            "title": "Keepdays",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "events",
+          "keepDays"
+        ],
+        "title": "AccountActivityOut",
+        "type": "object"
+      },
+      "AccountEventRow": {
+        "properties": {
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "userAgent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Useragent"
+          },
+          "workspace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "method",
+          "ip",
+          "userAgent",
+          "workspace",
+          "createdAt"
+        ],
+        "title": "AccountEventRow",
+        "type": "object"
+      },
       "ActivityDay": {
         "properties": {
           "date": {
@@ -2169,6 +2261,34 @@
           "upToMessageId"
         ],
         "title": "CatchupSummaryOut",
+        "type": "object"
+      },
+      "ChangePasswordInput": {
+        "properties": {
+          "currentPassword": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentpassword"
+          },
+          "newPassword": {
+            "maxLength": 200,
+            "minLength": 10,
+            "title": "Newpassword",
+            "type": "string"
+          }
+        },
+        "required": [
+          "newPassword"
+        ],
+        "title": "ChangePasswordInput",
         "type": "object"
       },
       "Channel": {
@@ -7418,6 +7538,54 @@
         "title": "ReasoningInput",
         "type": "object"
       },
+      "ReauthInput": {
+        "properties": {
+          "password": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "ReauthInput",
+        "type": "object"
+      },
+      "ReauthStateOut": {
+        "properties": {
+          "methods": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Methods",
+            "type": "array"
+          },
+          "provenAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenat"
+          },
+          "windowMinutes": {
+            "title": "Windowminutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "methods",
+          "provenAt",
+          "windowMinutes"
+        ],
+        "title": "ReauthStateOut",
+        "type": "object"
+      },
       "RecentErrorOut": {
         "properties": {
           "at": {
@@ -8207,6 +8375,17 @@
             "title": "Lastseenat",
             "type": "string"
           },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
           "userAgent": {
             "anyOf": [
               {
@@ -8217,6 +8396,28 @@
               }
             ],
             "title": "Useragent"
+          },
+          "workspace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace"
+          },
+          "workspaceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspaceid"
           }
         },
         "required": [
@@ -16627,6 +16828,28 @@
         ]
       }
     },
+    "/api/auth/activity": {
+      "get": {
+        "description": "What has happened to this person's sign-in lately, in every workspace.",
+        "operationId": "account_activity_api_auth_activity_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountActivityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Account Activity",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/forgot-password": {
       "post": {
         "operationId": "forgot_password_api_auth_forgot_password_post",
@@ -16732,6 +16955,7 @@
     },
     "/api/auth/logout-others": {
       "post": {
+        "description": "Every other browser this person is signed in on, in every workspace, and every\nassistant they have let in (`accounts.sign_out_elsewhere` says why every workspace).",
         "operationId": "logout_others_api_auth_logout_others_post",
         "responses": {
           "200": {
@@ -16746,6 +16970,110 @@
           }
         },
         "summary": "Logout Others",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/password": {
+      "post": {
+        "description": "A new password, chosen while signed in. Every other browser is signed out.",
+        "operationId": "change_password_api_auth_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/reauth": {
+      "get": {
+        "description": "What the confirm prompt may offer, and whether this session needs it at all.",
+        "operationId": "reauth_state_api_auth_reauth_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reauth State",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "Confirm it is you with your password, for the next quarter of an hour.",
+        "operationId": "reauth_api_auth_reauth_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reauth",
         "tags": [
           "auth"
         ]
@@ -16808,6 +17136,50 @@
           }
         },
         "summary": "List Sessions",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/sessions/{session_id}": {
+      "delete": {
+        "description": "Sign one browser out \u2014 one the person no longer has, or does not recognise.",
+        "operationId": "end_session_api_auth_sessions__session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Session",
         "tags": [
           "auth"
         ]

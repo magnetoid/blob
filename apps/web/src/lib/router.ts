@@ -46,7 +46,7 @@ export const ADMIN_SECTIONS = [
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 /** Yours. A private page, because these are not the server's business. */
-export const SETTINGS_SECTIONS = ['preferences', 'my-agents', 'assistants'] as const;
+export const SETTINGS_SECTIONS = ['preferences', 'security', 'my-agents', 'assistants'] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 

@@ -1,12 +1,14 @@
-"""Signup, login, invites, password reset.
+"""Signup, login, invites, password reset, and a person's own sign-in security.
 
 Shape and authorize. `services/signup.py` holds founding, joining and invitations;
-`services/accounts.py` holds sign-in, devices and password resets. What stays here is
-the cookie — minted and cleared on the response — the rate limits, the mail that goes
-out after COMMIT, and the sockets closed past it.
+`services/accounts.py` holds sign-in, devices, account history and password resets. What
+stays here is the cookie — minted and cleared on the response — the rate limits, the
+mail that goes out after COMMIT, and the sockets closed past it.
 """
 
 from __future__ import annotations
+
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request, Response
 
@@ -14,28 +16,33 @@ from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..lib import mail
 from ..lib.auth import (
+    REAUTH_WINDOW,
     SessionUser,
+    assert_recent_auth,
     clear_session_cookie,
     create_session,
     current_user,
-    destroy_other_sessions,
     destroy_session,
     hash_password,
+    mark_proven,
     require_admin,
     set_session_cookie,
     verify_password,
 )
 from ..lib.caller import client_ip, client_key
-from ..lib.errors import forbidden, unauthorized
+from ..lib.errors import AppError, forbidden, not_found, unauthorized
+from ..lib.ids import IdParam
 from ..lib.mail import send_invite, send_password_reset
 from ..lib.rate_limit import consume
 from ..realtime import hub
 from ..schemas.base import CamelModel, OkOut, iso
 from ..schemas.models import CurrentUser
 from ..schemas.requests import (
+    ChangePasswordInput,
     CreateInviteInput,
     ForgotPasswordInput,
     LoginInput,
+    ReauthInput,
     ResetPasswordInput,
     SignupInput,
 )
@@ -83,15 +90,77 @@ class SessionRow(CamelModel):
     ip: str | None
     created_at: str
     last_seen_at: str
+    #: How that browser signed in; None for sessions older than the column.
+    method: str | None = None
+    #: Which of this person's workspaces the session is in — sessions are listed across
+    #: all of them, since any one reaches the rest through the switcher.
+    workspace_id: str | None = None
+    workspace: str | None = None
 
 
 class SessionsOut(CamelModel):
     sessions: list[SessionRow]
 
 
-async def _sign_in(request: Request, response: Response, user_id: str) -> None:
-    token = await create_session(user_id, request.headers.get("user-agent"), client_ip(request))
+class AccountEventRow(CamelModel):
+    id: str
+    kind: str
+    method: str | None
+    ip: str | None
+    user_agent: str | None
+    workspace: str | None
+    created_at: str
+
+
+class AccountActivityOut(CamelModel):
+    events: list[AccountEventRow]
+    #: How many days back the record goes.
+    keep_days: int
+
+
+class ReauthStateOut(CamelModel):
+    #: The ways this person can confirm it is them, for the prompt to offer.
+    methods: list[str]
+    #: When this session last proved it, if within the window.
+    proven_at: str | None
+    window_minutes: int
+
+
+async def _sign_in(request: Request, response: Response, user_id: str, *, method: str) -> None:
+    """Mint the session, set the cookie, and write the line in the person's history."""
+    user_agent = request.headers.get("user-agent")
+    ip = client_ip(request)
+    token = await create_session(
+        user_id, user_agent, ip, method=method, proven_at=datetime.now(UTC)
+    )
     set_session_cookie(response, token)
+    async with transaction() as (session, _):
+        await account_service.record_event(
+            session,
+            user_id=user_id,
+            kind="signed_in",
+            method=method,
+            ip=ip,
+            user_agent=user_agent,
+        )
+
+
+async def _record(request: Request, user_id: str, kind: str, method: str | None = None) -> None:
+    async with transaction() as (session, _):
+        await account_service.record_event(
+            session,
+            user_id=user_id,
+            kind=kind,
+            method=method,
+            ip=client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+        )
+
+
+def _wrong_password() -> AppError:
+    # 400 rather than 401: the person is signed in, and the client reads 401 as "signed
+    # out" and would bounce them to the sign-in screen for a typo.
+    return AppError(400, "wrong_password", "That password is incorrect.", field="password")
 
 
 @router.get("/api/auth/state", response_model=AuthStateOut)
@@ -113,7 +182,7 @@ async def signup(payload: SignupInput, request: Request, response: Response) -> 
             workspace_name=payload.workspace_name,
             invite_token=payload.invite_token,
         )
-    await _sign_in(request, response, user_id)
+    await _sign_in(request, response, user_id, method="signup")
     return SessionOut(user=user)
 
 
@@ -130,9 +199,12 @@ async def login(payload: LoginInput, request: Request, response: Response) -> Se
     if row.deactivated_at is not None:
         raise unauthorized("That account has been deactivated.")
     if not await verify_password(row.password_hash, payload.password):
+        # On the person's own record, where they will see it: a run of these is how
+        # somebody learns their address is being tried.
+        await _record(request, row.id, "failed", "password")
         raise invalid
 
-    await _sign_in(request, response, row.id)
+    await _sign_in(request, response, row.id, method="password")
     async with session_scope() as session:
         instance_admin = await workspace_service.is_instance_admin(session, row.email)
     return SessionOut(user=to_current_user(row, is_instance_admin=instance_admin))
@@ -148,26 +220,36 @@ async def logout(request: Request, response: Response) -> OkOut:
 
 
 @router.post("/api/auth/logout-others", response_model=OkOut)
-async def logout_others(user: SessionUser = Depends(current_user)) -> OkOut:
-    await destroy_other_sessions(user.id, user.session_id)
-    async with transaction() as (session, _after):
-        await account_service.revoke_assistant_tokens(session, user.id)
-    # Deleting the session rows stops the *next* request; it does not stop a socket
-    # that authenticated once at connect and never asks again. Without this, "sign out
-    # everywhere else" left every other tab — including a stolen one — receiving every
-    # message in real time for as long as it kept pinging.
-    #
-    # A connection carries no session id, so this drops the caller's socket too. That
-    # costs a reconnect: the client's existing backoff-and-resync path runs and the
-    # surviving session authenticates again.
-    hub.close_users([user.id])
+async def logout_others(request: Request, user: SessionUser = Depends(current_user)) -> OkOut:
+    """Every other browser this person is signed in on, in every workspace, and every
+    assistant they have let in (`accounts.sign_out_elsewhere` says why every workspace)."""
+    async with transaction() as (session, after):
+        signed_out = await account_service.sign_out_elsewhere(
+            session, email=user.email, keep_session_id=user.session_id
+        )
+        await account_service.record_event(
+            session,
+            user_id=user.id,
+            kind="signed_out_elsewhere",
+            ip=client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+        )
+        # Deleting the session rows stops the *next* request; it does not stop a socket
+        # that authenticated once at connect and never asks again. Without this, "sign
+        # out everywhere else" left every other tab — including a stolen one — receiving
+        # every message in real time for as long as it kept pinging.
+        #
+        # A connection carries no session id, so this drops the caller's socket too.
+        # That costs a reconnect: the client's existing backoff-and-resync path runs and
+        # the surviving session authenticates again.
+        after.add(lambda: hub.close_users(signed_out))
     return OkOut()
 
 
 @router.get("/api/auth/sessions", response_model=SessionsOut)
 async def list_sessions(user: SessionUser = Depends(current_user)) -> SessionsOut:
     async with session_scope() as session:
-        rows = await account_service.sessions_for(session, user.id)
+        rows = await account_service.sessions_of(session, user.email)
     return SessionsOut(
         sessions=[
             SessionRow(
@@ -177,10 +259,131 @@ async def list_sessions(user: SessionUser = Depends(current_user)) -> SessionsOu
                 ip=str(row.ip) if row.ip else None,
                 created_at=iso(row.created_at) or "",
                 last_seen_at=iso(row.last_seen_at) or "",
+                method=row.method,
+                workspace_id=str(row.workspace_id),
+                workspace=row.workspace_name,
             )
             for row in rows
         ]
     )
+
+
+@router.delete("/api/auth/sessions/{session_id}", response_model=OkOut)
+async def end_session(
+    session_id: IdParam, request: Request, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    """Sign one browser out — one the person no longer has, or does not recognise."""
+    async with transaction() as (session, after):
+        ended = await account_service.end_session(session, email=user.email, session_id=session_id)
+        if ended is None:
+            raise not_found("That session has already ended.")
+        await account_service.record_event(
+            session,
+            user_id=ended,
+            kind="session_ended",
+            ip=client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+        )
+        # Its sockets carry no session id, so every socket of that account drops and
+        # the ones still signed in reconnect — the cost `logout-others` already pays.
+        after.add(lambda: hub.close_users([ended]))
+    return OkOut()
+
+
+@router.get("/api/auth/activity", response_model=AccountActivityOut)
+async def account_activity(user: SessionUser = Depends(current_user)) -> AccountActivityOut:
+    """What has happened to this person's sign-in lately, in every workspace."""
+    async with session_scope() as session:
+        rows = await account_service.events_of(session, user.email)
+    return AccountActivityOut(
+        events=[
+            AccountEventRow(
+                id=row.id,
+                kind=row.kind,
+                method=row.method,
+                ip=str(row.ip) if row.ip else None,
+                user_agent=row.user_agent,
+                workspace=row.workspace_name,
+                created_at=iso(row.created_at) or "",
+            )
+            for row in rows
+        ],
+        keep_days=account_service.EVENT_KEEP_DAYS,
+    )
+
+
+# ─── confirming it is you ─────────────────────────────────────────────────────
+
+
+@router.get("/api/auth/reauth", response_model=ReauthStateOut)
+async def reauth_state(user: SessionUser = Depends(current_user)) -> ReauthStateOut:
+    """What the confirm prompt may offer, and whether this session needs it at all."""
+    async with session_scope() as session:
+        methods = await account_service.proofs_for(session, user.email)
+    return ReauthStateOut(
+        methods=methods,
+        proven_at=iso(user.reauth_at) if user.recently_proven else None,
+        window_minutes=int(REAUTH_WINDOW.total_seconds() // 60),
+    )
+
+
+@router.post("/api/auth/reauth", response_model=OkOut)
+async def reauth(
+    payload: ReauthInput, request: Request, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    """Confirm it is you with your password, for the next quarter of an hour."""
+    await consume("reauth", user.id)
+    async with session_scope() as session:
+        current_hash = await workspace_service.password_hash_for(session, user.email)
+    if current_hash is None or not await verify_password(current_hash, payload.password):
+        await _record(request, user.id, "failed", "password")
+        raise _wrong_password()
+    await mark_proven(user.session_id)
+    await _record(request, user.id, "confirmed", "password")
+    return OkOut()
+
+
+@router.post("/api/auth/password", response_model=OkOut)
+async def change_password(
+    payload: ChangePasswordInput, request: Request, user: SessionUser = Depends(current_user)
+) -> OkOut:
+    """A new password, chosen while signed in. Every other browser is signed out."""
+    await consume("reauth", user.id)
+    async with session_scope() as session:
+        current_hash = await workspace_service.password_hash_for(session, user.email)
+    if current_hash is not None:
+        # Knowing the current password is the proof here; no separate confirmation.
+        if payload.current_password is None or not await verify_password(
+            current_hash, payload.current_password
+        ):
+            await _record(request, user.id, "failed", "password")
+            raise AppError(
+                400,
+                "wrong_password",
+                "That isn't your current password.",
+                field="currentPassword",
+            )
+    else:
+        # A first password for somebody who signs in another way: confirm it is them.
+        assert_recent_auth(user)
+
+    new_hash = await hash_password(payload.new_password)
+    async with transaction() as (session, after):
+        signed_out = await account_service.change_password(
+            session, email=user.email, password_hash=new_hash, keep_session_id=user.session_id
+        )
+        await account_service.record_event(
+            session,
+            user_id=user.id,
+            kind="password_changed",
+            method="password",
+            ip=client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+        )
+        after.add(lambda: hub.close_users(signed_out))
+    # Choosing a password is as good a proof as typing one.
+    await mark_proven(user.session_id)
+    return OkOut()
 
 
 # ─── invitations ──────────────────────────────────────────────────────────────
@@ -196,6 +399,9 @@ async def create_invite(
     # account in reserve that outlives their own demotion.
     if payload.role == "admin" and user.role != "owner":
         raise forbidden("Only the owner can invite an admin.")
+    if payload.role == "admin":
+        # Handing out a role is handing out reach; see `require_recent_auth`.
+        assert_recent_auth(user)
     await consume("invite", user.id)
     async with transaction() as (session, _):
         token, expires_at, workspace_name = await signup_service.create_invite(
@@ -254,7 +460,7 @@ async def reset_password(
         # authenticates once, so a socket opened with a since-deleted session keeps
         # delivering until the tab is closed.
         after.add(lambda: hub.close_users(signed_out))
-    await _sign_in(request, response, user_id)
+    await _sign_in(request, response, user_id, method="reset")
     return OkOut()
 
 

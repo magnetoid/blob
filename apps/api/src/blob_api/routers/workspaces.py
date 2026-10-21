@@ -87,10 +87,15 @@ async def switch_workspace(
         target = await workspace_service.user_row_in(session, workspace_id, user.email)
 
     await destroy_session(user.session_id)
+    # The new session is exactly as fresh as the one it replaces. A switch proves
+    # nothing, and minting it as a new sign-in would let an hour-old cookie walk into a
+    # workspace and out again holding a session that passes `require_recent_auth`.
     token = await create_session(
         target.id,
         request.headers.get("user-agent"),
         client_ip(request),
+        method=user.method,
+        proven_at=user.reauth_at,
     )
     set_session_cookie(response, token)
     return SwitchedOut(workspace_id=workspace_id, user_id=target.id)

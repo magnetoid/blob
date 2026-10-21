@@ -24,6 +24,8 @@ export function useAdminAction(
         await run();
         reload();
       } catch (err) {
+        // Asked to confirm it was them, they said no: nothing happened, and they know.
+        if (err instanceof ApiError && err.code === 'reauth_cancelled') return;
         onError(err instanceof ApiError ? err.message : 'That did not work.');
       }
     },

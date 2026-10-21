@@ -23,10 +23,16 @@ from sqlalchemy import text
 
 from ..config import settings
 from ..db.engine import SessionFactory
-from .errors import forbidden, unauthorized
+from .errors import AppError, forbidden, unauthorized
 from .ids import new_id, new_token
 
 SESSION_COOKIE = "blob_session"
+
+#: How long a proof of identity counts for before a sensitive action asks again (M3 · B1).
+#: Minting a credential, changing who holds a role, handing out a reset link: each is
+#: worth one more step for somebody who sat down at an unlocked laptop, and a quarter of
+#: an hour is long enough that a person doing several of them is asked once.
+REAUTH_WINDOW = timedelta(minutes=15)
 
 
 def build_hasher(profile: str, *, testing: bool) -> PasswordHasher:
@@ -76,13 +82,34 @@ class SessionUser:
     display_name: str
     role: Role
     session_id: str
+    #: When this session last proved who it is; None is "not recently" (see REAUTH_WINDOW).
+    reauth_at: datetime | None = None
+    #: How it signed in, carried across a workspace switch with the time above.
+    method: str | None = None
 
     @property
     def is_admin(self) -> bool:
         return self.role in ("admin", "owner")
 
+    @property
+    def recently_proven(self) -> bool:
+        return self.reauth_at is not None and datetime.now(UTC) - self.reauth_at < REAUTH_WINDOW
 
-async def create_session(user_id: str, user_agent: str | None, ip: str | None) -> str:
+
+async def create_session(
+    user_id: str,
+    user_agent: str | None,
+    ip: str | None,
+    *,
+    method: str | None,
+    proven_at: datetime | None,
+) -> str:
+    """Mint a session and answer its token.
+
+    `proven_at` is when the person last proved who they are — now, for a sign-in; the
+    old session's time, for a workspace switch, which proves nothing and must not leave
+    behind a session fresher than the one it replaced.
+    """
     token = new_token()
     expires_at = datetime.now(UTC) + timedelta(days=settings.SESSION_TTL_DAYS)
     async with SessionFactory() as session:
@@ -90,8 +117,10 @@ async def create_session(user_id: str, user_agent: str | None, ip: str | None) -
             await session.execute(
                 text(
                     """
-                    INSERT INTO sessions (id, user_id, token_hash, user_agent, ip, expires_at)
-                    VALUES (:id, :user_id, :token_hash, :user_agent, cast(:ip AS inet), :expires_at)
+                    INSERT INTO sessions
+                           (id, user_id, token_hash, user_agent, ip, expires_at, method, reauth_at)
+                    VALUES (:id, :user_id, :token_hash, :user_agent, cast(:ip AS inet),
+                            :expires_at, :method, :proven_at)
                     """
                 ),
                 {
@@ -101,9 +130,20 @@ async def create_session(user_id: str, user_agent: str | None, ip: str | None) -
                     "user_agent": user_agent,
                     "ip": ip,
                     "expires_at": expires_at,
+                    "method": method,
+                    "proven_at": proven_at,
                 },
             )
     return token
+
+
+async def mark_proven(session_id: str) -> None:
+    """This session has just proved who it is again."""
+    async with SessionFactory() as session:
+        async with session.begin():
+            await session.execute(
+                text("UPDATE sessions SET reauth_at = now() WHERE id = :id"), {"id": session_id}
+            )
 
 
 async def resolve_session(token: str) -> SessionUser | None:
@@ -112,8 +152,8 @@ async def resolve_session(token: str) -> SessionUser | None:
             await session.execute(
                 text(
                     """
-                    SELECT s.id AS session_id, s.last_seen_at, u.id, u.workspace_id,
-                           u.email, u.display_name, u.role
+                    SELECT s.id AS session_id, s.last_seen_at, s.reauth_at, s.method,
+                           u.id, u.workspace_id, u.email, u.display_name, u.role
                       FROM sessions s
                       JOIN users u ON u.id = s.user_id
                      WHERE s.token_hash = :token_hash
@@ -147,6 +187,8 @@ async def resolve_session(token: str) -> SessionUser | None:
             display_name=row.display_name,
             role=row.role,
             session_id=row.session_id,
+            reauth_at=row.reauth_at,
+            method=row.method,
         )
 
 
@@ -154,22 +196,6 @@ async def destroy_session(session_id: str) -> None:
     async with SessionFactory() as session:
         async with session.begin():
             await session.execute(text("DELETE FROM sessions WHERE id = :id"), {"id": session_id})
-
-
-async def destroy_other_sessions(user_id: str, keep_session_id: str | None = None) -> None:
-    """Sign out everywhere, optionally keeping the session making the request."""
-    async with SessionFactory() as session:
-        async with session.begin():
-            await session.execute(
-                text(
-                    """
-                    DELETE FROM sessions
-                     WHERE user_id = :user_id
-                       AND (cast(:keep AS uuid) IS NULL OR id <> cast(:keep AS uuid))
-                    """
-                ),
-                {"user_id": user_id, "keep": keep_session_id},
-            )
 
 
 def set_session_cookie(response: Response, token: str) -> None:
@@ -212,6 +238,45 @@ def require_owner(request: Request) -> SessionUser:
     user = current_user(request)
     if user.role != "owner":
         raise forbidden("Only the workspace owner can do that.")
+    return user
+
+
+def require_recent_admin(request: Request) -> SessionUser:
+    """An admin who has proved who they are lately — for minting what outlasts them."""
+    user = require_admin(request)
+    assert_recent_auth(user)
+    return user
+
+
+def require_recent_owner(request: Request) -> SessionUser:
+    user = require_owner(request)
+    assert_recent_auth(user)
+    return user
+
+
+def reauth_required() -> AppError:
+    """403, not 401: the client treats 401 as signed out. It answers this one by asking
+    the person to confirm who they are, then sends the same request again."""
+    return AppError(403, "reauth_required", "Confirm it's you to continue.")
+
+
+def assert_recent_auth(user: SessionUser) -> None:
+    """For an action that is only sometimes sensitive — approving, not declining."""
+    if not user.recently_proven:
+        raise reauth_required()
+
+
+def require_recent_auth(request: Request) -> SessionUser:
+    """Signed in, and proved who they are within REAUTH_WINDOW.
+
+    For the actions that hand somebody else this person's reach or a workspace's: minting
+    a token, letting an assistant in, giving out a role or a reset link. A stolen session
+    cookie — a laptop left open, a token lifted from a browser profile — reads what its
+    person reads; this is what stops it from turning that into something that outlasts
+    the session.
+    """
+    user = current_user(request)
+    assert_recent_auth(user)
     return user
 
 

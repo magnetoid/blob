@@ -58,6 +58,17 @@ class ForgotPasswordInput(CamelModel):
     email: EmailStr
 
 
+class ReauthInput(CamelModel):
+    password: str = Field(min_length=1, max_length=200)
+
+
+class ChangePasswordInput(CamelModel):
+    #: Required when the person has a password; somebody who signs in only with a
+    #: passkey or single sign-on sets their first one after confirming it is them.
+    current_password: str | None = Field(default=None, min_length=1, max_length=200)
+    new_password: Password
+
+
 class ResetPasswordInput(CamelModel):
     token: str = Field(min_length=10)
     password: Password

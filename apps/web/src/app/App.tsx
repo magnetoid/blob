@@ -11,6 +11,7 @@ import { ConsentScreen } from '../features/oauth/ConsentScreen.tsx';
 import { isConsentPath } from '../features/oauth/consent.ts';
 import { Workspace } from './Workspace.tsx';
 import { Toasts } from '../components/Toasts.tsx';
+import { ConfirmItsYou } from '../features/auth/ConfirmItsYou.tsx';
 import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
 
 type Phase = 'loading' | 'signed-out' | 'signed-in' | 'unreachable';
@@ -159,6 +160,7 @@ export function App() {
     return (
       <ErrorBoundary>
         <ConsentScreen />
+        <ConfirmItsYou />
       </ErrorBoundary>
     );
   }
@@ -166,6 +168,7 @@ export function App() {
   return (
     <ErrorBoundary>
       <Workspace onSignedOut={() => setPhase('signed-out')} />
+      <ConfirmItsYou />
       <Toasts />
     </ErrorBoundary>
   );

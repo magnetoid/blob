@@ -21,7 +21,7 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-thirty ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+thirty-one ADRs; the principles below are their summary, not a substitute. 0013–0020 and
 0022–0030 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
@@ -179,6 +179,16 @@ Its routes (`/.well-known/…`, `/oauth/token|register|revoke`) live outside `/a
 cookie, and are in `ORIGIN_EXEMPT` rather than either allowlist; `/oauth/authorize` is the
 client's consent page, and its two calls are ordinary `/api/oauth/…` routes. A grant mints
 `mcp_tokens` rows with `grant_id` set and an hour to live, which the token lists leave out.
+
+A person's sign-in is the *address's*, not the row's (ADR 0031): the devices list, the
+sign-in record (`account_events`) and "sign out everywhere else" span every workspace the
+address is in, because the switcher crosses between them without a password — and the
+last also ends the address's OAuth grants, or a refresh token brings an assistant back.
+Anything that hands out lasting reach (an MCP token, approving an assistant, a role, a
+reset link, an app's token) depends on `require_recent_auth`: 403 `reauth_required` once
+`sessions.reauth_at` is older than fifteen minutes, which the client answers globally by
+asking and resending (`lib/stepUp.ts`). A workspace switch carries `reauth_at` over; never
+mint a session as fresh for anything that did not just check a credential.
 
 **Errors are a contract.** The codes in `lib/errors.py` are what `apps/web/src/lib/api.ts`
 branches on. Don't rename them, and keep FastAPI's 422 remapped to 400 `invalid_input`.

@@ -3,6 +3,12 @@
 The SQL behind the session half of `routers/auth.py`. Sessions themselves — minting,
 resolving and destroying the cookie — stay in `lib/auth.py`; this is what a route
 needs around them.
+
+A *person* here is an address, not a row. One address holds an account in each
+workspace it belongs to, all behind one password (`services/workspaces`), and a session
+in any of them reaches the others through the switcher without a password — so the
+devices a person is signed in on, the record of what happened to their sign-in, and
+"sign out everywhere else" are all the address's, across every workspace (M3 · B1).
 """
 
 from __future__ import annotations
@@ -50,7 +56,9 @@ async def revoke_assistant_tokens(session: AsyncSession, user_id: str) -> None:
 
     An assistant holding an MCP token is a session in every sense that matters — it
     reads what this person reads — and it is not in the `sessions` table, so signing
-    out the other sessions would not have touched it.
+    out the other sessions would not have touched it. Nor is an assistant that signed in
+    for its token (ADR 0029): its grant is ended too, or its refresh token would mint a
+    fresh hour-long token a minute after the sign-out that was meant to stop it.
     """
     await session.execute(
         text(
@@ -59,19 +67,205 @@ async def revoke_assistant_tokens(session: AsyncSession, user_id: str) -> None:
         ),
         {"user_id": user_id},
     )
+    await session.execute(
+        text(
+            "UPDATE oauth_grants SET revoked_at = now()"
+            " WHERE user_id = :user_id AND revoked_at IS NULL"
+        ),
+        {"user_id": user_id},
+    )
 
 
-async def sessions_for(session: AsyncSession, user_id: str) -> list[Any]:
+async def _revoke_connections_of_person(session: AsyncSession, email: str) -> None:
+    """Every assistant this address has let in, in every workspace: pasted tokens and
+    signed-in ones (their grant, so that a refresh token cannot bring them back)."""
+    await session.execute(
+        text(
+            """
+            UPDATE mcp_tokens SET revoked_at = now()
+             WHERE revoked_at IS NULL
+               AND user_id IN (SELECT id FROM users WHERE email = :email)
+            """
+        ),
+        {"email": email},
+    )
+    await session.execute(
+        text(
+            """
+            UPDATE oauth_grants SET revoked_at = now()
+             WHERE revoked_at IS NULL
+               AND user_id IN (SELECT id FROM users WHERE email = :email)
+            """
+        ),
+        {"email": email},
+    )
+
+
+async def _accounts_of(session: AsyncSession, email: str) -> list[str]:
+    return [
+        str(row.id)
+        for row in (
+            await session.execute(
+                text("SELECT id FROM users WHERE email = :email AND kind = 'human'"),
+                {"email": email},
+            )
+        ).fetchall()
+    ]
+
+
+async def sessions_of(session: AsyncSession, email: str) -> list[Any]:
+    """Every browser this person is signed in on, in every workspace, latest first."""
     return list(
         (
             await session.execute(
                 text(
                     """
-                    SELECT id, user_agent, ip, created_at, last_seen_at
-                      FROM sessions WHERE user_id = :user_id ORDER BY last_seen_at DESC
+                    SELECT s.id, s.user_agent, s.ip, s.created_at, s.last_seen_at, s.method,
+                           w.id AS workspace_id, w.name AS workspace_name
+                      FROM sessions s
+                      JOIN users u ON u.id = s.user_id
+                      JOIN workspaces w ON w.id = u.workspace_id
+                     WHERE u.email = :email AND u.kind = 'human' AND s.expires_at > now()
+                     ORDER BY s.last_seen_at DESC
                     """
                 ),
-                {"user_id": user_id},
+                {"email": email},
+            )
+        ).fetchall()
+    )
+
+
+async def end_session(session: AsyncSession, *, email: str, session_id: str) -> str | None:
+    """Sign one of this person's browsers out. Answers the account it was signed in to,
+    for the caller to close its sockets past COMMIT; None when it was not theirs."""
+    ended = (
+        await session.execute(
+            text(
+                """
+                DELETE FROM sessions s USING users u
+                 WHERE s.id = :id AND u.id = s.user_id AND u.email = :email
+                RETURNING s.user_id
+                """
+            ),
+            {"id": session_id, "email": email},
+        )
+    ).fetchone()
+    return str(ended.user_id) if ended else None
+
+
+async def sign_out_elsewhere(
+    session: AsyncSession, *, email: str, keep_session_id: str
+) -> list[str]:
+    """Every session this person holds except this one, in every workspace, and every
+    assistant they have let in. Answers the accounts touched, for their sockets.
+
+    Every workspace, because a session in one reaches the others: the switcher swaps it
+    for one in another workspace without asking for a password. Signing out "everywhere
+    else" from one workspace used to leave a stolen session in another alive — and that
+    session could switch into this one again a moment later.
+    """
+    await session.execute(
+        text(
+            """
+            DELETE FROM sessions
+             WHERE id <> :keep
+               AND user_id IN (SELECT id FROM users WHERE email = :email)
+            """
+        ),
+        {"email": email, "keep": keep_session_id},
+    )
+    await _revoke_connections_of_person(session, email)
+    return await _accounts_of(session, email)
+
+
+async def change_password(
+    session: AsyncSession, *, email: str, password_hash: str, keep_session_id: str
+) -> list[str]:
+    """A new password for this person, chosen while signed in.
+
+    Written to every account the address holds, like a reset (the one-password rule in
+    `services/workspaces`), and every other session ends, in every workspace: whoever
+    knew the old password and signed in with it is out. Assistants are left connected —
+    letting one in needs a confirmed sign-in, so a stolen cookie cannot have done it,
+    and they have their own list to be disconnected from. A reset is different: it is
+    what somebody does who has lost control of the account, and it ends them too.
+    """
+    await workspace_service.set_password_everywhere(session, email, password_hash)
+    await retire_resets(session, email=email)
+    await session.execute(
+        text(
+            """
+            DELETE FROM sessions
+             WHERE id <> :keep
+               AND user_id IN (SELECT id FROM users WHERE email = :email)
+            """
+        ),
+        {"email": email, "keep": keep_session_id},
+    )
+    return await _accounts_of(session, email)
+
+
+async def proofs_for(session: AsyncSession, email: str) -> list[str]:
+    """The ways this person can prove who they are, for the confirm prompt to offer."""
+    has_password = await workspace_service.password_hash_for(session, email) is not None
+    return ["password"] if has_password else []
+
+
+# ─── what happened to the account ─────────────────────────────────────────────
+
+#: How long a person's account history is kept. Long enough to notice a sign-in from a
+#: holiday one did not take; short enough that it is a record, not a dossier.
+EVENT_KEEP_DAYS = 90
+
+
+async def record_event(
+    session: AsyncSession,
+    *,
+    user_id: str,
+    kind: str,
+    method: str | None = None,
+    ip: str | None = None,
+    user_agent: str | None = None,
+) -> None:
+    """One line of this person's account history, against the account it concerned."""
+    await session.execute(
+        text(
+            """
+            INSERT INTO account_events (id, email, user_id, kind, method, ip, user_agent)
+            SELECT :id, u.email, u.id, :kind, :method, cast(:ip AS inet), :user_agent
+              FROM users u WHERE u.id = :user_id
+            """
+        ),
+        {
+            "id": new_id(),
+            "user_id": user_id,
+            "kind": kind,
+            "method": method,
+            "ip": ip,
+            "user_agent": (user_agent or "")[:512] or None,
+        },
+    )
+
+
+async def events_of(session: AsyncSession, email: str, *, limit: int = 50) -> list[Any]:
+    """This person's account history, newest first."""
+    return list(
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT e.id, e.kind, e.method, e.ip, e.user_agent, e.created_at,
+                           w.name AS workspace_name
+                      FROM account_events e
+                      LEFT JOIN users u ON u.id = e.user_id
+                      LEFT JOIN workspaces w ON w.id = u.workspace_id
+                     WHERE e.email = :email
+                       AND e.created_at > now() - make_interval(days => :days)
+                     ORDER BY e.id DESC
+                     LIMIT :limit
+                    """
+                ),
+                {"email": email, "days": EVENT_KEEP_DAYS, "limit": limit},
             )
         ).fetchall()
     )
@@ -222,17 +416,9 @@ async def finish_password_reset(
     # MCP token resolves to this user and reads everything they can read (ADR 0016);
     # leaving it alive through a password reset means somebody who lost control of
     # their account, reset it, and was told they had been signed out everywhere still
-    # has an attacker reading their channels.
-    await session.execute(
-        text(
-            """
-            UPDATE mcp_tokens SET revoked_at = now()
-             WHERE revoked_at IS NULL
-               AND user_id IN (SELECT id FROM users WHERE email = :email)
-            """
-        ),
-        {"email": claim.email},
-    )
+    # has an attacker reading their channels. That includes an assistant that signed in
+    # for its token: its grant ends, or its refresh token would mint the next one.
+    await _revoke_connections_of_person(session, claim.email)
     signed_out = [
         str(row.id)
         for row in (

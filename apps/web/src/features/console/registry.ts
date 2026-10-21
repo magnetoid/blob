@@ -120,6 +120,16 @@ export const SETTINGS_NAV: NavGroup<SettingsSection>[] = [
         ],
       },
       {
+        id: 'security',
+        label: 'Sign-in & security',
+        description:
+          'Your password, the devices you are signed in on, and what has happened to your sign-in lately.',
+        keywords: [
+          'password', 'change password', 'sessions', 'devices', 'sign out', 'signed in',
+          'security', 'activity', 'history', 'login', 'two-step', '2fa', 'passkey',
+        ],
+      },
+      {
         id: 'my-agents',
         label: 'My agents',
         description: 'Agents that run on your machine, answer only you, and go where you put them.',

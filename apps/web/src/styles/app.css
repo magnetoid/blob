@@ -3438,7 +3438,11 @@ dialog.dialog-host::backdrop {
 }
 
 .dialog {
-  width: min(460px, 100%);
+  /* Against the viewport, not the host: the host is shrink-to-fit, so a percentage here
+     was a percentage of its own content's width — a long sentence widened the host
+     towards the whole screen while the panel stayed 460px at its left edge, and the
+     dialog sat off-centre by however long its longest line was. */
+  width: min(460px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -6493,8 +6497,7 @@ select.chip {
 
 /* ⌘/ — the shortcut list. Two columns: what it does, and the keys that do it. */
 .shortcut-help {
-  max-width: 460px;
-  width: 100%;
+  width: min(460px, calc(100vw - 32px));
 }
 
 .shortcut-group {

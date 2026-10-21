@@ -51,6 +51,9 @@ export const useToasts = create<ToastState>((set) => ({
  * for people.
  */
 export function showError(err: unknown): void {
+  // Somebody who was asked to confirm it was them and said no knows nothing happened;
+  // a toast saying so would only be noise over the screen they chose to stay on.
+  if ((err as { code?: unknown } | null)?.code === 'reauth_cancelled') return;
   const text =
     err instanceof Error && err.message ? err.message : 'That didn’t work. Try again.';
   useToasts.getState().push('error', text);

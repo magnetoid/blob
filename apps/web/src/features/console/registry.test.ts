@@ -263,6 +263,7 @@ describe('the settings registry', () => {
       expect(groups.map((group) => group.label)).toEqual(['You']);
       expect(groups[0]?.sections.map((entry) => entry.label)).toEqual([
         'Profile & preferences',
+        'Sign-in & security',
         'My agents',
         'Assistants',
       ]);

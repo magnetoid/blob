@@ -32,6 +32,10 @@ LIMITS: dict[str, Limit] = {
     # Finishing one: the token is checked before the hash now, but a guessing loop
     # still costs a database round trip apiece, so it gets a ceiling like sign-in.
     "password_reset_finish": Limit(10, 900),
+    # Confirming who you are before a sensitive action, and changing a password while
+    # signed in: both check a password, so both get sign-in's ceiling — per person, since
+    # the caller already holds a session and an address would only spread the guesses.
+    "reauth": Limit(10, 900),
     "send_message": Limit(30, 60),
     # Adding and taking away share one bucket: each is a frame to every member of the
     # channel and an event to every app subscribed to it, the same fan-out a message has,

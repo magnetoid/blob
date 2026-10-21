@@ -37,6 +37,7 @@ import type {
   CallToken,
   MediaServerStatus,
 } from "@blob/shared";
+import { confirmItsYou } from "./stepUp.ts";
 
 export type { Call, CallKind, CallSettings, CallsState, CallToken, MediaServerStatus };
 
@@ -775,6 +776,7 @@ async function request<T>(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
+  confirmed = false,
 ): Promise<T> {
   const res = await fetch(path, {
     method,
@@ -807,6 +809,13 @@ async function request<T>(
         };
       }
     )?.error;
+    // A sensitive action refused for want of a recent sign-in: ask the person to
+    // confirm it is them, then send the same request once more (`lib/stepUp.ts`). Safe to
+    // repeat — the server refused before doing anything.
+    if (res.status === 403 && error?.code === "reauth_required" && !confirmed) {
+      if (await confirmItsYou()) return request<T>(method, path, body, signal, true);
+      throw new ApiError(403, "reauth_cancelled", "Not confirmed, so nothing changed.");
+    }
     throw new ApiError(
       res.status,
       error?.code ?? "unknown",
@@ -860,6 +869,35 @@ export interface AuthSession {
   ip: string | null;
   createdAt: string;
   lastSeenAt: string;
+  /** How that browser signed in; null for sessions older than the record of it. */
+  method: string | null;
+  workspaceId: string | null;
+  /** Which of your workspaces it is in: sessions are listed across all of them. */
+  workspace: string | null;
+}
+
+/** One line of a person's own sign-in record. */
+export interface AccountEvent {
+  id: string;
+  kind:
+    | "signed_in"
+    | "confirmed"
+    | "failed"
+    | "password_changed"
+    | "signed_out_elsewhere"
+    | "session_ended";
+  method: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  workspace: string | null;
+  createdAt: string;
+}
+
+export interface ReauthState {
+  /** The ways this person can confirm it is them. */
+  methods: string[];
+  provenAt: string | null;
+  windowMinutes: number;
 }
 
 export const api = {
@@ -876,7 +914,14 @@ export const api = {
       post<{ user: CurrentUser }>("/api/auth/login", { email, password }),
     logout: () => post<{ ok: true }>("/api/auth/logout"),
     sessions: () => get<{ sessions: AuthSession[] }>("/api/auth/sessions"),
+    endSession: (id: string) => del<{ ok: true }>(`/api/auth/sessions/${id}`),
     logoutOthers: () => post<{ ok: true }>("/api/auth/logout-others"),
+    activity: () =>
+      get<{ events: AccountEvent[]; keepDays: number }>("/api/auth/activity"),
+    reauthState: () => get<ReauthState>("/api/auth/reauth"),
+    reauth: (password: string) => post<{ ok: true }>("/api/auth/reauth", { password }),
+    changePassword: (input: { currentPassword?: string; newPassword: string }) =>
+      post<{ ok: true }>("/api/auth/password", input),
     invite: (token: string) =>
       get<{ email: string | null; workspace: string }>(`/api/invites/${token}`),
     createInvite: (input: {

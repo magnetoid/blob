@@ -30,7 +30,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import Field
 
 from ..db.engine import session_scope, transaction
-from ..lib.auth import SessionUser, current_user
+from ..lib.auth import SessionUser, current_user, require_recent_auth
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
@@ -168,7 +168,7 @@ async def list_mine(user: SessionUser = Depends(current_user)) -> MyAgentsOut:
 
 @router.post("/mine", response_model=AttachedOut, status_code=201)
 async def attach(
-    payload: AttachInput, request: Request, user: SessionUser = Depends(current_user)
+    payload: AttachInput, request: Request, user: SessionUser = Depends(require_recent_auth)
 ) -> AttachedOut:
     """Register an agent that is yours, and get the token it dials in with.
 

@@ -17,7 +17,7 @@ from pydantic import Field
 
 from ..config import settings
 from ..db.engine import session_scope
-from ..lib.auth import SessionUser, require_admin
+from ..lib.auth import SessionUser, require_admin, require_recent_admin
 from ..lib.errors import AppError
 from ..lib.ids import IdParam
 from ..plugins import registry, runner
@@ -115,7 +115,7 @@ async def preview_repo(
 
 @router.post("/from-repo", response_model=InstalledOut, status_code=201)
 async def install_from_repo(
-    payload: RepoInput, request: Request, admin: SessionUser = Depends(require_admin)
+    payload: RepoInput, request: Request, admin: SessionUser = Depends(require_recent_admin)
 ) -> InstalledOut:
     # The sharpest capability on this router: it ends with the repository's code running
     # as a container on the operator's machine. ADR 0010 says so plainly, and until
