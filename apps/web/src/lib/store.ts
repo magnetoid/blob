@@ -1401,6 +1401,17 @@ export const useStore = create<State>((set, get) => ({
         set((s) => {
           const next: Partial<State> = {};
 
+          // Whoever was typing has now said it, so their line goes with the message rather
+          // than lingering out its five seconds under what they wrote — for an agent, whose
+          // run types while it thinks, that read as a second answer on its way.
+          const typed = typingKey(message.channelId, message.threadRootId);
+          const typists = s.typing[typed];
+          if (event.t === "message.new" && message.authorId && typists?.[message.authorId]) {
+            const still = { ...typists };
+            delete still[message.authorId];
+            next.typing = { ...s.typing, [typed]: still };
+          }
+
           if (message.threadRootId) {
             const thread = s.threads[message.threadRootId];
             if (thread) {
