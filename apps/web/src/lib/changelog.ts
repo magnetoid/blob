@@ -42,6 +42,93 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-10-21',
+    version: '1.13.0',
+    title: 'Safer sign-in, voice, and the habits a team already has',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Sign in with a passkey — your fingerprint, face or device PIN — on its own, or as a second step after your password. Settings → Sign-in & security also shows where you are signed in and your recent sign-ins, across every workspace you are in, and signs you out everywhere else.',
+      },
+      {
+        kind: 'added',
+        text: 'Single sign-on. When your server’s administrator connects your organisation’s accounts, sign in with yours instead of a password.',
+      },
+      {
+        kind: 'added',
+        text: 'Guests. An admin can invite somebody from outside into the channels they choose; a guest sees those conversations and the people in them, and nothing else.',
+      },
+      {
+        kind: 'added',
+        text: 'Huddles. Start one from a conversation’s header — microphones only — and carry on reading and writing while it sits in the bar.',
+      },
+      {
+        kind: 'added',
+        text: 'Voice messages. Record one in the composer, up to five minutes, and play it where it lands. When your server has a speech service, the words become the message’s text, so search and agents read them too.',
+      },
+      {
+        kind: 'added',
+        text: 'Email when you’re away. A DM, a mention or a reply in a thread you follow that is still unread comes to you by email, once every 15 minutes unless you change Email me when I’m away — and every email can unsubscribe you.',
+      },
+      {
+        kind: 'added',
+        text: 'Link previews show the page’s picture. Blob keeps its own copy, so the site never learns who read the message.',
+      },
+      {
+        kind: 'added',
+        text: 'Make your own sidebar sections, and put whichever conversations you like in them.',
+      },
+      {
+        kind: 'added',
+        text: 'Drafts follow you from one device to the next.',
+      },
+      {
+        kind: 'added',
+        text: 'Every conversation has a Files button for what was shared in it, and a description anyone in it can write in its details.',
+      },
+      {
+        kind: 'added',
+        text: 'Announcement channels: admins post, everybody answers in threads. An admin can also keep @channel, @here and @everyone to admins.',
+      },
+      {
+        kind: 'added',
+        text: 'Remind somebody else, or a whole channel: /remind @Ana to send the deck tomorrow at 9, or /remind #design to post the notes every Friday at 4pm.',
+      },
+      {
+        kind: 'added',
+        text: 'Take your data with you. Settings → You exports every conversation you are in; an admin can export the workspace.',
+      },
+      {
+        kind: 'added',
+        text: 'Retention. An admin can choose how long messages, and separately files, are kept. A change waits a day before it counts, and a legal hold on a conversation or a person stops it there.',
+      },
+      {
+        kind: 'added',
+        text: 'For admins: the database backs itself up every night, and Health shows the last backup and the errors people’s browsers ran into. A Security page shows where the workspace and the server stand, and where to change each thing.',
+      },
+      {
+        kind: 'changed',
+        text: 'Blob asks for your password or passkey again before handing out lasting access — a token for an assistant, a role, a reset link — when you last gave it more than fifteen minutes ago.',
+      },
+      {
+        kind: 'changed',
+        text: 'A deleted message that nobody replied to now leaves the conversation altogether, instead of leaving “This message was deleted” behind.',
+      },
+      {
+        kind: 'fixed',
+        text: 'The camera works in video meetups in Chrome again.',
+      },
+      {
+        kind: 'fixed',
+        text: 'An agent stops showing as typing the moment its answer arrives.',
+      },
+      {
+        kind: 'fixed',
+        text: 'A round of security fixes. Among them: a deleted message’s files can no longer be downloaded, a member can no longer take the owner or an admin out of a channel, and searching in:#name no longer gives away that a private channel exists.',
+      },
+    ],
+  },
+  {
     date: '2026-10-20',
     version: '1.12.0',
     title: 'Agents that reach further, and work you can review',

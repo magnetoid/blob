@@ -11,6 +11,300 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "16cf8eecdf10014314dcdc300996df6f74399a50",
+    "shortSha": "16cf8eec",
+    "subject": "docs: README says M3 is built, and names polls and edit history as missing",
+    "date": "2026-10-21T22:51:13+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "6dab162211cc41062db213f5345e14bca7437a06",
+    "shortSha": "6dab1622",
+    "subject": "fix: a backup is taken by the server's own pg_dump, so it restores into that server",
+    "date": "2026-10-21T22:49:29+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "6de4f346ced65e2abb3e9c7b226e37f7de901609",
+    "shortSha": "6de4f346",
+    "subject": "feat: a Security page that says where the workspace and the server stand",
+    "date": "2026-10-21T13:21:51+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "79aa1e707e301336e2427d90a7bb9513011fa7e5",
+    "shortSha": "79aa1e70",
+    "subject": "feat: a fresh server can ask for a setup token before anyone founds it",
+    "date": "2026-10-21T13:08:27+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "fa54e79fdbb2e9364f143b101e41eae9a92f02e0",
+    "shortSha": "fa54e79f",
+    "subject": "fix: the session cookie is __Host- in production",
+    "date": "2026-10-21T12:58:36+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "1d8a7a37aa3fc876856cd8a2f443f4623fdd6287",
+    "shortSha": "1d8a7a37",
+    "subject": "fix: jobs cross Redis as JSON, never pickle",
+    "date": "2026-10-21T12:55:41+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "28d7751e923ad118d8646332e2796738d2278218",
+    "shortSha": "28d7751e",
+    "subject": "fix: an incoming webhook goes only where its admin can read",
+    "date": "2026-10-21T12:52:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "1df739feec9b685d112ec3241e1ebeaa3cb086a5",
+    "shortSha": "1df739fe",
+    "subject": "fix: in:#name says nothing about a private channel you are not in",
+    "date": "2026-10-21T12:52:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d0d605266e7215366b0eec61196ad81a395a3bfa",
+    "shortSha": "d0d60526",
+    "subject": "fix: following a thread is no way back into a channel you left",
+    "date": "2026-10-21T12:52:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "99a4d14059c7a53af092b7b128eb7184129ace1c",
+    "shortSha": "99a4d140",
+    "subject": "fix: a deactivated person's scheduled messages stop",
+    "date": "2026-10-21T12:52:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "6778d3d656f4c8fb4e35db2d2a380f5d71be6471",
+    "shortSha": "6778d3d6",
+    "subject": "fix: an open terminal closes when its opener may no longer have it",
+    "date": "2026-10-21T12:52:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "6ae781458dc32745e5d24f01aa8d2263c03ecefd",
+    "shortSha": "6ae78145",
+    "subject": "fix: source maps stay on the server, and a feedback snapshot stays sandboxed",
+    "date": "2026-10-21T12:47:13+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "eaf74eb1991181a8bc30b522d3880a7355d6028a",
+    "shortSha": "eaf74eb1",
+    "subject": "fix: push subscriptions point only at browsers' push services",
+    "date": "2026-10-21T12:47:13+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "36264537836164c2b69483a8a3888b9c252f1fa2",
+    "shortSha": "36264537",
+    "subject": "fix: reading a linked page cannot hold a worker hostage",
+    "date": "2026-10-21T12:47:13+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "ca4c7bb8da7fd92d0b60e218f020c068aa877420",
+    "shortSha": "ca4c7bb8",
+    "subject": "fix: an app's delivery log keeps the words of rooms the admin is not in",
+    "date": "2026-10-21T12:47:13+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "97fae398d04d543ece22dd86eb29e3271ca7af6c",
+    "shortSha": "97fae398",
+    "subject": "fix: a member cannot lock the owner or an admin out of a channel",
+    "date": "2026-10-21T12:47:13+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "44851cdb2f3043c9cf102048ea1bf9218d4ef1d6",
+    "shortSha": "44851cdb",
+    "subject": "fix: a deleted message's files go with it",
+    "date": "2026-10-21T12:47:13+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d9b24c9dd9ef160f3d9be69753ec7c5269031d0e",
+    "shortSha": "d9b24c9d",
+    "subject": "feat: the server's own numbers, its requests as traces, and errors from browsers",
+    "date": "2026-10-21T12:21:19+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "aefb3c3b5ce713a0dab68a61f649083063b063b2",
+    "shortSha": "aefb3c3b",
+    "subject": "ci: hold the first load to a budget, and the call SDK out of it",
+    "date": "2026-10-21T11:50:49+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "3105436b0005d57c397a536c6c72a123b47351ec",
+    "shortSha": "3105436b",
+    "subject": "ci: the client is the contract — an end-to-end run on the booted image, axe, and an SBOM",
+    "date": "2026-10-21T11:49:49+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d743cb5e017f363d1cb955b97e3e213ebec76cbe",
+    "shortSha": "d743cb5e",
+    "subject": "feat: retention and legal hold — a workspace may forget, and a hold stops it",
+    "date": "2026-10-21T11:39:24+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "31c2b0cd254f2dec5b9d2a81112114920e30b045",
+    "shortSha": "31c2b0cd",
+    "subject": "feat: exports — the workspace's public conversations for its admins, everything you are in for you",
+    "date": "2026-10-21T10:32:33+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "ff9190c785dca3c7b2a3e61f9f468b7f815357ab",
+    "shortSha": "ff9190c7",
+    "subject": "feat: nightly database backups into object storage, a restore drill, and the Health page says how they are going",
+    "date": "2026-10-21T10:04:44+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "a43cf44cff07f789016970e15b0b8f3573f26b09",
+    "shortSha": "a43cf44c",
+    "subject": "feat: /remind for somebody else or a channel — and \"every Friday\" reads as weekly",
+    "date": "2026-10-21T09:39:50+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "1652182e2f7eed76e06bcdced8f4cbb0c18f7c20",
+    "shortSha": "1652182e",
+    "subject": "feat: announcement channels, and @channel kept for admins when a workspace wants it",
+    "date": "2026-10-21T09:38:57+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "fc370206ef560358aacd9287209e4b90c1b156e6",
+    "shortSha": "fc370206",
+    "subject": "feat: a conversation's own Files, and a channel description you can write",
+    "date": "2026-10-21T09:09:33+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "4c5701a7b16547265a85897bbad3ee0735358c33",
+    "shortSha": "4c5701a7",
+    "subject": "feat: drafts follow you between devices, with a Drafts list of everything unsent",
+    "date": "2026-10-21T09:00:58+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "57932774b9a21619aa98aa839c0c4ccd728feb4c",
+    "shortSha": "57932774",
+    "subject": "feat: sections of your own in the sidebar — fold, rename, and follow you everywhere",
+    "date": "2026-10-21T08:28:16+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "37f9e381c91d576ec31b3437a6f9540887efa7a6",
+    "shortSha": "37f9e381",
+    "subject": "feat: link previews show the site and its picture — Blob's copy, never the site's",
+    "date": "2026-10-21T07:58:55+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "f81e4a8712c1e1e4de09ab193b6fa2dea189f430",
+    "shortSha": "f81e4a87",
+    "subject": "feat: email when you're away — what waited for you, in one email, as Slack does it",
+    "date": "2026-10-21T07:39:11+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "85fda7f908cc786d973297bd06e3d039f8fa549e",
+    "shortSha": "85fda7f9",
+    "subject": "fix: a message ends its author's typing line",
+    "date": "2026-10-21T07:09:56+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "42d84beccad4ffa31a6c1525f8eb3a7a973ab650",
+    "shortSha": "42d84bec",
+    "subject": "feat: voice messages — record in the composer, play inline, and the words become the message",
+    "date": "2026-10-21T07:09:44+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "02d4d8096ee2349434d9c90f8bd4d591bb366515",
+    "shortSha": "02d4d809",
+    "subject": "feat: huddles — start one from a conversation's header",
+    "date": "2026-10-21T06:08:22+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "3f1e57f2a7aa065ab781e53bedb256a8623041b2",
+    "shortSha": "3f1e57f2",
+    "subject": "feat: guests — in the channels they were invited to, and nowhere else",
+    "date": "2026-10-21T05:51:26+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "61085bac256c04c99d3460bf2a6ac070c1d104ef",
+    "shortSha": "61085bac",
+    "subject": "fix: an invitation lets its person in through single sign-on, whatever the domains",
+    "date": "2026-10-21T05:26:30+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "e85e2caf67813fcaa092d9ca5e4ea0d614f0b89b",
+    "shortSha": "e85e2caf",
+    "subject": "feat: single sign-on with OpenID Connect — the server's providers, matched on the subject",
+    "date": "2026-10-21T05:09:23+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "2b0d6af910f11583ed50d260e9b272874c14aa6d",
+    "shortSha": "2b0d6af9",
+    "subject": "feat: passkeys — sign in with one, confirm with one, or ask for one after the password",
+    "date": "2026-10-21T03:58:22+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "4b4ccaea3e086e31c5a9b95df13209acd50ddae7",
+    "shortSha": "4b4ccaea",
+    "subject": "fix: let a video meetup turn the camera on",
+    "date": "2026-10-21T03:22:19+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "507c20ea5c010f0655efb9362c873b7f27b1b4f2",
+    "shortSha": "507c20ea",
+    "subject": "feat: sign-in security — your devices everywhere, your sign-in record, and confirm it's you",
+    "date": "2026-10-21T03:21:07+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "7c6850ac68c0409557f71c4dd16fd681d0dfc120",
+    "shortSha": "7c6850ac",
+    "subject": "fix: an asker hears back after the commit; the cron hands resumes to jobs",
+    "date": "2026-10-20T20:15:42+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "049707552ccfa2058f0374e2cbce663f8fc9aaa9",
+    "shortSha": "04970755",
+    "subject": "deps: aiohttp 3.14.5 — clears CVE-2026-111063, CVE-2026-111064, GHSA-2g87-pp6c-29x5",
+    "date": "2026-10-20T19:27:08+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "6ce3ec79d1f76ef26891eafc13c99822ee52409e",
+    "shortSha": "6ce3ec79",
+    "subject": "release: 1.12.0 — Agents that reach further, and work you can review",
+    "date": "2026-10-20T19:12:58+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "d4de271eb85630880807f71d2fa3eb5f28b46f80",
     "shortSha": "d4de271e",
     "subject": "fix: review findings — pin member-triggered fetches; an agent's version notice is the agent's",
@@ -134,300 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "15563f95",
     "subject": "feat: an Agents page — every agent you can ask, what it does, and what it is doing now",
     "date": "2026-10-19T02:32:06+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "42f106bea687b6e22ec67110a26d894fead2e355",
-    "shortSha": "42f106be",
-    "subject": "feat: an admin decides when an agent's posts wait for the person — ask, in its DM without asking, or never",
-    "date": "2026-10-18T22:53:31+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "0524ea38fbfae77efa21a08f6c6f63f0bc898bc6",
-    "shortSha": "0524ea38",
-    "subject": "feat: an agent can ask another agent and hear its answer",
-    "date": "2026-10-18T22:39:50+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "c879b782ef8b91394ccb50bbcfe1376ca4795a1a",
-    "shortSha": "c879b782",
-    "subject": "feat: an agent knows when and where it is, and can read a file and the team's tasks",
-    "date": "2026-10-18T22:11:21+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "afaaeafabd4e6669281ffd7a5884d7ec3ca26ebe",
-    "shortSha": "afaaeafa",
-    "subject": "fix: what M0 found — a photo's location, reaction floods, storage defaults, oversized bodies, and a readiness probe that sees the worker",
-    "date": "2026-10-18T21:59:02+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d90c8bf37000cc9ab65bd5f593f1a2d2f92c74a7",
-    "shortSha": "d90c8bf3",
-    "subject": "release: 1.10.0 — answers that read well, and accounts that stay yours",
-    "date": "2026-10-09T04:54:47+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "7b26618caf0e1fe47c09e9f2e1fb4cf39480b31d",
-    "shortSha": "7b26618c",
-    "subject": "fix: the reset rules hold for the hour a link lives, resets for one address go one at a time, and a patch's work is capped too — security phase 1 review",
-    "date": "2026-10-09T04:42:39+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "defbb447a241d08ef954c0735d1382b6f72bb7a9",
-    "shortSha": "defbb447",
-    "subject": "fix: Health stays every admin's — the server's log is asked of the server's administrator alone — admin menu review",
-    "date": "2026-10-09T04:34:09+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d25600233c11b2533eed4e05d181a8139f9c77cb",
-    "shortSha": "d2560023",
-    "subject": "feat: agent replies read as written — lists keep their numbers and nest, sections, tables, dividers, and a long answer folds",
-    "date": "2026-10-09T04:27:48+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "3796663e971f7f002a39d55209ec2da9895ca774",
-    "shortSha": "3796663e",
-    "subject": "feat: the admin menu is one list, and shows each page to whoever the server lets in",
-    "date": "2026-10-09T04:27:35+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "04c11d1770d05c498cd582c2e18ebaa9cb42346e",
-    "shortSha": "04c11d17",
-    "subject": "fix: an admin can no longer take the owner's account; uploads are the size they claim; an agent's patch cannot grow without bound — security phase 1",
-    "date": "2026-10-09T03:47:59+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "65ec86b7e6103708052c2db0060b8ab659cd74a2",
-    "shortSha": "65ec86b7",
-    "subject": "release: 1.9.0 — a new look, and fewer steps",
-    "date": "2026-10-09T01:11:02+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "052288bc2036b9b8c5a3d44e5fbd4bc71626085a",
-    "shortSha": "052288bc",
-    "subject": "docs: the README shows the new design; CLAUDE.md learns the frame; the guide learns the drop, the copy and the way back",
-    "date": "2026-10-08T23:21:18+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "86bdac74f402a66b71d1906d81646200697d2059",
-    "shortSha": "86bdac74",
-    "subject": "feat: lists arrive as their shape, not the word \"Loading…\"; Firefox's scrollbar joins the theme — modernization phase 6",
-    "date": "2026-10-08T23:15:26+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "29044e8ceef2960def4d0ff175db6f4fdae82c0f",
-    "shortSha": "29044e8c",
-    "subject": "feat: drop a file anywhere on the conversation, not only on the composer — modernization phase 5",
-    "date": "2026-10-08T23:04:49+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "8375345bdafd46b8a6bcc066056de40985d31013",
-    "shortSha": "8375345b",
-    "subject": "feat: ⌘K reads at a glance — a mark per row, the keys at its foot — and the header shows who is in the room — modernization phase 4",
-    "date": "2026-10-08T22:47:56+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "12da326aa8bc489d30011c276c165ff61794e5fd",
-    "shortSha": "12da326a",
-    "subject": "feat: Home opens with where you stand — a greeting and a sentence, the ask as Meadow's strip, numbers that lead somewhere — modernization phase 3",
-    "date": "2026-10-08T22:29:15+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "fa9c4449c040f80055d18ff2e66168792346ef0a",
-    "shortSha": "fa9c4449",
-    "subject": "feat: a conversation that scans — names at weight, one initial in clay or sage, code you can copy, a way back to the newest — modernization phase 2",
-    "date": "2026-10-08T22:11:54+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "872cf1b906950af6523ae37f4e7dd5f84006911d",
-    "shortSha": "872cf1b9",
-    "subject": "feat: the app frame — the work on paper in one card, the bar and the list on a tinted ground — modernization phase 1",
-    "date": "2026-10-08T21:25:20+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a21f49d140d4b1269fd3f3e407f91fb435140f73",
-    "shortSha": "a21f49d1",
-    "subject": "fix: MinIO from Coolify's pinned build — quay.io stopped serving it",
-    "date": "2026-10-08T03:38:56+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "261ba6e64fd0d4673e0bdc97ff417cf6920f600e",
-    "shortSha": "261ba6e6",
-    "subject": "release: 1.8.0 — agents that show their work, and a README for the whole product",
-    "date": "2026-10-08T03:33:15+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "9a088db9f3c445667c9c477c3059da19536cf0d2",
-    "shortSha": "9a088db9",
-    "subject": "docs: phases 7 and 8 done, what each late review found, and where the branches stand",
-    "date": "2026-10-08T02:12:51+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "ef4ba288444a721f756f06e008c029817daaf8b9",
-    "shortSha": "ef4ba288",
-    "subject": "refactor: one listener query, one signing helper, one run view; the plugin console in three; no local runtime — agentic phase 8",
-    "date": "2026-10-08T01:58:15+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "5b8aeccbfcf3dcd16d18b92d753714cadcc00291",
-    "shortSha": "5b8aeccb",
-    "subject": "feat: see what agents do — traces, /metrics, a run's events, an app's last ten errors — agentic phase 7",
-    "date": "2026-10-08T01:33:00+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a04c3546019d8d7d94e2c1dd1e627f71142b1253",
-    "shortSha": "a04c3546",
-    "subject": "fix: answering an agent's question keeps a room's ceiling too — phase 6 review",
-    "date": "2026-10-08T01:06:30+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "47898b1d0a6b3a6c2c604f46e1679bc72f3275b5",
-    "shortSha": "47898b1d",
-    "subject": "feat: an assistant can catch you up, work with your agents, and its token ends — agentic phase 6",
-    "date": "2026-10-08T00:49:32+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a97d01bd11717de2194bddb1fcb060230a66a1fe",
-    "shortSha": "a97d01bd",
-    "subject": "fix: an owned agent's memory stays its owner's through the upgrade — phase 5 review",
-    "date": "2026-10-08T00:51:06+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "f7a148abfcf646a6279569aa949751b2fcf197ba",
-    "shortSha": "f7a148ab",
-    "subject": "feat: what an agent remembers is somebody's — seen, cleared, and it ends; loans you can see — agentic phase 5",
-    "date": "2026-10-08T00:21:05+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "6e754c43828fcff1ad6cf8398a71f83ac9610adf",
-    "shortSha": "6e754c43",
-    "subject": "fix: the admin run log keeps what a private room's runs did from admins not in it — phase 4 review",
-    "date": "2026-10-08T00:27:08+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "cca50cd8c84dc20601b4aad2c5bbb68b36338b47",
-    "shortSha": "cca50cd8",
-    "subject": "feat: watch a run — a draft of the answer, what it saw, its history, answers on the card — agentic phase 4",
-    "date": "2026-10-07T23:58:53+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "804f18b666c72dd1997fc2e91b2282f5a1271558",
-    "shortSha": "804f18b6",
-    "subject": "fix: a task is handed over once, and never again by a stale card — phase 3 review",
-    "date": "2026-10-07T23:37:53+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "b19c8cce5e59f83e083f67c949b2bb1401ba09d3",
-    "shortSha": "b19c8cce",
-    "subject": "feat: a task handed to an agent is a hand-off it answers — scheduled runs labelled — agentic phase 3",
-    "date": "2026-10-07T23:15:19+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "adfcd7dd5ba67257500ceef3f26a8105f015607c",
-    "shortSha": "adfcd7dd",
-    "subject": "feat: agents may use Blob's tools — as the asker, inside the room, every post asks first — agentic phase 2",
-    "date": "2026-10-07T22:30:18+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "c115c2b89c28b36a5b06cb165fc47050d9a7dcc9",
-    "shortSha": "c115c2b8",
-    "subject": "feat: AG-UI 1.0, learned per agent — files reach agents, runs report cost — agentic phase 1",
-    "date": "2026-10-07T21:47:27+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "5b3a66ebc705f1f5fb7c158d67ee720d9698ac1f",
-    "shortSha": "5b3a66eb",
-    "subject": "fix: an agent run always ends, runs once, and answers only its asker — agentic phase 0",
-    "date": "2026-10-07T01:11:37+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "89db9961e63afe757eea679ece7bc1dfc11ab0a0",
-    "shortSha": "89db9961",
-    "subject": "docs: review of the agentic surface, and CLAUDE.md drift",
-    "date": "2026-10-06T23:58:18+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "9366551316b3d6dfd81b401304f4b85089b01d00",
-    "shortSha": "93665513",
-    "subject": "feat: video meetups — a call that belongs to the conversation — 1.7.0",
-    "date": "2026-09-23T03:37:14+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e19bf9b807dc5c5723a54be81797a9f10c1e3b2a",
-    "shortSha": "e19bf9b8",
-    "subject": "feat: the @ picker puts who you tagged last first; a finished run is a quiet line — 1.6.0",
-    "date": "2026-09-22T15:51:06+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a49257b2ec306d2feb02fc476014ed7fdd7c958c",
-    "shortSha": "a49257b2",
-    "subject": "feat: the admin and settings pages use the width, in cards — 1.5.0",
-    "date": "2026-09-22T15:03:49+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "9abb2ae8ff68618ff4ae14229ebcb94b8759ebae",
-    "shortSha": "9abb2ae8",
-    "subject": "feat: small things answer — dialogs leave, arrivals rise, presses give — 1.4.0",
-    "date": "2026-09-22T14:43:18+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d0db9ae55276d28cb499ac8495032f091de4c785",
-    "shortSha": "d0db9ae5",
-    "subject": "feat: the workspace mark folds the channel list — 1.3.0",
-    "date": "2026-09-22T04:17:07+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "b99e85b8004f4a90a0cdacfee96ab0edcfa4523a",
-    "shortSha": "b99e85b8",
-    "subject": "fix: the new-messages bar leaves once the new messages have been seen",
-    "date": "2026-09-22T04:16:50+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "7f3d74569e47529a4186d8baaadf7ff2da84ff03",
-    "shortSha": "7f3d7456",
-    "subject": "chore: pin Janus 0.18.0, which hands Blob the files a reply names",
-    "date": "2026-09-22T00:03:09+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
