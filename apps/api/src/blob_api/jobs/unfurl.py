@@ -19,6 +19,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from typing import Any
 
 import httpx
@@ -42,7 +43,6 @@ MAX_PICTURE_BYTES = 5 * 1024 * 1024
 MAX_REDIRECTS = 3
 
 _URL_RE = re.compile(r"https?://[^\s<>\"')]+")
-_TITLE_RE = re.compile(r"<title[^>]*>([^<]*)</title>", re.IGNORECASE)
 
 
 def first_url(body: str) -> str | None:
@@ -50,22 +50,52 @@ def first_url(body: str) -> str | None:
     return match.group(0) if match else None
 
 
-def _meta(html: str, prop: str) -> str | None:
-    patterns = [
-        rf"<meta[^>]+(?:property|name)=[\"']{re.escape(prop)}[\"'][^>]+content=[\"']([^\"']*)[\"']",
-        rf"<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+(?:property|name)=[\"']{re.escape(prop)}[\"']",
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, html, re.IGNORECASE)
-        if match and match.group(1):
-            return _decode_entities(match.group(1))[:300]
-    return None
+class _Head(HTMLParser):
+    """A page's title and its meta tags, by `property` or `name`, first of each.
+
+    The standard library's parser rather than regular expressions, because the page is
+    whoever posted the link's to write. The patterns this replaced put two `[^>]+` around a
+    literal, so one long tag that never closed backtracked quadratically, and a page of
+    unclosed `<meta` openers did it once per opener: a worker slot held for the job's whole
+    timeout by one message (the 2026-10 security review). The parser reads each character
+    a bounded number of times, and stops caring once the head is over.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.meta: dict[str, str] = {}
+        self.title: str | None = None
+        self._in_title = False
+        self._title: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "meta":
+            named = {key.lower(): value for key, value in attrs if key}
+            key = (named.get("property") or named.get("name") or "").strip().lower()
+            content = named.get("content")
+            if key and content and key not in self.meta:
+                self.meta[key] = content.strip()[:300]
+        elif tag == "title" and self.title is None:
+            self._in_title = True
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "title" and self._in_title:
+            self._in_title = False
+            self.title = "".join(self._title).strip()[:300] or None
+
+    def handle_data(self, data: str) -> None:
+        if self._in_title:
+            self._title.append(data)
 
 
-def _decode_entities(value: str) -> str:
-    import html as html_module
-
-    return html_module.unescape(value)
+def read_head(html: str) -> _Head:
+    head = _Head()
+    try:
+        head.feed(html)
+        head.close()
+    except Exception:
+        log.debug("could not parse a page for its preview", exc_info=True)
+    return head
 
 
 @dataclass(slots=True)
@@ -143,16 +173,14 @@ async def fetch_unfurl(raw_url: str) -> dict[str, Any] | None:
     )
     if fetched is None:
         return None
-    html = fetched.body.decode("utf-8", errors="replace")
-
-    title_tag = _TITLE_RE.search(html)
+    head = read_head(fetched.body.decode("utf-8", errors="replace"))
+    meta = head.meta
     return {
         "url": raw_url,
-        "title": _meta(html, "og:title")
-        or (_decode_entities(title_tag.group(1)).strip()[:300] if title_tag else None),
-        "description": _meta(html, "og:description") or _meta(html, "description"),
-        "imageUrl": _absolute(_meta(html, "og:image") or _meta(html, "twitter:image"), fetched.url),
-        "siteName": _meta(html, "og:site_name"),
+        "title": meta.get("og:title") or head.title,
+        "description": meta.get("og:description") or meta.get("description"),
+        "imageUrl": _absolute(meta.get("og:image") or meta.get("twitter:image"), fetched.url),
+        "siteName": meta.get("og:site_name"),
     }
 
 
