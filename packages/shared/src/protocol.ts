@@ -74,6 +74,18 @@ export type ServerEvent =
       lastReadMessageId: string | null;
       mentionCount: number;
     }
+  /** One of your drafts changed on another of your devices (ADR 0037) — yours alone; an
+   * empty body means it is gone. */
+  | {
+      t: 'draft.updated';
+      channelId: string;
+      threadRootId: string | null;
+      body: string;
+      updatedAt: string;
+      /** The tab that saved it, so that tab can ignore its own save coming back; null
+       * when the server cleared it because the message was sent. */
+      device: string | null;
+    }
   /** A reminder you set came due — yours alone, on every device you have open. */
   | { t: 'reminder.due'; messageId: string; channelId: string; note: string | null }
   /** An agent began answering — the card that follows renders under its trigger. */

@@ -3761,6 +3761,100 @@
         "title": "DiscussionOut",
         "type": "object"
       },
+      "DraftIn": {
+        "properties": {
+          "body": {
+            "maxLength": 12000,
+            "title": "Body",
+            "type": "string"
+          },
+          "channelId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+            "title": "Channelid",
+            "type": "string"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "threadRootId": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threadrootid"
+          }
+        },
+        "required": [
+          "channelId",
+          "body"
+        ],
+        "title": "DraftIn",
+        "type": "object"
+      },
+      "DraftOut": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "channelId": {
+            "title": "Channelid",
+            "type": "string"
+          },
+          "threadRootId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threadrootid"
+          },
+          "updatedAt": {
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channelId",
+          "body",
+          "updatedAt"
+        ],
+        "title": "DraftOut",
+        "type": "object"
+      },
+      "DraftsOut": {
+        "properties": {
+          "drafts": {
+            "items": {
+              "$ref": "#/components/schemas/DraftOut"
+            },
+            "title": "Drafts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "drafts"
+        ],
+        "title": "DraftsOut",
+        "type": "object"
+      },
       "EnvInput": {
         "properties": {
           "remove": {
@@ -8257,6 +8351,25 @@
           "tokens"
         ],
         "title": "SaveThemeInput",
+        "type": "object"
+      },
+      "SavedDraftOut": {
+        "properties": {
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DraftOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "draft"
+        ],
+        "title": "SavedDraftOut",
         "type": "object"
       },
       "ScheduleInput": {
@@ -20493,6 +20606,60 @@
         "tags": [
           "channels"
         ]
+      }
+    },
+    "/api/drafts": {
+      "get": {
+        "operationId": "my_drafts_api_drafts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Drafts"
+      },
+      "put": {
+        "operationId": "save_draft_api_drafts_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedDraftOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Draft"
       }
     },
     "/api/feedback": {

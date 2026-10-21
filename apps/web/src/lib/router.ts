@@ -91,6 +91,8 @@ export type Route =
   | { view: 'browse' }
   | { view: 'files' }
   | { view: 'scheduled' }
+  /** What you typed and did not send, from every device (ADR 0037). */
+  | { view: 'drafts' }
   | { view: 'changelog' }
   /** The guide: what everything on this screen is, and how to use it. */
   | { view: 'help' }
@@ -155,6 +157,7 @@ export function parseRoute(path: string): Route {
   if (clean === '/channels') return { view: 'browse' };
   if (clean === '/files') return { view: 'files' };
   if (clean === '/scheduled') return { view: 'scheduled' };
+  if (clean === '/drafts') return { view: 'drafts' };
   if (clean === '/whats-new') return { view: 'changelog' };
   if (clean === '/help') return { view: 'help' };
   const call = clean.match(/^\/(?:call|meetup)\/([^/]+)$/);
@@ -256,6 +259,8 @@ export function pathForRoute(route: Route): string {
       return '/files';
     case 'scheduled':
       return '/scheduled';
+    case 'drafts':
+      return '/drafts';
     case 'changelog':
       return '/whats-new';
     case 'help':

@@ -27,6 +27,7 @@ import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
 import { ThreadPanelSlot } from '../features/messages/ThreadPanel.tsx';
 import { BrowseChannels } from '../features/channels/BrowseChannels.tsx';
 import { ScheduledView } from '../features/messages/ScheduledView.tsx';
+import { DraftsView } from '../features/messages/DraftsView.tsx';
 import { AgentTerminalPanel } from '../features/agentic/AgentTerminalPanel.tsx';
 import { FilePreviewPanel } from '../features/messages/FilePreviewPanel.tsx';
 import { closeFilePreview } from '../lib/filePreview.ts';
@@ -136,6 +137,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // it is safe alongside a reconnect's resync.
   useEffect(() => {
     void useStore.getState().loadCalls();
+    // Drafts typed on your other devices, and anything this tab typed offline (ADR 0037).
+    void useStore.getState().syncDrafts();
   }, []);
 
   const toggleSidebar = useCallback(() => {
@@ -556,6 +559,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         {view === 'browse' && <BrowseChannels />}
         {view === 'files' && <FilesView />}
         {view === 'scheduled' && <ScheduledView />}
+        {view === 'drafts' && <DraftsView />}
         {view === 'changelog' && <WhatsNewView />}
         {view === 'help' && (
           <Suspense fallback={<main className="pane" />}>

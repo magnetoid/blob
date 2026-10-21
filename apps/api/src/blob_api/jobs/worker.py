@@ -25,6 +25,7 @@ from ..realtime import hub
 from ..services import agent_notes as agent_notes_service
 from ..services import agent_runs as agent_run_service
 from ..services import agent_state as agent_state_service
+from ..services import drafts as draft_service
 from ..services import oauth as oauth_service
 from ..services import usage as usage_service
 from ..services.calls import reconcile as reconcile_calls
@@ -145,6 +146,9 @@ async def sweep_expired(_ctx: dict[str, Any]) -> None:
         spent = await oauth_service.sweep(session)
     if spent:
         log.info("swept %d spent assistant credential(s)", spent)
+    # A draft nobody has touched in a month (ADR 0037), as the client forgets its own.
+    async with transaction() as (session, _):
+        await draft_service.sweep(session)
 
 
 async def sweep_orphans(_ctx: dict[str, Any]) -> None:

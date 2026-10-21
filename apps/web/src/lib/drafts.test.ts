@@ -9,10 +9,14 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  applyRemote,
   channelHasDraft,
   draftKey,
   flushDrafts,
   loadDrafts,
+  markSynced,
+  mergeServer,
+  parseDraftKey,
   persistDrafts,
   pruneDrafts,
   schedulePersist,
@@ -76,16 +80,19 @@ describe('withDraft', () => {
     expect(next.c1?.body).toBe('half a thought');
   });
 
-  it('removes the entry when the body is blanked', () => {
+  it('blanking leaves no draft, only a clear for the server to hear (ADR 0037)', () => {
     const existing = withDraft({}, 'c1', 'typed', NOW);
-    expect(withDraft(existing, 'c1', '', NOW)).toEqual({});
+    const cleared = withDraft(existing, 'c1', '', NOW);
+    expect(cleared.c1).toEqual({ body: '', updatedAt: new Date(NOW).toISOString(), unsynced: true });
+    expect(channelHasDraft(cleared, 'c1')).toBe(false);
+    expect(markSynced(cleared, 'c1', '')).toEqual({});
   });
 
   it('treats whitespace as blank', () => {
     const existing = withDraft({}, 'c1', 'typed', NOW);
     // Otherwise clearing the box with select-all-delete can leave a space behind and
     // the channel keeps claiming a draft nobody can see.
-    expect(withDraft(existing, 'c1', '   \n ', NOW)).toEqual({});
+    expect(withDraft(existing, 'c1', '   \n ', NOW).c1?.body).toBe('');
   });
 
   it('returns the same object when nothing moved', () => {
@@ -100,7 +107,51 @@ describe('withDraft', () => {
     let drafts = withDraft({}, 'c1', 'one', NOW);
     drafts = withDraft(drafts, 'c2', 'two', NOW);
     drafts = withDraft(drafts, 'c1', '', NOW);
-    expect(Object.keys(drafts)).toEqual(['c2']);
+    expect(Object.entries(drafts).filter(([, d]) => d.body).map(([key]) => key)).toEqual(['c2']);
+  });
+});
+
+describe('following you between devices (ADR 0037)', () => {
+  it('is in sync once the server has what was typed, and not if more was typed since', () => {
+    const typed = withDraft({}, 'c1', 'half', NOW);
+    expect(typed.c1?.unsynced).toBe(true);
+    expect(markSynced(typed, 'c1', 'half').c1?.unsynced).toBe(false);
+    const more = withDraft(typed, 'c1', 'half a sentence', NOW);
+    expect(markSynced(more, 'c1', 'half')).toBe(more);
+  });
+
+  it('takes another device’s draft, unless this one is mid-sentence', () => {
+    const synced = markSynced(withDraft({}, 'c1', 'old', NOW), 'c1', 'old');
+    expect(applyRemote(synced, 'c1', 'from the phone', 'T').c1).toEqual({
+      body: 'from the phone',
+      updatedAt: 'T',
+    });
+    const typing = withDraft(synced, 'c1', 'typing here', NOW);
+    expect(applyRemote(typing, 'c1', 'from the phone', 'T')).toBe(typing);
+    expect(applyRemote(synced, 'c1', '', 'T')).toEqual({});
+  });
+
+  it('on arrival, keeps what was never confirmed and otherwise believes the server', () => {
+    const local = {
+      typedOffline: { body: 'never sent', updatedAt: 'A', unsynced: true },
+      sentElsewhere: { body: 'gone now', updatedAt: 'B' },
+      clearedOffline: { body: '', updatedAt: 'C', unsynced: true },
+    };
+    const merged = mergeServer(local, [
+      { key: 'fromThePhone', body: 'phone draft', updatedAt: 'D' },
+      { key: 'typedOffline', body: 'stale', updatedAt: 'E' },
+      { key: 'clearedOffline', body: 'stale too', updatedAt: 'F' },
+    ]);
+    expect(merged).toEqual({
+      typedOffline: local.typedOffline,
+      clearedOffline: local.clearedOffline,
+      fromThePhone: { body: 'phone draft', updatedAt: 'D' },
+    });
+  });
+
+  it('reads a key back into its channel and thread', () => {
+    expect(parseDraftKey(draftKey('c1', null))).toEqual({ channelId: 'c1', threadRootId: null });
+    expect(parseDraftKey(draftKey('c1', 'm9'))).toEqual({ channelId: 'c1', threadRootId: 'm9' });
   });
 });
 

@@ -300,11 +300,14 @@ export const SECTIONS: Section[] = [
         id: 'drafts',
         title: 'Unsent drafts',
         blurb:
-          'Half a sentence survives switching channels: the sidebar marks the conversation with an unsent draft.',
+          'Half a sentence survives switching channels — and devices: start it on your phone, finish it on your laptop.',
         body: [
-          'A draft lives in the browser you typed it in rather than on the server, and a thread keeps its own draft separately from the channel it is in. Signing out clears them.',
+          'What you type and do not send is kept as a draft, and the sidebar marks the conversation that has one. A thread keeps its own draft apart from the channel it is in.',
+          'Drafts follow you: they are saved to the server a moment after you stop typing, so the next device you open has them, and Drafts in the sidebar lists every one. Nobody else can see them. Sending the message — from any device — clears its draft everywhere, and a draft nobody touches for thirty days is forgotten.',
+          'What you are typing right now is never replaced by a copy from another device. Signing out clears the drafts kept in that browser.',
         ],
-        keywords: ['draft', 'unsent', 'saved text', 'lost'],
+        path: '/drafts',
+        keywords: ['draft', 'drafts', 'unsent', 'saved text', 'lost', 'sync', 'other device', 'phone'],
       },
       {
         id: 'unread-line',

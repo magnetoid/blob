@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError, type SsoChoice } from '../lib/api.ts';
 import { connectStoreToSocket, useStore } from '../lib/store.ts';
 import { flushDrafts } from '../lib/drafts.ts';
+import { flushDraftSyncs } from '../lib/draftSync.ts';
 import { applyTheme, pickTheme, themeChoices } from '../lib/theme.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
 import { resetTokenFromUrl, unsubscribeTokenFromUrl } from '../features/auth/tokens.ts';
@@ -84,7 +85,10 @@ export function App() {
   // than `beforeunload`: it is the one that fires on iOS and when a page goes into the
   // back/forward cache, which is most of the ways a phone leaves a page.
   useEffect(() => {
-    const flush = () => flushDrafts();
+    const flush = () => {
+      flushDrafts();
+      flushDraftSyncs();
+    };
     window.addEventListener('pagehide', flush);
     return () => {
       window.removeEventListener('pagehide', flush);

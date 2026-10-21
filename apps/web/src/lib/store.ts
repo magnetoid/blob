@@ -29,14 +29,24 @@ import type {
   UserPrefs,
 } from "@blob/shared";
 import { applyRunEvent, foldFetchedRuns, MINE_LIMIT, runningIds } from "./agentRuns.ts";
+import {
+  cancelDraftSyncs,
+  connectDraftSync,
+  DEVICE_ID,
+  hasPendingDraftSync,
+  scheduleDraftSync,
+} from "./draftSync.ts";
 import { api } from "./api.ts";
 import { showError, useToasts } from "./toasts.ts";
 import { DEFAULT_CALL_SETTINGS } from "./callDefaults.ts";
 import type { CallSession } from "./calls.ts";
 import {
   draftKey,
+  applyRemote,
   flushDrafts,
   loadDrafts,
+  markSynced,
+  mergeServer,
   persistDrafts,
   schedulePersist,
   withDraft,
@@ -231,6 +241,10 @@ interface State {
   hydrateOutbox: () => void;
   flushOutbox: () => Promise<void>;
   hydrateDrafts: () => void;
+  /** Bring this tab's drafts and the server's together (ADR 0037): on arrival. */
+  syncDrafts: () => Promise<void>;
+  /** The server has `body` for this draft. */
+  markDraftSynced: (key: string, body: string) => void;
   setDraft: (
     channelId: string,
     threadRootId: string | null,
@@ -649,6 +663,7 @@ export const useStore = create<State>((set, get) => ({
     // first, or a write scheduled a moment ago lands after the wipe and restores them.
     flushDrafts();
     persistDrafts({});
+    cancelDraftSyncs();
     // A `loadCalls` retry still pending must not fire after this — nothing here should
     // outlive the session that scheduled it.
     clearCallsRetry();
@@ -733,6 +748,38 @@ export const useStore = create<State>((set, get) => ({
     if (next === get().drafts) return;
     // Scheduled, not written: this runs per keystroke, and the durable copy can lag the
     // one on screen by a moment. `flushDrafts` closes the gap when the tab goes away.
+    schedulePersist(next);
+    set({ drafts: next });
+    // And the server is told after a pause, so your other devices have it (ADR 0037).
+    scheduleDraftSync(key);
+  },
+
+  syncDrafts: async () => {
+    let server;
+    try {
+      ({ drafts: server } = await api.drafts.list());
+    } catch {
+      return; // This tab's own copy stands; the next arrival tries again.
+    }
+    const merged = mergeServer(
+      get().drafts,
+      server.map((draft) => ({
+        key: draftKey(draft.channelId, draft.threadRootId),
+        body: draft.body,
+        updatedAt: draft.updatedAt,
+      })),
+    );
+    schedulePersist(merged);
+    set({ drafts: merged });
+    // What this tab typed and never got confirmed goes again now.
+    for (const [key, entry] of Object.entries(merged)) {
+      if (entry.unsynced) scheduleDraftSync(key, 0);
+    }
+  },
+
+  markDraftSynced: (key, body) => {
+    const next = markSynced(get().drafts, key, body);
+    if (next === get().drafts) return;
     schedulePersist(next);
     set({ drafts: next });
   },
@@ -1724,6 +1771,22 @@ export const useStore = create<State>((set, get) => ({
         });
         break;
 
+      case "draft.updated": {
+        // Another of your devices changed a draft (ADR 0037). This tab's own save coming
+        // back is ignored — it may have been typed past since — and so is anything this
+        // tab still owes the server: the composer is drawn from this map, and replacing
+        // its text mid-sentence would take the words from under somebody's fingers.
+        if (event.device === DEVICE_ID) break;
+        const key = draftKey(event.channelId, event.threadRootId);
+        if (hasPendingDraftSync(key)) break;
+        const next = applyRemote(get().drafts, key, event.body, event.updatedAt);
+        if (next !== get().drafts) {
+          schedulePersist(next);
+          set({ drafts: next });
+        }
+        break;
+      }
+
       case "read_state.updated":
         set((s) => {
           const channel = s.channels[event.channelId];
@@ -2457,3 +2520,9 @@ export function connectStoreToSocket(): () => void {
     socket.disconnect();
   };
 }
+
+// The draft saver reads the map this store owns, and tells it what the server now has.
+connectDraftSync(
+  (key) => useStore.getState().drafts[key],
+  (key, body) => useStore.getState().markDraftSynced(key, body),
+);

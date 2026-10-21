@@ -759,6 +759,33 @@ class NotificationMail(Base):
     queued_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class Draft(Base):
+    """What somebody typed in a place and has not sent (ADR 0037, migration 0068).
+
+    `place` is the client's own address for it — the channel, or "channel:root" for a
+    reply. Theirs alone; gone when the message is sent or after thirty days.
+    """
+
+    __tablename__ = "drafts"
+    __table_args__ = (
+        PrimaryKeyConstraint("user_id", "place"),
+        Index("drafts_updated", "updated_at"),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    place: Mapped[str] = mapped_column(Text, nullable=False)
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    thread_root_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE")
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class UserGroup(Base):
     """A named set of people, mentionable as one handle. Slack's user groups.
 
@@ -2317,6 +2344,7 @@ __all__ = [
     "ChannelMember",
     "CustomEmoji",
     "Decision",
+    "Draft",
     "FeedbackTicket",
     "Invite",
     "McpServer",

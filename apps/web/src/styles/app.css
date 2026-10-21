@@ -9673,6 +9673,26 @@ button.person-trigger:hover {
   opacity: 1;
 }
 
+/* A draft's row opens where it was being written (ADR 0037): the whole row is the button,
+   and a long draft shows its first two lines. */
+.draft-open {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.draft-body {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: pre-wrap;
+}
+
 .section-empty {
   margin: 0;
   padding: 2px 12px 6px;

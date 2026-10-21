@@ -7,6 +7,7 @@ enqueue. Nothing in this file emits inside a transaction.
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from functools import partial
 from typing import Annotated, Any, Literal
 
@@ -22,7 +23,7 @@ from ..lib.rate_limit import consume
 from ..lib.times import parse_client_time, parse_future_time
 from ..plugins import events as plugin_events
 from ..realtime import hub
-from ..schemas.base import CamelModel, OkOut
+from ..schemas.base import CamelModel, OkOut, require_iso
 from ..schemas.models import (
     Message,
     MessageOut,
@@ -45,6 +46,7 @@ from ..schemas.requests import (
 )
 from ..services import audit as audit_service
 from ..services import channels as channel_service
+from ..services import drafts as draft_service
 from ..services import messages as message_service
 from ..services import reactions as reaction_service
 from ..services import read_state as read_state_service
@@ -143,6 +145,16 @@ async def send_message(
             workspace_id=user.workspace_id,
             channel_id=channel_id,
         )
+
+        # What was typed here is sent, so its draft goes on every device (ADR 0037). Only
+        # on this path: a scheduled send must not wipe a newer sentence typed since.
+        if result.created and await draft_service.clear(
+            session, user.id, channel_id=channel_id, thread_root_id=payload.thread_root_id
+        ):
+            cleared = draft_service.event(
+                channel_id, payload.thread_root_id, "", require_iso(datetime.now(UTC))
+            )
+            after_commit.add(lambda: hub.to_users([user.id], cleared))
 
     response.status_code = 201 if result.created else 200
     return MessageOut(message=result.message)

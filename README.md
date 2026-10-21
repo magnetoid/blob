@@ -265,7 +265,8 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
   conversation with yourself for notes.
 - **Messages** — a small deliberate Markdown subset (bold, italics, strike, inline and
   fenced code, quotes, lists, links), edit and delete, pin to channel, forward with a note,
-  permalinks, and optimistic send that is idempotent on a client-generated id.
+  permalinks, and optimistic send that is idempotent on a client-generated id. Drafts
+  follow you between devices, with a Drafts list of everything unsent.
 - **Threads** — Slack-style reply chains in a side panel, with live reply counts, a Follow
   control, per-thread unread, and a Threads view of everything you follow.
 - **Reactions** — three quick reactions on hover plus a searchable picker over a curated
@@ -945,7 +946,7 @@ Alembic; it is not a query layer. Every read and write in the app is `text()` wi
 parameters, and chat history is keyset-paginated, never `OFFSET`.
 
 <details>
-<summary><b>The thirty-six architecture decisions</b></summary>
+<summary><b>The thirty-seven architecture decisions</b></summary>
 
 The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
@@ -987,6 +988,7 @@ The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisi
 | 0034 | A guest is in the channels they were invited to |
 | 0035 | A voice message's words are its text |
 | 0036 | Blob emails you only about what waited for you, and only while you were away |
+| 0037 | A draft follows its author between devices, and nobody else |
 
 </details>
 

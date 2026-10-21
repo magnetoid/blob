@@ -23,6 +23,7 @@ import { RenameSectionDialog } from './SectionDialogs.tsx';
 import {
   ChevronDownIcon,
   ClockIcon,
+  DraftIcon,
   FileIcon,
   HomeIcon,
   HuddleIcon,
@@ -56,6 +57,10 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
   const isGuest = currentUser?.role === 'guest';
   const activeView = parseRoute(usePath()).view;
   const savedCount = useStore((s) => s.savedMessageIds.size);
+  // A number, so typing in a composer re-renders the sidebar only when one appears or goes.
+  const draftCount = useStore(
+    (s) => Object.values(s.drafts).filter((draft) => draft.body.trim() !== '').length,
+  );
   // Which agents are working right now, by display name — that is what a run carries.
   // Only used to draw a pulse, so a name collision costs a dot on the wrong row and
   // nothing else. Selected as names, so a running card's snapshots do not redraw the
@@ -166,6 +171,18 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
             active={activeView === 'scheduled'}
             onClick={() => navigate('/scheduled')}
           />
+          {/* Shown while there is something unsent, as Slack keeps "Drafts & sent" quiet
+              until it has something in it (ADR 0037). */}
+          {draftCount > 0 && (
+            <SidebarNavButton
+              collapsed={collapsed}
+              icon={<DraftIcon size="sm" />}
+              label="Drafts"
+              active={activeView === 'drafts'}
+              badge={String(draftCount)}
+              onClick={() => navigate('/drafts')}
+            />
+          )}
         </section>
 
         {sections.map((section) => (

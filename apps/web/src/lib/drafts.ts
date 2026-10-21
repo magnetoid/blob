@@ -1,16 +1,18 @@
 /**
  * What you have typed and not sent.
  *
- * A draft is the one piece of state in this app that has no server behind it and still
- * has to survive. Nothing has been sent, so there is nothing to persist and nothing to
- * broadcast — but half a sentence lost to a channel switch is the kind of small betrayal
- * people remember, and Slack users have never had to think about it.
+ * Half a sentence lost to a channel switch is the kind of small betrayal people
+ * remember, and Slack users have never had to think about it. So a draft lives in this
+ * map, in localStorage so it survives a crash — and, since drafts became a list you can
+ * open (ADR 0037), on the server too, so the next device you open has it. The note this
+ * module used to carry said exactly when that would change: "a list you cannot reach from
+ * your laptop is not a list."
  *
- * Stored in localStorage rather than on the server, which is the honest trade rather
- * than the lazy one: a draft is tied to the machine you were typing on, and syncing it
- * would mean a write path for text the author has not decided to share. When drafts
- * become a *list* you can open — Slack's "Drafts & sent" — that calculus changes,
- * because a list you cannot reach from your laptop is not a list.
+ * The server is told by `draftSync.ts`. An entry this tab has typed and the server has
+ * not confirmed is `unsynced`, and nothing from elsewhere overwrites it — the composer
+ * is drawn from this map, so applying a remote copy mid-sentence would take the words
+ * out from under somebody's fingers. A cleared draft stays as an empty, unsynced entry
+ * until the server agrees, so a message sent offline cannot bring its draft back.
  *
  * Keyed by channel, and separately by thread: replying in a thread and talking in the
  * channel are two places to be mid-sentence, and Slack keeps them apart.
@@ -29,10 +31,13 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
  */
 const MAX_DRAFTS = 200;
 
-interface DraftEntry {
+export interface DraftEntry {
   body: string;
   /** ISO 8601. Drives both the eviction order and the age cutoff. */
   updatedAt: string;
+  /** Typed here and not yet confirmed by the server: nothing from elsewhere replaces it.
+   * An empty body with this set is a clear the server has still to hear about. */
+  unsynced?: boolean;
 }
 
 export type Drafts = Record<string, DraftEntry>;
@@ -72,7 +77,8 @@ function isDrafts(value: unknown): value is Drafts {
  */
 export function pruneDrafts(drafts: Drafts, now: number): Drafts {
   const fresh = Object.entries(drafts).filter(([, entry]) => {
-    if (!entry.body.trim()) return false;
+    // An empty entry is kept only while it is a clear the server has not heard about.
+    if (!entry.body.trim() && !entry.unsynced) return false;
     const at = Date.parse(entry.updatedAt);
     return Number.isFinite(at) && now - at < MAX_AGE_MS;
   });
@@ -148,10 +154,9 @@ export function persistDrafts(drafts: Drafts): void {
 }
 
 /**
- * The draft map with one key set, or removed when the body is blank.
- *
- * Blank removes rather than storing an empty string, so "has a draft" stays a question
- * about key presence — which is what the sidebar's indicator reads.
+ * The draft map with one key typed into, here: set, or — blank — cleared. A clear keeps
+ * an empty, unsynced entry until the server has heard it (`markSynced` removes it), so
+ * "has a draft" is a question about a body, not about a key.
  */
 export function withDraft(
   drafts: Drafts,
@@ -159,18 +164,72 @@ export function withDraft(
   body: string,
   now: number = Date.now(),
 ): Drafts {
-  if (!body.trim()) {
-    if (!(key in drafts)) return drafts;
+  const existing = drafts[key];
+  const blank = !body.trim();
+  if (blank && (!existing || !existing.body)) return drafts;
+  if (existing?.body === body) return drafts;
+  return {
+    ...drafts,
+    [key]: { body: blank ? '' : body, updatedAt: new Date(now).toISOString(), unsynced: true },
+  };
+}
+
+/** The server has `sentBody` for this key. If nothing was typed since, it is in sync — and
+ *  a clear is finished, so its entry goes. */
+export function markSynced(drafts: Drafts, key: string, sentBody: string): Drafts {
+  const entry = drafts[key];
+  if (!entry || entry.body !== sentBody || !entry.unsynced) return drafts;
+  if (!sentBody) {
     const rest = { ...drafts };
     delete rest[key];
     return rest;
   }
-  const existing = drafts[key];
-  if (existing?.body === body) return drafts;
-  return { ...drafts, [key]: { body, updatedAt: new Date(now).toISOString() } };
+  return { ...drafts, [key]: { ...entry, unsynced: false } };
+}
+
+/** Another of your devices changed this draft. Taken unless this tab has typed something
+ *  the server has not confirmed yet. */
+export function applyRemote(drafts: Drafts, key: string, body: string, updatedAt: string): Drafts {
+  const entry = drafts[key];
+  if (entry?.unsynced) return drafts;
+  if (!body.trim()) {
+    if (!entry) return drafts;
+    const rest = { ...drafts };
+    delete rest[key];
+    return rest;
+  }
+  if (entry?.body === body) return drafts;
+  return { ...drafts, [key]: { body, updatedAt } };
+}
+
+/** On arrival: what this tab typed and never got confirmed wins and is sent again;
+ *  otherwise the server's list is the truth, and a confirmed draft it no longer has was
+ *  sent or cleared somewhere else. */
+export function mergeServer(
+  local: Drafts,
+  server: ReadonlyArray<{ key: string; body: string; updatedAt: string }>,
+): Drafts {
+  const merged: Drafts = {};
+  for (const [key, entry] of Object.entries(local)) {
+    if (entry.unsynced) merged[key] = entry;
+  }
+  for (const draft of server) {
+    if (merged[draft.key]) continue;
+    merged[draft.key] = { body: draft.body, updatedAt: draft.updatedAt };
+  }
+  return merged;
+}
+
+/** The channel and thread a key names — `draftKey` read backwards. */
+export function parseDraftKey(key: string): { channelId: string; threadRootId: string | null } {
+  const [channelId = key, threadRootId] = key.split(':');
+  return { channelId, threadRootId: threadRootId ?? null };
 }
 
 /** Whether this channel has an unsent draft anywhere in it — the channel or a thread. */
 export function channelHasDraft(drafts: Drafts, channelId: string): boolean {
-  return Object.keys(drafts).some((key) => key === channelId || key.startsWith(`${channelId}:`));
+  return Object.entries(drafts).some(
+    ([key, entry]) =>
+      entry.body.trim() !== '' && (key === channelId || key.startsWith(`${channelId}:`)),
+  );
 }

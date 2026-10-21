@@ -21,7 +21,7 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-thirty-six ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+thirty-seven ADRs; the principles below are their summary, not a substitute. 0013–0020 and
 0022–0030 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
@@ -392,6 +392,13 @@ unread once the person's window (`prefs.emailWhenAway`) has passed. "Unread" for
 inside an unfollowed thread is the channel's badge cleared since it arrived, because
 reading such a thread records nothing. The unsubscribe token's key is derived for that
 purpose alone — never sign a new kind of token with the raw `SESSION_SECRET` beside it.
+
+**Drafts follow their author** (`lib/drafts.ts`, `lib/draftSync.ts`, `routers/drafts.py`,
+ADR 0037). The composer is drawn from the store's draft map, so a remote copy must never
+replace text being typed: an entry this tab typed and the server has not confirmed is
+`unsynced` and wins, and a tab ignores `draft.updated` carrying its own `device`. Only the
+live send route clears a draft on the server — never `announce`, which scheduled sends also
+run, and a scheduled send must not wipe a sentence typed since.
 
 **A link preview's picture is Blob's copy.** `jobs/unfurl.py` fetches the page's `og:image`
 by the same pinned, redirect-checked path as the page, keeps a WebP beside the message, and

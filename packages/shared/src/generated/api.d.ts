@@ -3332,6 +3332,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Drafts */
+        get: operations["my_drafts_api_drafts_get"];
+        /** Save Draft */
+        put: operations["save_draft_api_drafts_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -6141,6 +6159,33 @@ export interface components {
             /** Threadrootid */
             threadRootId: string;
         };
+        /** DraftIn */
+        DraftIn: {
+            /** Body */
+            body: string;
+            /** Channelid */
+            channelId: string;
+            /** Device */
+            device?: string | null;
+            /** Threadrootid */
+            threadRootId?: string | null;
+        };
+        /** DraftOut */
+        DraftOut: {
+            /** Body */
+            body: string;
+            /** Channelid */
+            channelId: string;
+            /** Threadrootid */
+            threadRootId?: string | null;
+            /** Updatedat */
+            updatedAt: string;
+        };
+        /** DraftsOut */
+        DraftsOut: {
+            /** Drafts */
+            drafts: components["schemas"]["DraftOut"][];
+        };
         /** EnvInput */
         EnvInput: {
             /**
@@ -7772,6 +7817,10 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** SavedDraftOut */
+        SavedDraftOut: {
+            draft: components["schemas"]["DraftOut"] | null;
+        };
         /** SaveInput */
         SaveInput: {
             /** Saved */
@@ -8992,6 +9041,9 @@ export type DeliveryDetailOut = components['schemas']['DeliveryDetailOut'];
 export type DeliveryOut = components['schemas']['DeliveryOut'];
 export type DeploymentOut = components['schemas']['DeploymentOut'];
 export type DiscussionOut = components['schemas']['DiscussionOut'];
+export type DraftIn = components['schemas']['DraftIn'];
+export type DraftOut = components['schemas']['DraftOut'];
+export type DraftsOut = components['schemas']['DraftsOut'];
 export type EnvInput = components['schemas']['EnvInput'];
 export type EnvOut = components['schemas']['EnvOut'];
 export type EnvVarOut = components['schemas']['EnvVarOut'];
@@ -9116,6 +9168,7 @@ export type RoleInput = components['schemas']['RoleInput'];
 export type RunCommandInput = components['schemas']['RunCommandInput'];
 export type RunEventOut = components['schemas']['RunEventOut'];
 export type RunEventsOut = components['schemas']['RunEventsOut'];
+export type SavedDraftOut = components['schemas']['SavedDraftOut'];
 export type SaveInput = components['schemas']['SaveInput'];
 export type SaveThemeInput = components['schemas']['SaveThemeInput'];
 export type ScheduledListOut = components['schemas']['ScheduledListOut'];
@@ -15148,6 +15201,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChannelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_drafts_api_drafts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftsOut"];
+                };
+            };
+        };
+    };
+    save_draft_api_drafts_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedDraftOut"];
                 };
             };
             /** @description Validation Error */

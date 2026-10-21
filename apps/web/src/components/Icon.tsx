@@ -169,6 +169,14 @@ export const DownloadIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** A pencil on a line: something written and not yet sent (Drafts). */
+export const DraftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z" />
+    <path d="M14.5 7.5l2 2" />
+  </Svg>
+);
+
 export const ClockIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="9" />
