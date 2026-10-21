@@ -6,6 +6,12 @@ night, the oldest deleted once there are `BACKUP_KEEP_DAYS` days of them (never 
 The password goes to `pg_dump` in its environment, not its arguments, where anybody in the
 container could read it in `ps`.
 
+The client is the server's own major version, which is PostgreSQL's advice and not a nicety:
+a dump needs a `pg_restore` at least as new as the `pg_dump` that wrote it, and a newer
+`pg_restore` sends settings an older server refuses — 17's `SET transaction_timeout` stops a
+restore into 16 on its first statement. A 17 dump of a 16 database would restore nowhere
+but a 17 server.
+
 A failed dump leaves no half object behind, and the outcome of the last attempt is kept in
 Redis for the Health page, so a backup that stopped working is something an admin sees on a
 page they already open rather than discovers the day they need it.
@@ -29,6 +35,7 @@ from typing import Any
 from sqlalchemy.engine import make_url
 
 from ..config import settings
+from ..db.engine import fetch_one, session_scope
 from ..lib import storage
 from ..lib.redis import redis
 
@@ -36,6 +43,9 @@ log = logging.getLogger("blob.jobs.backup")
 
 #: Where the outcome of the last attempt is kept, for the Health page.
 LAST_KEY = "backup:last"
+
+#: Where Debian keeps each major version's client tools (the image installs 16 and 17).
+CLIENT_DIR = "/usr/lib/postgresql/{major}/bin"
 
 
 @dataclass(slots=True)
@@ -50,6 +60,31 @@ class Outcome:
 
 class BackupError(Exception):
     """`pg_dump` said no; its last line of complaint is the message."""
+
+
+async def _server_major() -> int | None:
+    """The database's major version, or None when it cannot be asked."""
+    try:
+        async with session_scope() as session:
+            row = await fetch_one(
+                session, "SELECT current_setting('server_version_num')::int / 10000"
+            )
+    except Exception:
+        log.warning("could not ask the database for its version", exc_info=True)
+        return None
+    return int(row[0]) if row else None
+
+
+def pg_dump_for(major: int | None) -> str:
+    """The `pg_dump` to run: the server's own major version, where it is installed.
+
+    `BACKUP_PG_DUMP` set to anything but the bare default is somebody's deliberate choice,
+    and stands.
+    """
+    if settings.BACKUP_PG_DUMP != "pg_dump" or major is None:
+        return settings.BACKUP_PG_DUMP
+    candidate = os.path.join(CLIENT_DIR.format(major=major), "pg_dump")
+    return candidate if os.access(candidate, os.X_OK) else settings.BACKUP_PG_DUMP
 
 
 def _pg_environment() -> dict[str, str]:
@@ -81,15 +116,15 @@ class _Counting:
         return chunk
 
 
-def _dump_into(key: str, bucket: str) -> int:
+def _dump_into(binary: str, key: str, bucket: str) -> int:
     """Run `pg_dump` and stream it up. Blocking: called from a thread."""
     command = [
-        settings.BACKUP_PG_DUMP,
+        binary,
         "--format=custom",
         "--no-owner",
         "--no-privileges",
     ]
-    with subprocess.Popen(  # noqa: S603 — a fixed argv, no shell, the binary from settings
+    with subprocess.Popen(  # noqa: S603 — a fixed argv, no shell, a binary we chose
         command,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -134,16 +169,17 @@ async def run_backup(now: datetime | None = None) -> Outcome | None:
     now = now or datetime.now(UTC)
     bucket = storage.backup_bucket()
     key = f"{settings.BACKUP_PREFIX}blob-{now:%Y%m%dT%H%M%SZ}.dump"
-    if shutil.which(settings.BACKUP_PG_DUMP) is None:
+    binary = pg_dump_for(await _server_major())
+    if shutil.which(binary) is None:
         outcome = Outcome(
             at=now.isoformat(),
             ok=False,
-            error=f"{settings.BACKUP_PG_DUMP} is not installed where the worker runs.",
+            error=f"{binary} is not installed where the worker runs.",
         )
     else:
         started = asyncio.get_running_loop().time()
         try:
-            size = await asyncio.to_thread(_dump_into, key, bucket)
+            size = await asyncio.to_thread(_dump_into, binary, key, bucket)
             removed = await asyncio.to_thread(_prune, bucket, now)
             outcome = Outcome(
                 at=now.isoformat(),
@@ -172,4 +208,4 @@ async def last_outcome() -> Outcome | None:
         return None
 
 
-__all__ = ["LAST_KEY", "BackupError", "Outcome", "last_outcome", "run_backup"]
+__all__ = ["LAST_KEY", "BackupError", "Outcome", "last_outcome", "pg_dump_for", "run_backup"]

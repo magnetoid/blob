@@ -406,9 +406,11 @@ replace text being typed: an entry this tab typed and the server has not confirm
 live send route clears a draft on the server — never `announce`, which scheduled sends also
 run, and a scheduled send must not wipe a sentence typed since.
 
-**Backups are the worker's** (`jobs/backup.py`, `docs/backup.md`): a nightly `pg_dump` 17
-(installed in the image from the PostgreSQL apt repo — Debian's own client is too old to dump
-the server) streamed into `BACKUP_S3_BUCKET`, the outcome kept in Redis for the Health page,
+**Backups are the worker's** (`jobs/backup.py`, `docs/backup.md`): a nightly `pg_dump` of the
+server's own major version (the image installs 16 and 17 from the PostgreSQL apt repo — Debian's
+own client is too old to dump the server, and a newer client's dump does not restore into it:
+17's `pg_restore` sends `SET transaction_timeout`, which 16 refuses) streamed into
+`BACKUP_S3_BUCKET`, the outcome kept in Redis for the Health page,
 `python -m blob_api.backups latest` to fetch one, and `scripts/restore-drill.sh` as the proof.
 The password reaches `pg_dump` through `PGPASSWORD`, never argv.
 

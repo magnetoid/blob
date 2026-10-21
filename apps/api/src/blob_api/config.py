@@ -106,7 +106,8 @@ class Settings(BaseSettings):
     BACKUP_PREFIX: str = "backups/"
     BACKUP_KEEP_DAYS: int = 14
     BACKUP_HOUR_UTC: int = Field(default=3, ge=0, le=23)
-    #: The `pg_dump` to run. Its major version must be the server's or newer.
+    #: The `pg_dump` to run. Left as `pg_dump`, a backup runs the server's own major
+    #: version where Debian keeps it (the image installs 16 and 17); a path is used as is.
     BACKUP_PG_DUMP: str = "pg_dump"
 
     # Transcribing voice messages (M3 · B2): any OpenAI-compatible

@@ -115,6 +115,43 @@ async def test_no_pg_dump_is_said_out_loud(
     assert "not installed" in (outcome.error or "")
 
 
+def test_the_server_s_own_client_is_chosen_where_it_is_installed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A newer client's dump restores only into a newer server — 17's pg_restore sends
+    `SET transaction_timeout`, which 16 refuses — so a backup runs the server's own."""
+    monkeypatch.setattr(settings, "BACKUP_PG_DUMP", "pg_dump")
+    installed = tmp_path / "16" / "bin" / "pg_dump"
+    installed.parent.mkdir(parents=True)
+    installed.write_text("#!/bin/sh\n")
+    installed.chmod(0o755)
+    monkeypatch.setattr(backup_job, "CLIENT_DIR", str(tmp_path / "{major}" / "bin"))
+
+    assert backup_job.pg_dump_for(16) == str(installed)
+    assert backup_job.pg_dump_for(17) == "pg_dump", "not installed: the one on PATH"
+    assert backup_job.pg_dump_for(None) == "pg_dump", "the server would not say"
+
+    monkeypatch.setattr(settings, "BACKUP_PG_DUMP", "/opt/pg/bin/pg_dump")
+    assert backup_job.pg_dump_for(16) == "/opt/pg/bin/pg_dump", "somebody's choice stands"
+
+
+async def test_a_backup_asks_the_server_its_version_and_runs_that_client(
+    tmp_path: Path, bucket: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "BACKUP_PG_DUMP", "pg_dump")
+    major = await backup_job._server_major()
+    assert major is not None and major >= 12
+    own = tmp_path / str(major) / "bin"
+    own.mkdir(parents=True)
+    fake_pg_dump(own)
+    monkeypatch.setattr(backup_job, "CLIENT_DIR", str(tmp_path / "{major}" / "bin"))
+
+    outcome = await backup_job.run_backup(now=NOW)
+
+    assert outcome is not None and outcome.ok, outcome
+    assert (own / "seen.txt").exists(), "the server's own client ran, not the one on PATH"
+
+
 async def test_old_backups_go_and_the_newest_never_does(
     tmp_path: Path, bucket: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:

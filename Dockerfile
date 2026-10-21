@@ -71,7 +71,9 @@ RUN useradd --create-home --uid 10001 blob
 
 # `pg_dump` for the nightly backup (M3 · B4), from the PostgreSQL project's own apt
 # repository: Debian's client is 15 on bookworm, and a pg_dump older than the server
-# refuses to dump it. 17 dumps the 16 the compose file runs, and a 17 after an upgrade.
+# refuses to dump it. Both 16 and 17, because the backup runs the server's own (jobs/
+# backup.py): a newer client's dump only restores into a newer server — 17's pg_restore
+# sends `SET transaction_timeout`, which the 16 the compose file runs refuses.
 # The codename comes from the image, so a base that moves to trixie needs no edit here.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl \
@@ -82,7 +84,7 @@ RUN apt-get update \
  && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
       > /etc/apt/sources.list.d/pgdg.list \
  && apt-get update \
- && apt-get install -y --no-install-recommends postgresql-client-17 \
+ && apt-get install -y --no-install-recommends postgresql-client-16 postgresql-client-17 \
  && apt-get purge -y curl \
  && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/*

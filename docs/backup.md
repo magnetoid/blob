@@ -9,7 +9,14 @@ uploads; losing the bucket loses attachments even if the database still names th
 Every night the worker runs `pg_dump --format=custom` and streams the dump straight into
 object storage — no temporary file, nothing held in memory — as
 `backups/blob-YYYYMMDDTHHMMSSZ.dump`, then deletes the ones older than `BACKUP_KEEP_DAYS`
-(never the newest). The image carries `pg_dump` 17, which dumps Postgres 16 and 17.
+(never the newest).
+
+The image carries the client tools of Postgres 16 and 17, and the dump is taken by the
+server's own. That is PostgreSQL's advice, and not a nicety: a dump needs a `pg_restore` at
+least as new as the `pg_dump` that wrote it, and a newer `pg_restore` sends settings an older
+server refuses — 17's `SET transaction_timeout` stops a restore into 16 on its first
+statement — so a 17 dump of a 16 database would restore nowhere but a 17 server. A server of
+another major version gets the newest client the image has.
 
 | Variable | Default | |
 |---|---|---|
@@ -18,6 +25,7 @@ object storage — no temporary file, nothing held in memory — as
 | `BACKUP_PREFIX` | `backups/` | |
 | `BACKUP_KEEP_DAYS` | `14` | |
 | `BACKUP_HOUR_UTC` | `3` | The dump starts at :30 past this hour. |
+| `BACKUP_PG_DUMP` | `pg_dump` | Left alone, the server's own major version where the image has it. A path is used as is. |
 
 Set them on **the app and the worker both**: the worker takes the backup, the app reports
 it.
@@ -47,15 +55,17 @@ schema head and the counts, times it, and drops the scratch copy whatever happen
 PGHOST=… PGUSER=… PGPASSWORD=… scripts/restore-drill.sh blob.dump
 ```
 
-It needs a role that may `CREATE DATABASE` and a `pg_restore` of the dump's version or
-newer. On the development server, a 1-workspace, 39-message dump restored in a second;
-time yours and write the number down.
+It needs a role that may `CREATE DATABASE` and the server's own `pg_restore`. It looks in
+`PG_BINDIR`, then `/usr/lib/postgresql/<major>/bin`, then `PATH`, and stops before it starts
+when the one it found is newer than the server. On the development server, a 1-workspace,
+39-message dump restored in a second; time yours and write the number down.
 
 To restore for real, stop the app and the worker first — open transactions fight a
-`--clean` — then:
+`--clean` — then run the server's own `pg_restore` (in the app container,
+`/usr/lib/postgresql/16/bin/` for the Postgres 16 the compose file runs):
 
 ```bash
-pg_restore --clean --if-exists --no-owner --dbname="$DATABASE_URL" blob.dump
+/usr/lib/postgresql/16/bin/pg_restore --clean --if-exists --no-owner --dbname="$DATABASE_URL" blob.dump
 pnpm migrate   # in case the dump is from an older schema
 ```
 
