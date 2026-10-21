@@ -90,7 +90,7 @@ async def search_messages(
                 unresolved.append(f"from:{parsed.author}")
         if parsed.channel:
             channel_id = await search_service.resolve_channel(
-                session, user.workspace_id, parsed.channel
+                session, user.workspace_id, parsed.channel, user_id=user.id
             )
             if channel_id is None:
                 unresolved.append(f"in:{parsed.channel}")

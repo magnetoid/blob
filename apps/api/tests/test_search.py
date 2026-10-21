@@ -286,6 +286,19 @@ class TestAModifierThatNamesNobody:
         assert answer.body["messages"] == []
         assert "in:nosuchchannel" in answer.body["parsed"]["unresolved"]
 
+    async def test_a_private_channel_you_are_not_in_is_no_channel_at_all(self, team: dict) -> None:
+        """Its name answers exactly as a name nothing has: the difference used to be the
+        private channel's existence."""
+        secret = await team["outsider"].get("/api/search?q=in:%23secret-plans pineapple")
+        missing = await team["outsider"].get("/api/search?q=in:%23no-such-plans pineapple")
+
+        assert secret.body["messages"] == [] == missing.body["messages"]
+        assert "in:secret-plans" in secret.body["parsed"]["unresolved"]
+        assert "in:no-such-plans" in missing.body["parsed"]["unresolved"]
+        # Its members still search in it by name.
+        mine = await team["member"].get("/api/search?q=in:%23secret-plans pineapple")
+        assert [m["body"] for m in mine.body["messages"]] == ["the pineapple flies at midnight"]
+
     async def test_a_first_name_finds_the_person(self, team: dict) -> None:
         # Display names are full names and people type what they say out loud.
         joiner = await invite_and_sign_up(team["owner"], "Marko Ilic")

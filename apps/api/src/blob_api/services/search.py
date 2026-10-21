@@ -215,12 +215,30 @@ async def resolve_author(session: AsyncSession, workspace_id: str, name: str) ->
     return str(candidates[0].id) if len(candidates) == 1 else None
 
 
-async def resolve_channel(session: AsyncSession, workspace_id: str, name: str) -> str | None:
-    """Which channel `in:#name` means, or None. Membership is the search's own filter."""
+async def resolve_channel(
+    session: AsyncSession, workspace_id: str, name: str, *, user_id: str
+) -> str | None:
+    """Which channel `in:#name` means to this person, or None — the same None for a private
+    channel they are not in as for no channel at all. Resolving every name answered a
+    private channel's with an empty result and a missing one's with "unresolved", and the
+    difference was the private channel's existence (the 2026-10 security review)."""
     row = (
         await session.execute(
-            text("SELECT id FROM channels WHERE workspace_id = :ws AND lower(name) = lower(:name)"),
-            {"ws": workspace_id, "name": name},
+            text(
+                """
+                SELECT c.id FROM channels c
+                 WHERE c.workspace_id = :ws AND lower(c.name) = lower(:name)
+                   AND (
+                     (c.kind = 'public' AND NOT EXISTS (
+                        SELECT 1 FROM users viewer
+                         WHERE viewer.id = :user_id AND viewer.role = 'guest'))
+                     OR EXISTS (
+                        SELECT 1 FROM channel_members cm
+                         WHERE cm.channel_id = c.id AND cm.user_id = :user_id)
+                   )
+                """
+            ),
+            {"ws": workspace_id, "name": name, "user_id": user_id},
         )
     ).fetchone()
     return str(row.id) if row else None
