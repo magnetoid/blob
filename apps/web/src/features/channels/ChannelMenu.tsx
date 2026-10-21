@@ -19,6 +19,7 @@ import { useStore } from '../../lib/store.ts';
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
 import { DialogPresence } from '../../components/Dialog.tsx';
 import { Menu } from '../../components/Menu.tsx';
+import { MoveToSectionDialog } from './SectionDialogs.tsx';
 
 interface Props {
   channel: ChannelWithState;
@@ -46,7 +47,14 @@ export function ChannelMenu({
 }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const leaveChannel = useStore((s) => s.leaveChannel);
-  const [confirming, setConfirming] = useState<'leave' | 'archive' | null>(null);
+  const [confirming, setConfirming] = useState<'leave' | 'archive' | 'section' | null>(null);
+  const channelTitle = useStore((s) => s.channelTitle);
+  const inSection = useStore(
+    (s) =>
+      (s.currentUser?.prefs?.sidebarSections ?? []).some((section) =>
+        section.channelIds.includes(channel.id),
+      ),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const isDm = channel.kind === 'dm' || channel.kind === 'group_dm';
@@ -106,6 +114,12 @@ export function ChannelMenu({
             {starred ? '★' : '☆'}
           </span>
           {starred ? 'Remove from starred' : 'Star this channel'}
+        </button>
+
+        {/* Sections of your own in the channel list (M3 · B3) — DMs too, as in Slack. */}
+        <button className="menu-item" role="menuitem" onClick={() => setConfirming('section')}>
+          <span className="menu-check" aria-hidden="true" />
+          {inSection ? 'Move to another section…' : 'Move to a section…'}
         </button>
 
         {!isDm && (
@@ -185,6 +199,19 @@ export function ChannelMenu({
               void leaveChannel(channel.id).catch(() =>
                 setError('Could not leave that channel.'),
               );
+            }}
+          />
+        )}
+      </DialogPresence>
+
+      <DialogPresence when={confirming === 'section'}>
+        {() => (
+          <MoveToSectionDialog
+            conversationId={channel.id}
+            name={channelTitle(channel)}
+            onClose={() => {
+              setConfirming(null);
+              onClose();
             }}
           />
         )}

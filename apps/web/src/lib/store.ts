@@ -25,6 +25,7 @@ import type {
   CallSettings,
   User,
   UserGroup,
+  SidebarSection,
   UserPrefs,
 } from "@blob/shared";
 import { applyRunEvent, foldFetchedRuns, MINE_LIMIT, runningIds } from "./agentRuns.ts";
@@ -280,6 +281,8 @@ interface State {
    *  after a reconnect, and when a Stop finds its run already over. */
   reloadRuns: () => Promise<void>;
   setPrefs: (prefs: Partial<UserPrefs>) => Promise<void>;
+  /** Your own sections in the channel list (M3 · B3): drawn at once, saved behind. */
+  setSidebarSections: (sections: SidebarSection[]) => Promise<void>;
   displayNameOf: (userId: string | null) => string;
   channelTitle: (channel: ChannelWithState) => string;
 }
@@ -561,6 +564,9 @@ async function ensureTailLoaded(
     },
   }));
 }
+
+/** Which `setSidebarSections` call is the newest, so an older answer cannot undo it. */
+let sectionSaves = 0;
 
 export const useStore = create<State>((set, get) => ({
   ready: false,
@@ -2107,6 +2113,34 @@ export const useStore = create<State>((set, get) => ({
         ? { currentUser: { ...s.currentUser, prefs: updated } }
         : {},
     );
+  },
+
+  setSidebarSections: async (sections) => {
+    // Optimistic, unlike the other preferences: folding a section or moving a channel
+    // is something the list should do under your pointer, not a round trip later.
+    const save = ++sectionSaves;
+    const before = get().currentUser?.prefs?.sidebarSections ?? [];
+    const apply = (next: SidebarSection[]) =>
+      set((s) =>
+        s.currentUser
+          ? {
+              currentUser: {
+                ...s.currentUser,
+                prefs: { ...s.currentUser.prefs, sidebarSections: next },
+              },
+            }
+          : {},
+      );
+    apply(sections);
+    try {
+      const { prefs } = await api.me.prefs({ sidebarSections: sections });
+      // Only the newest save speaks for the list: an older answer landing late would
+      // fold back a section that has been unfolded since.
+      if (save === sectionSaves) apply(prefs.sidebarSections ?? []);
+    } catch (err) {
+      if (save === sectionSaves) apply(before);
+      showError(err);
+    }
   },
 
   displayNameOf: (userId) => {

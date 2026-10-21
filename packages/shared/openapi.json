@@ -8754,6 +8754,43 @@
         "title": "SettingsInput",
         "type": "object"
       },
+      "SidebarSection": {
+        "description": "A section of your own in the channel list \u2014 Slack's \"Clients\" or \"Launch\" (M3 \u00b7 B3).\nYours alone and synced with your preferences: nobody else's list changes.",
+        "properties": {
+          "channelIds": {
+            "items": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "title": "Channelids",
+            "type": "array"
+          },
+          "collapsed": {
+            "default": false,
+            "title": "Collapsed",
+            "type": "boolean"
+          },
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "SidebarSection",
+        "type": "object"
+      },
       "SignupInput": {
         "properties": {
           "displayName": {
@@ -10193,6 +10230,21 @@
             ],
             "title": "Nudges"
           },
+          "sidebarSections": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SidebarSection"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sidebarsections"
+          },
           "snoozeUntil": {
             "anyOf": [
               {
@@ -10888,6 +10940,13 @@
             "default": true,
             "title": "Nudges",
             "type": "boolean"
+          },
+          "sidebarSections": {
+            "items": {
+              "$ref": "#/components/schemas/SidebarSection"
+            },
+            "title": "Sidebarsections",
+            "type": "array"
           },
           "snoozeUntil": {
             "anyOf": [

@@ -7951,6 +7951,24 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /**
+         * SidebarSection
+         * @description A section of your own in the channel list — Slack's "Clients" or "Launch" (M3 · B3).
+         *     Yours alone and synced with your preferences: nobody else's list changes.
+         */
+        SidebarSection: {
+            /** Channelids */
+            channelIds?: string[];
+            /**
+             * Collapsed
+             * @default false
+             */
+            collapsed: boolean;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** SignupInput */
         SignupInput: {
             /** Displayname */
@@ -8417,6 +8435,8 @@ export interface components {
             language?: string | null;
             /** Nudges */
             nudges?: boolean | null;
+            /** Sidebarsections */
+            sidebarSections?: components["schemas"]["SidebarSection"][] | null;
             /** Snoozeuntil */
             snoozeUntil?: string | null;
             /** Theme */
@@ -8645,6 +8665,8 @@ export interface components {
              * @default true
              */
             nudges: boolean;
+            /** Sidebarsections */
+            sidebarSections?: components["schemas"]["SidebarSection"][];
             /** Snoozeuntil */
             snoozeUntil?: string | null;
             /**
@@ -9109,6 +9131,7 @@ export type SessionOut = components['schemas']['SessionOut'];
 export type SessionRow = components['schemas']['SessionRow'];
 export type SessionsOut = components['schemas']['SessionsOut'];
 export type SettingsInput = components['schemas']['SettingsInput'];
+export type SidebarSection = components['schemas']['SidebarSection'];
 export type SignupInput = components['schemas']['SignupInput'];
 export type SsoBeginIn = components['schemas']['SsoBeginIn'];
 export type SsoBeginOut = components['schemas']['SsoBeginOut'];

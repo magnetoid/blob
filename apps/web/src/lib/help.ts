@@ -450,6 +450,17 @@ export const SECTIONS: Section[] = [
         keywords: ['menu', 'details', 'star', 'members', 'topic', 'leave', 'archive', 'rename'],
       },
       {
+        id: 'sidebar-sections',
+        title: 'Sections in your sidebar',
+        blurb: 'Group channels and direct messages under names of your own, like “Clients”.',
+        body: [
+          'Open the ··· menu on any channel or direct message and choose “Move to a section…”. Pick a section you already have, or make a new one by naming it. Your sections sit above Channels, and whatever is in one leaves the list it came from.',
+          'Click a section’s name to fold it; folded, it still shows anything unread and the conversation you are in. Its own ··· menu renames or deletes it — deleting puts its conversations back where they were.',
+          'Sections are yours, and follow you to every device you sign in on. Nobody else’s sidebar changes.',
+        ],
+        keywords: ['section', 'sections', 'group', 'folder', 'organise', 'organize', 'sidebar', 'collapse'],
+      },
+      {
         id: 'channel-notifications',
         title: 'How much a channel notifies you',
         blurb:

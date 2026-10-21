@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, field_validator
 
@@ -50,6 +50,17 @@ class QuietHours(CamelModel):
         return value
 
 
+class SidebarSection(CamelModel):
+    """A section of your own in the channel list — Slack's "Clients" or "Launch" (M3 · B3).
+    Yours alone and synced with your preferences: nobody else's list changes."""
+
+    id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=40)
+    #: Channels and direct messages, each in at most one section.
+    channel_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list)
+    collapsed: bool = False
+
+
 class UserPrefs(CamelModel):
     theme: Literal["light", "dark", "system"] = "system"
     density: Literal["comfortable", "compact", "airy"] = "comfortable"
@@ -72,6 +83,8 @@ class UserPrefs(CamelModel):
     #: mention, a reply in a thread you follow — at most once per window (ADR 0036).
     #: Slack's default, because it is the one people expect.
     email_when_away: Literal["quarter_hour", "hourly", "off"] = "quarter_hour"
+    #: Your own sections in the channel list, in the order they show (M3 · B3).
+    sidebar_sections: list[SidebarSection] = Field(default_factory=list)
 
 
 DEFAULT_PREFS = UserPrefs()

@@ -17,7 +17,7 @@ from pydantic import EmailStr, Field, StringConstraints, field_validator, model_
 
 from ..lib.ids import IdParam
 from .base import CamelModel
-from .models import QuietHours
+from .models import QuietHours, SidebarSection
 
 MESSAGE_MAX_LENGTH = 12_000
 
@@ -223,6 +223,34 @@ class UpdatePrefsInput(CamelModel):
     language: str | None = Field(default=None, min_length=2, max_length=16)
     auto_translate: bool | None = None
     email_when_away: Literal["quarter_hour", "hourly", "off"] | None = None
+    sidebar_sections: list[SidebarSection] | None = Field(default=None, max_length=20)
+
+    @field_validator("sidebar_sections")
+    @classmethod
+    def _one_place_each(cls, sections: list[SidebarSection] | None) -> list[SidebarSection] | None:
+        """Normalised rather than refused: a section named twice, or a conversation in two
+        sections, keeps its first place — two tabs saving at once must not be able to make
+        a sidebar that cannot be saved again. Five hundred conversations in all, so the
+        preferences row stays small."""
+        if sections is None:
+            return None
+        seen_sections: set[str] = set()
+        placed: set[str] = set()
+        kept: list[SidebarSection] = []
+        for section in sections:
+            if section.id in seen_sections:
+                continue
+            seen_sections.add(section.id)
+            ids = [i for i in dict.fromkeys(section.channel_ids) if i not in placed]
+            room = max(0, 500 - len(placed))
+            ids = ids[:room]
+            placed.update(ids)
+            kept.append(
+                section.model_copy(
+                    update={"name": section.name.strip() or "Section", "channel_ids": ids}
+                )
+            )
+        return kept
 
 
 class UploadRequestInput(CamelModel):

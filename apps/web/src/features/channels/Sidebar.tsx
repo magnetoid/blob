@@ -1,7 +1,7 @@
 /** Channel and DM navigation. */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { ChannelWithState } from '@blob/shared';
+import type { ChannelWithState, SidebarSection } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { showError } from '../../lib/toasts.ts';
 import { navigate, parseRoute, usePath } from '../../lib/router.ts';
@@ -16,7 +16,12 @@ import {
   joinedChannels,
 } from '../../lib/conversations.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
+import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
+import { Menu } from '../../components/Menu.tsx';
+import { removeSection, sectioned, toggleCollapsed } from '../../lib/sidebarSections.ts';
+import { RenameSectionDialog } from './SectionDialogs.tsx';
 import {
+  ChevronDownIcon,
   ClockIcon,
   FileIcon,
   HomeIcon,
@@ -41,6 +46,8 @@ interface SidebarProps {
   collapsed?: boolean;
 }
 
+const NO_SECTIONS: SidebarSection[] = [];
+
 export function Sidebar({ collapsed = false }: SidebarProps = {}) {
   const channels = useStore((s) => s.channels);
   const users = useStore((s) => s.users);
@@ -57,6 +64,9 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
 
   const [creating, setCreating] = useState(false);
   const [composing, setComposing] = useState(false);
+  // Your own sections (M3 · B3) come first, and what is in one leaves the lists below.
+  const sections = useStore((s) => s.currentUser?.prefs?.sidebarSections ?? NO_SECTIONS);
+  const inSections = useMemo(() => sectioned(sections), [sections]);
 
   const { joined, agentDms, dms, browsable } = useMemo(
     () => ({
@@ -70,6 +80,8 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
     [channels, users],
   );
   const arrivals = useArrivals([...joined, ...agentDms, ...dms]);
+  const isAgentDm = (channel: ChannelWithState) =>
+    (channel.memberIds ?? []).some((id) => users[id]?.kind === 'bot');
 
   // Split the same way the conversation list is, so the two sections below can never
   // show the same name twice or lose one between them.
@@ -156,9 +168,26 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
           />
         </section>
 
+        {sections.map((section) => (
+          <SectionGroup
+            key={section.id}
+            section={section}
+            sections={sections}
+            collapsed={collapsed}
+            live={(channel) =>
+              isAgentDm(channel) &&
+              (channel.memberIds ?? []).some((id) =>
+                busyAgents.has(users[id]?.displayName ?? ''),
+              )
+            }
+            arriving={arrivals.arriving}
+            onArrived={arrivals.settle}
+          />
+        ))}
+
         <section className="sidebar-section">
           {!collapsed && <h2 className="section-label">Channels</h2>}
-          {joined.map((channel) => (
+          {joined.filter((channel) => !inSections.has(channel.id)).map((channel) => (
             <ChannelRow
               key={channel.id}
               channel={channel}
@@ -217,7 +246,7 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
                 </button>
               </div>
             )}
-            {agentDms.map((channel) => (
+            {agentDms.filter((channel) => !inSections.has(channel.id)).map((channel) => (
               <ChannelRow
                 key={channel.id}
                 channel={channel}
@@ -283,7 +312,7 @@ export function Sidebar({ collapsed = false }: SidebarProps = {}) {
               <PlusIcon size="sm" />
             </button>
           )}
-          {dms.map((channel) => (
+          {dms.filter((channel) => !inSections.has(channel.id)).map((channel) => (
             <ChannelRow
               key={channel.id}
               channel={channel}
@@ -528,5 +557,136 @@ function ChannelRow({
         />
       )}
     </div>
+  );
+}
+
+/** One of your own sections (M3 · B3): its name folds it, its menu renames or deletes it.
+ *  Folded, it still shows what needs you — an unread conversation and the one you are
+ *  in — the way Slack keeps a collapsed section's unread rows. */
+function SectionGroup({
+  section,
+  sections,
+  collapsed,
+  live,
+  arriving,
+  onArrived,
+}: {
+  section: SidebarSection;
+  sections: SidebarSection[];
+  /** The sidebar is a rail of icons: rows only, no heading. */
+  collapsed: boolean;
+  live: (channel: ChannelWithState) => boolean;
+  arriving: (id: string) => boolean;
+  onArrived: (id: string) => void;
+}) {
+  const channels = useStore((s) => s.channels);
+  const activeChannelId = useStore((s) => s.activeChannelId);
+  const channelTitle = useStore((s) => s.channelTitle);
+  const setSidebarSections = useStore((s) => s.setSidebarSections);
+  const [menu, setMenu] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const conversations = section.channelIds
+    .map((id) => channels[id])
+    .filter(
+      (channel): channel is ChannelWithState =>
+        channel !== undefined && channel.membership !== null && !channel.archivedAt,
+    )
+    .sort((a, b) => channelTitle(a).localeCompare(channelTitle(b)));
+  const shown = section.collapsed
+    ? conversations.filter(
+        (channel) =>
+          channel.id === activeChannelId || channel.hasUnread || channel.mentionCount > 0,
+      )
+    : conversations;
+
+  return (
+    <section className="sidebar-section" aria-label={section.name}>
+      {!collapsed && (
+        <div className="section-label-row section-head">
+          <button
+            type="button"
+            className="section-toggle"
+            aria-expanded={!section.collapsed}
+            onClick={() => void setSidebarSections(toggleCollapsed(sections, section.id))}
+          >
+            <ChevronDownIcon size="sm" />
+            <span className="section-label">{section.name}</span>
+          </button>
+          <button
+            type="button"
+            className="channel-kebab section-kebab"
+            aria-label={`Options for ${section.name}`}
+            aria-haspopup="menu"
+            aria-expanded={menu}
+            onClick={() => setMenu(true)}
+          >
+            ···
+          </button>
+          <Menu
+            open={menu}
+            onClose={() => setMenu(false)}
+            className="menu"
+            suspendDismiss={renaming || deleting}
+          >
+            <button
+              className="menu-item"
+              role="menuitem"
+              onClick={() => {
+                setMenu(false);
+                setRenaming(true);
+              }}
+            >
+              <span className="menu-check" aria-hidden="true" />
+              Rename section…
+            </button>
+            <button
+              className="menu-item menu-item-danger"
+              role="menuitem"
+              onClick={() => {
+                setMenu(false);
+                setDeleting(true);
+              }}
+            >
+              <span className="menu-check" aria-hidden="true" />
+              Delete section
+            </button>
+          </Menu>
+        </div>
+      )}
+      {shown.map((channel) => (
+        <ChannelRow
+          key={channel.id}
+          channel={channel}
+          collapsed={collapsed}
+          live={live(channel)}
+          arriving={arriving(channel.id)}
+          onArrived={onArrived}
+        />
+      ))}
+      {!collapsed && !section.collapsed && conversations.length === 0 && (
+        <p className="section-empty">Move a conversation here from its ··· menu.</p>
+      )}
+
+      <DialogPresence when={renaming}>
+        {() => <RenameSectionDialog section={section} onClose={() => setRenaming(false)} />}
+      </DialogPresence>
+      <DialogPresence when={deleting}>
+        {() => (
+          <ConfirmDialog
+            title={`Delete “${section.name}”?`}
+            body="Its conversations go back to where they were. Only the section goes."
+            confirmLabel="Delete section"
+            danger
+            onClose={() => setDeleting(false)}
+            onConfirm={() => {
+              setDeleting(false);
+              void setSidebarSections(removeSection(sections, section.id));
+            }}
+          />
+        )}
+      </DialogPresence>
+    </section>
   );
 }

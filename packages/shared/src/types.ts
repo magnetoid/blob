@@ -54,6 +54,15 @@ export interface CurrentUser extends User {
   isInstanceAdmin: boolean;
 }
 
+/** A section of your own in the channel list (M3 · B3). */
+export interface SidebarSection {
+  id: string;
+  name: string;
+  /** Channels and direct messages, each in at most one section. */
+  channelIds: string[];
+  collapsed: boolean;
+}
+
 export interface UserPrefs {
   theme: 'light' | 'dark' | 'system';
   density: 'comfortable' | 'compact' | 'airy';
@@ -74,6 +83,8 @@ export interface UserPrefs {
   /** Email about what was addressed to me while I had no Blob open, bundled at most once
    * per window (ADR 0036). */
   emailWhenAway: 'quarter_hour' | 'hourly' | 'off';
+  /** Your own sections in the channel list, in the order they show. */
+  sidebarSections: SidebarSection[];
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -89,6 +100,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   autoTranslate: false,
   nudges: true,
   emailWhenAway: 'quarter_hour',
+  sidebarSections: [],
 };
 
 export interface Channel {
