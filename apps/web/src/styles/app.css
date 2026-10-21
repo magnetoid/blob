@@ -9673,6 +9673,12 @@ button.person-trigger:hover {
   opacity: 1;
 }
 
+/* Save and Cancel under a field that changed. */
+.field-actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* A draft's row opens where it was being written (ADR 0037): the whole row is the button,
    and a long draft shows its first two lines. */
 .draft-open {

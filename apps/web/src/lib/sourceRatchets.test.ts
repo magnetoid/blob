@@ -51,11 +51,12 @@ describe('inline styles keep leaving the components', () => {
    * and cards to spend it in, and their one-off margins and max-widths went with it.
    * Most of what is left is a value that is data — a palette's own colours, a bar's
    * height — or sits outside the consoles. 42 on 2026-10-08: the skeleton's widths moved
-   * into the stylesheet (ListSkeleton), and the home ask lost its wrapper. Lower this,
+   * into the stylesheet (ListSkeleton), and the home ask lost its wrapper. 41 on
+   * 2026-10-21: Channel details' Save and Cancel became `.field-actions`. Lower this,
    * never raise it.
    */
   it('is at most the last committed count', () => {
-    expect(occurrences('style={{', ['.tsx'])).toBeLessThanOrEqual(42);
+    expect(occurrences('style={{', ['.tsx'])).toBeLessThanOrEqual(41);
   });
 });
 

@@ -89,7 +89,8 @@ export type Route =
   | { view: 'decisions' }
   | { view: 'saved' }
   | { view: 'browse' }
-  | { view: 'files' }
+  /** Every file you can see, or one conversation's — Slack's Files tab (M3 · B3). */
+  | { view: 'files'; channelId?: string }
   | { view: 'scheduled' }
   /** What you typed and did not send, from every device (ADR 0037). */
   | { view: 'drafts' }
@@ -155,7 +156,10 @@ export function parseRoute(path: string): Route {
   if (clean === '/decisions') return { view: 'decisions' };
   if (clean === '/later') return { view: 'saved' };
   if (clean === '/channels') return { view: 'browse' };
-  if (clean === '/files') return { view: 'files' };
+  if (clean === '/files') {
+    const channelId = params.get('channel');
+    return channelId ? { view: 'files', channelId } : { view: 'files' };
+  }
   if (clean === '/scheduled') return { view: 'scheduled' };
   if (clean === '/drafts') return { view: 'drafts' };
   if (clean === '/whats-new') return { view: 'changelog' };
@@ -256,7 +260,7 @@ export function pathForRoute(route: Route): string {
     case 'browse':
       return '/channels';
     case 'files':
-      return '/files';
+      return route.channelId ? `/files?channel=${encodeURIComponent(route.channelId)}` : '/files';
     case 'scheduled':
       return '/scheduled';
     case 'drafts':

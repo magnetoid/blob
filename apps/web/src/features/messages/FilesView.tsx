@@ -12,13 +12,18 @@ import { useFetch } from '../../lib/useFetch.ts';
 import { EmptyState } from '../../components/EmptyState.tsx';
 import { TileSkeleton } from '../../components/ListSkeleton.tsx';
 import { revealIfCached, revealOnError, revealOnLoad } from '../../lib/imageReveal.ts';
+import { navigate } from '../../lib/router.ts';
+import { useStore } from '../../lib/store.ts';
 
-export function FilesView() {
+export function FilesView({ channelId }: { channelId?: string } = {}) {
   const [kind, setKind] = useState<'all' | 'image' | 'file'>('all');
   const [open, setOpen] = useState<FileEntry | null>(null);
+  const channel = useStore((s) => (channelId ? s.channels[channelId] : undefined));
+  const channelTitle = useStore((s) => s.channelTitle);
   const { data, loading } = useFetch(
-    async (): Promise<FileEntry[]> => (await api.files.list({ kind })).items,
-    [kind],
+    async (): Promise<FileEntry[]> =>
+      (await api.files.list(channelId ? { kind, channelId } : { kind })).items,
+    [kind, channelId],
     { onError: showError },
   );
   // Null while a filter's request is out, so the grid does not show the last filter's
@@ -30,10 +35,22 @@ export function FilesView() {
       <header className="pane-header">
         <div className="min-0">
           <div className="pane-heading">
-            <h1 className="pane-title">Files</h1>
+            <h1 className="pane-title">
+              {channel ? `Files in ${channelTitle(channel)}` : 'Files'}
+            </h1>
           </div>
-          <div className="pane-sub">Pictures and files from channels you are in</div>
+          <div className="pane-sub">
+            {channel ? 'Pictures and files posted in this conversation' : 'Pictures and files from channels you are in'}
+          </div>
         </div>
+        {channel && (
+          <>
+            <div className="pane-spacer" />
+            <button className="btn btn-ghost" type="button" onClick={() => navigate('/files')}>
+              All files
+            </button>
+          </>
+        )}
       </header>
 
       <div className="chip-row" style={{ padding: '0 16px 8px' }}>

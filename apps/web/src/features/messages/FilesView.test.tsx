@@ -48,4 +48,16 @@ describe('FilesView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Images' }));
     await waitFor(() => expect(listFiles).toHaveBeenCalledWith({ kind: 'image' }));
   });
+
+  it('shows one conversation’s files when it is given one (M3 · B3)', async () => {
+    const { useStore } = await import('../../lib/store.ts');
+    useStore.setState({
+      channels: { c1: { id: 'c1', kind: 'public', name: 'design' } },
+      channelTitle: (channel: { name: string }) => `#${channel.name}`,
+    } as never);
+    render(<FilesView channelId="c1" />);
+    await waitFor(() => expect(listFiles).toHaveBeenCalledWith({ kind: 'all', channelId: 'c1' }));
+    expect(screen.getByRole('heading', { name: 'Files in #design' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'All files' })).toBeTruthy();
+  });
 });

@@ -1249,7 +1249,12 @@ export const api = {
     }) => post<{ channel: ChannelWithState }>("/api/channels", input),
     update: (
       id: string,
-      input: { name?: string; topic?: string | null; nudgeUnanswered?: boolean },
+      input: {
+        name?: string;
+        topic?: string | null;
+        description?: string | null;
+        nudgeUnanswered?: boolean;
+      },
     ) => patch<{ channel: ChannelWithState }>(`/api/channels/${id}`, input),
     join: (id: string) =>
       post<{ channel: ChannelWithState }>(`/api/channels/${id}/join`),

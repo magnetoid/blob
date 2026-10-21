@@ -259,8 +259,8 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 
 - **Channels** — public and private, topics, starring, archiving, per-channel notification
   levels, and a searchable directory of every open channel with member counts and
-  join-in-place. Sections of your own in the sidebar — "Clients", "Launch" — fold, rename,
-  and follow you to every device.
+  join-in-place, and each channel's own Files and description. Sections of your own in the
+  sidebar — "Clients", "Launch" — fold, rename, and follow you to every device.
 - **Direct messages** — one-to-one, group DMs of up to nine people counting you, and a
   conversation with yourself for notes.
 - **Messages** — a small deliberate Markdown subset (bold, italics, strike, inline and

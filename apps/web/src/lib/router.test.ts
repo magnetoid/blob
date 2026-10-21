@@ -40,6 +40,13 @@ describe('parseRoute', () => {
     }
   });
 
+  it('reads one conversation’s files, and writes them back (M3 · B3)', () => {
+    expect(parseRoute('/files?channel=c1')).toEqual({ view: 'files', channelId: 'c1' });
+    expect(parseRoute('/files')).toEqual({ view: 'files' });
+    expect(pathForRoute({ view: 'files', channelId: 'c1' })).toBe('/files?channel=c1');
+    expect(pathForRoute({ view: 'files' })).toBe('/files');
+  });
+
   it('ignores a trailing slash', () => {
     expect(parseRoute('/admin/audit/')).toEqual({ view: 'admin', section: 'audit' });
     expect(parseRoute('/search//')).toEqual({ view: 'search' });

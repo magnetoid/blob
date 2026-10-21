@@ -444,7 +444,7 @@ export const SECTIONS: Section[] = [
         title: 'The menu on the channel name',
         blurb: 'Click the name at the top of a conversation for details, notifications, starring, leaving and archiving.',
         body: [
-          '“Channel details” is where the topic and the member list live — add someone by typing their name.',
+          '“Channel details” is where the topic, the description and the member list live — add someone by typing their name. Files, beside Pinned at the top of a conversation, shows every picture and file posted there.',
           'Starring pins a channel to the top of your sidebar. It is yours: nobody else’s list changes.',
           'Two things have no button anywhere and are only reachable as commands: renaming a channel is /rename, and taking somebody out of one is /remove. Channel details can add people and not remove them.',
           'Leaving a private channel removes it from your app completely — you cannot find your way back without somebody adding you again. A public one stays in the directory to rejoin.',

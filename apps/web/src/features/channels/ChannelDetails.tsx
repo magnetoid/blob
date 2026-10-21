@@ -36,6 +36,10 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
 
   const membershipVersion = useStore((s) => s.membershipVersion[channel.id] ?? 0);
   const [topic, setTopic] = useState(channel.topic ?? '');
+  // What the channel is for, at more length than a topic line (M3 · B3) — Slack's
+  // description, which a channel had a column for and nowhere to write.
+  const [description, setDescription] = useState(channel.description ?? '');
+  const [savingDescription, setSavingDescription] = useState(false);
   const [savingNudge, setSavingNudge] = useState(false);
   const [savingTopic, setSavingTopic] = useState(false);
   const [query, setQuery] = useState('');
@@ -47,6 +51,7 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
 
   const archived = channel.archivedAt !== null;
   const topicChanged = topic.trim() !== (channel.topic ?? '');
+  const descriptionChanged = description.trim() !== (channel.description ?? '');
 
   const { data: memberIds, reload: reloadMembers } = useFetch(
     async (): Promise<string[]> => (await api.channels.members(channel.id)).userIds,
@@ -95,6 +100,21 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
       });
     } finally {
       setSavingTopic(false);
+    }
+  }
+
+  async function saveDescription() {
+    setSavingDescription(true);
+    setError(null);
+    try {
+      await api.channels.update(channel.id, { description: description.trim() || null });
+    } catch (err) {
+      setError({
+        text: err instanceof ApiError ? err.message : 'That description did not save.',
+        refused: true,
+      });
+    } finally {
+      setSavingDescription(false);
     }
   }
 
@@ -152,14 +172,40 @@ export function ChannelDetails({ channel, onClose, onMembers }: Props) {
           />
         </label>
         {topicChanged && !archived && (
-          <div>
+          <div className="field-actions">
             <button className="btn" onClick={() => void saveTopic()} disabled={savingTopic}>
               {savingTopic ? 'Saving…' : 'Save topic'}
             </button>
+            <button className="btn btn-ghost" onClick={() => setTopic(channel.topic ?? '')}>
+              Cancel
+            </button>
+          </div>
+        )}
+
+        <label className="field">
+          <span className="field-label">Description</span>
+          <textarea
+            className="input"
+            rows={3}
+            value={description}
+            disabled={archived}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="What is this channel for, and who should be in it?"
+            maxLength={2000}
+          />
+        </label>
+        {descriptionChanged && !archived && (
+          <div className="field-actions">
+            <button
+              className="btn"
+              onClick={() => void saveDescription()}
+              disabled={savingDescription}
+            >
+              {savingDescription ? 'Saving…' : 'Save description'}
+            </button>
             <button
               className="btn btn-ghost"
-              onClick={() => setTopic(channel.topic ?? '')}
-              style={{ marginLeft: 8 }}
+              onClick={() => setDescription(channel.description ?? '')}
             >
               Cancel
             </button>

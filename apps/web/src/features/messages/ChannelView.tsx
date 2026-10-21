@@ -12,10 +12,12 @@ import { MessageList } from "./MessageList.tsx";
 import { Composer } from "./Composer.tsx";
 import {
   ChevronDownIcon,
+  FileIcon,
   MembersIcon,
   PinIcon,
   SparkIcon,
 } from "../../components/Icon.tsx";
+import { navigate } from "../../lib/router.ts";
 import { CallButton } from "../calls/CallButton.tsx";
 import { PinnedPanel } from "./PinnedPanel.tsx";
 import { CatchUpStrip } from "./CatchUpStrip.tsx";
@@ -317,6 +319,17 @@ export function ChannelView() {
         >
           <SparkIcon size="md" />
           <span className="pane-action-label">Catch up</span>
+        </button>
+        {/* Slack's Files tab: this conversation's pictures and files (M3 · B3). */}
+        <button
+          className="btn btn-ghost"
+          title="Files in this conversation"
+          // Its own name, not the top bar's "Files": the two go to different places.
+          aria-label="Files in this conversation"
+          onClick={() => navigate(`/files?channel=${encodeURIComponent(channel.id)}`)}
+        >
+          <FileIcon size="md" />
+          <span className="pane-action-label">Files</span>
         </button>
         <div className="relative">
           <button

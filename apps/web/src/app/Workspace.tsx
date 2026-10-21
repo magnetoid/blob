@@ -557,7 +557,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         {view === 'decisions' && <DecisionsView />}
         {view === 'saved' && <SavedView />}
         {view === 'browse' && <BrowseChannels />}
-        {view === 'files' && <FilesView />}
+        {view === 'files' && (
+          <FilesView channelId={route.view === 'files' ? route.channelId : undefined} />
+        )}
         {view === 'scheduled' && <ScheduledView />}
         {view === 'drafts' && <DraftsView />}
         {view === 'changelog' && <WhatsNewView />}
