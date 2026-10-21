@@ -328,6 +328,17 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `/api/admin/security` (M3 · C3): any admin's; the server's half of the page appears
+    // only for whoever runs the server, as the logs do.
+    // `posture`, not `security`: the person's own Settings has a Security page already, and
+    // the two consoles share no section id.
+    id: 'posture',
+    label: 'Security',
+    description: 'How people and agents sign in and act here, and how the server was deployed.',
+    keywords: ['security', 'posture', 'passkeys', 'two-step', 'mfa', 'cookie', 'redis'],
+    access: 'admin',
+  },
+  {
     // `/api/admin/retention` (ADR 0039): any admin's; saving a window or a hold asks for a
     // recent sign-in, which the step-up prompt answers on its own.
     id: 'retention',

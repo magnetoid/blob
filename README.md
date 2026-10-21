@@ -397,6 +397,11 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 - **Export** — an admin exports the workspace's public channels and its people; anyone
   exports every conversation they are in. A zip of JSON lines `jq` reads, never a private
   conversation that is not yours.
+- **A Security page** — every admin sees where the workspace stands: admins on passkeys,
+  agents that post without asking or act with Blob's tools, assistants signed in as
+  people, how long history is kept. Whoever runs the server also sees how it was deployed:
+  the session cookie, Redis's password, agents on the private network, what leaves for
+  monitoring.
 - **Retention and legal hold** — an admin sets how long messages, and separately files,
   are kept; a nightly sweep removes what is past the line the way a delete does, keeps
   threads' shape, and never touches tasks or decisions. A change waits a day before it
@@ -1068,7 +1073,7 @@ layering rules, and an image job that builds the Dockerfile, writes its SBOM and
 a fixable critical vulnerability in it, boots `docker-compose.prod.yml`, asserts
 `/healthz` and `/readyz` answer — and then runs the client against it (`e2e/`): two
 people founding a workspace, inviting, messaging live, threading, reacting, searching and
-passing a file through storage, then axe on sixteen pages. Nothing is stubbed.
+passing a file through storage, then axe on seventeen pages. Nothing is stubbed.
 
 CI also builds the client and holds its first load — the JavaScript `index.html` asks
 for, gzipped — to a budget (`node scripts/bundle-budget.mjs`), which also fails if the

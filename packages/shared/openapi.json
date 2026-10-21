@@ -9222,6 +9222,69 @@
         "title": "SecretOut",
         "type": "object"
       },
+      "SecurityCheckOut": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "info"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "state",
+          "detail"
+        ],
+        "title": "SecurityCheckOut",
+        "type": "object"
+      },
+      "SecurityOut": {
+        "properties": {
+          "server": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SecurityCheckOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
+          },
+          "workspace": {
+            "items": {
+              "$ref": "#/components/schemas/SecurityCheckOut"
+            },
+            "title": "Workspace",
+            "type": "array"
+          }
+        },
+        "required": [
+          "workspace"
+        ],
+        "title": "SecurityOut",
+        "type": "object"
+      },
       "SendMessageInput": {
         "properties": {
           "alsoInChannel": {
@@ -17159,6 +17222,24 @@
           }
         },
         "summary": "Preview Retention"
+      }
+    },
+    "/api/admin/security": {
+      "get": {
+        "operationId": "security_api_admin_security_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Security"
       }
     },
     "/api/admin/settings": {

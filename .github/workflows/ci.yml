@@ -189,7 +189,7 @@ jobs:
 
       # The client against that server, as two people: founding the workspace, an
       # invitation, a message arriving live, a thread, a reaction, search and a file
-      # through storage — and then axe on sixteen pages, failing on anything serious.
+      # through storage — and then axe on seventeen pages, failing on anything serious.
       # Chrome is the runner's own; nothing downloads a browser.
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4

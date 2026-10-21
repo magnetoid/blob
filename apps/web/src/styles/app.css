@@ -9713,6 +9713,24 @@ button.person-trigger:hover {
   white-space: pre;
 }
 
+/* A Security page check whose title is where it is changed. */
+.security-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.security-link:hover,
+.security-link:focus-visible {
+  text-decoration: underline;
+}
+
+/* A Security page check that is worth a look (M3 · C3): said in the signal colour. */
+.security-check[data-state='attention'] .role-pill {
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--danger);
+}
+
 /* Where a workspace's retention stands, or what a draft of it would remove. */
 .retention-standing {
   display: grid;

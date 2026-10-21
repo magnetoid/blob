@@ -1022,6 +1022,15 @@ export interface RetentionView {
   heldPeople: { id: string; displayName: string; heldAt: string; heldBy: string | null }[];
 }
 
+/** One line of the console's Security page (M3 · C3). */
+export interface SecurityCheck {
+  id: string;
+  title: string;
+  /** `attention` is worth a look; `info` is a choice either way. */
+  state: "ok" | "attention" | "info";
+  detail: string;
+}
+
 /** A fault the client threw in somebody's browser, as the workspace's admins see it. */
 export interface ClientErrorEntry {
   fingerprint: string;
@@ -1859,6 +1868,10 @@ export const api = {
       put<{ ok: true }>(`/api/admin/channels/${id}/legal-hold`, { held }),
     holdPerson: (id: string, held: boolean) =>
       put<{ ok: true }>(`/api/admin/users/${id}/legal-hold`, { held }),
+
+    /** Where the workspace stands, and the server for whoever runs it (M3 · C3). */
+    security: () =>
+      get<{ workspace: SecurityCheck[]; server: SecurityCheck[] | null }>("/api/admin/security"),
 
     /** Errors the client threw in people's browsers here (ADR 0025's addendum). */
     clientErrors: () => get<{ errors: ClientErrorEntry[] }>("/api/admin/client-errors"),

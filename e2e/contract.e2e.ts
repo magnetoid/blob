@@ -141,6 +141,7 @@ const PAGES = [
   '/admin/people',
   '/admin/channels',
   '/admin/retention',
+  '/admin/posture',
   '/admin/export',
   '/admin/audit',
 ];

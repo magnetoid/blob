@@ -109,7 +109,7 @@ engine and Redis clients are bound to the loop that created them.
 `check` (the gate plus `alembic check`), `image` (build the Dockerfile, write its SBOM and
 fail on a fixable critical with pinned Syft/Grype binaries, boot `docker-compose.prod.yml`
 plus `e2e/compose.ci.yml`, hit `/healthz` and `/readyz`, then `pnpm --filter @blob/e2e e2e`:
-the client as two people against that server, and axe on sixteen pages), `supply-chain`
+the client as two people against that server, and axe on seventeen pages), `supply-chain`
 (pip-audit, pnpm audit, gitleaks) and `intent` (`torsor guard --strict --severity error`
 over `git ls-files '*.py'`). The e2e run founds the workspace, so it needs a *fresh*
 server and runs once — no retries. On a green push to

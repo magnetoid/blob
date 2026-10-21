@@ -58,6 +58,7 @@ describe('the server console’s nav', () => {
       'MCP servers',
       'Usage',
       'Export',
+      'Security',
       'Retention',
       'Webhooks',
       'Deliveries',
@@ -119,7 +120,7 @@ describe('the server console’s nav', () => {
     expect(screen.queryAllByRole('heading')).toEqual([]);
 
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: '' } });
-    expect(rowLabels(container)).toHaveLength(22);
+    expect(rowLabels(container)).toHaveLength(23);
   });
 });
 

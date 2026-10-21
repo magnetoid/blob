@@ -1737,6 +1737,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/security": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Security */
+        get: operations["security_api_admin_security_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/settings": {
         parameters: {
             query?: never;
@@ -8304,6 +8321,27 @@ export interface components {
             /** Signingsecret */
             signingSecret: string;
         };
+        /** SecurityCheckOut */
+        SecurityCheckOut: {
+            /** Detail */
+            detail: string;
+            /** Id */
+            id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "attention" | "info";
+            /** Title */
+            title: string;
+        };
+        /** SecurityOut */
+        SecurityOut: {
+            /** Server */
+            server?: components["schemas"]["SecurityCheckOut"][] | null;
+            /** Workspace */
+            workspace: components["schemas"]["SecurityCheckOut"][];
+        };
         /** SendMessageInput */
         SendMessageInput: {
             /**
@@ -9595,6 +9633,8 @@ export type ScheduledOut = components['schemas']['ScheduledOut'];
 export type ScheduleInput = components['schemas']['ScheduleInput'];
 export type SearchOut = components['schemas']['SearchOut'];
 export type SecretOut = components['schemas']['SecretOut'];
+export type SecurityCheckOut = components['schemas']['SecurityCheckOut'];
+export type SecurityOut = components['schemas']['SecurityOut'];
 export type SendMessageInput = components['schemas']['SendMessageInput'];
 export type ServerLogEntry = components['schemas']['ServerLogEntry'];
 export type ServerLogsOut = components['schemas']['ServerLogsOut'];
@@ -12790,6 +12830,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    security_api_admin_security_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecurityOut"];
                 };
             };
         };
