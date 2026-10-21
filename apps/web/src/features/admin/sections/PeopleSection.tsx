@@ -11,6 +11,11 @@ import { formatRelative } from "../../messages/messageFormatting.ts";
 import { CardNotice } from "../../console/Card.tsx";
 import { useAdminAction } from '../../console/hooks.ts';
 
+/** "1 session", "2 sessions". */
+function sessions(count: number): string {
+  return count === 1 ? "1 session" : `${count} sessions`;
+}
+
 export function PeopleSection({
   isOwner,
   isInstanceAdmin = false,
@@ -74,11 +79,13 @@ export function PeopleSection({
       ) : users.length === 0 ? (
         <CardNotice>Nobody matched “{query}”.</CardNotice>
       ) : (
-        <div className="console-list" role="table">
+        // A list, not a table: these rows have no cells to be a table's rows, and axe
+        // reads `role="row"` without them as broken structure (critical, in CI's scan).
+        <div className="console-list" role="list">
           {users.map((user) => (
             <div
               className="admin-row"
-              role="row"
+              role="listitem"
               key={user.id}
               data-inactive={user.deactivatedAt !== null}
             >
@@ -160,7 +167,7 @@ export function PeopleSection({
                   mayActOn(user) && (
                     <button
                       className="btn btn-ghost"
-                      aria-label={`Stop asking ${user.displayName} for a passkey`}
+                      aria-label={`End two-step for ${user.displayName}: stop asking for a passkey`}
                       title="For someone who lost the devices their passkeys were on"
                       onClick={() => setEndingTwoStep(user)}
                     >
@@ -175,8 +182,10 @@ export function PeopleSection({
                     onClick={() =>
                       void act(() => api.admin.revokeSessions(user.id))
                     }
-                    aria-label={`Sign ${user.displayName} out of ${user.sessionCount} session(s)`}
-                    title={`Sign out of ${user.sessionCount} session(s)`}
+                    // The visible words first, so a voice command that says what it sees
+                    // ("click Sign out") finds the button — WCAG 2.5.3.
+                    aria-label={`Sign out ${user.displayName}: ${sessions(user.sessionCount)}`}
+                    title={`Sign out of ${sessions(user.sessionCount)}`}
                   >
                     Sign out
                   </button>

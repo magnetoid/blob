@@ -1,0 +1,17 @@
+{
+  "name": "@blob/e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The client is the contract: one browser run against a booted production image.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^22.20.1",
+    "typescript": "^5.7.2"
+  }
+}

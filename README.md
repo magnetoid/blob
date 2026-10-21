@@ -1060,8 +1060,18 @@ CI runs that against a real Postgres, Redis and MinIO — because what the tests
 (idempotent inserts, unread math, the permission join that keeps private channels out of
 other people's search results) lives in SQL — plus three things `pnpm check` does not
 cover: `alembic check` for schema drift, `torsor guard --strict --severity error` for the
-layering rules, and an image job that builds the Dockerfile, boots
-`docker-compose.prod.yml` and asserts `/healthz` and `/readyz` answer.
+layering rules, and an image job that builds the Dockerfile, writes its SBOM and fails on
+a fixable critical vulnerability in it, boots `docker-compose.prod.yml`, asserts
+`/healthz` and `/readyz` answer — and then runs the client against it (`e2e/`): two
+people founding a workspace, inviting, messaging live, threading, reacting, searching and
+passing a file through storage, then axe on sixteen pages. Nothing is stubbed.
+
+To run that last part on your machine, boot a fresh server on one origin (the API with
+`WEB_DIST=apps/web/dist` after `pnpm build`, or the production compose file) and:
+
+```bash
+E2E_BASE_URL=http://localhost:3000 pnpm --filter @blob/e2e e2e   # uses your installed Chrome
+```
 
 Running one thing:
 

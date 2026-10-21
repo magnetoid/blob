@@ -1,0 +1,10 @@
+# The production stack as CI boots it, reachable from the runner for the browser run: the
+# app and MinIO published on localhost, nothing else changed. Production publishes no
+# ports — Traefik fronts both — which is why this is an override and not an edit.
+services:
+  app:
+    ports:
+      - "3000:3000"
+  minio:
+    ports:
+      - "9000:9000"

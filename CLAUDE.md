@@ -103,11 +103,15 @@ bring storage up before trusting a clean run of those. `conftest.py` migrates on
 session and `TRUNCATE`s before every test; the event loop is session-scoped because the
 engine and Redis clients are bound to the loop that created them.
 
-**A merge to `main` ships to production.** `.github/workflows/ci.yml` runs three jobs —
-`check` (the gate plus `alembic check`), `image` (build the Dockerfile, boot
-`docker-compose.prod.yml`, hit `/healthz` and `/readyz`), and `intent`
-(`torsor guard --strict --severity error` over `git ls-files '*.py'`). On a green push to
-`main` a fourth job, `deploy`, POSTs `/api/v1/deploy` carrying **both** application
+**A merge to `main` ships to production.** `.github/workflows/ci.yml` runs four jobs —
+`check` (the gate plus `alembic check`), `image` (build the Dockerfile, write its SBOM and
+fail on a fixable critical with pinned Syft/Grype binaries, boot `docker-compose.prod.yml`
+plus `e2e/compose.ci.yml`, hit `/healthz` and `/readyz`, then `pnpm --filter @blob/e2e e2e`:
+the client as two people against that server, and axe on sixteen pages), `supply-chain`
+(pip-audit, pnpm audit, gitleaks) and `intent` (`torsor guard --strict --severity error`
+over `git ls-files '*.py'`). The e2e run founds the workspace, so it needs a *fresh*
+server and runs once — no retries. On a green push to
+`main` a fifth job, `deploy`, POSTs `/api/v1/deploy` carrying **both** application
 uuids, so one call ships both instances and Coolify queues them rather than building
 them side by side — the server is fixed at one concurrent build, which is the 2026-09-05
 rule. A push is live nine or ten minutes later, not one.

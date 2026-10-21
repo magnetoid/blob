@@ -54,8 +54,8 @@ async function offered(props: { isOwner: boolean; isInstanceAdmin?: boolean }) {
     screen.queryAllByRole('button', { name: label }).map((b) => b.getAttribute('aria-label'));
   return {
     reset: names(/^Make a password reset link for /),
-    signOut: names(/^Sign .* out of /),
-    endTwoStep: names(/^Stop asking .* for a passkey$/),
+    signOut: names(/^Sign out .*: \d+ sessions?$/),
+    endTwoStep: names(/^End two-step for .*: stop asking for a passkey$/),
   };
 }
 
@@ -64,13 +64,13 @@ describe('two-step sign-in', () => {
     const asAdmin = await offered({ isOwner: false });
     expect(screen.getAllByText('two-step')).toHaveLength(2);
     // A member's is any admin's to end; the owner's only the server administrator's.
-    expect(asAdmin.endTwoStep).toEqual(['Stop asking Mia Member for a passkey']);
+    expect(asAdmin.endTwoStep).toEqual(['End two-step for Mia Member: stop asking for a passkey']);
     cleanup();
 
     const asServerAdmin = await offered({ isOwner: false, isInstanceAdmin: true });
     expect(asServerAdmin.endTwoStep).toEqual([
-      'Stop asking Olive Owner for a passkey',
-      'Stop asking Mia Member for a passkey',
+      'End two-step for Olive Owner: stop asking for a passkey',
+      'End two-step for Mia Member: stop asking for a passkey',
     ]);
   });
 });
@@ -79,10 +79,7 @@ describe('what an admin is offered on each row', () => {
   it('lets a plain admin act on members, and sign only themselves out besides', async () => {
     const { reset, signOut } = await offered({ isOwner: false });
     expect(reset).toEqual(['Make a password reset link for Mia Member']);
-    expect(signOut).toEqual([
-      'Sign Mia Member out of 2 session(s)',
-      'Sign Me Myself out of 2 session(s)',
-    ]);
+    expect(signOut).toEqual(['Sign out Mia Member: 2 sessions', 'Sign out Me Myself: 2 sessions']);
   });
 
   it('lets the owner act on admins too, but not on the owner', async () => {

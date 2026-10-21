@@ -97,9 +97,14 @@ jobs:
 
   # Builds the image and boots the real production stack. Worth its own job: the two
   # failures this catches — a uv too old for the lockfile revision, and corepack
-  # prompting instead of downloading — happen only in a container, never locally.
+  # prompting instead of downloading — happen only in a container, never locally. Then
+  # the client is run against it (`e2e/`): the README's "the client is the contract",
+  # proven on the image that ships rather than on the parts.
   image:
     runs-on: ubuntu-latest
+    env:
+      # The production compose file, plus the two published ports the browser run needs.
+      COMPOSE_FILE: docker-compose.prod.yml:e2e/compose.ci.yml
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -115,6 +120,35 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # What is in the image, written down (SPDX and CycloneDX), and checked against the
+      # advisory databases. Binaries pinned by version and checksum, not actions: the
+      # scanner most workflows used, Trivy, had its action tags force-pushed to a secret
+      # stealer in March 2026 (CVE-2026-33634), and this workflow holds the deploy
+      # secret. A *fixable* critical fails the build; everything else is in the table and
+      # the SBOM, and Dependabot moves the base image on.
+      - name: SBOM, and no fixable critical vulnerability in the image
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/syft.tgz" \
+            https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_linux_amd64.tar.gz
+          echo "c069905b391cc4c20a5ba65ad5c10be2a7ba074f8ea6ad203e24d14e303dad47  $RUNNER_TEMP/syft.tgz" | sha256sum -c -
+          curl -sSfL -o "$RUNNER_TEMP/grype.tgz" \
+            https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_linux_amd64.tar.gz
+          echo "0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d  $RUNNER_TEMP/grype.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/syft.tgz" -C "$RUNNER_TEMP" syft
+          tar -xzf "$RUNNER_TEMP/grype.tgz" -C "$RUNNER_TEMP" grype
+          mkdir -p sbom
+          "$RUNNER_TEMP/syft" docker:blob:ci -q \
+            -o spdx-json=sbom/blob.spdx.json -o cyclonedx-json=sbom/blob.cdx.json
+          "$RUNNER_TEMP/grype" sbom:sbom/blob.spdx.json --only-fixed --fail-on critical
+
+      - name: Keep the SBOM
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom/
+          if-no-files-found: ignore
+
       # A build that produces an image which cannot boot is not a passing build. This
       # exercises the entrypoint's advisory-locked migration against a real Postgres.
       - name: Boot the production stack
@@ -124,11 +158,13 @@ jobs:
           SERVICE_BASE64_64_SESSION: ci-session-secret-at-least-32-characters-long
           SERVICE_USER_MINIO: ciMinioUser
           SERVICE_PASSWORD_MINIO: ciMinioPassword123
-        run: docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240
+          # Where a browser on the runner reaches storage for a presigned upload.
+          S3_PUBLIC_ENDPOINT: http://localhost:9000
+        run: docker compose up -d --wait --wait-timeout 240
 
       - name: The app is live and its dependencies are reachable
         run: |
-          docker compose -f docker-compose.prod.yml exec -T app python -c "
+          docker compose exec -T app python -c "
           import json, urllib.request
           for path in ('healthz', 'readyz'):
               body = json.loads(urllib.request.urlopen(f'http://127.0.0.1:3000/{path}', timeout=10).read())
@@ -143,15 +179,40 @@ jobs:
 
       - name: The schema reached head
         run: |
-          docker compose -f docker-compose.prod.yml exec -T postgres \
+          docker compose exec -T postgres \
             psql -U blob -d blob -tAc "SELECT version_num FROM alembic_version"
+
+      # The client against that server, as two people: founding the workspace, an
+      # invitation, a message arriving live, a thread, a reaction, search and a file
+      # through storage — and then axe on sixteen pages, failing on anything serious.
+      # Chrome is the runner's own; nothing downloads a browser.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: The client is the contract
+        env:
+          E2E_BASE_URL: http://localhost:3000
+        run: pnpm --filter @blob/e2e e2e
+
+      - name: Keep what the browser saw
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: e2e-${{ github.sha }}
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
 
       - name: Logs on failure
         if: failure()
-        run: docker compose -f docker-compose.prod.yml logs --no-color --tail 100
+        run: docker compose logs --no-color --tail 100
 
       - if: always()
-        run: docker compose -f docker-compose.prod.yml down -v
+        run: docker compose down -v
 
   # What ships is checked against the advisory databases, and the history for secrets.
   # The audits read the *shipped* set — the locked production requirements and the
