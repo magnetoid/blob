@@ -461,6 +461,8 @@ afternoon:
   after a password is a passkey, never a six-digit code. A guest's account has no end
   date.
 - **Slack import.** Nothing reads a Slack export in yet.
+- **Polls and edit history.** There are no polls, and an edited message keeps only its
+  latest words.
 - **A legal hold that keeps deletes.** A hold stops retention, not people: what somebody
   deletes or edits under a hold is not kept anywhere. Slack's does keep it, silently;
   whether Blob should — or should refuse the delete instead — is an open decision
@@ -470,9 +472,10 @@ afternoon:
 
 The current plan — what ships next, in what order, and why — is
 [docs/superpowers/specs/2026-10-18-agent-first-plan.md](docs/superpowers/specs/2026-10-18-agent-first-plan.md):
-its first three milestones are built, and of the fourth, sign-in (passkeys, single
-sign-on, guests) and voice are built too — mail, export and backups are next. The six-month plan it replaces the
-second half of, with what each slice measures, is [docs/roadmap.md](docs/roadmap.md).
+all four of its milestones are built, short of what this list names and two pieces of the
+pipeline — Lighthouse budgets, and deploying the very image CI tested rather than a
+rebuild of the same commit. The six-month plan it replaces the second half of, with what
+each slice measures, is [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -881,9 +884,10 @@ with the `SERVICE_*` values supplied yourself. For a plain `docker build`, the r
 
 ### How this repository ships
 
-A merge to `main` is a release. CI runs the gate against real datastores, builds the image,
-boots `docker-compose.prod.yml` and asserts `/healthz` and `/readyz`, checks the layering
-rules, and only then asks Coolify to deploy, one build at a time. Afterwards it polls
+A merge to `main` is a release. CI runs the gate against real datastores, builds the image
+and scans it, boots `docker-compose.prod.yml`, asserts `/healthz` and `/readyz` and drives
+the client against it as two people, checks the layering rules, and only then asks Coolify
+to deploy, one build at a time. Afterwards it polls
 `/readyz` on the deployed origins and **fails** if the served commit is not the one it
 tested. The current version is in the four `package.json` files and at the top of
 `apps/web/src/lib/changelog.ts`.
