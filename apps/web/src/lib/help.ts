@@ -438,10 +438,21 @@ export const SECTIONS: Section[] = [
         keywords: ['notify', 'mute', 'notifications', 'quiet', 'all', 'mentions'],
       },
       {
+        id: 'huddles',
+        title: 'Huddles',
+        blurb:
+          'The Huddle button in a channel or DM header starts a quick call — microphones on, no full screen — that anyone there can join.',
+        body: [
+          'A huddle lives in the bar at the foot of the channel list, so you can keep reading and writing while you talk. Turn a camera on or share a screen if your admins allow it, and open it full screen when there is something to see.',
+          'Leaving takes only you out; the huddle ends itself once everyone has left it. An admin decides on the Huddles page whether huddles are allowed here, whether cameras and screens are, and how many people fit in one.',
+        ],
+        keywords: ['huddle', 'audio', 'voice', 'call', 'talk', 'microphone', 'screen share'],
+      },
+      {
         id: 'meetups',
         title: 'Video meetups',
         blurb:
-          'The Meetup button in the channel header starts a call, full screen, that anyone there can join. It is the one that works today — the Huddle button in the top bar is there but disabled.',
+          'The Meetup button in the channel header starts a call, full screen, that anyone there can join. For something lighter, start a huddle beside it.',
         body: [
           'Going back to the conversation does not hang up: it puts you back in the channel with a bar at the foot of the channel list, showing who is in the call and letting you return to it full screen or leave.',
           'Leaving takes only you out — the call carries on for whoever is left, and it ends itself once everyone has left it.',
@@ -1180,11 +1191,11 @@ export const SECTIONS: Section[] = [
         blurb:
           'A few things a Slack habit reaches for are not built, and they say so rather than pretending.',
         body: [
-          'The Huddle button in the top bar is there and disabled: huddles arrive in a later release. Canvases and workflows do not exist at all.',
+          'Canvases and workflows do not exist at all.',
           'There is no Unreads screen — stepping through unread conversations with the keyboard is what Blob has instead. Nothing emails you about a message.',
           'The server console lists only pages that exist. Moderation, Approvals, Storage and Import / export are coming, and have no row there until they do.',
         ],
-        keywords: ['huddle', 'canvas', 'workflow', 'missing', 'coming', 'soon', 'roadmap'],
+        keywords: ['canvas', 'workflow', 'missing', 'coming', 'soon', 'roadmap'],
       },
       {
         id: 'stale',

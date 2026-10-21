@@ -116,6 +116,42 @@ describe('the Meetup button in an archived channel (R45)', () => {
   });
 });
 
+function huddleButton() {
+  return screen.queryByRole('button', { name: /huddle/i });
+}
+
+describe('the Huddle button (M3 · B2)', () => {
+  it('sits in the header beside Meetup', () => {
+    render(<ChannelView />);
+    expect(huddleButton()?.getAttribute('aria-label')).toBe('Start a huddle');
+    expect(meetupButton()).not.toBeNull();
+  });
+
+  it('is not drawn when huddles are off here, or the server has no media', () => {
+    useStore.setState({
+      callSettings: {
+        huddles: { enabled: false, cameras: true, screenShare: true, maxParticipants: 50 },
+        meetups: { enabled: true, camerasOnJoin: true, maxParticipants: 50 },
+      },
+    });
+    const { unmount } = render(<ChannelView />);
+    expect(huddleButton()).toBeNull();
+    unmount();
+    useStore.setState({ callsAvailable: false });
+    render(<ChannelView />);
+    expect(huddleButton()).toBeNull();
+  });
+
+  it('offers to join a live one, even in an archived channel', () => {
+    useStore.setState({
+      channels: { 'ch-1': channel({ archivedAt: '2026-09-20T00:00:00.000Z' }) } as never,
+      activeCalls: { 'call-1': call({ kind: 'huddle', participantIds: ['u1'] }) } as never,
+    });
+    render(<ChannelView />);
+    expect(huddleButton()?.getAttribute('aria-label')).toBe('Join the huddle — 1 in it');
+  });
+});
+
 describe('who is in the room', () => {
   it('shows the first three people as faces, and leaves the agents to the count', () => {
     // An agent's iris face in a row of people would read as one of them; the count

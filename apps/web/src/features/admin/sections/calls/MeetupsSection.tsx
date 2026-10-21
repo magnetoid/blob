@@ -70,6 +70,7 @@ export function MeetupsSection({ onError, isOwner }: ConsoleSectionProps) {
             </div>
           </div>
           <ParticipantCapField
+            label="Most people in one meetup"
             value={meetups.maxParticipants}
             disabled={!meetups.enabled}
             onCommit={(next) => set({ maxParticipants: next })}
@@ -91,11 +92,13 @@ export function MeetupsSection({ onError, isOwner }: ConsoleSectionProps) {
  * the number was rejected here (out of range) or by the server, so this field is exactly
  * as truthful as the toggles are.
  */
-function ParticipantCapField({
+export function ParticipantCapField({
+  label,
   value,
   disabled,
   onCommit,
 }: {
+  label: string;
   value: number;
   disabled: boolean;
   onCommit: (next: number) => void;
@@ -108,7 +111,7 @@ function ParticipantCapField({
       type="number"
       min={2}
       max={100}
-      aria-label="Most people in one meetup"
+      aria-label={label}
       disabled={disabled}
       value={draft ?? String(value)}
       onChange={(event) => setDraft(event.target.value)}

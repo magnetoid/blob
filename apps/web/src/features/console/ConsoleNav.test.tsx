@@ -51,6 +51,7 @@ describe('the server console’s nav', () => {
       'People',
       'Channels',
       'Emoji',
+      'Huddles',
       'Video meetups',
       'Apps & agents',
       'Janus',
@@ -71,7 +72,7 @@ describe('the server console’s nav', () => {
   it('draws nothing that is not a page', () => {
     renderServerNav();
     expect(screen.queryByText('Soon')).toBeNull();
-    for (const gone of ['Moderation', 'Huddles', 'Approvals', 'Storage', 'Import / export']) {
+    for (const gone of ['Moderation', 'Approvals', 'Storage', 'Import / export']) {
       expect(screen.queryByText(gone)).toBeNull();
     }
     expect(screen.queryByText('Only you can see these.')).toBeNull();
@@ -116,7 +117,7 @@ describe('the server console’s nav', () => {
     expect(screen.queryAllByRole('heading')).toEqual([]);
 
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: '' } });
-    expect(rowLabels(container)).toHaveLength(19);
+    expect(rowLabels(container)).toHaveLength(20);
   });
 });
 

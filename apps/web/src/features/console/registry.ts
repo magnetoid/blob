@@ -225,6 +225,15 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `admin` like Video meetups below, for the same reason: `/api/admin/calls`.
+    id: 'huddles',
+    label: 'Huddles',
+    description:
+      'Quick audio calls in a channel or DM: whether people can start them, and what they may share.',
+    keywords: ['huddle', 'audio', 'voice', 'call', 'calls', 'talk', 'livekit', 'screen share'],
+    access: 'admin',
+  },
+  {
     // `admin`, though the media server's own status is the instance admin's
     // (`/api/admin/calls/server`): the panel says so in a line for anybody else, and the
     // settings under it are this workspace's.

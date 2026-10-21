@@ -191,10 +191,12 @@ async def test_a_kind_that_is_off_can_neither_start_nor_mint(team: dict[str, Any
     assert still_works.status == 200, still_works.body
     huddle = still_works.body
 
-    # The kinds are independent: turning meetups off leaves huddles alone, and
-    # turning huddles off now leaves the meetup refusal above untouched.
+    # The kinds are independent: turning meetups off leaves huddles alone, and turning
+    # huddles off leaves meetups as the request says. The PUT replaces the whole object,
+    # so it says meetups are still off — an empty `meetups` would reset them to on, which
+    # is what the client's Huddles page avoids by sending both halves.
     saved_2 = await team["owner"].put(
-        "/api/admin/calls", {"huddles": {"enabled": False}, "meetups": {}}
+        "/api/admin/calls", {"huddles": {"enabled": False}, "meetups": {"enabled": False}}
     )
     assert saved_2.status == 200, saved_2.body
 
@@ -205,6 +207,9 @@ async def test_a_kind_that_is_off_can_neither_start_nor_mint(team: dict[str, Any
     huddle_token = await team["member"].post(f"/api/calls/{huddle['id']}/token")
     assert huddle_token.status == 403, huddle_token.body
     assert huddle_token.body["error"]["code"] == "huddles_off"
+
+    still_refused = await start(team["member"], team["group"], "meetup")
+    assert still_refused.body["error"]["code"] == "meetups_off"
 
 
 async def test_a_start_livekit_refuses_writes_nothing(

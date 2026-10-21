@@ -27,7 +27,7 @@ vi.mock('./WorkspaceSwitcher.tsx', () => ({
 }));
 
 describe('the minimal top bar', () => {
-  it('shows the team name, shell tabs, search, huddle, invite, and the account menu', () => {
+  it('shows the team name, shell tabs, search, invite, and the account menu', () => {
     useStore.setState({
       workspaceName: 'Imba',
       currentUser: { id: 'u1', displayName: 'Marko', role: 'owner' },
@@ -44,9 +44,9 @@ describe('the minimal top bar', () => {
       false,
     );
     expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Huddle' }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    // A huddle starts from a conversation's header, beside Meetup; the top bar's disabled
+    // placeholder for it is gone.
+    expect(screen.queryByRole('button', { name: 'Huddle' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Invite' })).toBeTruthy();
     expect(screen.getByText('Marko')).toBeTruthy();
     expect(screen.queryByText('Feedback')).toBeNull();

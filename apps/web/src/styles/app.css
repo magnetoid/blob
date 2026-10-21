@@ -766,7 +766,6 @@ button {
   opacity: 0.45;
 }
 
-.topbar-huddle,
 .topbar-invite {
   display: inline-flex;
   align-items: center;
@@ -786,11 +785,6 @@ button {
 .topbar-invite:hover {
   background: var(--surface-hover);
   color: var(--text);
-}
-
-.topbar-huddle:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
 }
 
 .topbar-brand {
@@ -8131,18 +8125,15 @@ a.build-commit-sha:hover {
   /* The compact bar keeps only what matters: team name and search. */
   .topbar-nav-label,
   .topbar-search-label,
-  .topbar-huddle-label,
   .topbar-invite-label {
     display: none;
   }
 
-  /* Two buttons go entirely rather than shrinking. Huddle is disabled until that
-     feature ships, so on the width where space is scarcest it was spending it on a
-     button nobody can press; Invite is an admin shortcut that the invitations page
-     carries anyway. Hiding the *labels* was not enough — four text tabs, a search
-     pill and two icons still wanted 460px of a 400px bar, and what fell off the end
-     was the account menu, which is where sign out and preferences live. */
-  .topbar-minimal .topbar-huddle,
+  /* Invite goes entirely rather than shrinking: an admin shortcut the invitations page
+     carries anyway. Hiding the *labels* was not enough — four text tabs, a search pill
+     and the icons still wanted more than a 400px bar, and what fell off the end was the
+     account menu, which is where sign out and preferences live. (Huddles start from a
+     conversation's header now; the top bar's disabled placeholder is gone.) */
   .topbar-minimal .topbar-invite {
     display: none;
   }

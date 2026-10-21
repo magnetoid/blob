@@ -89,8 +89,9 @@ export async function startCall(channelId: string, kind: CallKind): Promise<void
   if (starting) return;
   const { callSession } = useStore.getState();
   if (callSession?.channelId === channelId && callSession.kind === kind) {
-    // Already in it: a meetup's button is the way back to its full screen.
-    if (kind === 'meetup') navigate(callPath(callSession.callId));
+    // Already in it: the button is the way to its full screen — a meetup's home, and a
+    // huddle's bigger view when somebody shares a screen or turns a camera on.
+    navigate(callPath(callSession.callId));
     return;
   }
   if (callSession) {

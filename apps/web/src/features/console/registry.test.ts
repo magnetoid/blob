@@ -30,6 +30,7 @@ const EVERY_ROW = [
   'People',
   'Channels',
   'Emoji',
+  'Huddles',
   'Video meetups',
   'Apps & agents',
   'Janus',
@@ -78,7 +79,7 @@ describe('the admin registry', () => {
   // and every row left is a URL that opens something.
   it('offers no row that is not a page', () => {
     const labels = ADMIN_NAV.map((entry) => entry.label);
-    for (const gone of ['Moderation', 'Huddles', 'Approvals', 'Storage', 'Import / export']) {
+    for (const gone of ['Moderation', 'Approvals', 'Storage', 'Import / export']) {
       expect(labels).not.toContain(gone);
     }
     for (const entry of ADMIN_NAV) {
@@ -133,6 +134,7 @@ describe('who each admin page is for', () => {
     users: 'instance', // /api/admin/instance/users
     channels: 'admin', // /api/admin/channels
     emoji: 'admin', // /api/admin/emoji
+    huddles: 'admin', // /api/admin/calls
     // /api/admin/calls. Its media-server panel reads /api/admin/calls/server, which is the
     // instance admin's, and answers anybody else with a line rather than an error.
     meetups: 'admin',
@@ -225,7 +227,7 @@ describe('filtering the admin nav', () => {
 
   // "Calls" was the heading over Video meetups; the word still finds it.
   it('finds a page by the word its old heading carried', () => {
-    expect(offered(ADMIN, 'calls')).toEqual(['Video meetups']);
+    expect(offered(ADMIN, 'calls')).toEqual(['Huddles', 'Video meetups']);
   });
 
   it('never finds a page the person may not open', () => {

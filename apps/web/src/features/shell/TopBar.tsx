@@ -22,7 +22,6 @@ import { WorkspaceSwitcher } from './WorkspaceSwitcher.tsx';
 import {
   ChevronDownIcon,
   FeedbackIcon,
-  HuddleIcon,
   MembersIcon,
   MessagesIcon,
   SearchIcon,
@@ -209,15 +208,6 @@ export function TopBar({
             <span className="topbar-search-label">Search</span>
           </button>
           <div className="topbar-spacer" />
-          <button
-            type="button"
-            className="topbar-huddle"
-            disabled
-            title="Huddles arrive in a later release"
-          >
-            <HuddleIcon size="md" />
-            <span className="topbar-huddle-label">Huddle</span>
-          </button>
           {isAdmin && (
             <button
               type="button"

@@ -165,12 +165,18 @@ export function ChannelView() {
 
   const callsAvailable = useStore((s) => s.callsAvailable);
   const meetupsOn = useStore((s) => s.callSettings.meetups.enabled);
+  const huddlesOn = useStore((s) => s.callSettings.huddles.enabled);
   // `start` refuses a new meetup in an archived channel (`require_writable`) the same
   // way it refuses a message, so the button is gated like the composer below — except a
   // meetup already live there stays reachable, because joining one still works.
   const meetupLive = useStore((s) =>
     Object.values(s.activeCalls).some(
       (call) => call.channelId === activeChannelId && call.kind === "meetup",
+    ),
+  );
+  const huddleLive = useStore((s) =>
+    Object.values(s.activeCalls).some(
+      (call) => call.channelId === activeChannelId && call.kind === "huddle",
     ),
   );
 
@@ -295,6 +301,12 @@ export function ChannelView() {
 
         <div className="pane-spacer" />
 
+        {/* The two kinds of call, as Slack has them: a huddle — audio first, in the bar —
+            and a meetup, full screen. Each gated like the composer for an archived
+            channel, except a call already live there stays reachable. */}
+        {callsAvailable && huddlesOn && (!archived || huddleLive) && (
+          <CallButton channelId={channel.id} kind="huddle" />
+        )}
         {callsAvailable && meetupsOn && (!archived || meetupLive) && (
           <CallButton channelId={channel.id} kind="meetup" />
         )}

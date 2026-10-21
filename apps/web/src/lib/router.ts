@@ -27,6 +27,7 @@ export const ADMIN_SECTIONS = [
   'invitations',
   'channels',
   'emoji',
+  'huddles',
   'meetups',
   'apps',
   'janus',

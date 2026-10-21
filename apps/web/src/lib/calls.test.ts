@@ -118,7 +118,7 @@ describe('being in a call', () => {
     expect(disconnect).toHaveBeenCalledTimes(1);
   });
 
-  it('already in it: a meetup navigates to its callPath; a huddle does nothing', async () => {
+  it('already in it: the button opens its full screen, for a huddle as for a meetup', async () => {
     useStore.setState({
       callSession: { callId: 'call-1', channelId: 'ch-1', kind: 'meetup', phase: 'connected' },
     });
@@ -131,7 +131,8 @@ describe('being in a call', () => {
       callSession: { callId: 'call-1', channelId: 'ch-1', kind: 'huddle', phase: 'connected' },
     });
     await calls.startCall('ch-1', 'huddle');
-    expect(navigate).not.toHaveBeenCalled();
+    // "You're in this huddle — open it" used to promise what it did not do.
+    expect(navigate).toHaveBeenCalledWith('/call/call-1');
     expect(start).not.toHaveBeenCalled();
   });
 
