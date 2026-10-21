@@ -390,6 +390,26 @@ class TestNamesInTheMessageAreNotInstructions:
         assert third.user_id not in here
         assert team["member"].user_id in here
 
+    async def test_a_member_cannot_lock_the_owner_or_an_admin_out(self, team: dict) -> None:
+        """Removed from a private channel, a person cannot find it to come back — so a
+        member may take out a member, an admin only an admin, and the owner nobody."""
+        admin = await invite_and_sign_up(team["owner"], "Adam", role="admin")
+        made = await team["owner"].post("/api/channels", {"name": "secret", "kind": "private"})
+        secret = made.body["channel"]["id"]
+        await run(team["owner"], secret, "/invite @Member @Adam")
+
+        refused = await run(team["member"], secret, "/remove @Owner")
+        assert "owner can't be removed" in refused["ephemeral"]
+        refused = await run(team["member"], secret, "/remove @Adam")
+        assert "Only an admin" in refused["ephemeral"]
+        assert {team["owner"].user_id, admin.user_id} <= set(
+            await members_of(team["owner"], secret)
+        )
+
+        removed = await run(team["owner"], secret, "/remove @Adam")
+        assert "Removed 1" in removed["ephemeral"]
+        assert admin.user_id not in await members_of(team["owner"], secret)
+
 
 class TestADirectMessageReachesBothSides:
     async def test_the_other_person_can_see_it_at_once(self, team: dict) -> None:

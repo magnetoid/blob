@@ -468,6 +468,17 @@ async def _remove(ctx: CommandContext) -> CommandResult:
     leaving = [user_id for user_id in user_ids if user_id in here]
     if not leaving:
         return CommandResult(ephemeral="They aren't in this channel.")
+    if ctx.user.is_guest:
+        return CommandResult(ephemeral="Guests can't remove people from a channel.")
+
+    # A member may take a member out, as in Slack — but an admin only an admin, and the
+    # owner nobody: removed from a private channel, a person cannot find it to come back,
+    # and any member could otherwise have locked the workspace's owner out for good.
+    roles = await _roles_of(ctx, leaving)
+    if any(roles.get(user_id) == "owner" for user_id in leaving):
+        return CommandResult(ephemeral="The workspace's owner can't be removed from a channel.")
+    if not ctx.user.is_admin and any(roles.get(user_id) == "admin" for user_id in leaving):
+        return CommandResult(ephemeral="Only an admin can remove an admin from a channel.")
 
     for user_id in leaving:
         await channel_service.leave(ctx.session, ctx.channel_id, user_id)
@@ -475,6 +486,16 @@ async def _remove(ctx: CommandContext) -> CommandResult:
         ephemeral=f"Removed {len(leaving)} {'person' if len(leaving) == 1 else 'people'}.",
         removed_user_ids=leaving,
     )
+
+
+async def _roles_of(ctx: CommandContext, user_ids: list[str]) -> dict[str, str]:
+    rows = (
+        await ctx.session.execute(
+            text("SELECT id, role FROM users WHERE id = ANY(cast(:ids AS uuid[]))"),
+            {"ids": user_ids},
+        )
+    ).fetchall()
+    return {str(row.id): str(row.role) for row in rows}
 
 
 async def _join(ctx: CommandContext) -> CommandResult:
