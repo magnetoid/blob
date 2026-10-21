@@ -803,11 +803,26 @@ async def list_webhooks(session: AsyncSession, workspace_id: str) -> WebhooksOut
 async def create_webhook(
     session: AsyncSession, admin: Actor, payload: CreateWebhookInput
 ) -> WebhookOut:
-    """The URL comes back once. The raw token is never recoverable afterwards."""
+    """The URL comes back once. The raw token is never recoverable afterwards.
+
+    Into a public channel, or a private one the admin is in — never somebody's DM, and
+    never a private channel the admin cannot read: an admin could otherwise put a stranger
+    into a conversation they have no part in (the 2026-10 security review). Either answers
+    as a channel that is not there, as a private channel's existence always does.
+    """
     channel = (
         await session.execute(
-            text("SELECT id FROM channels WHERE id = :id AND workspace_id = :ws"),
-            {"id": payload.channel_id, "ws": admin.workspace_id},
+            text(
+                """
+                SELECT c.id FROM channels c
+                 WHERE c.id = :id AND c.workspace_id = :ws
+                   AND (c.kind = 'public'
+                        OR (c.kind = 'private' AND EXISTS (
+                              SELECT 1 FROM channel_members cm
+                               WHERE cm.channel_id = c.id AND cm.user_id = :admin)))
+                """
+            ),
+            {"id": payload.channel_id, "ws": admin.workspace_id, "admin": admin.id},
         )
     ).fetchone()
     if channel is None:

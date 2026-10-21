@@ -226,6 +226,29 @@ async def test_health_reports_the_datastores(team: dict) -> None:
 
 
 # ─── webhooks ─────────────────────────────────────────────────────────────────
+async def test_a_webhook_goes_only_where_its_admin_can_read(team: dict) -> None:
+    """A public channel, or a private one the admin is in — never somebody's DM, never a
+    private channel they cannot read, both answering as no channel at all."""
+    dm = (await team["member"].post("/api/dms", {"userIds": [team["owner"].user_id]})).body[
+        "channel"
+    ]["id"]
+    hidden = await team["member"].post("/api/channels", {"name": "hidden", "kind": "private"})
+    hidden_id = hidden.body["channel"]["id"]
+    for target in (dm, hidden_id):
+        refused = await team["admin"].post(
+            "/api/admin/webhooks", {"channelId": target, "name": "Sneak"}
+        )
+        assert refused.status == 404, target
+
+    await team["member"].post(
+        f"/api/channels/{hidden_id}/members", {"userIds": [team["admin"].user_id]}
+    )
+    allowed = await team["admin"].post(
+        "/api/admin/webhooks", {"channelId": hidden_id, "name": "In the room"}
+    )
+    assert allowed.status == 200, allowed.body
+
+
 async def test_a_webhook_can_be_created_used_and_revoked(team: dict) -> None:
     created = await team["admin"].post(
         "/api/admin/webhooks", {"channelId": team["general"]["id"], "name": "CI"}
