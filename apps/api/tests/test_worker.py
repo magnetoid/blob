@@ -87,3 +87,32 @@ async def test_a_successful_job_stays_quiet(
 async def test_missing_result_is_not_an_error() -> None:
     await after_job_end({})
     await after_job_end({"job_id": "j1"})
+
+
+async def test_a_failed_job_s_result_is_read_back_as_the_json_it_was_written_in(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Results are JSON like the jobs (`lib/queue`); reading one with arq's default pickle
+    raised in every job's end hook."""
+    from arq.constants import result_key_prefix
+
+    from blob_api.lib import queue as queue_lib
+
+    pool = await queue_lib.get_pool()
+    stored = {
+        "t": 3,
+        "f": "notify",
+        "a": ["01a15dd7-0000-7000-8000-000000000002"],
+        "k": {},
+        "et": 1,
+        "s": False,
+        "r": "RuntimeError('boom')",
+        "st": 2,
+        "ft": 3,
+        "q": "arq:queue",
+    }
+    await pool.set(result_key_prefix + "j-json", queue_lib.serialize_job(stored))
+    with caplog.at_level("ERROR", logger="blob.worker"):
+        await after_job_end({"job_id": "j-json", "job_try": 3, "redis": pool})
+
+    assert any("job notify failed" in record.message for record in caplog.records)

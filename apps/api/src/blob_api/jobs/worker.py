@@ -17,7 +17,7 @@ from sqlalchemy import text
 from ..config import settings
 from ..db.engine import close_engine, session_scope, transaction
 from ..lib import readiness, telemetry
-from ..lib.queue import close_queue, redis_settings
+from ..lib.queue import close_queue, deserialize_job, redis_settings, serialize_job
 from ..lib.redis import close_redis
 from ..lib.storage import delete_object
 from ..plugins import delivery as plugin_delivery
@@ -287,7 +287,8 @@ async def after_job_end(ctx: dict[str, Any]) -> None:
         return
     from arq.jobs import Job
 
-    info = await Job(str(job_id), redis).result_info()
+    # Read with the same JSON the job was written in: arq's own default here is pickle.
+    info = await Job(str(job_id), redis, _deserializer=deserialize_job).result_info()
     if info is None or info.success:
         return
     log.error(
@@ -383,6 +384,9 @@ class WorkerSettings:
     ]
     on_startup = startup
     on_shutdown = shutdown
+    # JSON both ways, as `lib/queue` enqueues: a worker never unpickles what Redis hands it.
+    job_serializer = serialize_job
+    job_deserializer = deserialize_job
     redis_settings = redis_settings()
     max_jobs = 8
     # Explicit, not "whatever arq ships". A hung unfurl used to sit on a worker slot
