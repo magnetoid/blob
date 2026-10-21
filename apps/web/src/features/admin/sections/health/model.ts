@@ -117,3 +117,31 @@ export const METRICS: {
 export function metricByKey(key: HealthMetricKey) {
   return METRICS.find((metric) => metric.key === key) ?? METRICS[0]!;
 }
+
+/** A day and a bit: a nightly backup older than this missed a night. */
+const BACKUP_STALE_MS = 26 * 60 * 60 * 1000;
+
+/** The Backups tile (M3 · B4): how the last nightly backup went, said so an admin can act
+ *  on it — off, not yet, failing, gone stale, or fine. */
+export function backupTile(
+  backup: AdminHealth["backup"],
+  now: number = Date.now(),
+): { value: string; bad: boolean; hint?: string } {
+  if (!backup || !backup.enabled) {
+    return { value: "Off", bad: true, hint: "Nothing is backing up the database (BACKUP_ENABLED)." };
+  }
+  if (!backup.at) {
+    return { value: "None yet", bad: false, hint: "The first one runs tonight." };
+  }
+  if (!backup.ok) {
+    return { value: "Failing", bad: true, hint: backup.error ?? "The last backup did not finish." };
+  }
+  const age = now - Date.parse(backup.at);
+  const hours = Math.max(0, Math.round(age / 3_600_000));
+  const ago = hours < 1 ? "just now" : hours === 1 ? "an hour ago" : `${hours} hours ago`;
+  const size = backup.bytes !== null ? formatBytes(backup.bytes) : "";
+  if (age > BACKUP_STALE_MS) {
+    return { value: `${size}, ${ago}`, bad: true, hint: "No backup in more than a day." };
+  }
+  return { value: size ? `${size}, ${ago}` : ago, bad: false };
+}

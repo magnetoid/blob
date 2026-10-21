@@ -1817,6 +1817,64 @@
         "title": "AuthTestOut",
         "type": "object"
       },
+      "BackupHealth": {
+        "description": "The last nightly backup's outcome (M3 \u00b7 B4), from the worker's own record.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "BackupHealth",
+        "type": "object"
+      },
       "Bootstrap": {
         "description": "Everything the client needs on boot, in one round trip.",
         "properties": {
@@ -4461,6 +4519,16 @@
       },
       "HealthOut": {
         "properties": {
+          "backup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BackupHealth"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "connections": {
             "title": "Connections",
             "type": "integer"
@@ -13099,6 +13167,28 @@
           }
         },
         "summary": "Health",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/instance/backup": {
+      "post": {
+        "description": "Take a database backup now, rather than at night (M3 \u00b7 B4) \u2014 before an upgrade, say.\nThe worker runs it; the Health page shows how it went.",
+        "operationId": "back_up_now_api_admin_instance_backup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Back Up Now",
         "tags": [
           "admin"
         ]

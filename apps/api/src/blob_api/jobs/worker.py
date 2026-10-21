@@ -32,6 +32,7 @@ from ..services.calls import reconcile as reconcile_calls
 from .agui import expire_agent_decisions as expire_decisions
 from .agui import handle_agent_heard, handle_agui_run, resume_waiting_runs
 from .away_mail import send_away_mail
+from .backup import run_backup
 from .deployments import sync_hosted_agents
 from .notify import handle_notify
 from .reminders import fire_reminders
@@ -216,6 +217,13 @@ async def sweep_calls(_ctx: dict[str, Any]) -> None:
         log.info("call sweep changed %d call(s)", changed)
 
 
+async def backup(_ctx: dict[str, Any]) -> None:
+    """The database, dumped into object storage (M3 · B4): nightly, and on an admin's word."""
+    outcome = await run_backup()
+    if outcome is not None and not outcome.ok:
+        log.warning("backup failed: %s", outcome.error)
+
+
 async def away_mail(_ctx: dict[str, Any]) -> None:
     """Email whoever has had something addressed to them waiting through their window
     with no Blob open (ADR 0036)."""
@@ -277,6 +285,8 @@ class WorkerSettings:
     functions = [
         notify,
         unfurl,
+        # "Back up now" from the Health page; the same ceiling as the nightly one.
+        func(backup, timeout=3600, max_tries=1),  # type: ignore[arg-type]
         transcribe,
         # Its own ceiling, above the run's wall, and one try. arq retries a job it
         # cancelled — a deploy stopping the worker mid-run is the usual case — and a
@@ -317,6 +327,16 @@ class WorkerSettings:
         # :40 — a window is fifteen minutes at the shortest, so within the minute is on
         # time; the free second between reminders (:30) and calls (:45).
         cron(away_mail, second=40),  # type: ignore[arg-type]
+        # The nightly backup (M3 · B4), at :30 past the configured hour so it shares no
+        # minute with the 4 a.m. sweeps. An hour of its own: arq's 300 s is for a job, and
+        # a dump of a year of a busy workspace is not one.
+        cron(
+            backup,  # type: ignore[arg-type]
+            hour=settings.BACKUP_HOUR_UTC,
+            minute=30,
+            timeout=3600,
+            unique=True,
+        ),
         # :50, the last free slot in the minute; at startup too, so a fresh deploy reads
         # as up on the first readiness check rather than a minute later.
         cron(heartbeat, second=50, run_at_startup=True),  # type: ignore[arg-type]

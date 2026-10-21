@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from ..config import settings
 from ..db.engine import session_scope, transaction
+from ..jobs import backup as backup_job
 from ..lib import mail, storage
 from ..lib.auth import SessionUser, require_admin, require_recent_admin, require_recent_owner
 from ..lib.ids import IdParam
@@ -27,6 +28,7 @@ from ..schemas.admin import (
     AdminDeliveriesOut,
     AdminInvitesOut,
     AdminUsersOut,
+    BackupHealth,
     CreateWebhookInput,
     HealthOut,
     ResetLinkOut,
@@ -288,6 +290,24 @@ async def health(admin: SessionUser = Depends(require_admin)) -> HealthOut:
         message_count=messages,
         storage_bytes=storage_bytes,
         version="0.1.0",
+        backup=await _backup_health(),
+    )
+
+
+async def _backup_health() -> BackupHealth:
+    """What the worker recorded of its last backup; a Redis that is down says nothing."""
+    try:
+        last = await backup_job.last_outcome()
+    except Exception:
+        last = None
+    if last is None:
+        return BackupHealth(enabled=settings.BACKUP_ENABLED)
+    return BackupHealth(
+        enabled=settings.BACKUP_ENABLED,
+        at=last.at,
+        ok=last.ok,
+        bytes=last.bytes,
+        error=last.error,
     )
 
 

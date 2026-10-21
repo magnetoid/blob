@@ -15,6 +15,7 @@ import {
   type ServerLogEntry,
 } from "../../../../lib/api.ts";
 import { socket } from "../../../../lib/socket.ts";
+import { showError, useToasts } from "../../../../lib/toasts.ts";
 import { Card, CardNotice } from "../../../console/Card.tsx";
 import { navigate, pathForRoute } from "../../../../lib/router.ts";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
@@ -26,6 +27,7 @@ import {
   METRICS,
   REFRESH_OPTIONS,
   WIDGETS,
+  backupTile,
   metricByKey,
   type DashboardPrefs,
   type FeedItem,
@@ -424,7 +426,28 @@ export function HealthSection({
                     }
                     route={logsRoute}
                   />
+                  <ServiceTile label="Backups" {...backupTile(health.backup)} route={logsRoute} />
                 </div>
+                {/* A backup before an upgrade, say (M3 · B4). The server's administrators,
+                    as the route is: a backup is the whole server's, not one workspace's. */}
+                {isInstanceAdmin && health.backup?.enabled && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() =>
+                      void api.admin
+                        .backupNow()
+                        .then(() =>
+                          useToasts
+                            .getState()
+                            .push("info", "Backing up now. This page shows how it went."),
+                        )
+                        .catch(showError)
+                    }
+                  >
+                    Back up now
+                  </button>
+                )}
               </DashboardWidget>
             );
           }

@@ -394,6 +394,14 @@ export interface AdminHealth {
   messageCount: number;
   storageBytes: number;
   version: string;
+  /** The last nightly database backup (M3 · B4). */
+  backup?: {
+    enabled: boolean;
+    at: string | null;
+    ok: boolean | null;
+    bytes: number | null;
+    error: string | null;
+  } | null;
 }
 
 /** One captured warning or error from the server, newest first in the list. */
@@ -1757,6 +1765,8 @@ export const api = {
       ),
 
     health: () => get<AdminHealth>("/api/admin/health"),
+    /** A database backup now, rather than tonight (M3 · B4). The server's administrators. */
+    backupNow: () => post<{ ok: true }>("/api/admin/instance/backup", {}),
 
     /**
      * Janus itself: up or down, what it runs on, and every workspace here that has it.

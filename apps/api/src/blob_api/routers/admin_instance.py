@@ -23,6 +23,7 @@ from ..lib import logbuf
 from ..lib.auth import SessionUser, require_instance_admin
 from ..lib.errors import bad_request
 from ..lib.ids import IdParam
+from ..lib.queue import enqueue
 from ..plugins.manifest import SCOPES
 from ..schemas.base import CamelModel, OkOut, iso
 from ..services import audit as audit_service
@@ -62,6 +63,22 @@ class InstanceWorkspace(CamelModel):
 
 class InstanceWorkspacesOut(CamelModel):
     workspaces: list[InstanceWorkspace]
+
+
+@router.post("/instance/backup", response_model=OkOut)
+async def back_up_now(
+    request: Request, admin: SessionUser = Depends(require_instance_admin)
+) -> OkOut:
+    """Take a database backup now, rather than at night (M3 · B4) — before an upgrade, say.
+    The worker runs it; the Health page shows how it went."""
+    if not settings.BACKUP_ENABLED:
+        raise bad_request("Backups are switched off on this server (BACKUP_ENABLED).")
+    await enqueue("backup")
+    async with transaction() as (session, _):
+        await audit_service.record(
+            session, actor_for(request, admin), "backup.requested", target_type="server"
+        )
+    return OkOut()
 
 
 @router.get("/instance/users", response_model=InstanceUsersOut)

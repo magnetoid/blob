@@ -96,6 +96,12 @@ services:
       - STT_BASE_URL=${STT_BASE_URL:-}
       - STT_API_KEY=${STT_API_KEY:-}
       - STT_MODEL=${STT_MODEL:-gpt-4o-mini-transcribe}
+      # Nightly database backups into object storage (M3 · B4): the worker takes them, the
+      # app reports them on the Health page. See docs/backup.md.
+      - BACKUP_ENABLED=${BACKUP_ENABLED:-true}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_KEEP_DAYS=${BACKUP_KEEP_DAYS:-14}
+      - BACKUP_HOUR_UTC=${BACKUP_HOUR_UTC:-3}
       # Janus, when COMPOSE_PROFILES=janus starts the service further down. These belong
       # here and not only in that service's own block: the values there are read by the
       # container, and this file passes settings by explicit `environment:` entries with
@@ -233,6 +239,12 @@ services:
       - STT_BASE_URL=${STT_BASE_URL:-}
       - STT_API_KEY=${STT_API_KEY:-}
       - STT_MODEL=${STT_MODEL:-gpt-4o-mini-transcribe}
+      # Nightly database backups into object storage (M3 · B4): the worker takes them, the
+      # app reports them on the Health page. See docs/backup.md.
+      - BACKUP_ENABLED=${BACKUP_ENABLED:-true}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_KEEP_DAYS=${BACKUP_KEEP_DAYS:-14}
+      - BACKUP_HOUR_UTC=${BACKUP_HOUR_UTC:-3}
       # The same three as the app, for the reason stated on the LLM block above: these two
       # services are one image and a mention is answered *here*, so a value that is true in
       # one container and absent in the other is the drift that produces an agent which

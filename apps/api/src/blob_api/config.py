@@ -97,6 +97,18 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SEC: float = 120.0
     LLM_READ_TIMEOUT_SEC: float = 60.0
 
+    # Nightly database backups (M3 · B4): `pg_dump` run by the worker and streamed into
+    # object storage. A separate bucket is the honest setting — one lost bucket should not
+    # take the uploads and the means of restoring the database together — but it falls
+    # back to S3_BUCKET so that a backup exists before anybody has thought about it.
+    BACKUP_ENABLED: bool = True
+    BACKUP_S3_BUCKET: str | None = None
+    BACKUP_PREFIX: str = "backups/"
+    BACKUP_KEEP_DAYS: int = 14
+    BACKUP_HOUR_UTC: int = Field(default=3, ge=0, le=23)
+    #: The `pg_dump` to run. Its major version must be the server's or newer.
+    BACKUP_PG_DUMP: str = "pg_dump"
+
     # Transcribing voice messages (M3 · B2): any OpenAI-compatible
     # `POST …/v1/audio/transcriptions`, the base given with or without its `/v1` — OpenAI
     # itself, or a server on your own machine (Speaches, LocalAI, vLLM), which keeps the
@@ -279,6 +291,7 @@ class Settings(BaseSettings):
         "LLM_MODEL",
         "STT_BASE_URL",
         "STT_API_KEY",
+        "BACKUP_S3_BUCKET",
         "COOLIFY_API_URL",
         "COOLIFY_TOKEN",
         "COOLIFY_PROJECT_UUID",

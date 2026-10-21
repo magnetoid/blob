@@ -352,6 +352,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/instance/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Back Up Now
+         * @description Take a database backup now, rather than at night (M3 · B4) — before an upgrade, say.
+         *     The worker runs it; the Health page shows how it went.
+         */
+        post: operations["back_up_now_api_admin_instance_backup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/instance/logs": {
         parameters: {
             query?: never;
@@ -5372,6 +5393,22 @@ export interface components {
             /** Workspaceid */
             workspaceId: string;
         };
+        /**
+         * BackupHealth
+         * @description The last nightly backup's outcome (M3 · B4), from the worker's own record.
+         */
+        BackupHealth: {
+            /** At */
+            at?: string | null;
+            /** Bytes */
+            bytes?: number | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Error */
+            error?: string | null;
+            /** Ok */
+            ok?: boolean | null;
+        };
         /** ActivityOut */
         blob_api__routers__activity__ActivityOut: {
             /** Items */
@@ -6441,6 +6478,7 @@ export interface components {
         };
         /** HealthOut */
         HealthOut: {
+            backup?: components["schemas"]["BackupHealth"] | null;
             /** Connections */
             connections: number;
             /** Database */
@@ -8996,6 +9034,7 @@ export type AuditEntry = components['schemas']['AuditEntry'];
 export type AuditOut = components['schemas']['AuditOut'];
 export type AuthStateOut = components['schemas']['AuthStateOut'];
 export type AuthTestOut = components['schemas']['AuthTestOut'];
+export type BackupHealth = components['schemas']['BackupHealth'];
 export type blob_api__routers__activity__ActivityOut = components['schemas']['blob_api__routers__activity__ActivityOut'];
 export type blob_api__routers__agentic__AgentRunsOut = components['schemas']['blob_api__routers__agentic__AgentRunsOut'];
 export type blob_api__routers__agentic__AgentTaskOut = components['schemas']['blob_api__routers__agentic__AgentTaskOut'];
@@ -9967,6 +10006,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthOut"];
+                };
+            };
+        };
+    };
+    back_up_now_api_admin_instance_backup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
                 };
             };
         };

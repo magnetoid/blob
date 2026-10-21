@@ -285,6 +285,39 @@ async def put_object(key: str, body: bytes, mime: str) -> None:
     )
 
 
+# ─── backups (M3 · B4): their own bucket when there is one ──────────────────────────
+
+
+def backup_bucket() -> str:
+    return settings.BACKUP_S3_BUCKET or settings.S3_BUCKET
+
+
+def upload_stream(key: str, stream: Any, *, bucket: str) -> None:
+    """Stream a file-like object into the bucket as it is read — multipart, so a dump of
+    any size goes up without being held in memory or written to disk first. Blocking:
+    called from a thread."""
+    _client().upload_fileobj(stream, bucket, key)
+
+
+def list_objects(prefix: str, *, bucket: str) -> list[dict[str, Any]]:
+    """Every object under `prefix`, as S3 describes them (`Key`, `Size`, `LastModified`).
+    Blocking: called from a thread."""
+    found: list[dict[str, Any]] = []
+    for page in _client().get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+        found.extend(page.get("Contents", []))
+    return found
+
+
+def remove_object(key: str, *, bucket: str) -> None:
+    """Blocking: called from a thread."""
+    _client().delete_object(Bucket=bucket, Key=key)
+
+
+def download_to(key: str, path: str, *, bucket: str) -> None:
+    """Blocking: for the backup CLI, which runs outside the event loop."""
+    _client().download_file(bucket, key, path)
+
+
 #: S3's smallest part other than the last. A head rewritten by `replace_head` has to be at
 #: least this long, which is why the location scrub reads that much of a large file.
 MIN_PART_BYTES = 5 * 1024 * 1024

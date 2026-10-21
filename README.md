@@ -609,6 +609,19 @@ of an hour and keeps what was waiting for a day.
 </details>
 
 <details>
+<summary><b>Backups</b> — nightly, into object storage, <code>BACKUP_*</code></summary>
+
+The worker dumps the database every night with `pg_dump` and streams it into object
+storage, keeping `BACKUP_KEEP_DAYS` (14) of them; **Admin → Health → Backups** shows the last
+one and turns red when a night is missed, and the server's administrators can **Back up now**
+before an upgrade. Give the dumps their own bucket with `BACKUP_S3_BUCKET`. Fetching one,
+the restore drill (`scripts/restore-drill.sh`) and what a restore costs are in
+[docs/backup.md](docs/backup.md). The dumps hold the database, not the uploads: version or
+mirror the uploads bucket as well.
+
+</details>
+
+<details>
 <summary><b>Web Push</b> — <code>VAPID_*</code></summary>
 
 | Variable | Notes |

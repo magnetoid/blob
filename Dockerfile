@@ -69,6 +69,24 @@ WORKDIR /app
 # deploy, not something the running app can do to itself.
 RUN useradd --create-home --uid 10001 blob
 
+# `pg_dump` for the nightly backup (M3 · B4), from the PostgreSQL project's own apt
+# repository: Debian's client is 15 on bookworm, and a pg_dump older than the server
+# refuses to dump it. 17 dumps the 16 the compose file runs, and a 17 after an upgrade.
+# The codename comes from the image, so a base that moves to trixie needs no edit here.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && install -d /usr/share/postgresql-common/pgdg \
+ && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+      https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+ && . /etc/os-release \
+ && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+      > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends postgresql-client-17 \
+ && apt-get purge -y curl \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY --from=api --chown=blob:blob /app /app
 COPY --from=web --chown=blob:blob /src/apps/web/dist /app/web
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/blob-entrypoint

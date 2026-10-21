@@ -103,6 +103,17 @@ class AdminDeliveriesOut(CamelModel):
     deliveries: list[AdminDeliveryOut]
 
 
+class BackupHealth(CamelModel):
+    """The last nightly backup's outcome (M3 · B4), from the worker's own record."""
+
+    enabled: bool
+    #: When the last attempt ran; None before the first one.
+    at: str | None = None
+    ok: bool | None = None
+    bytes: int | None = None
+    error: str | None = None
+
+
 class HealthOut(CamelModel):
     database: bool
     redis: bool
@@ -122,6 +133,7 @@ class HealthOut(CamelModel):
     message_count: int
     storage_bytes: int
     version: str
+    backup: BackupHealth | None = None
 
 
 class WebhookOut(CamelModel):

@@ -400,6 +400,12 @@ replace text being typed: an entry this tab typed and the server has not confirm
 live send route clears a draft on the server — never `announce`, which scheduled sends also
 run, and a scheduled send must not wipe a sentence typed since.
 
+**Backups are the worker's** (`jobs/backup.py`, `docs/backup.md`): a nightly `pg_dump` 17
+(installed in the image from the PostgreSQL apt repo — Debian's own client is too old to dump
+the server) streamed into `BACKUP_S3_BUCKET`, the outcome kept in Redis for the Health page,
+`python -m blob_api.backups latest` to fetch one, and `scripts/restore-drill.sh` as the proof.
+The password reaches `pg_dump` through `PGPASSWORD`, never argv.
+
 **A link preview's picture is Blob's copy.** `jobs/unfurl.py` fetches the page's `og:image`
 by the same pinned, redirect-checked path as the page, keeps a WebP beside the message, and
 the client draws it from `/api/messages/{id}/preview-image`, which answers only to somebody

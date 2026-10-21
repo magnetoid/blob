@@ -4,40 +4,69 @@ Postgres is the source of truth. Redis is presence, rate limits, the job queue a
 log buffer — losing it is an inconvenience, not data loss. Object storage holds
 uploads; losing the bucket loses attachments even if the database still names them.
 
-## Backup
+## What Blob does on its own
 
-From the host that can reach Postgres (the compose network, or `localhost` in
-development):
+Every night the worker runs `pg_dump --format=custom` and streams the dump straight into
+object storage — no temporary file, nothing held in memory — as
+`backups/blob-YYYYMMDDTHHMMSSZ.dump`, then deletes the ones older than `BACKUP_KEEP_DAYS`
+(never the newest). The image carries `pg_dump` 17, which dumps Postgres 16 and 17.
 
-```bash
-pg_dump --format=custom --file=blob-$(date -u +%Y%m%d).dump "$DATABASE_URL"
-```
+| Variable | Default | |
+|---|---|---|
+| `BACKUP_ENABLED` | `true` | Off means nothing backs up the database; the Health page says so in red. |
+| `BACKUP_S3_BUCKET` | the uploads' bucket | **Set this.** One bucket lost should not take the uploads and the means of restoring the database together. Same credentials and endpoint as `S3_*`. |
+| `BACKUP_PREFIX` | `backups/` | |
+| `BACKUP_KEEP_DAYS` | `14` | |
+| `BACKUP_HOUR_UTC` | `3` | The dump starts at :30 past this hour. |
 
-Coolify: use the postgres service backup if you enabled it, and keep a copy off the
-server. The dump is the restore; a volume snapshot of the container is not a substitute.
-
-Object storage: version the bucket, or `mc mirror` it somewhere else on a schedule.
-Redis: do not bother unless you are draining a long plugin-outbox; `plugin_deliveries`
-is in Postgres.
+Set them on **the app and the worker both**: the worker takes the backup, the app reports
+it. **Admin → Health → Backups** shows the last one — its size and age, or why it failed —
+and turns red when a night is missed. The server's administrators also get **Back up now**
+there, for the moment before an upgrade.
 
 ## Restore
 
-```bash
-pg_restore --clean --if-exists --dbname="$DATABASE_URL" blob-YYYYMMDD.dump
-```
-
-Then run migrations in case the dump is from an older schema:
+From inside the app container, fetch the newest dump:
 
 ```bash
-pnpm migrate
+python -m blob_api.backups list
+python -m blob_api.backups latest --out blob.dump
 ```
 
-Do not restore over a live workspace without stopping the API and worker first — open
-transactions will fight the `--clean`. After restore, restart both so they reopen
-connections against the new catalog.
+Prove it restores before you need it — quarterly, and on any new server — with the drill.
+It restores into a scratch database, checks that it holds a workspace, prints the
+schema head and the counts, times it, and drops the scratch copy whatever happened:
+
+```bash
+PGHOST=… PGUSER=… PGPASSWORD=… scripts/restore-drill.sh blob.dump
+```
+
+It needs a role that may `CREATE DATABASE` and a `pg_restore` of the dump's version or
+newer. On the development server, a 1-workspace, 39-message dump restored in a second;
+time yours and write the number down.
+
+To restore for real, stop the app and the worker first — open transactions fight a
+`--clean` — then:
+
+```bash
+pg_restore --clean --if-exists --no-owner --dbname="$DATABASE_URL" blob.dump
+pnpm migrate   # in case the dump is from an older schema
+```
+
+and start both again so they reconnect to the new catalog.
+
+## How much you can lose, and for how long
+
+- **RPO — at most a day.** The dump is nightly; whatever was written since the last one is
+  what a restore cannot bring back. Take one with **Back up now** before anything risky.
+- **RTO — the drill's time, plus fetching the dump.** Measure it with the drill on your
+  own data rather than trusting anybody's estimate, this one included.
 
 ## What this does not cover
 
-Theme files, the built web bundle, and `.env` are not in the database. Keep `.env`
-somewhere the same people who hold the dump can reach. VAPID keys in particular: a
-restore onto a new machine with new keys silently stops web push.
+- **Uploads.** The dump holds the database, not the files it names. Version the uploads
+  bucket, or `mc mirror` it somewhere else on a schedule.
+- **`.env`.** Theme files and the built bundle come from the image; the environment does
+  not. Keep `.env` where the people who hold the dumps can reach it — VAPID keys in
+  particular: a restore onto a new machine with new keys silently stops web push.
+- **Redis.** Not worth backing up; `plugin_deliveries` is in Postgres.
