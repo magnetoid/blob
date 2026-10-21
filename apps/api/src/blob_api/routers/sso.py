@@ -244,16 +244,23 @@ async def _sign_in(request: Request, flow: Any, provider: Any, claims: dict[str,
                 verified = sso_service.verified_email(claims)
                 if verified is None:
                     raise sso_service.SsoError("email_unverified")
-                if not provider.allows(verified):
-                    raise sso_service.SsoError("domain")
                 if await sso_service.has_account(session, verified):
+                    # Linking an account that exists: the provider's domains decide.
+                    if not provider.allows(verified):
+                        raise sso_service.SsoError("domain")
                     if not provider.link_by_email:
                         raise sso_service.SsoError("not_linked")
                 else:
-                    if flow.invite_token is None and not provider.allowed_domains:
-                        # Saved before domains were required for this: a provider that
-                        # names none lets nobody new in on its own say-so.
-                        raise sso_service.SsoError("no_account")
+                    # Somebody new. An invitation is a reason on its own, whatever the
+                    # domains — somebody here chose to let this person in. Without one,
+                    # the provider's own join is the only way, and only for its domains.
+                    if flow.invite_token is None:
+                        if not provider.allowed_domains:
+                            # Saved before domains were required for this: a provider
+                            # that names none lets nobody new in on its own say-so.
+                            raise sso_service.SsoError("no_account")
+                        if not provider.allows(verified):
+                            raise sso_service.SsoError("domain")
                     await signup_service.join_by_identity(
                         session,
                         email=verified,

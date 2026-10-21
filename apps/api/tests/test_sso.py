@@ -288,6 +288,30 @@ class TestSigningIn:
         )
         assert query == {"sso_error": "invite_expired"}
 
+    async def test_an_invitation_lets_somebody_in_whatever_the_domains(
+        self, founder: Client, idp: FakeIdP
+    ) -> None:
+        """A contractor at another domain, invited by address, who signs in at the same
+        provider (Entra and Okta federate guests): the invitation is reason enough. The
+        domains govern who joins *without* one, and whose existing account links."""
+        workspace = (await founder.get("/api/bootstrap")).body["workspace"]["id"]
+        await connect(founder, joinWorkspaceId=workspace, allowedDomains=["example.com"])
+        invite = await founder.post("/api/invites", {"email": "bob@contractor.example"})
+        token = invite.body["url"].split("/join/")[1]
+        browser = founder.fork()
+        path, query = landed(
+            await round_trip(
+                browser, idp, person("sub-bob", "bob@contractor.example"), invite=token
+            )
+        )
+        assert (path, query) == ("/", {})
+        assert (await browser.get("/api/bootstrap")).status == 200
+        # Without the invitation, the same address stays out.
+        _, refused = landed(
+            await round_trip(founder.fork(), idp, person("sub-eve", "eve@contractor.example"))
+        )
+        assert refused == {"sso_error": "domain"}
+
     async def test_an_invitation_for_another_address_is_not_one(
         self, founder: Client, idp: FakeIdP
     ) -> None:
