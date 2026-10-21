@@ -227,6 +227,28 @@ export const SECTIONS: Section[] = [
         keywords: ['upload', 'attach', 'image', 'photo', 'document', 'size'],
       },
       {
+        id: 'voice-messages',
+        title: 'Voice messages',
+        blurb: 'Record up to five minutes from the composer, and send it like a file.',
+        body: [
+          'The microphone beside the paperclip starts recording. While it records, the composer shows how long you have been talking and how loud; the tick keeps the recording and the cross throws it away. A kept recording waits above the message field like an attached file, and nothing is sent until you send it. At five minutes recording stops on its own and keeps what you said.',
+          'A voice message plays where it was sent. Its bars are the shape of the recording, so you can see where the talking is before you press play: click anywhere on them to jump there, or use the arrow keys to move five seconds at a time.',
+          'Where this server has a speech service, the words are written out as the message’s text a moment after it arrives — so search finds them, a notification says them, and an agent you sent it to reads them, answering once they are there. Only a recording sent on its own is written out; send words of your own with it and those are the text. Without a speech service a recording stays a recording, and an agent in your DM is told one came that it could not read.',
+          'The first time, your browser asks whether Blob may use the microphone. If you said no, allow it in the browser’s settings for this site and press the microphone again.',
+        ],
+        keywords: [
+          'voice',
+          'audio',
+          'record',
+          'recording',
+          'microphone',
+          'voice note',
+          'transcript',
+          'transcription',
+          'speech',
+        ],
+      },
+      {
         id: 'editing',
         title: 'Editing and deleting',
         blurb: 'Your own messages only, from the ⋯ menu on the message.',

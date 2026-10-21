@@ -54,3 +54,9 @@ export function formatCost(amount: number, currency: string | null): string {
     return `${amount.toFixed(places)} ${currency}`;
   }
 }
+
+/** A recording's length as minutes and seconds: 0:42, 2:05. */
+export function formatDuration(milliseconds: number): string {
+  const seconds = Math.max(0, Math.round(milliseconds / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}

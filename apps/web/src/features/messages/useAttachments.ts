@@ -12,10 +12,12 @@ import {
   uploadFile,
   type PendingAttachment,
 } from "../../lib/attachments.ts";
+import { extensionFor, type Recording } from "../../lib/recorder.ts";
 
 export function useAttachments(onError: (message: string | null) => void): {
   attachments: PendingAttachment[];
   attach: (files: File[]) => void;
+  attachVoice: (recording: Recording) => void;
   discard: (key: string) => void;
   clear: () => void;
   onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
@@ -94,6 +96,30 @@ export function useAttachments(onError: (message: string | null) => void): {
     }
   }
 
+  /** A recording from the composer's microphone, uploaded like a file but as a voice
+   *  message (M3 · B2). */
+  function attachVoice(recording: Recording) {
+    onError(null);
+    if (attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE) {
+      onError(`A message can carry ${MAX_ATTACHMENTS_PER_MESSAGE} files at most.`);
+      return;
+    }
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const file = new File([recording.blob], `voice-${stamp}.${extensionFor(recording.mime)}`, {
+      type: recording.mime,
+    });
+    const voice = { durationMs: recording.durationMs, waveform: recording.waveform };
+    const pending = newPendingAttachment(file, voice);
+    setAttachments((current) => [...current, pending]);
+    void uploadFile(file, recording.mime, voice)
+      .then((attachmentId) => update(pending.key, { attachmentId, status: "ready" }))
+      .catch((err: unknown) => {
+        const message =
+          err instanceof Error ? err.message : "That recording could not be uploaded.";
+        update(pending.key, { status: "failed", error: message });
+      });
+  }
+
   function onPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
     // A pasted screenshot arrives as a file with no name the user chose. Text pastes
     // carry no files, so this never interferes with ordinary copy and paste.
@@ -108,6 +134,7 @@ export function useAttachments(onError: (message: string | null) => void): {
   return {
     attachments,
     attach,
+    attachVoice,
     discard,
     clear,
     onPaste,

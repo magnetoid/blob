@@ -33,6 +33,7 @@ import { StartWorkDialog } from "../work/StartWorkDialog.tsx";
 import { moveFocusBetweenMessages } from "./arrowNavigation.ts";
 import { MessageTranslation } from "./MessageTranslation.tsx";
 import { formatRelative, formatTime } from "./messageFormatting.ts";
+import { VoicePlayer } from "./VoicePlayer.tsx";
 import { Avatar } from "../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../components/Dialog.tsx";
@@ -462,9 +463,16 @@ export const MessageRow = memo(function MessageRow({
         {message.attachments.length > 0 && (
           <div className="attachments">
             {message.attachments.map((attachment) =>
-              // Only the images storage will serve inline. An SVG is a file here: an
-              // <img> of one would be a broken picture, and the panel shows it safely.
-              isInlineImage(attachment.mime) ? (
+              // A recording made in the composer plays inline (M3 · B2). Of the rest, only
+              // the images storage will serve inline are pictures. An SVG is a file here:
+              // an <img> of one would be a broken picture, and the panel shows it safely.
+              attachment.kind === "voice" ? (
+                <VoicePlayer
+                  key={attachment.id}
+                  attachment={attachment}
+                  arrived={!drawnWith.files.has(attachment.id)}
+                />
+              ) : isInlineImage(attachment.mime) ? (
                 <a
                   key={attachment.id}
                   href={attachment.url}

@@ -118,6 +118,9 @@ interface State {
   /** Whether the server has a translation provider. Without one, nothing translation-
    * shaped is drawn: not the Translate action, not the preferences. */
   translationEnabled: boolean;
+  /** Whether the server has a speech service: a voice message says "Transcribing…" until
+   * its words arrive, rather than waiting for words that never will. */
+  transcriptionEnabled: boolean;
   users: Record<string, User>;
   channels: Record<string, ChannelWithState>;
   messages: Record<string, ChannelMessages>;
@@ -578,6 +581,7 @@ export const useStore = create<State>((set, get) => ({
   recentMentionsAsOf: null,
   serverCommit: null,
   translationEnabled: false,
+  transcriptionEnabled: false,
   commands: [],
   users: {},
   channels: {},
@@ -627,6 +631,7 @@ export const useStore = create<State>((set, get) => ({
       commands: data.commands,
       serverCommit: data.serverCommit ?? null,
       translationEnabled: data.translationEnabled ?? false,
+      transcriptionEnabled: data.transcriptionEnabled ?? false,
       users: Object.fromEntries(data.users.map((u) => [u.id, u])),
       channels: Object.fromEntries(data.channels.map((c) => [c.id, c])),
     }),

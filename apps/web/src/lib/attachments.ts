@@ -26,10 +26,19 @@ export interface PendingAttachment {
   previewUrl: string | null;
   status: 'uploading' | 'ready' | 'failed';
   error: string | null;
+  /** A recording made in the composer (M3 · B2): its length and bars ride with it. */
+  voice?: VoiceDetails;
 }
 
-export function newPendingAttachment(file: File): PendingAttachment {
+export interface VoiceDetails {
+  durationMs: number;
+  /** 64 peaks, 0–255. */
+  waveform: number[];
+}
+
+export function newPendingAttachment(file: File, voice?: VoiceDetails): PendingAttachment {
   return {
+    voice,
     key: crypto.randomUUID(),
     attachmentId: null,
     filename: file.name,
@@ -49,7 +58,7 @@ export function newPendingAttachment(file: File): PendingAttachment {
  * The PUT goes to object storage directly, so it is a bare fetch rather than an `api`
  * call: no session cookie belongs on that request, and the URL is already signed.
  */
-export async function uploadFile(file: File, mime: string): Promise<string> {
+export async function uploadFile(file: File, mime: string, voice?: VoiceDetails): Promise<string> {
   if (file.size > MAX_UPLOAD_BYTES) {
     throw new Error(`Files have to be under ${formatBytes(MAX_UPLOAD_BYTES)}.`);
   }
@@ -58,6 +67,9 @@ export async function uploadFile(file: File, mime: string): Promise<string> {
     filename: file.name,
     mime,
     sizeBytes: file.size,
+    // A voice message is served inline for <audio>, keeps its length and bars, and gets
+    // a transcript; the server holds it to an audio type and five minutes.
+    ...(voice ? { kind: 'voice' as const } : {}),
   });
 
   const response = await fetch(ticket.uploadUrl, {
@@ -69,7 +81,10 @@ export async function uploadFile(file: File, mime: string): Promise<string> {
     throw new Error('That file could not be uploaded.');
   }
 
-  await api.uploads.complete(ticket.attachmentId, await imageDimensions(file));
+  await api.uploads.complete(
+    ticket.attachmentId,
+    voice ? { durationMs: voice.durationMs, waveform: voice.waveform } : await imageDimensions(file),
+  );
   return ticket.attachmentId;
 }
 

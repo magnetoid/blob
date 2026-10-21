@@ -392,6 +392,15 @@ both inline as base64 `data` sources; text, Markdown, CSV and JSON as a `text` p
 holding the file. Newest first, at most six files, none over 2 MiB and 6 MiB in all.
 Inline rather than by URL because your agent may have no route to Blob's storage.
 
+**Voice messages.** A recording sent on its own reaches you as its words: where the server
+has a speech service, the transcript becomes the message's text, and a run the message
+starts — in your DM, or in a channel you follow — waits until those words exist. Where
+there are none (no speech service, or a transcript that failed) the run in your DM still
+starts, and the message names the recording instead: `[attached: voice message 0:42 (not
+transcribed)]` — ask for it typed. A recording in your history whose words are still
+coming says `(still being transcribed)`. You are never handed the audio itself, and a
+channel you follow does not wake you for a recording with no words.
+
 What Blob does with the stream:
 
 | Event | Result |

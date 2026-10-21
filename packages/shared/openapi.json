@@ -1901,6 +1901,11 @@
             "title": "Themes",
             "type": "array"
           },
+          "transcriptionEnabled": {
+            "default": false,
+            "title": "Transcriptionenabled",
+            "type": "boolean"
+          },
           "translationEnabled": {
             "default": false,
             "title": "Translationenabled",

@@ -36,6 +36,7 @@ import {
   SendIcon,
 } from "../../components/Icon.tsx";
 import { AttachmentTray } from "./AttachmentTray.tsx";
+import { VoiceRecordButton } from "./VoiceRecordButton.tsx";
 import { FormatToolbar } from "./FormatToolbar.tsx";
 import { SchedulePicker } from "./SchedulePicker.tsx";
 import {
@@ -547,6 +548,7 @@ export function Composer({
             >
               <AttachIcon />
             </button>
+            <VoiceRecordButton onRecorded={files.attachVoice} onError={setError} />
             <button
               ref={emojiTriggerRef}
               className="icon-btn"

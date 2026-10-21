@@ -44,6 +44,7 @@ from ..lib.rate_limit import consume
 from ..lib.storage import get_object_head
 from ..plugins import decisions
 from ..plugins import events as plugin_events
+from ..plugins.agui import recording_label
 from ..plugins.registry import MENTIONABLE_AGENT
 from ..realtime import hub
 from ..schemas.base import iso
@@ -200,7 +201,12 @@ def _body(message: Message) -> str:
         body = body[:BODY_PREVIEW] + f"… (+{len(message.body) - BODY_PREVIEW} more characters)"
     extras = []
     if message.attachments:
-        extras.append(", ".join(item.filename for item in message.attachments))
+        extras.append(
+            ", ".join(
+                recording_label(item) if item.kind == "voice" else item.filename
+                for item in message.attachments
+            )
+        )
     if message.reply_count:
         extras.append(f"{message.reply_count} repl{'y' if message.reply_count == 1 else 'ies'}")
     if message.edited_at:

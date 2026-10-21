@@ -16,6 +16,7 @@ from sqlalchemy import text
 from ..config import settings
 from ..db.engine import transaction
 from ..lib.mentions import parse_mentions
+from ..lib.times import clock_length
 from ..lib.webpush import send_push
 from ..realtime import presence
 from ..schemas.models import ReadStateOut
@@ -48,7 +49,10 @@ async def handle_notify(message_id: str) -> None:
                     SELECT m.id, m.channel_id, c.kind AS channel_kind, c.name AS channel_name,
                            m.author_id, u.display_name AS author_name, m.body,
                            m.mention_user_ids, m.mention_group_ids, m.mentions_everyone,
-                           m.thread_root_id
+                           m.thread_root_id,
+                           (SELECT a.duration_ms FROM attachments a
+                             WHERE a.message_id = m.id AND a.kind = 'voice'
+                             ORDER BY a.id LIMIT 1) AS voice_ms
                       FROM messages m
                       JOIN channels c ON c.id = m.channel_id
                       LEFT JOIN users u ON u.id = m.author_id
@@ -169,9 +173,14 @@ async def handle_notify(message_id: str) -> None:
         (message.author_name or "New message") if is_dm else f"#{message.channel_name or 'channel'}"
     )
     prefix = f"{message.author_name}: " if message.author_name else ""
+    # A voice message's words come later, from the speech service; the push goes now, so
+    # it says what arrived rather than nothing at all (M3 · B2).
+    preview = _preview(message.body) or (
+        f"Voice message ({clock_length(message.voice_ms)})" if message.voice_ms is not None else ""
+    )
     payload = {
         "title": title,
-        "body": f"{prefix}{_preview(message.body)}",
+        "body": f"{prefix}{preview}",
         "url": f"/c/{message.channel_id}",
         "tag": message.channel_id,
     }

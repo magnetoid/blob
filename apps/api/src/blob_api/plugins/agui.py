@@ -46,7 +46,8 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..lib import jsonpatch
-from ..schemas.models import Message
+from ..lib.times import clock_length
+from ..schemas.models import Attachment, Message
 
 log = logging.getLogger("blob.plugins.agui")
 
@@ -962,13 +963,35 @@ def to_agui_messages(
 def _with_attachment_line(message: Message) -> str:
     """The body, and a line naming the files that came with it.
 
-    A voice note's transcript is already its body, so a recording is not named again.
+    A recording whose transcript became the body is not named again. One whose words are
+    not there — no speech service, a transcript that failed or is still coming, or words
+    typed beside it — is named with its length (M3 · B2): an agent sent a voice message
+    it cannot read should know one was said, rather than be handed nothing at all.
     """
-    named = [a.filename for a in message.attachments if a.kind != "voice"]
+    named = [
+        recording_label(a) if a.kind == "voice" else a.filename
+        for a in message.attachments
+        if not (a.kind == "voice" and a.transcript_status == "done")
+    ]
     if not named:
         return message.body
     line = f"[attached: {', '.join(named)}]"
     return f"{message.body}\n{line}" if message.body else line
+
+
+def recording_label(attachment: Attachment) -> str:
+    """A recording in words — "voice message 0:42", and whether its own words are missing.
+    The one way an agent's input and an assistant's reading (`services/mcp.py`) name one:
+    never by its file name, which is no file either of them can open."""
+    length = f" {clock_length(attachment.duration_ms)}" if attachment.duration_ms else ""
+    if attachment.transcript_status == "done":
+        return f"voice message{length}"
+    state = (
+        "still being transcribed"
+        if attachment.transcript_status == "pending"
+        else "not transcribed"
+    )
+    return f"voice message{length} ({state})"
 
 
 #: What a run started by a followed channel is told (ADR 0026). Words, because the reader

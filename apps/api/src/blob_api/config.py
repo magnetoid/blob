@@ -97,6 +97,16 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SEC: float = 120.0
     LLM_READ_TIMEOUT_SEC: float = 60.0
 
+    # Transcribing voice messages (M3 · B2): any OpenAI-compatible
+    # `POST …/v1/audio/transcriptions`, the base given with or without its `/v1` — OpenAI
+    # itself, or a server on your own machine (Speaches, LocalAI, vLLM), which keeps the
+    # audio on your own network.
+    # Unset is a supported way to run: a voice message plays, and has no transcript.
+    STT_BASE_URL: str | None = None
+    STT_API_KEY: str | None = None
+    STT_MODEL: str = "gpt-4o-mini-transcribe"
+    STT_TIMEOUT_SEC: float = 120.0
+
     # Hosting an agent from a repository. Disabled means agents can still be registered
     # as external apps — only the "and run it for me" half is off. Blob never holds the
     # Docker socket itself; the runner is whatever already owns that privilege.
@@ -267,6 +277,8 @@ class Settings(BaseSettings):
         "LLM_API_KEY",
         "LLM_BASE_URL",
         "LLM_MODEL",
+        "STT_BASE_URL",
+        "STT_API_KEY",
         "COOLIFY_API_URL",
         "COOLIFY_TOKEN",
         "COOLIFY_PROJECT_UUID",

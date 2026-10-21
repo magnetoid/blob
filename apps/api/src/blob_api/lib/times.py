@@ -11,6 +11,9 @@ had never been.
 A time without an offset is not a time. It is a reading on a clock, and the server has no
 way to know whose. So it is refused here, once, with the sentence `schedule` already
 used.
+
+It also says how long something lasted — a voice message's length, the one way a push
+preview and an agent's input both write it.
 """
 
 from __future__ import annotations
@@ -41,3 +44,10 @@ def parse_future_time(raw: str) -> datetime:
     if parsed <= datetime.now(UTC):
         raise bad_request("That time has already happened.")
     return parsed
+
+
+def clock_length(milliseconds: int) -> str:
+    """A length the way a player shows it: 0:42, 2:05. Never 0:00 — anything recorded
+    lasted some part of a second."""
+    seconds = max(1, round(milliseconds / 1000))
+    return f"{seconds // 60}:{seconds % 60:02d}"

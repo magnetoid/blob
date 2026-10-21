@@ -255,6 +255,21 @@ export const MicIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Play and pause: filled, because a voice message's control is a solid shape in every
+ *  player people already know. */
+export const PlayIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8.5 5.6v12.8a.8.8 0 0 0 1.2.7l10-6.4a.8.8 0 0 0 0-1.4l-10-6.4a.8.8 0 0 0-1.2.7z" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+export const PauseIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none" />
+    <rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
 export const MicOffIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M15 10V6a3 3 0 0 0-5.7-1.3" />

@@ -21,7 +21,7 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-thirty-four ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+thirty-five ADRs; the principles below are their summary, not a substitute. 0013–0020 and
 0022–0030 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
@@ -46,8 +46,9 @@ neither, because it is the person (0016, 0018).
 `agent-terminal.md`), the backup-and-restore runbook (`backup.md`) and the six-month plan
 (`roadmap.md`); those five are current, and the rest (`superpowers/`, the audits) is
 planning history. The README's "What isn't built yet" list is the other thing to read
-before building on a feature: huddles and voice messages are scaffolded server-side but
-not shipped, so a column or a disabled button is not evidence the feature exists.
+before building on a feature: a column or a disabled button is not evidence the feature
+exists — huddles and voice messages were both exactly that, server-side and unshipped,
+until M3.
 
 ## Commands
 
@@ -331,9 +332,9 @@ the ADR is the place to look before changing them.
 **Calls** (`services/calls.py`, `lib/livekit.py`, `features/calls/`, ADR 0021) are a
 LiveKit room that belongs to one conversation, in two kinds — a huddle and a video
 meetup — and sit apart from the six above: LiveKit carries the media, not AG-UI, and none
-of the plugin/agent machinery applies. Meetups ship in this release; huddles are wired the
-same way underneath, but the button that starts one is still disabled. Four things to know
-before touching it. A call **inherits its conversation's access** — `start`, `token` and
+of the plugin/agent machinery applies. Both kinds ship: a meetup opens full screen, a
+huddle starts from the conversation header with microphones only and lives in the bar,
+and each has its own admin page. Four things to know before touching it. A call **inherits its conversation's access** — `start`, `token` and
 `end` all pass `assert_channel_access(require_member=True)`, so a private channel's call
 answers 404 to an outsider exactly as the channel does (`tests/test_calls.py` pins it);
 `start` alone also asks for `require_writable`, so an archived channel's call can still be
@@ -372,6 +373,16 @@ anything else, but media is UDP and a reverse proxy only carries TCP, so
 firewall — miss it and a call connects, shows everyone present and carries no sound.
 LiveKit advertises the port it was told to bind, which is why that one value appears three
 times in the compose file and why a second instance on the same host needs its own.
+
+**Voice messages** (`lib/recorder.ts`, `jobs/transcribe.py`, `lib/stt.py`, ADR 0035) are a
+`kind = 'voice'` attachment whose words, once an OpenAI-compatible speech service
+(`STT_*`) has them, become the message's **body** — the one column search, push previews,
+summaries and an agent's input already read, so none of them learned anything new.
+`announce` holds back the run a recording sent alone would start and the transcribe job
+starts it once the words exist; with none coming, the DM's agent still runs and its input
+names the recording (`plugins/agui._with_attachment_line`), while a follower is not woken.
+Both production instances run with no speech service, so `transcriptionEnabled` in the
+bootstrap is how the client knows not to promise words.
 
 **Client.** `features/` by domain, `lib/` for the plumbing: a zustand store keeping
 messages per channel in ascending id order (UUIDv7 sorts chronologically, so a live

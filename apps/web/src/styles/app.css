@@ -12000,3 +12000,134 @@ button.call-bar-where {
   gap: var(--space-2);
   font-size: var(--text-sm);
 }
+
+/* ─── voice messages (M3 · B2) ─────────────────────────────────────────────── */
+
+/* A voice message in a conversation: play, its bars, the time, and under the bars a line
+   when its words are coming or are not. One width for every voice message, as Slack draws
+   its clips — a pill sized by its content came out wider whenever that line was there. The
+   bars are the ones the recorder measured; `data-level` is a bar's height in twelve steps,
+   so no inline style. */
+.voice-note {
+  display: inline-grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  width: min(360px, 100%);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  box-shadow: var(--elev-1);
+}
+
+.voice-note-play {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  cursor: pointer;
+}
+
+/* Bars of one thickness, spread across whatever room there is; on a column too narrow
+   for all of them they clip rather than run under the time. */
+.voice-note-bars {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  min-width: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.voice-note-bar {
+  flex: 0 0 2px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--text-3) 55%, transparent);
+  transition: background var(--dur-fast, 120ms) var(--ease-out, ease-out);
+}
+
+.voice-note-bar[data-played='true'] {
+  background: var(--accent);
+}
+
+.voice-note-bar[data-level='0'], .voice-recording-meter > [data-level='0'] { height: 12%; }
+.voice-note-bar[data-level='1'], .voice-recording-meter > [data-level='1'] { height: 18%; }
+.voice-note-bar[data-level='2'], .voice-recording-meter > [data-level='2'] { height: 26%; }
+.voice-note-bar[data-level='3'], .voice-recording-meter > [data-level='3'] { height: 34%; }
+.voice-note-bar[data-level='4'], .voice-recording-meter > [data-level='4'] { height: 42%; }
+.voice-note-bar[data-level='5'], .voice-recording-meter > [data-level='5'] { height: 50%; }
+.voice-note-bar[data-level='6'], .voice-recording-meter > [data-level='6'] { height: 58%; }
+.voice-note-bar[data-level='7'], .voice-recording-meter > [data-level='7'] { height: 66%; }
+.voice-note-bar[data-level='8'], .voice-recording-meter > [data-level='8'] { height: 74%; }
+.voice-note-bar[data-level='9'], .voice-recording-meter > [data-level='9'] { height: 84%; }
+.voice-note-bar[data-level='10'], .voice-recording-meter > [data-level='10'] { height: 92%; }
+.voice-note-bar[data-level='11'], .voice-recording-meter > [data-level='11'] { height: 100%; }
+
+.voice-note-time {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  min-width: 2.8em;
+}
+
+.voice-note-status {
+  grid-column: 2 / -1;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-3);
+}
+
+/* The composer while it records: the dot, the clock, the live level, and two ways out. */
+.voice-recording {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--danger, #c0392b) 9%, transparent);
+}
+
+.voice-recording-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--danger, #c0392b);
+  animation: voice-recording-pulse 1.2s var(--ease-standard) infinite;
+}
+
+.voice-recording-time {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  min-width: 2.8em;
+}
+
+.voice-recording-meter {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 80px;
+  height: 20px;
+}
+
+.voice-recording-meter > span {
+  flex: 1 1 0;
+  border-radius: var(--radius-full);
+  background: var(--danger, #c0392b);
+}
+
+@keyframes voice-recording-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-recording-dot {
+    animation: none;
+  }
+}

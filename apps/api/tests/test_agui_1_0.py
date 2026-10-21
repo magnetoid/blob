@@ -77,9 +77,15 @@ def message(id_: str, author: str, body: str, *files: Attachment) -> Message:
     )
 
 
-def attached(name: str, *, kind: str = "file") -> Attachment:
+def attached(name: str, *, kind: str = "file", transcript: str = "none") -> Attachment:
     return Attachment(
-        id=f"a-{name}", filename=name, mime="application/pdf", size_bytes=10, url="/x", kind=kind
+        id=f"a-{name}",
+        filename=name,
+        mime="application/pdf",
+        size_bytes=10,
+        url="/x",
+        kind=kind,
+        transcript_status=transcript,
     )
 
 
@@ -145,7 +151,12 @@ class TestWhatTheAgentIsShown:
             [
                 message("1", "ana", "see the plan", attached("plan.pdf")),
                 message("2", "ana", "", attached("chart.pdf")),
-                message("3", "ana", "what I said", attached("memo.webm", kind="voice")),
+                message(
+                    "3",
+                    "ana",
+                    "what I said",
+                    attached("memo.webm", kind="voice", transcript="done"),
+                ),
             ],
             bot_user_id="bot",
             names={"ana": "Ana"},
@@ -154,7 +165,8 @@ class TestWhatTheAgentIsShown:
             "see the plan\n[attached: plan.pdf]",
             # A message that was only a file used to be dropped altogether.
             "[attached: chart.pdf]",
-            # A voice note's transcript is its body; the recording is not named again.
+            # A voice note's transcript is its body; the recording is not named again (one
+            # without its words is — `test_voice_transcripts.TestWhatAnAgentIsGiven`).
             "what I said",
         ]
 

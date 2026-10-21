@@ -279,13 +279,18 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
   file bytes never pass through the API process. Executable extensions are refused. An
   image gets a small copy made on upload, turned upright and stripped of its camera
   metadata; text, PDFs and pages open in a panel beside the conversation.
+- **Voice messages** — recorded in the composer, up to five minutes, and played inline over
+  the waveform measured while recording. With a [speech service](#speech) configured the
+  words become the message's text, so search finds them, a notification says them and an
+  agent reads them.
 - **Link previews** — the first URL in a message, fetched with an SSRF guard, a 5-second
   timeout and a 512 KB ceiling.
 - **Translation** — per message, or automatic for everything arriving in another language,
   through DeepL or LibreTranslate.
-- **Calls** — a video meetup in any channel or DM, carried by LiveKit and inheriting the
-  conversation's access: one live call of each kind per conversation, presence kept from
-  LiveKit's webhooks plus a once-a-minute sweep, and no attendance history. Opt-in; see
+- **Calls** — a huddle (microphones on, kept in a bar while you carry on reading) or a
+  video meetup in any channel or DM, carried by LiveKit and inheriting the conversation's
+  access: one live call of each kind per conversation, presence kept from LiveKit's
+  webhooks plus a once-a-minute sweep, and no attendance history. Opt-in; see
   [Calls](#calls) under Configuration.
 
 </details>
@@ -372,6 +377,13 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
   webhooks, deliveries, custom emoji.
 - **Server console** — every account and workspace on the instance, per-workspace app
   policy, live health, the audit log, error logs, and feedback filed from inside the app.
+- **Signing in** — a password, a passkey (on its own, or as the step after a password that
+  a person can require of themselves), or the company's identity provider over OpenID
+  Connect. Settings lists every device you are signed in on, in every workspace, with the
+  record of your sign-ins; handing out access — a token, a role, a reset link — asks you
+  to confirm it is you once your sign-in is fifteen minutes old.
+- **Guests** — someone from outside, invited into named channels: they see those rooms
+  and the people in them, never the directory or a public channel they were not given.
 - **Feedback** — anyone can file a bug from the top bar; the ticket carries the browser
   console and a snapshot of the page as the reporter saw it.
 - **What's new** — the release history, compiled into the build so it can never describe a
@@ -412,20 +424,16 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 Named because they are coming, and because a README that implies otherwise wastes your
 afternoon:
 
-- **Huddles.** The audio-first counterpart to a video meetup — same call, same access
-  rules, but the camera never comes on just from joining. The server side is done; the
-  button in the top bar is disabled until the entry points and the admin settings ship.
-- **Voice messages.** The server accepts a voice note as its own kind of attachment, with a
-  duration and a waveform. The recorder, an inline player and the transcript are not built:
-  today a voice note shows as an ordinary file.
 - **Agents that start work on their own.** An agent answers a mention, a DM, a task handed
   to it or a scheduled message that names it, and an admin can let it follow a channel. It
   cannot yet schedule its own follow-up or wake on an event — a task coming due, a file
   shared — and a scheduled run is still a scheduled message that mentions it.
 - **Canvases and workflows** — not started.
 - **Email notifications** — the only mail Blob sends is invitations and password resets.
-- **SSO, SAML, OIDC, 2FA and passkeys** — email and password is the only way in, and
-  there are no guest accounts.
+- **SAML, SCIM and authenticator-app codes.** Single sign-on is OpenID Connect only, an
+  account is not provisioned or removed from the identity provider, and the second step
+  after a password is a passkey, never a six-digit code. A guest's account has no end
+  date.
 - **Export, import and retention.** No workspace or personal export, no Slack import, and
   the retention setting covers the audit log only — messages and files are kept.
 - **Moderation, Approvals and Storage** in the admin console — not built, and not listed
@@ -433,8 +441,8 @@ afternoon:
 
 The current plan — what ships next, in what order, and why — is
 [docs/superpowers/specs/2026-10-18-agent-first-plan.md](docs/superpowers/specs/2026-10-18-agent-first-plan.md):
-its first three milestones are built, and the fourth — sign-in through your identity
-provider, voice, mail, export and backups — is next. The six-month plan it replaces the
+its first three milestones are built, and of the fourth, sign-in (passkeys, single
+sign-on, guests) and voice are built too — mail, export and backups are next. The six-month plan it replaces the
 second half of, with what each slice measures, is [docs/roadmap.md](docs/roadmap.md).
 
 ---
@@ -607,8 +615,9 @@ LiveKit locally with its placeholder pair. In production it is off unless you as
 set `COMPOSE_PROFILES=meetups` alongside the values below. Leave these empty and a call
 answers `livekit_not_configured` while everything else carries on.
 
-Per-workspace controls — on or off, cameras on join, the participant cap — and whether
-LiveKit is actually reachable live in the console at **Admin → Calls → Video meetups**.
+Per-workspace controls — each kind on or off, cameras and screens, the participant cap —
+live in the console at **Admin → Huddles** and **Admin → Video meetups**, and the second
+also says whether LiveKit is actually reachable.
 
 | Variable | Notes |
 |---|---|
@@ -662,6 +671,25 @@ environment.
 
 Without a provider the Translate action answers "Translation is not configured for this
 workspace yet."
+
+</details>
+
+<details>
+<summary id="speech"><b>Speech to text</b> — voice-message transcripts, <code>STT_*</code></summary>
+
+Any server that answers OpenAI's `POST /v1/audio/transcriptions`: OpenAI itself, or one you
+run — Speaches (faster-whisper), LocalAI, vLLM — which keeps a team's voices on its own
+network. A recording leaves the server only for the address set here.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `STT_BASE_URL` | unset | With or without the `/v1`: `https://api.openai.com/v1`, `http://speaches:8000`. Unset, a voice message is its recording alone, and the app promises no transcript. |
+| `STT_API_KEY` | unset | Sent as a bearer token; a server that needs none gets no `Authorization` header. |
+| `STT_MODEL` | `gpt-4o-mini-transcribe` | `gpt-4o-transcribe`, `whisper-1`, or whatever your own server calls its model. |
+| `STT_TIMEOUT_SEC` | `120` | |
+
+Set these on **the app and the worker both**: the worker transcribes, and the app tells
+the client whether a transcript is coming.
 
 </details>
 
@@ -907,7 +935,7 @@ Alembic; it is not a query layer. Every read and write in the app is `text()` wi
 parameters, and chat history is keyset-paginated, never `OFFSET`.
 
 <details>
-<summary><b>The thirty architecture decisions</b></summary>
+<summary><b>The thirty-five architecture decisions</b></summary>
 
 The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisions/):
 
@@ -943,6 +971,11 @@ The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisi
 | 0028 | A decision is a person's; an agent may only propose one |
 | 0029 | An assistant signs in as its person |
 | 0030 | What agents cost is counted, not measured |
+| 0031 | A person's sign-in is the address's |
+| 0032 | A passkey is the person's, and a password can need one |
+| 0033 | Single sign-on is the server's, and the subject decides |
+| 0034 | A guest is in the channels they were invited to |
+| 0035 | A voice message's words are its text |
 
 </details>
 

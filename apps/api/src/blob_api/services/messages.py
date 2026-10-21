@@ -20,6 +20,7 @@ from ..lib.errors import bad_request, forbidden, message_gone, thread_gone
 from ..lib.ids import new_id
 from ..lib.mentions import MentionResult, MentionTarget, mention_lookup_phrases, parse_mentions
 from ..schemas.models import Message
+from ..schemas.requests import MESSAGE_MAX_LENGTH
 from . import channels as channel_service
 from .serialize import MESSAGE_SELECT, to_message
 
@@ -633,6 +634,77 @@ async def replace_blocks(
     return await by_id(session, message_id)
 
 
+# ─── voice messages (M3 · B2) ──────────────────────────────────────────────────
+
+
+def is_voice_note(message: Message) -> bool:
+    """A recording sent on its own: a voice attachment, and no words typed beside it. Its
+    transcript becomes its words (migration 0038), so until then there is nothing to read."""
+    return not message.body.strip() and any(a.kind == "voice" for a in message.attachments)
+
+
+async def mark_transcript(session: AsyncSession, message_id: str, status: str) -> None:
+    await session.execute(
+        text(
+            """
+            UPDATE attachments SET transcript_status = :status
+             WHERE message_id = :id AND kind = 'voice'
+            """
+        ),
+        {"id": message_id, "status": status},
+    )
+
+
+async def voice_to_transcribe(session: AsyncSession, message_id: str) -> Any:
+    """The recording a message is waiting on a transcript for, if it still is."""
+    return (
+        await session.execute(
+            text(
+                """
+                SELECT a.object_key, a.filename, a.mime, a.size_bytes, m.channel_id,
+                       m.author_id
+                  FROM attachments a JOIN messages m ON m.id = a.message_id
+                 WHERE a.message_id = :id AND a.kind = 'voice'
+                   AND a.transcript_status = 'pending'
+                   AND m.deleted_at IS NULL
+                 ORDER BY a.id
+                 LIMIT 1
+                """
+            ),
+            {"id": message_id},
+        )
+    ).fetchone()
+
+
+async def set_transcript(
+    session: AsyncSession, message_id: str, *, transcript: str, provider: str
+) -> Message | None:
+    """The words a recording said become its message's words — what search indexes, what
+    a notification previews, what an agent reads. Blob writing them, not the author
+    editing, so `edited_at` is left alone (as `replace_blocks` leaves it). Only a body
+    still empty is filled: somebody may have edited one in the meantime."""
+    await session.execute(
+        text(
+            """
+            UPDATE attachments
+               SET transcript_status = 'done', transcript_provider = :provider
+             WHERE message_id = :id AND kind = 'voice'
+            """
+        ),
+        {"id": message_id, "provider": provider},
+    )
+    await session.execute(
+        text(
+            """
+            UPDATE messages SET body = :body
+             WHERE id = :id AND deleted_at IS NULL AND body = ''
+            """
+        ),
+        {"id": message_id, "body": transcript[:MESSAGE_MAX_LENGTH]},
+    )
+    return await by_id(session, message_id)
+
+
 async def remove(
     session: AsyncSession, message_id: str, user_id: str, is_admin: bool
 ) -> tuple[str, str | None]:
@@ -725,7 +797,7 @@ async def addressed_by_the_room(session: AsyncSession, *, channel_id: str) -> bo
     return row is not None
 
 
-async def _is_guest(session: AsyncSession, user_id: str | None) -> bool:
+async def is_guest(session: AsyncSession, user_id: str | None) -> bool:
     if user_id is None:
         return False
     role = (
@@ -799,9 +871,25 @@ async def announce(
     # A guest's message starts no agent run (ADR 0034). A run acts with its asker's reach
     # through tools written for members — the directory, every public channel — and a
     # guest's reach is a handful of rooms.
-    from_a_guest = result.message.kind == "user" and await _is_guest(
+    from_a_guest = result.message.kind == "user" and await is_guest(
         session, result.message.author_id
     )
+    # A voice message's words arrive later, from the speech service (M3 · B2): until then
+    # it has none for an agent to read, so any run it would start waits for them — the
+    # transcribe job starts it once the words are written. With no speech service there
+    # will be no words. The agent whose DM it is still hears that a recording came — its
+    # input names it — so it can say it cannot listen rather than say nothing; a follower,
+    # which nobody addressed, is not woken for words that are not there.
+    from ..lib import stt
+
+    voice = is_voice_note(result.message)
+    transcribing = voice and stt.configured()
+    if transcribing:
+        await mark_transcript(session, result.message.id, "pending")
+    if voice:
+        heard = by_the_room and not transcribing
+    else:
+        heard = bool(result.message.mention_user_ids) or by_the_room or followed
 
     def broadcast() -> None:
         hub.to_channel(channel_id, message_event("message.new", result.message))
@@ -810,6 +898,8 @@ async def announce(
         fire_and_forget(enqueue("notify", result.message.id))
         if URL_RE.search(result.message.body):
             fire_and_forget(enqueue("unfurl", result.message.id))
+        if transcribing:
+            fire_and_forget(enqueue("transcribe", result.message.id))
         # A mention might be of an app that answers over AG-UI. Which one is the job's
         # problem, not this one's. A person's message roots a chain; an agent's reply
         # extends one only through `jobs/agui.py`, which is why bot posts through the
@@ -817,11 +907,7 @@ async def announce(
         # False for exactly one caller: the message that answers a decision an agent
         # was waiting on. That message *resumes* the run that asked, and rooting a
         # second chain from it would race the resume for the same agent.
-        if (
-            start_agent_runs
-            and not from_a_guest
-            and (result.message.mention_user_ids or by_the_room or followed)
-        ):
+        if start_agent_runs and not from_a_guest and heard:
             fire_and_forget(enqueue("agui_run", result.message.id))
         # The outbox drains on a timer too, so this is latency rather than delivery.
         fire_and_forget(enqueue("deliver_plugin_events"))

@@ -91,6 +91,11 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-}
       - LLM_BASE_URL=${LLM_BASE_URL:-}
       - LLM_MODEL=${LLM_MODEL:-}
+      # Speech to text for voice messages (M3 · B2): any OpenAI-compatible
+      # /v1/audio/transcriptions. Unset, a voice message plays without a transcript.
+      - STT_BASE_URL=${STT_BASE_URL:-}
+      - STT_API_KEY=${STT_API_KEY:-}
+      - STT_MODEL=${STT_MODEL:-gpt-4o-mini-transcribe}
       # Janus, when COMPOSE_PROFILES=janus starts the service further down. These belong
       # here and not only in that service's own block: the values there are read by the
       # container, and this file passes settings by explicit `environment:` entries with
@@ -223,6 +228,11 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-}
       - LLM_BASE_URL=${LLM_BASE_URL:-}
       - LLM_MODEL=${LLM_MODEL:-}
+      # Speech to text for voice messages (M3 · B2): any OpenAI-compatible
+      # /v1/audio/transcriptions. Unset, a voice message plays without a transcript.
+      - STT_BASE_URL=${STT_BASE_URL:-}
+      - STT_API_KEY=${STT_API_KEY:-}
+      - STT_MODEL=${STT_MODEL:-gpt-4o-mini-transcribe}
       # The same three as the app, for the reason stated on the LLM block above: these two
       # services are one image and a mention is answered *here*, so a value that is true in
       # one container and absent in the other is the drift that produces an agent which

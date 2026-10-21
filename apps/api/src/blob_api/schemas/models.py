@@ -443,6 +443,9 @@ class Bootstrap(CamelModel):
     #: Translate action and no translation preference at all, rather than controls whose
     #: only possible answer is "not configured".
     translation_enabled: bool = False
+    #: Whether this server has a speech service (M3 · B2): with one, a voice message
+    #: says "Transcribing…" until its words arrive; without one it is only the recording.
+    transcription_enabled: bool = False
     #: Whom you tagged most recently, newest first — the `@` picker ranks a tie on how
     #: well a name matches by these. Ids only, and yours alone: see
     #: `services/mention_recency.py`.

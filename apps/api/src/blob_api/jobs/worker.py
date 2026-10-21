@@ -35,6 +35,7 @@ from .notify import handle_notify
 from .reminders import fire_reminders
 from .retention import sweep_retention
 from .scheduled import send_scheduled
+from .transcribe import handle_transcribe
 from .unanswered import nudge_unanswered
 from .unfurl import handle_unfurl
 
@@ -67,6 +68,11 @@ async def notify(_ctx: dict[str, Any], message_id: str) -> None:
 
 async def unfurl(_ctx: dict[str, Any], message_id: str) -> None:
     await handle_unfurl(message_id)
+
+
+async def transcribe(_ctx: dict[str, Any], message_id: str) -> None:
+    """The words in a voice message, from the speech service (M3 · B2)."""
+    await handle_transcribe(message_id)
 
 
 async def agui_run(_ctx: dict[str, Any], message_id: str, parent_run_id: str | None = None) -> None:
@@ -258,6 +264,7 @@ class WorkerSettings:
     functions = [
         notify,
         unfurl,
+        transcribe,
         # Its own ceiling, above the run's wall, and one try. arq retries a job it
         # cancelled — a deploy stopping the worker mid-run is the usual case — and a
         # retry would ask the agent again: new tokens, a different answer, posted beside

@@ -5471,6 +5471,11 @@ export interface components {
             /** Themes */
             themes: components["schemas"]["ThemeSummary"][];
             /**
+             * Transcriptionenabled
+             * @default false
+             */
+            transcriptionEnabled: boolean;
+            /**
              * Translationenabled
              * @default false
              */

@@ -453,6 +453,8 @@ export interface Bootstrap {
   /** Whether the server has a translation provider. Without one the client draws no
    * Translate action and no translation preference. */
   translationEnabled: boolean;
+  /** Whether the server has a speech service for voice messages (M3 · B2). */
+  transcriptionEnabled?: boolean;
   /**
    * Whom you tagged most recently, newest first, each once and never yourself — read off
    * your own last messages. The `@` picker ranks a tie on how well a name matches by

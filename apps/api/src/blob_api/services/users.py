@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import served_commit
 from ..db.visibility import GUEST_SEES
+from ..lib import stt
 from ..lib.auth import SessionUser
 from ..lib.errors import bad_request, conflict, no_such_person, not_found, unique_violation
 from ..lib.ids import new_id
@@ -154,6 +155,7 @@ async def bootstrap(session: AsyncSession, user: SessionUser) -> Bootstrap:
         # is the whole of what it can usefully be.
         server_commit=served_commit(),
         translation_enabled=translation_service.configured(),
+        transcription_enabled=stt.configured(),
         recent_mention_user_ids=tagged.user_ids,
         recent_mention_group_ids=tagged.group_ids,
     )
