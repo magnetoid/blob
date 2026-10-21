@@ -93,7 +93,7 @@ TRUNCATE workspaces, users, sessions, invites, password_resets, channels,
          read_states, thread_subscriptions, push_subscriptions, webhooks,
          audit_events, workspace_settings, themes, plugins, plugin_secrets,
          plugin_grants, plugin_deliveries, bot_tokens, instance_admins,
-         activity_events, oauth_clients, passkey_owners
+         activity_events, oauth_clients, passkey_owners, sso_providers
 RESTART IDENTITY CASCADE
 """
 

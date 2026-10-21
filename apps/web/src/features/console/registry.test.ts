@@ -38,6 +38,7 @@ const EVERY_ROW = [
   'Webhooks',
   'Deliveries',
   'Assistants',
+  'Single sign-on',
   'App policy',
   'Health',
   'Audit log',
@@ -45,7 +46,7 @@ const EVERY_ROW = [
   'Feedback',
 ];
 
-const SERVER_ROWS = ['App policy', 'Errors and logs'];
+const SERVER_ROWS = ['Single sign-on', 'App policy', 'Errors and logs'];
 
 /** What the nav offers this person, by label, for what they typed. */
 const offered = (viewer: Viewer, query = '') =>
@@ -146,6 +147,7 @@ describe('who each admin page is for', () => {
     webhooks: 'admin', // /api/admin/webhooks
     deliveries: 'admin', // /api/admin/deliveries
     connections: 'admin', // /api/admin/mcp-tokens
+    sso: 'instance', // /api/admin/instance/sso
     'app-policy': 'instance', // /api/admin/instance/workspaces/{id}/policy
     // /api/admin/health is require_admin; the page asks for the server's log only when the
     // viewer is the server's administrator.

@@ -62,6 +62,57 @@ function ConfirmDialog({ onAnswer }: { onAnswer: (confirmed: boolean) => void })
   useEffect(() => inputRef.current?.focus(), []);
   const hasPassword = state === null || state.methods.includes('password');
   const hasPasskey = state !== null && state.methods.includes('passkey') && passkeysSupported();
+  const providers = state?.providers ?? [];
+  /** Set while a provider's window is open, cleared to stop waiting on it. */
+  const waiting = useRef(false);
+  const [waitingOn, setWaitingOn] = useState<string | null>(null);
+  useEffect(
+    () => () => {
+      waiting.current = false;
+    },
+    [],
+  );
+
+  /**
+   * Confirm through the person's identity provider, in a window of its own so whatever
+   * was refused is still here to send again. The window is opened in the click, before
+   * anything is awaited — later, it would be a pop-up the browser blocks — and this asks
+   * the server whether the session has been proven rather than reading the window, which
+   * a provider's own policy may well cut off from this page.
+   */
+  async function withProvider(slug: string, name: string) {
+    const popup = window.open('about:blank', 'blob-confirm', 'popup,width=520,height=680');
+    setError(null);
+    if (!popup) {
+      setError(`Allow pop-ups for this site to confirm with ${name}.`);
+      return;
+    }
+    setBusy(true);
+    setWaitingOn(name);
+    waiting.current = true;
+    try {
+      const { url } = await api.sso.begin({ provider: slug, intent: 'confirm' });
+      popup.location.href = url;
+      // Every second and a half, for five minutes at most.
+      for (let tries = 0; waiting.current && tries < 200; tries += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        if (!waiting.current) return;
+        if ((await api.auth.reauthState()).provenAt) {
+          waiting.current = false;
+          popup.close();
+          onAnswer(true);
+          return;
+        }
+      }
+      if (waiting.current) setError('That took too long. Try again.');
+    } catch (err) {
+      popup.close();
+      setError(err instanceof ApiError ? err.message : `${name} could not be reached.`);
+    }
+    waiting.current = false;
+    setWaitingOn(null);
+    setBusy(false);
+  }
 
   async function withPasskey() {
     setBusy(true);
@@ -98,8 +149,8 @@ function ConfirmDialog({ onAnswer }: { onAnswer: (confirmed: boolean) => void })
         <h2 className="dialog-title">Confirm it’s you</h2>
         <p className="pref-hint">
           This gives someone or something access — an assistant, an app, a role, a way into an
-          account — so it needs you to prove it’s you first. You won’t be asked again for{' '}
-          {minutes} minutes.
+          account — so it needs you to prove it’s you first. You won’t be asked again for {minutes}{' '}
+          minutes.
         </p>
         {hasPassword && (
           <label className="field">
@@ -114,7 +165,7 @@ function ConfirmDialog({ onAnswer }: { onAnswer: (confirmed: boolean) => void })
             />
           </label>
         )}
-        {!hasPassword && !hasPasskey && (
+        {!hasPassword && !hasPasskey && providers.length === 0 && (
           <p className="pref-hint">
             Your account has no password or passkey to confirm with. Set a password under Sign-in
             &amp; security, then try again.
@@ -122,9 +173,29 @@ function ConfirmDialog({ onAnswer }: { onAnswer: (confirmed: boolean) => void })
         )}
         <div aria-live="polite">{error && <p className="error-text">{error}</p>}</div>
         <div className="dialog-actions">
-          <button className="btn" type="button" onClick={() => onAnswer(false)}>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => {
+              waiting.current = false;
+              onAnswer(false);
+            }}
+          >
             Cancel
           </button>
+          {providers.map((provider) => (
+            <button
+              key={provider.slug}
+              className={hasPassword || hasPasskey ? 'btn' : 'btn btn-primary'}
+              type="button"
+              disabled={busy}
+              onClick={() => void withProvider(provider.slug, provider.name)}
+            >
+              {waitingOn === provider.name
+                ? `Waiting for ${provider.name}…`
+                : `Use ${provider.name}`}
+            </button>
+          ))}
           {hasPasskey && (
             <button
               className={hasPassword ? 'btn' : 'btn btn-primary'}

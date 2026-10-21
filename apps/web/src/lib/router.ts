@@ -35,6 +35,7 @@ export const ADMIN_SECTIONS = [
   'webhooks',
   'deliveries',
   'connections',
+  'sso',
   'users',
   'app-policy',
   'feedback',

@@ -5,7 +5,7 @@
  * listed here, and "Sign out everywhere else", are every workspace's (M3 · B1).
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
 import { DialogPresence } from '../../components/Dialog.tsx';
 import {
@@ -14,12 +14,14 @@ import {
   type AccountEvent,
   type AuthSession,
   type PasskeyRow,
+  type SsoIdentity,
 } from '../../lib/api.ts';
 import { createPasskey, forgetPasskey, isCancel, passkeysSupported } from '../../lib/passkeys.ts';
 import { useFetch } from '../../lib/useFetch.ts';
 import { formatRelative } from '../messages/messageFormatting.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import { Card, CardNotice } from '../console/Card.tsx';
+import { clearSsoParams, ssoMessage } from '../auth/sso.ts';
 import { describeAgent, describeEvent, describeMethod } from './devices.ts';
 
 export function SecuritySection({ onError }: ConsoleSectionProps) {
@@ -32,6 +34,7 @@ export function SecuritySection({ onError }: ConsoleSectionProps) {
     <div className="console-stack">
       <PasswordCard onError={onError} onChanged={changed} />
       <PasskeysCard onError={onError} version={version} onChanged={changed} />
+      <SingleSignOnCard onError={onError} version={version} onChanged={changed} />
       <DevicesCard onError={onError} version={version} onChanged={changed} />
       <ActivityCard version={version} />
     </div>
@@ -327,6 +330,127 @@ function PasskeysCard({
                 async () => forgetPasskey((await api.passkeys.remove(target.id)).credentialId),
                 'That passkey could not be removed.',
               );
+            }}
+          />
+        )}
+      </DialogPresence>
+    </Card>
+  );
+}
+
+/** What linking at a provider came back with, from the address it came back to. */
+function linkOutcome(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('sso') === 'linked') return 'Linked. You can sign in with it from now on.';
+  const code = params.get('sso_error');
+  return code ? ssoMessage(code) : null;
+}
+
+function SingleSignOnCard({
+  onError,
+  version,
+  onChanged,
+}: {
+  onError: (message: string | null) => void;
+  version: number;
+  onChanged: () => void;
+}) {
+  const { data, error } = useFetch(() => api.sso.identities(), [version]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState<SsoIdentity | null>(null);
+  const [outcome] = useState(linkOutcome);
+  useEffect(() => clearSsoParams(), []);
+
+  // A server with no providers has nothing to offer here, so says nothing.
+  if (!error && data !== null && data.identities.length === 0 && data.available.length === 0) {
+    return null;
+  }
+
+  async function link(slug: string) {
+    setBusy(slug);
+    onError(null);
+    try {
+      const { url } = await api.sso.begin({
+        provider: slug,
+        intent: 'link',
+        next: '/settings/security',
+      });
+      window.location.assign(url);
+    } catch (err) {
+      if (!(err instanceof ApiError && err.code === 'reauth_cancelled')) {
+        onError(err instanceof ApiError ? err.message : 'That could not start.');
+      }
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Card
+      title="Single sign-on"
+      description="Sign in with your organisation’s account instead of a password here."
+    >
+      {outcome && <p className="pref-hint">{outcome}</p>}
+      {error && <p className="error-text">Could not load single sign-on.</p>}
+      {!error && data === null && <CardNotice>Loading…</CardNotice>}
+      {data?.identities.map((identity) => (
+        <div key={identity.providerId} className="pref-row">
+          <div className="grow min-0">
+            <div className="pref-label">{identity.name}</div>
+            <div className="pref-hint">
+              {[
+                identity.linkedAt
+                  ? `linked ${new Date(identity.linkedAt).toLocaleDateString()}`
+                  : 'linked',
+                identity.lastUsedAt
+                  ? `last used ${formatRelative(identity.lastUsedAt)}`
+                  : 'not used yet',
+              ].join(' · ')}
+            </div>
+          </div>
+          <button
+            className="btn btn-ghost"
+            disabled={busy !== null}
+            aria-label={`Unlink ${identity.name}`}
+            onClick={() => setUnlinking(identity)}
+          >
+            Unlink
+          </button>
+        </div>
+      ))}
+      {data?.available.map((provider) => (
+        <div key={provider.slug} className="pref-row">
+          <div className="grow min-0">
+            <div className="pref-label">{provider.name}</div>
+            <div className="pref-hint">Not linked</div>
+          </div>
+          <button className="btn" disabled={busy !== null} onClick={() => void link(provider.slug)}>
+            {busy === provider.slug ? 'Opening…' : `Link ${provider.name}`}
+          </button>
+        </div>
+      ))}
+
+      <DialogPresence when={unlinking}>
+        {(identity) => (
+          <ConfirmDialog
+            title={`Unlink ${identity.name}?`}
+            body="It will no longer sign you in here. If it is the only way you have in, set a password or add a passkey first."
+            confirmLabel="Unlink"
+            danger
+            onClose={() => setUnlinking(null)}
+            onConfirm={() => {
+              const target = identity;
+              setUnlinking(null);
+              setBusy('unlink');
+              onError(null);
+              void api.sso
+                .unlink(target.providerId)
+                .then(onChanged)
+                .catch((err: unknown) => {
+                  if (!(err instanceof ApiError && err.code === 'reauth_cancelled')) {
+                    onError(err instanceof ApiError ? err.message : 'That could not be unlinked.');
+                  }
+                })
+                .finally(() => setBusy(null));
             }}
           />
         )}

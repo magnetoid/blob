@@ -382,6 +382,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/instance/sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Providers */
+        get: operations["list_providers_api_admin_instance_sso_get"];
+        put?: never;
+        /** Create Provider */
+        post: operations["create_provider_api_admin_instance_sso_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/instance/sso/{provider_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Provider */
+        put: operations["update_provider_api_admin_instance_sso__provider_id__put"];
+        post?: never;
+        /** Delete Provider */
+        delete: operations["delete_provider_api_admin_instance_sso__provider_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/instance/sso/{provider_id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Provider
+         * @description Ask the provider to describe itself again, so a typo shows here and not at the
+         *     first person's sign-in.
+         */
+        post: operations["check_provider_api_admin_instance_sso__provider_id__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/instance/users": {
         parameters: {
             query?: never;
@@ -2629,6 +2686,74 @@ export interface paths {
         /** Signup */
         post: operations["signup_api_auth_signup_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sso/begin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Begin */
+        post: operations["begin_api_auth_sso_begin_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sso/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Callback */
+        get: operations["callback_api_auth_sso_callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sso/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Identities */
+        get: operations["identities_api_auth_sso_identities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sso/identities/{provider_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unlink */
+        delete: operations["unlink_api_auth_sso_identities__provider_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5162,6 +5287,11 @@ export interface components {
         AuthStateOut: {
             /** Needssetup */
             needsSetup: boolean;
+            /**
+             * Providers
+             * @default []
+             */
+            providers: components["schemas"]["SsoChoiceOut"][];
         };
         /** AuthTestOut */
         AuthTestOut: {
@@ -7417,6 +7547,11 @@ export interface components {
             methods: string[];
             /** Provenat */
             provenAt: string | null;
+            /**
+             * Providers
+             * @default []
+             */
+            providers: components["schemas"]["SsoChoiceOut"][];
             /** Windowminutes */
             windowMinutes: number;
         };
@@ -7777,6 +7912,163 @@ export interface components {
             password: string;
             /** Workspacename */
             workspaceName?: string | null;
+        };
+        /** SsoBeginIn */
+        SsoBeginIn: {
+            /**
+             * Intent
+             * @default sign_in
+             * @enum {string}
+             */
+            intent: "sign_in" | "confirm" | "link";
+            /** Invite */
+            invite?: string | null;
+            /** Next */
+            next?: string | null;
+            /** Provider */
+            provider: string;
+        };
+        /** SsoBeginOut */
+        SsoBeginOut: {
+            /** Url */
+            url: string;
+        };
+        /** SsoCheckOut */
+        SsoCheckOut: {
+            /** Message */
+            message: string;
+            /** Ok */
+            ok: boolean;
+        };
+        /** SsoChoiceOut */
+        SsoChoiceOut: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+        };
+        /** SsoIdentitiesOut */
+        SsoIdentitiesOut: {
+            /** Available */
+            available: components["schemas"]["SsoProviderChoice"][];
+            /** Identities */
+            identities: components["schemas"]["SsoIdentityOut"][];
+        };
+        /** SsoIdentityOut */
+        SsoIdentityOut: {
+            /** Lastusedat */
+            lastUsedAt: string | null;
+            /** Linkedat */
+            linkedAt: string | null;
+            /** Name */
+            name: string;
+            /** Providerid */
+            providerId: string;
+            /** Slug */
+            slug: string;
+        };
+        /** SsoProviderChoice */
+        SsoProviderChoice: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+        };
+        /** SsoProviderCreateIn */
+        SsoProviderCreateIn: {
+            /** Alloweddomains */
+            allowedDomains?: string[];
+            /** Clientid */
+            clientId: string;
+            /** Clientsecret */
+            clientSecret?: string | null;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Issuer */
+            issuer: string;
+            /** Joinworkspaceid */
+            joinWorkspaceId?: string | null;
+            /**
+             * Linkbyemail
+             * @default true
+             */
+            linkByEmail: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Scopes
+             * @default openid email profile
+             */
+            scopes: string;
+            /** Slug */
+            slug: string;
+        };
+        /** SsoProviderIn */
+        SsoProviderIn: {
+            /** Alloweddomains */
+            allowedDomains?: string[];
+            /** Clientid */
+            clientId: string;
+            /** Clientsecret */
+            clientSecret?: string | null;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Issuer */
+            issuer: string;
+            /** Joinworkspaceid */
+            joinWorkspaceId?: string | null;
+            /**
+             * Linkbyemail
+             * @default true
+             */
+            linkByEmail: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Scopes
+             * @default openid email profile
+             */
+            scopes: string;
+        };
+        /** SsoProviderOut */
+        SsoProviderOut: {
+            /** Alloweddomains */
+            allowedDomains: string[];
+            /** Clientid */
+            clientId: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Hassecret */
+            hasSecret: boolean;
+            /** Id */
+            id: string;
+            /** Issuer */
+            issuer: string;
+            /** Joinworkspaceid */
+            joinWorkspaceId: string | null;
+            /** Linkbyemail */
+            linkByEmail: boolean;
+            /** Linked */
+            linked: number;
+            /** Name */
+            name: string;
+            /** Scopes */
+            scopes: string;
+            /** Slug */
+            slug: string;
+        };
+        /** SsoProvidersOut */
+        SsoProvidersOut: {
+            /** Callbackurl */
+            callbackUrl: string;
+            /** Providers */
+            providers: components["schemas"]["SsoProviderOut"][];
         };
         /** StartWorkInput */
         StartWorkInput: {
@@ -8747,6 +9039,17 @@ export type SessionRow = components['schemas']['SessionRow'];
 export type SessionsOut = components['schemas']['SessionsOut'];
 export type SettingsInput = components['schemas']['SettingsInput'];
 export type SignupInput = components['schemas']['SignupInput'];
+export type SsoBeginIn = components['schemas']['SsoBeginIn'];
+export type SsoBeginOut = components['schemas']['SsoBeginOut'];
+export type SsoCheckOut = components['schemas']['SsoCheckOut'];
+export type SsoChoiceOut = components['schemas']['SsoChoiceOut'];
+export type SsoIdentitiesOut = components['schemas']['SsoIdentitiesOut'];
+export type SsoIdentityOut = components['schemas']['SsoIdentityOut'];
+export type SsoProviderChoice = components['schemas']['SsoProviderChoice'];
+export type SsoProviderCreateIn = components['schemas']['SsoProviderCreateIn'];
+export type SsoProviderIn = components['schemas']['SsoProviderIn'];
+export type SsoProviderOut = components['schemas']['SsoProviderOut'];
+export type SsoProvidersOut = components['schemas']['SsoProvidersOut'];
 export type StartWorkInput = components['schemas']['StartWorkInput'];
 export type SwitchedOut = components['schemas']['SwitchedOut'];
 export type SyncOut = components['schemas']['SyncOut'];
@@ -9548,6 +9851,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkOut"];
+                };
+            };
+        };
+    };
+    list_providers_api_admin_instance_sso_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoProvidersOut"];
+                };
+            };
+        };
+    };
+    create_provider_api_admin_instance_sso_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoProviderCreateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoProviderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_provider_api_admin_instance_sso__provider_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoProviderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoProviderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_provider_api_admin_instance_sso__provider_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_provider_api_admin_instance_sso__provider_id__check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -13346,6 +13799,124 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    begin_api_auth_sso_begin_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoBeginIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoBeginOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    callback_api_auth_sso_callback_get: {
+        parameters: {
+            query?: {
+                code?: string | null;
+                error?: string | null;
+                iss?: string | null;
+                state?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    identities_api_auth_sso_identities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoIdentitiesOut"];
+                };
+            };
+        };
+    };
+    unlink_api_auth_sso_identities__provider_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
                 };
             };
             /** @description Validation Error */

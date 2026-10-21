@@ -254,6 +254,13 @@ def require_recent_owner(request: Request) -> SessionUser:
     return user
 
 
+async def require_recent_instance_admin(request: Request) -> SessionUser:
+    """The server's administrator, lately proven — for changing who can get in at all."""
+    user = await require_instance_admin(request)
+    assert_recent_auth(user)
+    return user
+
+
 def reauth_required() -> AppError:
     """403, not 401: the client treats 401 as signed out. It answers this one by asking
     the person to confirm who they are, then sends the same request again."""

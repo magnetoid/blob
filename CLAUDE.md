@@ -21,7 +21,7 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-thirty-two ADRs; the principles below are their summary, not a substitute. 0013–0020 and
+thirty-three ADRs; the principles below are their summary, not a substitute. 0013–0020 and
 0022–0030 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
@@ -193,7 +193,12 @@ are the address's too (`passkeys`, `passkey_owners`): one signs in alone, confir
 when the person turns on two-step — is asked for after the password, in which case login
 answers a `twoStep` challenge instead of a session and a reset does not sign them in.
 Every ceremony's challenge is single-use in Redis and bound to what began it; the server,
-not `allowCredentials`, checks whose key answered.
+not `allowCredentials`, checks whose key answered. Single sign-on (ADR 0033) is the server's —
+providers are set up by its administrator — and who signed in is (provider, `sub`), never
+the email claim alone: a first sign-in links by address only on `email_verified` exactly
+`true`, within the allowed domains, with no other subject on that address; new people only
+by invitation or a join workspace that names its domains. Every round trip starts with a
+same-origin `POST /api/auth/sso/begin` and its state is bound to the browser by a cookie.
 
 **Errors are a contract.** The codes in `lib/errors.py` are what `apps/web/src/lib/api.ts`
 branches on. Don't rename them, and keep FastAPI's 422 remapped to 400 `invalid_input`.

@@ -50,6 +50,10 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("POST", "/api/auth/passkey/options"),
     ("POST", "/api/auth/passkey/sign-in"),
     ("POST", "/api/auth/two-step"),
+    # Single sign-on (ADR 0033): starting a round trip signed out, and the provider sending
+    # the browser back. The routes beside them under /api/auth/sso need a session.
+    ("POST", "/api/auth/sso/begin"),
+    ("GET", "/api/auth/sso/callback"),
     # The MCP endpoint authenticates with its own bearer token, the way `/api/v1/` does.
     # Listed as exact routes rather than as a prefix on purpose: `PUBLIC_PREFIXES` is a
     # `startswith` test, so a `/api/mcp` prefix would also open anything that merely
@@ -341,6 +345,7 @@ def create_app() -> FastAPI:
     from .routers.admin_emoji import router as admin_emoji_router
     from .routers.admin_instance import router as admin_instance_router
     from .routers.admin_janus import router as admin_janus_router
+    from .routers.admin_sso import router as admin_sso_router
     from .routers.agent_shell import router as agent_shell_router
     from .routers.agent_socket import router as agent_socket_router
     from .routers.agentic import router as agentic_router
@@ -371,6 +376,7 @@ def create_app() -> FastAPI:
     from .routers.plugin_logs import router as plugin_logs_router
     from .routers.plugins import router as plugin_router
     from .routers.search import router as search_router
+    from .routers.sso import router as sso_router
     from .routers.themes import router as theme_router
     from .routers.usage import router as usage_router
     from .routers.users import router as user_router
@@ -379,6 +385,8 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(passkeys_router)
+    app.include_router(sso_router)
+    app.include_router(admin_sso_router)
     app.include_router(user_router)
     app.include_router(workspace_router)
     app.include_router(channel_router)

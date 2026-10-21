@@ -10,13 +10,14 @@
  */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, ApiError, type PasskeyChallenge } from "../../lib/api.ts";
+import { api, ApiError, type PasskeyChallenge, type SsoChoice } from "../../lib/api.ts";
 import {
   autofillAvailable,
   getPasskey,
   isCancel,
   passkeysSupported,
 } from "../../lib/passkeys.ts";
+import { clearSsoParams, ssoErrorFromUrl, ssoMessage } from "./sso.ts";
 import { inviteTokenFromUrl, resetTokenFromUrl } from "./tokens.ts";
 import { isConsentPath } from "../oauth/consent.ts";
 
@@ -24,6 +25,8 @@ type Mode = "login" | "signup" | "forgot" | "reset";
 
 interface Props {
   needsSetup: boolean;
+  /** Single sign-on providers to offer a button for (ADR 0033). */
+  providers?: SsoChoice[];
   onSignedIn: () => Promise<void>;
 }
 
@@ -69,7 +72,7 @@ function BrandPanel() {
   );
 }
 
-export function AuthScreen({ needsSetup, onSignedIn }: Props) {
+export function AuthScreen({ needsSetup, providers = [], onSignedIn }: Props) {
   const inviteToken = inviteTokenFromUrl();
   const resetToken = resetTokenFromUrl();
   const workspaceNameRef = useRef<HTMLInputElement>(null);
@@ -82,7 +85,11 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   const [displayName, setDisplayName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   const [inviteWorkspace, setInviteWorkspace] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // A provider's round trip that came back refused says why, once.
+  const [error, setError] = useState<string | null>(() => {
+    const code = ssoErrorFromUrl();
+    return code ? ssoMessage(code) : null;
+  });
   /** Whether that line is the answer to a submit — "no" to what was just typed, which
    *  settles into place — rather than something the screen found out on its own, like
    *  an invitation that has lapsed, which only fades in. */
@@ -106,6 +113,10 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
   useEffect(() => {
     signedIn.current = onSignedIn;
   }, [onSignedIn]);
+
+  useEffect(() => {
+    clearSsoParams();
+  }, []);
 
   useEffect(() => {
     if (!inviteToken) return;
@@ -186,6 +197,31 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
       }
       setBusy(false);
       setAutofillRound((n) => n + 1);
+    }
+  }
+
+  async function continueWith(provider: string) {
+    autofill.current?.abort();
+    setError(null);
+    setBusy(true);
+    try {
+      // Back to the question an app was asking, if that is where this started.
+      const next = isConsentPath()
+        ? window.location.pathname + window.location.search
+        : undefined;
+      const { url } = await api.sso.begin({
+        provider,
+        intent: "sign_in",
+        next,
+        invite: inviteToken ?? undefined,
+      });
+      window.location.assign(url);
+    } catch (err) {
+      setRefused(true);
+      setError(
+        err instanceof ApiError ? err.message : "Single sign-on could not start.",
+      );
+      setBusy(false);
     }
   }
 
@@ -510,6 +546,21 @@ export function AuthScreen({ needsSetup, onSignedIn }: Props) {
             Sign in with a passkey
           </button>
         )}
+
+        {!twoStep &&
+          !needsSetup &&
+          (mode === "login" || (mode === "signup" && inviteToken)) &&
+          providers.map((provider) => (
+            <button
+              key={provider.slug}
+              className="btn"
+              type="button"
+              disabled={busy}
+              onClick={() => void continueWith(provider.slug)}
+            >
+              {mode === "signup" ? "Join with" : "Continue with"} {provider.name}
+            </button>
+          ))}
 
         {twoStep && (
           <p className="auth-switch">

@@ -7,6 +7,7 @@ const reauthState = vi.fn();
 const reauth = vi.fn();
 const confirmOptions = vi.fn();
 const confirm = vi.fn();
+const ssoBegin = vi.fn();
 vi.mock('../../lib/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/api.ts')>();
   return {
@@ -15,6 +16,7 @@ vi.mock('../../lib/api.ts', async (importOriginal) => {
       ...actual.api,
       auth: { ...actual.api.auth, reauthState, reauth },
       passkeys: { ...actual.api.passkeys, confirmOptions, confirm },
+      sso: { ...actual.api.sso, begin: ssoBegin },
     },
   };
 });
@@ -131,5 +133,50 @@ describe('confirming it is you', () => {
     const button = await screen.findByText('Use a passkey');
     expect(button.className).toContain('btn-primary');
     expect(screen.queryByLabelText('Password')).toBeNull();
+  });
+
+  it('confirms through the identity provider in a window of its own', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const popup = { location: { href: 'about:blank' }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
+    reauthState
+      .mockResolvedValueOnce({
+        methods: ['sso'],
+        provenAt: null,
+        windowMinutes: 15,
+        providers: [{ slug: 'acme', name: 'Acme' }],
+      })
+      .mockResolvedValueOnce({ methods: ['sso'], provenAt: null, windowMinutes: 15 })
+      .mockResolvedValue({ methods: ['sso'], provenAt: '2026-10-21T10:00:00Z', windowMinutes: 15 });
+    ssoBegin.mockResolvedValue({ url: 'https://idp.example.com/authorize?state=s' });
+    render(<ConfirmItsYou />);
+
+    const answer = ask();
+    fireEvent.click(await screen.findByText('Use Acme'));
+    // Opened in the click itself, before anything was awaited.
+    expect(open).toHaveBeenCalledWith('about:blank', 'blob-confirm', expect.stringContaining('popup'));
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(await answer).toBe(true);
+    expect(popup.location.href).toBe('https://idp.example.com/authorize?state=s');
+    expect(ssoBegin).toHaveBeenCalledWith({ provider: 'acme', intent: 'confirm' });
+    expect(popup.close).toHaveBeenCalled();
+    open.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('says so when pop-ups are blocked', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    reauthState.mockResolvedValue({
+      methods: ['sso'],
+      provenAt: null,
+      windowMinutes: 15,
+      providers: [{ slug: 'acme', name: 'Acme' }],
+    });
+    render(<ConfirmItsYou />);
+    void ask();
+    fireEvent.click(await screen.findByText('Use Acme'));
+    expect(await screen.findByText('Allow pop-ups for this site to confirm with Acme.')).toBeTruthy();
+    expect(ssoBegin).not.toHaveBeenCalled();
+    open.mockRestore();
   });
 });

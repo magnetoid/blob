@@ -1760,6 +1760,14 @@
           "needsSetup": {
             "title": "Needssetup",
             "type": "boolean"
+          },
+          "providers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SsoChoiceOut"
+            },
+            "title": "Providers",
+            "type": "array"
           }
         },
         "required": [
@@ -7752,6 +7760,14 @@
             ],
             "title": "Provenat"
           },
+          "providers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SsoChoiceOut"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
           "windowMinutes": {
             "title": "Windowminutes",
             "type": "integer"
@@ -8749,6 +8765,451 @@
           "displayName"
         ],
         "title": "SignupInput",
+        "type": "object"
+      },
+      "SsoBeginIn": {
+        "properties": {
+          "intent": {
+            "default": "sign_in",
+            "enum": [
+              "sign_in",
+              "confirm",
+              "link"
+            ],
+            "title": "Intent",
+            "type": "string"
+          },
+          "invite": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invite"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          },
+          "provider": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "SsoBeginIn",
+        "type": "object"
+      },
+      "SsoBeginOut": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "SsoBeginOut",
+        "type": "object"
+      },
+      "SsoCheckOut": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "message"
+        ],
+        "title": "SsoCheckOut",
+        "type": "object"
+      },
+      "SsoChoiceOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name"
+        ],
+        "title": "SsoChoiceOut",
+        "type": "object"
+      },
+      "SsoIdentitiesOut": {
+        "properties": {
+          "available": {
+            "items": {
+              "$ref": "#/components/schemas/SsoProviderChoice"
+            },
+            "title": "Available",
+            "type": "array"
+          },
+          "identities": {
+            "items": {
+              "$ref": "#/components/schemas/SsoIdentityOut"
+            },
+            "title": "Identities",
+            "type": "array"
+          }
+        },
+        "required": [
+          "identities",
+          "available"
+        ],
+        "title": "SsoIdentitiesOut",
+        "type": "object"
+      },
+      "SsoIdentityOut": {
+        "properties": {
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastusedat"
+          },
+          "linkedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linkedat"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "providerId": {
+            "title": "Providerid",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "providerId",
+          "slug",
+          "name",
+          "linkedAt",
+          "lastUsedAt"
+        ],
+        "title": "SsoIdentityOut",
+        "type": "object"
+      },
+      "SsoProviderChoice": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name"
+        ],
+        "title": "SsoProviderChoice",
+        "type": "object"
+      },
+      "SsoProviderCreateIn": {
+        "properties": {
+          "allowedDomains": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Alloweddomains",
+            "type": "array"
+          },
+          "clientId": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Clientid",
+            "type": "string"
+          },
+          "clientSecret": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientsecret"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "issuer": {
+            "maxLength": 512,
+            "minLength": 8,
+            "title": "Issuer",
+            "type": "string"
+          },
+          "joinWorkspaceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joinworkspaceid"
+          },
+          "linkByEmail": {
+            "default": true,
+            "title": "Linkbyemail",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "default": "openid email profile",
+            "maxLength": 512,
+            "title": "Scopes",
+            "type": "string"
+          },
+          "slug": {
+            "maxLength": 31,
+            "minLength": 2,
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "issuer",
+          "clientId",
+          "slug"
+        ],
+        "title": "SsoProviderCreateIn",
+        "type": "object"
+      },
+      "SsoProviderIn": {
+        "properties": {
+          "allowedDomains": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Alloweddomains",
+            "type": "array"
+          },
+          "clientId": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Clientid",
+            "type": "string"
+          },
+          "clientSecret": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientsecret"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "issuer": {
+            "maxLength": 512,
+            "minLength": 8,
+            "title": "Issuer",
+            "type": "string"
+          },
+          "joinWorkspaceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joinworkspaceid"
+          },
+          "linkByEmail": {
+            "default": true,
+            "title": "Linkbyemail",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "default": "openid email profile",
+            "maxLength": 512,
+            "title": "Scopes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "issuer",
+          "clientId"
+        ],
+        "title": "SsoProviderIn",
+        "type": "object"
+      },
+      "SsoProviderOut": {
+        "properties": {
+          "allowedDomains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alloweddomains",
+            "type": "array"
+          },
+          "clientId": {
+            "title": "Clientid",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hasSecret": {
+            "title": "Hassecret",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "issuer": {
+            "title": "Issuer",
+            "type": "string"
+          },
+          "joinWorkspaceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joinworkspaceid"
+          },
+          "linkByEmail": {
+            "title": "Linkbyemail",
+            "type": "boolean"
+          },
+          "linked": {
+            "title": "Linked",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "title": "Scopes",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "issuer",
+          "clientId",
+          "scopes",
+          "allowedDomains",
+          "linkByEmail",
+          "joinWorkspaceId",
+          "enabled",
+          "hasSecret",
+          "linked"
+        ],
+        "title": "SsoProviderOut",
+        "type": "object"
+      },
+      "SsoProvidersOut": {
+        "properties": {
+          "callbackUrl": {
+            "title": "Callbackurl",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/SsoProviderOut"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "providers",
+          "callbackUrl"
+        ],
+        "title": "SsoProvidersOut",
         "type": "object"
       },
       "StartWorkInput": {
@@ -12417,6 +12878,204 @@
           }
         },
         "summary": "List Server Logs",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/instance/sso": {
+      "get": {
+        "operationId": "list_providers_api_admin_instance_sso_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoProvidersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Providers",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_provider_api_admin_instance_sso_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoProviderCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoProviderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Provider",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/instance/sso/{provider_id}": {
+      "delete": {
+        "operationId": "delete_provider_api_admin_instance_sso__provider_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Provider",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "update_provider_api_admin_instance_sso__provider_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoProviderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoProviderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Provider",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/instance/sso/{provider_id}/check": {
+      "post": {
+        "description": "Ask the provider to describe itself again, so a typo shows here and not at the\nfirst person's sign-in.",
+        "operationId": "check_provider_api_admin_instance_sso__provider_id__check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Provider",
         "tags": [
           "admin"
         ]
@@ -17804,6 +18463,204 @@
         "summary": "Signup",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/auth/sso/begin": {
+      "post": {
+        "operationId": "begin_api_auth_sso_begin_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoBeginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoBeginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Begin",
+        "tags": [
+          "sso"
+        ]
+      }
+    },
+    "/api/auth/sso/callback": {
+      "get": {
+        "operationId": "callback_api_auth_sso_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "State",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 4096,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "iss",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Iss"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Callback",
+        "tags": [
+          "sso"
+        ]
+      }
+    },
+    "/api/auth/sso/identities": {
+      "get": {
+        "operationId": "identities_api_auth_sso_identities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoIdentitiesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Identities",
+        "tags": [
+          "sso"
+        ]
+      }
+    },
+    "/api/auth/sso/identities/{provider_id}": {
+      "delete": {
+        "operationId": "unlink_api_auth_sso_identities__provider_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlink",
+        "tags": [
+          "sso"
         ]
       }
     },

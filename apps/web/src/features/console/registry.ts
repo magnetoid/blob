@@ -333,6 +333,19 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `/api/admin/instance/sso` (ADR 0033): the server's, since a person is one address
+    // across every workspace on it.
+    id: 'sso',
+    label: 'Single sign-on',
+    description:
+      'Let people sign in with the account their organisation gives them — Google, Microsoft, Okta, Keycloak.',
+    keywords: [
+      'sso', 'oidc', 'openid', 'identity provider', 'idp', 'google workspace', 'microsoft',
+      'entra', 'azure', 'okta', 'keycloak', 'login', 'sign in',
+    ],
+    access: 'instance',
+  },
+  {
     // `/api/admin/instance/workspaces/{id}/policy`.
     id: 'app-policy',
     label: 'App policy',

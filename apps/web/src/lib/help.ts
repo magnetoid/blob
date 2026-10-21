@@ -116,7 +116,7 @@ export const SECTIONS: Section[] = [
         title: 'Signing in',
         blurb: 'An email address and a password of at least ten characters.',
         body: [
-          'Once a workspace exists you cannot sign yourself up: joining needs an invitation link. One address has one password in every workspace it belongs to on this server, and can have passkeys too.',
+          'Once a workspace exists you cannot sign yourself up: joining needs an invitation link — or, where the server has single sign-on, your organisation’s account. One address has one password in every workspace it belongs to on this server, and can have passkeys too.',
           'Forgot your password sends a link by email. It works once and expires in an hour, which is short on purpose — a password reset link sitting in an inbox for a week is a spare key under the mat. While you are signed in you can change it under Sign-in & security, which signs out every other device. There is no way to change your email address from the app.',
           'A few things ask you to confirm it’s you first, once your sign-in is more than fifteen minutes old: making a token for an assistant, letting one connect, attaching an agent of your own, changing someone’s role, making them a reset link, and installing an app. Enter your password and it goes ahead; you are not asked again for fifteen minutes.',
           'Being signed in is per browser. Sign-in & security lists every session you hold, so a machine you no longer have can be signed out from one you do.',
@@ -785,6 +785,18 @@ export const SECTIONS: Section[] = [
         ],
         path: '/settings/security',
         keywords: ['passkey', 'passkeys', 'webauthn', 'face id', 'touch id', 'fingerprint', 'security key', 'two-step', '2fa', 'two factor', 'mfa'],
+      },
+      {
+        id: 'single-sign-on',
+        title: 'Single sign-on',
+        blurb: 'Sign in with the account your organisation gives you — Google, Microsoft, Okta and the like.',
+        body: [
+          'Where the server’s administrator has connected one, the sign-in page has a Continue with button for it. The first time, it is linked to your account here when the provider has verified your address; if it says it cannot be, sign in another way and link it under Sign-in & security.',
+          'A provider can also let new people from your organisation in without an invitation, into a workspace the administrator chose. Signing in this way follows your organisation’s own rules — its two-step sign-in included — rather than this server’s second step.',
+          'It also answers Confirm it’s you, in a small window of its own. Unlinking it is refused while it is the only way you have in: set a password or add a passkey first.',
+        ],
+        path: '/settings/security',
+        keywords: ['sso', 'single sign-on', 'oidc', 'openid', 'google', 'microsoft', 'okta', 'entra', 'keycloak', 'organisation', 'company account'],
       },
     ],
   },

@@ -14,6 +14,9 @@ const passkeyOptions = vi.fn();
 const passkeyAdd = vi.fn();
 const passkeyRemove = vi.fn();
 const setTwoStep = vi.fn();
+const ssoIdentities = vi.fn();
+const ssoUnlink = vi.fn();
+const ssoBegin = vi.fn();
 vi.mock('../../lib/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/api.ts')>();
   return {
@@ -37,6 +40,7 @@ vi.mock('../../lib/api.ts', async (importOriginal) => {
         remove: passkeyRemove,
         setTwoStep,
       },
+      sso: { identities: ssoIdentities, unlink: ssoUnlink, begin: ssoBegin },
     },
   };
 });
@@ -85,6 +89,7 @@ function serve({
   activity.mockResolvedValue({ events, keepDays: 90 });
   reauthState.mockResolvedValue({ methods, provenAt: null, windowMinutes: 15 });
   passkeyList.mockResolvedValue({ passkeys, twoStep });
+  ssoIdentities.mockResolvedValue({ identities: [], available: [] });
 }
 
 const LAPTOP_KEY = {
@@ -298,5 +303,63 @@ describe('the record, in words', () => {
     expect(describeEvent({ kind: 'signed_in', method: 'two_step' })).toBe(
       'Signed in with a password and a passkey',
     );
+  });
+});
+
+describe('single sign-on', () => {
+  it('says nothing on a server with no providers', async () => {
+    serve();
+    render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+    await screen.findByText('Passkeys');
+    await waitFor(() => expect(ssoIdentities).toHaveBeenCalled());
+    expect(screen.queryByText('Single sign-on')).toBeNull();
+  });
+
+  it('lists what is linked, and links what is not', async () => {
+    serve();
+    ssoIdentities.mockResolvedValue({
+      identities: [
+        {
+          providerId: 'p1',
+          slug: 'acme',
+          name: 'Acme',
+          linkedAt: '2026-10-01T00:00:00Z',
+          lastUsedAt: null,
+        },
+      ],
+      available: [{ slug: 'globex', name: 'Globex' }],
+    });
+    ssoBegin.mockResolvedValue({ url: 'https://idp.example.com/authorize' });
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, assign, search: '' },
+      configurable: true,
+      writable: true,
+    });
+    render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+
+    expect(await screen.findByRole('button', { name: 'Unlink Acme' })).toBeTruthy();
+    fireEvent.click(screen.getByText('Link Globex'));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('https://idp.example.com/authorize'));
+    expect(ssoBegin).toHaveBeenCalledWith({
+      provider: 'globex',
+      intent: 'link',
+      next: '/settings/security',
+    });
+  });
+
+  it('unlinks after asking', async () => {
+    serve();
+    ssoIdentities.mockResolvedValue({
+      identities: [
+        { providerId: 'p1', slug: 'acme', name: 'Acme', linkedAt: null, lastUsedAt: null },
+      ],
+      available: [],
+    });
+    ssoUnlink.mockResolvedValue({ ok: true });
+    render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Unlink Acme' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Unlink' }));
+    await waitFor(() => expect(ssoUnlink).toHaveBeenCalledWith('p1'));
   });
 });

@@ -50,6 +50,7 @@ from ..schemas.requests import (
 from ..services import accounts as account_service
 from ..services import passkeys as passkey_service
 from ..services import signup as signup_service
+from ..services import sso as sso_service
 from ..services import workspaces as workspace_service
 from ..services.audit import actor_for
 from ..services.serialize import to_current_user
@@ -57,8 +58,15 @@ from ..services.serialize import to_current_user
 router = APIRouter(tags=["auth"])
 
 
+class SsoChoiceOut(CamelModel):
+    slug: str
+    name: str
+
+
 class AuthStateOut(CamelModel):
     needs_setup: bool
+    #: Single sign-on buttons for the sign-in page (ADR 0033).
+    providers: list[SsoChoiceOut] = []
 
 
 class SessionOut(CamelModel):
@@ -144,6 +152,8 @@ class AccountActivityOut(CamelModel):
 class ReauthStateOut(CamelModel):
     #: The ways this person can confirm it is them, for the prompt to offer.
     methods: list[str]
+    #: The single sign-on providers linked to them, each a way to confirm.
+    providers: list[SsoChoiceOut] = []
     #: When this session last proved it, if within the window.
     proven_at: str | None
     window_minutes: int
@@ -191,7 +201,11 @@ def _wrong_password() -> AppError:
 async def auth_state() -> AuthStateOut:
     """Is this a fresh install? The first person to sign up founds the workspace."""
     async with session_scope() as session:
-        return AuthStateOut(needs_setup=await signup_service.needs_setup(session))
+        providers = await sso_service.enabled_providers(session)
+        return AuthStateOut(
+            needs_setup=await signup_service.needs_setup(session),
+            providers=[SsoChoiceOut(slug=p.slug, name=p.name) for p in providers],
+        )
 
 
 @router.post("/api/auth/signup", response_model=SessionOut)
@@ -351,8 +365,10 @@ async def reauth_state(user: SessionUser = Depends(current_user)) -> ReauthState
     """What the confirm prompt may offer, and whether this session needs it at all."""
     async with session_scope() as session:
         methods = await account_service.proofs_for(session, user.email)
+        linked = await sso_service.identities_of(session, user.email)
     return ReauthStateOut(
         methods=methods,
+        providers=[SsoChoiceOut(slug=row.slug, name=row.name) for row in linked],
         proven_at=iso(user.reauth_at) if user.recently_proven else None,
         window_minutes=int(REAUTH_WINDOW.total_seconds() // 60),
     )

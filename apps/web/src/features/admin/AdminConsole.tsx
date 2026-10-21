@@ -34,6 +34,7 @@ import { GroupsSection } from './sections/GroupsSection.tsx';
 import { InvitationsSection } from './sections/InvitationsSection.tsx';
 import { JanusSection } from './sections/janus/JanusSection.tsx';
 import { McpServersSection } from './sections/McpServersSection.tsx';
+import { SsoSection } from './sections/SsoSection.tsx';
 import { UsageSection } from './sections/UsageSection.tsx';
 import { MeetupsSection } from './sections/calls/MeetupsSection.tsx';
 import { PeopleHub } from './sections/PeopleHub.tsx';
@@ -91,6 +92,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   webhooks: WebhooksSection,
   deliveries: DeliveriesSection,
   connections: AssistantsAdminSection,
+  sso: SsoSection,
   users: framed(AccountsSection),
   'app-policy': AppPolicySection,
   feedback: FeedbackSection,

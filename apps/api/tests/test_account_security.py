@@ -292,7 +292,12 @@ class TestConfirming:
         assert refused.body["error"]["code"] == "reauth_required"
 
         state = (await founder.get("/api/auth/reauth")).body
-        assert state == {"methods": ["password"], "provenAt": None, "windowMinutes": 15}
+        assert state == {
+            "methods": ["password"],
+            "provenAt": None,
+            "windowMinutes": 15,
+            "providers": [],
+        }
 
         confirmed = await founder.post("/api/auth/reauth", {"password": PASSWORD})
         assert confirmed.status == 200, confirmed.body

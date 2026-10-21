@@ -73,5 +73,9 @@ export function describeEvent(event: Pick<AccountEvent, 'kind' | 'method'>): str
       return 'Started asking for a passkey after the password';
     case 'two_step_off':
       return 'Stopped asking for a passkey after the password';
+    case 'sso_linked':
+      return 'Single sign-on linked';
+    case 'sso_unlinked':
+      return 'Single sign-on unlinked';
   }
 }

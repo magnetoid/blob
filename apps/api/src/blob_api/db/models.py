@@ -165,7 +165,7 @@ class AccountEvent(Base):
         CheckConstraint(
             "kind IN ('signed_in', 'confirmed', 'failed', 'password_changed', "
             "'signed_out_elsewhere', 'session_ended', 'passkey_added', 'passkey_removed', "
-            "'two_step_on', 'two_step_off')",
+            "'two_step_on', 'two_step_off', 'sso_linked', 'sso_unlinked')",
             name="account_events_kind_check",
         ),
         CheckConstraint(
@@ -223,6 +223,71 @@ class Passkey(Base):
     aaguid: Mapped[str | None] = mapped_column(Text)
     backed_up: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     name: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    last_used_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
+class SsoProvider(Base):
+    """An OpenID Connect provider the server's administrator connected (ADR 0033)."""
+
+    __tablename__ = "sso_providers"
+    __table_args__ = (
+        CheckConstraint("slug ~ '^[a-z0-9][a-z0-9-]{1,30}$'", name="sso_providers_slug_check"),
+        UniqueConstraint("slug", name="sso_providers_slug_key"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    slug: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    issuer: Mapped[str] = mapped_column(Text, nullable=False)
+    client_id: Mapped[str] = mapped_column(Text, nullable=False)
+    scopes: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'openid email profile'")
+    )
+    allowed_domains: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")
+    )
+    link_by_email: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
+    join_workspace_id: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="SET NULL")
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    created_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class SsoProviderSecret(Base):
+    """A provider's client secret, apart from its row and never returned."""
+
+    __tablename__ = "sso_provider_secrets"
+
+    provider_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("sso_providers.id", ondelete="CASCADE"), primary_key=True
+    )
+    client_secret: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class SsoIdentity(Base):
+    """Who a provider's subject is here: an address. One subject per address per provider."""
+
+    __tablename__ = "sso_identities"
+    __table_args__ = (
+        PrimaryKeyConstraint("provider_id", "subject"),
+        UniqueConstraint("provider_id", "email", name="sso_identities_provider_email_key"),
+        Index("sso_identities_person", "email"),
+    )
+
+    provider_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("sso_providers.id", ondelete="CASCADE"), nullable=False
+    )
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    email: Mapped[str] = mapped_column(CITEXT, nullable=False)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     last_used_at: Mapped[Any | None] = mapped_column(Timestamp)
 
@@ -2241,6 +2306,9 @@ __all__ = [
     "Reaction",
     "ReadState",
     "Session",
+    "SsoIdentity",
+    "SsoProvider",
+    "SsoProviderSecret",
     "String",
     "Theme",
     "ThreadSubscription",

@@ -59,6 +59,7 @@ describe('the server console’s nav', () => {
       'Webhooks',
       'Deliveries',
       'Assistants',
+      'Single sign-on',
       'App policy',
       'Health',
       'Audit log',
@@ -99,18 +100,23 @@ describe('the server console’s nav', () => {
     const badged = screen
       .getAllByText('Server')
       .map((badge) => badge.closest('button')?.querySelector('.channel-name')?.textContent);
-    expect(badged).toEqual(['App policy', 'Errors and logs']);
+    expect(badged).toEqual(['Single sign-on', 'App policy', 'Errors and logs']);
     expect(screen.getByText('Audit log').closest('button')?.textContent).toBe('Audit log');
   });
 
   it('narrows the list to what was typed, without leaving a heading behind', () => {
     const { container } = renderServerNav();
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: 'log' } });
-    expect(rowLabels(container)).toEqual(['App policy', 'Audit log', 'Errors and logs']);
+    expect(rowLabels(container)).toEqual([
+      'Single sign-on',
+      'App policy',
+      'Audit log',
+      'Errors and logs',
+    ]);
     expect(screen.queryAllByRole('heading')).toEqual([]);
 
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: '' } });
-    expect(rowLabels(container)).toHaveLength(18);
+    expect(rowLabels(container)).toHaveLength(19);
   });
 });
 

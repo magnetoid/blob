@@ -81,6 +81,7 @@ describe('the console’s nav', () => {
       'Webhooks',
       'Deliveries',
       'Assistants',
+      'Single sign-on',
       'App policy',
       'Health',
       'Audit log',
@@ -94,6 +95,7 @@ describe('the console’s nav', () => {
     render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
     const rows = navRows();
     expect(rows).not.toContain('App policy');
+    expect(rows).not.toContain('Single sign-on');
     expect(rows).not.toContain('Errors and logs');
     expect(rows).toContain('Health');
     expect(rows).toHaveLength(16);
@@ -103,6 +105,6 @@ describe('the console’s nav', () => {
     signIn('admin', true);
     render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
     expect(navRows()).toContain('Errors and logs');
-    expect(navRows()).toHaveLength(18);
+    expect(navRows()).toHaveLength(19);
   });
 });

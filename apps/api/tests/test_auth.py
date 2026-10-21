@@ -9,12 +9,13 @@ from .helpers import Client, invite_and_sign_up, sign_up
 
 async def test_first_signup_founds_the_workspace_and_owns_it(client: Client) -> None:
     state = await client.get("/api/auth/state")
-    assert state.body == {"needsSetup": True}
+    # No single sign-on on a fresh server, so no buttons to offer (ADR 0033).
+    assert state.body == {"needsSetup": True, "providers": []}
 
     await sign_up(client, "Owner")
 
     after = await client.get("/api/auth/state")
-    assert after.body == {"needsSetup": False}
+    assert after.body == {"needsSetup": False, "providers": []}
 
 
 async def test_signup_without_an_invitation_is_refused(client: Client) -> None:

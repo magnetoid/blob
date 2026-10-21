@@ -891,7 +891,9 @@ export interface AccountEvent {
     | "passkey_added"
     | "passkey_removed"
     | "two_step_on"
-    | "two_step_off";
+    | "two_step_off"
+    | "sso_linked"
+    | "sso_unlinked";
   method: string | null;
   ip: string | null;
   userAgent: string | null;
@@ -915,16 +917,62 @@ export interface PasskeyChallenge {
   options: Record<string, unknown>;
 }
 
+/** A single sign-on provider, as a button shows it (ADR 0033). */
+export interface SsoChoice {
+  slug: string;
+  name: string;
+}
+
+export interface SsoIdentity {
+  providerId: string;
+  slug: string;
+  name: string;
+  linkedAt: string | null;
+  lastUsedAt: string | null;
+}
+
+/** A provider as the server's administrator sees it. The client secret never comes back. */
+export interface SsoProvider {
+  id: string;
+  slug: string;
+  name: string;
+  issuer: string;
+  clientId: string;
+  scopes: string;
+  allowedDomains: string[];
+  linkByEmail: boolean;
+  joinWorkspaceId: string | null;
+  enabled: boolean;
+  hasSecret: boolean;
+  linked: number;
+}
+
+export interface SsoProviderInput {
+  name: string;
+  issuer: string;
+  clientId: string;
+  /** Blank keeps the one already set. */
+  clientSecret?: string;
+  scopes?: string;
+  allowedDomains: string[];
+  linkByEmail: boolean;
+  joinWorkspaceId: string | null;
+  enabled: boolean;
+}
+
 export interface ReauthState {
   /** The ways this person can confirm it is them. */
   methods: string[];
+  /** Their linked single sign-on providers, each a way to confirm. */
+  providers?: SsoChoice[];
   provenAt: string | null;
   windowMinutes: number;
 }
 
 export const api = {
   auth: {
-    state: () => get<{ needsSetup: boolean }>("/api/auth/state"),
+    state: () =>
+      get<{ needsSetup: boolean; providers?: SsoChoice[] }>("/api/auth/state"),
     signup: (input: {
       email: string;
       password: string;
@@ -997,6 +1045,22 @@ export const api = {
       post<PasskeyChallenge>("/api/auth/reauth/passkey/options"),
     confirm: (flowId: string, credential: PublicKeyCredentialJSON) =>
       post<{ ok: true }>("/api/auth/reauth/passkey", { flowId, credential }),
+  },
+
+  sso: {
+    /** Start a round trip through a provider; the answer is where to send the browser. */
+    begin: (input: {
+      provider: string;
+      intent: "sign_in" | "confirm" | "link";
+      next?: string;
+      invite?: string;
+    }) => post<{ url: string }>("/api/auth/sso/begin", input),
+    identities: () =>
+      get<{ identities: SsoIdentity[]; available: SsoChoice[] }>(
+        "/api/auth/sso/identities",
+      ),
+    unlink: (providerId: string) =>
+      del<{ ok: true }>(`/api/auth/sso/identities/${providerId}`),
   },
 
   bootstrap: () => get<Bootstrap>("/api/bootstrap"),
@@ -1578,6 +1642,16 @@ export const api = {
     /** Stop asking somebody for a passkey after their password. */
     endTwoStep: (id: string) =>
       post<{ ok: true }>(`/api/admin/users/${id}/two-step/end`),
+
+    ssoProviders: () =>
+      get<{ providers: SsoProvider[]; callbackUrl: string }>("/api/admin/instance/sso"),
+    createSso: (input: SsoProviderInput & { slug: string }) =>
+      post<SsoProvider>("/api/admin/instance/sso", input),
+    updateSso: (id: string, input: SsoProviderInput) =>
+      put<SsoProvider>(`/api/admin/instance/sso/${id}`, input),
+    deleteSso: (id: string) => del<{ ok: true }>(`/api/admin/instance/sso/${id}`),
+    checkSso: (id: string) =>
+      post<{ ok: boolean; message: string }>(`/api/admin/instance/sso/${id}/check`),
 
     invites: () => get<{ invites: AdminInvite[] }>("/api/admin/invites"),
     revokeInvite: (id: string) => del<{ ok: true }>(`/api/admin/invites/${id}`),

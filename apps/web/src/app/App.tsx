@@ -1,7 +1,7 @@
 /** Root: decides between the auth screen and the workspace, and owns theme wiring. */
 
 import { useEffect, useState } from 'react';
-import { api, ApiError } from '../lib/api.ts';
+import { api, ApiError, type SsoChoice } from '../lib/api.ts';
 import { connectStoreToSocket, useStore } from '../lib/store.ts';
 import { flushDrafts } from '../lib/drafts.ts';
 import { applyTheme, pickTheme, themeChoices } from '../lib/theme.ts';
@@ -27,6 +27,8 @@ export function App() {
   const [consenting] = useState(() => isConsentPath());
   const [phase, setPhase] = useState<Phase>('loading');
   const [needsSetup, setNeedsSetup] = useState(false);
+  /** Single sign-on buttons for the sign-in page (ADR 0033). */
+  const [providers, setProviders] = useState<SsoChoice[]>([]);
   const boot = useStore((s) => s.boot);
   const hydrateOutbox = useStore((s) => s.hydrateOutbox);
   const hydrateDrafts = useStore((s) => s.hydrateDrafts);
@@ -48,9 +50,10 @@ export function App() {
         if (err instanceof ApiError && err.status === 401) {
           const state = await api.auth
             .state()
-            .catch(() => ({ needsSetup: false }));
+            .catch(() => ({ needsSetup: false, providers: [] as SsoChoice[] }));
           if (cancelled) return;
           setNeedsSetup(state.needsSetup);
+          setProviders(state.providers ?? []);
           setPhase('signed-out');
         } else {
           // A 500 or an unreachable server is not "signed out": showing the login
@@ -145,6 +148,7 @@ export function App() {
     return (
       <AuthScreen
         needsSetup={needsSetup}
+        providers={providers}
         onSignedIn={async () => {
           boot(await api.bootstrap());
           // Spent, and it has to stop forcing this screen or a completed reset would

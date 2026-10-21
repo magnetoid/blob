@@ -213,6 +213,19 @@ async def proofs_for(session: AsyncSession, email: str) -> list[str]:
         proofs.append("password")
     if await passkey_service.count_for(session, email) > 0:
         proofs.append("passkey")
+    linked = (
+        await session.execute(
+            text(
+                """
+                SELECT 1 FROM sso_identities i JOIN sso_providers p ON p.id = i.provider_id
+                 WHERE i.email = :email AND p.enabled LIMIT 1
+                """
+            ),
+            {"email": email},
+        )
+    ).fetchone()
+    if linked is not None:
+        proofs.append("sso")
     return proofs
 
 
