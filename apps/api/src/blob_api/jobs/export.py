@@ -120,7 +120,9 @@ async def _build(row: object, scratch: Path) -> int:
             (content / "messages" / f"{room.id}.jsonl").touch()
             batch: list[dict[str, Any]] = []
             files: list[dict[str, Any]] = []
-            async for message in export_service.messages_of(session, str(room.id)):
+            async for message in export_service.messages_of(
+                session, str(room.id), versions=scope == "workspace"
+            ):
                 batch.append(message)
                 for item in message["files"]:
                     files.append({**item, "message_id": message["id"], "channel_id": str(room.id)})

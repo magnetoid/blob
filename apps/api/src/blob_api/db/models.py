@@ -629,6 +629,26 @@ class Message(Base):
     files_removed: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
 
 
+class MessageVersion(Base):
+    """A message's earlier words, kept while it is on legal hold (ADR 0039 addendum,
+    migration 0076): written only when the conversation or its writer is held, which the
+    writer is shown, and removed when that hold is released."""
+
+    __tablename__ = "message_versions"
+    __table_args__ = (Index("message_versions_message", "message_id", "id"),)
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    written_at: Mapped[Any] = mapped_column(Timestamp, nullable=False)
+    replaced_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class Reaction(Base):
     __tablename__ = "reactions"
     __table_args__ = (

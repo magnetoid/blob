@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..lib.errors import channel_gone, no_such_person
 from . import audit as audit_service
+from . import message_versions as version_service
 from . import messages as message_service
 from . import workspace_settings as settings_service
 from .audit import Actor
@@ -197,6 +198,9 @@ async def hold_conversation(
     ).fetchone()
     if changed is None:
         return False
+    if not held:
+        # What this hold alone kept goes with it (ADR 0039 addendum).
+        await version_service.released_conversation(session, channel_id)
     await audit_service.record(
         session,
         actor,
@@ -238,6 +242,8 @@ async def hold_person(session: AsyncSession, actor: Actor, user_id: str, *, held
     ).fetchone()
     if changed is None:
         return False
+    if not held:
+        await version_service.released_person(session, user_id)
     await audit_service.record(
         session,
         actor,
@@ -481,6 +487,7 @@ async def tombstone(session: AsyncSession, message_ids: list[str]) -> Swept:
         "DELETE FROM reactions WHERE message_id = ANY(cast(:ids AS uuid[]))",
         # A poll and who chose what (ADR 0041): the talk, like its reactions.
         "DELETE FROM polls WHERE message_id = ANY(cast(:ids AS uuid[]))",
+        "DELETE FROM message_versions WHERE message_id = ANY(cast(:ids AS uuid[]))",
         "DELETE FROM attachments WHERE message_id = ANY(cast(:ids AS uuid[]))",
         "DELETE FROM message_translations WHERE message_id = ANY(cast(:ids AS uuid[]))",
         "DELETE FROM thread_summaries WHERE thread_root_id = ANY(cast(:ids AS uuid[]))",

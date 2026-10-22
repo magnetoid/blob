@@ -14,6 +14,7 @@ import { Menu } from "../../components/Menu.tsx";
 import { DialogPresence } from "../../components/Dialog.tsx";
 import { navigate } from "../../lib/router.ts";
 import { DecisionDialog } from "../decisions/DecisionDialog.tsx";
+import { VersionsDialog } from "./VersionsDialog.tsx";
 import { firstDraft } from "../decisions/decisionText.ts";
 
 /** Slack's set, because those are the ones in people's fingers. */
@@ -68,6 +69,11 @@ export function MessageMenu({
   const [menuOpen, setMenuOpen] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
   const [deciding, setDeciding] = useState(false);
+  const [versions, setVersions] = useState(false);
+  // An admin may read what a legal hold kept of an edited message (ADR 0039 addendum).
+  const isAdmin = useStore(
+    (s) => s.currentUser?.role === "admin" || s.currentUser?.role === "owner",
+  );
   const markUnread = useStore((s) => s.markUnread);
   const toggleSaved = useStore((s) => s.toggleSaved);
   // Subscribed to the boolean rather than the Set, so saving one message does not
@@ -243,6 +249,19 @@ export function MessageMenu({
             Edit message
           </button>
         )}
+        {isAdmin && message.editedAt && (
+          <button
+            className="menu-item"
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setVersions(true);
+            }}
+          >
+            Earlier versions
+          </button>
+        )}
         {mine && (
           <button
             className="menu-item"
@@ -257,6 +276,15 @@ export function MessageMenu({
           </button>
         )}
       </Menu>
+      <DialogPresence when={versions ? message : null}>
+        {(source) => (
+          <VersionsDialog
+            messageId={source.id}
+            current={source.body}
+            onClose={() => setVersions(false)}
+          />
+        )}
+      </DialogPresence>
       <DialogPresence when={deciding ? message : null}>
         {(source) => (
           <DecisionDialog

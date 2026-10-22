@@ -183,9 +183,10 @@ export const SECTIONS: Section[] = [
           'A file window shorter than the message window removes files sooner and keeps the words; the message then says how many files were removed. Tasks and decisions are never removed: a thread that reached a decision leaves the decision behind.',
           'A change waits a day before it counts, so a wrong choice can be put back, and the page says about how much the first sweep would remove before you save. A conversation’s details say how long it keeps things.',
           'A legal hold keeps a conversation, or everything a person wrote and every conversation they are in, past the windows. The people in a held conversation see the hold in its details; a person on hold is told in their settings. A hold does not stop anybody deleting their own messages.',
+          'While a conversation, or the person who wrote a message, is on hold, an edit keeps the words it replaces, and the person editing is told so. An admin who can read the conversation opens them from the message’s menu, under Earlier versions, and the workspace export carries them. A delete empties a message but does not take back what the hold kept. Releasing the hold removes what it kept.',
         ],
         path: '/admin/retention',
-        keywords: ['retention', 'delete', 'history', 'legal hold', 'gdpr', 'compliance', 'files', 'old messages', 'purge'],
+        keywords: ['retention', 'delete', 'history', 'legal hold', 'gdpr', 'compliance', 'files', 'old messages', 'purge', 'edit history', 'versions', 'edited'],
       },
       {
         id: 'this-build',

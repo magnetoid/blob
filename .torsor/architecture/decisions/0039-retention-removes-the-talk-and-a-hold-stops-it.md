@@ -82,3 +82,30 @@ nightly sweep removes them. A conversation, or a person, on legal hold is skippe
   principle refuses, and ADR 0038 gives no admin a way to read private conversations out.
   The honest alternative — a held conversation refuses deletes and edits, and says why —
   changes a habit every Slack user has and needs its own decision.
+
+## Addendum, 2026-10-23: a hold keeps what an edit replaced
+
+Decided with the Slack import's other questions: **edit history is kept only under a legal
+hold, for admins and the workspace export.** It answers the edits half of "not decided"
+above; deletes stay undecided.
+
+- **Kept only where the writer is told.** While a conversation is on hold — which its
+  members see in its details — or the message's writer is — which they see in their
+  settings — an edit keeps the words it replaces (`message_versions`, migration 0076). A
+  custodian merely being in the room does not count: who is a custodian is the legal
+  team's to say, and a copy its writer could not know about is the surveillance this ADR
+  refuses. The editor says so as the words are replaced: "This conversation is on legal
+  hold, so the words you replace are kept."
+- **Read where the conversation may be read.** An admin opens "Earlier versions" from an
+  edited message's menu, only in a conversation they can read; a private one is 404 to
+  everybody else as before. The workspace export, an admin's (ADR 0038), carries each
+  message's kept versions; a person's own export does not.
+- **A delete takes the words, not what was kept.** A delete still empties a message — what
+  a hold does about a delete is undecided — but the versions kept of it stay, so an edit
+  followed by a delete cannot take back what the hold kept; the export lists such a message
+  as deleted, with them, and the delete's confirmation says so.
+- **Gone with the hold.** Releasing a conversation's hold removes what it alone kept;
+  releasing a person's removes the versions of what they wrote outside held conversations.
+  Retention takes versions with their message.
+- **No history for anybody else.** Nobody sees an edited message's earlier words in the
+  conversation, as in Slack: the "(edited)" mark is all a reader gets.

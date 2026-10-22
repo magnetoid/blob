@@ -106,3 +106,20 @@ describe("finishing an edit", () => {
     expect(edit).not.toHaveBeenCalled();
   });
 });
+
+describe("opening the editor", () => {
+  it("brings the whole form into view, not only the box", async () => {
+    // Editing the newest message left Save, Cancel and the hold's note below the end of
+    // the visible conversation: focusing scrolled only the textarea's top into view.
+    const scrolled = vi.fn();
+    const original = HTMLFormElement.prototype.scrollIntoView;
+    HTMLFormElement.prototype.scrollIntoView = scrolled;
+    try {
+      const { box } = open();
+      expect(document.activeElement).toBe(box);
+      await waitFor(() => expect(scrolled).toHaveBeenCalledWith({ block: "nearest" }));
+    } finally {
+      HTMLFormElement.prototype.scrollIntoView = original;
+    }
+  });
+});

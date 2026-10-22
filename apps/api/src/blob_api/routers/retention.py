@@ -20,6 +20,8 @@ from ..lib.ids import IdParam
 from ..realtime import hub
 from ..schemas.base import CamelModel, OkOut, require_iso
 from ..services import channels as channel_service
+from ..services import message_versions as version_service
+from ..services import messages as message_service
 from ..services import retention as retention_service
 from ..services.audit import actor_for
 from ..services.serialize import channel_event
@@ -217,3 +219,42 @@ async def hold_person(
     if changed and not payload.held:
         await retention_job.forget_watermarks(admin.workspace_id)
     return OkOut()
+
+
+class KeptVersionOut(CamelModel):
+    body: str
+    #: When these words were written: the message's creation, or the edit before.
+    written_at: str
+    #: When an edit replaced them.
+    replaced_at: str
+
+
+class KeptVersionsOut(CamelModel):
+    #: Oldest first. Kept only while the conversation or its writer is on legal hold.
+    versions: list[KeptVersionOut]
+    #: Whether an edit now would keep the words it replaces.
+    held: bool
+
+
+@router.get("/messages/{message_id}/versions", response_model=KeptVersionsOut)
+async def message_versions(
+    message_id: IdParam, user: SessionUser = Depends(require_admin)
+) -> KeptVersionsOut:
+    """A message's earlier words that a legal hold kept (ADR 0039 addendum), for an admin
+    who may read the conversation it is in — a private one only its members, as ever."""
+    async with session_scope() as session:
+        # Deleted too: a delete takes a message's words, not what a hold kept of them.
+        await message_service.load_for(session, user.id, message_id, allow_deleted=True)
+        rows = await version_service.of_message(session, message_id)
+        held = await version_service.held(session, message_id)
+    return KeptVersionsOut(
+        versions=[
+            KeptVersionOut(
+                body=row.body,
+                written_at=require_iso(row.written_at),
+                replaced_at=require_iso(row.replaced_at),
+            )
+            for row in rows
+        ],
+        held=held,
+    )

@@ -987,6 +987,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/messages/{message_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Message Versions
+         * @description A message's earlier words that a legal hold kept (ADR 0039 addendum), for an admin
+         *     who may read the conversation it is in — a private one only its members, as ever.
+         */
+        get: operations["message_versions_api_admin_messages__message_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/oauth-grants": {
         parameters: {
             query?: never;
@@ -7438,6 +7459,22 @@ export interface components {
             /** Channel */
             channel: string;
         };
+        /** KeptVersionOut */
+        KeptVersionOut: {
+            /** Body */
+            body: string;
+            /** Replacedat */
+            replacedAt: string;
+            /** Writtenat */
+            writtenAt: string;
+        };
+        /** KeptVersionsOut */
+        KeptVersionsOut: {
+            /** Held */
+            held: boolean;
+            /** Versions */
+            versions: components["schemas"]["KeptVersionOut"][];
+        };
         /** LaterInput */
         LaterInput: {
             /** Note */
@@ -10056,6 +10093,8 @@ export type JanusInstallOut = components['schemas']['JanusInstallOut'];
 export type JanusOverviewOut = components['schemas']['JanusOverviewOut'];
 export type JanusPartOut = components['schemas']['JanusPartOut'];
 export type JoinInput = components['schemas']['JoinInput'];
+export type KeptVersionOut = components['schemas']['KeptVersionOut'];
+export type KeptVersionsOut = components['schemas']['KeptVersionsOut'];
 export type LaterInput = components['schemas']['LaterInput'];
 export type LaterItemOut = components['schemas']['LaterItemOut'];
 export type LaterOut = components['schemas']['LaterOut'];
@@ -12068,6 +12107,37 @@ export interface operations {
                     "application/json": {
                         [key: string]: boolean;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    message_versions_api_admin_messages__message_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeptVersionsOut"];
                 };
             };
             /** @description Validation Error */

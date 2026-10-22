@@ -256,8 +256,13 @@ async def people(
     return out
 
 
-async def messages_of(session: AsyncSession, channel_id: str) -> AsyncIterator[dict[str, Any]]:
-    """One conversation, oldest first, a page at a time; deleted messages are left out."""
+async def messages_of(
+    session: AsyncSession, channel_id: str, *, versions: bool = False
+) -> AsyncIterator[dict[str, Any]]:
+    """One conversation, oldest first, a page at a time; deleted messages are left out.
+    `versions` adds the words a legal hold kept from before each edit (ADR 0039 addendum):
+    the workspace export's, an admin's, and not a person's own — and with it a message
+    deleted since, which has no words of its own left but keeps what the hold kept."""
     after = None
     while True:
         rows = (
@@ -265,6 +270,7 @@ async def messages_of(session: AsyncSession, channel_id: str) -> AsyncIterator[d
                 text(
                     """
                     SELECT m.id, m.author_id, m.kind, m.body, m.created_at, m.edited_at,
+                           m.deleted_at,
                            m.thread_root_id, m.also_in_channel, m.pinned_at,
                            coalesce((SELECT json_agg(json_build_object(
                                        'emoji', r.emoji, 'user_id', r.user_id))
@@ -275,15 +281,26 @@ async def messages_of(session: AsyncSession, channel_id: str) -> AsyncIterator[d
                                        'size_bytes', a.size_bytes, 'kind', a.kind)
                                        ORDER BY a.id)
                                        FROM attachments a WHERE a.message_id = m.id), '[]')
-                             AS attachments
+                             AS attachments,
+                           CASE WHEN :versions THEN
+                             coalesce((SELECT json_agg(json_build_object(
+                                         'body', v.body, 'written_at', v.written_at,
+                                         'replaced_at', v.replaced_at) ORDER BY v.id)
+                                         FROM message_versions v WHERE v.message_id = m.id),
+                                      '[]')
+                           END AS versions
                       FROM messages m
-                     WHERE m.channel_id = :channel AND m.deleted_at IS NULL
+                     WHERE m.channel_id = :channel
+                       AND (m.deleted_at IS NULL
+                            -- A message deleted under a hold keeps what the hold kept of it.
+                            OR (:versions AND EXISTS (SELECT 1 FROM message_versions v
+                                                       WHERE v.message_id = m.id)))
                        AND (cast(:after AS uuid) IS NULL OR m.id > cast(:after AS uuid))
                      ORDER BY m.id
                      LIMIT :page
                     """
                 ),
-                {"channel": channel_id, "after": after, "page": PAGE},
+                {"channel": channel_id, "after": after, "page": PAGE, "versions": versions},
             )
         ).fetchall()
         if not rows:
@@ -304,6 +321,8 @@ async def messages_of(session: AsyncSession, channel_id: str) -> AsyncIterator[d
                 "pinned_at": iso(row.pinned_at),
                 "reactions": [{"emoji": emoji, "user_ids": ids} for emoji, ids in by_emoji.items()],
                 "files": list(row.attachments or []),
+                **({"versions": list(row.versions or [])} if versions and row.versions else {}),
+                **({"deleted_at": iso(row.deleted_at)} if row.deleted_at else {}),
             }
         after = str(rows[-1].id)
 

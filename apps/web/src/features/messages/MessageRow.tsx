@@ -829,19 +829,7 @@ export const MessageRow = memo(function MessageRow({
       </DialogPresence>
 
       <DialogPresence when={deleting}>
-        {() => (
-          <ConfirmDialog
-            title="Delete this message?"
-            body="It disappears for everyone. There is no undo."
-            confirmLabel="Delete"
-            danger
-            onClose={() => setDeleting(false)}
-            onConfirm={() => {
-              setDeleting(false);
-              void api.messages.remove(message.id).catch(showError);
-            }}
-          />
-        )}
+        {() => <DeleteConfirm message={message} onClose={() => setDeleting(false)} />}
       </DialogPresence>
 
       {/* No clipboard API: a secure context is required, and a self-hosted workspace
@@ -891,4 +879,30 @@ function deliveryStatusHint(status: LocalMessageDeliveryStatus): string {
     case "failed":
       return "That send was rejected. Retry it or discard this draft.";
   }
+}
+
+
+/** "Delete this message?" — and, where a legal hold kept the words its edits replaced
+ *  (ADR 0039 addendum), that those stay: the person deleting is told what a hold keeps. */
+export function DeleteConfirm({ message, onClose }: { message: Message; onClose: () => void }) {
+  const held = useStore(
+    (s) => Boolean(s.channels[message.channelId]?.legalHoldAt) || Boolean(s.retention?.held),
+  );
+  return (
+    <ConfirmDialog
+      title="Delete this message?"
+      body={
+        held && message.editedAt
+          ? "It disappears for everyone. There is no undo. The words its edits replaced stay kept while the legal hold lasts."
+          : "It disappears for everyone. There is no undo."
+      }
+      confirmLabel="Delete"
+      danger
+      onClose={onClose}
+      onConfirm={() => {
+        onClose();
+        void api.messages.remove(message.id).catch(showError);
+      }}
+    />
+  );
 }

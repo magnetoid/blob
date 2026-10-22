@@ -1011,6 +1011,14 @@ export interface ExportEntry {
   downloadUrl: string | null;
 }
 
+/** A message's earlier words, as a legal hold kept them (ADR 0039 addendum). */
+export interface KeptVersions {
+  /** Oldest first. */
+  versions: { body: string; writtenAt: string; replacedAt: string }[];
+  /** Whether an edit now would keep the words it replaces. */
+  held: boolean;
+}
+
 /** What a Slack export holds, read before anything is written (ADR 0042). */
 export interface ImportPreview {
   publicChannels: number;
@@ -1948,6 +1956,9 @@ export const api = {
     /** The workspace's public conversations, for its admins (M3 · B4). */
     exports: () => get<{ exports: ExportEntry[] }>("/api/admin/exports"),
     startExport: () => post<{ exports: ExportEntry[] }>("/api/admin/exports", {}),
+    /** What a legal hold kept of a message's earlier words (ADR 0039 addendum). */
+    messageVersions: (id: string) =>
+      get<KeptVersions>(`/api/admin/messages/${id}/versions`),
     /** Bringing a Slack export in (ADR 0042). */
     importState: () => get<ImportState>("/api/admin/import"),
     createImport: (sizeBytes: number) =>

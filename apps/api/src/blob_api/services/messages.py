@@ -30,6 +30,7 @@ from ..schemas.models import Message
 from ..schemas.requests import MESSAGE_MAX_LENGTH
 from . import channels as channel_service
 from . import polls as poll_service
+from .message_versions import keep_before_edit
 from .serialize import MESSAGE_SELECT, to_message
 
 #: Avatars shown on a thread's summary line.
@@ -606,6 +607,9 @@ async def edit(
         raise forbidden("You can only edit your own messages.")
 
     mentions = parse_mentions(body, await mention_targets(session, workspace_id, body))
+    # On legal hold, the words this edit replaces are kept (ADR 0039 addendum) — before
+    # they are gone, in the same transaction, or not at all.
+    await keep_before_edit(session, message_id, new_body=body)
     await session.execute(
         text(
             """

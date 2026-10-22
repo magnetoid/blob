@@ -18,11 +18,23 @@ export function MessageEditor({ message, onClose }: Props) {
   const [draft, setDraft] = useState(message.body);
   const formRef = useRef<HTMLFormElement>(null);
   const focusEditor = useCallback((node: HTMLTextAreaElement | null) => {
-    node?.focus();
+    if (!node) return;
+    // The whole form in view, not only the box: focusing scrolled just the textarea's top
+    // into the list, so editing the newest message left Save, Cancel and the hold's note
+    // below the visible end of the conversation. A frame later, once the list has
+    // measured the row at its new height.
+    node.focus({ preventScroll: true });
+    requestAnimationFrame(() => formRef.current?.scrollIntoView?.({ block: "nearest" }));
   }, []);
   // The same preference the composer reads, because this is the same gesture. Someone
   // who has turned Enter into a newline there has not asked for it to save here.
   const enterToSend = useStore((s) => s.currentUser?.prefs.enterToSend ?? true);
+  // A legal hold keeps the words an edit replaces (ADR 0039 addendum), and the person
+  // editing is told so here — a kept copy they could not know about is what the hold is
+  // not allowed to be. The conversation's hold is shown to everybody in it; one's own
+  // hold to oneself.
+  const conversationHeld = useStore((s) => Boolean(s.channels[message.channelId]?.legalHoldAt));
+  const selfHeld = useStore((s) => Boolean(s.retention?.held));
 
   return (
     <form
@@ -88,6 +100,13 @@ export function MessageEditor({ message, onClose }: Props) {
           Cancel
         </button>
       </div>
+      {(conversationHeld || selfHeld) && (
+        <p className="pref-hint m-0">
+          {conversationHeld
+            ? "This conversation is on legal hold, so the words you replace are kept."
+            : "You are on legal hold, so the words you replace are kept."}
+        </p>
+      )}
     </form>
   );
 }
