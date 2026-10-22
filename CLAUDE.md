@@ -235,9 +235,10 @@ into the sequence while it is still unapplied, because the revision id is what a
 database has recorded and renaming it later strands that database.
 
 **Apps and agents.** `plugins/` is the integration layer: a manifest and scope catalogue,
-SSRF-guarded registration, a bot that is a real `users` row (so `author_id` stays a valid
-FK and mentions, search and DMs work with no frontend change), HMAC-signed delivery
-through a transactional outbox that the worker drains one request at a time per plugin.
+SSRF-guarded registration and every request after it pinned to the address it was checked
+at (`plugins/egress.py`), a bot that is a real `users` row (so `author_id` stays a valid FK
+and mentions, search and DMs work with no frontend change), HMAC-signed delivery through a
+transactional outbox that the worker drains one request at a time per plugin.
 `plugins/agui.py` is a pure bytes-in/writes-out function — Blob is the AG-UI *client* and
 the agent is the server, which is the direction every agent framework already ships.
 

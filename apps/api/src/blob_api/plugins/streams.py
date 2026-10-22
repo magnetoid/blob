@@ -21,7 +21,7 @@ import httpx
 
 from ..config import settings
 from ..lib import sse, telemetry
-from . import agui, gateway
+from . import agui, egress, gateway
 from .signing import signed_headers
 
 
@@ -87,6 +87,10 @@ class Listener:
     #: told in so many words.
     hears: str = "everything"
     quiet_minutes: int | None = None
+    #: Whether this workspace may reach private addresses (`policies.
+    #: may_use_private_endpoints`), set where the run reads the policy. Unset, the run's
+    #: address is pinned to a checked public one (`egress`), the safe side to fall on.
+    private_ok: bool = False
 
     def memory_of(self, person_id: str) -> str | None:
         """Whose memory a run on this person's behalf reads and writes (migration 0050).
@@ -161,11 +165,24 @@ async def stream_run(
     # visibly-working agent can run for minutes without the old 120s total ceiling.
     timeout = httpx.Timeout(settings.AGUI_TIMEOUT_SEC, read=settings.AGUI_READ_TIMEOUT_SEC)
     started = time.monotonic()
+    # Checked now and sent to the address that was checked, every round (`egress`).
+    goal = await egress.target(
+        listener.agui_url,
+        trusted_address=egress.trusted(
+            listener.agui_url, runtime=listener.runtime, private_ok=listener.private_ok
+        ),
+    )
+    if goal is None:
+        return fold, posts, f"the agent could not be reached: {egress.REFUSED}"
 
     try:
         async with httpx.AsyncClient(timeout=timeout, transport=transport) as client:
             async with client.stream(
-                "POST", listener.agui_url, content=body, headers=headers
+                "POST",
+                goal.url,
+                content=body,
+                headers={**headers, **goal.headers},
+                extensions=goal.extensions,
             ) as response:
                 if response.status_code >= 400:
                     fold.rejected_status = response.status_code

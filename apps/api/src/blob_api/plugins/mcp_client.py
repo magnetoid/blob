@@ -46,6 +46,7 @@ import httpx
 
 from ..config import settings
 from ..lib import net, sse, telemetry
+from . import egress
 
 log = logging.getLogger("blob.mcp_client")
 
@@ -278,17 +279,23 @@ class _Answer:
     message: dict[str, Any] | None
 
 
-async def _guard(endpoint: Endpoint) -> None:
+async def _guard(endpoint: Endpoint) -> egress.Target:
     """The network guard, before every request: a name that resolves inside the server's
-    own network is refused unless the operator and the workspace both said it may be."""
+    own network is refused unless the operator and the workspace both said it may be —
+    and the request goes to the address that was checked (`egress`), not to whatever the
+    name resolves to by the time the connection opens."""
     parsed = urlparse(endpoint.url)
     if endpoint.private_ok:
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
             raise McpError("That is not a valid URL.")
-        return
+        return egress.Target(endpoint.url)
     reason = await net.check_outbound_url(endpoint.url, require_https=True)
     if reason is not None:
         raise McpError(reason)
+    goal = await egress.target(endpoint.url, trusted_address=False)
+    if goal is None:
+        raise McpError("That address is inside the server's own network.")
+    return goal
 
 
 def _base_headers(endpoint: Endpoint) -> dict[str, str]:
@@ -323,17 +330,18 @@ async def _send(
     request's id arrives, past any notification the server sends first. A refusal is read
     for the JSON-RPC error it may carry, which is what tells the eras apart.
     """
-    await _guard(endpoint)
+    goal = await _guard(endpoint)
     left = _left(deadline)
     timeout = httpx.Timeout(left, connect=min(CONNECT_TIMEOUT_SEC, left))
     request_id = body.get("id")
     try:
         async with client.stream(
             "POST",
-            endpoint.url,
+            goal.url,
             content=json.dumps(body).encode(),
-            headers=headers,
+            headers={**headers, **goal.headers},
             timeout=timeout,
+            extensions=goal.extensions,
         ) as response:
             if 300 <= response.status_code < 400:
                 raise McpError(

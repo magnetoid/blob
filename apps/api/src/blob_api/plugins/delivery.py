@@ -30,10 +30,11 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db.engine import transaction
+from ..db.engine import session_scope, transaction
 from ..lib.errors import bad_request, not_found
 from ..lib.ids import looks_like_id
-from . import recent_errors
+from ..services import policies as policy_service
+from . import egress, recent_errors
 from .signing import signed_headers
 
 log = logging.getLogger("blob.plugins.delivery")
@@ -118,7 +119,7 @@ async def lease_due(limit: int = BATCH) -> list[Any]:
                        AND p.id = d.plugin_id
                        AND s.plugin_id = d.plugin_id
                     RETURNING d.id, d.plugin_id, d.event, d.payload, d.attempts,
-                              p.request_url, s.signing_secret
+                              p.request_url, s.signing_secret, p.workspace_id, p.runtime
                     """
                 ),
                 {"limit": limit, "lease": LEASE_SEC},
@@ -127,8 +128,21 @@ async def lease_due(limit: int = BATCH) -> list[Any]:
     return list(rows)
 
 
-async def post(url: str, secret: str, payload: dict[str, Any], delivery_id: str) -> tuple[int, str]:
-    """POST one signed delivery. Returns (status code, error text); 0 means no response."""
+async def post(
+    url: str,
+    secret: str,
+    payload: dict[str, Any],
+    delivery_id: str,
+    *,
+    trusted_address: bool = False,
+) -> tuple[int, str]:
+    """POST one signed delivery. Returns (status code, error text); 0 means no response.
+
+    Checked as it is sent and sent to the address that was checked (`egress`), unless the
+    address is one Blob does not judge; refused, it is a failed attempt like any other."""
+    goal = await egress.target(url, trusted_address=trusted_address)
+    if goal is None:
+        return 0, f"Not sent: {egress.REFUSED}."
     body = json.dumps(payload, separators=(",", ":")).encode()
     headers = {
         **signed_headers(secret, body),
@@ -138,7 +152,12 @@ async def post(url: str, secret: str, payload: dict[str, Any], delivery_id: str)
         "user-agent": "blob-plugins/1.0",
     }
     try:
-        response = await open_client().post(url, content=body, headers=headers)
+        response = await open_client().post(
+            goal.url,
+            content=body,
+            headers={**headers, **goal.headers},
+            extensions=goal.extensions,
+        )
         return response.status_code, response.text[:500]
     except httpx.HTTPError as exc:
         return 0, str(exc)[:500]
@@ -294,10 +313,26 @@ async def drain_once(limit: int = BATCH) -> int:
     by_plugin: dict[str, list[Any]] = {}
     for row in due:
         by_plugin.setdefault(row.plugin_id, []).append(row)
+    # Whether each workspace may reach private addresses, read once for the batch.
+    private_ok: dict[str, bool] = {}
+    async with session_scope() as session:
+        for workspace_id in {str(row.workspace_id) for row in due}:
+            policy = await policy_service.effective_for(session, workspace_id)
+            private_ok[workspace_id] = policy.may_use_private_endpoints
 
     async def deliver_group(rows: list[Any]) -> None:
         for row in rows:
-            code, error = await post(row.request_url, row.signing_secret, row.payload, row.id)
+            code, error = await post(
+                row.request_url,
+                row.signing_secret,
+                row.payload,
+                row.id,
+                trusted_address=egress.trusted(
+                    row.request_url,
+                    runtime=row.runtime,
+                    private_ok=private_ok[str(row.workspace_id)],
+                ),
+            )
             await record_result(row.id, code, error, row.attempts, row.plugin_id)
 
     results = await asyncio.gather(

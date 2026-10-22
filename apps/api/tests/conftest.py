@@ -73,7 +73,7 @@ import pytest_asyncio
 from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory, close_engine
-from blob_api.lib import livekit, readiness
+from blob_api.lib import livekit, net, readiness
 from blob_api.lib.logbuf import close_log_buffer
 from blob_api.lib.redis import close_redis, redis
 from blob_api.realtime import hub
@@ -128,6 +128,26 @@ def fake_livekit(monkeypatch: pytest.MonkeyPatch) -> FakeRooms:
     fake = FakeRooms()
     monkeypatch.setattr(livekit, "rooms", fake)
     return fake
+
+
+#: Where a test's `*.example.com` names resolve: a public address nothing connects to — the
+#: fake agents and servers answer at the transport. RFC 2606 reserves the domain, so no test
+#: should lean on real DNS for it, and since every agent's run and app's delivery is pinned
+#: to the address its name resolves to (`plugins/egress`), every test now would. A test
+#: that answers for DNS itself still does: its own patch lands after this one.
+EXAMPLE_ADDRESS = "93.184.215.14"
+
+
+@pytest.fixture(autouse=True)
+def _example_names_resolve(monkeypatch: pytest.MonkeyPatch) -> None:
+    real = net.resolve
+
+    async def resolve(hostname: str, port: int | None) -> list[str]:
+        if hostname == "example.com" or hostname.endswith(".example.com"):
+            return [EXAMPLE_ADDRESS]
+        return await real(hostname, port)
+
+    monkeypatch.setattr(net, "resolve", resolve)
 
 
 @pytest_asyncio.fixture

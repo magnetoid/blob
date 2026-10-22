@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from functools import partial
 from typing import Any
@@ -299,6 +299,8 @@ async def _admit(
 
     policy = await policy_service.effective_for(session, trigger.workspace_id)
     max_depth = policy.agent_chain_max_depth
+    # Whether their addresses may be private is the workspace's, read once here (`egress`).
+    listeners = [replace(known, private_ok=policy.may_use_private_endpoints) for known in listeners]
     # A hop spends the chain's budget; a resume does not. It is the person answering
     # the agent that asked, so it adds no hop — and the budget's rules would refuse
     # it: `admit` drops the agent whose reply caused a hop ("mentioned itself"), which
@@ -599,7 +601,7 @@ async def _hear(run_id: str) -> None:
         ).scalar_one_or_none()
         policy = await policy_service.effective_for(session, str(row.workspace_id))
     await run_one(
-        listeners[0],
+        replace(listeners[0], private_ok=policy.may_use_private_endpoints),
         workspace_id=str(row.workspace_id),
         channel_id=str(row.channel_id),
         thread_root_id=str(row.thread_root_id) if row.thread_root_id else None,

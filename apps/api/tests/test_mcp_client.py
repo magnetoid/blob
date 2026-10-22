@@ -22,6 +22,7 @@ from blob_api.lib import net
 from blob_api.plugins import mcp_client
 from blob_api.plugins.mcp_client import Endpoint, McpError
 
+from .conftest import EXAMPLE_ADDRESS
 from .mcp_fake import HOST, REAL_CLIENT, URL, FakeMcpServer, a_tool, decoded
 
 
@@ -51,6 +52,34 @@ CREATE_SCHEMA = {
         "title": {"type": "string"},
     },
 }
+
+
+class TestWhereItConnects:
+    async def test_every_request_goes_to_the_address_that_was_checked(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pinned as it is sent (`plugins/egress`): one lookup per request, the connection
+        to that answer, the name kept for the certificate and the `Host` header."""
+        server = FakeMcpServer().install(monkeypatch)
+        await mcp_client.list_tools(endpoint())
+        assert server.requests
+        for request in server.requests:
+            assert request.url.host == EXAMPLE_ADDRESS
+            assert request.headers["host"] == HOST
+            assert request.extensions["sni_hostname"] == HOST
+
+    async def test_a_name_that_points_inside_the_network_is_refused(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        server = FakeMcpServer().install(monkeypatch)
+
+        async def inside(hostname: str, port: int | None) -> list[str]:
+            return ["10.0.0.5"]
+
+        monkeypatch.setattr(net, "resolve", inside)
+        with pytest.raises(mcp_client.McpError, match="inside the server's own network"):
+            await mcp_client.list_tools(endpoint())
+        assert server.requests == []
 
 
 class TestListing:

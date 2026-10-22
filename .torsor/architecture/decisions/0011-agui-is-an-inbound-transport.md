@@ -84,3 +84,21 @@ conformance oracle, not a runtime one.
   is — and, exactly as with a webhook URL, not re-checked at fetch time. DNS rebinding
   after registration stays reachable for both. Fixing it is one change to both paths, not
   a reason to hold this one.
+
+## Addendum (M4, 2026-10-22): checked as it is sent
+
+The "one change to both paths" above is made (`plugins/egress.py`). An agent's run, every
+round, and an app's delivery, every attempt, are checked as they are sent and sent to the
+address that was checked (`net.pin_public`): one lookup, the connection to that answer,
+TLS verifying the certificate against the name (`sni_hostname`) and the `Host` header
+still saying it. A nameserver therefore cannot answer the check and the connection
+differently, and a record changed since registration is refused rather than followed —
+for an agent, with the reason on its run; for a delivery, as a failed attempt that backs
+off like any other. The MCP client, which already checked before every request (ADR
+0027), now sends to the address it checked too.
+
+Not judged, because Blob did not take them from anybody it should doubt: a workspace whose
+operator and policy both allow private endpoints (`policies.may_use_private_endpoints`, read
+where the run reads its policy and carried on the listener as `private_ok`), the seeded
+agent's `JANUS_AGUI_URL` (the operator's own setting, internal by design), and a container
+agent's address (written by the deployment sync from the runner).

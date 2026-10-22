@@ -13,16 +13,18 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from typing import Any
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
+from blob_api.config import settings
 from blob_api.db.engine import SessionFactory
 from blob_api.lib.ids import new_id
 from blob_api.plugins import delivery, signing
 
-from .helpers import Client, sign_up
+from .helpers import Client, allow_policy, sign_up
 
 SECRET = "test-signing-secret"
 
@@ -93,8 +95,9 @@ async def make_plugin(
     """Insert an app pointed at the recording server.
 
     Written directly rather than through the install endpoint because the SSRF guard
-    correctly refuses a loopback URL — that guard is registration's job, and it is tested
-    where it belongs.
+    correctly refuses a loopback URL there. A delivery meets the guard again as it is
+    sent (`plugins/egress`), so the `workspace` fixture allows private endpoints, and the
+    tests of that are at the end of this file.
     """
     plugin_id = new_id()
     async with SessionFactory() as session:
@@ -167,9 +170,21 @@ async def row(delivery_id: str) -> object:
 
 
 @pytest_asyncio.fixture
-async def workspace(client: Client) -> str:
+async def workspace(client: Client, monkeypatch: pytest.MonkeyPatch) -> str:
+    """A workspace whose operator and policy allow private endpoints: the recording server
+    listens on loopback, and these tests are about delivering, not about the guard."""
+    monkeypatch.setattr(settings, "AGENT_ALLOW_PRIVATE_ENDPOINTS", True)
     owner = await sign_up(client, "Owner")
-    return (await owner.get("/api/bootstrap")).body["workspace"]["id"]
+    workspace_id = str((await owner.get("/api/bootstrap")).body["workspace"]["id"])
+    await allow_policy(workspace_id, may_use_private_endpoints=True)
+    return workspace_id
+
+
+@pytest_asyncio.fixture
+async def closed_workspace(client: Client) -> str:
+    """A workspace that may not reach private addresses — the default."""
+    owner = await sign_up(client, "Owner")
+    return str((await owner.get("/api/bootstrap")).body["workspace"]["id"])
 
 
 # ─── the signature on the wire ────────────────────────────────────────────────
@@ -470,3 +485,32 @@ async def test_four_failures_do_not_open_the_circuit(
     await delivery.drain_once()
     assert (await row(last)).status == "failed"
     assert await plugin_status(plugin_id) == "enabled"
+
+
+# ─── the guard, as it is sent (plugins/egress) ──────────────────────────────────────────
+async def test_an_address_inside_the_network_is_refused_as_it_is_sent(
+    closed_workspace: str, app_server: RecordingApp
+) -> None:
+    """Registration's check is once; a name can point inside the network by the time the
+    worker calls it. Refused as it is sent, it is a failed attempt like any other — and
+    nothing reaches the address."""
+    plugin_id = await make_plugin(closed_workspace, app_server.port)
+    delivery_id = await queue(plugin_id, id="m1")
+
+    assert await delivery.drain_once() == 1
+    assert app_server.requests == []
+    stored: Any = await row(delivery_id)
+    assert stored.status == "pending" and stored.attempts == 1
+    assert "inside the server's own network" in stored.last_error
+
+
+async def test_a_container_agents_address_is_blobs_own_and_is_not_judged(
+    closed_workspace: str, app_server: RecordingApp
+) -> None:
+    """The deployment sync writes a container agent's address from the runner: Blob did not
+    take it from anybody, so it is sent to as it is."""
+    plugin_id = await make_plugin(closed_workspace, app_server.port, runtime="container")
+    await queue(plugin_id, id="m1")
+
+    assert await delivery.drain_once() == 1
+    assert len(app_server.requests) == 1
