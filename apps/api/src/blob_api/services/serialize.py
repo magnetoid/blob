@@ -38,7 +38,8 @@ log = logging.getLogger("blob.serialize")
 
 #: The columns every user query selects. Kept in one place so the shape cannot drift.
 USER_COLUMNS = """id, email, display_name, full_name, title, avatar_key, timezone, role,
-  status_emoji, status_text, status_expires_at, prefs, deactivated_at, created_at, kind"""
+  status_emoji, status_text, status_expires_at, prefs, deactivated_at, created_at, kind,
+  placeholder"""
 
 
 def read_prefs(raw: dict[str, Any] | None) -> UserPrefs:
@@ -99,6 +100,7 @@ def to_user(row: Any) -> User:
         # `getattr` the way `kind` above is read.
         agent_disabled=bool(getattr(row, "agent_disabled", False)),
         agent_resident=bool(getattr(row, "agent_resident", False)),
+        placeholder=bool(getattr(row, "placeholder", False)),
     )
 
 

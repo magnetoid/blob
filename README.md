@@ -414,6 +414,12 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 - **Export** — an admin exports the workspace's public channels and its people; anyone
   exports every conversation they are in. A zip of JSON lines `jq` reads, never a private
   conversation that is not yours.
+- **Import from Slack** — an admin uploads Slack's export zip, sees what it holds, and
+  brings its channels, threads, reactions and files in as history: nothing in it notifies
+  anybody, and an import that stops carries on where it stopped. Private channels and
+  direct messages come only when the admin ticks the box, to their members alone. Slack's
+  people arrive as names on their messages; an invitation to their address hands each one
+  their account with its history.
 - **A Security page** — every admin sees where the workspace stands: admins on passkeys,
   agents that post without asking or act with Blob's tools, assistants signed in as
   people, how long history is kept. Whoever runs the server also sees how it was deployed:
@@ -478,7 +484,9 @@ afternoon:
   account is not provisioned or removed from the identity provider, and the second step
   after a password is a passkey, never a six-digit code. A guest's account has no end
   date.
-- **Slack import.** Nothing reads a Slack export in yet.
+- **Slack import, all of it.** Canvases, workflows, user groups, saved items and custom
+  emoji images stay in Slack, and an import reads the export Slack's page gives, not
+  Slack's API.
 - **Edit history.** An edited message keeps only its latest words.
 - **A legal hold that keeps deletes.** A hold stops retention, not people: what somebody
   deletes or edits under a hold is not kept anywhere. Slack's does keep it, silently;

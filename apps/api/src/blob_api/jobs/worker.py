@@ -46,6 +46,10 @@ from .notify import handle_notify
 from .reminders import fire_reminders
 from .retention import sweep_history, sweep_retention
 from .scheduled import send_scheduled
+from .slack_import import read as read_slack_import
+from .slack_import import send_invite_mail
+from .slack_import import step as step_slack_import
+from .slack_import import sweep as sweep_slack_imports
 from .transcribe import handle_transcribe
 from .unanswered import nudge_unanswered
 from .unfurl import handle_unfurl
@@ -253,6 +257,26 @@ async def build_export(_ctx: dict[str, Any], export_id: str) -> None:
     await build_export_zip(export_id)
 
 
+async def slack_import_read(_ctx: dict[str, Any], import_id: str) -> None:
+    """A Slack export an admin uploaded, opened and checked, its preview written (ADR 0042)."""
+    await read_slack_import(import_id)
+
+
+async def slack_import_step(_ctx: dict[str, Any], import_id: str) -> None:
+    """One step of a running Slack import; it queues the next itself."""
+    await step_slack_import(import_id)
+
+
+async def sweep_imports(_ctx: dict[str, Any]) -> None:
+    """Imports whose worker went away, queued again; uploads nobody finished, closed."""
+    await sweep_slack_imports()
+
+
+async def send_import_invite(_ctx: dict[str, Any], job: dict[str, str]) -> None:
+    """The invitation to somebody a Slack import brought over."""
+    await send_invite_mail(job)
+
+
 async def backup(_ctx: dict[str, Any]) -> None:
     """The database, dumped into object storage (M3 · B4): nightly, and on an admin's word."""
     outcome = await run_backup()
@@ -328,6 +352,13 @@ class WorkerSettings:
         # and once — a retry would build the zip twice for nobody.
         func(build_export, timeout=3600, max_tries=1),  # type: ignore[arg-type]
         transcribe,
+        # A step runs two minutes and hands over; fifteen is the ceiling over one whose last
+        # file was slow. One try each: a step that died is queued again by the sweep, from
+        # where its last batch committed, and a retry from arq would only race it.
+        func(slack_import_read, timeout=900, max_tries=1),  # type: ignore[arg-type]
+        func(slack_import_step, timeout=900, max_tries=1),  # type: ignore[arg-type]
+        send_import_invite,
+        sweep_imports,
         # Its own ceiling, above the run's wall, and one try. arq retries a job it
         # cancelled — a deploy stopping the worker mid-run is the usual case — and a
         # retry would ask the agent again: new tokens, a different answer, posted beside
@@ -398,6 +429,9 @@ class WorkerSettings:
         # Questions nobody answered, for the agents following channels for them: every five
         # minutes is well inside the shortest quiet time an admin can choose (half an hour).
         cron(hear_unanswered, minute=set(range(1, 60, 5)), second=20),  # type: ignore[arg-type]
+        # A Slack import's step that has not been heard from in ten minutes is queued again;
+        # every five minutes, a minute off the unanswered sweep.
+        cron(sweep_imports, minute=set(range(2, 60, 5)), second=10),  # type: ignore[arg-type]
         # At startup because a fresh deploy is exactly when the stored callback URL is
         # most likely stale, then on a slow cycle so a domain change heals unwatched.
         cron(

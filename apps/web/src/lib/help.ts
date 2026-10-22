@@ -162,6 +162,19 @@ export const SECTIONS: Section[] = [
         keywords: ['export', 'download', 'data', 'backup', 'portability', 'leave', 'gdpr', 'archive', 'jsonl'],
       },
       {
+        id: 'importing',
+        title: 'Bringing your history from Slack',
+        blurb: 'An admin imports a Slack workspace’s export: its channels, threads, reactions and files.',
+        body: [
+          'In Slack, a workspace’s owner or admin exports its data from Workspace settings → Import/Export Data, and downloads the zip Slack emails. In Blob, an admin chooses that zip on the Import page. Nothing is written until they have seen what it holds: how many channels and conversations, who is already here, which channels merge into ones with the same name.',
+          'Public channels always come. Private channels and direct messages come only if the admin ticks the box, and only the people who were in each one see it — the admin who imports them is not added. Messages keep their time and their writer, threads their replies, and reactions, pins and files come too; a file that is not copied leaves a line in its message saying why. Nothing in the history notifies anybody, and it counts as read.',
+          'People who had a Slack account but none here arrive as names on their messages. An invitation to the address Slack had hands that person their account, with their messages, channels and conversations; nothing else does. The Import page invites them in one go once the history is in.',
+        ],
+        path: '/admin/import',
+        audience: 'admins',
+        keywords: ['import', 'slack', 'migrate', 'move', 'history', 'switch', 'zip'],
+      },
+      {
         id: 'retention',
         title: 'How long messages and files are kept',
         blurb: 'An admin can have old messages and files removed — and put a legal hold on what must stay.',
@@ -1301,8 +1314,8 @@ export const SECTIONS: Section[] = [
           'A few things a Slack habit reaches for are not built, and they say so rather than pretending.',
         body: [
           'Canvases and workflows do not exist at all.',
-          'There is no Unreads screen — stepping through unread conversations with the keyboard is what Blob has instead. Nothing emails you about a message.',
-          'The server console lists only pages that exist. Moderation, Approvals, Storage and Import / export are coming, and have no row there until they do.',
+          'There is no Unreads screen — stepping through unread conversations with the keyboard is what Blob has instead. Blob emails you what waited for you while you were away, and sends no daily summary.',
+          'The server console lists only pages that exist. Moderation and Storage are not built, and have no row there until they are.',
         ],
         keywords: ['canvas', 'workflow', 'missing', 'coming', 'soon', 'roadmap'],
       },

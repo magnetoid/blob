@@ -110,6 +110,17 @@ class Settings(BaseSettings):
     #: version where Debian keeps it (the image installs 16 and 17); a path is used as is.
     BACKUP_PG_DUMP: str = "pg_dump"
 
+    # Importing a Slack export (ADR 0042). The zip goes straight to the bucket and the
+    # worker keeps a copy on its own disk while it imports, so the cap is a disk bound as
+    # much as an upload limit. Slack's export is JSON and already compressed; a workspace
+    # with years of history fits in a few hundred megabytes.
+    SLACK_IMPORT_MAX_BYTES: int = 2 * 1024 * 1024 * 1024
+    #: The largest file an import copies from Slack; a larger one leaves a line saying so.
+    #: The workspace's own upload limit applies too, whichever is smaller.
+    SLACK_IMPORT_MAX_FILE_BYTES: int = 25 * 1024 * 1024
+    #: Where the worker keeps the zip while an import runs.
+    SLACK_IMPORT_DIR: str = "/tmp/blob-imports"  # noqa: S108 — the worker's own scratch space
+
     # Transcribing voice messages (M3 · B2): any OpenAI-compatible
     # `POST …/v1/audio/transcriptions`, the base given with or without its `/v1` — OpenAI
     # itself, or a server on your own machine (Speaches, LocalAI, vLLM), which keeps the

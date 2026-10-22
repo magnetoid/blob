@@ -22,6 +22,8 @@ const person = (id: string, role: AdminUser['role'], displayName: string): Admin
   channelCount: 1,
   messageCount: 1,
   twoStep: false,
+  placeholder: false,
+  invitable: false,
 });
 
 const PEOPLE = [

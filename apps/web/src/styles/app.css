@@ -136,7 +136,8 @@ button {
   .admin-chart-bar,
   .dashboard-bar,
   .poll-option-bar,
-  .thread-tools-toggle svg {
+  .thread-tools-toggle svg,
+  .import-meter-bar::-webkit-progress-value {
     transition: none;
   }
 }
@@ -1146,6 +1147,14 @@ button {
   flex: none;
   color: var(--text-faint);
   font-weight: 500;
+}
+
+/* The lock is wider than a `#`; it keeps the column and centres in it. */
+.channel-hash[data-private] {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  margin-inline: -2px;
 }
 
 .channel-row[aria-current='true'] .channel-hash {
@@ -8749,6 +8758,88 @@ a.build-commit-sha:hover {
   background: var(--surface);
   border: 1px solid var(--hairline-soft);
   border-radius: var(--radius-md);
+}
+
+/* ─── Admin → Import (ADR 0042) ─────────────────────────────────────────────────── */
+.import-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: var(--space-2);
+  line-height: 1.55;
+}
+
+.import-meter {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.import-meter-bar {
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.import-meter-bar::-webkit-progress-bar {
+  background: var(--surface-muted);
+  border-radius: var(--radius-full);
+}
+
+.import-meter-bar::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  transition: width var(--dur-open) var(--ease-standard);
+}
+
+.import-meter-bar::-moz-progress-bar {
+  background: var(--accent);
+  border-radius: var(--radius-full);
+}
+
+.import-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.import-facts dt {
+  font-weight: 600;
+}
+
+.import-facts dd {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .import-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .import-facts dd {
+    margin-bottom: var(--space-2);
+  }
+}
+
+.import-problems summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.import-problems ul {
+  margin: var(--space-2) 0 0;
+  padding-left: 20px;
+  color: var(--text-3);
+}
+
+.import-people {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .agent-row-what {

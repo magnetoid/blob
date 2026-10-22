@@ -422,6 +422,7 @@ def create_app() -> FastAPI:
     from .routers.retention import router as retention_router
     from .routers.search import router as search_router
     from .routers.security import router as security_router
+    from .routers.slack_import import router as slack_import_router
     from .routers.sso import router as sso_router
     from .routers.themes import router as theme_router
     from .routers.usage import router as usage_router
@@ -436,6 +437,7 @@ def create_app() -> FastAPI:
     app.include_router(mail_router)
     app.include_router(drafts_router)
     app.include_router(exports_router)
+    app.include_router(slack_import_router)
     app.include_router(retention_router)
     app.include_router(client_errors_router)
     app.include_router(security_router)

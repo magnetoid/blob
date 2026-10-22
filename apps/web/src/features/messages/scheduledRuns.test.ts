@@ -21,6 +21,7 @@ function user(id: string, displayName: string, overrides: Partial<User> = {}): U
     deactivated: false,
     agentDisabled: false,
     agentResident: false,
+    placeholder: false,
     ...overrides,
   };
 }

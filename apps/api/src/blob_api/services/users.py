@@ -367,7 +367,9 @@ async def list_users(
                   FROM users u
                  WHERE u.workspace_id = :ws AND (NOT :active_only OR u.deactivated_at IS NULL)
                    AND (cast(:viewer AS uuid) IS NULL OR {GUEST_SEES})
-                 ORDER BY lower(u.display_name) LIMIT 1000
+                 -- Who is here first: a team that brought thousands of people over from
+                 -- Slack (ADR 0042) must not push a current member off the end of this.
+                 ORDER BY (u.deactivated_at IS NULL) DESC, lower(u.display_name) LIMIT 5000
                 """
             ),
             {"ws": workspace_id, "active_only": active_only, "viewer": guest_id},

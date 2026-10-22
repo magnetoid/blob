@@ -7,8 +7,10 @@ timestamp join. This is the one schema decision that cannot be retrofitted cheap
 
 from __future__ import annotations
 
+import hashlib
 import re
 import secrets
+import uuid
 from typing import Annotated
 
 import uuid_utils
@@ -17,6 +19,23 @@ from pydantic import StringConstraints
 
 def new_id() -> str:
     return str(uuid_utils.uuid7())
+
+
+def id_at(unix_ms: int, sub_ms: int, seed: bytes) -> str:
+    """A UUIDv7 for something that happened at `unix_ms`, and the same one every time.
+
+    For history brought in from elsewhere (a Slack import, ADR 0042): its ids have to sort
+    where it happened, as every id does, and a second run of the same import has to land
+    on the rows the first one wrote rather than beside them. `sub_ms` (0 to 4095) orders two
+    things inside one millisecond — Slack's timestamps carry microseconds — and the 62
+    bits a fresh id would draw at random are the seed's hash, so two things at the same
+    instant in different places still differ.
+    """
+    rand_b = int.from_bytes(hashlib.sha256(seed).digest()[:8], "big") & ((1 << 62) - 1)
+    value = (
+        (unix_ms & ((1 << 48) - 1)) << 80 | 0x7 << 76 | (sub_ms & 0xFFF) << 64 | 0b10 << 62 | rand_b
+    )
+    return str(uuid.UUID(int=value))
 
 
 def new_token(nbytes: int = 32) -> str:

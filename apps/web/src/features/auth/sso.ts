@@ -21,6 +21,8 @@ export function ssoMessage(code: string): string {
       return 'That invitation has expired or was already used.';
     case 'invite_wrong_address':
       return 'That invitation was issued for a different email address.';
+    case 'invite_required':
+      return 'Your messages from Slack are waiting here. Ask an admin to invite this address.';
     case 'deactivated':
       return 'That account has been deactivated.';
     case 'invalid_token':

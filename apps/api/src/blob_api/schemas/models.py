@@ -116,6 +116,9 @@ class User(CamelModel):
     #: dropped with no reply and no error. Only the roster computes it, like the field
     #: above; everywhere else False is the truthful default.
     agent_resident: bool = False
+    #: Somebody an import brought over who has not been invited yet (ADR 0042): a name on
+    #: old messages, deactivated, and theirs to claim through an invitation to its address.
+    placeholder: bool = False
 
 
 class CurrentUser(User):

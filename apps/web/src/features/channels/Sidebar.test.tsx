@@ -333,3 +333,31 @@ describe('for a guest (ADR 0034)', () => {
     expect(screen.getByText('New channel')).toBeTruthy();
   });
 });
+
+describe('a private channel in the list', () => {
+  it('wears a lock, and says it is private to a screen reader', () => {
+    seed();
+    useStore.setState({
+      channels: {
+        ...useStore.getState().channels,
+        c2: {
+          id: 'c2',
+          kind: 'private',
+          name: 'leads',
+          membership: { isStarred: false },
+          archivedAt: null,
+          memberIds: ['u1'],
+        },
+      },
+    } as never);
+    const { container } = render(<Sidebar />);
+
+    const leads = screen.getByRole('button', { name: /^leads/ });
+    expect(leads.textContent).toContain('leads, private');
+    expect(leads.querySelector('.channel-hash svg')).toBeTruthy();
+    expect(leads.querySelector('.channel-hash')?.textContent).toBe('');
+    const general = screen.getByRole('button', { name: /^general/ });
+    expect(general.querySelector('.channel-hash')?.textContent).toBe('#');
+    expect(container.querySelectorAll('.channel-hash[data-private]')).toHaveLength(1);
+  });
+});

@@ -38,6 +38,7 @@ import { SsoSection } from './sections/SsoSection.tsx';
 import { UsageSection } from './sections/UsageSection.tsx';
 import { HuddlesSection } from './sections/calls/HuddlesSection.tsx';
 import { ExportSection } from './sections/ExportSection.tsx';
+import { ImportSection } from './sections/ImportSection.tsx';
 import { RetentionSection } from './sections/RetentionSection.tsx';
 import { SecuritySection } from './sections/SecuritySection.tsx';
 import { ApprovalsSection } from './sections/ApprovalsSection.tsx';
@@ -96,6 +97,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   'mcp-servers': McpServersSection,
   usage: UsageSection,
   export: ExportSection,
+  import: ImportSection,
   posture: SecuritySection,
   approvals: ApprovalsSection,
   retention: RetentionSection,

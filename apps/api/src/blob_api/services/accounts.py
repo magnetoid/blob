@@ -42,7 +42,7 @@ async def find_for_login(session: AsyncSession, email: str) -> Any:
             text(
                 f"""
                 SELECT {USER_COLUMNS}, password_hash FROM users
-                 WHERE email = :email AND kind = 'human'
+                 WHERE email = :email AND kind = 'human' AND NOT placeholder
                  ORDER BY (deactivated_at IS NULL) DESC, created_at
                  LIMIT 1
                 """

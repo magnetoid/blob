@@ -338,6 +338,16 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `/api/admin/import` (ADR 0042): any admin's; what changes anything asks for a recent
+    // sign-in, and watching one run does not.
+    id: 'import',
+    label: 'Import',
+    description:
+      'Bring a Slack workspace’s history here, and invite the people who came with it.',
+    keywords: ['import', 'slack', 'migrate', 'move', 'history', 'upload', 'zip'],
+    access: 'admin',
+  },
+  {
     // `/api/admin/security` (M3 · C3): any admin's; the server's half of the page appears
     // only for whoever runs the server, as the logs do.
     // `posture`, not `security`: the person's own Settings has a Security page already, and

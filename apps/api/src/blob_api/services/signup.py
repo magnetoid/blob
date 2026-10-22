@@ -161,16 +161,35 @@ async def signup(
                 code="invalid_input",
             )
         password_hash = existing_hash or await hash_password(password)
-        user_id = await _create_account(
-            session,
-            workspace_id=workspace_id,
-            email=email,
-            password_hash=password_hash,
-            display_name=display_name,
-            role=role,
-            elsewhere=existing_hash is not None,
-            channel_ids=[str(channel) for channel in getattr(invite, "channel_ids", None) or []],
-        )
+        channel_ids = [str(channel) for channel in getattr(invite, "channel_ids", None) or []]
+        held = await _placeholder(session, workspace_id, email)
+        if held is not None:
+            # History an import kept for this address (ADR 0042) passes to its person
+            # through an invitation that named it, and through nothing else.
+            if not invite.email:
+                raise bad_request(_ASK_FOR_AN_INVITATION, code="invalid_input")
+            user_id = await _claim(
+                session,
+                user_id=str(held.id),
+                workspace_id=workspace_id,
+                email=email,
+                password_hash=password_hash,
+                display_name=display_name,
+                role=role,
+                elsewhere=existing_hash is not None,
+                channel_ids=channel_ids,
+            )
+        else:
+            user_id = await _create_account(
+                session,
+                workspace_id=workspace_id,
+                email=email,
+                password_hash=password_hash,
+                display_name=display_name,
+                role=role,
+                elsewhere=existing_hash is not None,
+                channel_ids=channel_ids,
+            )
         await _accept(session, invite_token, user_id)
 
     created = (
@@ -189,7 +208,13 @@ async def signup(
 async def _has_accounts(session: AsyncSession, email: str) -> bool:
     row = (
         await session.execute(
-            text("SELECT 1 FROM users WHERE email = :email AND kind = 'human' LIMIT 1"),
+            text(
+                """
+                SELECT 1 FROM users
+                 WHERE email = :email AND kind = 'human' AND NOT placeholder
+                 LIMIT 1
+                """
+            ),
             {"email": email},
         )
     ).fetchone()
@@ -242,7 +267,18 @@ async def _create_account(
         # administrator may unlock (services/admin) — so a reset link minted while
         # it held one, by an admin of the first, must not outlive the change.
         await account_service.retire_resets(session, email=email)
+    await _first_channels(session, workspace_id, user_id, role, channel_ids)
+    return user_id
 
+
+async def _first_channels(
+    session: AsyncSession,
+    workspace_id: str,
+    user_id: str,
+    role: str,
+    channel_ids: list[str] | None,
+) -> None:
+    """A guest joins the channels their invitation named; everybody else the defaults."""
     if role == "guest":
         joining = (
             await session.execute(
@@ -271,6 +307,71 @@ async def _create_account(
         ).fetchall()
     for row in joining:
         await add_members(session, channel_id=row.id, user_ids=[user_id])
+
+
+#: What somebody is told who reaches an address an import is keeping without the
+#: invitation that hands it over.
+_ASK_FOR_AN_INVITATION = (
+    "Your messages from Slack are waiting here. Ask an admin to invite this address."
+)
+
+
+async def _placeholder(session: AsyncSession, workspace_id: str, email: str) -> Any:
+    """The account an import kept for this address in this workspace, if it did."""
+    return (
+        await session.execute(
+            text(
+                """
+                SELECT id FROM users
+                 WHERE workspace_id = :ws AND email = :email AND placeholder
+                """
+            ),
+            {"ws": workspace_id, "email": email},
+        )
+    ).fetchone()
+
+
+async def _claim(
+    session: AsyncSession,
+    *,
+    user_id: str,
+    workspace_id: str,
+    email: str,
+    password_hash: str | None,
+    display_name: str,
+    role: str,
+    elsewhere: bool,
+    channel_ids: list[str] | None,
+) -> str:
+    """The account an import kept becomes its person's (ADR 0042): with the name they
+    chose and the role they were invited with, keeping its history, its channels and its
+    conversations — instead of a second account beside it, which the address could not
+    have anyway."""
+    try:
+        await session.execute(
+            text(
+                """
+                UPDATE users
+                   SET password_hash = :password_hash, display_name = :display_name,
+                       role = :role, deactivated_at = NULL, placeholder = false
+                 WHERE id = :id AND placeholder
+                """
+            ),
+            {
+                "id": user_id,
+                "password_hash": password_hash,
+                "display_name": display_name,
+                "role": role,
+            },
+        )
+        await handle_service.claim(session, workspace_id, display_name, user_id=user_id)
+    except Exception as exc:
+        if unique_violation(exc):
+            raise conflict("That email or display name is already taken.", "user_exists") from exc
+        raise
+    if elsewhere:
+        await account_service.retire_resets(session, email=email)
+    await _first_channels(session, workspace_id, user_id, role, channel_ids)
     return user_id
 
 
@@ -328,6 +429,7 @@ async def join_by_identity(
     email = email.lower()
     role = "member"
     channel_ids: list[str] = []
+    invited_address: str | None = None
     if invite_token:
         invite = await _open_invite(session, invite_token)
         if invite is None:
@@ -343,14 +445,33 @@ async def join_by_identity(
         workspace_id = str(invite.workspace_id)
         role = getattr(invite, "role", None) or "member"
         channel_ids = [str(channel) for channel in invite.channel_ids or []]
+        invited_address = invite.email
     if workspace_id is None:
         raise AppError(400, "no_account", "There is no account here for that address.")
     present = (
         await session.execute(
-            text("SELECT id FROM users WHERE workspace_id = :ws AND email = :email"),
+            text("SELECT id, placeholder FROM users WHERE workspace_id = :ws AND email = :email"),
             {"ws": workspace_id, "email": email},
         )
     ).fetchone()
+    if present is not None and present.placeholder:
+        # The account an import kept for this address (ADR 0042): only an invitation sent
+        # to it hands it over — not a provider's domain rule, not an open link.
+        if not invite_token or not invited_address:
+            raise AppError(400, "invite_required", _ASK_FOR_AN_INVITATION)
+        user_id = await _claim(
+            session,
+            user_id=str(present.id),
+            workspace_id=workspace_id,
+            email=email,
+            password_hash=await workspace_service.password_hash_for(session, email),
+            display_name=await _free_name(session, workspace_id, display_name),
+            role=role,
+            elsewhere=await _has_accounts(session, email),
+            channel_ids=channel_ids,
+        )
+        await _accept(session, invite_token, user_id)
+        return user_id
     if present is not None:
         return str(present.id)
     existing_hash = await workspace_service.password_hash_for(session, email)

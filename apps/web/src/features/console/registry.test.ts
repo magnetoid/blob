@@ -38,6 +38,7 @@ const EVERY_ROW = [
   'Usage',
   'Approvals',
   'Export',
+  'Import',
   'Security',
   'Retention',
   'Webhooks',
@@ -153,6 +154,7 @@ describe('who each admin page is for', () => {
     usage: 'admin', // /api/admin/usage and its prices
     approvals: 'admin', // GET /api/admin/approvals
     export: 'admin', // /api/admin/exports, after a recent sign-in
+    import: 'admin', // /api/admin/import
     posture: 'admin', // /api/admin/security; the server's half only for its admins
     retention: 'admin', // /api/admin/retention; saving asks for a recent sign-in
     webhooks: 'admin', // /api/admin/webhooks

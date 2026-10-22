@@ -27,6 +27,7 @@ import {
   FileIcon,
   HomeIcon,
   HuddleIcon,
+  LockIcon,
   MentionIcon,
   PinIcon,
   DecisionIcon,
@@ -514,11 +515,23 @@ function ChannelRow({
         {otherId ? (
           <AvatarWithPresence user={users[otherId]} state={presence[otherId] ?? 'offline'} />
         ) : (
-          <span className="channel-hash" aria-hidden="true">
-            {isDm ? '•' : '#'}
+          // A private channel wears its lock here as Slack's sidebar does, and as ⌘K
+          // already did: the same `#` for both made the one difference that decides who
+          // can read a channel invisible in the list people look at most.
+          <span
+            className="channel-hash"
+            aria-hidden="true"
+            data-private={channel.kind === 'private' ? '' : undefined}
+          >
+            {isDm ? '•' : channel.kind === 'private' ? <LockIcon size="sm" /> : '#'}
           </span>
         )}
-        {!collapsed && <span className="channel-name">{name}</span>}
+        {!collapsed && (
+          <span className="channel-name">
+            {name}
+            {channel.kind === 'private' && <span className="sr-only">, private</span>}
+          </span>
+        )}
         {!collapsed && !active && channelHasDraft(drafts, channel.id) && (
           <span className="channel-draft" title="You have an unsent draft here">
             draft

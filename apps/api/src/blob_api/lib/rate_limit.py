@@ -71,6 +71,10 @@ LIMITS: dict[str, Limit] = {
     "search": Limit(30, 60),
     "webhook": Limit(60, 60),
     "invite": Limit(30, 3600),
+    # An import's zip and its people (ADR 0042): a handful of uploads an hour, and a few
+    # rounds of invitations of up to five hundred people each.
+    "import": Limit(10, 3600),
+    "import_invite": Limit(10, 3600),
     # Pressing a button is cheaper and more frequent than writing a message, but it
     # still reaches an app over the network, so it is not free.
     "interaction": Limit(60, 60),

@@ -119,6 +119,9 @@ class User(Base):
     legal_hold_by: Mapped[str | None] = mapped_column(
         UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
     )
+    #: Made by an import for somebody not yet invited (ADR 0042): deactivated, no
+    #: password, and claimed only by accepting an invitation sent to its address.
+    placeholder: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
 
 class InstanceAdmin(Base):
@@ -882,6 +885,90 @@ class Export(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
     finished_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
+class Import(Base):
+    """One uploaded export and what became of it (ADR 0042, migration 0075): read, chosen,
+    run in steps — each committing its rows with `cursor` — and finished."""
+
+    __tablename__ = "imports"
+    __table_args__ = (
+        CheckConstraint("source IN ('slack')", name="imports_source_check"),
+        CheckConstraint(
+            "status IN ('uploading', 'reading', 'ready', 'running', 'done', 'failed', 'cancelled')",
+            name="imports_status_check",
+        ),
+        Index("imports_workspace", "workspace_id", text("created_at DESC")),
+        Index(
+            "imports_one_running",
+            "workspace_id",
+            unique=True,
+            postgresql_where=text("status = 'running'"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    requested_by: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    source: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'slack'"))
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'uploading'"))
+    object_key: Mapped[str] = mapped_column(Text, nullable=False)
+    bytes: Mapped[int | None] = mapped_column(BigInteger)
+    include_private: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    copy_files: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    preview: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    progress: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    cursor: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    problems: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    started_at: Mapped[Any | None] = mapped_column(Timestamp)
+    heartbeat_at: Mapped[Any | None] = mapped_column(Timestamp)
+    finished_at: Mapped[Any | None] = mapped_column(Timestamp)
+
+
+class ImportPerson(Base):
+    """Which Blob account a Slack id became in one import."""
+
+    __tablename__ = "import_people"
+
+    import_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("imports.id", ondelete="CASCADE"), primary_key=True
+    )
+    slack_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    created: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    invitable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+
+
+class ImportConversation(Base):
+    """Which Blob conversation a Slack conversation became in one import, and its turn."""
+
+    __tablename__ = "import_conversations"
+
+    import_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("imports.id", ondelete="CASCADE"), primary_key=True
+    )
+    slack_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    channel_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    created: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class UserGroup(Base):

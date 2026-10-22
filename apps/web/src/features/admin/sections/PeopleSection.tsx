@@ -99,10 +99,19 @@ export function PeopleSection({
                   {user.role !== "member" && (
                     <span className="role-pill">{user.role}</span>
                   )}
-                  {user.deactivatedAt && (
+                  {user.placeholder ? (
+                    // Brought over by an import (ADR 0042): somebody who can still be
+                    // invited has not joined yet; an app, or somebody Slack gave no
+                    // address, is a name on old messages and nothing more.
                     <span className="role-pill" data-muted>
-                      deactivated
+                      {user.invitable ? 'not joined yet' : 'from Slack'}
                     </span>
+                  ) : (
+                    user.deactivatedAt && (
+                      <span className="role-pill" data-muted>
+                        deactivated
+                      </span>
+                    )
                   )}
                   {user.twoStep && !user.deactivatedAt && (
                     <span
@@ -115,7 +124,8 @@ export function PeopleSection({
                   )}
                 </div>
                 <div className="admin-row-meta">
-                  {user.email} · {user.messageCount} messages ·{" "}
+                  {user.placeholder && !user.invitable ? "no address" : user.email} ·{" "}
+                  {user.messageCount} messages ·{" "}
                   {user.channelCount} channels
                   {user.lastSeenAt
                     ? ` · seen ${formatRelative(user.lastSeenAt)}`
@@ -190,7 +200,19 @@ export function PeopleSection({
                     Sign out
                   </button>
                 )}
-                {user.deactivatedAt ? (
+                {user.placeholder ? (
+                  user.invitable && (
+                    <button
+                      className="btn"
+                      aria-label={`Invite ${user.displayName}`}
+                      onClick={() =>
+                        void act(() => api.auth.createInvite({ email: user.email }))
+                      }
+                    >
+                      Invite
+                    </button>
+                  )
+                ) : user.deactivatedAt ? (
                   <button
                     className="btn"
                     aria-label={`Reactivate ${user.displayName}`}

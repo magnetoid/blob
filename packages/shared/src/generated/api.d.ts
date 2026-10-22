@@ -430,6 +430,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Import State */
+        get: operations["import_state_api_admin_import_get"];
+        put?: never;
+        /**
+         * Create Import
+         * @description A place for the zip, and the address to put it at.
+         */
+        post: operations["create_import_api_admin_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/import/{import_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Import */
+        post: operations["cancel_import_api_admin_import__import_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/import/{import_id}/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite Imported
+         * @description Invite the people an import brought over, each to their own address. Accepting
+         *     one hands its person their history (ADR 0042). The mail goes from the worker.
+         */
+        post: operations["invite_imported_api_admin_import__import_id__invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/import/{import_id}/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Import People
+         * @description Who this import brought over that nobody has invited yet.
+         */
+        get: operations["import_people_api_admin_import__import_id__people_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/import/{import_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Import */
+        post: operations["start_import_api_admin_import__import_id__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/import/{import_id}/uploaded": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Uploaded
+         * @description The zip is in the bucket: read it.
+         */
+        post: operations["import_uploaded_api_admin_import__import_id__uploaded_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/instance/backup": {
         parameters: {
             query?: never;
@@ -5259,6 +5375,11 @@ export interface components {
             fullName?: string | null;
             /** Id */
             id: string;
+            /**
+             * Invitable
+             * @default false
+             */
+            invitable: boolean;
             /** Lastseenat */
             lastSeenAt?: string | null;
             /**
@@ -5266,6 +5387,11 @@ export interface components {
              * @default 0
              */
             messageCount: number;
+            /**
+             * Placeholder
+             * @default false
+             */
+            placeholder: boolean;
             /** Role */
             role: string;
             /**
@@ -6348,6 +6474,11 @@ export interface components {
              * @enum {string}
              */
             kind: "human" | "bot";
+            /**
+             * Placeholder
+             * @default false
+             */
+            placeholder: boolean;
             prefs: components["schemas"]["UserPrefs"];
             /**
              * Role
@@ -6923,6 +7054,195 @@ export interface components {
              * @default true
              */
             screenShare: boolean;
+        };
+        /** ImportCreatedOut */
+        ImportCreatedOut: {
+            current: components["schemas"]["ImportOut"];
+            /** Uploadurl */
+            uploadUrl: string;
+        };
+        /** ImportCreateIn */
+        ImportCreateIn: {
+            /** Sizebytes */
+            sizeBytes: number;
+        };
+        /** ImportInvitedOut */
+        ImportInvitedOut: {
+            /** Invited */
+            invited: number;
+        };
+        /** ImportInviteIn */
+        ImportInviteIn: {
+            /** Userids */
+            userIds: string[];
+        };
+        /** ImportOut */
+        ImportOut: {
+            /** Bytes */
+            bytes?: number | null;
+            /** Copyfiles */
+            copyFiles: boolean;
+            /** Createdat */
+            createdAt: string;
+            /** Error */
+            error?: string | null;
+            /** Finishedat */
+            finishedAt?: string | null;
+            /** Id */
+            id: string;
+            /** Includeprivate */
+            includePrivate: boolean;
+            preview?: components["schemas"]["ImportPreviewOut"] | null;
+            /** Problems */
+            problems: string[];
+            progress: components["schemas"]["ImportProgressOut"];
+            /** Requestedbyname */
+            requestedByName: string;
+            /** Startedat */
+            startedAt?: string | null;
+            /** Status */
+            status: string;
+        };
+        /** ImportPeopleOut */
+        ImportPeopleOut: {
+            /** People */
+            people: components["schemas"]["ImportPersonOut"][];
+        };
+        /** ImportPersonOut */
+        ImportPersonOut: {
+            /** Email */
+            email: string;
+            /**
+             * Invited
+             * @default false
+             */
+            invited: boolean;
+            /** Name */
+            name: string;
+            /** Userid */
+            userId: string;
+        };
+        /**
+         * ImportPreviewOut
+         * @description What the zip holds, read before anything is written.
+         */
+        ImportPreviewOut: {
+            /**
+             * Apps
+             * @default 0
+             */
+            apps: number;
+            /**
+             * Directmessages
+             * @default 0
+             */
+            directMessages: number;
+            /**
+             * Groupmessages
+             * @default 0
+             */
+            groupMessages: number;
+            /**
+             * Matched
+             * @default 0
+             */
+            matched: number;
+            /** Merging */
+            merging?: string[];
+            /**
+             * People
+             * @default 0
+             */
+            people: number;
+            /**
+             * Placeholders
+             * @default 0
+             */
+            placeholders: number;
+            /**
+             * Privatechannels
+             * @default 0
+             */
+            privateChannels: number;
+            /**
+             * Privatedays
+             * @default 0
+             */
+            privateDays: number;
+            /**
+             * Publicchannels
+             * @default 0
+             */
+            publicChannels: number;
+            /**
+             * Publicdays
+             * @default 0
+             */
+            publicDays: number;
+            /**
+             * Withoutaddress
+             * @default 0
+             */
+            withoutAddress: number;
+        };
+        /** ImportProgressOut */
+        ImportProgressOut: {
+            /**
+             * Conversations
+             * @default 0
+             */
+            conversations: number;
+            /**
+             * Conversationstotal
+             * @default 0
+             */
+            conversationsTotal: number;
+            /**
+             * Filescopied
+             * @default 0
+             */
+            filesCopied: number;
+            /**
+             * Filesskipped
+             * @default 0
+             */
+            filesSkipped: number;
+            /**
+             * Messages
+             * @default 0
+             */
+            messages: number;
+            /**
+             * Peoplecreated
+             * @default 0
+             */
+            peopleCreated: number;
+            /**
+             * Peoplematched
+             * @default 0
+             */
+            peopleMatched: number;
+        };
+        /** ImportStartIn */
+        ImportStartIn: {
+            /**
+             * Copyfiles
+             * @default true
+             */
+            copyFiles: boolean;
+            /**
+             * Includeprivate
+             * @default false
+             */
+            includePrivate: boolean;
+        };
+        /** ImportStateOut */
+        ImportStateOut: {
+            current?: components["schemas"]["ImportOut"] | null;
+            /** Maxbytes */
+            maxBytes: number;
+            /** Maxfilebytes */
+            maxFileBytes: number;
         };
         /** InstalledOut */
         InstalledOut: {
@@ -9270,6 +9590,11 @@ export interface components {
              */
             kind: "human" | "bot";
             /**
+             * Placeholder
+             * @default false
+             */
+            placeholder: boolean;
+            /**
              * Role
              * @default member
              * @enum {string}
@@ -9705,6 +10030,17 @@ export type HeldPersonOut = components['schemas']['HeldPersonOut'];
 export type HistoryOut = components['schemas']['HistoryOut'];
 export type HTTPValidationError = components['schemas']['HTTPValidationError'];
 export type HuddleSettings = components['schemas']['HuddleSettings'];
+export type ImportCreatedOut = components['schemas']['ImportCreatedOut'];
+export type ImportCreateIn = components['schemas']['ImportCreateIn'];
+export type ImportInvitedOut = components['schemas']['ImportInvitedOut'];
+export type ImportInviteIn = components['schemas']['ImportInviteIn'];
+export type ImportOut = components['schemas']['ImportOut'];
+export type ImportPeopleOut = components['schemas']['ImportPeopleOut'];
+export type ImportPersonOut = components['schemas']['ImportPersonOut'];
+export type ImportPreviewOut = components['schemas']['ImportPreviewOut'];
+export type ImportProgressOut = components['schemas']['ImportProgressOut'];
+export type ImportStartIn = components['schemas']['ImportStartIn'];
+export type ImportStateOut = components['schemas']['ImportStateOut'];
 export type InstalledOut = components['schemas']['InstalledOut'];
 export type InstanceUser = components['schemas']['InstanceUser'];
 export type InstanceUsersOut = components['schemas']['InstanceUsersOut'];
@@ -10738,6 +11074,222 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthOut"];
+                };
+            };
+        };
+    };
+    import_state_api_admin_import_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportStateOut"];
+                };
+            };
+        };
+    };
+    create_import_api_admin_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportCreateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportCreatedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_import_api_admin_import__import_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportStateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    invite_imported_api_admin_import__import_id__invite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportInviteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportInvitedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_people_api_admin_import__import_id__people_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPeopleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_import_api_admin_import__import_id__start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportStateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_uploaded_api_admin_import__import_id__uploaded_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportStateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

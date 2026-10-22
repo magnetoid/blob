@@ -59,6 +59,7 @@ from . import workspaces as workspace_service
 from .accounts import record_event, retire_resets, revoke_assistant_tokens
 from .audit import Actor
 from .serialize import USER_COLUMNS, to_user
+from .slack_history import NO_ADDRESS_DOMAIN
 from .workspace_settings import RETENTION_KEYS
 
 
@@ -91,7 +92,7 @@ async def list_users(
             text(
                 """
                 SELECT u.id, u.email, u.display_name, u.full_name, u.title, u.role,
-                       u.deactivated_at, u.created_at,
+                       u.deactivated_at, u.created_at, u.placeholder, u.kind,
                        (SELECT max(s.last_seen_at) FROM sessions s
                          WHERE s.user_id = u.id) AS last_seen_at,
                        (SELECT count(*) FROM sessions s
@@ -114,7 +115,7 @@ async def list_users(
                    AND (cast(:q AS text) IS NULL
                         OR u.display_name ILIKE '%' || :q || '%'
                         OR u.email ILIKE '%' || :q || '%')
-                 ORDER BY u.deactivated_at NULLS FIRST, lower(u.display_name)
+                 ORDER BY u.placeholder, u.deactivated_at NULLS FIRST, lower(u.display_name)
                  LIMIT :limit
                 """
             ),
@@ -142,6 +143,12 @@ async def list_users(
                 channel_count=row.channel_count,
                 message_count=row.message_count,
                 two_step=row.two_step,
+                placeholder=row.placeholder,
+                # A person an import kept an account for, at an address that can be mailed —
+                # never an app, never an address the export did not have (ADR 0042).
+                invitable=row.placeholder
+                and row.kind == "human"
+                and not row.email.lower().endswith(f"@{NO_ADDRESS_DOMAIN}"),
             )
             for row in rows
         ],
@@ -286,12 +293,21 @@ async def reactivate(session: AsyncSession, admin: Actor, user_id: str) -> User 
     # meantime — the collision no index spanning one table can catch.
     name = (
         await session.execute(
-            text("SELECT display_name FROM users WHERE id = :id AND workspace_id = :ws"),
+            text(
+                "SELECT display_name, placeholder FROM users WHERE id = :id AND workspace_id = :ws"
+            ),
             {"id": user_id, "ws": admin.workspace_id},
         )
     ).fetchone()
     if name is None:
         raise no_such_person()
+    if name.placeholder:
+        # An account an import kept (ADR 0042) is its person's to claim, by an invitation
+        # to its address; switched on here it would be an account nobody can sign in to.
+        raise bad_request(
+            "This person has not joined yet. Invite their address, and the account and "
+            "its history become theirs."
+        )
     try:
         await handle_service.claim(session, admin.workspace_id, name.display_name, user_id=user_id)
     except Exception as exc:

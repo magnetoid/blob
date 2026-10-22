@@ -34,6 +34,7 @@ const person = {
   deactivated: false,
   agentDisabled: false,
   agentResident: false,
+  placeholder: false,
 };
 
 beforeEach(() => {

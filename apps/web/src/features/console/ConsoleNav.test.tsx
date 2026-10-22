@@ -59,6 +59,7 @@ describe('the server console’s nav', () => {
       'Usage',
       'Approvals',
       'Export',
+      'Import',
       'Security',
       'Retention',
       'Webhooks',
@@ -122,7 +123,7 @@ describe('the server console’s nav', () => {
     expect(screen.queryAllByRole('heading')).toEqual([]);
 
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: '' } });
-    expect(rowLabels(container)).toHaveLength(24);
+    expect(rowLabels(container)).toHaveLength(25);
   });
 });
 

@@ -28,6 +28,10 @@ class AdminUser(CamelModel):
     message_count: int = 0
     #: Whether this person's sign-in asks for a passkey after the password (ADR 0032).
     two_step: bool = False
+    #: An account an import kept for somebody not yet invited (ADR 0042).
+    placeholder: bool = False
+    #: A placeholder whose address can be invited: a person, with a real address.
+    invitable: bool = False
 
 
 class AdminUsersOut(CamelModel):

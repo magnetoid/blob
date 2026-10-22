@@ -552,7 +552,10 @@ async def link(session: AsyncSession, provider: Provider, *, subject: str, email
 async def has_account(session: AsyncSession, email: str) -> bool:
     row = (
         await session.execute(
-            text("SELECT 1 FROM users WHERE email = :email AND kind = 'human' LIMIT 1"),
+            text(
+                "SELECT 1 FROM users WHERE email = :email AND kind = 'human' AND NOT placeholder"
+                " LIMIT 1"
+            ),
             {"email": email},
         )
     ).fetchone()

@@ -38,6 +38,11 @@ export interface User {
    * that is not in #general, where a mention is dropped with no reply and no error.
    */
   agentResident: boolean;
+  /**
+   * Somebody an import brought over who has not been invited yet (ADR 0042): a name on
+   * old messages, deactivated, and theirs to claim through an invitation to its address.
+   */
+  placeholder: boolean;
 }
 
 /** The signed-in user sees more of themselves than of others. */

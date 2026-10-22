@@ -322,6 +322,10 @@ export interface AdminUser {
   messageCount: number;
   /** Their sign-in asks for a passkey after the password (ADR 0032). */
   twoStep: boolean;
+  /** An account an import kept for somebody not yet invited (ADR 0042). */
+  placeholder: boolean;
+  /** A placeholder whose address can be invited: a person, with a real address. */
+  invitable: boolean;
 }
 
 export interface AdminInvite {
@@ -1005,6 +1009,70 @@ export interface ExportEntry {
   requestedByName: string;
   /** Blob's own link, which checks who is asking; present once it is built. */
   downloadUrl: string | null;
+}
+
+/** What a Slack export holds, read before anything is written (ADR 0042). */
+export interface ImportPreview {
+  publicChannels: number;
+  privateChannels: number;
+  directMessages: number;
+  groupMessages: number;
+  /** One conversation's one day each, as Slack's export counts them. */
+  publicDays: number;
+  privateDays: number;
+  /** Slack's people, not its apps, and not those deleted in Slack. */
+  people: number;
+  /** Of those, already members here, matched by address. */
+  matched: number;
+  /** Of those, arriving as placeholders until they are invited. */
+  placeholders: number;
+  withoutAddress: number;
+  apps: number;
+  /** Public channels that already exist here; their history merges into them. */
+  merging: string[];
+}
+
+export interface ImportProgress {
+  conversations: number;
+  conversationsTotal: number;
+  messages: number;
+  filesCopied: number;
+  filesSkipped: number;
+  peopleCreated: number;
+  peopleMatched: number;
+}
+
+/** A Slack import, from upload to done (ADR 0042). */
+export interface ImportRecord {
+  id: string;
+  status: "uploading" | "reading" | "ready" | "running" | "done" | "failed" | "cancelled";
+  bytes: number | null;
+  includePrivate: boolean;
+  copyFiles: boolean;
+  preview: ImportPreview | null;
+  progress: ImportProgress;
+  problems: string[];
+  error: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  requestedByName: string;
+}
+
+export interface ImportState {
+  current: ImportRecord | null;
+  /** The largest zip this server takes, and the largest file an import copies. */
+  maxBytes: number;
+  maxFileBytes: number;
+}
+
+/** Somebody an import brought over who has not claimed their account yet. */
+export interface ImportedPerson {
+  userId: string;
+  name: string;
+  email: string;
+  /** An invitation to this address is out and not yet accepted. */
+  invited: boolean;
 }
 
 /** A workspace's retention windows and legal holds, as its admins see them (ADR 0039). */
@@ -1880,6 +1948,18 @@ export const api = {
     /** The workspace's public conversations, for its admins (M3 · B4). */
     exports: () => get<{ exports: ExportEntry[] }>("/api/admin/exports"),
     startExport: () => post<{ exports: ExportEntry[] }>("/api/admin/exports", {}),
+    /** Bringing a Slack export in (ADR 0042). */
+    importState: () => get<ImportState>("/api/admin/import"),
+    createImport: (sizeBytes: number) =>
+      post<{ current: ImportRecord; uploadUrl: string }>("/api/admin/import", { sizeBytes }),
+    importUploaded: (id: string) => post<ImportState>(`/api/admin/import/${id}/uploaded`, {}),
+    startImport: (id: string, choices: { includePrivate: boolean; copyFiles: boolean }) =>
+      post<ImportState>(`/api/admin/import/${id}/start`, choices),
+    cancelImport: (id: string) => post<ImportState>(`/api/admin/import/${id}/cancel`, {}),
+    importPeople: (id: string) =>
+      get<{ people: ImportedPerson[] }>(`/api/admin/import/${id}/people`),
+    inviteImported: (id: string, userIds: string[]) =>
+      post<{ invited: number }>(`/api/admin/import/${id}/invite`, { userIds }),
     /** A database backup now, rather than tonight (M3 · B4). The server's administrators. */
     backupNow: () => post<{ ok: true }>("/api/admin/instance/backup", {}),
 

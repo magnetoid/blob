@@ -603,6 +603,11 @@
             "title": "Id",
             "type": "string"
           },
+          "invitable": {
+            "default": false,
+            "title": "Invitable",
+            "type": "boolean"
+          },
           "lastSeenAt": {
             "anyOf": [
               {
@@ -618,6 +623,11 @@
             "default": 0,
             "title": "Messagecount",
             "type": "integer"
+          },
+          "placeholder": {
+            "default": false,
+            "title": "Placeholder",
+            "type": "boolean"
           },
           "role": {
             "title": "Role",
@@ -3367,6 +3377,11 @@
             "title": "Kind",
             "type": "string"
           },
+          "placeholder": {
+            "default": false,
+            "title": "Placeholder",
+            "type": "boolean"
+          },
           "prefs": {
             "$ref": "#/components/schemas/UserPrefs"
           },
@@ -5027,6 +5042,370 @@
           }
         },
         "title": "HuddleSettings",
+        "type": "object"
+      },
+      "ImportCreateIn": {
+        "properties": {
+          "sizeBytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sizeBytes"
+        ],
+        "title": "ImportCreateIn",
+        "type": "object"
+      },
+      "ImportCreatedOut": {
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/ImportOut"
+          },
+          "uploadUrl": {
+            "title": "Uploadurl",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current",
+          "uploadUrl"
+        ],
+        "title": "ImportCreatedOut",
+        "type": "object"
+      },
+      "ImportInviteIn": {
+        "properties": {
+          "userIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Userids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "userIds"
+        ],
+        "title": "ImportInviteIn",
+        "type": "object"
+      },
+      "ImportInvitedOut": {
+        "properties": {
+          "invited": {
+            "title": "Invited",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "invited"
+        ],
+        "title": "ImportInvitedOut",
+        "type": "object"
+      },
+      "ImportOut": {
+        "properties": {
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "copyFiles": {
+            "title": "Copyfiles",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "includePrivate": {
+            "title": "Includeprivate",
+            "type": "boolean"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportPreviewOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ImportProgressOut"
+          },
+          "requestedByName": {
+            "title": "Requestedbyname",
+            "type": "string"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "includePrivate",
+          "copyFiles",
+          "progress",
+          "problems",
+          "createdAt",
+          "requestedByName"
+        ],
+        "title": "ImportOut",
+        "type": "object"
+      },
+      "ImportPeopleOut": {
+        "properties": {
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/ImportPersonOut"
+            },
+            "title": "People",
+            "type": "array"
+          }
+        },
+        "required": [
+          "people"
+        ],
+        "title": "ImportPeopleOut",
+        "type": "object"
+      },
+      "ImportPersonOut": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "invited": {
+            "default": false,
+            "title": "Invited",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "userId": {
+            "title": "Userid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "email"
+        ],
+        "title": "ImportPersonOut",
+        "type": "object"
+      },
+      "ImportPreviewOut": {
+        "description": "What the zip holds, read before anything is written.",
+        "properties": {
+          "apps": {
+            "default": 0,
+            "title": "Apps",
+            "type": "integer"
+          },
+          "directMessages": {
+            "default": 0,
+            "title": "Directmessages",
+            "type": "integer"
+          },
+          "groupMessages": {
+            "default": 0,
+            "title": "Groupmessages",
+            "type": "integer"
+          },
+          "matched": {
+            "default": 0,
+            "title": "Matched",
+            "type": "integer"
+          },
+          "merging": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Merging",
+            "type": "array"
+          },
+          "people": {
+            "default": 0,
+            "title": "People",
+            "type": "integer"
+          },
+          "placeholders": {
+            "default": 0,
+            "title": "Placeholders",
+            "type": "integer"
+          },
+          "privateChannels": {
+            "default": 0,
+            "title": "Privatechannels",
+            "type": "integer"
+          },
+          "privateDays": {
+            "default": 0,
+            "title": "Privatedays",
+            "type": "integer"
+          },
+          "publicChannels": {
+            "default": 0,
+            "title": "Publicchannels",
+            "type": "integer"
+          },
+          "publicDays": {
+            "default": 0,
+            "title": "Publicdays",
+            "type": "integer"
+          },
+          "withoutAddress": {
+            "default": 0,
+            "title": "Withoutaddress",
+            "type": "integer"
+          }
+        },
+        "title": "ImportPreviewOut",
+        "type": "object"
+      },
+      "ImportProgressOut": {
+        "properties": {
+          "conversations": {
+            "default": 0,
+            "title": "Conversations",
+            "type": "integer"
+          },
+          "conversationsTotal": {
+            "default": 0,
+            "title": "Conversationstotal",
+            "type": "integer"
+          },
+          "filesCopied": {
+            "default": 0,
+            "title": "Filescopied",
+            "type": "integer"
+          },
+          "filesSkipped": {
+            "default": 0,
+            "title": "Filesskipped",
+            "type": "integer"
+          },
+          "messages": {
+            "default": 0,
+            "title": "Messages",
+            "type": "integer"
+          },
+          "peopleCreated": {
+            "default": 0,
+            "title": "Peoplecreated",
+            "type": "integer"
+          },
+          "peopleMatched": {
+            "default": 0,
+            "title": "Peoplematched",
+            "type": "integer"
+          }
+        },
+        "title": "ImportProgressOut",
+        "type": "object"
+      },
+      "ImportStartIn": {
+        "properties": {
+          "copyFiles": {
+            "default": true,
+            "title": "Copyfiles",
+            "type": "boolean"
+          },
+          "includePrivate": {
+            "default": false,
+            "title": "Includeprivate",
+            "type": "boolean"
+          }
+        },
+        "title": "ImportStartIn",
+        "type": "object"
+      },
+      "ImportStateOut": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxBytes": {
+            "title": "Maxbytes",
+            "type": "integer"
+          },
+          "maxFileBytes": {
+            "title": "Maxfilebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "maxBytes",
+          "maxFileBytes"
+        ],
+        "title": "ImportStateOut",
         "type": "object"
       },
       "InstalledOut": {
@@ -11857,6 +12236,11 @@
             "title": "Kind",
             "type": "string"
           },
+          "placeholder": {
+            "default": false,
+            "title": "Placeholder",
+            "type": "boolean"
+          },
           "role": {
             "default": "member",
             "enum": [
@@ -14189,6 +14573,284 @@
         "tags": [
           "admin"
         ]
+      }
+    },
+    "/api/admin/import": {
+      "get": {
+        "operationId": "import_state_api_admin_import_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Import State"
+      },
+      "post": {
+        "description": "A place for the zip, and the address to put it at.",
+        "operationId": "create_import_api_admin_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportCreatedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Import"
+      }
+    },
+    "/api/admin/import/{import_id}/cancel": {
+      "post": {
+        "operationId": "cancel_import_api_admin_import__import_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Import"
+      }
+    },
+    "/api/admin/import/{import_id}/invite": {
+      "post": {
+        "description": "Invite the people an import brought over, each to their own address. Accepting\none hands its person their history (ADR 0042). The mail goes from the worker.",
+        "operationId": "invite_imported_api_admin_import__import_id__invite_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportInviteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportInvitedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite Imported"
+      }
+    },
+    "/api/admin/import/{import_id}/people": {
+      "get": {
+        "description": "Who this import brought over that nobody has invited yet.",
+        "operationId": "import_people_api_admin_import__import_id__people_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportPeopleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import People"
+      }
+    },
+    "/api/admin/import/{import_id}/start": {
+      "post": {
+        "operationId": "start_import_api_admin_import__import_id__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Import"
+      }
+    },
+    "/api/admin/import/{import_id}/uploaded": {
+      "post": {
+        "description": "The zip is in the bucket: read it.",
+        "operationId": "import_uploaded_api_admin_import__import_id__uploaded_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Uploaded"
       }
     },
     "/api/admin/instance/backup": {
