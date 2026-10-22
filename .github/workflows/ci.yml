@@ -88,6 +88,12 @@ jobs:
       # What the first load costs, gzipped, against its budget — and the call SDK kept out
       # of it (scripts/bundle-budget.mjs). A ratchet: lowered as the app gets lighter.
       - name: The first load stays inside its budget
+        # Built as the image builds it. The job's NODE_ENV is `test`, and Vite takes an
+        # existing NODE_ENV for the bundle: React's development build weighs 285 KB where
+        # the shipped one weighs 209, and the budget would be measuring something nobody
+        # downloads.
+        env:
+          NODE_ENV: production
         run: pnpm build && node scripts/bundle-budget.mjs
 
       # The models must describe the live schema exactly, or the next autogenerate
