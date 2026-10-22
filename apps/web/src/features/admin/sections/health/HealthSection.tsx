@@ -75,6 +75,9 @@ export function HealthSection({
   const [feedKind, setFeedKind] = useState<FeedKind>("all");
   const [panOffset, setPanOffset] = useState(0);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  // The move, resize and remove buttons are for arranging the page, which is rare; out
+  // on every panel all the time, they were most of what the page showed.
+  const [arranging, setArranging] = useState(false);
   const fetchSeq = useRef(0);
 
   useEffect(() => {
@@ -212,6 +215,7 @@ export function HealthSection({
   }, [audit, feedKind, logs, selectedSampleAt]);
 
   function controlsFor(widget: WidgetId) {
+    if (!arranging) return null;
     return (
       <WidgetControls
         widget={widget}
@@ -249,9 +253,7 @@ export function HealthSection({
     return (
       <section className="dashboard-dashboard">
         <div className="dashboard-toolbar">
-          <h2 className="page-title m-0">
-            Health dashboard
-          </h2>
+          <div className="dashboard-toolbar-subtitle">Waiting for the first live sample.</div>
         </div>
         <div className="dashboard-grid">
           {["services", "metrics", "trends"].map((card) => (
@@ -279,17 +281,11 @@ export function HealthSection({
   return (
     <section className="dashboard-dashboard">
       <div className="dashboard-toolbar">
-        <div>
-          <div className="dashboard-eyebrow">Operations dashboard</div>
-          <div className="dashboard-toolbar-title">
-            Health, live activity, and quick drill-downs in one place.
-          </div>
-          <div className="dashboard-toolbar-subtitle" aria-live="polite">
-            {lastUpdatedAt
-              ? `Last updated ${formatRelative(lastUpdatedAt)}.`
-              : "Waiting for the first live sample."}
-            {refreshing && " Refreshing now…"}
-          </div>
+        <div className="dashboard-toolbar-subtitle" aria-live="polite">
+          {lastUpdatedAt
+            ? `Last updated ${formatRelative(lastUpdatedAt)}.`
+            : "Waiting for the first live sample."}
+          {refreshing && " Refreshing now…"}
         </div>
 
         <div className="dashboard-toolbar-actions">
@@ -312,17 +308,26 @@ export function HealthSection({
               ))}
             </select>
           </label>
+          {arranging && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                setPrefs(DEFAULT_PREFS);
+                setPanOffset(0);
+                setSelectedSampleAt(null);
+                setFeedKind("all");
+              }}
+            >
+              Reset layout
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={() => {
-              setPrefs(DEFAULT_PREFS);
-              setPanOffset(0);
-              setSelectedSampleAt(null);
-              setFeedKind("all");
-            }}
+            onClick={() => setArranging((open) => !open)}
           >
-            Reset layout
+            {arranging ? "Done" : "Edit layout"}
           </button>
           <button
             type="button"

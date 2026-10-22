@@ -59,7 +59,7 @@ export function ApprovalsSection() {
     <div className="console-stack">
       <Card
         title="Waiting"
-        description="Questions agents asked that nobody has answered yet, and the runs that said they would come back. Only the person a question is for can answer it, where it was asked."
+        description="Only the person a question is for can answer it, in the conversation where it was asked."
       >
         {data.length === 0 ? (
           <CardNotice>Nothing is waiting on anybody.</CardNotice>

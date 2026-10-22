@@ -447,6 +447,9 @@ export function MessageList({
         role="log"
         aria-live="polite"
         aria-relevant="additions"
+        // A thread reads top-down from the message it hangs off, as Slack's does; only a
+        // conversation is anchored to the composer (`.message-list-viewport`).
+        data-thread={inThread ? "" : undefined}
       >
         {/* Keyed by the conversation, which is what stops one channel's bar from finishing
             its exit over the next channel's messages: a switch mounts a new bar, and a new

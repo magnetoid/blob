@@ -440,7 +440,9 @@ export function SearchView({
                 ? `Showing ${results.length} of ${total}`
                 : `${total} ${total === 1 ? "result" : "results"}`}
             </div>
-            {parsed && echoTokens(parsed).length > 0 && (
+            {/* How the query was read, when it said more than words: a plain word echoed
+                back in monospace under the count was only the search again. */}
+            {parsed && echoTokens(parsed).length > (parsed.text ? 1 : 0) && (
               <div className="search-parsed" aria-label="Parsed query">
                 {echoTokens(parsed).map((token) => (
                   <code key={token}>{token}</code>

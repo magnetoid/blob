@@ -93,6 +93,26 @@ describe('the composer formatting toolbar', () => {
   });
 });
 
+describe('the formatting switch a phone shows', () => {
+  // Which widths show it is CSS's (a media query happy-dom does not apply); what the
+  // component owns is the switch and the state the stylesheet reads.
+  it('opens the formatting row and says that it has', () => {
+    renderComposer();
+    const toggle = screen.getByRole('button', { name: 'Formatting' });
+    const box = toggle.closest('.composer-box') as HTMLElement;
+
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(box.hasAttribute('data-formatting')).toBe(false);
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(box.getAttribute('data-formatting')).toBe('open');
+
+    fireEvent.click(toggle);
+    expect(box.hasAttribute('data-formatting')).toBe(false);
+  });
+});
+
 /**
  * `field-sizing: content` grows the box during layout, so it is the right height in the
  * frame that draws the character. The JavaScript measure did it a paint later, which is

@@ -7,7 +7,7 @@
  */
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { FileEntry, Message } from "@blob/shared";
+import type { ChannelWithState, FileEntry, Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
@@ -22,6 +22,7 @@ import { Dialog } from "../../components/Dialog.tsx";
 import {
   FileIcon,
   LockIcon,
+  MembersIcon,
   MessagesIcon,
   SearchIcon,
   SparkIcon,
@@ -77,9 +78,20 @@ interface Item {
    *  type; `display`, when there is one, is what the row shows beside its mark. */
   label: string;
   display?: string;
-  /** A channel's mark in the icon column: `#`, or a lock for a private one. */
-  mark?: "hash" | "lock";
-  kind: "Channel" | "Person" | "Action" | "Message" | "File";
+  /** A conversation's mark in the icon column: `#`, a lock for a private channel, or
+   *  people for a group message. */
+  mark?: "hash" | "lock" | "group";
+  kind:
+    | "Channel"
+    | "Direct message"
+    | "Group message"
+    | "Person"
+    | "Agent"
+    | "Action"
+    | "Message"
+    | "File";
+  /** A person's picture, when they have one. */
+  avatarUrl?: string | null;
   section: Section;
   hint?: string;
   run: () => void | Promise<void>;
@@ -189,27 +201,32 @@ export function CommandPalette({
     };
   }, [query, only, scope]);
 
+  const me = currentUser?.id;
   const channelItems = useMemo<Item[]>(
     () =>
       Object.values(channels)
-        .filter((c) => !c.archivedAt)
+        .filter((c) => !c.archivedAt && !(c.kind === "dm" && hasPersonRow(c, users, me)))
         .map((channel) => {
           const joined = channel.membership !== null;
+          const direct = channel.kind === "dm";
+          const group = channel.kind === "group_dm";
+          const other = direct ? otherMember(channel, me) : undefined;
           return {
             id: `c-${channel.id}`,
             label: channel.name ? `#${channel.name}` : channelTitle(channel),
             // Slack's switcher draws a channel as its mark and its name, the `#` in the
-            // icon column where every other row has its icon. A conversation with no name
-            // — a group DM — keeps its title and no mark.
+            // icon column where every other row has its icon. A group message keeps its
+            // title, with the mark that says it is people rather than a channel.
             display: channel.name ?? undefined,
-            mark: channel.name ? (channel.kind === "private" ? "lock" : "hash") : undefined,
-            kind: "Channel",
+            mark: direct ? undefined : group ? "group" : channel.kind === "private" ? "lock" : "hash",
+            kind: direct ? "Direct message" : group ? "Group message" : "Channel",
+            avatarUrl: direct ? (users[other ?? me ?? ""]?.avatarUrl ?? null) : undefined,
             section: "Channels",
             hint: joined ? undefined : "not joined",
             run: () => showChannelFromResult(channel.id, { joined, kind: channel.kind }),
           };
         }),
-    [channels, channelTitle],
+    [channels, channelTitle, users, me],
   );
 
   const peopleItems = useMemo<Item[]>(
@@ -219,7 +236,9 @@ export function CommandPalette({
         .map((person) => ({
           id: `u-${person.id}`,
           label: person.displayName,
-          kind: "Person",
+          avatarUrl: person.avatarUrl ?? null,
+          // What a message from them is badged as, so the row says the same.
+          kind: person.kind === "bot" ? "Agent" : "Person",
           section: "People",
           run: () => showDirectMessage(person.id),
         })),
@@ -658,6 +677,26 @@ export function CommandPalette({
   );
 }
 
+/** The other person in a direct message; none in the one with yourself. */
+function otherMember(channel: ChannelWithState, me: string | undefined): string | undefined {
+  return (channel.memberIds ?? []).find((id) => id !== me);
+}
+
+/**
+ * A direct message is its person, who has a row of their own that opens it: listing both
+ * put one conversation in the switcher twice, the second time under "Channel". The
+ * conversation keeps its row when there is no such person row — the one with yourself,
+ * or with somebody deactivated.
+ */
+function hasPersonRow(
+  channel: ChannelWithState,
+  users: Record<string, { deactivated?: boolean }>,
+  me: string | undefined,
+): boolean {
+  const other = otherMember(channel, me);
+  return other !== undefined && users[other] !== undefined && !users[other].deactivated;
+}
+
 /** Subsequence match: prefix hits and word starts rank above scattered letters. */
 function score(text: string, query: string): number {
   if (text.startsWith(query)) return 1000 - text.length;
@@ -680,12 +719,13 @@ function score(text: string, query: string): number {
  * page for a file. One column for all of them, so every label starts at the same x.
  */
 function ItemMark({ item }: { item: Item }) {
-  if (item.kind === "Person") {
-    return <Avatar user={{ displayName: item.label, avatarUrl: null }} size="sm" />;
+  if (item.kind === "Person" || item.kind === "Agent" || item.kind === "Direct message") {
+    return <Avatar user={{ displayName: item.label, avatarUrl: item.avatarUrl ?? null }} size="sm" />;
   }
   let glyph: React.ReactNode = null;
   if (item.mark === "hash") glyph = "#";
   else if (item.mark === "lock") glyph = <LockIcon size="sm" />;
+  else if (item.mark === "group") glyph = <MembersIcon size="sm" />;
   else if (item.kind === "Action") glyph = <SparkIcon size="sm" />;
   else if (item.kind === "Message") glyph = <MessagesIcon size="sm" />;
   else if (item.kind === "File") glyph = <FileIcon size="sm" />;

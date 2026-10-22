@@ -18,6 +18,7 @@ export function DashboardWidget({
   description: string;
   size: WidgetSize;
   loading?: boolean;
+  /** Absent unless the person is arranging the page. */
   controls: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -32,7 +33,7 @@ export function DashboardWidget({
           <h2 className="dashboard-widget-title">{title}</h2>
           <p className="dashboard-widget-subtitle">{description}</p>
         </div>
-        <div className="dashboard-widget-controls">{controls}</div>
+        {controls && <div className="dashboard-widget-controls">{controls}</div>}
       </header>
       <div className="dashboard-widget-body">{children}</div>
     </section>

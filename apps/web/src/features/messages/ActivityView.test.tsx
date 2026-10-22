@@ -110,11 +110,67 @@ describe('the list', () => {
     });
 
     render(<ActivityView />);
-    const mention = await screen.findByText(/mentioned you/);
-    expect(mention.textContent).toContain('Ana');
+    // Who mentioned you is the card's head; the line under it does not say the name again.
+    const mention = await screen.findByText('Mentioned you');
+    expect(mention.closest('.search-result')?.textContent).toContain('Ana');
     const reaction = screen.getByText(/reacted to this/);
     expect(reaction.textContent).toContain('Bo');
     expect(screen.getByText('🎉')).toBeTruthy();
+  });
+
+  it('draws every reaction to one message as one row, each person once', async () => {
+    const reaction = (actorId: string, emoji: string, at: string, id = 'm2') => ({
+      kind: 'reaction',
+      at,
+      actorId,
+      emoji,
+      message: message(id, id === 'm2' ? 'shipped it' : 'standup notes'),
+    });
+    list.mockResolvedValue({
+      items: [
+        reaction('u2', '👍', '2026-09-06T10:00:00.000Z'),
+        reaction('u2', '🎉', '2026-09-06T09:30:00.000Z'),
+        reaction('u3', '👍', '2026-09-06T09:20:00.000Z', 'm3'),
+        reaction('u1', '👍', '2026-09-06T09:10:00.000Z'),
+        reaction('u3', '🚀', '2026-09-06T09:00:00.000Z'),
+        reaction('u4', '👍', '2026-09-06T08:50:00.000Z'),
+      ],
+      nextCursor: null,
+    });
+    useStore.setState({
+      users: {
+        u1: { id: 'u1', displayName: 'Ana' },
+        u2: { id: 'u2', displayName: 'Bo' },
+        u3: { id: 'u3', displayName: 'Cy' },
+        u4: { id: 'u4', displayName: 'Di' },
+      },
+    } as never);
+
+    render(<ActivityView />);
+    const lines = await screen.findAllByText(/reacted to this/);
+    // Two messages, two rows, in the order of each one's newest reaction.
+    expect(lines.map((line) => line.textContent)).toEqual([
+      '👍🎉🚀 Bo, Ana and 2 others reacted to this',
+      '👍 Cy reacted to this',
+    ]);
+    expect(screen.getAllByText('shipped it')).toHaveLength(1);
+  });
+
+  it('names who mentioned you when it was not whoever wrote the message', async () => {
+    list.mockResolvedValue({
+      items: [
+        {
+          kind: 'mention',
+          at: '2026-09-06T10:00:00.000Z',
+          actorId: 'u2',
+          emoji: null,
+          message: message('m1', 'have a look @Me'),
+        },
+      ],
+      nextCursor: null,
+    });
+    render(<ActivityView />);
+    expect(await screen.findByText('Bo mentioned you')).toBeTruthy();
   });
 
   it('marks only what arrived since the last visit', async () => {

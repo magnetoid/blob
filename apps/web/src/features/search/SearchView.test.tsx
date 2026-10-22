@@ -192,6 +192,34 @@ describe('the parsed query echo', () => {
     await type('deploy');
 
     expect(document.querySelector('mark.search-hit')?.textContent).toBe('deploy');
+    // Words alone were read as words: echoing them back under the count was only the
+    // search again.
+    expect(screen.queryByLabelText('Parsed query')).toBeNull();
+  });
+
+  it('echoes the words too when a modifier came with them', async () => {
+    search.mockResolvedValue({
+      messages: [message('m1', 'please deploy now')],
+      total: 1,
+      nextCursor: null,
+      parsed: {
+        text: 'deploy',
+        from: 'ana',
+        in: null,
+        has: null,
+        before: null,
+        after: null,
+      },
+    });
+
+    render(<SearchView />);
+    await type('deploy from:@ana');
+
+    const echo = screen.getByLabelText('Parsed query');
+    expect(Array.from(echo.querySelectorAll('code'), (token) => token.textContent)).toEqual([
+      'from:@ana',
+      'deploy',
+    ]);
   });
 
   it('says which name it could not place instead of a generic miss', async () => {

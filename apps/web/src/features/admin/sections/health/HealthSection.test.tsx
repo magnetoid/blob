@@ -191,6 +191,7 @@ describe("the health dashboard", () => {
     const view = render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
     await screen.findByText("Recent activity");
 
+    fireEvent.click(screen.getByRole("button", { name: "Edit layout" }));
     fireEvent.click(screen.getByLabelText("Hide activity widget"));
     expect(screen.getByRole("button", { name: "Add activity" })).toBeTruthy();
 
@@ -198,5 +199,20 @@ describe("the health dashboard", () => {
     render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
 
     expect(await screen.findByRole("button", { name: "Add activity" })).toBeTruthy();
+  });
+
+  it("keeps the layout controls out of the way until the layout is being edited", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await screen.findByText("Recent activity");
+
+    expect(screen.queryByLabelText("Hide activity widget")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reset layout" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit layout" }));
+    expect(screen.getByLabelText("Hide activity widget")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reset layout" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByLabelText("Hide activity widget")).toBeNull();
   });
 });

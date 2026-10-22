@@ -140,7 +140,7 @@ describe('the page', () => {
     expect(within(rows[0] as HTMLElement).getByText('Answers questions about the workspace.')).toBeTruthy();
     expect(within(rows[1] as HTMLElement).getByText('Yours')).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText('Lent to you')).toBeTruthy();
-    expect(within(rows[2] as HTMLElement).getByText('It has not said what it does.')).toBeTruthy();
+    expect(within(rows[2] as HTMLElement).getByText('No description.')).toBeTruthy();
   });
 
   it('reads its standing from the runs the store keeps, and links to the room', async () => {

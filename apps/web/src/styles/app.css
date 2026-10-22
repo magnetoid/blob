@@ -134,7 +134,9 @@ button {
   }
 
   .admin-chart-bar,
-  .dashboard-bar {
+  .dashboard-bar,
+  .poll-option-bar,
+  .thread-tools-toggle svg {
     transition: none;
   }
 }
@@ -321,10 +323,10 @@ button {
      one context and argued with everywhere else. The inset belongs to the contexts
      whose rows are inset, so it lives with them. */
   padding: 8px 0 4px;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  /* Sentence case, as Slack's sidebar has it. These were tracked capitals, the one place
+     the interface raised its voice, and capitals name a section no better than its words. */
+  font-size: var(--text-meta);
+  font-weight: 600;
   color: var(--text-label);
 }
 
@@ -1028,6 +1030,19 @@ button {
   white-space: nowrap;
 }
 
+/* On a phone the bar has room for the mark or the name beside the tabs, not both: the
+   name came out as "Nor…". The mark stays, and says which workspace this is; a switcher
+   keeps its chevron, so it still opens. */
+@media (max-width: 600px) {
+  .topbar-identity div.topbar-brand {
+    display: none;
+  }
+  .topbar-identity .workspace-switcher-trigger {
+    font-size: 0;
+    gap: 0;
+  }
+}
+
 .sidebar-scroll {
   flex: 1;
   min-height: 0;
@@ -1492,6 +1507,12 @@ button {
   flex: none;
 }
 
+/* A thread is not anchored to its composer: it reads from the message it hangs off, at
+   the top, and a short one leaves the space below it rather than a void above. */
+.message-list[data-thread] > .message-list-viewport {
+  margin-top: 0;
+}
+
 .message-list-row {
   position: absolute;
   top: 0;
@@ -1518,10 +1539,8 @@ button {
 }
 
 .day-divider span {
-  font-size: var(--text-xs);
+  font-size: var(--text-label-size);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-label);
 }
 
@@ -1541,10 +1560,8 @@ button {
 
 .unread-divider span {
   order: -1;
-  font-size: var(--text-2xs);
+  font-size: var(--text-label-size);
   font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   color: var(--unread-text);
 }
 
@@ -2498,6 +2515,28 @@ dialog.lightbox-host::backdrop {
   padding: 6px 8px 0;
 }
 
+/* Aa: the formatting row's switch, which only a phone needs (Composer.tsx). */
+.composer-format-toggle {
+  display: none;
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.composer-format-toggle[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .composer-format-toggle {
+    display: inline-flex;
+  }
+
+  .composer-box:not([data-formatting]) > .composer-toolbar {
+    display: none;
+  }
+}
+
 .composer-input {
   display: block;
   width: 100%;
@@ -2847,6 +2886,21 @@ dialog.lightbox-host::backdrop {
   border-bottom: 1px solid var(--hairline-soft);
 }
 
+/* What the thread can summarise and file, behind a disclosure: aligned with the
+   conversation's text, its chevron turning as it opens. */
+.thread-tools-toggle {
+  align-self: flex-start;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.thread-tools-toggle svg {
+  transition: transform var(--dur-fast) var(--ease-standard);
+  transform: rotate(-90deg);
+}
+.thread-tools-toggle[aria-expanded="true"] svg {
+  transform: none;
+}
+
 .agentic-card {
   padding: 14px;
   border: 1px solid var(--hairline);
@@ -2871,10 +2925,8 @@ dialog.lightbox-host::backdrop {
 }
 
 .agentic-kicker {
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--text-label-size);
+  font-weight: 600;
   color: var(--text-label);
 }
 
@@ -3044,9 +3096,7 @@ dialog.lightbox-host::backdrop {
   background: var(--surface);
   border: 1px solid var(--hairline);
   font-size: var(--text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 600;
 }
 
 .task-badge[data-tone='critical'],
@@ -3200,6 +3250,29 @@ dialog.lightbox-host::backdrop {
   overflow: hidden;
 }
 
+/* The renderer's paragraphs and lists at a message's spacing. Without this they kept the
+   browser's 1em above and below, and a one-line result was a third empty card. */
+.search-result-text p,
+.search-result-text ul,
+.search-result-text ol {
+  margin: 0 0 6px;
+}
+
+.search-result-text ul,
+.search-result-text ol {
+  padding-left: 22px;
+}
+
+.search-result-text > :last-child {
+  margin-bottom: 0;
+}
+
+/* A row's footer line (who reacted, who mentioned you) sits apart from what was said. */
+.search-result-text + .search-result-meta {
+  display: block;
+  margin-top: 4px;
+}
+
 mark.search-hit {
   padding: 0 0.12em;
   border-radius: 2px;
@@ -3296,10 +3369,8 @@ dialog.palette-host {
    what a screen reader announces, so this is aria-hidden and adds no ARIA structure. */
 .palette-section {
   padding: 10px 10px 4px;
-  font-size: var(--text-xs);
+  font-size: var(--text-label-size);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-label);
 }
 
@@ -4938,10 +5009,8 @@ button.member-row,
   line-height: calc(var(--table-head-height) - 2 * var(--space-2));
   background: var(--surface-muted);
   box-shadow: inset 0 -1px 0 var(--hairline);
-  font-size: var(--text-xs);
+  font-size: var(--text-label-size);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-label);
   white-space: nowrap;
 }
@@ -5262,10 +5331,8 @@ button.member-row,
 }
 
 .stat-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: var(--text-label-size);
+  font-weight: 500;
   color: var(--text-label);
 }
 
@@ -5297,27 +5364,12 @@ button.member-row,
 .dashboard-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
-.dashboard-eyebrow {
-  font-size: var(--text-label-size);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-label);
-}
-
-.dashboard-toolbar-title {
-  margin-top: 4px;
-  font-size: var(--text-title);
-  font-weight: 650;
-}
-
 .dashboard-toolbar-subtitle {
-  margin-top: 6px;
   color: var(--text-3);
 }
 
@@ -5486,10 +5538,8 @@ button.member-row,
 }
 
 .dashboard-metric-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: var(--text-label-size);
+  font-weight: 500;
   color: var(--text-label);
 }
 
@@ -5978,9 +6028,7 @@ select.chip {
 }
 
 .feedback-env dt {
-  font-size: var(--text-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--text-xs);
   color: var(--text-4);
 }
 
@@ -6160,11 +6208,6 @@ select.chip {
 @media (pointer: coarse) {
   .poll-option {
     min-height: 44px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .poll-option-bar {
-    transition: none;
   }
 }
 
@@ -6487,8 +6530,6 @@ select.chip {
   color: var(--text-4);
   font-size: var(--text-label-size);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .emoji-grid {
@@ -7312,8 +7353,6 @@ dialog.lightbox-host::backdrop {
   margin: 4px 9px 2px;
   font-size: var(--text-label-size);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--text-4);
 }
 
@@ -8719,6 +8758,10 @@ a.build-commit-sha:hover {
   color: var(--text-2);
 }
 
+.agent-row-what[data-empty] {
+  color: var(--text-4);
+}
+
 .agent-row-standing {
   display: flex;
   flex-wrap: wrap;
@@ -9479,10 +9522,8 @@ a.build-commit-sha:hover {
   border-radius: var(--radius-full);
   background: var(--surface-muted);
   color: var(--text-4);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
 }
 
 .help-blurb {
@@ -10199,10 +10240,8 @@ button.person-trigger:hover {
   border-radius: var(--radius-full);
   background: var(--accent-wash);
   color: var(--accent);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
 }
 
 /* ── Work channels (ADR 0014) ─────────────────────────────────────────────── */

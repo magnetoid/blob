@@ -92,6 +92,9 @@ export function Composer({
   /** A command's reply to the person who ran it. Never stored, never broadcast. */
   const [ephemeral, setEphemeral] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // On a phone the marks sit behind Aa, as in Slack's app: a row of them above every
+  // message costs a line of conversation for something most messages never use.
+  const [formatting, setFormatting] = useState(false);
   // Asking a poll (ADR 0041): its own dialog, the composer's words as the question.
   const [pollOpen, setPollOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
@@ -518,7 +521,7 @@ export function Composer({
           )}
         </DialogPresence>
 
-        <div className="composer-box">
+        <div className="composer-box" data-formatting={formatting ? "open" : undefined}>
           <FormatToolbar onWrap={applyWrap} onCode={toggleCode} />
 
           <AttachmentTray attachments={attachments} onDiscard={files.discard} />
@@ -558,6 +561,15 @@ export function Composer({
                 event.target.value = "";
               }}
             />
+            <button
+              className="icon-btn composer-format-toggle"
+              type="button"
+              aria-label="Formatting"
+              aria-pressed={formatting}
+              onClick={() => setFormatting((open) => !open)}
+            >
+              <span aria-hidden="true">Aa</span>
+            </button>
             <button
               className="icon-btn"
               type="button"

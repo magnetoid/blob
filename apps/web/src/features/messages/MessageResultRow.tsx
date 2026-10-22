@@ -6,7 +6,7 @@
  */
 
 import type { ReactNode } from 'react';
-import type { Message } from '@blob/shared';
+import type { ChannelWithState, Message } from '@blob/shared';
 import { useStore } from '../../lib/store.ts';
 import { renderMarkdown } from '../../lib/markdown.tsx';
 import { Avatar } from '../../components/Avatar.tsx';
@@ -26,6 +26,23 @@ interface Props {
   highlight?: string;
 }
 
+/** Where a message was said, in the words its row needs. A direct message's title is the
+ *  other person, which beside their own name read "Devin Cole · Devin Cole": theirs says
+ *  it is a direct message, and yours says whom it went to. */
+function placeOf(
+  channel: ChannelWithState | undefined,
+  title: (channel: ChannelWithState) => string,
+  authorId: string | null,
+  me: string | null,
+): string {
+  if (!channel) return 'A conversation';
+  if (channel.name) return `#${channel.name}`;
+  if (channel.kind === 'dm') {
+    return authorId !== null && authorId === me ? `To ${title(channel)}` : 'Direct message';
+  }
+  return title(channel);
+}
+
 export function MessageResultRow({ message, onOpen, timestamp, footer, action, highlight }: Props) {
   const users = useStore((s) => s.users);
   const channels = useStore((s) => s.channels);
@@ -42,11 +59,7 @@ export function MessageResultRow({ message, onOpen, timestamp, footer, action, h
       <div className="search-result-head">
         <span className="search-result-author">{author?.displayName ?? 'Someone'}</span>
         <span className="search-result-meta">
-          {channel
-            ? channel.name
-              ? `#${channel.name}`
-              : channelTitle(channel)
-            : 'Unknown'}
+          {placeOf(channel, channelTitle, message.authorId ?? null, currentUserId)}
           {timestamp && ` · ${formatRelative(timestamp)}`}
         </span>
       </div>

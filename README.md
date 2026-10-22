@@ -350,8 +350,8 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 - **⌘K** — jump to a channel, a person or an action, and see matching messages as you
   type. ⌘⇧K is the same picker with only people in it.
 - **Activity** — everybody who mentioned you and everybody who reacted to something you
-  wrote, newest first. Only what you can still read: leaving a channel takes its mentions
-  with it.
+  wrote, newest first, with every reaction to one message on one row. Only what you can
+  still read: leaving a channel takes its mentions with it.
 - **Files** — every attachment you can see, filtered to images or documents.
 - **Keyboard** — ⌥↑/⌥↓ walk the sidebar, ⌥⇧↑/⌥⇧↓ and ⌘⇧J step through unread, ⇧Esc
   marks everything read, ⌘/ lists the lot.

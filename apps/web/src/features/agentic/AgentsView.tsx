@@ -162,7 +162,11 @@ function AgentRow({
           <span className="search-result-author">{agent.name}</span>
           <span className="search-result-meta">{whose}</span>
         </div>
-        <p className="agent-row-what">{agent.description ?? 'It has not said what it does.'}</p>
+        {/* An absence, drawn as one: in the description's own type it read as something
+            the agent had said. */}
+        <p className="agent-row-what" data-empty={agent.description ? undefined : ''}>
+          {agent.description ?? 'No description.'}
+        </p>
         <StandingLine standing={standing} where={where} />
       </div>
       <div className="agent-row-actions">

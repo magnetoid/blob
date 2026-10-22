@@ -192,7 +192,7 @@ export function ThreadTasksCard({
     <section className="agentic-card" aria-labelledby="thread-tasks-title">
       <div className="agentic-head">
         <div>
-          <div className="agentic-kicker">Agent Tasks</div>
+          <div className="agentic-kicker">Agent tasks</div>
           <h3 className="agentic-title" id="thread-tasks-title">
             Coordinate people and agents
           </h3>

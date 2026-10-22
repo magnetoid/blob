@@ -130,6 +130,18 @@ describe("MessageList", () => {
     expect(rendered).toBeLessThan(100);
   });
 
+  it("reads a thread from the top and anchors only a conversation to the composer", () => {
+    // A short thread pushed to the bottom left a blank band between the message it hangs
+    // off and its replies. The anchoring is CSS (`.message-list-viewport`); the list
+    // says which kind it is.
+    const conversation = renderList({ messages: makeMessages(3) }).container;
+    expect(conversation.querySelector(".message-list")?.hasAttribute("data-thread")).toBe(false);
+    cleanup();
+
+    const thread = renderList({ messages: makeMessages(3), inThread: true }).container;
+    expect(thread.querySelector(".message-list")?.hasAttribute("data-thread")).toBe(true);
+  });
+
   it("still reserves scroll height for the messages it did not render", () => {
     // Otherwise the scrollbar would describe the window instead of the conversation, and
     // dragging it would jump to the wrong place.

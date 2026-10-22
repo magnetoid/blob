@@ -46,6 +46,32 @@ function writeSeen(at: string): void {
   }
 }
 
+interface Row {
+  key: string;
+  /** The newest item the row stands for: what it opens and when it is dated. */
+  item: ActivityItem;
+  /** Every reaction the row stands for, newest first; none for a mention. */
+  reactions: ActivityItem[];
+  isNew: boolean;
+}
+
+/** "Bo", "Bo and Ana", "Bo, Ana and 2 others" — each person once, however many emoji. */
+function whoReacted(
+  reactions: ActivityItem[],
+  users: ReturnType<typeof useStore.getState>['users'],
+): string {
+  const names = [
+    ...new Set(
+      reactions.map((reaction) =>
+        reaction.actorId ? (users[reaction.actorId]?.displayName ?? 'Someone') : 'Someone',
+      ),
+    ),
+  ];
+  if (names.length <= 2) return names.join(' and ');
+  const rest = names.length - 2;
+  return `${names[0]}, ${names[1]} and ${rest} ${rest === 1 ? 'other' : 'others'}`;
+}
+
 export function ActivityView({ initialKind = 'all' }: { initialKind?: ActivityKind } = {}) {
   const users = useStore((s) => s.users);
   const [kind, setKind] = useState<ActivityKind>(initialKind);
@@ -132,15 +158,34 @@ function ActivityResults({
     }
   }
 
-  const rows = useMemo(
-    () =>
-      (items ?? []).map((item) => ({
+  const rows = useMemo(() => {
+    // Every reaction to one message is one row, where the newest of them is, as in
+    // Slack's Activity: three people reacting to the standup notes drew the notes three
+    // times over. Mentions stay one row each; each is a message of its own.
+    const out: Row[] = [];
+    const byMessage = new Map<string, Row>();
+    for (const item of items ?? []) {
+      const isNew = seenAt === '' ? false : item.at > seenAt;
+      const seen = item.kind === 'reaction' ? byMessage.get(item.message.id) : undefined;
+      if (seen) {
+        seen.reactions.push(item);
+        seen.isNew ||= isNew;
+        continue;
+      }
+      const row: Row = {
         item,
-        key: `${item.kind}:${item.message.id}:${item.actorId ?? ''}:${item.emoji ?? ''}`,
-        isNew: seenAt === '' ? false : item.at > seenAt,
-      })),
-    [items, seenAt],
-  );
+        key:
+          item.kind === 'reaction'
+            ? `reaction:${item.message.id}`
+            : `mention:${item.message.id}:${item.actorId ?? ''}`,
+        reactions: item.kind === 'reaction' ? [item] : [],
+        isNew,
+      };
+      if (item.kind === 'reaction') byMessage.set(item.message.id, row);
+      out.push(row);
+    }
+    return out;
+  }, [items, seenAt]);
 
   async function go(message: Message) {
     const shown = await showMessage(message.id);
@@ -159,7 +204,7 @@ function ActivityResults({
         </EmptyState>
       )}
 
-      {rows.map(({ item, key, isNew }) => (
+      {rows.map(({ item, key, reactions, isNew }) => (
         <MessageResultRow
           key={key}
           message={item.message}
@@ -170,15 +215,17 @@ function ActivityResults({
               {item.kind === 'reaction' ? (
                 <>
                   <span className="activity-emoji" aria-hidden="true">
-                    {item.emoji}
+                    {[...new Set(reactions.map((reaction) => reaction.emoji))].join('')}
                   </span>{' '}
-                  {item.actorId ? (users[item.actorId]?.displayName ?? 'Someone') : 'Someone'}{' '}
-                  reacted to this
+                  {whoReacted(reactions, users)} reacted to this
                 </>
               ) : (
                 <>
-                  {item.actorId ? (users[item.actorId]?.displayName ?? 'Someone') : 'Someone'}{' '}
-                  mentioned you
+                  {/* The card's head already names who wrote it: say the name again only
+                      when somebody else did the mentioning. */}
+                  {item.actorId && item.actorId !== item.message.authorId
+                    ? `${users[item.actorId]?.displayName ?? 'Someone'} mentioned you`
+                    : 'Mentioned you'}
                 </>
               )}
               {isNew && <span className="thread-new">New</span>}

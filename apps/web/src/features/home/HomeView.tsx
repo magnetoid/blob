@@ -24,6 +24,7 @@ import {
 } from 'react';
 import type { AgentRunView, AgentTask } from '@blob/shared';
 import { api } from '../../lib/api.ts';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../lib/store.ts';
 import { useRun, useRunIds } from '../../lib/useRuns.ts';
 import { agentIsAvailable } from '../../lib/conversations.ts';
@@ -97,6 +98,26 @@ export function HomeView() {
     oldestFirst,
   );
   const doneToday = useRunIds((r) => r.status === 'succeeded' && r.finishedAt !== null, newestFinished);
+  // One agent's runs back to back in one conversation are one line of Pulse: an agent that
+  // answered four times in #general said so once, not four rows deep. Keys rather than the
+  // runs, so a card's snapshots do not redraw Home (`lib/useRuns.ts`).
+  const doneKeys = useStore(
+    useShallow((s) =>
+      doneToday.map((id) => {
+        const run = s.agentRuns[id];
+        return run ? `${run.pluginId}\u0000${run.channelId}` : id;
+      }),
+    ),
+  );
+  const pulse = useMemo(() => {
+    const lines: { runId: string; count: number }[] = [];
+    doneToday.forEach((runId, index) => {
+      const last = lines[lines.length - 1];
+      if (last && index > 0 && doneKeys[index] === doneKeys[index - 1]) last.count += 1;
+      else lines.push({ runId, count: 1 });
+    });
+    return lines;
+  }, [doneToday, doneKeys]);
 
   // A question answered here stays to say so, then leaves — and stays gone: the store
   // learns the run was answered only when the resumed run's events arrive, and a row
@@ -405,8 +426,8 @@ export function HomeView() {
         {doneToday.length > 0 && (
           <section className="home-card home-pulse">
             <h2>Pulse</h2>
-            {doneToday.slice(0, 5).map((runId) => (
-              <DoneLine key={runId} runId={runId} />
+            {pulse.slice(0, 5).map(({ runId, count }) => (
+              <DoneLine key={runId} runId={runId} count={count} />
             ))}
           </section>
         )}
@@ -731,7 +752,7 @@ function HomeRun({ runId }: { runId: string }) {
   );
 }
 
-function DoneLine({ runId }: { runId: string }) {
+function DoneLine({ runId, count = 1 }: { runId: string; count?: number }) {
   const run = useRun(runId);
   const channel = useStore((s) => (run ? s.channels[run.channelId] : undefined));
   const channelTitle = useStore((s) => s.channelTitle);
@@ -740,6 +761,7 @@ function DoneLine({ runId }: { runId: string }) {
     <button type="button" className="home-row" onClick={() => void showChannel(run.channelId)}>
       <span className="min-0 ellipsis">
         <strong>{run.agentName}</strong> finished
+        {count > 1 ? ` ${count} runs` : ''}
         {channel ? ` in ${channelTitle(channel)}` : ''}
       </span>
       <span className="muted">{formatRelative(run.finishedAt ?? run.startedAt)}</span>

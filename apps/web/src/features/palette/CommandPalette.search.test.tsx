@@ -393,4 +393,46 @@ describe('what a row shows', () => {
     expect(locked.querySelector('.palette-item-kind')?.textContent).toBe('Private channel');
     expect(row.querySelector('.palette-item-kind')?.textContent).toBe('Channel');
   });
+
+  it('lists a direct message once, as its person, a group message as people, and an agent as one', async () => {
+    useStore.setState({
+      channels: {
+        d1: { ...channel('d1', ''), name: null, kind: 'dm', memberIds: ['u1', 'u2'] },
+        g1: { ...channel('g1', ''), name: null, kind: 'group_dm', memberIds: ['u1', 'u2', 'u3'] },
+        me: { ...channel('me', ''), name: null, kind: 'dm', memberIds: ['u1'] },
+        d2: { ...channel('d2', ''), name: null, kind: 'dm', memberIds: ['u1', 'u4'] },
+      },
+      users: {
+        u2: { id: 'u2', displayName: 'Ana', deactivated: false },
+        u3: { id: 'u3', displayName: 'Bo', deactivated: false },
+        u4: { id: 'u4', displayName: 'Cy', deactivated: true },
+        b1: { id: 'b1', kind: 'bot', displayName: 'Scout', deactivated: false },
+      },
+      currentUser: { id: 'u1', displayName: 'Me', prefs: {} },
+    } as never);
+    render(<CommandPalette onClose={vi.fn()} />);
+    const input = screen.getByRole('combobox');
+    const kinds = (text: string) =>
+      screen
+        .getAllByRole('option')
+        .filter((option) => option.querySelector('.palette-item-label')?.textContent === text)
+        .map((option) => option.querySelector('.palette-item-kind')?.textContent);
+
+    fireEvent.change(input, { target: { value: 'Ana' } });
+    // The person, and not the conversation a second time under "Channel".
+    expect(kinds('Ana')).toEqual(['Person']);
+    const group = screen.getByText('Ana, Bo').closest('[role="option"]')!;
+    expect(group.querySelector('.palette-item-kind')?.textContent).toBe('Group message');
+    expect(group.querySelector('.palette-item-mark svg')).toBeTruthy();
+
+    // Without a person row to stand for them, these keep their own.
+    fireEvent.change(input, { target: { value: 'You' } });
+    expect(kinds('You')).toEqual(['Direct message']);
+    fireEvent.change(input, { target: { value: 'Cy' } });
+    expect(kinds('Cy')).toEqual(['Direct message']);
+
+    // An agent is called what its messages are badged as.
+    fireEvent.change(input, { target: { value: 'Scout' } });
+    expect(kinds('Scout')).toEqual(['Agent']);
+  });
 });

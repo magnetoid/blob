@@ -435,3 +435,37 @@ describe('the rest of the board is something you can act on', () => {
     expect(tile.querySelectorAll('.home-faces .avatar')).toHaveLength(1);
   });
 });
+
+describe('Pulse', () => {
+  const done = (id: string, at: string, pluginId = 'p1'): AgentRunView => ({
+    ...waitingOn(id, 'u1'),
+    status: 'succeeded',
+    pluginId,
+    agentName: pluginId === 'p1' ? 'Janus' : 'Scout',
+    finishedAt: at,
+  });
+
+  it('says once that an agent finished several runs in a row in one conversation', () => {
+    useStore.setState({
+      agentRuns: {
+        a: done('a', '2026-10-06T10:03:00.000Z'),
+        b: done('b', '2026-10-06T10:02:00.000Z'),
+        c: done('c', '2026-10-06T10:01:00.000Z'),
+        d: done('d', '2026-10-06T10:00:00.000Z', 'p2'),
+        e: done('e', '2026-10-06T09:59:00.000Z'),
+      },
+    } as never);
+    render(<HomeView />);
+
+    const pulse = screen.getByRole('heading', { name: 'Pulse' }).parentElement!;
+    const lines = within(pulse)
+      .getAllByRole('button')
+      .map((line) => line.querySelector('.ellipsis')?.textContent);
+    // Back to back only: Janus's run after Scout's is a line of its own again.
+    expect(lines).toEqual([
+      'Janus finished 3 runs in #general',
+      'Scout finished in #general',
+      'Janus finished in #general',
+    ]);
+  });
+});

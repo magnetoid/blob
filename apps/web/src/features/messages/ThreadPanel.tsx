@@ -24,7 +24,7 @@ import { Composer } from "./Composer.tsx";
 import { ThreadSummaryCard } from "./ThreadSummary.tsx";
 import { ThreadTasksCard } from "./ThreadTasks.tsx";
 import { useThreadTools } from "./threadTools.ts";
-import { CloseIcon } from "../../components/Icon.tsx";
+import { ChevronDownIcon, CloseIcon } from "../../components/Icon.tsx";
 import { Count } from "../../components/Count.tsx";
 
 const replies = (count: number) => `${count} ${count === 1 ? "reply" : "replies"}`;
@@ -245,10 +245,11 @@ export function ThreadPanel({
 
       <div className="agentic-stack">
         <button
-          className="btn btn-ghost"
+          className="btn btn-ghost thread-tools-toggle"
           onClick={toggleTools}
           aria-expanded={toolsOpen}
         >
+          <ChevronDownIcon size="sm" />
           {toolsOpen ? "Hide thread tools" : "Thread tools"}
           {!toolsOpen && toolsHint !== "" && (
             <span className="muted">{` · ${toolsHint}`}</span>
