@@ -401,7 +401,8 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 
 - **Workspace console** — name, appearance, members and roles, user groups, invitations,
   every channel including the private ones, apps and agents with their runs, errors and
-  budgets, Janus, MCP servers, usage and prices, connected apps and assistant tokens,
+  budgets, what agents are waiting on (Approvals — a private room's question only to an
+  admin in it), Janus, MCP servers, usage and prices, connected apps and assistant tokens,
   webhooks, deliveries, custom emoji.
 - **Server console** — every account and workspace on the instance, per-workspace app
   policy, live health, the audit log, error logs, and feedback filed from inside the app.
@@ -483,8 +484,8 @@ afternoon:
   deletes or edits under a hold is not kept anywhere. Slack's does keep it, silently;
   whether Blob should — or should refuse the delete instead — is an open decision
   (ADR 0039).
-- **Moderation, Approvals and Storage** in the admin console — not built, and not listed
-  there until they are.
+- **Moderation and Storage** in the admin console — not built, and not listed there until
+  they are.
 
 The current plan — what ships next, in what order, and why — is
 [docs/superpowers/specs/2026-10-18-agent-first-plan.md](docs/superpowers/specs/2026-10-18-agent-first-plan.md):

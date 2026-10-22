@@ -10,7 +10,7 @@ from pydantic import Field
 
 from ..db.engine import session_scope, transaction
 from ..lib import llm
-from ..lib.auth import SessionUser, current_user
+from ..lib.auth import SessionUser, current_user, require_admin
 from ..lib.errors import bad_request, forbidden, not_found, thread_gone
 from ..lib.ids import IdParam
 from ..lib.rate_limit import consume
@@ -400,6 +400,25 @@ async def workspace_agent_runs(user: SessionUser = Depends(current_user)) -> Age
             session, workspace_id=user.workspace_id, user_id=user.id
         )
     return AgentRunsOut(runs=runs)
+
+
+class PendingOut(CamelModel):
+    #: Each: `run` (the run's view), `channelName`, `channelKind`, `personName` — whom it
+    #: waits on — and `visible`: whether the viewer can read the room, without which the
+    #: question and the note are left out of `run`.
+    pending: list[dict[str, Any]]
+
+
+@router.get("/api/admin/approvals", response_model=PendingOut)
+async def pending_approvals(admin: SessionUser = Depends(require_admin)) -> PendingOut:
+    """What agents are waiting on across the workspace: decisions nobody has made, and runs
+    that said they would come back. An admin's page; a room's words only where they can
+    read the room."""
+    async with session_scope() as session:
+        pending = await agent_run_service.pending_for_admin(
+            session, workspace_id=admin.workspace_id, viewer_id=admin.id
+        )
+    return PendingOut(pending=pending)
 
 
 class AgentRunHistoryOut(CamelModel):

@@ -318,6 +318,16 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `/api/admin/approvals`: what agents wait on across the workspace — the questions in a
+    // room only where the admin can read it, as the run log shows a run's card.
+    id: 'approvals',
+    label: 'Approvals',
+    description:
+      'What agents are waiting on: questions nobody has answered yet, and runs that said they would come back.',
+    keywords: ['approvals', 'approve', 'waiting', 'pending', 'decisions', 'questions', 'follow-up', 'coming back'],
+    access: 'admin',
+  },
+  {
     // `/api/admin/exports` (M3 · B4): any admin's, after a recent sign-in — and only ever
     // the public conversations.
     id: 'export',

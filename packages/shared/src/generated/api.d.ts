@@ -24,6 +24,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pending Approvals
+         * @description What agents are waiting on across the workspace: decisions nobody has made, and runs
+         *     that said they would come back. An admin's page; a room's words only where they can
+         *     read the room.
+         */
+        get: operations["pending_approvals_api_admin_approvals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/audit": {
         parameters: {
             query?: never;
@@ -7706,6 +7728,13 @@ export interface components {
             /** Twostep */
             twoStep: boolean;
         };
+        /** PendingOut */
+        PendingOut: {
+            /** Pending */
+            pending: {
+                [key: string]: unknown;
+            }[];
+        };
         /** PinInput */
         PinInput: {
             /** Pinned */
@@ -9742,6 +9771,7 @@ export type PasskeyChallengeOut = components['schemas']['PasskeyChallengeOut'];
 export type PasskeyOptionsOut = components['schemas']['PasskeyOptionsOut'];
 export type PasskeyOut = components['schemas']['PasskeyOut'];
 export type PasskeysOut = components['schemas']['PasskeysOut'];
+export type PendingOut = components['schemas']['PendingOut'];
 export type PinInput = components['schemas']['PinInput'];
 export type PluginOut = components['schemas']['PluginOut'];
 export type PluginsOut = components['schemas']['PluginsOut'];
@@ -9907,6 +9937,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pending_approvals_api_admin_approvals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingOut"];
                 };
             };
         };

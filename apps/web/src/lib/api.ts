@@ -1037,6 +1037,19 @@ export interface SecurityCheck {
   detail: string;
 }
 
+/** What an agent waits on, for Admin → Approvals: a question nobody has answered, or a run
+ * that said it would come back (ADR 0040). `run.decision`, `run.card` and
+ * `run.comesBackFor` are left out where `visible` is false — the room's own words. */
+export interface PendingApproval {
+  run: AgentRunView;
+  channelName: string | null;
+  channelKind: string;
+  /** Whom it waits on: the person the run is for. */
+  personName: string | null;
+  /** Whether the viewer can read the room it is in. */
+  visible: boolean;
+}
+
 /** A fault the client threw in somebody's browser, as the workspace's admins see it. */
 export interface ClientErrorEntry {
   fingerprint: string;
@@ -1884,6 +1897,9 @@ export const api = {
       put<{ ok: true }>(`/api/admin/channels/${id}/legal-hold`, { held }),
     holdPerson: (id: string, held: boolean) =>
       put<{ ok: true }>(`/api/admin/users/${id}/legal-hold`, { held }),
+
+    /** What agents are waiting on across the workspace (Admin → Approvals). */
+    pendingApprovals: () => get<{ pending: PendingApproval[] }>("/api/admin/approvals"),
 
     /** Where the workspace stands, and the server for whoever runs it (M3 · C3). */
     security: () =>

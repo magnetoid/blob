@@ -1098,6 +1098,61 @@ async def view_in(
     return None if row is None else _view(row)
 
 
+async def pending_for_admin(
+    session: AsyncSession, *, workspace_id: str, viewer_id: str
+) -> list[dict[str, Any]]:
+    """What agents are waiting on in this workspace, oldest first — the Approvals page: a
+    decision nobody has made yet, and a run that said it would come back (ADR 0040).
+
+    Every one is listed — which agent, where, for whom, since and until when — as the run
+    log lists every run and the console's channel list names every room. What it asks or
+    notes is listed only where the viewer can see the room: a private room keeps those
+    words from an admin who is not in it, as it keeps its messages.
+    """
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                SELECT v.*, c.name AS channel_name, c.kind AS channel_kind,
+                       person.display_name AS person_name,
+                       ((c.kind = 'public' AND NOT EXISTS (
+                           SELECT 1 FROM users viewer
+                            WHERE viewer.id = :viewer AND viewer.role = 'guest'))
+                        OR EXISTS (
+                          SELECT 1 FROM channel_members cm
+                           WHERE cm.channel_id = v.channel_id AND cm.user_id = :viewer
+                        )) AS visible
+                  FROM ({_VIEW_SELECT}
+                         WHERE r.workspace_id = :ws
+                           AND ((r.status = 'interrupted' AND r.answered_at IS NULL)
+                                OR r.status = 'waiting')) v
+                  JOIN channels c ON c.id = v.channel_id
+                  LEFT JOIN users person ON person.id = v.initiated_by_user_id
+                 ORDER BY v.started_at
+                 LIMIT 200
+                """
+            ),
+            {"ws": workspace_id, "viewer": viewer_id},
+        )
+    ).fetchall()
+    pending: list[dict[str, Any]] = []
+    for row in rows:
+        view = _view(row)
+        if not row.visible:
+            # The room's own words: kept from an admin who cannot read the room.
+            view.update(decision=None, card=None, seen=None, comesBackFor=None)
+        pending.append(
+            {
+                "run": view,
+                "channelName": row.channel_name,
+                "channelKind": row.channel_kind,
+                "personName": row.person_name,
+                "visible": bool(row.visible),
+            }
+        )
+    return pending
+
+
 async def view_of(session: AsyncSession, run_id: str) -> dict[str, Any] | None:
     """One run in the wire shape, for re-announcing it after its state changed."""
     row = (

@@ -36,6 +36,7 @@ const EVERY_ROW = [
   'Janus',
   'MCP servers',
   'Usage',
+  'Approvals',
   'Export',
   'Security',
   'Retention',
@@ -79,10 +80,11 @@ describe('the admin registry', () => {
   });
 
   // They were drawn disabled under a Soon badge. They were not pages, so they are gone,
-  // and every row left is a URL that opens something.
+  // and every row left is a URL that opens something. (Approvals was one, and came back in
+  // M4 as a page that opens.)
   it('offers no row that is not a page', () => {
     const labels = ADMIN_NAV.map((entry) => entry.label);
-    for (const gone of ['Moderation', 'Approvals', 'Storage', 'Import / export']) {
+    for (const gone of ['Moderation', 'Storage', 'Import / export']) {
       expect(labels).not.toContain(gone);
     }
     for (const entry of ADMIN_NAV) {
@@ -149,6 +151,7 @@ describe('who each admin page is for', () => {
     janus: 'admin',
     'mcp-servers': 'admin', // /api/admin/mcp-servers, and /api/admin/plugins for its agents
     usage: 'admin', // /api/admin/usage and its prices
+    approvals: 'admin', // GET /api/admin/approvals
     export: 'admin', // /api/admin/exports, after a recent sign-in
     posture: 'admin', // /api/admin/security; the server's half only for its admins
     retention: 'admin', // /api/admin/retention; saving asks for a recent sign-in
@@ -221,8 +224,13 @@ describe('filtering the admin nav', () => {
   it('narrows to the rows that match, in the list’s order', () => {
     expect(offered(FOUNDER, 'audit')).toEqual(['Audit log']);
     expect(offered(FOUNDER, 'AUDIT ')).toEqual(['Audit log']);
-    expect(offered(FOUNDER, 'app')).toEqual(['Appearance', 'Apps & agents', 'App policy']);
-    expect(offered(ADMIN, 'app')).toEqual(['Appearance', 'Apps & agents']);
+    expect(offered(FOUNDER, 'app')).toEqual([
+      'Appearance',
+      'Apps & agents',
+      'Approvals',
+      'App policy',
+    ]);
+    expect(offered(ADMIN, 'app')).toEqual(['Appearance', 'Apps & agents', 'Approvals']);
   });
 
   it('matches a keyword rather than only the label', () => {

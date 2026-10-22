@@ -7438,6 +7438,23 @@
         "title": "PasskeysOut",
         "type": "object"
       },
+      "PendingOut": {
+        "properties": {
+          "pending": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pending",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pending"
+        ],
+        "title": "PendingOut",
+        "type": "object"
+      },
       "PinInput": {
         "properties": {
           "pinned": {
@@ -13087,6 +13104,28 @@
         "summary": "Activity",
         "tags": [
           "activity"
+        ]
+      }
+    },
+    "/api/admin/approvals": {
+      "get": {
+        "description": "What agents are waiting on across the workspace: decisions nobody has made, and runs\nthat said they would come back. An admin's page; a room's words only where they can\nread the room.",
+        "operationId": "pending_approvals_api_admin_approvals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pending Approvals",
+        "tags": [
+          "agentic"
         ]
       }
     },

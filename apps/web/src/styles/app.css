@@ -9863,6 +9863,21 @@ button.person-trigger:hover {
 }
 
 /* A Security page check that is worth a look (M3 · C3): said in the signal colour. */
+/* Admin → Approvals: a waiting run per row — what it waits for and where, its words when
+   the admin can read the room, Open and Stop at the end. */
+.approval-row {
+  align-items: flex-start;
+}
+.approval-words {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.approval-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
 .security-check[data-state='attention'] .role-pill {
   border-color: color-mix(in srgb, var(--danger) 35%, transparent);
   background: color-mix(in srgb, var(--danger) 8%, transparent);

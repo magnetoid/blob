@@ -57,6 +57,7 @@ describe('the server console’s nav', () => {
       'Janus',
       'MCP servers',
       'Usage',
+      'Approvals',
       'Export',
       'Security',
       'Retention',
@@ -75,7 +76,8 @@ describe('the server console’s nav', () => {
   it('draws nothing that is not a page', () => {
     renderServerNav();
     expect(screen.queryByText('Soon')).toBeNull();
-    for (const gone of ['Moderation', 'Approvals', 'Storage', 'Import / export']) {
+    // Approvals was one of these, until it became a page that opens (M4).
+    for (const gone of ['Moderation', 'Storage', 'Import / export']) {
       expect(screen.queryByText(gone)).toBeNull();
     }
     expect(screen.queryByText('Only you can see these.')).toBeNull();
@@ -120,7 +122,7 @@ describe('the server console’s nav', () => {
     expect(screen.queryAllByRole('heading')).toEqual([]);
 
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: '' } });
-    expect(rowLabels(container)).toHaveLength(23);
+    expect(rowLabels(container)).toHaveLength(24);
   });
 });
 
