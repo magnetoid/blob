@@ -1457,6 +1457,8 @@ export const api = {
         threadRootId?: string | null;
         alsoInChannel?: boolean;
         attachmentIds?: string[];
+        /** Asks the body as a poll with these options (ADR 0041). */
+        poll?: { options: string[]; multiple?: boolean; anonymous?: boolean };
       },
     ) =>
       post<{ message: Message }>(`/api/channels/${channelId}/messages`, input),
@@ -1510,6 +1512,14 @@ export const api = {
       del<{ ok: true }>(
         `/api/messages/${id}/reactions?emoji=${encodeURIComponent(emoji)}`,
       ),
+    /** Choose these options in a poll, replacing your choice; none withdraws it. */
+    vote: (id: string, optionIds: string[]) =>
+      put<{ message: Message; mine: string[] }>(`/api/messages/${id}/poll/votes`, {
+        optionIds,
+      }),
+    /** What you chose — the one thing an anonymous poll tells only you. */
+    myVote: (id: string) => get<{ mine: string[] }>(`/api/messages/${id}/poll`),
+    closePoll: (id: string) => post<{ message: Message }>(`/api/messages/${id}/poll/close`),
   },
 
   scheduled: {

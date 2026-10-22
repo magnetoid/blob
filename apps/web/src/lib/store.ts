@@ -835,13 +835,15 @@ export const useStore = create<State>((set, get) => ({
       ? (state.threads[threadRootId] ?? [])
       : (state.messages[channelId]?.items ?? []);
 
-    // Backwards from the end, and skipping what cannot be edited: a deleted message, and
-    // anything still in the outbox — a pending row has no server id to send an edit for.
+    // Backwards from the end, and skipping what cannot be edited: a deleted message, a
+    // poll — its question cannot change under the answers (ADR 0041) — and anything still
+    // in the outbox, since a pending row has no server id to send an edit for.
     for (let i = items.length - 1; i >= 0; i -= 1) {
       const message = items[i];
       if (!message) continue;
       if (message.authorId !== me) continue;
       if (message.deletedAt) continue;
+      if (message.poll) continue;
       if (message.id.startsWith("pending-")) continue;
       set({ editingMessageId: message.id });
       return true;

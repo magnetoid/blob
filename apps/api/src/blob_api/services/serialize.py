@@ -21,6 +21,8 @@ from ..schemas.models import (
     Membership,
     Message,
     MessageTranslation,
+    Poll,
+    PollOption,
     Reaction,
     ThreadSummary,
     ThreadSummaryActionItem,
@@ -30,6 +32,7 @@ from ..schemas.models import (
     UserPrefs,
     Workspace,
 )
+from .polls import POLL_FRAGMENT
 
 log = logging.getLogger("blob.serialize")
 
@@ -199,6 +202,7 @@ def to_message(row: Any) -> Message:
     # Deleting a message must take its buttons with it, or an interaction could still be
     # sent against content that is gone.
     blocks = None if deleted else getattr(row, "blocks", None)
+    poll = None if deleted else _poll(getattr(row, "poll", None))
 
     return Message(
         id=row.id,
@@ -227,6 +231,32 @@ def to_message(row: Any) -> Message:
         plugin_id=getattr(row, "plugin_id", None),
         link_preview=_link_preview(row.id, preview) if preview else None,
         files_removed=0 if deleted else int(getattr(row, "files_removed", 0) or 0),
+        poll=poll,
+    )
+
+
+def _poll(stored: Any) -> Poll | None:
+    """The poll as `POLL_FRAGMENT` builds it, in the client's shape — the closing time in
+    the format every other timestamp is sent in, which Postgres's JSON does not use."""
+    if not isinstance(stored, dict):
+        return None
+    closed = stored.get("closedAt")
+    return Poll(
+        options=[
+            PollOption(
+                id=str(option["id"]),
+                text=str(option["text"]),
+                count=int(option.get("count") or 0),
+                voter_ids=(
+                    None if option.get("voterIds") is None else [str(v) for v in option["voterIds"]]
+                ),
+            )
+            for option in stored.get("options") or []
+        ],
+        multiple=bool(stored.get("multiple")),
+        anonymous=bool(stored.get("anonymous")),
+        voters=int(stored.get("voters") or 0),
+        closed_at=iso(datetime.fromisoformat(closed).astimezone(UTC)) if closed else None,
     )
 
 
@@ -424,7 +454,10 @@ MESSAGE_SELECT = f"""
   -- The standing decision this message is the source of (M2 · A8): one probe of
   -- `decisions_message_live` per row, so no column on messages has to be kept in step.
   (SELECT d.id FROM decisions d
-    WHERE d.message_id = m.id AND d.revoked_at IS NULL) AS decision_id
+    WHERE d.message_id = m.id AND d.revoked_at IS NULL) AS decision_id,
+  -- The poll this message asks (ADR 0041), as every reader sees it: one probe of the
+  -- `polls` key per row, and nothing for a message that asks none.
+  {POLL_FRAGMENT}
 """
 
 

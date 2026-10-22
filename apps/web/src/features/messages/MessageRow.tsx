@@ -34,6 +34,7 @@ import { moveFocusBetweenMessages } from "./arrowNavigation.ts";
 import { MessageTranslation } from "./MessageTranslation.tsx";
 import { formatRelative, formatTime } from "./messageFormatting.ts";
 import { VoicePlayer } from "./VoicePlayer.tsx";
+import { PollCard } from "./PollCard.tsx";
 import { Avatar } from "../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../components/Dialog.tsx";
@@ -447,6 +448,8 @@ export const MessageRow = memo(function MessageRow({
             Decision
           </button>
         )}
+
+        {message.poll && !editing && <PollCard message={message} tabIndex={tab} />}
 
         {message.blocks && message.blocks.length > 0 && (
           <BlockRenderer

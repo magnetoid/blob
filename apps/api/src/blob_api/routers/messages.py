@@ -16,7 +16,7 @@ from pydantic import Field
 
 from ..db.engine import session_scope, transaction
 from ..lib.auth import SessionUser, current_user
-from ..lib.errors import forbidden, message_gone
+from ..lib.errors import bad_request, forbidden, message_gone, not_found
 from ..lib.ids import IdParam, new_id
 from ..lib.queue import enqueue, fire_and_forget
 from ..lib.rate_limit import consume
@@ -29,6 +29,8 @@ from ..schemas.models import (
     MessageOut,
     MessagesOut,
     MessageTranslation,
+    PollMineOut,
+    PollVoteOut,
     ReadStateOut,
     ScheduledMessage,
 )
@@ -38,6 +40,7 @@ from ..schemas.requests import (
     MarkReadInput,
     MarkUnreadInput,
     PinInput,
+    PollVoteInput,
     ReactionInput,
     SaveInput,
     SendMessageInput,
@@ -48,6 +51,7 @@ from ..services import audit as audit_service
 from ..services import channels as channel_service
 from ..services import drafts as draft_service
 from ..services import messages as message_service
+from ..services import polls as poll_service
 from ..services import reactions as reaction_service
 from ..services import read_state as read_state_service
 from ..services import saved as saved_service
@@ -119,6 +123,14 @@ async def send_message(
     user: SessionUser = Depends(current_user),
 ) -> MessageOut:
     await consume("send_message", user.id)
+    # Checked before anything is stored, so a poll it may not ask sends nothing at all.
+    poll = (
+        poll_service.checked(
+            payload.poll.options, multiple=payload.poll.multiple, anonymous=payload.poll.anonymous
+        )
+        if payload.poll is not None
+        else None
+    )
 
     async with transaction() as (session, after_commit):
         await channel_service.assert_channel_access(
@@ -142,6 +154,7 @@ async def send_message(
             thread_root_id=payload.thread_root_id,
             also_in_channel=payload.also_in_channel,
             attachment_ids=payload.attachment_ids,
+            poll=poll,
         )
 
         # One shared fan-out, in `services/messages.announce`, because this used to live
@@ -305,6 +318,11 @@ async def edit_message(
 ) -> MessageOut:
     async with transaction() as (session, after):
         await message_service.load_for(session, user.id, message_id, require_member=True)
+        if await poll_service.is_poll(session, message_id):
+            # Rewording a question people have answered changes what they answered.
+            raise bad_request(
+                "A poll's question can't be changed once it's asked.", code="poll_question"
+            )
         message = await message_service.edit(
             session, message_id, user.id, user.workspace_id, payload.body
         )
@@ -509,6 +527,58 @@ async def add_reaction(
 
             after.add(broadcast_reaction)
     return OkOut()
+
+
+# ─── polls (ADR 0041) ─────────────────────────────────────────────────────────────────
+
+
+@router.put("/api/messages/{message_id}/poll/votes", response_model=PollVoteOut)
+async def vote_in_poll(
+    message_id: IdParam, payload: PollVoteInput, user: SessionUser = Depends(current_user)
+) -> PollVoteOut:
+    """Make your choice these options, replacing what you chose before; none withdraws it.
+    The room hears the poll as it now stands, as `message.updated`, once it commits."""
+    await consume("react", user.id)
+    async with transaction() as (session, after):
+        await message_service.load_for(
+            session, user.id, message_id, require_member=True, require_writable=True
+        )
+        await poll_service.vote(
+            session, message_id=message_id, user_id=user.id, option_ids=payload.option_ids
+        )
+        message = await message_service.load_for(session, user.id, message_id)
+        mine = await poll_service.mine(session, message_id=message_id, user_id=user.id)
+        after.add(
+            lambda: hub.to_channel(message.channel_id, message_event("message.updated", message))
+        )
+    return PollVoteOut(message=message, mine=mine)
+
+
+@router.get("/api/messages/{message_id}/poll", response_model=PollMineOut)
+async def my_poll_choice(
+    message_id: IdParam, user: SessionUser = Depends(current_user)
+) -> PollMineOut:
+    """Your own choice in a poll — the one thing an anonymous poll tells only you."""
+    async with session_scope() as session:
+        await message_service.load_for(session, user.id, message_id)
+        if not await poll_service.is_poll(session, message_id):
+            raise not_found("That message has no poll.")
+        return PollMineOut(
+            mine=await poll_service.mine(session, message_id=message_id, user_id=user.id)
+        )
+
+
+@router.post("/api/messages/{message_id}/poll/close", response_model=MessageOut)
+async def close_poll(message_id: IdParam, user: SessionUser = Depends(current_user)) -> MessageOut:
+    """Close a poll: whoever asked it may, and an admin. It keeps its result."""
+    async with transaction() as (session, after):
+        await message_service.load_for(session, user.id, message_id, require_member=True)
+        await poll_service.close(session, message_id=message_id, by=user.id, is_admin=user.is_admin)
+        message = await message_service.load_for(session, user.id, message_id)
+        after.add(
+            lambda: hub.to_channel(message.channel_id, message_event("message.updated", message))
+        )
+    return MessageOut(message=message)
 
 
 @router.delete("/api/messages/{message_id}/reactions", response_model=OkOut)

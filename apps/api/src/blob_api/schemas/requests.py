@@ -121,18 +121,35 @@ class CreateDmInput(CamelModel):
     user_ids: list[IdParam] = Field(min_length=1, max_length=8)
 
 
+class PollInput(CamelModel):
+    """A poll to ask with the message (ADR 0041); the message's body is the question."""
+
+    options: list[str] = Field(min_length=1, max_length=20)
+    multiple: bool = False
+    anonymous: bool = False
+
+
 class SendMessageInput(CamelModel):
     body: str = Field(default="", max_length=MESSAGE_MAX_LENGTH)
     client_msg_id: str = Field(min_length=8, max_length=64)
     thread_root_id: IdParam | None = None
     also_in_channel: bool = False
     attachment_ids: list[IdParam] = Field(default_factory=list, max_length=10)
+    poll: PollInput | None = None
 
     @model_validator(mode="after")
     def _needs_content(self) -> SendMessageInput:
+        if self.poll is not None and not self.body.strip():
+            raise ValueError("Ask the poll's question.")
         if not self.body.strip() and not self.attachment_ids:
             raise ValueError("Write something or attach a file.")
         return self
+
+
+class PollVoteInput(CamelModel):
+    """Your choice in a poll; none withdraws it."""
+
+    option_ids: list[str] = Field(default_factory=list, max_length=10)
 
 
 class RunCommandInput(CamelModel):

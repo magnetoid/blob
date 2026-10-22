@@ -333,6 +333,29 @@ export interface Message {
   /** Files the workspace's retention took from this message, which kept its words
    * (ADR 0039) — so a reader sees that something was there. */
   filesRemoved?: number;
+  /** The poll this message asks, when it is one (ADR 0041): the body is the question. */
+  poll?: Poll | null;
+}
+
+/** One answer a poll offers, and how many chose it. */
+export interface PollOption {
+  id: string;
+  text: string;
+  count: number;
+  /** Who chose it, oldest first — null for an anonymous poll, which never says. */
+  voterIds: string[] | null;
+}
+
+/** A poll beside its message (ADR 0041), the same for every reader: an anonymous poll's
+ * own choice is asked for apart (`GET /api/messages/{id}/poll`). */
+export interface Poll {
+  options: PollOption[];
+  /** Whether several options may be chosen. */
+  multiple: boolean;
+  anonymous: boolean;
+  /** How many people have chosen anything. */
+  voters: number;
+  closedAt: string | null;
 }
 
 export interface Workspace {

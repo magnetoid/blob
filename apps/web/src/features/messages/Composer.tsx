@@ -33,8 +33,11 @@ import {
   AttachIcon,
   EmojiIcon,
   MentionIcon,
+  PollIcon,
   SendIcon,
 } from "../../components/Icon.tsx";
+import { DialogPresence } from "../../components/Dialog.tsx";
+import { PollDialog } from "./PollDialog.tsx";
 import { AttachmentTray } from "./AttachmentTray.tsx";
 import { VoiceRecordButton } from "./VoiceRecordButton.tsx";
 import { FormatToolbar } from "./FormatToolbar.tsx";
@@ -89,6 +92,8 @@ export function Composer({
   /** A command's reply to the person who ran it. Never stored, never broadcast. */
   const [ephemeral, setEphemeral] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // Asking a poll (ADR 0041): its own dialog, the composer's words as the question.
+  const [pollOpen, setPollOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -498,6 +503,21 @@ export function Composer({
           </div>
         )}
 
+        <DialogPresence when={pollOpen}>
+          {() => (
+            <PollDialog
+              channelId={channelId}
+              threadRootId={threadRootId}
+              initialQuestion={draft.trim()}
+              onClose={() => setPollOpen(false)}
+              onSent={(question) => {
+                // The composer's words were the question: they are sent now.
+                if (question === draft.trim()) setDraft("");
+              }}
+            />
+          )}
+        </DialogPresence>
+
         <div className="composer-box">
           <FormatToolbar onWrap={applyWrap} onCode={toggleCode} />
 
@@ -575,6 +595,17 @@ export function Composer({
               }}
             >
               <MentionIcon />
+            </button>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Create a poll"
+              data-tooltip="Create a poll"
+              data-tooltip-place="top"
+              onClick={() => setPollOpen(true)}
+              aria-haspopup="dialog"
+            >
+              <PollIcon />
             </button>
             <span className="grow" />
             <span className="composer-hint">

@@ -6773,6 +6773,16 @@
             ],
             "title": "Pluginid"
           },
+          "poll": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Poll"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "reactions": {
             "items": {
               "$ref": "#/components/schemas/Reaction"
@@ -7935,6 +7945,167 @@
           "serverChainMaxDepth"
         ],
         "title": "PolicyOut",
+        "type": "object"
+      },
+      "Poll": {
+        "description": "The poll a message asks (ADR 0041), the same for every reader. Its question is the\nmessage's body.",
+        "properties": {
+          "anonymous": {
+            "default": false,
+            "title": "Anonymous",
+            "type": "boolean"
+          },
+          "closedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closedat"
+          },
+          "multiple": {
+            "default": false,
+            "title": "Multiple",
+            "type": "boolean"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PollOption"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "voters": {
+            "default": 0,
+            "title": "Voters",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "options"
+        ],
+        "title": "Poll",
+        "type": "object"
+      },
+      "PollInput": {
+        "description": "A poll to ask with the message (ADR 0041); the message's body is the question.",
+        "properties": {
+          "anonymous": {
+            "default": false,
+            "title": "Anonymous",
+            "type": "boolean"
+          },
+          "multiple": {
+            "default": false,
+            "title": "Multiple",
+            "type": "boolean"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "options"
+        ],
+        "title": "PollInput",
+        "type": "object"
+      },
+      "PollMineOut": {
+        "properties": {
+          "mine": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mine",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mine"
+        ],
+        "title": "PollMineOut",
+        "type": "object"
+      },
+      "PollOption": {
+        "properties": {
+          "count": {
+            "default": 0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "voterIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voterids"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "PollOption",
+        "type": "object"
+      },
+      "PollVoteInput": {
+        "description": "Your choice in a poll; none withdraws it.",
+        "properties": {
+          "optionIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Optionids",
+            "type": "array"
+          }
+        },
+        "title": "PollVoteInput",
+        "type": "object"
+      },
+      "PollVoteOut": {
+        "description": "The poll as it stands after your vote, and your own choice \u2014 the one thing an\nanonymous poll tells only you.",
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          },
+          "mine": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mine",
+            "type": "array"
+          }
+        },
+        "required": [
+          "message",
+          "mine"
+        ],
+        "title": "PollVoteOut",
         "type": "object"
       },
       "PostMessageInput": {
@@ -9363,6 +9534,16 @@
             "minLength": 8,
             "title": "Clientmsgid",
             "type": "string"
+          },
+          "poll": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PollInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "threadRootId": {
             "anyOf": [
@@ -22961,6 +23142,148 @@
           }
         },
         "summary": "Pin Message",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/messages/{message_id}/poll": {
+      "get": {
+        "description": "Your own choice in a poll \u2014 the one thing an anonymous poll tells only you.",
+        "operationId": "my_poll_choice_api_messages__message_id__poll_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollMineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "My Poll Choice",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/messages/{message_id}/poll/close": {
+      "post": {
+        "description": "Close a poll: whoever asked it may, and an admin. It keeps its result.",
+        "operationId": "close_poll_api_messages__message_id__poll_close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/blob_api__schemas__models__MessageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Poll",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/messages/{message_id}/poll/votes": {
+      "put": {
+        "description": "Make your choice these options, replacing what you chose before; none withdraws it.\nThe room hears the poll as it now stands, as `message.updated`, once it commits.",
+        "operationId": "vote_in_poll_api_messages__message_id__poll_votes_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PollVoteInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollVoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vote In Poll",
         "tags": [
           "messages"
         ]

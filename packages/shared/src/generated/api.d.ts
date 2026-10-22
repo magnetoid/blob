@@ -3975,6 +3975,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/messages/{message_id}/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Poll Choice
+         * @description Your own choice in a poll — the one thing an anonymous poll tells only you.
+         */
+        get: operations["my_poll_choice_api_messages__message_id__poll_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{message_id}/poll/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close Poll
+         * @description Close a poll: whoever asked it may, and an admin. It keeps its result.
+         */
+        post: operations["close_poll_api_messages__message_id__poll_close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{message_id}/poll/votes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Vote In Poll
+         * @description Make your choice these options, replacing what you chose before; none withdraws it.
+         *     The room hears the poll as it now stands, as `message.updated`, once it commits.
+         */
+        put: operations["vote_in_poll_api_messages__message_id__poll_votes_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages/{message_id}/preview-image": {
         parameters: {
             query?: never;
@@ -7412,6 +7473,7 @@ export interface components {
             pinnedAt?: string | null;
             /** Pluginid */
             pluginId?: string | null;
+            poll?: components["schemas"]["Poll"] | null;
             /** Reactions */
             reactions?: components["schemas"]["Reaction"][];
             /**
@@ -7829,6 +7891,87 @@ export interface components {
             serverChainMaxDepth: number;
             /** Workspaceid */
             workspaceId: string;
+        };
+        /**
+         * Poll
+         * @description The poll a message asks (ADR 0041), the same for every reader. Its question is the
+         *     message's body.
+         */
+        Poll: {
+            /**
+             * Anonymous
+             * @default false
+             */
+            anonymous: boolean;
+            /** Closedat */
+            closedAt?: string | null;
+            /**
+             * Multiple
+             * @default false
+             */
+            multiple: boolean;
+            /** Options */
+            options: components["schemas"]["PollOption"][];
+            /**
+             * Voters
+             * @default 0
+             */
+            voters: number;
+        };
+        /**
+         * PollInput
+         * @description A poll to ask with the message (ADR 0041); the message's body is the question.
+         */
+        PollInput: {
+            /**
+             * Anonymous
+             * @default false
+             */
+            anonymous: boolean;
+            /**
+             * Multiple
+             * @default false
+             */
+            multiple: boolean;
+            /** Options */
+            options: string[];
+        };
+        /** PollMineOut */
+        PollMineOut: {
+            /** Mine */
+            mine: string[];
+        };
+        /** PollOption */
+        PollOption: {
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /** Voterids */
+            voterIds?: string[] | null;
+        };
+        /**
+         * PollVoteInput
+         * @description Your choice in a poll; none withdraws it.
+         */
+        PollVoteInput: {
+            /** Optionids */
+            optionIds?: string[];
+        };
+        /**
+         * PollVoteOut
+         * @description The poll as it stands after your vote, and your own choice — the one thing an
+         *     anonymous poll tells only you.
+         */
+        PollVoteOut: {
+            message: components["schemas"]["Message"];
+            /** Mine */
+            mine: string[];
         };
         /** PostMessageInput */
         PostMessageInput: {
@@ -8374,6 +8517,7 @@ export interface components {
             body: string;
             /** Clientmsgid */
             clientMsgId: string;
+            poll?: components["schemas"]["PollInput"] | null;
             /** Threadrootid */
             threadRootId?: string | null;
         };
@@ -9603,6 +9747,12 @@ export type PluginOut = components['schemas']['PluginOut'];
 export type PluginsOut = components['schemas']['PluginsOut'];
 export type PolicyInput = components['schemas']['PolicyInput'];
 export type PolicyOut = components['schemas']['PolicyOut'];
+export type Poll = components['schemas']['Poll'];
+export type PollInput = components['schemas']['PollInput'];
+export type PollMineOut = components['schemas']['PollMineOut'];
+export type PollOption = components['schemas']['PollOption'];
+export type PollVoteInput = components['schemas']['PollVoteInput'];
+export type PollVoteOut = components['schemas']['PollVoteOut'];
 export type PostMessageInput = components['schemas']['PostMessageInput'];
 export type PrefsOut = components['schemas']['PrefsOut'];
 export type PricesIn = components['schemas']['PricesIn'];
@@ -16924,6 +17074,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["blob_api__schemas__models__MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_poll_choice_api_messages__message_id__poll_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PollMineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_poll_api_messages__message_id__poll_close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["blob_api__schemas__models__MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vote_in_poll_api_messages__message_id__poll_votes_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PollVoteInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PollVoteOut"];
                 };
             };
             /** @description Validation Error */

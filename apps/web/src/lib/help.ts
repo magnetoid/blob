@@ -242,6 +242,16 @@ export const SECTIONS: Section[] = [
         keywords: ['emoji', 'reaction', 'react', 'custom emoji', ':'],
       },
       {
+        id: 'polls',
+        title: 'Polls',
+        blurb: 'Ask the room to choose: press the poll button under the message box, write the question and two to ten answers.',
+        body: [
+          'A poll is a message: its question is what everyone reads, finds in search and gets notified about, and the answers sit under it. Press an answer to choose it, press it again to take your choice back, or press another to change it. When the poll allows several answers, each press adds or removes one.',
+          'Who chose what is shown the way reactions are — hover an answer to see the names. An anonymous poll shows only the counts, to everyone including whoever asked it, and that cannot be changed once it is sent. Whoever asked a poll, or an admin, can close it; a closed poll keeps its result and takes no more answers. A poll’s question can’t be edited once it is asked.',
+        ],
+        keywords: ['poll', 'vote', 'survey', 'choose', 'question', 'anonymous', 'multiple choice'],
+      },
+      {
         id: 'files',
         title: 'Files and images',
         blurb: 'Attach up to ten files to a message, each under 100 MB.',

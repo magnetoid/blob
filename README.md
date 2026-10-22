@@ -285,6 +285,11 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
   built-in set and the workspace's own uploads, which work anywhere `:name:` does. A
   reaction lands the instant you click it and comes back off with a toast if the server
   disagrees.
+- **Polls** — a question and two to ten answers from the button under the message box; one
+  choice or several, changed until the poll closes. Who chose what shows like a reaction,
+  unless the poll is anonymous — then only counts, for everyone. The question is the
+  message, so search, notifications and agents read it like any other.
+  ([ADR 0041](.torsor/architecture/decisions/0041-a-poll-is-a-message-and-its-votes-are-public-unless-it-says-not.md))
 - **Mentions** — `@person`, `@group`, `@channel`, `@here` and `@everyone`, never fired from
   inside a code block. A group is resolved at notify time against current membership, so
   an edit reaches whoever is in it now; `@here` reaches only the people actually at their
@@ -473,8 +478,7 @@ afternoon:
   after a password is a passkey, never a six-digit code. A guest's account has no end
   date.
 - **Slack import.** Nothing reads a Slack export in yet.
-- **Polls and edit history.** There are no polls, and an edited message keeps only its
-  latest words.
+- **Edit history.** An edited message keeps only its latest words.
 - **A legal hold that keeps deletes.** A hold stops retention, not people: what somebody
   deletes or edits under a hold is not kept anywhere. Slack's does keep it, silently;
   whether Blob should — or should refuse the delete instead — is an open decision
@@ -1045,6 +1049,7 @@ The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisi
 | 0038 | An export takes what its asker may take |
 | 0039 | Retention removes the talk, never the work, and a hold stops it |
 | 0040 | An agent may come back later, on the same person's say-so |
+| 0041 | A poll is a message, and its votes are public unless it says they are not |
 
 </details>
 

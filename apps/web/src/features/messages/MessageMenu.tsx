@@ -229,7 +229,8 @@ export function MessageMenu({
         >
           {message.decisionId ? "Open the decision" : "Record as a decision"}
         </button>
-        {mine && (
+        {/* Not a poll's: its question cannot change under the answers (ADR 0041). */}
+        {mine && !message.poll && (
           <button
             className="menu-item"
             role="menuitem"

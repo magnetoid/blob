@@ -479,6 +479,8 @@ async def tombstone(session: AsyncSession, message_ids: list[str]) -> Swept:
         return Swept(rows=[], last_message={})
     for statement in (
         "DELETE FROM reactions WHERE message_id = ANY(cast(:ids AS uuid[]))",
+        # A poll and who chose what (ADR 0041): the talk, like its reactions.
+        "DELETE FROM polls WHERE message_id = ANY(cast(:ids AS uuid[]))",
         "DELETE FROM attachments WHERE message_id = ANY(cast(:ids AS uuid[]))",
         "DELETE FROM message_translations WHERE message_id = ANY(cast(:ids AS uuid[]))",
         "DELETE FROM thread_summaries WHERE thread_root_id = ANY(cast(:ids AS uuid[]))",

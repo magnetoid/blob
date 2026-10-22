@@ -254,6 +254,26 @@ class LinkPreview(CamelModel):
     site_name: str | None = None
 
 
+class PollOption(CamelModel):
+    id: str
+    text: str
+    count: int = 0
+    #: Who chose it, oldest first — None for an anonymous poll, which never says.
+    voter_ids: list[str] | None = None
+
+
+class Poll(CamelModel):
+    """The poll a message asks (ADR 0041), the same for every reader. Its question is the
+    message's body."""
+
+    options: list[PollOption]
+    multiple: bool = False
+    anonymous: bool = False
+    #: How many people have chosen anything.
+    voters: int = 0
+    closed_at: str | None = None
+
+
 class Message(CamelModel):
     id: str
     channel_id: str
@@ -287,6 +307,8 @@ class Message(CamelModel):
     #: Files the workspace's retention took from this message, which kept its words
     #: (ADR 0039) — so a reader sees that something was there.
     files_removed: int = 0
+    #: The poll this message asks, when it is one (ADR 0041).
+    poll: Poll | None = None
 
 
 class CustomEmoji(CamelModel):
@@ -528,6 +550,18 @@ class FeedbackTicket(CamelModel):
 
 class MessageOut(CamelModel):
     message: Message
+
+
+class PollVoteOut(CamelModel):
+    """The poll as it stands after your vote, and your own choice — the one thing an
+    anonymous poll tells only you."""
+
+    message: Message
+    mine: list[str]
+
+
+class PollMineOut(CamelModel):
+    mine: list[str]
 
 
 class MessagesOut(CamelModel):

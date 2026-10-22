@@ -643,6 +643,52 @@ class Reaction(Base):
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
 
 
+class Poll(Base):
+    """The poll a message asks (ADR 0041). The question is the message's body; this is the
+    options it is asked with, how they may be chosen, and when it closed."""
+
+    __tablename__ = "polls"
+    __table_args__ = (
+        CheckConstraint(
+            "jsonb_typeof(options) = 'array' AND jsonb_array_length(options) BETWEEN 2 AND 10",
+            name="polls_options_check",
+        ),
+    )
+
+    message_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("messages.id", ondelete="CASCADE"), primary_key=True
+    )
+    workspace_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    #: `[{"id": "o1", "text": "…"}, …]`, in the order they are shown.
+    options: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    multiple: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    #: Who chose what is never served when set — not to the author, not to an admin.
+    anonymous: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    closed_at: Mapped[Any | None] = mapped_column(Timestamp)
+    closed_by: Mapped[str | None] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
+class PollVote(Base):
+    """One person's choice of one option. A choice of several is several rows."""
+
+    __tablename__ = "poll_votes"
+    __table_args__ = (Index("poll_votes_user", "user_id"),)
+
+    message_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("polls.message_id", ondelete="CASCADE"), primary_key=True
+    )
+    option_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        UUIDStr, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+
+
 class Attachment(Base):
     __tablename__ = "attachments"
     __table_args__ = (

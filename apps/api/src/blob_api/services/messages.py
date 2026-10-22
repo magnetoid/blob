@@ -29,6 +29,7 @@ from ..lib.mentions import MentionResult, MentionTarget, mention_lookup_phrases,
 from ..schemas.models import Message
 from ..schemas.requests import MESSAGE_MAX_LENGTH
 from . import channels as channel_service
+from . import polls as poll_service
 from .serialize import MESSAGE_SELECT, to_message
 
 #: Avatars shown on a thread's summary line.
@@ -126,6 +127,8 @@ async def send(
     #: or set a second agent going, and the agent must be reached whatever its name
     #: looks like, which a parse of `@Name` cannot promise.
     mention_user_ids: Sequence[str] | None = None,
+    #: The poll this message asks (ADR 0041), checked; the body is its question.
+    poll: poll_service.PollDraft | None = None,
 ) -> SendResult:
     message_id = new_id()
     attachment_ids = attachment_ids or []
@@ -210,6 +213,10 @@ async def send(
 
     if attachment_ids:
         await _bind_attachments(session, message_id, attachment_ids, uploader_id=author_id)
+    if poll is not None:
+        await poll_service.attach(
+            session, message_id=message_id, workspace_id=workspace_id, draft=poll
+        )
 
     # Only what the channel's own history will return. The pointer means "the newest
     # message in this channel", and the client compares the last row it has loaded against
@@ -818,6 +825,8 @@ async def remove(
         {"id": message_id},
     )
     await session.execute(text("DELETE FROM reactions WHERE message_id = :id"), {"id": message_id})
+    # A poll goes with its question, and who chose what with it (ADR 0041).
+    await session.execute(text("DELETE FROM polls WHERE message_id = :id"), {"id": message_id})
     if existing.thread_root_id:
         await session.execute(
             text("UPDATE messages SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = :id"),

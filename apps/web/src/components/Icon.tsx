@@ -147,6 +147,15 @@ export const EmojiIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** A poll (ADR 0041): three answers, one of them ahead. */
+export const PollIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="4.5" width="10" height="3.5" rx="1.75" />
+    <rect x="3.5" y="10.25" width="16" height="3.5" rx="1.75" />
+    <rect x="3.5" y="16" width="7" height="3.5" rx="1.75" />
+  </Svg>
+);
+
 export const MentionIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="4" />
