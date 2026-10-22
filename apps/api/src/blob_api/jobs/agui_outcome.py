@@ -46,7 +46,7 @@ from ..services import channels as channel_service
 from ..services import messages as message_service
 from ..services import work as work_service
 from ..services.serialize import message_event
-from . import agui_delegate, agui_tools
+from . import agui_delegate, agui_later, agui_tools
 from .agui_admission import looks_busy
 from .agui_input import attachment_parts
 from .agui_stream import CardBroadcaster, wait_for_cancel
@@ -556,16 +556,17 @@ async def _finish(
     reason = streamed.transport_error or fold.error or bound_error
     interrupt_items = approval["items"] if approval is not None else fold.interrupts
     touched = fold.state_touched if state_touched is None else state_touched
-    asking_an_agent = approval is not None and approval.get("kind") == "agent_answer"
+    waits = approval is not None and approval.get("kind") in ("agent_answer", agui_later.KIND)
     status: agent_run_service.RunStatus = (
         "cancelled"
         if cancelled
         else "failed"
         if reason
-        # Waiting on another agent's answer (M2 · A2): nobody is asked anything, and the
-        # other agent's finish carries the run on.
+        # Waiting on another agent's answer (M2 · A2), or for the time it said it would
+        # come back (ADR 0040): nobody is asked anything, and the other agent's finish or
+        # the clock carries the run on.
         else "waiting"
-        if asking_an_agent
+        if waits
         else "interrupted"
         # A run nobody addressed asks nobody anything (ADR 0026): an agent's own interrupt
         # — its framework's human-in-the-loop, which Blob's tools do not govern — would
@@ -1260,6 +1261,13 @@ async def _drive(
         if "ask_agent" in tools.names and tools.caller is not None
         else None
     )
+    # Coming back later (ADR 0040), checked against this run's chain: how many times it
+    # has come back already is the chain's, not the run's.
+    come_back = (
+        partial(agui_later.plan, chain_id=chain.chain_id)
+        if "schedule_followup" in tools.names
+        else None
+    )
     # Whether this agent's posts skip the person's approval in this room, decided once:
     # the admin's setting (migration 0054), and whether this is its own DM with them.
     write_now = (
@@ -1373,6 +1381,7 @@ async def _drive(
             sent_1_0=sent_1_0,
             said=said,
             ask=ask,
+            come_back=come_back,
             write_now=write_now,
             deadline=deadline,
             channel_id=channel_id,
@@ -1383,6 +1392,19 @@ async def _drive(
             call, prepared, later = pending
             asked_call = {"id": call.id, "name": call.name, "arguments": call.arguments}
             waited_on = [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in later]
+            if isinstance(prepared, agui_later.ComeBack):
+                # Coming back later (ADR 0040): the run waits for the time, holding no
+                # worker, and the clock carries it on with the note as the call's result.
+                approval = {
+                    "items": [],
+                    "kind": agui_later.KIND,
+                    "call": asked_call,
+                    "comes_back": prepared.as_dict(),
+                    "later": waited_on,
+                    "exchange": agui_tools.trim_exchange([*carried, *exchange]),
+                    "round": round_no,
+                }
+                break
             if isinstance(prepared, agui_delegate.Asked):
                 # A question to another agent: the run waits for its answer, holding no
                 # worker, and that agent's finish carries it on (M2 · A2).
@@ -1513,6 +1535,8 @@ async def _run_calls(
     said: str | None,
     ask: Callable[[agui.ToolCall], Awaitable[agui_tools.ToolOutcome | agui_delegate.Asked]]
     | None = None,
+    come_back: Callable[[agui.ToolCall], Awaitable[agui_tools.ToolOutcome | agui_later.ComeBack]]
+    | None = None,
     write_now: Callable[
         [agui.ToolCall, agui_tools.PreparedWrite], Awaitable[agui_tools.ToolOutcome]
     ]
@@ -1528,7 +1552,8 @@ async def _run_calls(
         agui_tools.PreparedWrite
         | agui_tools.PreparedOutside
         | agui_tools.PreparedDecision
-        | agui_delegate.Asked,
+        | agui_delegate.Asked
+        | agui_later.ComeBack,
         list[agui.ToolCall],
     ]
     | None,
@@ -1607,6 +1632,20 @@ async def _run_calls(
                     return turn, results, (call, asked, list(calls[index + 1 :]))
                 outcome = asked
                 said_of = _outcome_of(outcome)
+            elif call.name in agui_tools.LATER_TOOLS:
+                # Coming back later (ADR 0040): checked, and the round ends here to wait
+                # for the time, as it does for another agent's answer.
+                planned = (
+                    await come_back(call)
+                    if come_back is not None
+                    else agui_tools.not_run("there is nobody to come back for")
+                )
+                if isinstance(planned, agui_later.ComeBack):
+                    tool_span.set_attribute("blob.tool.outcome", "waits")
+                    await metrics.tool_called("agent", call.name, "ok")
+                    return turn, results, (call, planned, list(calls[index + 1 :]))
+                outcome = planned
+                said_of = _outcome_of(outcome)
             elif outside is not None:
                 # A server's tool (ADR 0027): checked, then run at once or put to the
                 # person, as the admin's policy for it says.
@@ -1677,7 +1716,7 @@ def _settle_agent_answer(
         results.append(
             agui_tools.tool_message(
                 str(later.get("id") or ""),
-                agui_tools.not_run("it waited behind a question to another agent"),
+                agui_tools.not_run(f"it waited behind {answered.behind}"),
                 speaks_1_0=sent_1_0,
             )
         )

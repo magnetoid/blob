@@ -155,6 +155,7 @@ class TestWhatARunWasShown:
             "read_thread",
             "recall",
             "remember",
+            "schedule_followup",
             "search_messages",
         ]
 

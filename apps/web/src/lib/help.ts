@@ -1015,6 +1015,17 @@ export const SECTIONS: Section[] = [
         keywords: ['schedule', 'recurring', 'daily', 'standup', 'digest', 'cron', 'every morning', 'proactive'],
       },
       {
+        id: 'agent-comes-back',
+        title: 'When an agent says it will come back',
+        blurb:
+          'An agent waiting on something it cannot know yet — a deploy, an answer due tomorrow — can come back to the conversation by itself, at a time it sets.',
+        body: [
+          'Ask “tell me when the deploy is out” and an agent with Blob’s tools may answer that it will look again at four. Its card then says “coming back” with the time and what for, and at that time it carries on in the same place, on your behalf, with everything said since in front of it.',
+          'It is your request still, so the same rules hold when it comes back: if you have left the conversation, no longer have that agent, or agents have been turned off, it does not come back, and its card says why. Stop on the card calls it off. An agent can set a time up to two weeks ahead, and one conversation comes back at most five times.',
+        ],
+        keywords: ['follow up', 'come back', 'later', 'check back', 'remind', 'wait', 'proactive', 'deploy'],
+      },
+      {
         id: 'connect-your-assistant',
         title: 'Reading Blob from your own assistant',
         blurb:

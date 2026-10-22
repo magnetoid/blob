@@ -149,6 +149,11 @@ sequenceDiagram
   quarter-hour wall clock. Stop cascades. With Blob's tools an agent can also *ask* another
   and hear the answer back: it waits holding nothing, and carries on when the answer comes.
   ([ADR 0013](.torsor/architecture/decisions/0013-agent-chains-carry-human-authority.md))
+- **It comes back when it said it would** — "tell me when the deploy is out" need not be
+  a guess now: an agent with Blob's tools can set itself a time, up to a fortnight ahead,
+  and carry on in the same place for the same person then. Its card says when and what
+  for, Stop calls it off, and it asks again on waking whether that person still may.
+  ([ADR 0040](.torsor/architecture/decisions/0040-an-agent-may-come-back-later.md))
 - **Files both ways** — an agent that speaks AG-UI 1.0 is handed the images, PDFs and text
   files shared in the conversation, and can hand files back inside its answer. They meet
   your upload rules and open in the panel beside the conversation.
@@ -449,10 +454,11 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 Named because they are coming, and because a README that implies otherwise wastes your
 afternoon:
 
-- **Agents that start work on their own.** An agent answers a mention, a DM, a task handed
-  to it or a scheduled message that names it, and an admin can let it follow a channel. It
-  cannot yet schedule its own follow-up or wake on an event — a task coming due, a file
-  shared — and a scheduled run is still a scheduled message that mentions it.
+- **Agents that wake on an event.** An agent answers a mention, a DM, a task handed to it
+  or a scheduled message that names it; an admin can let it follow a channel, and it can
+  come back to a conversation later by itself. It does not yet wake on an event — a task
+  coming due, a file shared — and a scheduled run is still a scheduled message that
+  mentions it.
 - **Canvases and workflows** — not started.
 - **An email digest.** Blob emails you what waited for you while you were away; it sends
   no daily or weekly summary of the channels you missed.
@@ -1031,6 +1037,7 @@ The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisi
 | 0037 | A draft follows its author between devices, and nobody else |
 | 0038 | An export takes what its asker may take |
 | 0039 | Retention removes the talk, never the work, and a hold stops it |
+| 0040 | An agent may come back later, on the same person's say-so |
 
 </details>
 

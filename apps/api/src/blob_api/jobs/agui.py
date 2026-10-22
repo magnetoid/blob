@@ -43,7 +43,7 @@ from ..services import messages as message_service
 from ..services import policies as policy_service
 from ..services.serialize import message_event
 from ..services.workspace_settings import parse as parse_settings
-from . import agui_delegate
+from . import agui_delegate, agui_later
 from .agui_admission import followers_for, listeners_for, may_follow_now, personal_agent_for
 from .agui_outcome import refuse, run_one
 
@@ -407,9 +407,29 @@ async def _hear(run_id: str) -> None:
                 {"id": run_id},
             )
         ).first()
-        if row is None or row.initiated_by_user_id is None or row.trigger_message_id is None:
+        if row is None:
             return
-        outcome = await agui_delegate.heard(session, row)
+        stored: dict[str, Any] = row.interrupt if isinstance(row.interrupt, dict) else {}
+        # Waiting for a time it said it would come back at (ADR 0040), or on another agent.
+        coming_back = stored.get("kind") == agui_later.KIND
+        outcome = agui_later.woken(stored) if coming_back else None
+        if coming_back and outcome is None:
+            return
+        if row.initiated_by_user_id is None or row.trigger_message_id is None:
+            # The person or the message it answered is gone (both SET NULL): nothing is
+            # left to carry on for, and a run left waiting would be picked up by the cron
+            # every minute for ever.
+            await _end_waiting(
+                session, after, row, "the message it was answering, or its person, is gone"
+            )
+            return
+        if coming_back:
+            refusal = await agui_later.no_longer(session, row)
+            if refusal is not None:
+                await _end_waiting(session, after, row, f"it did not come back: {refusal}")
+                return
+        else:
+            outcome = await agui_delegate.heard(session, row)
         if outcome is None:
             return
         listeners = await listeners_for(
@@ -419,28 +439,9 @@ async def _hear(run_id: str) -> None:
             # Uninstalled or switched off while it waited: nobody is left to carry it on, so
             # it ends as failed — and a task it was handed is told — rather than standing as
             # an answer that never came.
-            gone = "it was switched off or removed while it waited for an answer"
-            await session.execute(
-                text(
-                    "UPDATE agent_runs SET status = 'failed', error = :error, answered_at = now()"
-                    " WHERE id = :id"
-                ),
-                {"id": run_id, "error": gone},
+            await _end_waiting(
+                session, after, row, "it was switched off or removed while it waited"
             )
-            await task_dispatch.settle(
-                session,
-                after,
-                chain_id=str(row.chain_id),
-                plugin_id=str(row.plugin_id),
-                status="failed",
-                reason=gone,
-            )
-            failed_view = await agent_run_service.view_of(session, run_id)
-            if failed_view is not None:
-                room = str(row.channel_id)
-                after.add(
-                    partial(hub.to_channel, room, {"t": "agent_run.started", "run": failed_view})
-                )
             return
         # It asked, and it was answered: the run that asked is done, and its continuation
         # is a run of its own. `answered_at` is what tells a waiter on *this* run that it
@@ -454,7 +455,6 @@ async def _hear(run_id: str) -> None:
             room = str(row.channel_id)
             after.add(partial(hub.to_channel, room, {"t": "agent_run.started", "run": view}))
 
-        stored: dict[str, Any] = row.interrupt if isinstance(row.interrupt, dict) else {}
         chain = agent_chains.Chain(
             chain_id=str(row.chain_id),
             initiated_by_user_id=str(row.initiated_by_user_id),
@@ -470,6 +470,7 @@ async def _hear(run_id: str) -> None:
                 later=_mappings(stored.get("later")),
                 exchange=_mappings(stored.get("exchange")),
                 round=int(stored.get("round") or 0),
+                behind="a follow-up" if coming_back else "a question to another agent",
             ),
         )
         names = {
@@ -500,6 +501,31 @@ async def _hear(run_id: str) -> None:
         max_depth=policy.agent_chain_max_depth,
         on_behalf_of=names.get(str(row.initiated_by_user_id)) if row.depth > 0 else None,
     )
+
+
+async def _end_waiting(session: Any, after: Any, row: Any, reason: str) -> None:
+    """End a waiting run that cannot be carried on — as failed, with why on its card — and
+    tell a task it was handed, rather than leave it standing as an answer that never came."""
+    run_id = str(row.id)
+    await session.execute(
+        text(
+            "UPDATE agent_runs SET status = 'failed', error = :error, answered_at = now()"
+            " WHERE id = :id"
+        ),
+        {"id": run_id, "error": reason},
+    )
+    await task_dispatch.settle(
+        session,
+        after,
+        chain_id=str(row.chain_id),
+        plugin_id=str(row.plugin_id),
+        status="failed",
+        reason=reason,
+    )
+    view = await agent_run_service.view_of(session, run_id)
+    if view is not None:
+        room = str(row.channel_id)
+        after.add(partial(hub.to_channel, room, {"t": "agent_run.started", "run": view}))
 
 
 def _mapping(value: object) -> dict[str, Any]:

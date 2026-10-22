@@ -88,6 +88,9 @@ class AgentAnswer:
     later: list[dict[str, Any]]
     exchange: list[dict[str, Any]]
     round: int
+    #: What the calls after it waited behind, as they are told: the question, or a
+    #: follow-up's wait (ADR 0040), which resumes the same way.
+    behind: str = "a question to another agent"
 
 
 @dataclass(slots=True)

@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { AgentRunCard as RunCard, AgentRunView } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
+import { formatMoment } from '../../lib/format.ts';
 import { useStore } from '../../lib/store.ts';
 import { useToasts } from '../../lib/toasts.ts';
 import { AgentRunCard, SeenLine } from './AgentRunCard.tsx';
@@ -564,6 +565,37 @@ describe('a run that heard back', () => {
       />,
     );
     expect(screen.getByText(/asked Researcher/)).toBeTruthy();
+    expect(screen.queryByText(/answered silently/)).toBeNull();
+  });
+});
+
+describe('coming back later (ADR 0040)', () => {
+  const at = '2026-10-24T08:00:00.000Z';
+
+  it('says when it comes back and what for, offers Stop, and does not pulse', () => {
+    const cancel = vi.spyOn(api.agentRuns, 'cancel').mockResolvedValue({ ok: true });
+    const { container } = render(
+      <AgentRunCard
+        run={run({
+          status: 'waiting',
+          comesBackAt: at,
+          comesBackFor: 'check whether the deploy went out',
+          finishedAt: '2026-10-22T10:00:05.000Z',
+        })}
+      />,
+    );
+    expect(screen.getByText(`coming back ${formatMoment(at)}`)).toBeTruthy();
+    expect(screen.getByText('check whether the deploy went out')).toBeTruthy();
+    // Asleep until its time, so not live: a dot pulsing for days says "working".
+    expect(container.querySelector('.agent-run-dot-live')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(cancel).toHaveBeenCalledWith('r1');
+  });
+
+  it('says it came back once it has, not that it answered silently', () => {
+    render(<AgentRunCard run={run({ status: 'succeeded', comesBackAt: at, postCount: 0 })} />);
+    const label = screen.getByText(/^came back /);
+    expect(label.textContent).toContain(formatMoment(at));
     expect(screen.queryByText(/answered silently/)).toBeNull();
   });
 });

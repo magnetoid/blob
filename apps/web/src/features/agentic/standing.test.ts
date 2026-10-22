@@ -41,3 +41,25 @@ describe('standing', () => {
     expect(standingOf([run({ status: 'interrupted' })], 'p1', 'u1').kind).toBe('waiting');
   });
 });
+
+describe('coming back later (ADR 0040)', () => {
+  it('is not working — it is asleep until its time — and the soonest is named', () => {
+    const runs = [
+      run({ id: 'a', status: 'waiting', channelId: 'c2', comesBackAt: '2026-10-25T09:00:00.000Z' }),
+      run({ id: 'b', status: 'waiting', channelId: 'c3', comesBackAt: '2026-10-24T09:00:00.000Z' }),
+    ];
+    expect(standingOf(runs, 'p1', 'u1')).toEqual({
+      kind: 'returning',
+      channelId: 'c3',
+      at: '2026-10-24T09:00:00.000Z',
+    });
+  });
+
+  it('yields to work, and to a question that is yours to answer', () => {
+    const back = run({ id: 'a', status: 'waiting', comesBackAt: '2026-10-24T09:00:00.000Z' });
+    expect(standingOf([back, run({ id: 'b', status: 'running' })], 'p1', 'u1').kind).toBe('working');
+    expect(standingOf([back, run({ id: 'c', status: 'interrupted' })], 'p1', 'u1').kind).toBe(
+      'waiting',
+    );
+  });
+});

@@ -84,6 +84,10 @@ MEMORY_TOOLS = ("remember", "recall", "forget")
 #: put to the person, whatever the admin let the agent's posts do: it is recorded in their
 #: name, and "who decided" has to stay true.
 DECISION_TOOLS = ("record_decision",)
+#: Coming back to the conversation later (ADR 0040, `jobs/agui_later.py`). Offered
+#: wherever asking another agent is, and never put to the person: it posts nothing now,
+#: and what it posts when it comes back is an answer here, which every run may give.
+LATER_TOOLS = ("schedule_followup",)
 
 #: Rounds of tool calls one run may make, and calls in one round. A run that keeps
 #: calling past them is not converging on an answer.
@@ -140,9 +144,11 @@ def writes_without_asking(approval: str, *, in_their_dm: bool) -> bool:
 def offered_names(access: str) -> frozenset[str]:
     """The tools an agent with this access is offered."""
     if access == "read":
-        return frozenset(READ_TOOLS + DELEGATE_TOOLS + MEMORY_TOOLS)
+        return frozenset(READ_TOOLS + DELEGATE_TOOLS + MEMORY_TOOLS + LATER_TOOLS)
     if access == "write":
-        return frozenset(READ_TOOLS + DELEGATE_TOOLS + MEMORY_TOOLS + WRITE_TOOLS + DECISION_TOOLS)
+        return frozenset(
+            READ_TOOLS + DELEGATE_TOOLS + MEMORY_TOOLS + LATER_TOOLS + WRITE_TOOLS + DECISION_TOOLS
+        )
     return frozenset()
 
 
@@ -221,9 +227,49 @@ _MEMORY_SPECS: tuple[dict[str, Any], ...] = (
 )
 
 
+#: Coming back later, as an agent is offered it (ADR 0040). Not in the MCP catalogue: an
+#: assistant is a person (ADR 0016), with its own ways to come back to something.
+_LATER_SPECS: tuple[dict[str, Any], ...] = (
+    {
+        "name": "schedule_followup",
+        "description": (
+            "Come back to this conversation later: this run waits until the time you name, "
+            "then carries on here for the same person, with your note as this call's "
+            "result. For what you cannot know yet — a deploy finishing, an answer expected "
+            "tomorrow. Everyone here sees when you will be back, and the person can stop "
+            "it. At least a minute and at most 14 days ahead, and at most 5 times in one "
+            "conversation. Say in your answer that you will come back, and when."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "when": {
+                    "type": "string",
+                    "description": (
+                        "When to come back: an ISO 8601 date and time with its UTC offset, "
+                        "like 2026-10-24T10:00:00+02:00. The context says what time it is "
+                        "now, in the person's time zone."
+                    ),
+                },
+                "note": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": (
+                        "What to do when you come back, in a line or two. You are handed "
+                        "it then, with what was said here since."
+                    ),
+                },
+            },
+            "required": ["when", "note"],
+            "additionalProperties": False,
+        },
+    },
+)
+
+
 def offered_for(names: frozenset[str]) -> list[dict[str, Any]]:
     """`offered`, for a set of names already decided: Blob's tools in the catalogue's
-    order, then the notes tools."""
+    order, then the notes tools, then coming back later."""
     return [
         *(
             {
@@ -235,6 +281,7 @@ def offered_for(names: frozenset[str]) -> list[dict[str, Any]]:
             if tool["name"] in names
         ),
         *(dict(spec) for spec in _MEMORY_SPECS if spec["name"] in names),
+        *(dict(spec) for spec in _LATER_SPECS if spec["name"] in names),
     ]
 
 

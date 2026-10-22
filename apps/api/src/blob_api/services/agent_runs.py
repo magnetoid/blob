@@ -804,6 +804,9 @@ async def sweep(session: AsyncSession, keep_days: int = 30) -> int:
                 """
                 DELETE FROM agent_runs
                  WHERE started_at < now() - make_interval(days => :days)
+                   -- A run still waiting is still somebody's: a follow-up (ADR 0040) may
+                   -- have begun a fortnight before the day it comes back.
+                   AND status <> 'waiting'
                 RETURNING id
                 """
             ),
@@ -824,6 +827,8 @@ _VIEW_SELECT = """
            -- would carry every one of them.
            r.interrupt -> 'items' AS interrupt_items,
            r.interrupt -> 'asked' ->> 'name' AS asked_agent,
+           r.interrupt -> 'comes_back' ->> 'until' AS comes_back_at,
+           r.interrupt -> 'comes_back' ->> 'note' AS comes_back_for,
            pp.name AS asked_by
       FROM agent_runs r
       JOIN plugins p ON p.id = r.plugin_id
@@ -859,6 +864,10 @@ def _view(row: Any) -> dict[str, Any]:
         # The agent this run asked with `ask_agent` and waited on, by name (M2 · A2): kept
         # after it heard back, so the card can say what it did rather than "silently".
         "askedAgent": row.asked_agent,
+        # When it said it would come back to this conversation, and what for (ADR 0040):
+        # kept after it has, like `askedAgent`, so the card can say what it did.
+        "comesBackAt": row.comes_back_at,
+        "comesBackFor": row.comes_back_for,
     }
 
 
@@ -1176,7 +1185,12 @@ async def waiting_to_hear(
     """Waiting runs with something to hear: the agent they asked has stopped — answered,
     failed, or stopped to ask a person — or never started within `grace_sec`, or the wait
     has run past `limit_sec`. The cron's net under the hop's own call, which a run that
-    began waiting a moment after its hop finished would otherwise miss."""
+    began waiting a moment after its hop finished would otherwise miss.
+
+    And a run that said it would come back (ADR 0040), once its time has come — and only
+    then: the quarter-hour wall and the hop's grace are a question's nets, and either would
+    wake a follow-up days early (a follow-up names no hop, so "no hop yet" is always true).
+    """
     rows = (
         await session.execute(
             text(
@@ -1184,19 +1198,30 @@ async def waiting_to_hear(
                 SELECT w.id FROM agent_runs w
                  WHERE w.status = 'waiting'
                    AND (
-                     w.finished_at < now() - make_interval(secs => :limit)
-                     OR EXISTS (
-                       SELECT 1 FROM agent_runs h
-                        WHERE h.trigger_message_id::text = w.interrupt -> 'asked' ->> 'message_id'
-                          AND h.plugin_id::text = w.interrupt -> 'asked' ->> 'plugin_id'
-                          AND h.status NOT IN ('running', 'waiting')
+                     (
+                       w.interrupt ->> 'kind' = 'come_back'
+                       AND (w.interrupt -> 'comes_back' ->> 'until')::timestamptz <= now()
                      )
                      OR (
-                       w.finished_at < now() - make_interval(secs => :grace)
-                       AND NOT EXISTS (
-                         SELECT 1 FROM agent_runs h
-                          WHERE h.trigger_message_id::text = w.interrupt -> 'asked' ->> 'message_id'
-                            AND h.plugin_id::text = w.interrupt -> 'asked' ->> 'plugin_id'
+                       coalesce(w.interrupt ->> 'kind', '') <> 'come_back'
+                       AND (
+                         w.finished_at < now() - make_interval(secs => :limit)
+                         OR EXISTS (
+                           SELECT 1 FROM agent_runs h
+                            WHERE h.trigger_message_id::text
+                                    = w.interrupt -> 'asked' ->> 'message_id'
+                              AND h.plugin_id::text = w.interrupt -> 'asked' ->> 'plugin_id'
+                              AND h.status NOT IN ('running', 'waiting')
+                         )
+                         OR (
+                           w.finished_at < now() - make_interval(secs => :grace)
+                           AND NOT EXISTS (
+                             SELECT 1 FROM agent_runs h
+                              WHERE h.trigger_message_id::text
+                                      = w.interrupt -> 'asked' ->> 'message_id'
+                                AND h.plugin_id::text = w.interrupt -> 'asked' ->> 'plugin_id'
+                           )
+                         )
                        )
                      )
                    )

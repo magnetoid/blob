@@ -615,6 +615,12 @@ export interface AgentRunView {
    */
   askedAgent?: string | null;
   /**
+   * When the run said it would come back to this conversation (ADR 0040), and what for —
+   * while it waits, and after it has. Optional on the wire, like `askedAgent`.
+   */
+  comesBackAt?: string | null;
+  comesBackFor?: string | null;
+  /**
    * Tokens the agent reported for the run, all providers together; null when it reported
    * none. Optional on the wire, because a view written before 1.0 support has no field.
    */

@@ -30,6 +30,7 @@ import { ListSkeleton } from '../../components/ListSkeleton.tsx';
 import { SparkIcon } from '../../components/Icon.tsx';
 import { RunHistoryDialog } from '../messages/RunHistoryDialog.tsx';
 import { formatRelative } from '../messages/messageFormatting.ts';
+import { formatMoment } from '../../lib/format.ts';
 import { standingOf, type Standing } from './standing.ts';
 
 /** Newest first, the order every standing reads its runs in. */
@@ -201,6 +202,16 @@ function StandingLine({ standing, where }: { standing: Standing; where: string }
     return (
       <div className="agent-row-standing" data-state="waiting">
         Waiting for your answer in{' '}
+        <button className="agent-row-where" onClick={go}>
+          {where}
+        </button>
+      </div>
+    );
+  }
+  if (standing.kind === 'returning') {
+    return (
+      <div className="agent-row-standing" data-state="returning">
+        Coming back {formatMoment(standing.at)} in{' '}
         <button className="agent-row-where" onClick={go}>
           {where}
         </button>

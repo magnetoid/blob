@@ -8855,6 +8855,20 @@ a.build-commit-sha:hover {
   min-width: 0;
 }
 
+/* What a run coming back later will do then (ADR 0040), in the agent's own words: two
+   lines at most, since the note is a reason to wait and not the answer. */
+.agent-run-note {
+  margin: 6px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* What the run was shown: one quiet line under what it did. */
 .agent-run-seen {
   margin-top: 6px;
