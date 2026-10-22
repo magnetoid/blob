@@ -4642,6 +4642,40 @@
         "title": "FileListOut",
         "type": "object"
       },
+      "FollowIn": {
+        "description": "What the agent hears in the channel. Left out \u2014 the body itself is optional \u2014 a\nnew follow hears everything and an existing one keeps what it heard.",
+        "properties": {
+          "hears": {
+            "anyOf": [
+              {
+                "enum": [
+                  "everything",
+                  "files",
+                  "unanswered"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hears"
+          },
+          "quietMinutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quietminutes"
+          }
+        },
+        "title": "FollowIn",
+        "type": "object"
+      },
       "FollowThreadInput": {
         "properties": {
           "following": {
@@ -4657,6 +4691,10 @@
       },
       "FollowedChannelOut": {
         "properties": {
+          "hears": {
+            "title": "Hears",
+            "type": "string"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -4676,6 +4714,17 @@
             ],
             "title": "Name"
           },
+          "quietMinutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quietminutes"
+          },
           "since": {
             "title": "Since",
             "type": "string"
@@ -4685,7 +4734,9 @@
           "id",
           "name",
           "kind",
-          "since"
+          "since",
+          "hears",
+          "quietMinutes"
         ],
         "title": "FollowedChannelOut",
         "type": "object"
@@ -16154,7 +16205,7 @@
         ]
       },
       "put": {
-        "description": "Let this agent hear every message a person posts in this channel (ADR 0026).\n\nNot addressed to it, so it can stay quiet: each such run is read-only, shows no card\nin the room, and is throttled \u2014 a cooldown per channel and a daily cap. The agent's\nbot must already be in the channel; following is not joining.",
+        "description": "Let this agent hear this channel (ADR 0026): every message a person posts there,\nonly those with a file, or only the questions nobody answered within a quiet time.\n\nNot addressed to it, so it can stay quiet: each such run is read-only, shows no card\nin the room, and is throttled \u2014 a cooldown per channel and a daily cap. The agent's\nbot must already be in the channel; following is not joining.",
         "operationId": "follow_channel_api_admin_plugins__plugin_id__follows__channel_id__put",
         "parameters": [
           {
@@ -16178,6 +16229,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FollowIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

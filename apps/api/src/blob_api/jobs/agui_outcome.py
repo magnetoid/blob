@@ -1065,6 +1065,7 @@ def _run_body(
         channel_topic=gathered.topic,
         channel_people=gathered.people,
         addressed=listener.addressed,
+        unanswered_for=listener.quiet_minutes if listener.hears == "unanswered" else None,
     )
 
 

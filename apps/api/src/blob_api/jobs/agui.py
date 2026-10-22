@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
@@ -37,14 +39,20 @@ from ..lib.redis import redis
 from ..plugins import agui, decisions
 from ..plugins.streams import Listener, stream_run
 from ..realtime import hub
-from ..services import agent_access, agent_chains, task_dispatch
+from ..services import agent_access, agent_chains, agent_follows, task_dispatch
 from ..services import agent_runs as agent_run_service
 from ..services import messages as message_service
 from ..services import policies as policy_service
 from ..services.serialize import message_event
 from ..services.workspace_settings import parse as parse_settings
 from . import agui_delegate, agui_later
-from .agui_admission import followers_for, listeners_for, may_follow_now, personal_agent_for
+from .agui_admission import (
+    followers_for,
+    listeners_for,
+    may_follow_now,
+    personal_agent_for,
+    unanswered_follower,
+)
 from .agui_outcome import refuse, run_one
 
 log = logging.getLogger("blob.jobs.agui")
@@ -64,6 +72,23 @@ async def _claim(message_id: str) -> bool:
     except Exception:
         log.warning("could not take the agui run lease", exc_info=True)
         return True
+
+
+async def _trigger(session: Any, message_id: str) -> Any:
+    """The message a run answers: what deciding who answers it, and on whose authority,
+    reads of it."""
+    return (
+        await session.execute(
+            text(
+                """
+                SELECT id, workspace_id, channel_id, author_id, kind, plugin_id,
+                       client_msg_id, thread_root_id, mention_user_ids, deleted_at
+                  FROM messages WHERE id = :id
+                """
+            ),
+            {"id": message_id},
+        )
+    ).first()
 
 
 async def handle_agui_run(message_id: str, parent_run_id: str | None = None) -> None:
@@ -122,20 +147,8 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
     if not await _claim(message_id):
         return
 
-    agents_enabled = True
     async with session_scope() as session:
-        trigger = (
-            await session.execute(
-                text(
-                    """
-                    SELECT id, workspace_id, channel_id, author_id, kind, plugin_id,
-                           client_msg_id, thread_root_id, mention_user_ids, deleted_at
-                      FROM messages WHERE id = :id
-                    """
-                ),
-                {"id": message_id},
-            )
-        ).first()
+        trigger = await _trigger(session, message_id)
         if not trigger or trigger.deleted_at or trigger.kind == "system":
             return
 
@@ -199,7 +212,10 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
             # itself, addressed. Following is set on channels only, never on a
             # conversation between people (`agent_follows.follow`).
             followers = await followers_for(
-                session, workspace_id=trigger.workspace_id, channel_id=trigger.channel_id
+                session,
+                workspace_id=trigger.workspace_id,
+                channel_id=trigger.channel_id,
+                message_id=str(trigger.id),
             )
             listeners = [
                 *listeners,
@@ -213,93 +229,133 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
         if not listeners:
             return
 
-        # Whose agent is it? An agent with no owner is the workspace's and answers anyone;
-        # an owned one answers its owner and whoever they have lent it to. Asked of the
-        # person the chain runs on — at a hop that is the person at the root, not the
-        # agent whose reply did the mentioning, so an agent everyone can talk to does not
-        # become a way to command one only its owner may.
-        #
-        # A refusal is silence, deliberately. Telling the room "that is not your agent"
-        # would make an owned agent's existence, and its owner, discoverable by anyone who
-        # guessed a name — and the mention itself is already visible to everybody, so the
-        # person who tried can see perfectly well that nothing happened.
-        allowed_bots = await agent_access.commandable_by(
-            session,
-            workspace_id=trigger.workspace_id,
-            actor_id=chain.initiated_by_user_id,
-            channel_id=trigger.channel_id,
-            bot_user_ids=[known.bot_user_id for known in listeners],
+        going = await _admit(session, trigger, chain, listeners)
+    if going is None:
+        return
+    await _set_going(trigger, chain, going, thread_root_id=trigger.thread_root_id)
+
+
+@dataclass(slots=True)
+class _Going:
+    """Who answers a trigger, and what their runs need to know — decided under one session
+    by `_admit`, then set going by `_set_going` once it is closed."""
+
+    listeners: list[Listener]
+    max_depth: int
+    asker: str
+    on_behalf_of: str | None
+    channel_name: str | None
+    agents_enabled: bool
+
+
+async def _admit(
+    session: Any, trigger: Any, chain: agent_chains.Chain, listeners: list[Listener]
+) -> _Going | None:
+    """Of the agents a trigger reached, those that may answer it now — or None when none
+    may. Whose agent each is, a follow's throttle, the chain's budget at a hop, and the
+    names and switches the runs need. Shared by a posted message and a question handed on
+    late (`_hear_late`), so both meet the same rules."""
+    # Whose agent is it? An agent with no owner is the workspace's and answers anyone;
+    # an owned one answers its owner and whoever they have lent it to. Asked of the
+    # person the chain runs on — at a hop that is the person at the root, not the
+    # agent whose reply did the mentioning, so an agent everyone can talk to does not
+    # become a way to command one only its owner may.
+    #
+    # A refusal is silence, deliberately. Telling the room "that is not your agent"
+    # would make an owned agent's existence, and its owner, discoverable by anyone who
+    # guessed a name — and the mention itself is already visible to everybody, so the
+    # person who tried can see perfectly well that nothing happened.
+    allowed_bots = await agent_access.commandable_by(
+        session,
+        workspace_id=trigger.workspace_id,
+        actor_id=chain.initiated_by_user_id,
+        channel_id=trigger.channel_id,
+        bot_user_ids=[known.bot_user_id for known in listeners],
+    )
+    for known in [k for k in listeners if k.bot_user_id not in allowed_bots]:
+        log.info(
+            "agui: %s may not command agent %s in %s",
+            chain.initiated_by_user_id,
+            known.plugin_id,
+            trigger.channel_id,
         )
-        for known in [k for k in listeners if k.bot_user_id not in allowed_bots]:
-            log.info(
-                "agui: %s may not command agent %s in %s",
-                chain.initiated_by_user_id,
-                known.plugin_id,
-                trigger.channel_id,
-            )
-        listeners = [known for known in listeners if known.bot_user_id in allowed_bots]
+    listeners = [known for known in listeners if known.bot_user_id in allowed_bots]
 
-        # A follow is never worth a word in the room when it cannot go: over the agent's
-        # budget, or inside its quiet period in this channel, or past the day's cap, it is
-        # dropped here in silence — a refusal card under every message of a busy channel
-        # would be the noise following must never make. A mention keeps its refusals.
-        heard: list[Listener] = []
-        for known in listeners:
-            if not known.addressed:
-                if await agent_run_service.check_budget(session, plugin_id=known.plugin_id):
-                    continue
-                if not await may_follow_now(known.plugin_id, trigger.channel_id):
-                    continue
-            heard.append(known)
-        listeners = heard
+    # A follow is never worth a word in the room when it cannot go: over the agent's
+    # budget, or inside its quiet period in this channel, or past the day's cap, it is
+    # dropped here in silence — a refusal card under every message of a busy channel
+    # would be the noise following must never make. A mention keeps its refusals.
+    heard: list[Listener] = []
+    for known in listeners:
+        if not known.addressed:
+            if await agent_run_service.check_budget(session, plugin_id=known.plugin_id):
+                continue
+            if not await may_follow_now(known.plugin_id, trigger.channel_id):
+                continue
+        heard.append(known)
+    listeners = heard
+    if not listeners:
+        return None
+
+    policy = await policy_service.effective_for(session, trigger.workspace_id)
+    max_depth = policy.agent_chain_max_depth
+    # A hop spends the chain's budget; a resume does not. It is the person answering
+    # the agent that asked, so it adds no hop — and the budget's rules would refuse
+    # it: `admit` drops the agent whose reply caused a hop ("mentioned itself"), which
+    # for a resume is the one agent being resumed, and a person may take far longer
+    # than the chain's quarter hour to answer a question that waits a day. So a
+    # decision raised anywhere past the root could never be answered at all.
+    if chain.depth > 0 and not chain.resuming:
+        admitted = await agent_chains.admit(
+            session,
+            chain,
+            candidates=[(known.plugin_id, known.bot_user_id) for known in listeners],
+            max_depth=max_depth,
+        )
+        listeners = [known for known in listeners if known.bot_user_id in admitted]
         if not listeners:
-            return
+            return None
 
-        policy = await policy_service.effective_for(session, trigger.workspace_id)
-        max_depth = policy.agent_chain_max_depth
-        # A hop spends the chain's budget; a resume does not. It is the person answering
-        # the agent that asked, so it adds no hop — and the budget's rules would refuse
-        # it: `admit` drops the agent whose reply caused a hop ("mentioned itself"), which
-        # for a resume is the one agent being resumed, and a person may take far longer
-        # than the chain's quarter hour to answer a question that waits a day. So a
-        # decision raised anywhere past the root could never be answered at all.
-        if chain.depth > 0 and not chain.resuming:
-            admitted = await agent_chains.admit(
-                session,
-                chain,
-                candidates=[(known.plugin_id, known.bot_user_id) for known in listeners],
-                max_depth=max_depth,
-            )
-            listeners = [known for known in listeners if known.bot_user_id in admitted]
-            if not listeners:
-                return
+    rows = (
+        await session.execute(
+            text("SELECT id, display_name FROM users WHERE id = ANY(cast(:ids AS uuid[]))"),
+            {"ids": [trigger.author_id, chain.initiated_by_user_id]},
+        )
+    ).fetchall()
+    display = {str(row.id): row.display_name for row in rows}
+    asker = display.get(str(trigger.author_id)) or "someone"
+    on_behalf_of = display.get(chain.initiated_by_user_id) if chain.depth > 0 else None
+    channel_name = (
+        await session.execute(
+            text("SELECT name FROM channels WHERE id = :id"), {"id": trigger.channel_id}
+        )
+    ).scalar_one_or_none()
 
-        rows = (
-            await session.execute(
-                text("SELECT id, display_name FROM users WHERE id = ANY(cast(:ids AS uuid[]))"),
-                {"ids": [trigger.author_id, chain.initiated_by_user_id]},
-            )
-        ).fetchall()
-        display = {str(row.id): row.display_name for row in rows}
-        asker = display.get(str(trigger.author_id)) or "someone"
-        on_behalf_of = display.get(chain.initiated_by_user_id) if chain.depth > 0 else None
-        channel_name = (
-            await session.execute(
-                text("SELECT name FROM channels WHERE id = :id"), {"id": trigger.channel_id}
-            )
-        ).scalar_one_or_none()
+    settings_row = (
+        await session.execute(
+            text("SELECT settings FROM workspace_settings WHERE workspace_id = :ws"),
+            {"ws": trigger.workspace_id},
+        )
+    ).fetchone()
+    agents_enabled = parse_settings(settings_row.settings if settings_row else None).agents_enabled
+    return _Going(
+        listeners=listeners,
+        max_depth=max_depth,
+        asker=asker,
+        on_behalf_of=on_behalf_of,
+        channel_name=channel_name,
+        agents_enabled=agents_enabled,
+    )
 
-        settings_row = (
-            await session.execute(
-                text("SELECT settings FROM workspace_settings WHERE workspace_id = :ws"),
-                {"ws": trigger.workspace_id},
-            )
-        ).fetchone()
-        agents_enabled = parse_settings(
-            settings_row.settings if settings_row else None
-        ).agents_enabled
 
-    if not agents_enabled:
+async def _set_going(
+    trigger: Any, chain: agent_chains.Chain, going: _Going, *, thread_root_id: str | None
+) -> None:
+    """Refuse every addressed agent when agents are off, or run them all at once."""
+    listeners = going.listeners
+    asker, channel_name = going.asker, going.channel_name
+    max_depth, on_behalf_of = going.max_depth, going.on_behalf_of
+    if not going.agents_enabled:
         # The kill switch is workspace-wide: every mentioned agent is refused, none is
         # called, and the run log is how "I mentioned it and nothing happened" is answered.
         # A follow is simply not heard: nobody asked, so there is nobody to answer.
@@ -311,7 +367,7 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
                     known,
                     workspace_id=trigger.workspace_id,
                     channel_id=trigger.channel_id,
-                    thread_root_id=trigger.thread_root_id,
+                    thread_root_id=thread_root_id,
                     trigger_id=trigger.id,
                     trigger_user_id=trigger.author_id,
                     reason="Agents are turned off for this server.",
@@ -330,7 +386,7 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
                 listener,
                 workspace_id=trigger.workspace_id,
                 channel_id=trigger.channel_id,
-                thread_root_id=trigger.thread_root_id,
+                thread_root_id=thread_root_id,
                 trigger_id=trigger.id,
                 trigger_user_id=trigger.author_id,
                 asker=asker,
@@ -353,6 +409,60 @@ async def _run(message_id: str, parent_run_id: str | None = None) -> None:
                 trigger.id,
                 exc_info=outcome,
             )
+
+
+async def hear_unanswered_questions() -> int:
+    """Hand each question that went unanswered in a channel an agent follows for those to
+    that agent (ADR 0026's addendum): one job per question and agent. Answers how many.
+
+    No lease: a pair handed on twice before its run row exists runs once anyway — the row
+    is the ledger (`agent_runs.start`) — and a pair the follow throttle turned away has no
+    row, so the next sweep tries it again while it is still in its window."""
+    async with session_scope() as session:
+        due = await agent_follows.unanswered_questions(session, now=datetime.now(UTC))
+    for message_id, plugin_id in due:
+        await queue_lib.enqueue("agui_follow_late", message_id, plugin_id)
+    return len(due)
+
+
+async def handle_follow_late(message_id: str, plugin_id: str) -> None:
+    """A question nobody answered, for the agent following its channel for those. Never
+    raises, like a run."""
+    try:
+        await _hear_late(message_id, plugin_id)
+    except Exception:
+        log.warning("could not hand %s to agent %s", message_id, plugin_id, exc_info=True)
+
+
+async def _hear_late(message_id: str, plugin_id: str) -> None:
+    async with session_scope() as session:
+        trigger = await _trigger(session, message_id)
+        if (
+            trigger is None
+            or trigger.deleted_at
+            or trigger.kind != "user"
+            or trigger.thread_root_id is not None
+        ):
+            return
+        # Somebody may have answered between the sweep and now.
+        if not await agent_follows.still_unanswered(session, message_id=message_id):
+            return
+        follower = await unanswered_follower(
+            session,
+            workspace_id=str(trigger.workspace_id),
+            channel_id=str(trigger.channel_id),
+            plugin_id=plugin_id,
+        )
+        if follower is None:
+            return
+        # The asker's message roots the chain, as it would have had it been heard as it
+        # was posted (ADR 0013): the person behind the run is the one who asked.
+        chain = agent_chains.root(trigger)
+        going = await _admit(session, trigger, chain, [follower])
+    if going is None:
+        return
+    # In the question's own thread: a reply to it is what answering it is.
+    await _set_going(trigger, chain, going, thread_root_id=str(trigger.id))
 
 
 async def handle_agent_heard(run_id: str) -> None:

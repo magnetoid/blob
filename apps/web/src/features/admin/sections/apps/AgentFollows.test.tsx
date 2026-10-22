@@ -26,7 +26,7 @@ const act = async (run: () => Promise<unknown>) => {
 describe('the channels an agent follows', () => {
   it('offers only channels it is in, and shows which it follows', async () => {
     vi.spyOn(api.admin, 'agentFollows').mockResolvedValue({
-      channels: [{ id: 'c2', name: 'launch', kind: 'public', since: '2026-10-19T00:00:00Z' }],
+      channels: [{ id: 'c2', name: 'launch', kind: 'public', since: '2026-10-19T00:00:00Z', hears: 'everything', quietMinutes: null }],
     });
     render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
 
@@ -35,13 +35,13 @@ describe('the channels an agent follows', () => {
     const general = screen.getByRole('button', { name: 'Helper follows #general' });
     expect(general.getAttribute('aria-pressed')).toBe('false');
     expect(screen.queryByRole('button', { name: 'Helper follows #random' })).toBeNull();
-    expect(screen.getByText(/not only the ones that mention it/)).toBeTruthy();
+    expect(screen.getByText(/not only what mentions it/)).toBeTruthy();
   });
 
   it('follows and unfollows with the switch, and shows what the server says', async () => {
     vi.spyOn(api.admin, 'agentFollows').mockResolvedValue({ channels: [] });
     const follow = vi.spyOn(api.admin, 'followChannel').mockResolvedValue({
-      channels: [{ id: 'c1', name: 'general', kind: 'public', since: '2026-10-19T00:00:00Z' }],
+      channels: [{ id: 'c1', name: 'general', kind: 'public', since: '2026-10-19T00:00:00Z', hears: 'everything', quietMinutes: null }],
     });
     const unfollow = vi.spyOn(api.admin, 'unfollowChannel').mockResolvedValue({ channels: [] });
     render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
@@ -55,6 +55,29 @@ describe('the channels an agent follows', () => {
     fireEvent.click(general);
     await waitFor(() => expect(general.getAttribute('aria-pressed')).toBe('false'));
     expect(unfollow).toHaveBeenCalledWith('p1', 'c1');
+  });
+
+  it('chooses what it hears in a channel it follows, and shows what the server says', async () => {
+    vi.spyOn(api.admin, 'agentFollows').mockResolvedValue({
+      channels: [
+        { id: 'c2', name: 'launch', kind: 'public', since: '2026-10-19T00:00:00Z', hears: 'everything', quietMinutes: null },
+      ],
+    });
+    const follow = vi.spyOn(api.admin, 'followChannel').mockResolvedValue({
+      channels: [
+        { id: 'c2', name: 'launch', kind: 'public', since: '2026-10-19T00:00:00Z', hears: 'unanswered', quietMinutes: 240 },
+      ],
+    });
+    render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
+
+    const choice = await screen.findByLabelText<HTMLSelectElement>('What Helper hears in #launch');
+    expect(choice.value).toBe('everything');
+    // Only a followed channel has anything to choose.
+    expect(screen.queryByLabelText('What Helper hears in #general')).toBeNull();
+
+    fireEvent.change(choice, { target: { value: 'unanswered:240' } });
+    await waitFor(() => expect(choice.value).toBe('unanswered:240'));
+    expect(follow).toHaveBeenCalledWith('p1', 'c2', { hears: 'unanswered', quietMinutes: 240 });
   });
 
   it('says to add it to a channel first when it is in none', async () => {

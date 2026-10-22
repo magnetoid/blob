@@ -1003,6 +1003,19 @@ NOT_ADDRESSED = (
 )
 
 
+def unanswered_note(minutes: int) -> str:
+    """What a run started by a question nobody answered is told, in place of
+    `NOT_ADDRESSED`: the same contract — the `addressed` item — with why it was sent."""
+    waited = {30: "half an hour", 60: "an hour", 1440: "a day"}.get(
+        minutes, f"{minutes // 60} hours" if minutes % 60 == 0 else f"{minutes} minutes"
+    )
+    return (
+        "no — you follow this channel for the questions nobody answers, and this one has "
+        f"gone {waited} without an answer. Answer it if you can help; your reply goes in "
+        "its thread. If you cannot, finish without saying anything."
+    )
+
+
 def clock(at: datetime, timezone: str) -> dict[str, str]:
     """`at` as the `now` context item says it, for a person in `timezone`.
 
@@ -1053,6 +1066,7 @@ def build_run_input(
     channel_topic: str | None = None,
     channel_people: int | None = None,
     addressed: bool = True,
+    unanswered_for: int | None = None,
     notes: str | None = None,
 ) -> dict[str, Any]:
     """The POST body.
@@ -1121,7 +1135,12 @@ def build_run_input(
     if channel_people is not None:
         context.append({"description": "channel_people", "value": str(channel_people)})
     if not addressed:
-        context.append({"description": "addressed", "value": NOT_ADDRESSED})
+        context.append(
+            {
+                "description": "addressed",
+                "value": unanswered_note(unanswered_for) if unanswered_for else NOT_ADDRESSED,
+            }
+        )
     if notes:
         # What this agent noted here before (M2 · A8), newest first, a line each with the
         # note's id — so it can forget one that stopped being true.

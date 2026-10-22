@@ -85,3 +85,28 @@ run deliberately lacks.
   most once per cooldown. That is why following is opt-in per channel and why the console
   says so; an agent built for it — or the seeded agent, told through the same item — keeps
   quiet.
+
+## Addendum (M4, 2026-10-22): what it hears
+
+Every message was too much for most channels and too little for the case people asked
+about first — an agent that picks up the question nobody answered. A follow now says
+what it hears there (migration 0073, `agent_follows.hears`):
+
+- **`everything`** — as above, and what every follow from before keeps.
+- **`files`** — only a person's message that carries a file. A voice message is not one:
+  a recording wakes no follower (ADR 0035), its words are still to come.
+- **`unanswered`** — only a question nobody answered within `quiet_minutes` (half an hour,
+  an hour, four hours or a day). "Unanswered" is the nudges' definition, shared as
+  `unanswered.UNANSWERED` rather than written twice (ADR 0015). It reaches the agent from a
+  sweep every five minutes, not as it is posted: the send path does not even queue such a
+  channel's messages. A question is handed on once — the run's row is the ledger — and
+  only within two hours past its quiet time; a late answer from an agent nobody asked is
+  worse than none. The job asks again whether it is still unanswered before it runs.
+
+Nothing else changes, and that is the point. The run is the asker's — their message roots
+the chain (ADR 0013), the same `_admit` decides it as a posted message — it is unaddressed,
+read tools only, no card, throttled like any follow. Its `addressed` item says why it was
+sent ("this one has gone an hour without an answer") instead of "this did not mention
+you", and its answer goes in the question's thread, since a reply to it is what answering
+it is. An event with no person behind it — a task coming due, a channel created — is still
+not something an agent hears.

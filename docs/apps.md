@@ -467,6 +467,13 @@ dropped rather than put to anyone, an artifact is not published, and a reply nam
 another agent starts no hop. If your agent cannot keep quiet, ask the admin not to switch
 this on for it.
 
+An admin also chooses what a followed channel sends you: every message, only messages
+that carry a file (a voice message is not one), or only a question nobody answered within
+half an hour, an hour, four hours or a day. The last arrives up to five minutes after its
+quiet time, as a run on the asker's behalf whose `addressed` item says so — "this one has
+gone an hour without an answer" — and whatever you say is posted in the question's
+thread. Say nothing and nothing is posted; you are not handed the same question twice.
+
 **AG-UI is a transport, not a permission.** Your bot still needs `messages:write`, and it
 still has to be a member of a channel to answer in it. In a channel it cannot see, it says
 nothing at all — not even an error, because a private channel's existence is private.

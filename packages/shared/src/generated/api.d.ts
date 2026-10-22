@@ -1223,7 +1223,8 @@ export interface paths {
         get?: never;
         /**
          * Follow Channel
-         * @description Let this agent hear every message a person posts in this channel (ADR 0026).
+         * @description Let this agent hear this channel (ADR 0026): every message a person posts there,
+         *     only those with a file, or only the questions nobody answered within a quiet time.
          *
          *     Not addressed to it, so it can stay quiet: each such run is read-only, shows no card
          *     in the room, and is throttled — a cooldown per channel and a daily cap. The agent's
@@ -6691,14 +6692,29 @@ export interface components {
         };
         /** FollowedChannelOut */
         FollowedChannelOut: {
+            /** Hears */
+            hears: string;
             /** Id */
             id: string;
             /** Kind */
             kind: string;
             /** Name */
             name: string | null;
+            /** Quietminutes */
+            quietMinutes: number | null;
             /** Since */
             since: string;
+        };
+        /**
+         * FollowIn
+         * @description What the agent hears in the channel. Left out — the body itself is optional — a
+         *     new follow hears everything and an existing one keeps what it heard.
+         */
+        FollowIn: {
+            /** Hears */
+            hears?: ("everything" | "files" | "unanswered") | null;
+            /** Quietminutes */
+            quietMinutes?: number | null;
         };
         /** FollowsOut */
         FollowsOut: {
@@ -9503,6 +9519,7 @@ export type FeedbackTicket = components['schemas']['FeedbackTicket'];
 export type FileEntry = components['schemas']['FileEntry'];
 export type FileListOut = components['schemas']['FileListOut'];
 export type FollowedChannelOut = components['schemas']['FollowedChannelOut'];
+export type FollowIn = components['schemas']['FollowIn'];
 export type FollowsOut = components['schemas']['FollowsOut'];
 export type FollowThreadInput = components['schemas']['FollowThreadInput'];
 export type ForgotOut = components['schemas']['ForgotOut'];
@@ -11983,7 +12000,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FollowIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -30,7 +30,13 @@ from ..services import oauth as oauth_service
 from ..services import usage as usage_service
 from ..services.calls import reconcile as reconcile_calls
 from .agui import expire_agent_decisions as expire_decisions
-from .agui import handle_agent_heard, handle_agui_run, resume_waiting_runs
+from .agui import (
+    handle_agent_heard,
+    handle_agui_run,
+    handle_follow_late,
+    hear_unanswered_questions,
+    resume_waiting_runs,
+)
 from .away_mail import send_away_mail
 from .backup import run_backup
 from .deployments import sync_hosted_agents
@@ -97,6 +103,19 @@ async def agent_heard(_ctx: dict[str, Any], run_id: str) -> None:
     """Carry on a run that asked another agent something, now that it has stopped
     (M2 · A2). Enqueued by that agent's finish; one try, like a run."""
     await handle_agent_heard(run_id)
+
+
+async def agui_follow_late(_ctx: dict[str, Any], message_id: str, plugin_id: str) -> None:
+    """A question nobody answered, for the agent following its channel for those (ADR
+    0026's addendum). One try, like a run."""
+    await handle_follow_late(message_id, plugin_id)
+
+
+async def hear_unanswered(_ctx: dict[str, Any]) -> None:
+    """Hand on the questions that went unanswered in channels agents follow for those."""
+    handed = await hear_unanswered_questions()
+    if handed:
+        log.info("handed %d unanswered question(s) to agents following for them", handed)
 
 
 async def resume_waiting(_ctx: dict[str, Any]) -> None:
@@ -317,6 +336,8 @@ class WorkerSettings:
         func(agui_run, timeout=agui_run_timeout_sec(), max_tries=1),  # type: ignore[arg-type]
         # A resume is a run too, with the same ceiling and the same single try.
         func(agent_heard, timeout=agui_run_timeout_sec(), max_tries=1),  # type: ignore[arg-type]
+        # So is a question handed on late to an agent following for those.
+        func(agui_follow_late, timeout=agui_run_timeout_sec(), max_tries=1),  # type: ignore[arg-type]
         sweep_orphans,
         sweep_expired,
         sweep_agent_runs,
@@ -374,6 +395,9 @@ class WorkerSettings:
         # :05 — a run waiting on another agent hears within the minute when the hop's own
         # enqueue was missed; the free second nearest the outbox's.
         cron(resume_waiting, second=5),  # type: ignore[arg-type]
+        # Questions nobody answered, for the agents following channels for them: every five
+        # minutes is well inside the shortest quiet time an admin can choose (half an hour).
+        cron(hear_unanswered, minute=set(range(1, 60, 5)), second=20),  # type: ignore[arg-type]
         # At startup because a fresh deploy is exactly when the stored callback URL is
         # most likely stale, then on a slow cycle so a domain change heals unwatched.
         cron(

@@ -1930,7 +1930,17 @@ class AgentFollow(Base):
     """
 
     __tablename__ = "agent_follows"
-    __table_args__ = (Index("agent_follows_channel", "channel_id"),)
+    __table_args__ = (
+        Index("agent_follows_channel", "channel_id"),
+        CheckConstraint(
+            "hears IN ('everything', 'files', 'unanswered')", name="agent_follows_hears_check"
+        ),
+        CheckConstraint(
+            "(hears = 'unanswered') = (quiet_minutes IS NOT NULL)"
+            " AND (quiet_minutes IS NULL OR quiet_minutes BETWEEN 15 AND 1440)",
+            name="agent_follows_quiet_check",
+        ),
+    )
 
     plugin_id: Mapped[str] = mapped_column(
         UUIDStr, ForeignKey("plugins.id", ondelete="CASCADE"), primary_key=True
@@ -1946,6 +1956,11 @@ class AgentFollow(Base):
         UUIDStr, ForeignKey("users.id", ondelete="SET NULL")
     )
     created_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    #: What it hears there (migration 0073): `everything` a person posts, only messages
+    #: with a `files`, or only a question nobody has answered within `quiet_minutes`
+    #: (`unanswered`), which a cron hands it rather than the message's posting.
+    hears: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'everything'"))
+    quiet_minutes: Mapped[int | None] = mapped_column(Integer)
 
 
 class AgentNote(Base):

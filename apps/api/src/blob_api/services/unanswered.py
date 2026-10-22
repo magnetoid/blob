@@ -53,6 +53,35 @@ BATCH = 50
 #: How much of the question the reminder quotes.
 EXCERPT_CHARS = 80
 
+#: What "unanswered" means, once, for a question `m`: a person's message at the top of a
+#: channel ending in a question mark, with no live reply in its thread, no reaction from
+#: anybody else, no later message in the channel by another *person* (an app posting its
+#: hourly notice is not somebody chiming in), and no later message anywhere in the channel
+#: — thread replies included — that mentions the asker. The nudges read it, and so does an
+#: agent following a channel for the questions nobody answered (ADR 0026's addendum).
+UNANSWERED = """
+    m.thread_root_id IS NULL
+    AND m.deleted_at IS NULL
+    AND m.kind = 'user'
+    AND m.body ~ '[?\uff1f][]"''!.)*_[:space:]]*$'
+    AND m.reply_count = 0
+    AND NOT EXISTS (SELECT 1 FROM messages r
+                     WHERE r.thread_root_id = m.id AND r.deleted_at IS NULL)
+    AND NOT EXISTS (SELECT 1 FROM reactions x
+                     WHERE x.message_id = m.id AND x.user_id <> m.author_id)
+    AND NOT EXISTS (SELECT 1 FROM messages later
+                     WHERE later.channel_id = m.channel_id
+                       AND later.id > m.id
+                       AND later.deleted_at IS NULL
+                       AND later.kind <> 'system'
+                       AND later.author_id IS DISTINCT FROM m.author_id
+                       AND (m.author_id = ANY(later.mention_user_ids)
+                            OR ((later.thread_root_id IS NULL OR later.also_in_channel)
+                                AND EXISTS (SELECT 1 FROM users lu
+                                             WHERE lu.id = later.author_id
+                                               AND lu.kind = 'human'))))
+"""
+
 
 @dataclass(slots=True)
 class Question:
@@ -68,7 +97,7 @@ class Question:
     wants_nudges: bool
 
 
-def _time_id(moment: datetime) -> str:
+def time_id(moment: datetime) -> str:
     """A UUIDv7 whose time bits are `moment`, for bounding an id range by time."""
     return str(uuid_utils.uuid7(timestamp=int(moment.timestamp()), nanos=0))
 
@@ -114,7 +143,7 @@ async def candidates(
     rows = (
         await session.execute(
             text(
-                """
+                f"""
                 SELECT m.id, m.workspace_id, m.channel_id, m.author_id, m.body,
                        c.name AS channel_name, cm.notify_level, u.prefs
                   FROM channels c
@@ -128,39 +157,19 @@ async def candidates(
                    AND m.id <  cast(:ceiling_id AS uuid)
                    AND m.created_at <= :asked_before
                    AND m.created_at >  :forget_before
-                   AND m.thread_root_id IS NULL
-                   AND m.deleted_at IS NULL
-                   AND m.kind = 'user'
+                   AND {UNANSWERED}
                    AND u.kind = 'human'
                    AND u.deactivated_at IS NULL
-                   AND m.body ~ '[?\uff1f][]"''!.)*_[:space:]]*$'
-                   AND m.reply_count = 0
                    AND cm.notify_level <> 'none'
                    AND COALESCE((u.prefs ->> 'nudges')::boolean, true)
-                   AND NOT EXISTS (SELECT 1 FROM messages r
-                                    WHERE r.thread_root_id = m.id AND r.deleted_at IS NULL)
-                   AND NOT EXISTS (SELECT 1 FROM reactions x
-                                    WHERE x.message_id = m.id AND x.user_id <> m.author_id)
-                   AND NOT EXISTS (SELECT 1 FROM messages later
-                                    WHERE later.channel_id = m.channel_id
-                                      AND later.id > m.id
-                                      AND later.deleted_at IS NULL
-                                      AND later.kind <> 'system'
-                                      AND later.author_id IS DISTINCT FROM m.author_id
-                                      AND (m.author_id = ANY(later.mention_user_ids)
-                                           OR ((later.thread_root_id IS NULL
-                                                OR later.also_in_channel)
-                                               AND EXISTS (SELECT 1 FROM users lu
-                                                            WHERE lu.id = later.author_id
-                                                              AND lu.kind = 'human'))))
                    AND NOT EXISTS (SELECT 1 FROM unanswered_nudges n WHERE n.message_id = m.id)
                  ORDER BY m.id
                  LIMIT :batch
                 """
             ),
             {
-                "floor_id": _time_id(forget_before - timedelta(minutes=1)),
-                "ceiling_id": _time_id(asked_before + timedelta(minutes=1)),
+                "floor_id": time_id(forget_before - timedelta(minutes=1)),
+                "ceiling_id": time_id(asked_before + timedelta(minutes=1)),
                 "asked_before": asked_before,
                 "forget_before": forget_before,
                 "batch": batch,

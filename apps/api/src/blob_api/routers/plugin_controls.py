@@ -314,10 +314,23 @@ class FollowedChannelOut(CamelModel):
     kind: str
     #: When an admin set it following there.
     since: str
+    #: What it hears there: every message, only files, or the questions nobody answered
+    #: within `quiet_minutes` (migration 0073).
+    hears: str
+    quiet_minutes: int | None
 
 
 class FollowsOut(CamelModel):
     channels: list[FollowedChannelOut]
+
+
+class FollowIn(CamelModel):
+    """What the agent hears in the channel. Left out — the body itself is optional — a
+    new follow hears everything and an existing one keeps what it heard."""
+
+    hears: Literal["everything", "files", "unanswered"] | None = None
+    #: For `unanswered`: half an hour, an hour, four hours or a day. An hour if left out.
+    quiet_minutes: int | None = None
 
 
 async def _follows(session: Any, workspace_id: str, plugin_id: str) -> FollowsOut:
@@ -325,7 +338,12 @@ async def _follows(session: Any, workspace_id: str, plugin_id: str) -> FollowsOu
     return FollowsOut(
         channels=[
             FollowedChannelOut(
-                id=str(row.id), name=row.name, kind=row.kind, since=require_iso(row.created_at)
+                id=str(row.id),
+                name=row.name,
+                kind=row.kind,
+                since=require_iso(row.created_at),
+                hears=row.hears,
+                quiet_minutes=row.quiet_minutes,
             )
             for row in rows
         ]
@@ -347,14 +365,18 @@ async def follow_channel(
     plugin_id: IdParam,
     channel_id: IdParam,
     request: Request,
+    body: FollowIn | None = None,
     admin: SessionUser = Depends(require_admin),
 ) -> FollowsOut:
-    """Let this agent hear every message a person posts in this channel (ADR 0026).
+    """Let this agent hear this channel (ADR 0026): every message a person posts there,
+    only those with a file, or only the questions nobody answered within a quiet time.
 
     Not addressed to it, so it can stay quiet: each such run is read-only, shows no card
     in the room, and is throttled — a cooldown per channel and a daily cap. The agent's
     bot must already be in the channel; following is not joining.
     """
+    hears = body.hears if body is not None else None
+    quiet = body.quiet_minutes if body is not None else None
     async with transaction() as (session, _after):
         await registry.by_id(session, plugin_id, admin.workspace_id)
         await agent_follows.follow(
@@ -363,6 +385,8 @@ async def follow_channel(
             plugin_id=plugin_id,
             channel_id=channel_id,
             by=admin.id,
+            hears=hears,
+            quiet_minutes=quiet,
         )
         await audit_service.record(
             session,
@@ -370,7 +394,13 @@ async def follow_channel(
             "plugin.follow_set",
             target_type="plugin",
             target_id=plugin_id,
-            metadata={"pluginId": plugin_id, "channelId": channel_id, "following": True},
+            metadata={
+                "pluginId": plugin_id,
+                "channelId": channel_id,
+                "following": True,
+                **({"hears": hears} if hears else {}),
+                **({"quietMinutes": quiet} if hears == "unanswered" and quiet else {}),
+            },
         )
         return await _follows(session, admin.workspace_id, plugin_id)
 

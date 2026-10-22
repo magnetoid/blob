@@ -1074,13 +1074,14 @@ export const SECTIONS: Section[] = [
       {
         id: 'agent-follows',
         title: 'An agent that follows a channel',
-        blurb: 'An agent an admin set following a channel hears every message there, not only the ones that mention it.',
+        blurb: 'An agent an admin set following a channel hears what people post there, not only what mentions it — every message, only files, or only the questions nobody answered.',
         body: [
-          'Normally an agent answers only when it is mentioned, in its DM, or handed a task. An admin can let one follow a channel it is in, from its page in Agents & apps. It then hears each message people post there, told it was not mentioned, and speaks up only when it has something to add — the rest of the time it says nothing at all.',
+          'Normally an agent answers only when it is mentioned, in its DM, or handed a task. An admin can let one follow a channel it is in, from its page in Agents & apps. It then hears what people post there, told it was not mentioned, and speaks up only when it has something to add — the rest of the time it says nothing at all.',
+          'The admin also chooses what it hears: every message, only messages with files, or only questions nobody has answered for half an hour, an hour, four hours or a day. A question like that reaches it a few minutes after its time is up, and its answer goes in the question’s thread. A question somebody answered first is left alone.',
           'It works for the person whose message it heard, and sees no further than you could in that channel. It can look things up, but it cannot post anywhere else or ask another agent. While it thinks, the channel sees nothing — no card, no typing — and it hears at most one message every couple of minutes. A message that mentions it still gets an ordinary answer.',
         ],
         audience: 'admins',
-        keywords: ['follow', 'follows', 'ambient', 'listen', 'unprompted', 'without mention', 'watch channel'],
+        keywords: ['follow', 'follows', 'ambient', 'listen', 'unprompted', 'without mention', 'watch channel', 'unanswered', 'questions', 'files'],
       },
       {
         id: 'mcp-servers',

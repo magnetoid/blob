@@ -624,7 +624,13 @@ export interface FollowedChannel {
   name: string | null;
   kind: string;
   since: string;
+  /** What it hears there: every message, only files, or questions nobody answered within
+   * `quietMinutes` (M4, ADR 0026's addendum). */
+  hears: FollowHears;
+  quietMinutes: number | null;
 }
+
+export type FollowHears = 'everything' | 'files' | 'unanswered';
 
 /** What an admin decided for one tool on an MCP server (ADR 0027): `off`, or when a call
  * waits for the person who asked — every time, only outside the agent's DM, or never. */
@@ -2051,9 +2057,14 @@ export const api = {
     // mention, marked as not addressed to it. An admin's switch, per agent and channel.
     agentFollows: (pluginId: string) =>
       get<{ channels: FollowedChannel[] }>(`/api/admin/plugins/${pluginId}/follows`),
-    followChannel: (pluginId: string, channelId: string) =>
+    followChannel: (
+      pluginId: string,
+      channelId: string,
+      hearing?: { hears: FollowHears; quietMinutes?: number },
+    ) =>
       put<{ channels: FollowedChannel[] }>(
         `/api/admin/plugins/${pluginId}/follows/${channelId}`,
+        hearing,
       ),
     unfollowChannel: (pluginId: string, channelId: string) =>
       del<{ channels: FollowedChannel[] }>(

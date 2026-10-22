@@ -32,8 +32,8 @@ log = logging.getLogger("blob.jobs.agui")
 
 #: What a run needs to know about an agent, read the same way whichever way it was
 #: addressed — a mention or the room — so the two cannot drift.
-_LISTENER_SELECT = f"""
-    SELECT p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
+_LISTENER_COLUMNS = f"""
+           p.id, p.slug, p.name, u.id AS bot_user_id, p.agui_url,
            p.runtime, s.signing_secret, p.owner_user_id,
            p.agui_version, p.shows_reasoning, p.tool_access, p.write_approval,
            -- Whose text this is, asked here rather than trusted from the column: the
@@ -42,10 +42,13 @@ _LISTENER_SELECT = f"""
            -- Forwarding it would hand a third-party app's endpoint a prompt its author
            -- never declared a field for, so the run path decides for itself.
            CASE WHEN {seeded.SEEDED_AGENT} THEN p.instructions END AS instructions
+"""
+_LISTENER_FROM = """
       FROM plugins p
       JOIN users u ON u.bot_plugin_id = p.id
       JOIN plugin_secrets s ON s.plugin_id = p.id
 """
+_LISTENER_SELECT = f"SELECT {_LISTENER_COLUMNS} {_LISTENER_FROM}"
 
 #: What makes an agent able to answer at all. The enabled-and-scoped filter is the same
 #: one the bot API and the delivery drain apply: an app that was disabled or had
@@ -171,27 +174,66 @@ FOLLOW_COOLDOWN_SEC = 120
 FOLLOW_DAILY_CAP = 40
 
 
+def _follower(row: Any) -> Listener:
+    return replace(
+        _listener(row), addressed=False, hears=row.hears, quiet_minutes=row.quiet_minutes
+    )
+
+
 async def followers_for(
-    session: AsyncSession, *, workspace_id: str, channel_id: str
+    session: AsyncSession, *, workspace_id: str, channel_id: str, message_id: str
 ) -> list[Listener]:
-    """The agents following this channel that could answer in it (ADR 0026), marked as not
-    addressed. The same reachability a mention needs (`_ANSWERS`), and the bot still a
-    member: an admin follows a channel *for* an agent, and a bot removed since has nothing
-    to hear it with."""
+    """The agents following this channel that hear this message as it is posted (ADR 0026),
+    marked as not addressed: those hearing everything, and those hearing files when it
+    carries one — a file, never a voice message, which wakes no follower (ADR 0035). A
+    follow for unanswered questions hears nothing now; the cron hands those on.
+
+    The same reachability a mention needs (`_ANSWERS`), and the bot still a member: an
+    admin follows a channel *for* an agent, and a bot removed since has nothing to hear
+    it with."""
     rows = (
         await session.execute(
             text(
                 f"""
-                {_LISTENER_SELECT}
+                SELECT {_LISTENER_COLUMNS}, f.hears, f.quiet_minutes {_LISTENER_FROM}
                   JOIN agent_follows f ON f.plugin_id = p.id AND f.channel_id = :channel_id
                   JOIN channel_members m ON m.channel_id = f.channel_id AND m.user_id = u.id
                  WHERE {_ANSWERS}
+                   AND (
+                     f.hears = 'everything'
+                     OR (f.hears = 'files' AND EXISTS (
+                           SELECT 1 FROM attachments a
+                            WHERE a.message_id = :message AND a.kind = 'file'))
+                   )
                 """
             ),
-            {"ws": workspace_id, "channel_id": channel_id},
+            {"ws": workspace_id, "channel_id": channel_id, "message": message_id},
         )
     ).fetchall()
-    return [replace(_listener(row), addressed=False) for row in rows]
+    return [_follower(row) for row in rows]
+
+
+async def unanswered_follower(
+    session: AsyncSession, *, workspace_id: str, channel_id: str, plugin_id: str
+) -> Listener | None:
+    """This agent, if it still follows this channel for unanswered questions and could
+    answer there — what the cron's hand-on is checked against when its job runs."""
+    row = (
+        await session.execute(
+            text(
+                f"""
+                SELECT {_LISTENER_COLUMNS}, f.hears, f.quiet_minutes {_LISTENER_FROM}
+                  JOIN agent_follows f ON f.plugin_id = p.id AND f.channel_id = :channel_id
+                  JOIN channel_members m ON m.channel_id = f.channel_id AND m.user_id = u.id
+                 WHERE {_ANSWERS}
+                   AND p.id = :plugin
+                   AND f.hears = 'unanswered'
+                """
+            ),
+            {"ws": workspace_id, "channel_id": channel_id, "plugin": plugin_id},
+        )
+    ).fetchone()
+    return _follower(row) if row is not None else None
 
 
 async def may_follow_now(plugin_id: str, channel_id: str) -> bool:

@@ -149,6 +149,12 @@ sequenceDiagram
   quarter-hour wall clock. Stop cascades. With Blob's tools an agent can also *ask* another
   and hear the answer back: it waits holding nothing, and carries on when the answer comes.
   ([ADR 0013](.torsor/architecture/decisions/0013-agent-chains-carry-human-authority.md))
+- **It keeps an eye on a channel** — an admin can let an agent follow a channel and hear
+  every message there, only the ones carrying files, or only the questions nobody answered
+  in half an hour, an hour, four hours or a day — which it answers in their thread. It is
+  told it was not mentioned, keeps quiet unless it can help, can only look things up, and
+  is held to a cooldown and a daily cap.
+  ([ADR 0026](.torsor/architecture/decisions/0026-an-agent-may-follow-a-channel-and-hear-what-was-not-addressed-to-it.md))
 - **It comes back when it said it would** — "tell me when the deploy is out" need not be
   a guess now: an agent with Blob's tools can set itself a time, up to a fortnight ahead,
   and carry on in the same place for the same person then. Its card says when and what
@@ -454,11 +460,11 @@ the workspace and ends any. One stateless endpoint at `POST /api/mcp` speaks bot
 Named because they are coming, and because a README that implies otherwise wastes your
 afternoon:
 
-- **Agents that wake on an event.** An agent answers a mention, a DM, a task handed to it
-  or a scheduled message that names it; an admin can let it follow a channel, and it can
-  come back to a conversation later by itself. It does not yet wake on an event — a task
-  coming due, a file shared — and a scheduled run is still a scheduled message that
-  mentions it.
+- **Agents that wake on an event with nobody behind it.** An agent answers a mention, a
+  DM, a task handed to it or a scheduled message that names it; an admin can let it follow
+  a channel for every message, files or unanswered questions, and it can come back to a
+  conversation later by itself. It does not wake on a task coming due or a channel being
+  created, and a scheduled run is still a scheduled message that mentions it.
 - **Canvases and workflows** — not started.
 - **An email digest.** Blob emails you what waited for you while you were away; it sends
   no daily or weekly summary of the channels you missed.
@@ -1023,7 +1029,7 @@ The ADRs live in [`.torsor/architecture/decisions/`](.torsor/architecture/decisi
 | 0023 | A task handed to an agent is a message from the person who handed it |
 | 0024 | What an agent remembers is the conversation's, or one person's |
 | 0025 | What an operator can see of agents — traces, counters, a run's events, an app's errors |
-| 0026 | An agent may follow a channel and hear what was not addressed to it |
+| 0026 | An agent may follow a channel and hear what was not addressed to it — everything, files, or the questions nobody answered |
 | 0027 | An agent may use an MCP server's tools, through Blob |
 | 0028 | A decision is a person's; an agent may only propose one |
 | 0029 | An assistant signs in as its person |

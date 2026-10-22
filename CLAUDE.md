@@ -30,7 +30,7 @@ room bound), that a task handed to an agent is a message from the person who han
 notes too, since M2), and
 what an operator can see of agents — traces, `/metrics`, a run's events, an app's last
 ten errors (0025), that an admin may let an agent follow a channel and hear what was
-not addressed to it (0026), that an admin may connect an MCP server whose tools chosen
+not addressed to it — every message, files, or the questions nobody answered (0026), that an admin may connect an MCP server whose tools chosen
 agents use through Blob (0027), that a decision in the log is a person's while an agent
 may only propose one (0028), that an assistant may sign in to `/api/mcp` as its person
 (0029), that what agents cost is counted from their reports and priced by the

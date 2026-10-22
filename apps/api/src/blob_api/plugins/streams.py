@@ -82,6 +82,11 @@ class Listener:
     #: False when the agent was not addressed — it follows the channel and somebody
     #: posted there (ADR 0026). Such a run is read-only, shows no card, and is told so.
     addressed: bool = True
+    #: What a following agent hears in the channel (migration 0073): `everything`, `files`,
+    #: or `unanswered` — a question nobody answered in `quiet_minutes`, which the run is
+    #: told in so many words.
+    hears: str = "everything"
+    quiet_minutes: int | None = None
 
     def memory_of(self, person_id: str) -> str | None:
         """Whose memory a run on this person's behalf reads and writes (migration 0050).
