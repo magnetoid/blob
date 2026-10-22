@@ -166,6 +166,9 @@ jobs:
         env:
           SERVICE_FQDN_APP: http://localhost:3000
           SERVICE_PASSWORD_POSTGRES: ciPostgresPassword
+          # Redis asks for a password in production; booting with one proves the URL, the
+          # worker's queue and the health check all carry it.
+          SERVICE_PASSWORD_REDIS: ciRedisPassword
           SERVICE_BASE64_64_SESSION: ci-session-secret-at-least-32-characters-long
           SERVICE_USER_MINIO: ciMinioUser
           SERVICE_PASSWORD_MINIO: ciMinioPassword123

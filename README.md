@@ -597,7 +597,7 @@ the one Blob writes into a hosted agent's container, which is a reserved name.)
 | Variable | Default | Notes |
 |---|---|---|
 | `NODE_ENV` | `development` | |
-| `REDIS_URL` | `redis://localhost:6379` | Presence, typing, rate limits, the job queue, the metrics counters. |
+| `REDIS_URL` | `redis://localhost:6379` | Presence, typing, rate limits, the job queue, the metrics counters. In production give Redis a password and put it here (`redis://default:…@host:6379`): the queue decides what the worker does. `docker-compose.prod.yml` does both from `SERVICE_PASSWORD_REDIS`, and **Admin → Security** says whether it is set. |
 | `SESSION_TTL_DAYS` | `30` | |
 | `WEB_DIST` | unset | Where the built client lives. Unset in development, where Vite serves it; the image sets it and the API then serves both. |
 
@@ -881,7 +881,8 @@ domain can be attached, and a second one applies it.
 docker compose -f docker-compose.prod.yml up
 ```
 
-with the `SERVICE_*` values supplied yourself. For a plain `docker build`, the root
+with the `SERVICE_*` values supplied yourself — `SERVICE_PASSWORD_REDIS` among them, or
+Redis runs with no password. For a plain `docker build`, the root
 `Dockerfile` builds both tiers from the repo root and takes its datastores from
 `DATABASE_URL` and `REDIS_URL`.
 
