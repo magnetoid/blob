@@ -9,3 +9,6 @@ e7420b38369821e187fe813ab6451f07139fcab1:apps/api/tests/conftest.py:generic-api-
 # Reviewed 2026-10-20: `secret=secret` passes a variable named secret to the MCP client's
 # Endpoint (services/mcp_servers.py) — a keyword argument, not a credential.
 1fc150da4ea83fc8d537c0e7da026ab613bf16b3:apps/api/src/blob_api/services/mcp_servers.py:generic-api-key:284
+# Reviewed 2026-10-22: the server-telemetry tests' fake METRICS_TOKEN ("scrape-me-…"),
+# set on settings for the test and nowhere else. Not a credential.
+d9b24c9dd9ef160f3d9be69753ec7c5269031d0e:apps/api/tests/test_server_telemetry.py:generic-api-key:23
