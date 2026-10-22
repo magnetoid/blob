@@ -42,6 +42,37 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-10-22',
+    version: '1.14.0',
+    title: 'Agents that come back, polls, and what agents wait on in view',
+    entries: [
+      {
+        kind: 'added',
+        text: 'An agent can come back to a conversation later on its own — “tell me when the deploy is out” no longer has to be a guess. Its card says when it will be back and why, and Stop calls it off.',
+      },
+      {
+        kind: 'added',
+        text: 'Polls. Press the poll button under the message box, ask a question and give two to ten answers. People can change their answer until the poll closes; an anonymous poll shows only the counts, to everyone.',
+      },
+      {
+        kind: 'added',
+        text: 'An agent that follows a channel can be set to hear only messages with files, or only questions nobody answered in half an hour, an hour, four hours or a day — which it answers in the question’s thread.',
+      },
+      {
+        kind: 'added',
+        text: 'For admins: Approvals lists every question an agent is waiting on somebody to answer, and every follow-up it has set, with what it asks only where you can read the conversation.',
+      },
+      {
+        kind: 'fixed',
+        text: 'An app or agent whose address starts pointing inside the server’s own network is no longer called: Blob checks the address every time it calls, not only when the app was added.',
+      },
+      {
+        kind: 'changed',
+        text: 'The server’s Redis asks for a password; on Coolify it is set up for you.',
+      },
+    ],
+  },
+  {
     date: '2026-10-21',
     version: '1.13.0',
     title: 'Safer sign-in, voice, and the habits a team already has',

@@ -11,6 +11,69 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "b4085c59177375f4d9c01a937ba57c30ac0db3c5",
+    "shortSha": "b4085c59",
+    "subject": "feat: an Approvals page — what agents are waiting on, for admins",
+    "date": "2026-10-22T05:18:37+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "fe33788b825506364941d5f02d5819715a81cbcc",
+    "shortSha": "fe33788b",
+    "subject": "feat: polls — a message whose text is the question, with answers beside it (ADR 0041)",
+    "date": "2026-10-22T05:12:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "5eaa6b7b3d285ef90dde8201afc022bf80bcde53",
+    "shortSha": "5eaa6b7b",
+    "subject": "fix: an agent's run and an app's delivery are checked as they are sent, and pinned",
+    "date": "2026-10-22T04:44:28+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "91f5762223806e8d959d1ab261b8e27f2fea6c66",
+    "shortSha": "91f57622",
+    "subject": "fix: production Redis asks for a password",
+    "date": "2026-10-22T04:17:31+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "e341a9578c811a2ad0492dc904f5f7c0f523c696",
+    "shortSha": "e341a957",
+    "subject": "feat: an agent following a channel hears everything, files, or the questions nobody answered",
+    "date": "2026-10-22T04:12:46+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "f7a4e39c7b91ddf007e6fbd5c117630e8b29a6fb",
+    "shortSha": "f7a4e39c",
+    "subject": "feat: an agent may come back to a conversation later (ADR 0040)",
+    "date": "2026-10-22T03:40:16+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "8cc6672c03b4d6004c5cf8573e4441c6daf007d9",
+    "shortSha": "8cc6672c",
+    "subject": "ci: the bundle budget measures the production build, as the image ships it",
+    "date": "2026-10-22T03:25:56+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "d2ba68f6ad7fcb4f9063b2199ae7bd47fe4d6658",
+    "shortSha": "d2ba68f6",
+    "subject": "deps: Pillow 13.0.0, certifi 2026.10.19, Mako 1.4.3 — clear what held 1.13.0",
+    "date": "2026-10-22T03:12:46+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "6f0baaf671c5067d9f4447c06a7ead38f4f95ec1",
+    "shortSha": "6f0baaf6",
+    "subject": "release: 1.13.0 — Safer sign-in, voice, and the habits a team already has",
+    "date": "2026-10-21T22:54:48+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "16cf8eecdf10014314dcdc300996df6f74399a50",
     "shortSha": "16cf8eec",
     "subject": "docs: README says M3 is built, and names polls and edit history as missing",
@@ -365,69 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "e21e8e12",
     "subject": "feat: a decision log — record what a conversation settled, from a message, a summary or /decision; an agent may only propose one",
     "date": "2026-10-20T02:58:57+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "1fc150da4ea83fc8d537c0e7da026ab613bf16b3",
-    "shortSha": "1fc150da",
-    "subject": "feat: agents can use tools from an MCP server an admin connects — through Blob, with the person's say-so where it matters",
-    "date": "2026-10-20T02:14:48+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "ec94ff67b5fb7235ca504a77a67cddc8bfc480ee",
-    "shortSha": "ec94ff67",
-    "subject": "release: 1.11.1 — Home you can act on",
-    "date": "2026-10-19T05:10:00+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "de1e785b53a46cd82c0987db90c07424a657268c",
-    "shortSha": "de1e785b",
-    "subject": "feat: Home you can act on — answer an agent, tick off a task, clear what's unread, all in place",
-    "date": "2026-10-19T04:42:49+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "b8ede1ecc0ed4a14462c0c4269ace36ddd734b99",
-    "shortSha": "b8ede1ec",
-    "subject": "release: 1.11.0 — agents that work alongside you",
-    "date": "2026-10-19T04:03:23+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "3ab285e75f4361c31634fd689e68e8fce636e61a",
-    "shortSha": "3ab285e7",
-    "subject": "fix: a followed channel's run asks nobody, publishes nothing and starts no hop — review of A1",
-    "date": "2026-10-19T03:58:18+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "5c922cabcc71f99c8da8364063dae1e821aae095",
-    "shortSha": "5c922cab",
-    "subject": "fix: a followed channel's messages reach the run job — found by running follow mode for real",
-    "date": "2026-10-19T03:25:54+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "5ca4377f7e6438dc5270a25d8117077f7d18e937",
-    "shortSha": "5ca4377f",
-    "subject": "feat: an agent can follow a channel — it hears what was not addressed to it, and keeps quiet unless it has something to add",
-    "date": "2026-10-19T03:20:37+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "b45757b066ecef518f5db9cf52341035ee7c83d7",
-    "shortSha": "b45757b0",
-    "subject": "fix: an agent waiting on another never takes the worker's last slots — review of A2",
-    "date": "2026-10-19T02:33:58+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "15563f952032aeee7094600f5ffa01c6cf2d443b",
-    "shortSha": "15563f95",
-    "subject": "feat: an Agents page — every agent you can ask, what it does, and what it is doing now",
-    "date": "2026-10-19T02:32:06+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
