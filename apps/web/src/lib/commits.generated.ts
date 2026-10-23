@@ -11,6 +11,34 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "dac07ca0c6cc1f765d4df4811290aa1bb806fefd",
+    "shortSha": "dac07ca0",
+    "subject": "feat: a legal hold keeps what an edit replaced (ADR 0039 addendum)",
+    "date": "2026-10-23T00:37:39+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "a4fe99536d47e1b549f80af2d38a92e4b1f3e589",
+    "shortSha": "a4fe9953",
+    "subject": "feat: import a Slack workspace's history (ADR 0042)",
+    "date": "2026-10-23T00:08:40+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "970a6e569120e21e19496ad5b37df9ea23e409fd",
+    "shortSha": "970a6e56",
+    "subject": "feat: a design pass — sentence-case labels, quieter pages, one row per thing",
+    "date": "2026-10-22T22:36:40+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "0692face61e78804108f7a7c469894d8cc0f03ed",
+    "shortSha": "0692face",
+    "subject": "release: 1.14.0 — Agents that come back, polls, and what agents wait on in view",
+    "date": "2026-10-22T22:00:12+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "b4085c59177375f4d9c01a937ba57c30ac0db3c5",
     "shortSha": "b4085c59",
     "subject": "feat: an Approvals page — what agents are waiting on, for admins",
@@ -400,34 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "d8eae0a4",
     "subject": "feat: work channels with a lifecycle — versions, a review thread, verdicts, a closing summary",
     "date": "2026-10-20T05:43:57+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "24cb44fa17c8d97232bad6b81e22fb92cdaf6058",
-    "shortSha": "24cb44fa",
-    "subject": "feat: cost you can see — usage by agent and person, prices you set, a daily token cap",
-    "date": "2026-10-20T05:00:29+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "60b98429f7717b3a6497a9dd5b40b7f1a8b6836e",
-    "shortSha": "60b98429",
-    "subject": "feat: Blob as a connector — an assistant signs in to /api/mcp as its person",
-    "date": "2026-10-20T04:13:01+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a3060a3da270c46ae02227be4a0231bed7c5cdb1",
-    "shortSha": "a3060a3d",
-    "subject": "feat: agents keep notes people can read — remember, recall, forget; reworded or removed in Settings and on the agent's page",
-    "date": "2026-10-20T03:30:04+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e21e8e129e63d498d3e8836841e4ffd80b86ccb2",
-    "shortSha": "e21e8e12",
-    "subject": "feat: a decision log — record what a conversation settled, from a message, a summary or /decision; an agent may only propose one",
-    "date": "2026-10-20T02:58:57+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

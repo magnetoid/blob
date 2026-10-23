@@ -42,6 +42,41 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-10-23',
+    version: '1.15.0',
+    title: 'Your history from Slack, a hold that keeps edits, and a calmer interface',
+    entries: [
+      {
+        kind: 'added',
+        text: 'Bring a Slack workspace’s history with you. An admin uploads Slack’s export on the new Import page, sees what it holds, and brings in its channels, threads, reactions, pins and files — private channels and direct messages only if they choose, and only to the people who were in them. Nothing in the history notifies anybody.',
+      },
+      {
+        kind: 'added',
+        text: 'The people who came with it are invited from the same page, at the address Slack had. Accepting the invitation gives each of them their account, with their messages and conversations.',
+      },
+      {
+        kind: 'added',
+        text: 'A legal hold now keeps the words an edit replaces, while the conversation or the person who wrote it is on hold. The person editing is told; admins see them under Earlier versions in the message’s menu, and the workspace export includes them.',
+      },
+      {
+        kind: 'changed',
+        text: 'Labels read in sentence case, as Slack’s do, and a private channel shows its lock in the sidebar.',
+      },
+      {
+        kind: 'changed',
+        text: 'Activity puts every reaction to one message on one row. ⌘K lists a direct message once, as its person, and calls an agent an agent; search results say when a message was a direct message.',
+      },
+      {
+        kind: 'changed',
+        text: 'On a phone, the formatting buttons sit behind Aa, and the top bar fits. The Health page keeps its layout buttons behind Edit layout.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Editing your newest message shows the whole editor, Save and Cancel included, and a thread opens at its first reply instead of a gap above it.',
+      },
+    ],
+  },
+  {
     date: '2026-10-22',
     version: '1.14.0',
     title: 'Agents that come back, polls, and what agents wait on in view',
