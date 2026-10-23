@@ -5,7 +5,7 @@
 # has exactly one service to route. Build context is the repo root.
 
 # ─── 1. the client ────────────────────────────────────────────────────────────
-FROM node:22-alpine AS web
+FROM node:25-alpine AS web
 # The prompt is what corepack does instead of downloading when no TTY says otherwise,
 # which in a build is a hang rather than a question.
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
