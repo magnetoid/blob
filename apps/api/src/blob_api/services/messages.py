@@ -30,7 +30,7 @@ from ..schemas.models import Message
 from ..schemas.requests import MESSAGE_MAX_LENGTH
 from . import channels as channel_service
 from . import polls as poll_service
-from .message_versions import keep_before_edit
+from .message_versions import keep_before_delete, keep_before_edit
 from .serialize import MESSAGE_SELECT, to_message
 
 #: Avatars shown on a thread's summary line.
@@ -816,6 +816,9 @@ async def remove(
     if existing.author_id != user_id and not is_admin:
         raise forbidden("You can only delete your own messages.")
 
+    # On legal hold, the words this delete takes are kept (ADR 0039 addendum), as an
+    # edit's are — before they are gone, in the same transaction.
+    await keep_before_delete(session, message_id)
     await session.execute(
         text(
             """

@@ -163,17 +163,20 @@ async def test_retention_takes_them_with_their_message(team: dict[str, Any]) -> 
     assert await _kept(message) == []
 
 
-async def test_a_delete_does_not_take_back_what_the_hold_kept(team: dict[str, Any]) -> None:
+async def test_a_delete_under_a_hold_keeps_what_it_takes(team: dict[str, Any]) -> None:
     olga, max_ = team["olga"], team["max"]
     message = await _say(max_, team["general"], "said v1")
     await _hold(olga, "channels", team["general"])
     await _edit(max_, message, "said v2")
     deleted = await max_.delete(f"/api/messages/{message}")
     assert deleted.status == 200, deleted.body
-    # The delete took its words; the hold still has the ones the edit replaced.
-    assert await _kept(message) == ["said v1"]
+    # The edit's words and the delete's: what the conversation said stays with the hold.
+    assert await _kept(message) == ["said v1", "said v2"]
     versions = (await olga.get(f"/api/admin/messages/{message}/versions")).body
-    assert [v["body"] for v in versions["versions"]] == ["said v1"]
+    assert [(v["body"], v["endedBy"]) for v in versions["versions"]] == [
+        ("said v1", "edit"),
+        ("said v2", "delete"),
+    ]
     async with SessionFactory() as session:
         workspace = [
             m async for m in export_service.messages_of(session, team["general"], versions=True)
@@ -181,5 +184,27 @@ async def test_a_delete_does_not_take_back_what_the_hold_kept(team: dict[str, An
         personal = [m async for m in export_service.messages_of(session, team["general"])]
     exported = next(m for m in workspace if m["id"] == message)
     assert exported["body"] == "" and exported["deleted_at"]
-    assert [v["body"] for v in exported["versions"]] == ["said v1"]
+    assert [(v["body"], v["ended_by"]) for v in exported["versions"]] == [
+        ("said v1", "edit"),
+        ("said v2", "delete"),
+    ]
     assert all(m["id"] != message for m in personal)
+
+
+async def test_a_delete_keeps_nothing_without_a_hold(team: dict[str, Any]) -> None:
+    message = await _say(team["max"], team["general"], "gone for good")
+    assert (await team["max"].delete(f"/api/messages/{message}")).status == 200
+    assert await _kept(message) == []
+
+
+async def test_an_admins_delete_of_a_held_writers_message_is_kept_too(
+    team: dict[str, Any],
+) -> None:
+    olga, max_ = team["olga"], team["max"]
+    message = await _say(max_, team["general"], "max wrote this")
+    await _hold(olga, "users", max_.user_id)
+    assert (await olga.delete(f"/api/messages/{message}")).status == 200
+    assert await _kept(message) == ["max wrote this"]
+    # And it goes when his hold does.
+    await _hold(olga, "users", max_.user_id, held=False)
+    assert await _kept(message) == []

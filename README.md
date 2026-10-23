@@ -488,11 +488,8 @@ afternoon:
   emoji images stay in Slack, and an import reads the export Slack's page gives, not
   Slack's API.
 - **Edit history for readers.** An edited message shows its latest words and "(edited)";
-  only a legal hold keeps the earlier ones, for admins and the workspace export.
-- **A legal hold that keeps deletes.** A hold keeps what an edit replaced, and a delete
-  does not take that back, but a deleted message's own last words are not kept. Slack's
-  hold keeps them, silently; whether Blob should — or should refuse the delete instead —
-  is an open decision (ADR 0039).
+  only a legal hold keeps the earlier ones — and a deleted message's last words — for
+  admins and the workspace export, and the person editing or deleting is told.
 - **Moderation and Storage** in the admin console — not built, and not listed there until
   they are.
 

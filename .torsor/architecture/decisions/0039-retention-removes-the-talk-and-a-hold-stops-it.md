@@ -87,7 +87,7 @@ nightly sweep removes them. A conversation, or a person, on legal hold is skippe
 
 Decided with the Slack import's other questions: **edit history is kept only under a legal
 hold, for admins and the workspace export.** It answers the edits half of "not decided"
-above; deletes stay undecided.
+above; the next addendum answers the deletes half the same way.
 
 - **Kept only where the writer is told.** While a conversation is on hold — which its
   members see in its details — or the message's writer is — which they see in their
@@ -100,12 +100,27 @@ above; deletes stay undecided.
   edited message's menu, only in a conversation they can read; a private one is 404 to
   everybody else as before. The workspace export, an admin's (ADR 0038), carries each
   message's kept versions; a person's own export does not.
-- **A delete takes the words, not what was kept.** A delete still empties a message — what
-  a hold does about a delete is undecided — but the versions kept of it stay, so an edit
-  followed by a delete cannot take back what the hold kept; the export lists such a message
-  as deleted, with them, and the delete's confirmation says so.
+- **A delete takes the words, not what was kept.** A delete still empties a message, but
+  the versions kept of it stay, so an edit followed by a delete cannot take back what the
+  hold kept; the export lists such a message as deleted, with them.
 - **Gone with the hold.** Releasing a conversation's hold removes what it alone kept;
   releasing a person's removes the versions of what they wrote outside held conversations.
   Retention takes versions with their message.
 - **No history for anybody else.** Nobody sees an edited message's earlier words in the
   conversation, as in Slack: the "(edited)" mark is all a reader gets.
+
+## Addendum, 2026-10-23: a hold keeps what a delete took
+
+**A delete under a hold keeps the words it takes, under the edit's rule** — the honest
+alternative this ADR weighed, refusing the delete, would have changed a habit every Slack
+user has, and keeping only edits left a hold that "edit, then delete" emptied.
+
+- The same two holds, the same transparency: the conversation's (its members see it) or
+  the writer's (they see it in their settings), never a custodian merely in the room. The
+  delete's confirmation says so: "This conversation is on legal hold, so its words are
+  kept for the hold." An admin's delete of a held writer's message is kept the same way.
+- A kept version records what ended its words (`message_versions.ended_by`, migration
+  0077): an edit or a delete. "Earlier versions" and the workspace export show both; a
+  deleted message is in the export as deleted, with what the hold kept.
+- Released with its hold and removed with its message by retention, as before. Nothing is
+  kept without a hold: a delete outside one takes the words for good.

@@ -8,10 +8,11 @@ legal team's to say, and a copy its writer could not know about is the surveilla
 0039 refuses. Releasing the hold that kept a version removes it; retention removes it with
 its message.
 
+A delete under a hold keeps the words it takes the same way (`ended_by = 'delete'`), so
+what a held conversation said stays whether its writer edited it away or deleted it.
+
 Readable by an admin who may read the conversation, and in the workspace export, which
-holds the public conversations (ADR 0038). A delete still takes a message's own words —
-what a hold does about a delete is undecided — but not the versions kept of it, so an
-edit followed by a delete does not take back what the hold kept.
+holds the public conversations (ADR 0038).
 """
 
 from __future__ import annotations
@@ -31,12 +32,24 @@ HELD = "(c.legal_hold_at IS NOT NULL OR a.legal_hold_at IS NOT NULL)"
 async def keep_before_edit(session: AsyncSession, message_id: str, *, new_body: str) -> bool:
     """Keep the words an edit is about to replace, if the message is on hold. Called in
     the edit's own transaction, before the edit. True when a version was kept."""
+    return await _keep(session, message_id, ended_by="edit", new_body=new_body)
+
+
+async def keep_before_delete(session: AsyncSession, message_id: str) -> bool:
+    """Keep the words a delete is about to take, if the message is on hold. Called in the
+    delete's own transaction, before the delete empties it."""
+    return await _keep(session, message_id, ended_by="delete", new_body="")
+
+
+async def _keep(session: AsyncSession, message_id: str, *, ended_by: str, new_body: str) -> bool:
     row = (
         await session.execute(
             text(
                 f"""
-                INSERT INTO message_versions (id, workspace_id, message_id, body, written_at)
-                SELECT :id, m.workspace_id, m.id, m.body, coalesce(m.edited_at, m.created_at)
+                INSERT INTO message_versions
+                  (id, workspace_id, message_id, body, written_at, ended_by)
+                SELECT :id, m.workspace_id, m.id, m.body, coalesce(m.edited_at, m.created_at),
+                       :ended_by
                   FROM messages m
                   JOIN channels c ON c.id = m.channel_id
                   LEFT JOIN users a ON a.id = m.author_id
@@ -45,7 +58,7 @@ async def keep_before_edit(session: AsyncSession, message_id: str, *, new_body: 
                 RETURNING id
                 """
             ),
-            {"id": new_id(), "message": message_id, "new_body": new_body},
+            {"id": new_id(), "message": message_id, "new_body": new_body, "ended_by": ended_by},
         )
     ).fetchone()
     return row is not None
@@ -76,7 +89,7 @@ async def of_message(session: AsyncSession, message_id: str) -> list[Any]:
             await session.execute(
                 text(
                     """
-                    SELECT body, written_at, replaced_at FROM message_versions
+                    SELECT body, written_at, replaced_at, ended_by FROM message_versions
                      WHERE message_id = :message ORDER BY id
                     """
                 ),

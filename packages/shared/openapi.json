@@ -5927,6 +5927,11 @@
             "title": "Body",
             "type": "string"
           },
+          "endedBy": {
+            "default": "edit",
+            "title": "Endedby",
+            "type": "string"
+          },
           "replacedAt": {
             "title": "Replacedat",
             "type": "string"

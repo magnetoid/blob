@@ -225,8 +225,10 @@ class KeptVersionOut(CamelModel):
     body: str
     #: When these words were written: the message's creation, or the edit before.
     written_at: str
-    #: When an edit replaced them.
+    #: When they ended: an edit replaced them, or a delete took them.
     replaced_at: str
+    #: "edit" | "delete"
+    ended_by: str = "edit"
 
 
 class KeptVersionsOut(CamelModel):
@@ -253,6 +255,7 @@ async def message_versions(
                 body=row.body,
                 written_at=require_iso(row.written_at),
                 replaced_at=require_iso(row.replaced_at),
+                ended_by=row.ended_by,
             )
             for row in rows
         ],

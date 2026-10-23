@@ -882,19 +882,20 @@ function deliveryStatusHint(status: LocalMessageDeliveryStatus): string {
 }
 
 
-/** "Delete this message?" — and, where a legal hold kept the words its edits replaced
- *  (ADR 0039 addendum), that those stay: the person deleting is told what a hold keeps. */
+/** "Delete this message?" — and, under a legal hold (ADR 0039 addendum), that its words
+ *  are kept for the hold: the person deleting is told what a hold keeps. */
 export function DeleteConfirm({ message, onClose }: { message: Message; onClose: () => void }) {
-  const held = useStore(
-    (s) => Boolean(s.channels[message.channelId]?.legalHoldAt) || Boolean(s.retention?.held),
-  );
+  const conversationHeld = useStore((s) => Boolean(s.channels[message.channelId]?.legalHoldAt));
+  const selfHeld = useStore((s) => Boolean(s.retention?.held));
   return (
     <ConfirmDialog
       title="Delete this message?"
       body={
-        held && message.editedAt
-          ? "It disappears for everyone. There is no undo. The words its edits replaced stay kept while the legal hold lasts."
-          : "It disappears for everyone. There is no undo."
+        conversationHeld
+          ? "It disappears for everyone. There is no undo. This conversation is on legal hold, so its words are kept for the hold."
+          : selfHeld
+            ? "It disappears for everyone. There is no undo. You are on legal hold, so its words are kept for the hold."
+            : "It disappears for everyone. There is no undo."
       }
       confirmLabel="Delete"
       danger

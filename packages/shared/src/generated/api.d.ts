@@ -7463,6 +7463,11 @@ export interface components {
         KeptVersionOut: {
             /** Body */
             body: string;
+            /**
+             * Endedby
+             * @default edit
+             */
+            endedBy: string;
             /** Replacedat */
             replacedAt: string;
             /** Writtenat */

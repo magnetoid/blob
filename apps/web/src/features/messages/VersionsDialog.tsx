@@ -32,8 +32,8 @@ export function VersionsDialog({
         {error && <p className="error-text">{error.message}</p>}
         {data && data.versions.length === 0 && (
           <p className="muted">
-            None were kept. A message’s earlier words are kept only while its conversation,
-            or the person who wrote it, is on legal hold.
+            None were kept. A message’s words are kept when an edit or a delete ends them,
+            and only while its conversation, or the person who wrote it, is on legal hold.
           </p>
         )}
         {data && data.versions.length > 0 && (
@@ -41,23 +41,27 @@ export function VersionsDialog({
             {data.versions.map((version, index) => (
               <li key={`${version.writtenAt}-${index}`}>
                 <p className="versions-when">
-                  Written {formatMoment(version.writtenAt)}, replaced{' '}
+                  Written {formatMoment(version.writtenAt)},{' '}
+                  {version.endedBy === 'delete' ? 'deleted' : 'replaced'}{' '}
                   {formatMoment(version.replacedAt)}
                 </p>
                 <p className="versions-body">{version.body}</p>
               </li>
             ))}
-            <li>
-              <p className="versions-when">Now</p>
-              <p className="versions-body">{current}</p>
-            </li>
+            {/* A deleted message has no words now; its last ones are the entry above. */}
+            {data.versions[data.versions.length - 1]?.endedBy !== 'delete' && (
+              <li>
+                <p className="versions-when">Now</p>
+                <p className="versions-body">{current}</p>
+              </li>
+            )}
           </ol>
         )}
         {data && (
           <p className="pref-hint m-0">
             {data.held
-              ? 'On legal hold: an edit now keeps the words it replaces.'
-              : 'Not on legal hold now: an edit now keeps nothing.'}
+              ? 'On legal hold: an edit or a delete now keeps the words it ends.'
+              : 'Not on legal hold now: an edit or a delete now keeps nothing.'}
           </p>
         )}
         <div className="dialog-actions">

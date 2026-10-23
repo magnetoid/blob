@@ -635,7 +635,10 @@ class MessageVersion(Base):
     writer is shown, and removed when that hold is released."""
 
     __tablename__ = "message_versions"
-    __table_args__ = (Index("message_versions_message", "message_id", "id"),)
+    __table_args__ = (
+        Index("message_versions_message", "message_id", "id"),
+        CheckConstraint("ended_by IN ('edit', 'delete')", name="message_versions_ended_by_check"),
+    )
 
     id: Mapped[str] = mapped_column(UUIDStr, primary_key=True)
     workspace_id: Mapped[str] = mapped_column(
@@ -647,6 +650,8 @@ class MessageVersion(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     written_at: Mapped[Any] = mapped_column(Timestamp, nullable=False)
     replaced_at: Mapped[Any] = mapped_column(Timestamp, nullable=False, server_default=_now())
+    #: What ended these words: an edit replaced them, or a delete took them (migration 0077).
+    ended_by: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'edit'"))
 
 
 class Reaction(Base):

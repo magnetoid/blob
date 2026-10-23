@@ -260,9 +260,9 @@ async def messages_of(
     session: AsyncSession, channel_id: str, *, versions: bool = False
 ) -> AsyncIterator[dict[str, Any]]:
     """One conversation, oldest first, a page at a time; deleted messages are left out.
-    `versions` adds the words a legal hold kept from before each edit (ADR 0039 addendum):
-    the workspace export's, an admin's, and not a person's own — and with it a message
-    deleted since, which has no words of its own left but keeps what the hold kept."""
+    `versions` adds the words a legal hold kept from before each edit or delete (ADR 0039
+    addendum): the workspace export's, an admin's, and not a person's own — and with it a
+    message deleted since, which has no words of its own left but keeps what the hold kept."""
     after = None
     while True:
         rows = (
@@ -285,7 +285,8 @@ async def messages_of(
                            CASE WHEN :versions THEN
                              coalesce((SELECT json_agg(json_build_object(
                                          'body', v.body, 'written_at', v.written_at,
-                                         'replaced_at', v.replaced_at) ORDER BY v.id)
+                                         'replaced_at', v.replaced_at,
+                                         'ended_by', v.ended_by) ORDER BY v.id)
                                          FROM message_versions v WHERE v.message_id = m.id),
                                       '[]')
                            END AS versions

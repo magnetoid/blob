@@ -1014,7 +1014,8 @@ export interface ExportEntry {
 /** A message's earlier words, as a legal hold kept them (ADR 0039 addendum). */
 export interface KeptVersions {
   /** Oldest first. */
-  versions: { body: string; writtenAt: string; replacedAt: string }[];
+  /** `replacedAt` is when the words ended: an edit replaced them, or a delete took them. */
+  versions: { body: string; writtenAt: string; replacedAt: string; endedBy: 'edit' | 'delete' }[];
   /** Whether an edit now would keep the words it replaces. */
   held: boolean;
 }

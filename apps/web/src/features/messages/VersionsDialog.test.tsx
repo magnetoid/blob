@@ -68,8 +68,8 @@ describe('earlier versions', () => {
   it('lists what was kept, oldest first, then what it says now', async () => {
     const versions = vi.spyOn(api.admin, 'messageVersions').mockResolvedValue({
       versions: [
-        { body: 'the budget is 10k', writtenAt: '2026-10-20T09:00:00.000Z', replacedAt: '2026-10-20T10:00:00.000Z' },
-        { body: 'the budget is 12k', writtenAt: '2026-10-20T10:00:00.000Z', replacedAt: '2026-10-21T09:00:00.000Z' },
+        { body: 'the budget is 10k', writtenAt: '2026-10-20T09:00:00.000Z', replacedAt: '2026-10-20T10:00:00.000Z', endedBy: 'edit' },
+        { body: 'the budget is 12k', writtenAt: '2026-10-20T10:00:00.000Z', replacedAt: '2026-10-21T09:00:00.000Z', endedBy: 'edit' },
       ],
       held: true,
     });
@@ -77,15 +77,32 @@ describe('earlier versions', () => {
     expect(await screen.findByText('the budget is 10k')).toBeTruthy();
     const bodies = Array.from(document.querySelectorAll('.versions-body'), (p) => p.textContent);
     expect(bodies).toEqual(['the budget is 10k', 'the budget is 12k', 'the budget is 15k']);
-    expect(screen.getByText('On legal hold: an edit now keeps the words it replaces.')).toBeTruthy();
+    expect(screen.getByText('On legal hold: an edit or a delete now keeps the words it ends.')).toBeTruthy();
     expect(versions).toHaveBeenCalledWith(EDITED.id);
+  });
+
+  it('says when a delete ended the last words, and shows no empty "Now"', async () => {
+    vi.spyOn(api.admin, 'messageVersions').mockResolvedValue({
+      versions: [
+        { body: 'said v1', writtenAt: '2026-10-20T09:00:00.000Z', replacedAt: '2026-10-20T10:00:00.000Z', endedBy: 'edit' },
+        { body: 'said v2', writtenAt: '2026-10-20T10:00:00.000Z', replacedAt: '2026-10-21T09:00:00.000Z', endedBy: 'delete' },
+      ],
+      held: true,
+    });
+    render(<VersionsDialog messageId={EDITED.id} current="" onClose={vi.fn()} />);
+    expect(await screen.findByText('said v2')).toBeTruthy();
+    const whens = Array.from(document.querySelectorAll('.versions-when'), (p) => p.textContent ?? '');
+    expect(whens).toHaveLength(2);
+    expect(whens[0]).toContain('replaced');
+    expect(whens[1]).toContain('deleted');
+    expect(screen.queryByText('Now')).toBeNull();
   });
 
   it('says why none were kept', async () => {
     vi.spyOn(api.admin, 'messageVersions').mockResolvedValue({ versions: [], held: false });
     render(<VersionsDialog messageId={EDITED.id} current={EDITED.body} onClose={vi.fn()} />);
     expect(await screen.findByText(/None were kept/)).toBeTruthy();
-    expect(screen.getByText('Not on legal hold now: an edit now keeps nothing.')).toBeTruthy();
+    expect(screen.getByText('Not on legal hold now: an edit or a delete now keeps nothing.')).toBeTruthy();
   });
 });
 
@@ -116,25 +133,27 @@ describe('the person editing is told', () => {
 });
 
 describe('the person deleting is told', () => {
-  function confirm(held: boolean, message: Message = EDITED) {
+  function confirm(conversationHeld: boolean, selfHeld = false) {
     useStore.setState({
       currentUser: { id: 'u2', displayName: 'Max', role: 'member', prefs: {} },
-      channels: { c1: { id: 'c1', kind: 'public', name: 'general', legalHoldAt: held ? '2026-10-01T00:00:00.000Z' : null } },
-      retention: { messageDays: null, fileDays: null, held: false },
+      channels: { c1: { id: 'c1', kind: 'public', name: 'general', legalHoldAt: conversationHeld ? '2026-10-01T00:00:00.000Z' : null } },
+      retention: { messageDays: null, fileDays: null, held: selfHeld },
     } as never);
-    render(<DeleteConfirm message={message} onClose={vi.fn()} />);
+    render(<DeleteConfirm message={{ ...EDITED, editedAt: null } as Message} onClose={vi.fn()} />);
   }
 
-  it('that what the hold kept of its edits stays', () => {
+  it('that a held conversation keeps its words, edited or not', () => {
     confirm(true);
-    expect(screen.getByText(/The words its edits replaced stay kept while the legal hold lasts/)).toBeTruthy();
+    expect(screen.getByText(/This conversation is on legal hold, so its words are kept for the hold/)).toBeTruthy();
   });
 
-  it('nothing more when there is no hold, or nothing was edited', () => {
+  it('that their own hold keeps them', () => {
+    confirm(false, true);
+    expect(screen.getByText(/You are on legal hold, so its words are kept for the hold/)).toBeTruthy();
+  });
+
+  it('nothing more when nothing is held', () => {
     confirm(false);
-    expect(screen.queryByText(/legal hold/)).toBeNull();
-    cleanup();
-    confirm(true, { ...EDITED, editedAt: null } as Message);
     expect(screen.queryByText(/legal hold/)).toBeNull();
     expect(screen.getByText('It disappears for everyone. There is no undo.')).toBeTruthy();
   });
