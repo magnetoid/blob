@@ -11,6 +11,27 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "3334bcceef41ce5a72db2e39795e1b1935d6d1b9",
+    "shortSha": "3334bcce",
+    "subject": "docs: README screenshots of the 1.15 interface",
+    "date": "2026-10-23T04:22:18+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "23c16018435b8b771341f7410f27e82405d73d0a",
+    "shortSha": "23c16018",
+    "subject": "feat: a legal hold keeps what a delete took (ADR 0039 addendum)",
+    "date": "2026-10-23T04:22:17+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "dc3cda02af444afb60cbb958eb39c56e579ac68f",
+    "shortSha": "dc3cda02",
+    "subject": "release: 1.15.0 — Your history from Slack, a hold that keeps edits, and a calmer interface",
+    "date": "2026-10-23T02:54:11+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "dac07ca0c6cc1f765d4df4811290aa1bb806fefd",
     "shortSha": "dac07ca0",
     "subject": "feat: a legal hold keeps what an edit replaced (ADR 0039 addendum)",
@@ -407,27 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "a4dff88e",
     "subject": "docs: README brought up to date with M2",
     "date": "2026-10-20T06:33:30+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "966127588cb23ac287a2c376923eb30277d3a91b",
-    "shortSha": "96612758",
-    "subject": "docs: README carries M2 — MCP tools, asking agents, work reviews, decisions, notes, usage; ADRs 0026–0030",
-    "date": "2026-10-20T06:27:49+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "92083406f7ef443ce6b481ad392a068d85c0a373",
-    "shortSha": "92083406",
-    "subject": "feat: an agent waiting on another holds nothing — ask_agent resumes on the answer",
-    "date": "2026-10-20T06:26:40+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d8eae0a4d103f3ab2766ba16945775a6faee9c65",
-    "shortSha": "d8eae0a4",
-    "subject": "feat: work channels with a lifecycle — versions, a review thread, verdicts, a closing summary",
-    "date": "2026-10-20T05:43:57+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

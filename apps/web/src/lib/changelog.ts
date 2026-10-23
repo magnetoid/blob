@@ -43,6 +43,17 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     date: '2026-10-23',
+    version: '1.15.1',
+    title: 'A legal hold keeps deletes too',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'A legal hold now keeps a deleted message’s words as well as an edited one’s — only while the conversation, or the person who wrote it, is on hold, and the person deleting is told so. Admins see them under Earlier versions, marked as deleted, and the workspace export includes them.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-23',
     version: '1.15.0',
     title: 'Your history from Slack, a hold that keeps edits, and a calmer interface',
     entries: [
