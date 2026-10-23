@@ -11,6 +11,27 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "e625af583fb0deb3add8434ae6d45df93acd0ea1",
+    "shortSha": "e625af58",
+    "subject": "deploy: production pulls the image CI tested instead of building its own",
+    "date": "2026-10-23T04:53:38+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "f14b6f167b39e55da022e7ddf271ad89c6e84538",
+    "shortSha": "f14b6f16",
+    "subject": "ci: publish the image CI tested, named by its commit",
+    "date": "2026-10-23T04:50:45+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "773e3e119bcfb16ad341322f5b818ee6f02ad9a6",
+    "shortSha": "773e3e11",
+    "subject": "release: 1.15.1 — A legal hold keeps deletes too",
+    "date": "2026-10-23T04:44:02+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "3334bcceef41ce5a72db2e39795e1b1935d6d1b9",
     "shortSha": "3334bcce",
     "subject": "docs: README screenshots of the 1.15 interface",
@@ -407,27 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "04970755",
     "subject": "deps: aiohttp 3.14.5 — clears CVE-2026-111063, CVE-2026-111064, GHSA-2g87-pp6c-29x5",
     "date": "2026-10-20T19:27:08+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "6ce3ec79d1f76ef26891eafc13c99822ee52409e",
-    "shortSha": "6ce3ec79",
-    "subject": "release: 1.12.0 — Agents that reach further, and work you can review",
-    "date": "2026-10-20T19:12:58+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "d4de271eb85630880807f71d2fa3eb5f28b46f80",
-    "shortSha": "d4de271e",
-    "subject": "fix: review findings — pin member-triggered fetches; an agent's version notice is the agent's",
-    "date": "2026-10-20T07:02:44+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "a4dff88e67a6ed4dda5fa7af52a57d1d00f7295b",
-    "shortSha": "a4dff88e",
-    "subject": "docs: README brought up to date with M2",
-    "date": "2026-10-20T06:33:30+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];

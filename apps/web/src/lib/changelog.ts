@@ -43,6 +43,21 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     date: '2026-10-23',
+    version: '1.16.0',
+    title: 'The servers run exactly what was tested',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'An update now reaches the server as the very image the automated checks built and tested end to end — the server no longer builds its own from the code. What was tested is what runs, and an update no longer spends minutes building on the server.',
+      },
+      {
+        kind: 'changed',
+        text: 'For anyone running Blob themselves: the production compose file pulls ghcr.io/magnetoid/blob instead of building it. It follows the latest release unless BLOB_IMAGE_TAG names a commit; to run your own changes, put build: . back in place of image: on the app and the worker.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-23',
     version: '1.15.1',
     title: 'A legal hold keeps deletes too',
     entries: [
