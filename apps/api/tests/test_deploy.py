@@ -214,6 +214,17 @@ async def test_readiness_names_the_commit_it_serves(
     assert response.body["commit"] == "c" * 40
 
 
+async def test_an_image_that_knows_its_commit_says_that_one(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An image CI built carries its own commit (`BLOB_IMAGE_COMMIT`), and that wins over
+    the platform's `SOURCE_COMMIT` — which names what the platform checked out, not
+    necessarily what it runs once the image comes from CI."""
+    monkeypatch.setattr(settings, "SOURCE_COMMIT", "c" * 40)
+    monkeypatch.setattr(settings, "BLOB_IMAGE_COMMIT", "d" * 40)
+    assert (await client.get("/readyz")).body["commit"] == "d" * 40
+
+
 @pytest.mark.parametrize("path", ["/healthz", "/readyz"])
 async def test_health_is_reachable_without_signing_in(client: Client, path: str) -> None:
     assert (await client.get(path)).status == 200

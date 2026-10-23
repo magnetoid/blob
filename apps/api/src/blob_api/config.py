@@ -143,6 +143,11 @@ class Settings(BaseSettings):
     #: leaves it blank. The server is told by whoever deployed it, so it is the one that
     #: knows, and "What's new" asks it.
     SOURCE_COMMIT: str | None = None
+    #: The commit the *image* was built from, baked in by whoever built it (CI does, as a
+    #: build argument). Preferred over `SOURCE_COMMIT`, which names what the platform
+    #: checked out: once production runs the image CI tested rather than building its own,
+    #: the two can differ, and what runs is the image.
+    BLOB_IMAGE_COMMIT: str | None = None
 
     #: What a Prometheus scrape of `/metrics` presents as its bearer token. Unset — the
     #: default — and `/metrics` answers 404: the numbers name every agent on the server.
@@ -433,4 +438,4 @@ def served_commit() -> str | None:
     "What's new" reads. A host that pads the value or pastes a long one must not make the
     two disagree about which build this is.
     """
-    return (settings.SOURCE_COMMIT or "").strip()[:40] or None
+    return (settings.BLOB_IMAGE_COMMIT or settings.SOURCE_COMMIT or "").strip()[:40] or None

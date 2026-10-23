@@ -10,7 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 # Read-only by default. Nothing here writes to the repository: the deploy job talks to
-# Coolify with its own secret, and no step needs the token to do more than check out.
+# Coolify with its own secret, and the one write is the image job's — publishing the image
+# it tested to the package registry, from main only.
 # Every action is pinned to a commit, not a tag — a tag is a pointer its owner can move,
 # and this workflow holds the deploy secret. Dependabot proposes the bumps.
 permissions:
@@ -113,9 +114,16 @@ jobs:
   # proven on the image that ships rather than on the parts.
   image:
     runs-on: ubuntu-latest
+    # The one job that writes anything: on a push to main it publishes the image it has
+    # just booted and driven, so production can run exactly that image instead of building
+    # its own from the tip of main (the hole the deploy job's checks only narrowed).
+    permissions:
+      contents: read
+      packages: write
     env:
       # The production compose file, plus the two published ports the browser run needs.
       COMPOSE_FILE: docker-compose.prod.yml:e2e/compose.ci.yml
+      IMAGE: ghcr.io/${{ github.repository }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -127,7 +135,13 @@ jobs:
           context: .
           push: false
           load: true
-          tags: blob:ci
+          # The image names its own commit (`/readyz` prefers it), and its registry name is
+          # the commit too — immutable, so a server that has it never has to ask again.
+          build-args: BLOB_IMAGE_COMMIT=${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          tags: |
+            blob:ci
+            ${{ env.IMAGE }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -210,6 +224,20 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:3000
         run: pnpm --filter @blob/e2e e2e
+
+      # The image this job built and checked, published by its commit for production to
+      # pull. Only from main and only past every step above; a tag named for a commit
+      # never moves, so what the deploy job names is what runs. The workflow's own token
+      # is the credential — no stored secret.
+      - name: Publish the image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          SHA: ${{ github.sha }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker push "$IMAGE:$SHA"
 
       - name: Keep what the browser saw
         if: failure()

@@ -108,6 +108,13 @@ EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
   CMD ["python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:3000/healthz',timeout=4)"]
 
+# The commit this image was built from, when the builder says. CI passes it, so the image
+# names its own build wherever it runs; `/readyz` reports it in preference to the
+# platform's SOURCE_COMMIT, which is what the platform checked out. Last, so a new commit
+# changes this one layer and the rest stay cached.
+ARG BLOB_IMAGE_COMMIT=""
+ENV BLOB_IMAGE_COMMIT=${BLOB_IMAGE_COMMIT}
+
 ENTRYPOINT ["blob-entrypoint"]
 
 # --proxy-headers carries X-Forwarded-Proto, which is what tells the app it is being
