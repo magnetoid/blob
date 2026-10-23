@@ -16,10 +16,16 @@
 
 services:
   # The API, the WebSocket tier and the built client, from one image on one origin.
+  #
+  # The image CI built, booted and drove a browser against, by the commit it was built from
+  # — not a build of its own. CI's deploy job sets BLOB_IMAGE_TAG on the server to the
+  # commit it tested before it asks for the deploy, so the server pulls exactly that, and
+  # the build that used to take this host seven minutes (and twice took it down) is gone.
+  # Anywhere else it is `latest`, which CI moves after a verified production deploy. To
+  # run your own changes instead, put `build: .` here and on the worker in place of
+  # `image:`.
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/magnetoid/blob:${BLOB_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       # Generates the public domain and routes it to port 3000. PUBLIC_URL must match it
@@ -177,9 +183,7 @@ services:
   # Notifications, link unfurls and the orphan sweep. Same image, different entrypoint,
   # so a slow push provider can never delay a message.
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/magnetoid/blob:${BLOB_IMAGE_TAG:-latest}
     restart: unless-stopped
     command: ["arq", "blob_api.jobs.worker.WorkerSettings"]
     environment:

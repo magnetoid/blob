@@ -885,6 +885,11 @@ domain can be attached, and a second one applies it.
 - **Backups are yours to arrange.** Coolify's automated backups cover databases it manages
   as resources, not ones inside a compose file. What to back up and how to restore it is in
   [docs/backup.md](docs/backup.md).
+- **It pulls the image; it does not build.** The compose file runs
+  `ghcr.io/magnetoid/blob:${BLOB_IMAGE_TAG:-latest}` — `latest` is the image this
+  repository's own production was last verified serving. Pin `BLOB_IMAGE_TAG` to a commit
+  to stay put, or replace `image:` with `build: .` on `app` and `worker` to run your own
+  changes.
 
 ### Any Docker host
 
@@ -893,7 +898,8 @@ docker compose -f docker-compose.prod.yml up
 ```
 
 with the `SERVICE_*` values supplied yourself — `SERVICE_PASSWORD_REDIS` among them, or
-Redis runs with no password. For a plain `docker build`, the root
+Redis runs with no password. It pulls `ghcr.io/magnetoid/blob:latest` unless
+`BLOB_IMAGE_TAG` names another. For a plain `docker build`, the root
 `Dockerfile` builds both tiers from the repo root and takes its datastores from
 `DATABASE_URL` and `REDIS_URL`.
 
@@ -909,11 +915,12 @@ Redis runs with no password. For a plain `docker build`, the root
 ### How this repository ships
 
 A merge to `main` is a release. CI runs the gate against real datastores, builds the image
-and scans it, boots `docker-compose.prod.yml`, asserts `/healthz` and `/readyz` and drives
-the client against it as two people, checks the layering rules, and only then asks Coolify
-to deploy, one build at a time. Afterwards it polls
-`/readyz` on the deployed origins and **fails** if the served commit is not the one it
-tested. The current version is in the four `package.json` files and at the top of
+once and scans it, boots `docker-compose.prod.yml` on that image, asserts `/healthz` and
+`/readyz` and drives the client against it as two people, checks the layering rules, and
+publishes that same image as `ghcr.io/magnetoid/blob:<commit>`. Only then does it tell
+Coolify to run that image on both instances — they pull it; nothing is rebuilt on the
+server. Afterwards it polls `/readyz` on the deployed origins, **fails** if the served
+commit is not the one it tested, and otherwise moves `latest` to it. The current version is in the four `package.json` files and at the top of
 `apps/web/src/lib/changelog.ts`.
 
 ---
