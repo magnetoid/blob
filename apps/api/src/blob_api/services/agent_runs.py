@@ -1213,6 +1213,18 @@ async def request_cancel(
     }
 
 
+async def stop_asked(session: AsyncSession, run_id: str) -> bool:
+    """Whether somebody has pressed Stop on this run. The durable half of the ask — the
+    Redis key and frame are only heard while the agent streams."""
+    asked = (
+        await session.execute(
+            text("SELECT cancel_requested_at IS NOT NULL FROM agent_runs WHERE id = :id"),
+            {"id": run_id},
+        )
+    ).scalar()
+    return bool(asked)
+
+
 # ─── a run waiting on another agent (M2 · A2) ────────────────────────────────────────
 
 
