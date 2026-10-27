@@ -1431,6 +1431,14 @@ async def _drive(
             break
         round_no += 1
 
+    if approval is not None and not streamed.cancelled:
+        # Stop is heard only while the agent streams, and a round that ends in a wait or
+        # an approval streams no more: pressed while its calls ran, it would otherwise
+        # leave the run waiting, to carry on later as if nobody had pressed it.
+        async with session_scope() as session:
+            if await agent_run_service.stop_asked(session, run_id):
+                streamed.cancelled, approval = True, None
+
     status, reason, decision = await _finish(
         listener,
         streamed,

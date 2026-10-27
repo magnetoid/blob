@@ -19,7 +19,7 @@ from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory, transaction
 from blob_api.jobs import agui as agui_job
-from blob_api.jobs import agui_later, agui_tools
+from blob_api.jobs import agui_later, agui_outcome, agui_tools
 from blob_api.services import agent_runs as agent_run_service
 
 from .helpers import send_message
@@ -324,6 +324,50 @@ class TestLikeAnyWaitingRun:
 
         assert await agui_job.resume_waiting_runs() == 0
         assert (await run_row(waiting.id)).status == "cancelled"
+        assert asked_times(pair) == 1
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            ("c1", "schedule_followup", {"when": "", "note": "look again"}),
+            ("c1", "post_message", {"channel": "#general", "text": "The deploy is out."}),
+        ],
+        ids=["follow_up", "approval"],
+    )
+    async def test_stop_pressed_while_its_calls_run_is_not_lost(
+        self,
+        pair: dict[str, Any],  # noqa: F811 — the fixture imported above
+        monkeypatch: pytest.MonkeyPatch,
+        call: tuple[str, str, dict[str, Any]],
+    ) -> None:
+        """Stop is heard only while the agent streams. Pressed while Blob runs the round's
+        calls — an outside tool may take a while — and that round ending in a wait or an
+        approval, the run used to go `waiting` or `interrupted` and carry on later as if
+        nobody had pressed it."""
+        call_id, name, arguments = call
+        if name == "schedule_followup":
+            arguments = {**arguments, "when": later(days=1)}
+        else:
+            allowed = await pair["owner"].post(
+                f"/api/admin/plugins/{pair['helper']['plugin']['id']}/tools", {"access": "write"}
+            )
+            assert allowed.status == 200, allowed.body
+        run_calls = agui_outcome._run_calls
+
+        async def stopped_meanwhile(*args: Any, **kwargs: Any) -> Any:
+            [running] = await helper_runs()
+            stopped = await pair["owner"].post(f"/api/agent-runs/{running.id}/cancel")
+            assert stopped.status == 200, stopped.body
+            return await run_calls(*args, **kwargs)
+
+        monkeypatch.setattr(agui_outcome, "_run_calls", stopped_meanwhile)
+        await ask_helper(pair, "@Helper watch the deploy", agui=[calls((call_id, name, arguments))])
+
+        [run] = await helper_runs()
+        assert (await run_row(run.id)).status == "cancelled"
+        if name == "schedule_followup":
+            await bring_forward(run.id)
+            assert await agui_job.resume_waiting_runs() == 0
         assert asked_times(pair) == 1
 
     async def test_the_nightly_sweep_leaves_a_waiting_run_alone(
