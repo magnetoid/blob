@@ -539,9 +539,11 @@ the database password and the session secret for you.
 
 ## Running it locally
 
-**Prerequisites** — Node 22+, pnpm (pinned to 10.30.3 by `packageManager`, so corepack
-installs the right one), Python 3.12+, [uv](https://docs.astral.sh/uv/), Postgres 16 and
-Redis 7. `docker compose up -d` supplies those two plus MinIO and MailHog.
+**Prerequisites** — Node 22+ (the image and CI run 26, the LTS line), pnpm (pinned to
+10.30.3 by `packageManager`, so corepack installs the right one — on Node 25 and later
+corepack is no longer bundled: `npm install -g corepack` first), Python 3.12+,
+[uv](https://docs.astral.sh/uv/), Postgres 16 and Redis 7. `docker compose up -d`
+supplies those two plus MinIO and MailHog.
 
 MinIO is not merely convenience: attachments, avatars, custom emoji and the feedback
 page-snapshot all go through S3, so without an S3-compatible endpoint those features fail
@@ -962,7 +964,7 @@ flowchart LR
 |---|---|
 | Web | React 19 + Vite, zustand, a hand-rolled router |
 | API | FastAPI on Python 3.12, REST for every write |
-| Data | SQLAlchemy 2.0 async + asyncpg, Alembic (62 migrations) |
+| Data | SQLAlchemy 2.1 async + asyncpg, Alembic (77 migrations) |
 | Realtime | FastAPI WebSockets, one event hub, Redis pub/sub between processes |
 | Database | Postgres 16 — messages, full-text search, everything |
 | Ephemera | Redis 7 — presence, typing, rate limits, the job queue, metrics counters |

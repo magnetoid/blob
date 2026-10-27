@@ -99,7 +99,7 @@ class Question:
 
 def time_id(moment: datetime) -> str:
     """A UUIDv7 whose time bits are `moment`, for bounding an id range by time."""
-    return str(uuid_utils.uuid7(timestamp=int(moment.timestamp()), nanos=0))
+    return str(uuid_utils.uuid7(nanoseconds=int(moment.timestamp()) * 1_000_000_000))
 
 
 def excerpt(body: str) -> str:

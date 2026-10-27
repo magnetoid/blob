@@ -546,6 +546,18 @@ Worth knowing before changing the equivalent code:
   `useAnimationFrameWithResizeObserver` does not help: it only defers the ResizeObserver
   path, not the ref-callback one. Scroll position was verified correct despite the warning
   (`scrollTop + clientHeight === scrollHeight` on channel open). Leave it.
+- **The virtualizer sizes its viewport by `clientHeight` since `@tanstack/virtual-core`
+  3.19** (`offsetHeight` before). happy-dom reports every `clientHeight` as 0, so a test
+  that stubs only `offsetHeight` gets a zero-height viewport and an empty list — which is
+  how the thread panel's test went red on the 2026-10-27 dependency pass, with an
+  `ECONNREFUSED` to :3000 in the log as a knock-on rather than the cause. Stub all three
+  the list reads (`offsetHeight`, `clientHeight`, `getBoundingClientRect`), as
+  `MessageList.test.tsx` does. Checked in a browser on that pass with 320 messages: opens
+  at the bottom, paging back holds the reader's place, a send sticks.
+- **Under Node 25 and later, a happy-dom test's `localStorage` is Node's own**, and that is
+  `undefined` (with an ExperimentalWarning) unless `--localstorage-file` is given — it
+  shadows happy-dom's, `window.localStorage` included. A test that needs storage defines
+  one, as `outbox`, `drafts`, `theme` and the rest already do; CI runs Node 26.
 - **`@` autocomplete matches prefixes, and ranks before it caps.** `includes()` made `@e`
   offer "Devin Cole" and `@ma` offer "Priya Raman"; slicing to six before ranking dropped
   the person being typed out of a list that had room for them. `mentionMatch.ts` holds the
@@ -1584,6 +1596,12 @@ from there on. Things to know before changing it:
   because a broken run is the one an operator most wants to read.
 * **`recent_errors.read` caps what it returns at ten**, and that hid a writer that kept
   everything. The test reads `jsonb_array_length` off the column itself.
+* **FastAPI traces requests itself since 0.162.** Once any tracer provider exists — and
+  `configure` sets one whenever `OTEL_EXPORTER_OTLP_ENDPOINT` is — its native telemetry
+  wraps every request in a second SERVER span beside `RequestMetricsMiddleware`'s, with
+  `url.path` and `url.query` on it: a search term in a trace. `create_app` switches all of
+  it off (`FastAPI(telemetry={...})`), and the server-span test checks every finished span
+  for `url.*`. A FastAPI release that adds another switch belongs in that dict.
 
 ## Ratchets (agentic review phase 8, 2026-10-08): what moved and why
 

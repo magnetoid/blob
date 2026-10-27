@@ -265,6 +265,18 @@ def create_app() -> FastAPI:
         docs_url="/docs" if docs else None,
         redoc_url="/redoc" if docs else None,
         openapi_url="/openapi.json" if docs else None,
+        # FastAPI's own OpenTelemetry (0.162 on) traces every request once a tracer
+        # provider exists, which `lib/telemetry` sets up whenever traces are on — a
+        # second SERVER span per request, carrying `url.path` and `url.query`. ADR 0025
+        # traces a request by its route template with no URL, which is what
+        # `RequestMetricsMiddleware` does, so FastAPI's half is off, all of it.
+        telemetry={
+            "tracing": False,
+            "metrics": False,
+            "logs": False,
+            "operation_spans": False,
+            "auto_configure": False,
+        },
     )
 
     app.add_middleware(SessionMiddleware)

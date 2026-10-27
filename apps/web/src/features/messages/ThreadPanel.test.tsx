@@ -161,9 +161,17 @@ function task(overrides: Record<string, unknown> = {}) {
 }
 
 // happy-dom does no layout, and the list inside the panel is virtualized: without a
-// viewport height it renders nothing. The same stubs `MessageList.test.tsx` uses.
+// viewport height it renders nothing. The same stubs `MessageList.test.tsx` uses —
+// clientHeight among them, which is what the virtualizer sizes its viewport by since
+// @tanstack/virtual-core 3.19 (offsetHeight before it).
 beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return this.classList.contains('message-list') ? 800 : 40;
+    },
+  });
+  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
     configurable: true,
     get(this: HTMLElement) {
       return this.classList.contains('message-list') ? 800 : 40;

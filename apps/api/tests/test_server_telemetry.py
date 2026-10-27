@@ -106,6 +106,12 @@ class TestRequests:
         assert server.attributes["http.response.status_code"] == 200
         assert f"{server.context.trace_id:032x}" == "0af7651916cd43dd8448eb211c80319c"
         assert "private-words" not in str(dict(server.attributes))
+        # Nor any other span the request made, under whatever name: FastAPI 0.162 began
+        # tracing requests itself, with `url.path` and `url.query` (main.py turns it off).
+        for span in spans.get_finished_spans():
+            attributes = dict(span.attributes or {})
+            assert "private-words" not in str(attributes), span.name
+            assert not [key for key in attributes if key.startswith("url.")], span.name
 
 
 class TestProcessGauges:

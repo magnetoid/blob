@@ -424,7 +424,7 @@ are answered and written down, which is what a gated decision is for.
 | **Vite 8 (Rolldown)** | **Yes, conditional** | Build time | Separate commit after W2; needs vitest 4; `manualChunks` → `advancedChunks`. Gate: `time pnpm build` and main-chunk bytes both ≤ baseline, or revert. |
 | **Native `popover` for `Menu`** | **Conditional on a one-hour spike** | `lib/usePresence.ts` (exit via `@starting-style` + `transition-behavior: allow-discrete`), the outside-click wiring, the `.message-list-row:has(.menu)` stacking rule at `app.css:6610` (top layer escapes the row's transform), the menu half of `useEscape` | Keeps a ~30-line `positionPanel` on `getBoundingClientRect`; `position-anchor` only under `CSS.supports('anchor-name: --x')` (85.9% is not enough). happy-dom 20.11.6 has no `showPopover`, so the spike decides whether a test-setup shim is honest. Pass → W9; fail → Q2 M2. |
 | **TanStack Query** | **No** | It would delete `useFetch` + `useAdminData` (~110 lines) and the 17 copies | W3 deletes the copies with the 40-line hook already in the tree, adds no dependency, and does not put a second cache beside the zustand store the socket already keeps fresh. |
-| **FastAPI 0.141 / Starlette 1.6 / Pydantic 2.13** | **Routine bump** | — | Starlette follows SemVer since 1.0. Hold SQLAlchemy at 2.0 while 2.1 is a release candidate. Skip Python 3.14 free-threading: nothing here is CPU-bound off the thread pool. |
+| **FastAPI 0.141 / Starlette 1.6 / Pydantic 2.13** | **Routine bump** | — | Starlette follows SemVer since 1.0. Hold SQLAlchemy at 2.0 while 2.1 is a release candidate *(it went final; 2.1.6 taken 2026-10-27 with the Dependabot pass)*. Skip Python 3.14 free-threading: nothing here is CPU-bound off the thread pool. |
 
 ### W9–W13 (Nov 9–Dec 13) · Ratchet and buffer
 
@@ -629,7 +629,8 @@ gaps were.
 - **i18n, Serbian first.** String extraction touches every component and contradicts
   simplify-first. It is the first item after Q2.
 - **SQLAlchemy 2.1, Python 3.14 free-threading, CSS anchor positioning as the only
-  positioning, React Server Components, TanStack Query.** Reasons in W8.
+  positioning, React Server Components, TanStack Query.** Reasons in W8. (SQLAlchemy 2.1
+  has since been taken: the reason was its release-candidate status, and it is final.)
 - **Slackbot Big Mode, Skill Sets, DPoP agent identity.** Not on the roadmap of a
   self-hosted tool for teams under 100; DPoP is a roadmap item at MCP, not GA.
 

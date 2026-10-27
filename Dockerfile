@@ -5,11 +5,17 @@
 # has exactly one service to route. Build context is the repo root.
 
 # ─── 1. the client ────────────────────────────────────────────────────────────
-FROM node:22-alpine AS web
+# Node 26, the LTS line from October 2026. It no longer ships corepack (dropped in 25), so
+# corepack is installed by version and then does what it always did here: run the pnpm
+# that `packageManager` in package.json names, so the image and a developer's machine
+# agree on the package manager.
+FROM node:26-alpine AS web
 # The prompt is what corepack does instead of downloading when no TTY says otherwise,
 # which in a build is a hang rather than a question.
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN corepack enable
+# Only pnpm's shims: the one package manager this build runs, and nothing to collide
+# with whatever else the base image puts on PATH.
+RUN npm install -g corepack@0.36.0 && corepack enable pnpm
 WORKDIR /src
 
 # Manifests first: dependencies only reinstall when they actually change.
