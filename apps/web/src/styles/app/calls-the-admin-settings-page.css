@@ -81,3 +81,10 @@
 .recent-error-at {
   color: var(--text-3);
 }
+
+/* The Calls page's two tabs — huddles, video meetups — the same chips as Later's. */
+.console-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}

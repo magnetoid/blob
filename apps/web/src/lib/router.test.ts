@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ADMIN_DETAIL_SECTIONS,
+  SERVER_SECTIONS,
   ADMIN_SECTIONS,
   SETTINGS_SECTIONS,
   parseRoute,
@@ -61,11 +62,6 @@ describe('parseRoute', () => {
   });
 
   it('reads a detail page under a section that has one', () => {
-    expect(parseRoute('/admin/users/u123')).toEqual({
-      view: 'admin',
-      section: 'users',
-      detailId: 'u123',
-    });
     expect(parseRoute('/admin/members/u123')).toEqual({
       view: 'admin',
       section: 'members',
@@ -102,6 +98,46 @@ describe('parseRoute', () => {
     expect(parseRoute('/workspace/invented')).toEqual({ view: 'messages' });
   });
 
+  it('reads every server section, and keeps the machine’s old /admin URLs alive', () => {
+    expect(parseRoute('/server')).toEqual({ view: 'server', section: 'health' });
+    for (const section of SERVER_SECTIONS) {
+      expect(parseRoute(`/server/${section}`)).toEqual({ view: 'server', section });
+      expect(parseRoute(`/admin/${section}`)).toEqual({ view: 'server', section });
+    }
+    expect(parseRoute('/server/users/u123')).toEqual({
+      view: 'server',
+      section: 'users',
+      detailId: 'u123',
+    });
+    expect(parseRoute('/admin/users/u123')).toEqual({
+      view: 'server',
+      section: 'users',
+      detailId: 'u123',
+    });
+    expect(parseRoute('/server/health/x')).toEqual({ view: 'messages' });
+    expect(parseRoute('/server/nonsense')).toEqual({ view: 'messages' });
+  });
+
+  it('opens Calls on the tab the old Huddles and Video meetups URLs named', () => {
+    expect(parseRoute('/admin/calls')).toEqual({ view: 'admin', section: 'calls' });
+    expect(parseRoute('/admin/huddles')).toEqual({
+      view: 'admin',
+      section: 'calls',
+      detailId: 'huddles',
+    });
+    expect(parseRoute('/admin/meetups')).toEqual({
+      view: 'admin',
+      section: 'calls',
+      detailId: 'meetups',
+    });
+    expect(parseRoute('/admin/calls/meetups')).toEqual({
+      view: 'admin',
+      section: 'calls',
+      detailId: 'meetups',
+    });
+    expect(parseRoute('/admin/calls/nonsense')).toEqual({ view: 'messages' });
+  });
+
   it('sends the older admin aliases to the merged console', () => {
     expect(parseRoute('/admin/settings')).toEqual({ view: 'admin', section: 'general' });
     expect(parseRoute('/admin/themes')).toEqual({ view: 'admin', section: 'appearance' });
@@ -134,11 +170,14 @@ describe('pathForRoute', () => {
       { view: 'permalink', messageId: 'abc123' },
       ...SETTINGS_SECTIONS.map((section) => ({ view: 'settings' as const, section })),
       ...ADMIN_SECTIONS.map((section) => ({ view: 'admin' as const, section })),
-      ...ADMIN_DETAIL_SECTIONS.map((section) => ({
+      ...ADMIN_DETAIL_SECTIONS.filter((section) => section !== 'calls').map((section) => ({
         view: 'admin' as const,
         section,
         detailId: 'abc123',
       })),
+      { view: 'admin' as const, section: 'calls' as const, detailId: 'meetups' },
+      ...SERVER_SECTIONS.map((section) => ({ view: 'server' as const, section })),
+      { view: 'server' as const, section: 'users' as const, detailId: 'abc123' },
     ];
     for (const route of routes) {
       expect(parseRoute(pathForRoute(route))).toEqual(route);
@@ -147,6 +186,7 @@ describe('pathForRoute', () => {
 
   it('sends the rail buttons to the first section of each page', () => {
     expect(pathForView('admin')).toBe('/admin/general');
+    expect(pathForView('server')).toBe('/server/health');
     expect(pathForView('settings')).toBe('/settings/preferences');
     expect(pathForView('home')).toBe('/');
   });

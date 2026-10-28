@@ -4,10 +4,11 @@
  * are the same primitive as the channel list, so the reflexes carry over — including that
  * the current one is marked, not merely coloured.
  *
- * Settings is one group under its heading; the server console is one list under none,
- * because its headings had become a permission's job done badly. A group without a label
- * is drawn without a heading, and a row the server keeps from some admins carries a
- * badge naming who may open it instead.
+ * Settings is one group under its heading and the workspace console is three; the
+ * server console is one list under none. A group without a label is drawn without a
+ * heading. A row the console keeps from some of its visitors carries a badge naming who
+ * may open it — measured against the level everybody there passes, so the server
+ * console does not badge every one of its rows "Server".
  *
  * The filter is here for the same reason Mattermost's is: past a dozen sections, reading
  * every label is slower than typing three characters of the one you want.
@@ -35,14 +36,19 @@ const RESTRICTED: Record<Access, { label: string; title: string } | null> = {
   instance: { label: 'Server', title: "Only the server's admin can open this." },
 };
 
+/** Each level opens everything below it, so a badge is for a row above the console's own. */
+const RANK: Record<Access, number> = { admin: 0, owner: 1, instance: 2 };
+
 export function ConsoleNav({
   id,
   groups,
   section,
   viewer,
   onNavigate,
-  /** `/admin` or `/settings`. Both consoles use this nav; only the prefix differs. */
+  /** `/admin`, `/server` or `/settings`. Every console uses this nav; only the prefix differs. */
   basePath = '/admin',
+  /** The level everybody who can open this console passes; rows at it carry no badge. */
+  baseAccess = 'admin',
   title = 'Administration',
   subtitle,
 }: {
@@ -54,6 +60,7 @@ export function ConsoleNav({
   /** Lets the mobile drawer close itself once a choice has been made. */
   onNavigate?: () => void;
   basePath?: string;
+  baseAccess?: Access;
   title?: string;
   subtitle?: string;
 }) {
@@ -61,7 +68,8 @@ export function ConsoleNav({
   const visible = filterGroups(groups, filter, viewer);
 
   const row = (entry: SectionEntry) => {
-    const restricted = entry.access ? RESTRICTED[entry.access] : null;
+    const restricted =
+      entry.access && RANK[entry.access] > RANK[baseAccess] ? RESTRICTED[entry.access] : null;
     return (
       <button
         key={entry.id}

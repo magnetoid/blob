@@ -541,7 +541,7 @@ export const SECTIONS: Section[] = [
           'The Huddle button in a channel or DM header starts a quick call — microphones on, no full screen — that anyone there can join.',
         body: [
           'A huddle lives in the bar at the foot of the channel list, so you can keep reading and writing while you talk. Turn a camera on or share a screen if your admins allow it, and open it full screen when there is something to see.',
-          'Leaving takes only you out; the huddle ends itself once everyone has left it. An admin decides on the Huddles page whether huddles are allowed here, whether cameras and screens are, and how many people fit in one.',
+          'Leaving takes only you out; the huddle ends itself once everyone has left it. An admin decides on the Calls page whether huddles are allowed here, whether cameras and screens are, and how many people fit in one.',
         ],
         keywords: ['huddle', 'audio', 'voice', 'call', 'talk', 'microphone', 'screen share'],
       },
@@ -1228,7 +1228,7 @@ export const SECTIONS: Section[] = [
     id: 'server-admin',
     title: 'Running the server',
     intro:
-      'One level up from a workspace: every account, every workspace, and whether the machine is healthy. At /admin.',
+      'One level up from a workspace: every account, how people sign in, what may be installed, and whether the machine is healthy. At /server, for whoever administers it.',
     audience: 'owner',
     topics: [
       {
@@ -1237,7 +1237,7 @@ export const SECTIONS: Section[] = [
         blurb:
           'Every account on this server and where it belongs, every workspace, and what each workspace may do to this machine.',
         audience: 'owner',
-        path: '/admin/users',
+        path: '/server/users',
         keywords: ['accounts', 'users', 'workspaces', 'policy', 'limits', 'instance'],
       },
       {
@@ -1249,7 +1249,7 @@ export const SECTIONS: Section[] = [
           'Feedback filed from inside the app arrives here too, with the console output and the page state that was captured when it was written.',
         ],
         audience: 'owner',
-        path: '/admin/health',
+        path: '/server/health',
         keywords: ['health', 'audit', 'logs', 'errors', 'monitoring', 'feedback'],
       },
     ],
