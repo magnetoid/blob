@@ -206,6 +206,35 @@ class TestComingBack:
         assert ("Helper", "The deploy is out.") in await bodies(pair)
         assert await agui_job.resume_waiting_runs() == 0
 
+    async def test_stopped_in_the_gap_between_hearing_and_starting_it_stays_stopped(
+        self,
+        pair: dict[str, Any],  # noqa: F811 — the fixture imported above
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The parent is `waiting` until its continuation's row is written, so a Stop in
+        that gap lands: it must then keep the continuation from starting too."""
+        await ask_helper(
+            pair,
+            "@Helper tell me when the deploy is out",
+            agui=[follow_up(later(hours=2)), says("Never said.")],
+        )
+        [waiting] = await helper_runs()
+        await bring_forward(waiting.id)
+        run_one = agui_job.run_one
+
+        async def stopped_first(*args: Any, **kwargs: Any) -> None:
+            stopped = await pair["owner"].post(f"/api/agent-runs/{waiting.id}/cancel")
+            assert stopped.status == 200, stopped.body
+            await run_one(*args, **kwargs)
+
+        monkeypatch.setattr(agui_job, "run_one", stopped_first)
+        await wake(pair)
+
+        assert (await run_row(waiting.id)).status == "cancelled"
+        assert len(await helper_runs()) == 1, "no continuation"
+        assert ("Helper", "Never said.") not in await bodies(pair)
+        assert asked_times(pair) == 1
+
     async def test_a_chain_comes_back_only_so_many_times(
         self,
         pair: dict[str, Any],  # noqa: F811 — the fixture imported above

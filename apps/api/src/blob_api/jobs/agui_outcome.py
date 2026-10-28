@@ -394,6 +394,11 @@ async def _start(
     so.
     """
     async with transaction() as (session, after):
+        if not await _carried_on(session, after, listener, channel_id, chain):
+            # The run this carries on is no longer waiting: carried on already by a job
+            # that came twice, or stopped in the gap since it was heard. Either way the
+            # continuation is not started, and nothing posts after a Stop that succeeded.
+            return None
         run_id = await agent_run_service.start(
             session,
             workspace_id=workspace_id,
@@ -411,7 +416,6 @@ async def _start(
         )
         if run_id is None:
             return None
-        await _carried_on(session, after, listener, channel_id, chain)
         # The row as the service reads every run, so the card the room sees as a run
         # starts is the shape it gets on every later read.
         run_view = await agent_run_service.view_of(session, run_id)
@@ -429,19 +433,21 @@ async def _carried_on(
     listener: Listener,
     channel_id: str,
     chain: agent_chains.Chain,
-) -> None:
+) -> bool:
     """A run that waited and was answered is done once — and only once — something is
     written for what carries it on: this run's row, or the refusal that stands in for
     one. Nothing in `jobs/agui.py` flips it earlier, so a worker lost between hearing
     the answer and starting the continuation leaves the parent `waiting`, and the net
-    that found it finds it again."""
+    that found it finds it again. False when there was a parent to carry on and it is
+    not waiting any more — stopped since it was heard, or carried on already."""
     if chain.agent_answer is None or chain.parent_run_id is None:
-        return
+        return True
     if not await agent_run_service.carry_on(session, chain.parent_run_id):
-        return
+        return False
     view = await agent_run_service.view_of(session, chain.parent_run_id)
     if view is not None:
         after.add(lambda: _announce(listener, channel_id, {"t": "agent_run.started", "run": view}))
+    return True
 
 
 async def _stream(
