@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from ..config import settings
 from ..db.engine import session_scope, transaction
 from ..jobs import backup as backup_job
+from ..jobs import orphans as orphans_job
 from ..lib import mail, storage
 from ..lib.auth import SessionUser, require_admin, require_recent_admin, require_recent_owner
 from ..lib.ids import IdParam
@@ -34,6 +35,8 @@ from ..schemas.admin import (
     ResetLinkOut,
     RoleInput,
     SettingsInput,
+    StorageOut,
+    StorageSweepOut,
     WebhookOut,
     WebhooksOut,
     WorkspaceSettingsOut,
@@ -308,6 +311,29 @@ async def _backup_health() -> BackupHealth:
         ok=last.ok,
         bytes=last.bytes,
         error=last.error,
+    )
+
+
+@router.get("/storage", response_model=StorageOut)
+async def storage_page(admin: SessionUser = Depends(require_admin)) -> StorageOut:
+    """What the workspace keeps in the bucket, by kind, and what the orphan sweep last did.
+
+    The sweep's record is the server's, not the workspace's — one worker sweeps every
+    workspace at once — and a Redis that is down leaves it out rather than failing the
+    page, so what is kept is still shown."""
+    async with session_scope() as session:
+        usage = await admin_service.storage_summary(session, admin.workspace_id)
+    last = await orphans_job.last_outcome()
+    return StorageOut(
+        **usage.model_dump(),
+        probe=await storage.probe(),
+        last_sweep=(
+            StorageSweepOut(
+                ran_at=last.ran_at, removed=last.removed, bytes=last.bytes, error=last.error
+            )
+            if last
+            else None
+        ),
     )
 
 

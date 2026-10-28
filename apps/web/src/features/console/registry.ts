@@ -379,6 +379,15 @@ export const ADMIN_NAV: AdminEntry[] = [
     access: 'admin',
   },
   {
+    // `/api/admin/storage`: any admin's. What the bucket holds, by kind, and what the
+    // nightly orphan sweep last did.
+    id: 'storage',
+    label: 'Storage',
+    description: 'What the files here add up to, and what the nightly sweep removed.',
+    keywords: ['storage', 'files', 'bucket', 'attachments', 'orphans', 'sweep', 'voice'],
+    access: 'admin',
+  },
+  {
     id: 'webhooks',
     label: 'Webhooks',
     description: 'Incoming URLs that let another system post into a channel here.',
@@ -429,7 +438,7 @@ export const ADMIN_NAV: AdminEntry[] = [
     id: 'health',
     label: 'Health',
     description: 'Whether the parts this server runs on are answering.',
-    keywords: ['status', 'database', 'redis', 'queue', 'storage', 'version'],
+    keywords: ['status', 'database', 'redis', 'queue', 'version'],
     access: 'admin',
   },
   {

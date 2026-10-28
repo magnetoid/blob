@@ -38,6 +38,7 @@ export const ADMIN_SECTIONS = [
   'import',
   'posture',
   'retention',
+  'storage',
   'webhooks',
   'deliveries',
   'connections',

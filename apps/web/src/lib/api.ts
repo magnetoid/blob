@@ -408,6 +408,19 @@ export interface AdminHealth {
   } | null;
 }
 
+/** The Storage page: what the workspace keeps in the bucket, by kind, and what the
+ *  nightly orphan sweep last did. */
+export interface AdminStorage {
+  /** The same reading as `AdminHealth.storage`. */
+  probe: string;
+  totalBytes: number;
+  byKind: { kind: string; count: number; bytes: number }[];
+  /** Uploads begun and never attached to a message; the sweep removes them after a day. */
+  orphans: number;
+  /** Null before the first sweep, or while its record cannot be read. */
+  lastSweep: { ranAt: string; removed: number; bytes: number; error: string | null } | null;
+}
+
 /** One captured warning or error from the server, newest first in the list. */
 export interface ServerLogEntry {
   at: string;
@@ -1954,6 +1967,7 @@ export const api = {
       ),
 
     health: () => get<AdminHealth>("/api/admin/health"),
+    storage: () => get<AdminStorage>("/api/admin/storage"),
     /** The workspace's public conversations, for its admins (M3 · B4). */
     exports: () => get<{ exports: ExportEntry[] }>("/api/admin/exports"),
     startExport: () => post<{ exports: ExportEntry[] }>("/api/admin/exports", {}),

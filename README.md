@@ -490,8 +490,7 @@ afternoon:
 - **Edit history for readers.** An edited message shows its latest words and "(edited)";
   only a legal hold keeps the earlier ones — and a deleted message's last words — for
   admins and the workspace export, and the person editing or deleting is told.
-- **Moderation and Storage** in the admin console — not built, and not listed there until
-  they are.
+- **Moderation** in the admin console — not built, and not listed there until it is.
 
 The current plan — what ships next, in what order, and why — is
 [docs/superpowers/specs/2026-10-18-agent-first-plan.md](docs/superpowers/specs/2026-10-18-agent-first-plan.md):

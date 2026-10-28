@@ -1932,6 +1932,30 @@ export interface paths {
         patch: operations["update_settings_api_admin_settings_patch"];
         trace?: never;
     };
+    "/api/admin/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Storage Page
+         * @description What the workspace keeps in the bucket, by kind, and what the orphan sweep last did.
+         *
+         *     The sweep's record is the server's, not the workspace's — one worker sweeps every
+         *     workspace at once — and a Redis that is down leaves it out rather than failing the
+         *     page, so what is kept is still shown.
+         */
+        get: operations["storage_page_api_admin_storage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/themes": {
         parameters: {
             query?: never;
@@ -9177,6 +9201,48 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * StorageKindOut
+         * @description One kind of attachment — `file` or `voice` — and what it adds up to.
+         */
+        StorageKindOut: {
+            /** Bytes */
+            bytes: number;
+            /** Count */
+            count: number;
+            /** Kind */
+            kind: string;
+        };
+        /**
+         * StorageOut
+         * @description The Storage page: what is kept, whether a browser can reach the bucket, and what
+         *     the sweep last did.
+         */
+        StorageOut: {
+            /** Bykind */
+            byKind: components["schemas"]["StorageKindOut"][];
+            lastSweep?: components["schemas"]["StorageSweepOut"] | null;
+            /** Orphans */
+            orphans: number;
+            /** Probe */
+            probe: string;
+            /** Totalbytes */
+            totalBytes: number;
+        };
+        /**
+         * StorageSweepOut
+         * @description The last orphan sweep's outcome, from the worker's own record.
+         */
+        StorageSweepOut: {
+            /** Bytes */
+            bytes: number;
+            /** Error */
+            error?: string | null;
+            /** Ranat */
+            ranAt: string;
+            /** Removed */
+            removed: number;
+        };
         /** SweepOut */
         SweepOut: {
             /** At */
@@ -10233,6 +10299,9 @@ export type SsoProviderIn = components['schemas']['SsoProviderIn'];
 export type SsoProviderOut = components['schemas']['SsoProviderOut'];
 export type SsoProvidersOut = components['schemas']['SsoProvidersOut'];
 export type StartWorkInput = components['schemas']['StartWorkInput'];
+export type StorageKindOut = components['schemas']['StorageKindOut'];
+export type StorageOut = components['schemas']['StorageOut'];
+export type StorageSweepOut = components['schemas']['StorageSweepOut'];
 export type SweepOut = components['schemas']['SweepOut'];
 export type SwitchedOut = components['schemas']['SwitchedOut'];
 export type SyncOut = components['schemas']['SyncOut'];
@@ -13751,6 +13820,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    storage_page_api_admin_storage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageOut"];
                 };
             };
         };

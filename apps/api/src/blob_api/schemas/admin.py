@@ -118,6 +118,44 @@ class BackupHealth(CamelModel):
     error: str | None = None
 
 
+class StorageKindOut(CamelModel):
+    """One kind of attachment — `file` or `voice` — and what it adds up to."""
+
+    kind: str
+    count: int
+    bytes: int
+
+
+class StorageSweepOut(CamelModel):
+    """The last orphan sweep's outcome, from the worker's own record."""
+
+    ran_at: str
+    removed: int
+    bytes: int
+    error: str | None = None
+
+
+class StorageUsage(CamelModel):
+    """What the workspace's attachments add up to, by kind — the service's half of
+    `StorageOut`; the router adds what only it can ask."""
+
+    total_bytes: int
+    by_kind: list[StorageKindOut]
+    #: Uploads begun and never attached to a message. The nightly sweep removes those
+    #: older than a day; what is counted here includes the ones not yet old enough.
+    orphans: int
+
+
+class StorageOut(StorageUsage):
+    """The Storage page: what is kept, whether a browser can reach the bucket, and what
+    the sweep last did."""
+
+    #: The same reading as `HealthOut.storage`.
+    probe: str
+    #: None before the first sweep, or while its record cannot be read.
+    last_sweep: StorageSweepOut | None = None
+
+
 class HealthOut(CamelModel):
     database: bool
     redis: bool

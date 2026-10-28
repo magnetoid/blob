@@ -41,6 +41,7 @@ const EVERY_ROW = [
   'Import',
   'Security',
   'Retention',
+  'Storage',
   'Webhooks',
   'Deliveries',
   'Assistants',
@@ -82,10 +83,10 @@ describe('the admin registry', () => {
 
   // They were drawn disabled under a Soon badge. They were not pages, so they are gone,
   // and every row left is a URL that opens something. (Approvals was one, and came back in
-  // M4 as a page that opens.)
+  // M4 as a page that opens; Storage likewise, as a page over the bucket and the sweep.)
   it('offers no row that is not a page', () => {
     const labels = ADMIN_NAV.map((entry) => entry.label);
-    for (const gone of ['Moderation', 'Storage', 'Import / export']) {
+    for (const gone of ['Moderation', 'Import / export']) {
       expect(labels).not.toContain(gone);
     }
     for (const entry of ADMIN_NAV) {
@@ -157,6 +158,7 @@ describe('who each admin page is for', () => {
     import: 'admin', // /api/admin/import
     posture: 'admin', // /api/admin/security; the server's half only for its admins
     retention: 'admin', // /api/admin/retention; saving asks for a recent sign-in
+    storage: 'admin', // /api/admin/storage
     webhooks: 'admin', // /api/admin/webhooks
     deliveries: 'admin', // /api/admin/deliveries
     connections: 'admin', // /api/admin/mcp-tokens

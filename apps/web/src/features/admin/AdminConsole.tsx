@@ -40,6 +40,7 @@ import { HuddlesSection } from './sections/calls/HuddlesSection.tsx';
 import { ExportSection } from './sections/ExportSection.tsx';
 import { ImportSection } from './sections/ImportSection.tsx';
 import { RetentionSection } from './sections/RetentionSection.tsx';
+import { StorageSection } from './sections/StorageSection.tsx';
 import { SecuritySection } from './sections/SecuritySection.tsx';
 import { ApprovalsSection } from './sections/ApprovalsSection.tsx';
 import { MeetupsSection } from './sections/calls/MeetupsSection.tsx';
@@ -101,6 +102,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   posture: SecuritySection,
   approvals: ApprovalsSection,
   retention: RetentionSection,
+  storage: StorageSection,
   webhooks: WebhooksSection,
   deliveries: DeliveriesSection,
   connections: AssistantsAdminSection,
