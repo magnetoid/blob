@@ -1,0 +1,53 @@
+/* ─── an agent's configuration ───────────────────────────────────────────── */
+.agent-config {
+  margin-top: 12px;
+}
+
+.agent-config-warning {
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  /* Bordered rather than filled: this is a diagnosis of something already wrong, not a
+     destructive action being confirmed, and a solid red block reads as the latter. */
+  color: var(--text-2);
+}
+
+.agent-config-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.agent-config-table td {
+  padding: 4px 8px 4px 0;
+  vertical-align: middle;
+}
+
+/* Struck through rather than removed on click: a row that vanishes gives nothing to
+   undo, and the change has not been saved yet. */
+.agent-config-table tr[data-removed='true'] .agent-config-key code {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.agent-config-key {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 1%;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.agent-config-actions {
+  width: 1%;
+  text-align: right;
+}
+
+.agent-config-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 8px;
+  margin-top: 10px;
+}

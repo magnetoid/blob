@@ -1,0 +1,99 @@
+/* ─── an assistant asking to connect (ADR 0029) ─────────────────────────────
+   The sign-in screen's ground and card without its brand half: the page asks one
+   question, and nothing beside it should compete with the name of the app asking. */
+@media (min-width: 900px) {
+  .auth.consent {
+    grid-template-columns: minmax(0, 1fr);
+    place-items: center;
+    padding: 24px;
+  }
+}
+
+.consent-card {
+  width: min(440px, 100%);
+}
+
+.consent-title {
+  margin-top: 18px;
+}
+
+.consent-marks {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The two marks are tied, not merged: a dotted line says "about to be connected"
+   without drawing an arrow that suggests which way the data goes. */
+.consent-tie {
+  width: 22px;
+  border-top: 2px dotted var(--hairline);
+}
+
+.consent-app {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  background: var(--surface-icon);
+  color: var(--text-2);
+  font-weight: 700;
+  font-size: var(--text-title);
+}
+
+.consent-facts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: var(--text-row);
+  line-height: 1.55;
+}
+
+.consent-facts li {
+  position: relative;
+  padding-left: 18px;
+}
+
+/* The words carry the meaning; the dot only lets the eye find the line that needs
+   reading twice. */
+.consent-facts li::before {
+  content: '';
+  position: absolute;
+  top: 0.6em;
+  left: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--text-5);
+}
+
+.consent-facts li[data-tone='ok']::before {
+  background: var(--accent);
+}
+
+.consent-facts li[data-tone='warn']::before {
+  background: var(--presence-away);
+}
+
+.consent-write {
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.consent-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.consent-actions .btn-primary {
+  flex: 1;
+}
+
+.consent-home {
+  align-self: flex-start;
+}

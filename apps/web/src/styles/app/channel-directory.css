@@ -1,0 +1,68 @@
+/* ─── channel directory ──────────────────────────────────────────────────── */
+.browse-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px var(--pane-gutter) 30px;
+  overflow-y: auto;
+}
+
+.browse-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.browse-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+}
+
+.browse-row:hover {
+  background: var(--surface-hover);
+}
+
+.browse-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.browse-row-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-row);
+  font-weight: 600;
+}
+
+.browse-row-meta {
+  margin-top: 2px;
+  font-size: var(--text-meta);
+  color: var(--text-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A scheduled message that runs an agent: the one line saying this row is a run, in the
+   iris everything an agent touches already wears. */
+.scheduled-run {
+  color: var(--iris-strong);
+  font-weight: 600;
+}
+
+/* Small enough to sit inside a row without becoming its own control. */
+.browse-tag {
+  height: 20px;
+  padding: 0 7px;
+  font-size: var(--text-2xs);
+  pointer-events: none;
+}

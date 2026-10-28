@@ -1,0 +1,71 @@
+/* ─── who somebody is ─────────────────────────────────────────────────────── */
+/* The author's name is a button now. It has to look like the text it replaced until it
+   is hovered, or every message row would grow a control nobody asked for.
+
+   Specificity zero, through :where(). Written as `button.person-trigger` the reset
+   outranked `.message-author`, and its `font: inherit` took back the size and weight the
+   name is styled with — every author rendered at the body's 400 from the day the name
+   became a button. The global button reset already clears padding, border and
+   background; this only has to inherit what the name's own class does not set. */
+.person-trigger-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+:where(button.person-trigger) {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+}
+
+button.person-trigger:hover {
+  text-decoration: underline;
+}
+
+.person-card {
+  width: 260px;
+  padding: 12px;
+}
+
+/* A popover inside the virtualised message list.
+ *
+ * Every row is absolutely positioned and carries a transform, which makes it a stacking
+ * context — so a panel inside one is trapped there however high its own z-index, and the
+ * next row down paints straight over it. Raising the *row* is what lifts the panel,
+ * because the row is the context. `.menu` rather than `.person-card`: the ••• menu hangs
+ * off the same kind of row and has the same problem. The panel is only in the DOM while
+ * it is open (Menu unmounts it after the exit), so this never raises a quiet row. */
+.message-list-row:has(.menu) {
+  z-index: var(--z-popover);
+}
+
+.person-card-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.person-card-name {
+  font-weight: 600;
+  font-size: var(--text-base);
+}
+
+.person-card-title,
+.person-card-status {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+
+.person-card-status {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}

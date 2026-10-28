@@ -1,0 +1,171 @@
+/* ─── channel menu and details ────────────────────────────────────────────── */
+/* A generic dropdown. The workspace name and the message ••• each grew their own
+   before this existed; those are left alone, and anything new lands here. */
+.menu {
+  position: absolute;
+  z-index: var(--z-menu);
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 232px;
+  padding: 5px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+}
+
+/* Above its trigger instead, where the box that clips it has more room there — the ••• on
+   the newest message, at the foot of the conversation (components/Menu.tsx decides). By
+   role, not class: every panel the shared Menu draws takes it, whatever it is called. */
+[role='menu'][data-placement='above'] {
+  top: auto;
+  bottom: calc(100% + 4px);
+  transform-origin: bottom center;
+}
+
+/* The message ••• hangs from the right of its trigger, at the right edge of the row,
+   and is narrower than a channel menu because its rows are single words. Everything
+   else about it — the panel, the rows, the dismissal — is now the shared menu. */
+.message-menu {
+  left: auto;
+  right: 0;
+  min-width: 168px;
+}
+
+.menu-label {
+  margin: 4px 9px 2px;
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  color: var(--text-4);
+}
+
+.menu-item,
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-row);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Only what differs from a menu row: these push a "Soon" pill to the far end. The
+   shared thirteen declarations live with .menu-item. */
+.user-menu-item {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.menu-item:hover:not(:disabled),
+.user-menu-item:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+/* Both menus can hold an inert row; only the account menu did anything about it. */
+.menu-item:disabled,
+.user-menu-item:disabled {
+  color: var(--disabled-fg);
+  cursor: default;
+}
+
+.menu-item-danger:hover {
+  color: var(--danger);
+}
+
+/* A fixed gutter, so labels line up whether or not a row is ticked. */
+.menu-check {
+  flex: none;
+  width: 14px;
+  color: var(--accent);
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--hairline-soft);
+}
+
+/* The channel name is a button now. It has to keep looking like a heading. */
+.pane-name-trigger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px 2px 4px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pane-name-trigger:hover {
+  background: var(--surface-hover);
+}
+
+.pane-star {
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.member-list,
+.member-candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.member-candidates {
+  max-height: 200px;
+  padding: 4px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-md);
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 7px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-row);
+  text-align: left;
+}
+
+button.member-row {
+  cursor: pointer;
+}
+
+button.member-row:hover {
+  background: var(--surface-hover);
+}
+
+.member-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-status {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,0 +1,67 @@
+/* ─── admin console: the page frame ──────────────────────────────────────── */
+/* A layout of its own, not the chat shell with a different third column. The nav
+   borrows the sidebar's width and surface so the console reads as the same product,
+   and the row primitive is literally the channel row — same reflexes, same marking of
+   where you are. */
+.admin-shell {
+  /* The page's side gutter, stepped down with the window below. */
+  --console-gutter: var(--space-10);
+  /* The wash a row takes under the pointer, mixed toward --surface-hover rather than
+     being it: every row of a long list turning the full hover step read as a stripe,
+     not a highlight. --surface-row-hover is no use on a card — in dark it is darker
+     than --surface, so a hovered row would sink instead of lifting. */
+  --console-row-hover: color-mix(in oklab, var(--surface-hover) 60%, var(--surface));
+  /* A table's header row, which is sticky: the height it is drawn at and the scroll
+     padding its box keeps clear under it are one number, so they cannot drift apart. */
+  --table-head-height: 32px;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  /* Same top row as the chat shell, because the account menu lives in it and a menu
+     that exists in only some views is a menu people lose. */
+  grid-template-rows: var(--topbar-height) minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
+  /* The ground, as in the chat shell: the page is the paper card (`.admin-main`). */
+  background: var(--bg-sidebar);
+  color: var(--text);
+  font-size: var(--text-base);
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid transparent;
+}
+
+.admin-nav-header {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.admin-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--text-4);
+  font-size: var(--text-ui);
+  transition: color var(--dur-fast) var(--ease-color);
+}
+
+.admin-back:hover {
+  color: var(--text);
+}
+
+.admin-nav-title {
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.admin-nav-sub {
+  margin-top: 3px;
+  font-size: var(--text-label-size);
+  color: var(--text-4);
+}

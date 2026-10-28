@@ -1,0 +1,100 @@
+/* ─── a long answer, folded (ReplyFold.tsx) ────────────────────────────────
+   Sixteen lines show. `FOLD_AFTER_LINES` (twenty) is when an answer folds, so a fold
+   always hides four lines or more — and this has to stay below it, or an answer between
+   the two would fold with nothing hidden. Nothing here moves: opening one is a press. */
+.reply-fold {
+  position: relative;
+}
+
+/* A formatting context of its own, so the height ReplyFold measures is all of it, the
+   first and last margins inside included. */
+.reply-fold-content {
+  display: flow-root;
+}
+
+.reply-fold[data-folded='true'] {
+  /* In lines of the body's own leading, so the clip falls between two of them. The 4px
+     are a focus ring's room on the first line: the clip is this box's padding edge, and a
+     ring drawn outside a link up there would lose its top. */
+  max-height: calc(16lh + 4px);
+  margin-top: -4px;
+  padding-top: 4px;
+  /* Up and down only, and `clip` rather than `hidden`: nothing can scroll the hidden part
+     into the box — a focused link, find in page — and a ring at either side still shows. */
+  overflow-x: visible;
+  overflow-y: clip;
+}
+
+/* The last lines fade into the card: its own ground, from nothing to solid. */
+.reply-fold[data-folded='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 2.5lh;
+  background: linear-gradient(to bottom, transparent, var(--surface));
+  pointer-events: none;
+}
+
+/* Worded and coloured like the reply count under a thread's first message, the other
+   way into more of a message from where you are reading. */
+.reply-fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0 -6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--accent);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 1.4;
+  transition:
+    background var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
+}
+
+.reply-fold-toggle:hover {
+  background: var(--accent-wash);
+}
+
+.reply-fold-toggle:active {
+  scale: var(--motion-press);
+}
+
+.reply-fold-toggle[aria-expanded='true'] svg {
+  rotate: 180deg;
+}
+
+@media (pointer: coarse) {
+  .reply-fold-toggle {
+    min-height: 44px;
+    margin-left: -10px;
+    padding-inline: 10px;
+  }
+}
+
+.agent-live-dot {
+  flex: none;
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--iris);
+  animation: agent-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes agent-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-live-dot {
+    animation: none;
+  }
+}

@@ -1,0 +1,258 @@
+/* ─── dialogs & settings ─────────────────────────────────────────────────── */
+/* The host is the native <dialog>; `.dialog` inside it is the visible panel. The host
+   carries nothing visual of its own so that a click whose target is the host is, by
+   construction, a click on the backdrop — `components/Dialog.tsx` closes on exactly that.
+   Centring, the top layer and inertness behind it are the platform's; the backdrop
+   pseudo-element takes the colour the old fixed wrapper had. */
+dialog.dialog-host {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: visible;
+}
+
+dialog.dialog-host::backdrop {
+  background: var(--backdrop);
+}
+
+.dialog {
+  /* Against the viewport, not the host: the host is shrink-to-fit, so a percentage here
+     was a percentage of its own content's width — a long sentence widened the host
+     towards the whole screen while the panel stayed 460px at its left edge, and the
+     dialog sat off-centre by however long its longest line was. */
+  width: min(460px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px;
+  background: var(--surface-3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-3);
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pref-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 17px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* A settings row whose control sits under its label rather than beside it — the DND
+   window, keyword alerts, group mutes. Same rhythm and divider as .pref-row, without
+   the flex that would lay its children out in a line. Three copies of this lived as
+   inline styles, one of which had already drifted to 12px. */
+.pref-block {
+  padding: 17px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* Nothing follows the last one, so a rule under it would underline the page. */
+.pref-block:last-child {
+  border-bottom: 0;
+}
+
+.pref-label {
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+.pref-hint {
+  margin-top: 3px;
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  color: var(--text-4);
+}
+
+.toggle {
+  display: flex;
+  flex: none;
+  width: 40px;
+  height: 23px;
+  padding: 2px;
+  /* A switch track is a stadium, not a rounded rectangle. */
+  border-radius: var(--radius-full);
+  background: var(--track-off);
+  transition:
+    background var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
+}
+
+.toggle:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.toggle[aria-pressed='true'] {
+  background: var(--accent);
+}
+
+.toggle span {
+  display: block;
+  width: 19px;
+  height: 19px;
+  border-radius: var(--radius-full);
+  background: var(--knob);
+  box-shadow: var(--shadow-knob);
+  /* The knob used to be positioned by flipping justify-content from start to end,
+     which is a discrete property: it teleported while the track colour faded under
+     it. 40px wide, less 2px padding either side and a 19px knob, is 17px of travel —
+     thrown on `--ease-out`, so it leaves at once and settles, the way everything else
+     here that answers a click does. */
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.toggle[aria-pressed='true'] span {
+  transform: translateX(17px);
+}
+
+.chip-row {
+  display: flex;
+  gap: 9px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  font-size: var(--text-meta);
+  color: var(--text-3);
+}
+
+.chip:hover:not(:disabled):not([aria-pressed='true']):not(
+    [data-active='true']
+  ) {
+  border-color: var(--hairline-strong);
+  color: var(--text);
+}
+
+.chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.chip[aria-pressed='true'],
+.chip[data-active='true'] {
+  background: var(--accent-wash);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Pressed feedback. There was not one `:active` rule in the stylesheet, so every
+   button in the app was inert between the pointer going down and the action
+   happening — on a slow request that is the whole time the person is waiting, with
+   nothing to say the click landed. A background one step deeper than hover is the
+   quietest thing that reads as "held". */
+.btn:active:not(:disabled),
+.chip:active:not(:disabled) {
+  background: var(--surface-hover-deep);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-danger:active:not(:disabled) {
+  /* These two invert on hover, so a deeper neutral would read as releasing. */
+  filter: brightness(0.94);
+}
+
+.icon-btn:active,
+.message-action:active,
+.menu-item:active,
+.user-menu-item:active:not(:disabled),
+.channel-row:active,
+.topbar-nav-btn:active {
+  background: var(--surface-hover-deep);
+  /* The deeper ground says "armed"; the scale says "you pressed it". Transform only,
+     so a row that is 34px tall does not reflow the list under the finger. */
+  transform: scale(var(--motion-press));
+}
+
+/* A row on the tinted ground is pressed deeper into that ground: the fixed step above
+   is lighter than the ground's own hover there, so a press would read as letting go. */
+.channel-row:active {
+  background: var(--ground-press);
+}
+
+/* The rest of the controls give too — every button, chip and switch, and the small
+   dismiss and add buttons that had no press at all. Through `scale` rather than
+   `transform`: the individual property composes with whatever transform an element
+   already carries (a lift on hover, a knob's offset) where `transform: scale()` would
+   replace it and make the control jump. Each of these transitions `scale`, below or on
+   its own rule, so the give eases in and back instead of snapping. Nothing here is in
+   the list above, or it would be pressed twice. */
+.btn:active:not(:disabled),
+.chip:active:not(:disabled),
+.toggle:active:not(:disabled),
+.send-btn:active:not(:disabled),
+.reaction:active,
+.thread-summary:active,
+.sidebar-add:active,
+.sidebar-inline-add:active,
+.channel-kebab:active,
+.new-message-person:active:not(:disabled),
+.emoji-cell:active,
+.emoji-tone:active,
+.attachment-chip-remove:active,
+.toast-dismiss:active,
+.unread-jump-dismiss:active,
+.catchup-strip-dismiss:active,
+.ephemeral-dismiss:active {
+  scale: var(--motion-press);
+}
+
+/* Hover answers in colour everywhere, not only where somebody remembered to write a
+   transition: each of these changed its ground, border, colour or opacity on hover in a
+   single frame. The same 120ms the buttons and the sidebar's rows already take;
+   transform and scale for the presses. Not a keyboard highlight — the autocomplete's
+   and the emoji grid's move under hands that are typing, and a highlight a beat behind
+   the key reads as lag; the emoji cell is handled beside its own rules. */
+.channel-kebab,
+.sidebar-add,
+.sidebar-inline-add,
+.message-action,
+.menu-item,
+.thread-summary,
+.attachment-file,
+.link-preview,
+.attachment-chip-remove,
+.chip,
+.summary-cite,
+.emoji-tone,
+.ephemeral-dismiss,
+.pinned-item,
+.browse-row,
+button.member-row,
+.new-message-person,
+.shortcut-help-more,
+.help-ref-link,
+.toast-dismiss,
+.unread-jump-dismiss,
+.catchup-strip-dismiss {
+  transition:
+    background-color var(--dur-fast) var(--ease-color),
+    border-color var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color),
+    opacity var(--dur-fast) var(--ease-color),
+    transform var(--dur-fast) var(--ease-out),
+    scale var(--dur-fast) var(--ease-out);
+}

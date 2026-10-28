@@ -1,0 +1,193 @@
+/* ─── top bar ────────────────────────────────────────────────────────────── */
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 0 16px;
+  /* No rule underneath: the bar is the frame's ground, and in the default palette
+     --bg-rail is the sidebar's tint, so the two are one surface. Ten of the built-in
+     palettes set the rail a shade darker than the sidebar, and there the bar reads as a
+     band across the top — kept, because those palettes chose it, and the card's own
+     ring is what separates the work from the chrome. */
+  background: var(--bg-rail);
+}
+
+.topbar-minimal {
+  gap: 10px;
+}
+
+.topbar-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 100%;
+}
+
+.topbar-tab {
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.topbar-tab:hover {
+  color: var(--text);
+}
+
+.topbar-tab[aria-pressed='true'] {
+  color: var(--text);
+  border-bottom-color: var(--text);
+}
+
+.topbar-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.topbar-invite {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.topbar-invite:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.topbar-brand {
+  font-size: var(--text-row);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-2);
+}
+
+.topbar-spacer {
+  flex: 1;
+}
+
+.topbar-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-2);
+  box-shadow: var(--elev-1);
+  transition:
+    transform var(--dur-fast) var(--ease-standard),
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color);
+}
+
+.topbar-search-btn:hover,
+.topbar-search-btn[aria-pressed='true'] {
+  background: var(--surface-hover);
+  color: var(--text);
+  transform: translateY(var(--motion-lift));
+}
+
+.topbar-search-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-color);
+}
+
+.user-menu-trigger:hover {
+  background: var(--surface-hover);
+}
+
+.user-menu-trigger svg {
+  color: var(--text-4);
+  transition: transform var(--dur-fast) var(--ease-color);
+}
+
+.user-menu-trigger[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.user-menu-avatar {
+  position: relative;
+  display: flex;
+}
+
+.user-menu-name {
+  max-width: 160px;
+  overflow: hidden;
+  font-size: var(--text-row);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu-panel {
+  position: absolute;
+  z-index: var(--z-menu);
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 232px;
+  padding: 5px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+}
+
+.user-menu-header {
+  padding: 8px 9px 10px;
+  border-bottom: 1px solid var(--hairline-soft);
+  margin-bottom: 5px;
+}
+
+.user-menu-header-name {
+  font-size: var(--text-row);
+  font-weight: 600;
+}
+
+.user-menu-header-email {
+  overflow: hidden;
+  font-size: var(--text-2xs);
+  color: var(--text-4);
+  text-overflow: ellipsis;
+}
+
+.user-menu-soon {
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  font-size: var(--text-2xs);
+  color: var(--text-4);
+}

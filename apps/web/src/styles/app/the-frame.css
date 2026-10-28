@@ -1,0 +1,82 @@
+/* ─── the frame ──────────────────────────────────────────────────────────────
+   Meadow's app frame: whatever view is open sits on paper in a rounded card, inset from
+   the window's right and bottom edges, with a thread or a file joined to its right side
+   as one card split by a hairline. The top bar and the channel list are the ground it
+   sits on, so neither draws a border against it any more.
+
+   Every view's root is a `main.pane` and every right-hand panel an `aside.panel`, both
+   children of the shell, so this is a rule about those two and nothing is wrapped. No
+   `overflow: hidden` either: the corners clip the card's own background, and clipping
+   its children would cut off the header's menus and the message toolbar where they
+   overhang it.
+
+   From 769px. Below that the channel list is a drawer and the view is the whole screen,
+   where a gutter would only cost width; between 769 and 900 the panel is an overlay
+   rather than a column, so only from 901 does the card share its side with one. */
+@media (min-width: 769px) {
+  .shell > .pane {
+    margin: 0 var(--frame-gap) var(--frame-gap) 0;
+    border-radius: var(--frame-radius);
+    box-shadow: var(--elev-frame);
+  }
+}
+
+@media (min-width: 901px) {
+  .shell[data-panel='open'] > .pane {
+    margin-right: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .shell > .panel {
+    margin: 0 var(--frame-gap) var(--frame-gap) 0;
+    border-radius: 0 var(--frame-radius) var(--frame-radius) 0;
+    box-shadow: var(--elev-frame);
+  }
+
+  /* A page, a PDF or an SVG fills the file panel edge to edge on white of its own, and
+     painted straight over the card's rounded corner. Clipped here and only here: the
+     file panel has no menu or picker to cut off, where a thread panel's composer does. */
+  .shell > .panel.file-preview {
+    overflow: hidden;
+  }
+}
+
+.shell[data-panel='open'] {
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
+}
+
+.shell[data-sidebar-collapsed='true'] {
+  grid-template-columns: 84px minmax(0, 1fr);
+}
+
+.shell[data-sidebar-collapsed='true'][data-panel='open'] {
+  grid-template-columns: 84px minmax(0, 1fr) var(--panel-width);
+}
+
+/* Only where the panel is a column. Below 900px it is an overlay and the shell drops to
+   fewer columns, and these selectors — one attribute more specific than the narrow
+   rules — would otherwise put the third column back under the overlay and push the top
+   bar off the side of a phone. */
+@media (min-width: 901px) {
+  .shell[data-panel='open'][data-panel-kind='file'] {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width-file);
+  }
+
+  .shell[data-sidebar-collapsed='true'][data-panel='open'][data-panel-kind='file'] {
+    grid-template-columns: 84px minmax(0, 1fr) var(--panel-width-file);
+  }
+}
+
+/* A file's panel takes width from the conversation, and the conversation's header runs
+   out first: a name, a description and four labelled controls want about 800px. Below
+   the width that leaves them that — 1860px, once the panel's clamp is done — the labels
+   go and the icons keep their `title`, the trade the phone layout already makes.
+   Keyed on the viewport rather than on the column because the header cannot measure its
+   own column without `container-type`, and the containment that brings would trap the
+   header's menus in a stacking context underneath the message list. */
+@media (max-width: 1860px) {
+  .shell[data-panel-kind='file'] .pane-action-label {
+    display: none;
+  }
+}

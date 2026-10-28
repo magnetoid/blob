@@ -1,0 +1,57 @@
+/* ─── slash commands ─────────────────────────────────────────────────────── */
+
+.autocomplete-item .command-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+.autocomplete-item .command-summary {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: var(--text-sm);
+  color: var(--text-4);
+}
+
+/* A command's reply to the person who ran it. Deliberately unlike a message: it is
+   not in the conversation, nobody else will ever see it, and saying so plainly is
+   what stops someone answering it as though the channel had. */
+.ephemeral-note {
+  margin: 0 0 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  /* A slash command's answer, for your eyes: it arrives above the composer that asked. */
+  animation: arrive var(--dur-open) var(--ease-out);
+}
+
+.ephemeral-body {
+  color: var(--text-2);
+  font-size: var(--text-ui);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.ephemeral-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  color: var(--text-4);
+  font-size: var(--text-xs);
+}
+
+.ephemeral-dismiss {
+  border: 0;
+  background: transparent;
+  color: var(--text-4);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ephemeral-dismiss:hover {
+  color: var(--text-2);
+}

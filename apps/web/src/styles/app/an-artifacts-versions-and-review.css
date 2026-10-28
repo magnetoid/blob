@@ -1,0 +1,163 @@
+/* ─── an artifact's versions and review (M2 · A10) ─────────────────────────
+   The list is of things, not drafts: a version number says how far each has come, and
+   the review bar under the detail is the only place a verdict is given. */
+.work-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.work-tab-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.work-version {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.work-standing[data-verdict='approved'] {
+  color: var(--accent);
+}
+
+.work-standing[data-verdict='changes'] {
+  color: var(--unread-text);
+}
+
+.work-split > .work-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.work-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.work-detail-title {
+  font-weight: 600;
+  font-size: var(--text-title);
+}
+
+.work-version-pick {
+  width: auto;
+}
+
+.work-review {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.work-verdicts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.work-verdict {
+  padding: 2px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--text-ui);
+}
+
+.work-verdict[data-verdict='approved'] {
+  border-color: var(--accent-border);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.work-verdict[data-verdict='changes'] {
+  border-color: color-mix(in srgb, var(--unread-text) 35%, var(--hairline));
+  color: var(--unread-text);
+}
+
+.work-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.work-send-back {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.work-send-back-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.work-send-back-actions .pref-hint {
+  margin-right: auto;
+}
+
+.work-kind-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.work-publish-body {
+  min-height: 200px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--text-ui);
+}
+
+.work-publish-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--text-ui);
+}
+
+.work-document {
+  max-width: 72ch;
+  line-height: 1.55;
+}
+
+.work-preview-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--hairline); /* borders over shadows: only the frame, the composer and overlays float */
+}
+
+.work-preview-frame {
+  width: 100%;
+  min-height: 480px;
+  border: 0;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--hairline); /* borders over shadows: only the frame, the composer and overlays float */
+  background: #fff;
+}

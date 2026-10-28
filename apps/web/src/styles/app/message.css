@@ -1,0 +1,158 @@
+/* ─── message ────────────────────────────────────────────────────────────── */
+.message {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  padding: var(--message-padding-y) var(--pane-gutter);
+  /* Opacity sits here rather than on `[data-pending]` so both directions animate: a
+     message confirming, and a retry dimming it again. */
+  transition:
+    background-color var(--dur-fast) var(--ease-color),
+    opacity var(--dur-fast) var(--ease-color);
+}
+
+.message:hover {
+  background: var(--surface-row-hover);
+}
+
+/* Padding, not margin: offsetHeight / getBoundingClientRect skip collapsing margins, so
+   a 6px gap between groups was painted and never measured — the next row sat 6px too
+   high and left a hole. The sibling combinator also fails once the previous message is
+   virtualized out of the DOM; `data-starts-group` is on this row itself. */
+.message[data-starts-group='true'] {
+  padding-top: calc(var(--message-padding-y) + 6px);
+}
+
+/* A run from one person, after its first row: half the step above and below, so five
+   short lines in a row read as one person talking rather than as double-spaced text —
+   the rhythm of Slack's continuation rows. A row that starts a group, or follows a day
+   or unread divider, keeps the full step. Every density scales with it. */
+.message[data-grouped='true'] {
+  padding-block: calc(var(--message-padding-y) / 2);
+}
+
+.message[data-mentions-me='true'] {
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.message[data-pending='true'] {
+  opacity: 0.55;
+}
+
+/* A message arriving: somebody else's landing live in the conversation on screen, or
+   yours the moment you send it. Keyed to the store's mark rather than to mounting — the
+   list is virtualised, so a row mounts on every scroll and every channel switch, and an
+   entrance keyed to that would play on all of them. The row settles the mark when this
+   ends. No `to`, so a pending row rises to its own dimmed opacity rather than to 1. */
+.message[data-fresh='true'] {
+  animation: arrive var(--dur-open) var(--ease-out);
+}
+
+.message-gutter {
+  width: 36px;
+  flex: none;
+}
+
+.gutter-time {
+  display: block;
+  padding-right: 6px;
+  font-size: var(--text-2xs);
+  line-height: 20px;
+  transition: opacity var(--dur-fast) var(--ease-color);
+  color: var(--text-faint);
+  text-align: right;
+  opacity: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.message:hover .gutter-time,
+.message:focus-within .gutter-time {
+  opacity: 1;
+}
+
+.message-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+/* Meadow's author line: the name at 14/700 and the time at meta size beside it, so a
+   conversation scans by who as much as by what. */
+.message-author {
+  font-size: var(--text-base);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+.message-status {
+  font-size: var(--text-sm);
+  color: var(--text-label);
+  font-weight: 400;
+}
+
+.message-time {
+  font-size: var(--text-sm);
+  color: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.message-body {
+  font-size: var(--text-base);
+  line-height: 1.62;
+  color: var(--text-body);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.message-body p {
+  margin: 0 0 8px;
+}
+
+.message-body p:last-child {
+  margin-bottom: 0;
+}
+
+.message-body ul,
+.message-body ol {
+  margin: 0 0 8px;
+  padding-left: 22px;
+}
+
+.message-body blockquote {
+  margin: 0 0 8px;
+  padding-left: 12px;
+  border-left: 3px solid var(--hairline);
+  color: var(--text-3);
+}
+
+.message-body code {
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-icon);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* A list under an item sits tight under the text it hangs from. The 8px under a list is
+   room before the next paragraph; inside an item it opened a gap before the next item. */
+.message-body li > :is(ul, ol) {
+  margin-bottom: 0;
+}
+
+/* Items written a blank line apart are one list now — drawn as separate lists, the
+   numbering restarted at every gap — and keep the 8px those lists had between them. */
+.message-body :is(ul, ol)[data-loose='true'] > li + li {
+  margin-top: 8px;
+}
+
+/* A fenced block inside an item, a step's command under the step. */
+.message-body li > .code-block {
+  margin-top: 4px;
+}

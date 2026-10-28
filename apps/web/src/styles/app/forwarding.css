@@ -1,0 +1,60 @@
+/* ─── forwarding ─────────────────────────────────────────────────────────── */
+/* An agent's runs, a page at a time: each the card it left, under when and where. Tall
+   enough to read several, scrolling inside the dialog rather than the page. */
+/* A memory's contents, behind a disclosure on its row. */
+.memory-preview {
+  margin-top: 6px;
+  font-size: var(--text-sm);
+}
+.memory-preview > summary {
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+/* One run in the console's log, opened: what it did and what it was shown. */
+.run-log-detail {
+  margin-top: 6px;
+  font-size: var(--text-sm);
+}
+.run-log-detail > summary {
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.run-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(60vh, 520px);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.run-history-when {
+  font-size: var(--text-xs);
+  color: var(--text-4);
+}
+
+.forward-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.forward-list .menu-item[data-active='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.forward-empty {
+  padding: 10px 9px;
+  font-size: var(--text-meta);
+  color: var(--text-4);
+}

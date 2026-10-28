@@ -161,6 +161,27 @@ class TestPeople:
         listed = (await team["member"].get("/api/users")).body["users"]
         assert "Gita Guest" in {u["displayName"] for u in listed}
 
+    async def test_an_assistant_made_a_guests_knows_only_the_guests_people(
+        self, team: dict[str, Any]
+    ) -> None:
+        """A guest mints no MCP token, but a member's token outlives their being made one,
+        and that assistant is the person (ADR 0016): `list_people` used to answer the
+        whole workspace to it."""
+        from .test_mcp import Mcp, mint
+
+        member = team["member"]
+        assistant = Mcp(member, await mint(member))
+        assert "Gita Guest" in await assistant.call("list_people")
+
+        async with SessionFactory() as session:
+            await session.execute(
+                text("UPDATE users SET role = 'guest' WHERE id = :id"), {"id": member.user_id}
+            )
+            await session.commit()
+        listed = await assistant.call("list_people")
+        assert "Owner" in listed and "Member" in listed, "shares #general; themselves"
+        assert "Gita Guest" not in listed, "shares no room with them"
+
     async def test_messages_go_to_people_they_share_a_room_with(self, team: dict[str, Any]) -> None:
         guest = team["guest"]
         stranger = await guest.post("/api/dms", {"userIds": [team["member"].user_id]})

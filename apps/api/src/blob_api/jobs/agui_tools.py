@@ -650,7 +650,7 @@ async def caller_for(
             await session.execute(
                 text(
                     """
-                    SELECT u.display_name, u.deactivated_at, w.name AS workspace_name
+                    SELECT u.display_name, u.deactivated_at, u.role, w.name AS workspace_name
                       FROM users u JOIN workspaces w ON w.id = u.workspace_id
                      WHERE u.id = :id AND u.workspace_id = :ws AND u.kind = 'human'
                     """
@@ -659,6 +659,10 @@ async def caller_for(
             )
         ).fetchone()
     if row is None or row.deactivated_at is not None:
+        return None
+    if row.role == "guest":
+        # A guest's message starts no run (ADR 0034). A run whose person was made a
+        # guest while it waited is not handed the tools a member's run has.
         return None
     return mcp_service.McpCaller(
         token_id="",
@@ -669,6 +673,7 @@ async def caller_for(
         workspace_name=row.workspace_name,
         scopes=frozenset({"read"}),
         room_channel_id=room_channel_id,
+        role=str(row.role),
     )
 
 
@@ -795,7 +800,9 @@ async def run_write(
         log.warning("agui: an approved post failed inside Blob", exc_info=True)
         return ToolOutcome("", "Approved, but Blob could not post it.", failed=True)
     if message_id is None:
-        return ToolOutcome(f"Posted in {prepared.label}.")
+        # The key was seen before: this resume repeated after a crash, and the post it
+        # made then stands. Said so, rather than claiming a post that was not made now.
+        return ToolOutcome(f"Already posted in {prepared.label} earlier in this run.")
     return ToolOutcome(f"Posted in {prepared.label}. Message id {message_id}.")
 
 

@@ -1,0 +1,277 @@
+/* ─── usage (M2 · A9) ────────────────────────────────────────────────────── */
+.usage-totals {
+  margin: 0 0 var(--space-3);
+  color: var(--text-2);
+  font-size: var(--text-row);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-totals strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.usage-owner {
+  margin-left: 8px;
+  color: var(--text-4);
+  font-size: var(--text-ui);
+}
+
+/* A cost the prices could not finish is said in words, muted, beside the part that was
+   priced — a row that reads as cheaper than it was is the one mistake this page must not
+   make. */
+.usage-partial,
+.usage-unpriced {
+  color: var(--text-4);
+  font-size: var(--text-ui);
+}
+
+.usage-currency {
+  width: 84px;
+  text-transform: uppercase;
+}
+
+.usage-price {
+  width: 104px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-prices-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.usage-prices-error {
+  color: var(--danger);
+  font-size: var(--text-ui);
+}
+
+/* The connector address and the line for Claude Code (ADR 0029): the same parts as a
+   minted token's card, without the secret. */
+.connector-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.connector-setup > .btn {
+  align-self: flex-start;
+}
+
+/* Inside a card it is a part of that card, not a second surface on the first. */
+.console-card > .admin-secret-card {
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* The per-app card on an app's own page sits in a card of its own now, and its buttons
+   take a row under what they act on rather than a column squeezing it. */
+.console-card > .admin-plugin-card {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.console-card > .admin-plugin-card > .admin-row {
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.console-card > .admin-plugin-card .admin-plugin-actions {
+  justify-content: flex-start;
+}
+
+.console-card > .admin-plugin-card > .admin-plugin-deliveries {
+  margin: var(--space-5) 0 0;
+}
+
+/* Its runs and deliveries line up with their headings inside the panel. */
+.console-card > .admin-plugin-card .admin-plugin-deliveries .admin-row {
+  margin: 0;
+}
+
+/* Toolsets and scopes, in columns where the card is wide enough for them. */
+.console-card .admin-check-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+}
+
+.admin-secret-chip {
+  width: 100%;
+  justify-content: space-between;
+  margin: 0;
+}
+
+.admin-secret-chip code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-secret-label {
+  min-width: 104px;
+  color: var(--text-4);
+}
+
+.admin-app-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-app-form-wide {
+  grid-column: 1 / -1;
+}
+
+/* A button in a card's grid is still a button: as wide as its words, at the start of
+   the row, not stretched across the column like a heading. */
+.admin-form-open {
+  justify-self: start;
+}
+
+/* A URL, a short ref and a button. The URL takes what is left and may shrink; the
+   other two are as wide as their content needs and no wider. */
+.repo-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.repo-ref {
+  width: 130px;
+  flex: none;
+}
+
+.repo-read {
+  flex: none;
+  margin-bottom: 2px;
+}
+
+.admin-app-permissions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-check-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-check-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.admin-check-card strong,
+.admin-check-card small {
+  display: block;
+}
+
+.admin-check-card small {
+  margin-top: 3px;
+  color: var(--text-4);
+  line-height: 1.5;
+}
+
+.admin-app-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+/* A table, laid out as one.
+   This was `display: flex; flex-direction: column`, which buys a 12px gap between the
+   head and the body and costs the table everything else: `thead` and `tbody` become flex
+   items, their rows and cells stop participating in a table layout, and the header row
+   collapses into a single run of words — "Name Email Workspace Role State" — sitting
+   above columns it no longer lines up with. Eleven console tables were drawn that way.
+   Changing a table's display also drops its role, so a screen reader lost the row and
+   column structure at the same time the eye did. */
+.admin-table {
+  width: 100%;
+  /* Separate, not collapsed: a collapsed border belongs to the table rather than to the
+     cell, so a sticky header cell would slide away from its own rule. */
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: var(--space-3) var(--space-4) var(--space-3) 0;
+  vertical-align: middle;
+}
+
+/* A label row, in the type the stat tiles and section headings already use, rather than
+   a second row of body text in bold. Sticky, for a table long enough to scroll in its
+   box; the rule is a shadow because a border would stay behind when the cell moves. */
+.admin-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-raised);
+  padding-block: var(--space-2);
+  /* One line (it does not wrap), so this and the padding are the row's whole height. */
+  line-height: calc(var(--table-head-height) - 2 * var(--space-2));
+  background: var(--surface-muted);
+  box-shadow: inset 0 -1px 0 var(--hairline);
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  color: var(--text-label);
+  white-space: nowrap;
+}
+
+.admin-table tbody td {
+  border-bottom: 1px solid var(--hairline-soft);
+  transition: background var(--dur-fast) var(--ease-color);
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-table tbody tr:hover > td {
+  background: var(--console-row-hover);
+}
+
+/* Counts line up by their last digit. */
+.admin-table :is(th, td).num {
+  text-align: right;
+}
+
+/* A row's buttons, at its end. A cell rather than the flex `.admin-row-actions`: a table
+   cell given `display: flex` leaves the table, and its rule and its row's height with it. */
+.admin-table td.console-cell-actions {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.console-cell-actions > .btn + .btn {
+  margin-left: var(--space-1);
+}
+
+/* An emoji's picture: a column as wide as the picture. */
+.admin-table :is(th, td).console-cell-emoji {
+  width: 44px;
+}
