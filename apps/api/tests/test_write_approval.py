@@ -100,6 +100,28 @@ class TestPostingWithoutAsking:
         [result] = tool_results(requests(team)[1])
         assert result["content"].startswith("Posted in #general")
 
+    async def test_a_call_id_the_agent_reuses_next_round_still_posts(
+        self, team: dict[str, Any]
+    ) -> None:
+        """A call's id is the agent's to choose, and some frameworks number them from
+        one every round. Keyed on the id alone, the second round's post was taken for a
+        replay of the first: nothing posted, and the agent told it was."""
+        await let(team, "auto_everywhere")
+        await ask(
+            team,
+            "@Helper post two summaries here",
+            calls(("c1", "post_message", {"channel": "#general", "text": SUMMARY})),
+            calls(("c1", "post_message", {"channel": "#general", "text": "Second: moved again."})),
+            says("Posted both."),
+        )
+        assert (await the_run(team))["status"] == "succeeded"
+        bodies = [m["body"] for m in await messages_in(team["general"])]
+        assert SUMMARY in bodies and "Second: moved again." in bodies
+        [first] = tool_results(requests(team)[1])
+        [second] = tool_results(requests(team)[2])[-1:]
+        assert first["content"].startswith("Posted in #general")
+        assert second["content"].startswith("Posted in #general")
+
     async def test_in_dm_only_still_asks_in_a_channel(self, team: dict[str, Any]) -> None:
         await let(team, "auto_in_dm")
         await ask(

@@ -1383,7 +1383,9 @@ async def _drive(
             said=said,
             ask=ask,
             come_back=come_back,
-            write_now=write_now,
+            # A call's id is the agent's to choose, and a fresh fold every round means
+            # the same id can come back: a post is keyed by its round as well.
+            write_now=partial(write_now, round_no=round_no) if write_now is not None else None,
             deadline=deadline,
             channel_id=channel_id,
             notes_scope=notes_scope,
@@ -1801,7 +1803,7 @@ async def _approved_decision(
         tools.caller,
         prepared,
         plugin_id=listener.plugin_id,
-        key=f"agui-decision:{run_id}:{call_id}",
+        key=_tool_key("decision", run_id, resumed.round, call_id),
     )
 
 
@@ -1857,7 +1859,7 @@ async def _approved_write(
         tools.caller,
         prepared,
         bot_user_id=listener.bot_user_id,
-        key=f"agui-tool:{run_id}:{call_id}",
+        key=_tool_key("tool", run_id, resumed.round, call_id),
         post=_tool_post(listener, workspace_id),
     )
 
@@ -1889,6 +1891,7 @@ async def _write_now(
     *,
     run_id: str,
     workspace_id: str,
+    round_no: int,
 ) -> agui_tools.ToolOutcome:
     """A post the admin let this agent make without asking — the same checks, at once.
 
@@ -1899,6 +1902,13 @@ async def _write_now(
         tools.caller,
         prepared,
         bot_user_id=listener.bot_user_id,
-        key=f"agui-tool:{run_id}:{call.id}",
+        key=_tool_key("tool", run_id, round_no, call.id),
         post=_tool_post(listener, workspace_id),
     )
+
+
+def _tool_key(kind: str, run_id: str, round_no: int, call_id: str) -> str:
+    """What a tool's write is idempotent on: this run, this round, this call. The id
+    alone is the agent's, and one that numbers its calls afresh each round would have
+    its second post taken for a replay of its first."""
+    return f"agui-{kind}:{run_id}:{round_no}:{call_id}"

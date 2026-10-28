@@ -795,7 +795,9 @@ async def run_write(
         log.warning("agui: an approved post failed inside Blob", exc_info=True)
         return ToolOutcome("", "Approved, but Blob could not post it.", failed=True)
     if message_id is None:
-        return ToolOutcome(f"Posted in {prepared.label}.")
+        # The key was seen before: this resume repeated after a crash, and the post it
+        # made then stands. Said so, rather than claiming a post that was not made now.
+        return ToolOutcome(f"Already posted in {prepared.label} earlier in this run.")
     return ToolOutcome(f"Posted in {prepared.label}. Message id {message_id}.")
 
 
