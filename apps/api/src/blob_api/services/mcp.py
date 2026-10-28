@@ -36,6 +36,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.engine import SessionFactory, session_scope, transaction
+from ..db.visibility import GUEST_SEES, VIEWER_IS_GUEST
 from ..lib import previews
 from ..lib.auth import hash_token
 from ..lib.errors import bad_request, forbidden, not_found
@@ -737,17 +738,21 @@ async def _list_people(caller: McpCaller, arguments: dict[str, Any]) -> str:
         rows = (
             await session.execute(
                 text(
-                    """
+                    f"""
                     SELECT u.id, u.display_name, u.title, u.kind
                       FROM users u
                      WHERE u.workspace_id = :ws AND u.deactivated_at IS NULL
                        AND (:q = '' OR lower(u.display_name) LIKE :like)
+                       -- A guest's assistant knows the people its guest knows (ADR 0034).
+                       AND (NOT {VIEWER_IS_GUEST} OR {GUEST_SEES})
                      ORDER BY u.kind, lower(u.display_name)
                      LIMIT :limit
                     """
                 ),
                 {
                     "ws": caller.workspace_id,
+                    "user_id": caller.user_id,
+                    "viewer": caller.user_id,
                     "q": query,
                     "like": f"%{query}%",
                     "limit": limit,

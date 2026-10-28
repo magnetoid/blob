@@ -394,6 +394,11 @@ async def _start(
     so.
     """
     async with transaction() as (session, after):
+        if not await _carried_on(session, after, listener, channel_id, chain):
+            # The run this carries on is no longer waiting: carried on already by a job
+            # that came twice, or stopped in the gap since it was heard. Either way the
+            # continuation is not started, and nothing posts after a Stop that succeeded.
+            return None
         run_id = await agent_run_service.start(
             session,
             workspace_id=workspace_id,
@@ -420,6 +425,29 @@ async def _start(
             )
 
     return run_id
+
+
+async def _carried_on(
+    session: AsyncSession,
+    after: Any,
+    listener: Listener,
+    channel_id: str,
+    chain: agent_chains.Chain,
+) -> bool:
+    """A run that waited and was answered is done once — and only once — something is
+    written for what carries it on: this run's row, or the refusal that stands in for
+    one. Nothing in `jobs/agui.py` flips it earlier, so a worker lost between hearing
+    the answer and starting the continuation leaves the parent `waiting`, and the net
+    that found it finds it again. False when there was a parent to carry on and it is
+    not waiting any more — stopped since it was heard, or carried on already."""
+    if chain.agent_answer is None or chain.parent_run_id is None:
+        return True
+    if not await agent_run_service.carry_on(session, chain.parent_run_id):
+        return False
+    view = await agent_run_service.view_of(session, chain.parent_run_id)
+    if view is not None:
+        after.add(lambda: _announce(listener, channel_id, {"t": "agent_run.started", "run": view}))
+    return True
 
 
 async def _stream(
@@ -772,6 +800,7 @@ async def run_one(
         # was handed over, so the room it sits in already knows the agent was here, and
         # a task left "in progress" for an agent that can never answer helps nobody.
         async with transaction() as (session, after):
+            await _carried_on(session, after, listener, channel_id, chain)
             await task_dispatch.settle(
                 session,
                 after,
@@ -783,6 +812,7 @@ async def run_one(
         return
     if gathered.refusal is not None:
         async with transaction() as (session, after):
+            await _carried_on(session, after, listener, channel_id, chain)
             await refuse(
                 session,
                 after,
@@ -1383,7 +1413,9 @@ async def _drive(
             said=said,
             ask=ask,
             come_back=come_back,
-            write_now=write_now,
+            # A call's id is the agent's to choose, and a fresh fold every round means
+            # the same id can come back: a post is keyed by its round as well.
+            write_now=partial(write_now, round_no=round_no) if write_now is not None else None,
             deadline=deadline,
             channel_id=channel_id,
             notes_scope=notes_scope,
@@ -1801,7 +1833,7 @@ async def _approved_decision(
         tools.caller,
         prepared,
         plugin_id=listener.plugin_id,
-        key=f"agui-decision:{run_id}:{call_id}",
+        key=_tool_key("decision", run_id, resumed.round, call_id),
     )
 
 
@@ -1857,7 +1889,7 @@ async def _approved_write(
         tools.caller,
         prepared,
         bot_user_id=listener.bot_user_id,
-        key=f"agui-tool:{run_id}:{call_id}",
+        key=_tool_key("tool", run_id, resumed.round, call_id),
         post=_tool_post(listener, workspace_id),
     )
 
@@ -1889,6 +1921,7 @@ async def _write_now(
     *,
     run_id: str,
     workspace_id: str,
+    round_no: int,
 ) -> agui_tools.ToolOutcome:
     """A post the admin let this agent make without asking — the same checks, at once.
 
@@ -1899,6 +1932,13 @@ async def _write_now(
         tools.caller,
         prepared,
         bot_user_id=listener.bot_user_id,
-        key=f"agui-tool:{run_id}:{call.id}",
+        key=_tool_key("tool", run_id, round_no, call.id),
         post=_tool_post(listener, workspace_id),
     )
+
+
+def _tool_key(kind: str, run_id: str, round_no: int, call_id: str) -> str:
+    """What a tool's write is idempotent on: this run, this round, this call. The id
+    alone is the agent's, and one that numbers its calls afresh each round would have
+    its second post taken for a replay of its first."""
+    return f"agui-{kind}:{run_id}:{round_no}:{call_id}"

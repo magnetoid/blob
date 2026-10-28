@@ -134,7 +134,7 @@ async def no_longer(session: Any, waiting: Any) -> str | None:
         await session.execute(
             text(
                 """
-                SELECT u.display_name, u.deactivated_at, c.archived_at, s.settings,
+                SELECT u.display_name, u.deactivated_at, u.role, c.archived_at, s.settings,
                        EXISTS (
                          SELECT 1 FROM channel_members m
                           WHERE m.channel_id = c.id AND m.user_id = u.id
@@ -153,6 +153,10 @@ async def no_longer(session: Any, waiting: Any) -> str | None:
     who = found.display_name or "the person it was for"
     if found.deactivated_at is not None:
         return f"{who}'s account was deactivated"
+    if found.role == "guest":
+        # A guest's message starts no run (ADR 0034), and a member's run is not a way
+        # round that once they are made one.
+        return f"{who} is now a guest"
     if not parse_settings(found.settings).agents_enabled:
         return "agents are turned off for this server"
     if found.archived_at is not None:
