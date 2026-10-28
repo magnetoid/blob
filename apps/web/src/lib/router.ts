@@ -54,7 +54,14 @@ export type AdminSection = (typeof ADMIN_SECTIONS)[number];
  * not a role in a workspace. Health is any admin's on the server, but it is about the
  * machine, so it lives here.
  */
-export const SERVER_SECTIONS = ['health', 'users', 'sso', 'app-policy', 'logs'] as const;
+export const SERVER_SECTIONS = [
+  'health',
+  'storage',
+  'users',
+  'sso',
+  'app-policy',
+  'logs',
+] as const;
 
 export type ServerSection = (typeof SERVER_SECTIONS)[number];
 

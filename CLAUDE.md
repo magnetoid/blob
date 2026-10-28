@@ -444,7 +444,7 @@ the data/action hooks every section uses. `features/settings/`, `features/admin/
 admin section components; it is a catalogue, not a copy). Three things the registry
 decides that are easy to undo by accident. The admin menu is three groups — Workspace,
 Apps & agents, Data & security — of real pages, no "Soon" placeholders, grouped by what a
-page is about and never by who may open it: the machine's pages (Health, Accounts, Single
+page is about and never by who may open it: the machine's pages (Health, Storage, Accounts, Single
 sign-on, App policy, Errors and logs) used to sit in that list behind a "Server" badge,
 which made one list of twenty-four rows out of two jobs, and since 2026-10-28 they are
 `/server`, offered in the account menu to the instance admin alone. Every row carries an

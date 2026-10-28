@@ -16,6 +16,7 @@ import pytest_asyncio
 from sqlalchemy import text
 
 from blob_api.db.engine import SessionFactory, transaction
+from blob_api.jobs import orphans as orphans_job
 from blob_api.jobs import worker as worker_jobs
 from blob_api.lib.ids import new_id
 
@@ -111,6 +112,42 @@ class TestWhenStorageIsDown:
         await worker_jobs.sweep_orphans({})
 
         assert calls == [orphan["key"], orphan["key"]]
+        assert not await _row_exists(orphan["id"])
+
+
+class TestWhatTheSweepRecords:
+    """The Storage page reads what the sweep last did from Redis (`jobs/orphans.py`)."""
+
+    async def test_a_clean_run_records_what_went(
+        self, orphan: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async def _delete(_key: str) -> None:
+            pass
+
+        monkeypatch.setattr(worker_jobs, "delete_object", _delete)
+        await orphans_job.redis.delete(orphans_job.LAST_KEY)
+
+        await worker_jobs.sweep_orphans({})
+
+        last = await orphans_job.last_outcome()
+        assert last is not None
+        assert (last.removed, last.bytes, last.error) == (1, 10, None)
+        assert last.ran_at.startswith("20")
+
+    async def test_a_record_that_cannot_be_kept_costs_nothing_else(
+        self, orphan: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async def _delete(_key: str) -> None:
+            pass
+
+        async def _no_redis(*_args: object, **_kwargs: object) -> None:
+            raise ConnectionError("redis is down")
+
+        monkeypatch.setattr(worker_jobs, "delete_object", _delete)
+        monkeypatch.setattr(orphans_job.redis, "set", _no_redis)
+
+        await worker_jobs.sweep_orphans({})  # does not raise
+
         assert not await _row_exists(orphan["id"])
 
 

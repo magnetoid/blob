@@ -59,6 +59,7 @@ export const SERVER_ACCESS: Record<ServerSection, Access> = {
   // `/api/admin/health` is any admin's; the page asks for the server's log only when the
   // viewer is the server's administrator.
   health: 'admin',
+  storage: 'admin', // `/api/admin/storage`: what the bucket holds, and the nightly sweep
   users: 'instance', // `/api/admin/instance/users`
   sso: 'instance', // `/api/admin/instance/sso` (ADR 0033)
   'app-policy': 'instance', // `/api/admin/instance/workspaces/{id}/policy`

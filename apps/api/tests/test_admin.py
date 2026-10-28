@@ -8,8 +8,14 @@ from __future__ import annotations
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import text
 
-from .helpers import Client, invite_and_sign_up, send_message, sign_up
+from blob_api.db.engine import transaction
+from blob_api.jobs import orphans as orphans_job
+from blob_api.lib.ids import new_id
+from blob_api.lib.redis import redis
+
+from .helpers import PASSWORD, Client, invite_and_sign_up, send_message, sign_up, workspace_id_of
 
 
 @pytest_asyncio.fixture
@@ -223,6 +229,111 @@ async def test_health_reports_the_datastores(team: dict) -> None:
     assert response.body["database"] is True
     assert response.body["redis"] is True
     assert response.body["messageCount"] >= 0
+
+
+# ─── storage ──────────────────────────────────────────────────────────────────
+async def _seed_attachment(
+    workspace_id: str, uploader_id: str, *, kind: str, size: int, message_id: str | None
+) -> None:
+    """A row straight into the table: the page reads rows, and MinIO need not be up."""
+    attachment_id = new_id()
+    async with transaction() as (session, _):
+        await session.execute(
+            text(
+                """
+                INSERT INTO attachments
+                  (id, workspace_id, uploader_id, message_id, object_key, filename, mime,
+                   size_bytes, kind)
+                VALUES (cast(:id AS uuid), cast(:ws AS uuid), cast(:up AS uuid),
+                        cast(:message_id AS uuid), :key, :filename, :mime, :size, :kind)
+                """
+            ),
+            {
+                "id": attachment_id,
+                "ws": workspace_id,
+                "up": uploader_id,
+                "message_id": message_id,
+                "key": f"{workspace_id}/test/{attachment_id}",
+                "filename": "voice.webm" if kind == "voice" else "deck.pdf",
+                "mime": "audio/webm" if kind == "voice" else "application/pdf",
+                "size": size,
+                "kind": kind,
+            },
+        )
+
+
+@pytest_asyncio.fixture
+async def stored(team: dict) -> dict:
+    """Two files and a recording on messages, and one upload that never reached one."""
+    workspace = await workspace_id_of(team["owner"])
+    sent = await send_message(team["member"], team["general"]["id"], "the deck")
+    message_id = sent.body["message"]["id"]
+    uploader = team["member"].user_id
+    await _seed_attachment(workspace, uploader, kind="file", size=1000, message_id=message_id)
+    await _seed_attachment(workspace, uploader, kind="file", size=234, message_id=message_id)
+    await _seed_attachment(workspace, uploader, kind="voice", size=50, message_id=message_id)
+    await _seed_attachment(workspace, uploader, kind="file", size=7, message_id=None)
+    await redis.delete(orphans_job.LAST_KEY)
+    return team
+
+
+async def test_storage_adds_up_the_workspaces_attachments_by_kind(stored: dict) -> None:
+    response = await stored["admin"].get("/api/admin/storage")
+    assert response.status == 200, response.body
+    body = response.body
+    assert body["totalBytes"] == 1291
+    assert body["byKind"] == [
+        {"kind": "file", "count": 3, "bytes": 1241},
+        {"kind": "voice", "count": 1, "bytes": 50},
+    ]
+    assert body["orphans"] == 1
+    assert body["probe"] in {"ok", "unconfigured", "private", "unreachable"}
+    # Nothing has swept yet, and the page says so rather than inventing a run.
+    assert body["lastSweep"] is None
+
+
+async def test_storage_shows_what_the_sweep_last_did(stored: dict) -> None:
+    await orphans_job.record(
+        orphans_job.Outcome(ran_at="2026-10-28T04:00:00+00:00", removed=3, bytes=4096)
+    )
+    body = (await stored["admin"].get("/api/admin/storage")).body
+    assert body["lastSweep"] == {
+        "ranAt": "2026-10-28T04:00:00+00:00",
+        "removed": 3,
+        "bytes": 4096,
+        "error": None,
+    }
+
+
+async def test_storage_is_the_admins_alone(stored: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    refused = await stored["member"].get("/api/admin/storage")
+    assert refused.status == 403
+    assert refused.body["error"]["code"] == "forbidden"
+
+    # A guest is invited by address, and the address is mailed; none need leave here.
+    from blob_api.lib import mail
+
+    async def _mailed(*_args: object, **_kwargs: object) -> bool:
+        return True
+
+    monkeypatch.setattr(mail, "send_mail", _mailed)
+    invite = await stored["owner"].post(
+        "/api/invites",
+        {"email": "guest@example.com", "role": "guest", "channelIds": [stored["general"]["id"]]},
+    )
+    assert invite.status == 200, invite.body
+    guest = stored["owner"].fork()
+    joined = await guest.post(
+        "/api/auth/signup",
+        {
+            "email": "guest@example.com",
+            "password": PASSWORD,
+            "displayName": "Gita Guest",
+            "inviteToken": invite.body["url"].split("/join/")[1],
+        },
+    )
+    assert joined.status == 200, joined.body
+    assert (await guest.get("/api/admin/storage")).status == 403
 
 
 # ─── webhooks ─────────────────────────────────────────────────────────────────

@@ -89,7 +89,7 @@ describe('the workspace console’s nav', () => {
     renderAdminNav();
     expect(screen.queryByText('Soon')).toBeNull();
     // Approvals was one of these, until it became a page that opens (M4).
-    for (const gone of ['Moderation', 'Storage', 'Import / export']) {
+    for (const gone of ['Moderation', 'Import / export']) {
       expect(screen.queryByText(gone)).toBeNull();
     }
     expect(screen.queryByText('Only you can see these.')).toBeNull();
@@ -138,6 +138,7 @@ describe('the server console’s nav', () => {
     expect(screen.queryAllByRole('heading')).toEqual([]);
     expect(rowLabels(container)).toEqual([
       'Health',
+      'Storage',
       'Accounts',
       'Single sign-on',
       'App policy',
@@ -153,7 +154,7 @@ describe('the server console’s nav', () => {
 
   it('offers a workspace admin who does not run the server only what any admin may open', () => {
     const { container } = renderServerNav(ADMIN);
-    expect(rowLabels(container)).toEqual(['Health']);
+    expect(rowLabels(container)).toEqual(['Health', 'Storage']);
   });
 });
 

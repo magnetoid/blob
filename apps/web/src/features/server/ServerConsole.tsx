@@ -21,6 +21,7 @@ import { AppPolicySection } from '../admin/sections/AppPolicySection.tsx';
 import { HealthSection } from '../admin/sections/health/HealthSection.tsx';
 import { LogsSection } from '../admin/sections/LogsSection.tsx';
 import { SsoSection } from '../admin/sections/SsoSection.tsx';
+import { StorageSection } from '../admin/sections/StorageSection.tsx';
 
 const NAV_ID = 'server-console-nav';
 
@@ -38,6 +39,7 @@ function Accounts(props: ConsoleSectionProps) {
 /** Typed as a total record, so a section without a screen fails typecheck. */
 const SECTION_COMPONENTS: Record<ServerSection, ComponentType<ConsoleSectionProps>> = {
   health: HealthSection,
+  storage: StorageSection,
   users: Accounts,
   sso: SsoSection,
   'app-policy': AppPolicySection,

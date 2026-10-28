@@ -421,6 +421,15 @@ export const SERVER_NAV: NavGroup<ServerSection>[] = [
         access: SERVER_ACCESS['health'],
       },
       {
+        // `/api/admin/storage`: any admin's, like Health, and about the machine like it —
+        // what the bucket holds, by kind, and what the nightly orphan sweep last did.
+        id: 'storage',
+        label: 'Storage',
+        description: 'What the files here add up to, and what the nightly sweep removed.',
+        keywords: ['storage', 'files', 'bucket', 'attachments', 'orphans', 'sweep', 'voice'],
+        access: SERVER_ACCESS['storage'],
+      },
+      {
         // `/api/admin/instance/users`. People draws the same list for the server's admin,
         // in this workspace's frame; here it is the whole server's.
         id: 'users',

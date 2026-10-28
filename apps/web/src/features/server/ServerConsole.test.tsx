@@ -33,6 +33,7 @@ describe('the server console', () => {
     expect(within(nav).queryAllByRole('heading')).toEqual([]);
     expect([...nav.querySelectorAll('.channel-name')].map((n) => n.textContent)).toEqual([
       'Health',
+      'Storage',
       'Accounts',
       'Single sign-on',
       'App policy',

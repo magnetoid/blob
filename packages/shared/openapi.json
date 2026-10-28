@@ -10809,6 +10809,107 @@
         "title": "StartWorkInput",
         "type": "object"
       },
+      "StorageKindOut": {
+        "description": "One kind of attachment \u2014 `file` or `voice` \u2014 and what it adds up to.",
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "count",
+          "bytes"
+        ],
+        "title": "StorageKindOut",
+        "type": "object"
+      },
+      "StorageOut": {
+        "description": "The Storage page: what is kept, whether a browser can reach the bucket, and what\nthe sweep last did.",
+        "properties": {
+          "byKind": {
+            "items": {
+              "$ref": "#/components/schemas/StorageKindOut"
+            },
+            "title": "Bykind",
+            "type": "array"
+          },
+          "lastSweep": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StorageSweepOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "orphans": {
+            "title": "Orphans",
+            "type": "integer"
+          },
+          "probe": {
+            "title": "Probe",
+            "type": "string"
+          },
+          "totalBytes": {
+            "title": "Totalbytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalBytes",
+          "byKind",
+          "orphans",
+          "probe"
+        ],
+        "title": "StorageOut",
+        "type": "object"
+      },
+      "StorageSweepOut": {
+        "description": "The last orphan sweep's outcome, from the worker's own record.",
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ranAt": {
+            "title": "Ranat",
+            "type": "string"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ranAt",
+          "removed",
+          "bytes"
+        ],
+        "title": "StorageSweepOut",
+        "type": "object"
+      },
       "SweepOut": {
         "properties": {
           "at": {
@@ -18337,6 +18438,28 @@
           }
         },
         "summary": "Update Settings",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/storage": {
+      "get": {
+        "description": "What the workspace keeps in the bucket, by kind, and what the orphan sweep last did.\n\nThe sweep's record is the server's, not the workspace's \u2014 one worker sweeps every\nworkspace at once \u2014 and a Redis that is down leaves it out rather than failing the\npage, so what is kept is still shown.",
+        "operationId": "storage_page_api_admin_storage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Storage Page",
         "tags": [
           "admin"
         ]

@@ -45,7 +45,7 @@ const GROUPS: [string, string[]][] = [
 const EVERY_ROW = GROUPS.flatMap(([, rows]) => rows);
 
 /** The server console: the machine's pages, one list. */
-const SERVER_ROWS = ['Health', 'Accounts', 'Single sign-on', 'App policy', 'Errors and logs'];
+const SERVER_ROWS = ['Health', 'Storage', 'Accounts', 'Single sign-on', 'App policy', 'Errors and logs'];
 const serverRows = SERVER_NAV.flatMap((group) => group.sections);
 
 /** What the nav offers this person, by label, for what they typed. */
@@ -93,7 +93,7 @@ describe('the admin registry', () => {
   // M4 as a page that opens.)
   it('offers no row that is not a page', () => {
     const labels = ADMIN_ROWS.map((entry) => entry.label);
-    for (const gone of ['Moderation', 'Storage', 'Import / export']) {
+    for (const gone of ['Moderation', 'Import / export']) {
       expect(labels).not.toContain(gone);
     }
     for (const entry of ADMIN_ROWS) {
@@ -148,8 +148,8 @@ describe('the server registry', () => {
         .map((entry) => entry.label);
     expect(rows(SERVER_ADMIN)).toEqual(SERVER_ROWS);
     expect(rows(FOUNDER)).toEqual(SERVER_ROWS);
-    expect(rows(OWNER)).toEqual(['Health']);
-    expect(rows(ADMIN)).toEqual(['Health']);
+    expect(rows(OWNER)).toEqual(['Health', 'Storage']);
+    expect(rows(ADMIN)).toEqual(['Health', 'Storage']);
     expect(rows(MEMBER)).toEqual([]);
   });
 
@@ -202,6 +202,7 @@ describe('who each admin page is for', () => {
     // /api/admin/health is require_admin; the page asks for the server's log only when the
     // viewer is the server's administrator.
     health: 'admin',
+    storage: 'admin', // /api/admin/storage
     users: 'instance', // /api/admin/instance/users
     sso: 'instance', // /api/admin/instance/sso
     'app-policy': 'instance', // /api/admin/instance/workspaces/{id}/policy

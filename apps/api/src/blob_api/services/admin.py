@@ -45,6 +45,8 @@ from ..schemas.admin import (
     CreateWebhookInput,
     ResetLinkOut,
     SettingsInput,
+    StorageKindOut,
+    StorageUsage,
     WebhookOut,
     WebhooksOut,
     WorkspaceSettingsOut,
@@ -785,6 +787,45 @@ async def usage_counts(session: AsyncSession, workspace_id: str) -> tuple[int, i
         )
     ).fetchone()
     return (row.messages, int(row.storage)) if row else (0, 0)
+
+
+STORAGE_KINDS: tuple[str, ...] = ("file", "voice")
+
+
+async def storage_summary(session: AsyncSession, workspace_id: str) -> StorageUsage:
+    """What the workspace's attachments add up to, by kind, and how many were never
+    attached to a message. Every kind is listed, at zero when there is nothing of it,
+    so the page draws the same rows for an empty workspace as for a full one."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT kind,
+                       count(*)::int AS count,
+                       COALESCE(sum(size_bytes), 0)::bigint AS bytes,
+                       count(*) FILTER (WHERE message_id IS NULL)::int AS orphans
+                  FROM attachments
+                 WHERE workspace_id = :ws
+                 GROUP BY kind
+                """
+            ),
+            {"ws": workspace_id},
+        )
+    ).fetchall()
+    found = {row.kind: row for row in rows}
+    by_kind = [
+        StorageKindOut(
+            kind=kind,
+            count=found[kind].count if kind in found else 0,
+            bytes=int(found[kind].bytes) if kind in found else 0,
+        )
+        for kind in (*STORAGE_KINDS, *(k for k in found if k not in STORAGE_KINDS))
+    ]
+    return StorageUsage(
+        total_bytes=sum(entry.bytes for entry in by_kind),
+        by_kind=by_kind,
+        orphans=sum(row.orphans for row in rows),
+    )
 
 
 # ─── webhooks ─────────────────────────────────────────────────────────────────
