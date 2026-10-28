@@ -64,3 +64,16 @@ export const SERVER_ACCESS: Record<ServerSection, Access> = {
   'app-policy': 'instance', // `/api/admin/instance/workspaces/{id}/policy`
   logs: 'instance', // `/api/admin/instance/logs`
 };
+
+/**
+ * Where the server console opens for this person, or null when it is not theirs at all.
+ * Health first, as the bare /server resolves — but Health is a workspace admin's, and the
+ * server's administrator may be a plain member of the workspace they are signed into
+ * (`require_instance_admin` reads their address, not their role), so for them it is
+ * the first page every instance admin can open.
+ */
+export function serverLanding(viewer: Viewer): string | null {
+  if (canOpen(SERVER_ACCESS.health, viewer)) return '/server/health';
+  if (viewer.isInstanceAdmin) return '/server/users';
+  return null;
+}

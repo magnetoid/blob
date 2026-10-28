@@ -24,7 +24,7 @@ import { DecisionsView } from '../features/decisions/DecisionsView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
 import { FilesView } from '../features/messages/FilesView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
-import { SERVER_ACCESS, canOpen, viewerOf } from '../features/console/access.ts';
+import { SERVER_ACCESS, canOpen, serverLanding, viewerOf } from '../features/console/access.ts';
 import { ThreadPanelSlot } from '../features/messages/ThreadPanel.tsx';
 import { BrowseChannels } from '../features/channels/BrowseChannels.tsx';
 import { ScheduledView } from '../features/messages/ScheduledView.tsx';
@@ -169,9 +169,11 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     }
     // The machine's console is the server administrator's — gated page by page, since
     // Health is any admin's: an admin of this workspace who does not run the server may
-    // open that one by URL, and lands on their own console from any other.
+    // open that one by URL and lands on their own console from any other, while the
+    // server's administrator who is a plain member here is sent to the first page that
+    // is theirs rather than away.
     if (resolved.view === 'server' && !canOpen(SERVER_ACCESS[resolved.section], viewer)) {
-      navigate(isAdmin ? '/admin' : '/', { replace: true });
+      navigate(serverLanding(viewer) ?? (isAdmin ? '/admin' : '/'), { replace: true });
       return;
     }
     const canonical = pathForRoute(resolved);
