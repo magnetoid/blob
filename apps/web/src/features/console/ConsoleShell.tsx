@@ -1,4 +1,4 @@
-/** The chrome the two consoles share.
+/** The chrome the three consoles share.
  *
  * The instance console and the workspace console are two rooms of one product, with the
  * same markup deliberately, and this component is that sameness made structural: the
@@ -14,7 +14,7 @@
 import { useState, type ReactNode } from 'react';
 import { TopBar } from '../shell/TopBar.tsx';
 import { ConsoleNav } from './ConsoleNav.tsx';
-import type { NavGroup, Viewer } from './registry.ts';
+import type { Access, NavGroup, Viewer } from './registry.ts';
 
 export interface ConsoleSectionProps {
   onError: (message: string | null) => void;
@@ -36,8 +36,13 @@ export interface ConsoleSectionProps {
 /** What the nav shows: the consoles differ in catalogue and framing, not in the mount. */
 export interface ConsoleNav {
   groups: NavGroup[];
-  /** `/admin` or `/settings` — the prefix the nav's rows navigate under. */
+  /** `/admin`, `/server` or `/settings` — the prefix the nav's rows navigate under. */
   basePath: string;
+  /**
+   * The level everybody who can open this console passes. A row at that level carries
+   * no badge; one the console keeps from some of its visitors names who may open it.
+   */
+  baseAccess?: Access;
   title: string;
   subtitle: string;
 }
@@ -56,7 +61,7 @@ export function ConsoleShell({
   children,
 }: {
   /** Which console this is, for the top bar's pressed state. */
-  view: 'admin' | 'settings';
+  view: 'admin' | 'settings' | 'server';
   /** Ties the drawer toggle to the nav it opens, for anything reading the page structure. */
   navId: string;
   nav: ConsoleNav;
@@ -97,6 +102,7 @@ export function ConsoleShell({
         viewer={viewer}
         onNavigate={() => setNavOpen(false)}
         basePath={nav.basePath}
+        baseAccess={nav.baseAccess}
         title={nav.title}
         subtitle={nav.subtitle}
       />

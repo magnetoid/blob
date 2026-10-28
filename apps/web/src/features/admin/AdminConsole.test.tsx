@@ -1,13 +1,11 @@
 // @vitest-environment happy-dom
 /** The parts of the People page are reached by their old URLs too — `/admin/groups`,
- * `/admin/invitations`, `/admin/users` — and they draw their contents and leave the card
- * to whoever shows them. What these pin: alone, a part still gets its card; Groups' own
- * detail page (one group's members) draws its own and is not framed a second time; and
- * a detail id on a part with no detail page — `/admin/users/:id` — changes nothing.
+ * `/admin/invitations` — and they draw their contents and leave the card to whoever
+ * shows them. What these pin: alone, a part still gets its card; Groups' own detail page
+ * (one group's members) draws its own and is not framed a second time.
  *
- * And the nav, as this console mounts it: one list under no heading, offering each page
- * to whoever the server lets in — read off the signed-in person, not off their role
- * alone. */
+ * And the nav, as this console mounts it: three groups under their headings, the same
+ * for every admin — the machine's pages are the server console's now. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { useStore } from '../../lib/store.ts';
@@ -20,9 +18,6 @@ vi.mock('./sections/GroupsSection.tsx', () => ({
 }));
 vi.mock('./sections/InvitationsSection.tsx', () => ({
   InvitationsSection: () => <div>invitations-part</div>,
-}));
-vi.mock('./sections/AccountsSection.tsx', () => ({
-  AccountsSection: () => <div>accounts-part</div>,
 }));
 
 const { AdminConsole } = await import('./AdminConsole.tsx');
@@ -42,13 +37,6 @@ describe('a People part at its old URL', () => {
     render(<AdminConsole section="groups" detailId="g1" onFeedback={vi.fn()} />);
     expect(screen.getByText('groups-part:g1').closest('.console-card')).toBeNull();
   });
-
-  // Accounts shows its list whatever follows /admin/users/, so the list keeps its card —
-  // the bypass above was once taken for any detail id, and this page lost its frame.
-  it('keeps its card under a detail id when it has no detail page', () => {
-    render(<AdminConsole section="users" detailId="u1" onFeedback={vi.fn()} />);
-    expect(screen.getByText('accounts-part').closest('.console-card')).toBeTruthy();
-  });
 });
 
 describe('the console’s nav', () => {
@@ -58,60 +46,43 @@ describe('the console’s nav', () => {
     });
   }
 
-  function navRows(): string[] {
-    const nav = screen.getByRole('navigation', { name: 'Console sections' });
-    expect(within(nav).queryAllByRole('heading')).toEqual([]);
-    return [...nav.querySelectorAll('.channel-name')].map((node) => node.textContent ?? '');
+  function nav() {
+    const node = screen.getByRole('navigation', { name: 'Console sections' });
+    return {
+      headings: within(node).queryAllByRole('heading').map((h) => h.textContent),
+      rows: [...node.querySelectorAll('.channel-name')].map((n) => n.textContent ?? ''),
+    };
   }
 
-  it('is one list, with the server’s pages for the person who runs it', () => {
+  const ROWS = [
+    'General', 'Appearance', 'People', 'Channels', 'Emoji', 'Calls', 'Feedback',
+    'Apps & agents', 'Janus', 'MCP servers', 'Usage', 'Approvals', 'Webhooks', 'Deliveries',
+    'Assistants',
+    'Export', 'Import', 'Retention', 'Security', 'Audit log',
+  ];
+
+  it('is three groups, the workspace’s pages and nothing of the machine’s', () => {
     signIn('owner', true);
     render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
-    expect(navRows()).toEqual([
-      'General',
-      'Appearance',
-      'People',
-      'Channels',
-      'Emoji',
-      'Huddles',
-      'Video meetups',
-      'Apps & agents',
-      'Janus',
-      'MCP servers',
-      'Usage',
-      'Approvals',
-      'Export',
-      'Import',
-      'Security',
-      'Retention',
-      'Storage',
-      'Webhooks',
-      'Deliveries',
-      'Assistants',
-      'Single sign-on',
-      'App policy',
-      'Health',
-      'Audit log',
-      'Errors and logs',
-      'Feedback',
-    ]);
+    expect(nav()).toEqual({
+      headings: ['Workspace', 'Apps & agents', 'Data & security'],
+      rows: ROWS,
+    });
   });
 
-  it('leaves the server’s pages off for an owner who does not run the server', () => {
-    signIn('owner', false);
-    render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
-    const rows = navRows();
-    expect(rows).not.toContain('App policy');
-    expect(rows).not.toContain('Single sign-on');
-    expect(rows).not.toContain('Errors and logs');
-    expect(rows).toContain('Health');
-    expect(rows).toHaveLength(23);
+  it('is the same for an admin, an owner, and the person who runs the server', () => {
+    for (const [role, instance] of [['admin', false], ['owner', false], ['admin', true]] as const) {
+      signIn(role, instance);
+      const { unmount } = render(<AdminConsole section="general" onFeedback={vi.fn()} />);
+      expect(nav().rows).toEqual(ROWS);
+      unmount();
+    }
   });
 
-  it('gives them to the server’s admin when they are a plain admin here', () => {
-    signIn('admin', true);
-    render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
-    expect(navRows()).toContain('Errors and logs');
-    expect(navRows()).toHaveLength(26);
+  it('calls the page what it is', () => {
+    signIn('admin', false);
+    render(<AdminConsole section="general" onFeedback={vi.fn()} />);
+    expect(screen.getByText('This workspace')).toBeTruthy();
+    expect(screen.getByText('You are an admin of this workspace.')).toBeTruthy();
   });
 });

@@ -21,12 +21,16 @@ export interface Item {
    * not appear in the account menu either.
    */
   ownerOnly?: boolean;
+  /** The machine's console: for whoever administers the server, whatever their role here. */
+  instanceOnly?: boolean;
 }
 
-// Two pages, not three. Preferences are yours. Server settings are the rest —
-// name, people, channels, health — on one admin page. Blob is one server.
+// Three pages, one owner each. Preferences are yours. The workspace — name, people,
+// channels, agents, data — is its admins'. The machine — accounts, sign-on, health — is
+// the server administrator's, and is offered to nobody else.
 export const ITEMS: Item[] = [
-  { label: 'Server settings', path: '/admin', adminOnly: true },
+  { label: 'Workspace settings', path: '/admin', adminOnly: true },
+  { label: 'Server', path: '/server', instanceOnly: true },
   { label: 'User profile', path: '/settings/preferences' },
   { label: 'Preferences', path: '/settings' },
   { label: 'Help', path: '/help' },

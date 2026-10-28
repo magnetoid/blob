@@ -1,10 +1,12 @@
 /** The client's URL.
  *
- * Two consoles, not three. /settings is yours — theme, notifications, the agents
- * that run on your machine. /admin is this server: its name, who is in it, the
- * channels, the apps, and whether the machine is healthy. Blob is one open-source
- * server, not a grid of workspaces, so those jobs share a page rather than pretending
- * to be two products.
+ * Three consoles, each with one owner. /settings is yours — theme, notifications, the
+ * agents that run on your machine. /admin is this workspace: its name, who is in it, the
+ * channels, the apps and agents, its data. /server is the machine, for whoever
+ * administers it — every account on it, sign-on, what may be installed, whether it is
+ * healthy. Blob is one open-source server, not a grid of workspaces, so there is no
+ * fourth console for "workspaces"; the server's pages used to sit inside /admin with a
+ * badge, which made one list of twenty-four rows out of two jobs.
  *
  * The server already cooperates: `SinglePageApp` answers any non-API path with
  * index.html, so /admin/members survives a hard refresh.
@@ -14,10 +16,11 @@ import { useEffect, useState } from 'react';
 import { leftFirstView } from './firstView.ts';
 
 /**
- * Everything an admin configures on this server.
+ * Everything an admin configures in this workspace.
  *
  * Used to be split: /workspace for the name and the people, /admin for the machine.
- * That split was the multi-tenant idea leaking into the UI. One page now.
+ * That split was the multi-tenant idea leaking into the UI; then one list held both
+ * jobs. The machine's own pages are /server now (`SERVER_SECTIONS`).
  */
 export const ADMIN_SECTIONS = [
   'general',
@@ -27,31 +30,45 @@ export const ADMIN_SECTIONS = [
   'invitations',
   'channels',
   'emoji',
-  'huddles',
-  'meetups',
+  'calls',
+  'feedback',
   'apps',
   'janus',
   'mcp-servers',
   'usage',
   'approvals',
-  'export',
-  'import',
-  'posture',
-  'retention',
-  'storage',
   'webhooks',
   'deliveries',
   'connections',
-  'sso',
-  'users',
-  'app-policy',
-  'feedback',
+  'export',
+  'import',
+  'retention',
+  'posture',
   'audit',
-  'logs',
-  'health',
 ] as const;
 
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
+
+/**
+ * The machine, for whoever administers it: a fact about the person (`instance_admins`),
+ * not a role in a workspace. Health is any admin's on the server, but it is about the
+ * machine, so it lives here.
+ */
+export const SERVER_SECTIONS = [
+  'health',
+  'storage',
+  'users',
+  'sso',
+  'app-policy',
+  'logs',
+] as const;
+
+export type ServerSection = (typeof SERVER_SECTIONS)[number];
+
+const DEFAULT_SERVER_SECTION: ServerSection = 'health';
+
+/** Sections that have a detail page under them, at /server/:section/:id. */
+export const SERVER_DETAIL_SECTIONS: readonly ServerSection[] = ['users'];
 
 /** Yours. A private page, because these are not the server's business. */
 export const SETTINGS_SECTIONS = ['preferences', 'security', 'my-agents', 'assistants'] as const;
@@ -62,11 +79,15 @@ const DEFAULT_SETTINGS_SECTION: SettingsSection = 'preferences';
 
 /** Sections that have a detail page under them, at /admin/:section/:id. */
 export const ADMIN_DETAIL_SECTIONS: readonly AdminSection[] = [
-  'users',
   'members',
   'groups',
   'apps',
+  // Calls is one page with two tabs, each a URL: /admin/calls/huddles, /admin/calls/meetups.
+  'calls',
 ];
+
+/** The tabs of the Calls page; a bare /admin/calls opens the first. */
+export const CALL_TABS = ['huddles', 'meetups'] as const;
 
 /** Where a bare /admin lands. */
 const DEFAULT_ADMIN_SECTION: AdminSection = 'general';
@@ -109,7 +130,8 @@ export type Route =
   | { view: 'permalink'; messageId: string }
   | { view: 'search'; query?: string; scope?: SearchScope }
   | { view: 'settings'; section: SettingsSection }
-  | { view: 'admin'; section: AdminSection; detailId?: string };
+  | { view: 'admin'; section: AdminSection; detailId?: string }
+  | { view: 'server'; section: ServerSection; detailId?: string };
 
 export type View = Route['view'];
 
@@ -221,6 +243,22 @@ export function parseRoute(path: string): Route {
     }
   }
 
+  // The machine's pages sat under /admin until the server console: every one of those
+  // URLs is a bookmark somewhere, and Huddles and Video meetups are one Calls page now.
+  if (clean === '/admin/huddles') return { view: 'admin', section: 'calls', detailId: 'huddles' };
+  if (clean === '/admin/meetups') return { view: 'admin', section: 'calls', detailId: 'meetups' };
+  const movedToServer = clean.match(/^\/admin\/([^/]+)(?:\/([^/]+))?$/);
+  if (movedToServer && (SERVER_SECTIONS as readonly string[]).includes(movedToServer[1] as string)) {
+    return serverRoute(movedToServer[1] as ServerSection, movedToServer[2]) ?? { view: 'messages' };
+  }
+
+  if (clean === '/server') return { view: 'server', section: DEFAULT_SERVER_SECTION };
+  const server = clean.match(/^\/server\/([^/]+)(?:\/([^/]+))?$/);
+  if (server && (SERVER_SECTIONS as readonly string[]).includes(server[1] as string)) {
+    const route = serverRoute(server[1] as ServerSection, server[2]);
+    if (route) return route;
+  }
+
   // Names that predate even /workspace. Real, linkable URLs — they redirect.
   if (clean === '/admin/settings') return { view: 'admin', section: 'general' };
   if (clean === '/admin/themes') return { view: 'admin', section: 'appearance' };
@@ -235,13 +273,25 @@ export function parseRoute(path: string): Route {
     const section = admin[1] as AdminSection;
     if ((ADMIN_SECTIONS as readonly string[]).includes(section)) {
       if (admin[2] === undefined) return { view: 'admin', section };
-      if (ADMIN_DETAIL_SECTIONS.includes(section)) {
+      if (section === 'calls') {
+        // A tab is the only thing under Calls; anything else is not a page.
+        if ((CALL_TABS as readonly string[]).includes(admin[2])) {
+          return { view: 'admin', section, detailId: admin[2] };
+        }
+      } else if (ADMIN_DETAIL_SECTIONS.includes(section)) {
         return { view: 'admin', section, detailId: admin[2] };
       }
     }
   }
 
   return { view: 'messages' };
+}
+
+/** A /server page, or null when the section takes no detail and one was given. */
+function serverRoute(section: ServerSection, detailId: string | undefined): Route | null {
+  if (detailId === undefined) return { view: 'server', section };
+  if (SERVER_DETAIL_SECTIONS.includes(section)) return { view: 'server', section, detailId };
+  return null;
 }
 
 /** The canonical path for a route. Round-trips with `parseRoute`. */
@@ -292,6 +342,10 @@ export function pathForRoute(route: Route): string {
       return route.detailId
         ? `/admin/${route.section}/${route.detailId}`
         : `/admin/${route.section}`;
+    case 'server':
+      return route.detailId
+        ? `/server/${route.section}/${route.detailId}`
+        : `/server/${route.section}`;
     default:
       return '/';
   }
@@ -312,6 +366,7 @@ export function pathForChannel(channelId: string, threadRootId?: string): string
 
 export function pathForView(view: StableView): string {
   if (view === 'admin') return pathForRoute({ view, section: DEFAULT_ADMIN_SECTION });
+  if (view === 'server') return pathForRoute({ view, section: DEFAULT_SERVER_SECTION });
   if (view === 'settings') return pathForRoute({ view, section: DEFAULT_SETTINGS_SECTION });
   return pathForRoute({ view });
 }

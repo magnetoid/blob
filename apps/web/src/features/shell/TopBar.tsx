@@ -263,7 +263,10 @@ function AccountMenu({ onFeedback }: { onFeedback: () => void }) {
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'owner';
   const isOwner = currentUser.role === 'owner';
   const visible = ITEMS.filter(
-    (item) => (!item.adminOnly || isAdmin) && (!item.ownerOnly || isOwner),
+    (item) =>
+      (!item.adminOnly || isAdmin) &&
+      (!item.ownerOnly || isOwner) &&
+      (!item.instanceOnly || currentUser.isInstanceAdmin),
   );
 
   return (

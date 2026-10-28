@@ -435,19 +435,27 @@ view selects that map whole: lists take ids from `lib/useRuns.ts` and each card
 subscribes to its own run (`AgentRunCardById`). Five views redrew on every snapshot
 before that.
 
-**The two consoles.** `/admin` is this server and `/settings` is you, and they are the
-same page with different catalogues: `features/console/` holds what they share — the
-shell, the nav, `registry.ts` (which is the nav *as data*, so a new section is a row plus
-a component rather than four files that have to agree) and the data/action hooks every
-section uses. `features/admin/` and `features/settings/` are then only their own section
-lists. Two things the registry decides that are easy to undo by accident. The admin menu is one
-flat list of real pages — no group headings and no "Soon" placeholders (since 2026-10, by
-request) — so the id lists stay the set of URLs that actually exist. And every row carries
-an `access` level — `admin`, `owner` or `instance` — that has to match the server's gate
-for that page (`require_admin`, `require_owner`, `require_instance_admin`); the client
-knows the last from `isInstanceAdmin` on the current user. A page that mixes gates sits at
-the lower level and degrades: Health is any admin's and asks for the server's log only
-when the viewer is the server's administrator.
+**The three consoles.** `/settings` is you, `/admin` is this workspace and `/server` is
+the machine, and they are the same page with different catalogues: `features/console/`
+holds what they share — the shell, the nav, `registry.ts` (which is the nav *as data*, so
+a new section is a row plus a component rather than four files that have to agree) and
+the data/action hooks every section uses. `features/settings/`, `features/admin/` and
+`features/server/` are then only their own section lists (the server console reuses the
+admin section components; it is a catalogue, not a copy). Three things the registry
+decides that are easy to undo by accident. The admin menu is three groups — Workspace,
+Apps & agents, Data & security — of real pages, no "Soon" placeholders, grouped by what a
+page is about and never by who may open it: the machine's pages (Health, Storage, Accounts, Single
+sign-on, App policy, Errors and logs) used to sit in that list behind a "Server" badge,
+which made one list of twenty-four rows out of two jobs, and since 2026-10-28 they are
+`/server`, offered in the account menu to the instance admin alone. Every row carries an
+`access` level — `admin`, `owner` or `instance` — that has to match the server's gate for
+that page (`require_admin`, `require_owner`, `require_instance_admin`); the client knows
+the last from `isInstanceAdmin` on the current user, and the nav badges a row only when
+its level is above the console's own (`baseAccess`), so the server console badges nothing.
+A page that mixes gates sits at the lower level and degrades: Health is any admin's and
+asks for the server's log only when the viewer is the server's administrator. Old URLs
+survive: `/admin/health` and the rest resolve to `/server/…`, and `/admin/huddles` and
+`/admin/meetups` are the two tabs of `/admin/calls`.
 
 **The design layer.** `styles/tokens.css` is the whole vocabulary and `styles/app.css`
 spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius

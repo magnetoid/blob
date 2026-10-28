@@ -58,7 +58,7 @@ export function HealthSection({
   isInstanceAdmin?: boolean;
 }) {
   const logsRoute = isInstanceAdmin
-    ? pathForRoute({ view: "admin", section: "logs" })
+    ? pathForRoute({ view: "server", section: "logs" })
     : undefined;
   const logsHint = (what: string) =>
     isInstanceAdmin
@@ -558,7 +558,7 @@ export function HealthSection({
                       type="button"
                       className="btn btn-ghost"
                       onClick={() =>
-                        navigate(pathForRoute({ view: "admin", section: "health" }))
+                        navigate(pathForRoute({ view: "server", section: "health" }))
                       }
                     >
                       Stay on dashboard

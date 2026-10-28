@@ -3,9 +3,11 @@
  * The nav, the page headings and the filter all read from these lists, so adding a
  * section is a row here plus a component — not four files that have to agree.
  *
- * Two pages. **Settings** is yours: theme, notifications, the agents on your machine.
- * **Admin** is this server: its name, who is in it, the channels, the apps, the logs.
- * Blob is one open-source server, so there is no third "workspaces" console.
+ * Three pages, one owner each. **Settings** is yours: theme, notifications, the agents
+ * on your machine. **Admin** is this workspace: its name, who is in it, the channels,
+ * the apps and agents, its data. **Server** is the machine, for whoever administers it:
+ * every account, sign-on, app policy, health, the logs. Blob is one open-source server,
+ * so there is no fourth "workspaces" console.
  *
  * Every row is a page that exists. The admin list used to carry five `planned` rows —
  * Moderation, Huddles, Approvals, Storage, Import / export — drawn disabled under a Soon
@@ -13,8 +15,8 @@
  * and less true than one that does not; what is coming is the roadmap's to say.
  */
 
-import type { CurrentUser, UserRole } from '@blob/shared';
-import type { AdminSection, SettingsSection } from '../../lib/router.ts';
+import type { AdminSection, ServerSection, SettingsSection } from '../../lib/router.ts';
+import { SERVER_ACCESS, canOpen, type Access, type Viewer } from './access.ts';
 
 export interface SectionEntry<Id extends string = string> {
   /** Typed as a section id, so a row for a route that does not exist fails typecheck. */
@@ -39,28 +41,17 @@ export interface SectionEntry<Id extends string = string> {
   hidden?: boolean;
 }
 
-/**
- * Who may open a page — the server's own gate on the routes behind it, one per
- * dependency in `apps/api/src/blob_api/lib/auth.py`:
- *
- * * `admin` — `require_admin`: an admin or the owner of this workspace, which is
- *   everybody who can reach /admin at all. These rows carry no badge.
- * * `owner` — `require_owner`: this workspace's one owner.
- * * `instance` — `require_instance_admin`: whoever administers the server. That is a
- *   fact about the person — their address is in `instance_admins` — and not a role in
- *   this workspace. On a server with one workspace it is that workspace's owner; on a
- *   server with two it need not be, and an owner shown these rows would get a 403 from
- *   every one of them.
- *
- * A row's level is the gate its page cannot work without. A page that also reads an
- * instance-only route but carries on without it — Apps, Janus, Video meetups — stays
- * `admin`, and says inside itself what only the server's admin can see there.
- */
-export type Access = 'admin' | 'owner' | 'instance';
+export type { Access, Viewer } from './access.ts';
+export { canOpen, viewerOf } from './access.ts';
 
-/** A row of the server console. The level is required: a new page has to say whose it is. */
+/** A row of the workspace console. The level is required: a new page has to say whose it is. */
 export interface AdminEntry extends SectionEntry<AdminSection> {
   access: Access;
+}
+
+/** A group of the workspace console: a heading over rows that are all about one thing. */
+export interface AdminGroup extends NavGroup<AdminSection> {
+  sections: AdminEntry[];
 }
 
 export interface NavGroup<Id extends string = string> {
@@ -72,32 +63,7 @@ export interface NavGroup<Id extends string = string> {
   adminOnly?: boolean;
 }
 
-/** Who is looking, in the terms the server's gates use. */
-export interface Viewer {
-  role: UserRole;
-  isInstanceAdmin: boolean;
-}
-
 /** The person signed in, as a viewer. Nobody signed in passes no gate. */
-export function viewerOf(user: Pick<CurrentUser, 'role' | 'isInstanceAdmin'> | null): Viewer {
-  return { role: user?.role ?? 'member', isInstanceAdmin: user?.isInstanceAdmin ?? false };
-}
-
-/** Whether the server would let this person through a gate: the client's copy of it. */
-export function canOpen(access: Access, viewer: Viewer): boolean {
-  switch (access) {
-    case 'admin':
-      return viewer.role === 'admin' || viewer.role === 'owner';
-    case 'owner':
-      return viewer.role === 'owner';
-    case 'instance':
-      // Not the role: the server's admin may be a plain admin of the workspace they are
-      // in, and a workspace's owner may not run the server.
-      return viewer.isInstanceAdmin;
-  }
-}
-
-/** Yours. Everyone has this page. */
 export const SETTINGS_NAV: NavGroup<SettingsSection>[] = [
   {
     id: 'you',
@@ -153,331 +119,379 @@ export const SETTINGS_NAV: NavGroup<SettingsSection>[] = [
  * open and pages the owner could not. Each row now says who may open it, in the server's
  * own terms, and a restricted row says so with a badge — so the list needs no buckets.
  */
-export const ADMIN_NAV: AdminEntry[] = [
+/**
+ * The workspace console, in three groups. One list of twenty-four rows was past the
+ * point where a flat list works, and the headings it used to have were a permission's
+ * job done badly — so the machine's rows are a console of their own now (`SERVER_NAV`),
+ * and what is left is grouped by what it is about, not by who may open it.
+ */
+export const ADMIN_NAV: AdminGroup[] = [
   {
-    id: 'general',
-    label: 'General',
-    description: 'What this server is called, and what people see first.',
-    keywords: ['name', 'settings', 'defaults', 'workspace'],
-    access: 'admin',
-  },
-  {
-    id: 'appearance',
-    label: 'Appearance',
-    description: 'The colours everyone here sees.',
-    keywords: ['theme', 'themes', 'colour', 'color', 'dark', 'light', 'palette'],
-    access: 'admin',
-  },
-  {
-    // One page, four parts — members, user groups, invitations and (for the server's
-    // admin) every account on the server. They were four rows, and the only way to find
-    // out which held the person you were after was to open all four; the same reason
-    // You folded profile, preferences and notifications together.
-    id: 'members',
-    label: 'People',
-    description: 'Everyone here, the groups they are in, who is invited, and every account.',
-    keywords: [
-      'users', 'people', 'roles', 'admin', 'owner', 'deactivate', 'sessions',
-      'team', 'teams', 'user group', '@team', 'mention', 'oncall',
-      'invite', 'invitations', 'join', 'link',
-      'accounts', 'members', 'everyone', 'directory',
+    id: 'workspace',
+    label: 'Workspace',
+    sections: [
+      {
+        id: 'general',
+        label: 'General',
+        description: 'What this server is called, and what people see first.',
+        keywords: ['name', 'settings', 'defaults', 'workspace'],
+        access: 'admin',
+      },
+      {
+        id: 'appearance',
+        label: 'Appearance',
+        description: 'The colours everyone here sees.',
+        keywords: ['theme', 'themes', 'colour', 'color', 'dark', 'light', 'palette'],
+        access: 'admin',
+      },
+      {
+        // One page, four parts — members, user groups, invitations and (for the server's
+        // admin) every account on the server. They were four rows, and the only way to find
+        // out which held the person you were after was to open all four; the same reason
+        // You folded profile, preferences and notifications together.
+        id: 'members',
+        label: 'People',
+        description: 'Everyone here, the groups they are in, who is invited, and every account.',
+        keywords: [
+          'users', 'people', 'roles', 'admin', 'owner', 'deactivate', 'sessions',
+          'team', 'teams', 'user group', '@team', 'mention', 'oncall',
+          'invite', 'invitations', 'join', 'link',
+          'accounts', 'members', 'everyone', 'directory',
+        ],
+        access: 'admin',
+      },
+      // The three below are hidden, not gone: their URLs and detail pages still work.
+      {
+        id: 'groups',
+        label: 'User groups',
+        description: 'Teams that can be mentioned as one name, like @platform-team.',
+        keywords: ['team', 'teams', 'user group', '@team', 'mention', 'oncall'],
+        access: 'admin',
+        hidden: true,
+      },
+      {
+        id: 'invitations',
+        label: 'Invitations',
+        description: 'Who has been invited, and who has not arrived yet.',
+        keywords: ['invite', 'join', 'link'],
+        access: 'admin',
+        hidden: true,
+      },
+      {
+        id: 'channels',
+        label: 'Channels',
+        description: 'Every channel here, including the private ones you are not in.',
+        keywords: ['archive', 'private', 'public'],
+        access: 'admin',
+      },
+      {
+        id: 'emoji',
+        label: 'Emoji',
+        description: "This server's own emoji, for `:name:` in a message and for reactions.",
+        keywords: ['custom', 'emoticon', 'reaction', 'shortcode'],
+        access: 'admin',
+      },
+      {
+        // One page, two tabs — Huddles and Video meetups were two rows for one media server
+        // and one set of rules. `admin` like both were: `/api/admin/calls`; the media
+        // server's own status (`/api/admin/calls/server`) is the instance admin's, and the
+        // panel says so in a line for anybody else.
+        id: 'calls',
+        label: 'Calls',
+        description:
+          'Huddles and video meetups: whether people can start them, what they may share, and how many can join.',
+        keywords: [
+          'huddle', 'audio', 'voice', 'call', 'calls', 'talk', 'livekit', 'screen share',
+          'video', 'meeting', 'meetup', 'camera', 'conference', 'zoom', 'meet',
+        ],
+        access: 'admin',
+      },
+      {
+        // `/api/admin/feedback`.
+        id: 'feedback',
+        label: 'Feedback',
+        description: 'Bugs and requests filed from inside the app.',
+        keywords: ['tickets', 'bugs', 'reports', 'requests'],
+        access: 'admin',
+      },
     ],
-    access: 'admin',
-  },
-  // The three below are hidden, not gone: their URLs and detail pages still work.
-  {
-    id: 'groups',
-    label: 'User groups',
-    description: 'Teams that can be mentioned as one name, like @platform-team.',
-    keywords: ['team', 'teams', 'user group', '@team', 'mention', 'oncall'],
-    access: 'admin',
-    hidden: true,
   },
   {
-    id: 'invitations',
-    label: 'Invitations',
-    description: 'Who has been invited, and who has not arrived yet.',
-    keywords: ['invite', 'join', 'link'],
-    access: 'admin',
-    hidden: true,
-  },
-  {
-    // `/api/admin/instance/users`. People draws this part by the same level.
-    id: 'users',
-    label: 'Accounts',
-    description: 'Every account on this server.',
-    keywords: ['users', 'people', 'accounts', 'members', 'everyone', 'directory'],
-    access: 'instance',
-    hidden: true,
-  },
-  {
-    id: 'channels',
-    label: 'Channels',
-    description: 'Every channel here, including the private ones you are not in.',
-    keywords: ['archive', 'private', 'public'],
-    access: 'admin',
-  },
-  {
-    id: 'emoji',
-    label: 'Emoji',
-    description: "This server's own emoji, for `:name:` in a message and for reactions.",
-    keywords: ['custom', 'emoticon', 'reaction', 'shortcode'],
-    access: 'admin',
-  },
-  {
-    // `admin` like Video meetups below, for the same reason: `/api/admin/calls`.
-    id: 'huddles',
-    label: 'Huddles',
-    description:
-      'Quick audio calls in a channel or DM: whether people can start them, and what they may share.',
-    keywords: ['huddle', 'audio', 'voice', 'call', 'calls', 'talk', 'livekit', 'screen share'],
-    access: 'admin',
-  },
-  {
-    // `admin`, though the media server's own status is the instance admin's
-    // (`/api/admin/calls/server`): the panel says so in a line for anybody else, and the
-    // settings under it are this workspace's.
-    id: 'meetups',
-    label: 'Video meetups',
-    description:
-      'Full-screen video calls in a channel: whether people can start them, and how many can join.',
-    keywords: [
-      'video', 'meeting', 'meetup', 'call', 'calls', 'camera', 'livekit', 'conference', 'zoom',
-      'meet',
-    ],
-    access: 'admin',
-  },
-  {
-    // `admin`, though its guardrails panel also reads the instance policy: refused, the
-    // panel leaves that one line out rather than failing the list.
-    id: 'apps',
+    id: 'agents',
     label: 'Apps & agents',
-    description: 'Apps installed here, and the agents this server hosts.',
-    keywords: [
-      'plugins',
-      'bots',
-      'tokens',
-      'scopes',
-      'deploy',
-      'agent',
-      'agents',
-      'github',
-      'commands',
-      'owner',
-      'personal agent',
+    sections: [
+      {
+        // `admin`, though its guardrails panel also reads the instance policy: refused, the
+        // panel leaves that one line out rather than failing the list.
+        id: 'apps',
+        label: 'Apps & agents',
+        description: 'Apps installed here, and the agents this server hosts.',
+        keywords: [
+          'plugins',
+          'bots',
+          'tokens',
+          'scopes',
+          'deploy',
+          'agent',
+          'agents',
+          'github',
+          'commands',
+          'owner',
+          'personal agent',
+        ],
+        access: 'admin',
+      },
+      {
+        // `admin`, not `instance`: Janus is the agent every workspace here has, so its on/off,
+        // its channels, its budget and what it is told to do are a workspace admin's. What it
+        // runs on (`/api/admin/janus`) is the server admin's, and is a block inside the page
+        // that tells anybody else as much.
+        id: 'janus',
+        label: 'Janus',
+        description:
+          "The agent every workspace here has: where it is, what it may spend, how it should behave — and, for the server's admin, what it runs on.",
+        keywords: [
+          'agent',
+          'model',
+          'provider',
+          'deepseek',
+          'key',
+          'instructions',
+          'toolsets',
+          'skills',
+          'restart',
+        ],
+        access: 'admin',
+      },
+      {
+        // `/api/admin/mcp-servers` (ADR 0027): any admin's, like the agents it serves.
+        id: 'mcp-servers',
+        label: 'MCP servers',
+        description:
+          'Tools from outside Blob that agents may use — which agents, and which calls wait for the person who asked.',
+        keywords: [
+          'mcp',
+          'tools',
+          'connectors',
+          'integrations',
+          'servers',
+          'github',
+          'linear',
+          'notion',
+        ],
+        access: 'admin',
+      },
+      {
+        // `/api/admin/usage` (M2 · A9): any admin's — what agents spend is the workspace's.
+        id: 'usage',
+        label: 'Usage',
+        description:
+          'What agents and Blob’s own summaries spent, by agent and by person — priced per model, if you set prices.',
+        keywords: ['cost', 'tokens', 'spend', 'budget', 'billing', 'prices', 'models', 'money'],
+        access: 'admin',
+      },
+      {
+        // `/api/admin/approvals`: what agents wait on across the workspace — the questions in a
+        // room only where the admin can read it, as the run log shows a run's card.
+        id: 'approvals',
+        label: 'Approvals',
+        description:
+          'What agents are waiting on: questions nobody has answered yet, and runs that said they would come back.',
+        keywords: ['approvals', 'approve', 'waiting', 'pending', 'decisions', 'questions', 'follow-up', 'coming back'],
+        access: 'admin',
+      },
+      {
+        id: 'webhooks',
+        label: 'Webhooks',
+        description: 'Incoming URLs that let another system post into a channel here.',
+        keywords: ['incoming', 'hooks', 'ci', 'integration'],
+        access: 'admin',
+      },
+      {
+        id: 'deliveries',
+        label: 'Deliveries',
+        description: 'What was sent to each app, and a way to send a failed one again.',
+        keywords: ['webhooks', 'outbox', 'retry', 'replay', 'circuit'],
+        access: 'admin',
+      },
+      {
+        // Not `assistants`: that is the Settings page where a person makes their own, and
+        // the two consoles share no section id.
+        id: 'connections',
+        label: 'Assistants',
+        description:
+          "Every assistant connected here as one of its people — whose, what it may do, when it ends.",
+        keywords: ['mcp', 'tokens', 'claude', 'connections', 'revoke'],
+        access: 'admin',
+      },
     ],
-    access: 'admin',
   },
   {
-    // `admin`, not `instance`: Janus is the agent every workspace here has, so its on/off,
-    // its channels, its budget and what it is told to do are a workspace admin's. What it
-    // runs on (`/api/admin/janus`) is the server admin's, and is a block inside the page
-    // that tells anybody else as much.
-    id: 'janus',
-    label: 'Janus',
-    description:
-      "The agent every workspace here has: where it is, what it may spend, how it should behave — and, for the server's admin, what it runs on.",
-    keywords: [
-      'agent',
-      'model',
-      'provider',
-      'deepseek',
-      'key',
-      'instructions',
-      'toolsets',
-      'skills',
-      'restart',
+    id: 'data',
+    label: 'Data & security',
+    sections: [
+      {
+        // `/api/admin/exports` (M3 · B4): any admin's, after a recent sign-in — and only ever
+        // the public conversations.
+        id: 'export',
+        label: 'Export',
+        description:
+          'Download the workspace’s public channels and its people as a zip of JSON lines.',
+        keywords: ['export', 'download', 'backup', 'archive', 'data', 'portability', 'jsonl', 'zip'],
+        access: 'admin',
+      },
+      {
+        // `/api/admin/import` (ADR 0042): any admin's; what changes anything asks for a recent
+        // sign-in, and watching one run does not.
+        id: 'import',
+        label: 'Import',
+        description:
+          'Bring a Slack workspace’s history here, and invite the people who came with it.',
+        keywords: ['import', 'slack', 'migrate', 'move', 'history', 'upload', 'zip'],
+        access: 'admin',
+      },
+      {
+        // `/api/admin/retention` (ADR 0039): any admin's; saving a window or a hold asks for a
+        // recent sign-in, which the step-up prompt answers on its own.
+        id: 'retention',
+        label: 'Retention',
+        description:
+          'How long messages and files are kept, and what a legal hold keeps past that.',
+        keywords: [
+          'retention',
+          'delete',
+          'history',
+          'legal hold',
+          'compliance',
+          'gdpr',
+          'ediscovery',
+          'files',
+          'purge',
+        ],
+        access: 'admin',
+      },
+      {
+        // `/api/admin/security` (M3 · C3): any admin's; the server's half of the page appears
+        // only for whoever runs the server, as the logs do.
+        // `posture`, not `security`: the person's own Settings has a Security page already, and
+        // the two consoles share no section id.
+        id: 'posture',
+        label: 'Security',
+        description: 'How people and agents sign in and act here, and how the server was deployed.',
+        keywords: ['security', 'posture', 'passkeys', 'two-step', 'mfa', 'cookie', 'redis'],
+        access: 'admin',
+      },
+      {
+        // `/api/admin/audit`, which reads this workspace's own events.
+        id: 'audit',
+        label: 'Audit log',
+        description: 'Who did what, and from where.',
+        keywords: ['events', 'security', 'history', 'forensics'],
+        access: 'admin',
+      },
     ],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/mcp-servers` (ADR 0027): any admin's, like the agents it serves.
-    id: 'mcp-servers',
-    label: 'MCP servers',
-    description:
-      'Tools from outside Blob that agents may use — which agents, and which calls wait for the person who asked.',
-    keywords: [
-      'mcp',
-      'tools',
-      'connectors',
-      'integrations',
-      'servers',
-      'github',
-      'linear',
-      'notion',
-    ],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/usage` (M2 · A9): any admin's — what agents spend is the workspace's.
-    id: 'usage',
-    label: 'Usage',
-    description:
-      'What agents and Blob’s own summaries spent, by agent and by person — priced per model, if you set prices.',
-    keywords: ['cost', 'tokens', 'spend', 'budget', 'billing', 'prices', 'models', 'money'],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/approvals`: what agents wait on across the workspace — the questions in a
-    // room only where the admin can read it, as the run log shows a run's card.
-    id: 'approvals',
-    label: 'Approvals',
-    description:
-      'What agents are waiting on: questions nobody has answered yet, and runs that said they would come back.',
-    keywords: ['approvals', 'approve', 'waiting', 'pending', 'decisions', 'questions', 'follow-up', 'coming back'],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/exports` (M3 · B4): any admin's, after a recent sign-in — and only ever
-    // the public conversations.
-    id: 'export',
-    label: 'Export',
-    description:
-      'Download the workspace’s public channels and its people as a zip of JSON lines.',
-    keywords: ['export', 'download', 'backup', 'archive', 'data', 'portability', 'jsonl', 'zip'],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/import` (ADR 0042): any admin's; what changes anything asks for a recent
-    // sign-in, and watching one run does not.
-    id: 'import',
-    label: 'Import',
-    description:
-      'Bring a Slack workspace’s history here, and invite the people who came with it.',
-    keywords: ['import', 'slack', 'migrate', 'move', 'history', 'upload', 'zip'],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/security` (M3 · C3): any admin's; the server's half of the page appears
-    // only for whoever runs the server, as the logs do.
-    // `posture`, not `security`: the person's own Settings has a Security page already, and
-    // the two consoles share no section id.
-    id: 'posture',
-    label: 'Security',
-    description: 'How people and agents sign in and act here, and how the server was deployed.',
-    keywords: ['security', 'posture', 'passkeys', 'two-step', 'mfa', 'cookie', 'redis'],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/retention` (ADR 0039): any admin's; saving a window or a hold asks for a
-    // recent sign-in, which the step-up prompt answers on its own.
-    id: 'retention',
-    label: 'Retention',
-    description:
-      'How long messages and files are kept, and what a legal hold keeps past that.',
-    keywords: [
-      'retention',
-      'delete',
-      'history',
-      'legal hold',
-      'compliance',
-      'gdpr',
-      'ediscovery',
-      'files',
-      'purge',
-    ],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/storage`: any admin's. What the bucket holds, by kind, and what the
-    // nightly orphan sweep last did.
-    id: 'storage',
-    label: 'Storage',
-    description: 'What the files here add up to, and what the nightly sweep removed.',
-    keywords: ['storage', 'files', 'bucket', 'attachments', 'orphans', 'sweep', 'voice'],
-    access: 'admin',
-  },
-  {
-    id: 'webhooks',
-    label: 'Webhooks',
-    description: 'Incoming URLs that let another system post into a channel here.',
-    keywords: ['incoming', 'hooks', 'ci', 'integration'],
-    access: 'admin',
-  },
-  {
-    id: 'deliveries',
-    label: 'Deliveries',
-    description: 'What was sent to each app, and a way to send a failed one again.',
-    keywords: ['webhooks', 'outbox', 'retry', 'replay', 'circuit'],
-    access: 'admin',
-  },
-  {
-    // Not `assistants`: that is the Settings page where a person makes their own, and
-    // the two consoles share no section id.
-    id: 'connections',
-    label: 'Assistants',
-    description:
-      "Every assistant connected here as one of its people — whose, what it may do, when it ends.",
-    keywords: ['mcp', 'tokens', 'claude', 'connections', 'revoke'],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/instance/sso` (ADR 0033): the server's, since a person is one address
-    // across every workspace on it.
-    id: 'sso',
-    label: 'Single sign-on',
-    description:
-      'Let people sign in with the account their organisation gives them — Google, Microsoft, Okta, Keycloak.',
-    keywords: [
-      'sso', 'oidc', 'openid', 'identity provider', 'idp', 'google workspace', 'microsoft',
-      'entra', 'azure', 'okta', 'keycloak', 'login', 'sign in',
-    ],
-    access: 'instance',
-  },
-  {
-    // `/api/admin/instance/workspaces/{id}/policy`.
-    id: 'app-policy',
-    label: 'App policy',
-    description: 'What may be installed on this machine, and how many apps.',
-    keywords: ['apps', 'agents', 'catalogue', 'catalog', 'permissions', 'limits', 'allow'],
-    access: 'instance',
-  },
-  {
-    // `/api/admin/health`, any admin's. The page adds the server's own log
-    // (`/api/admin/instance/logs`) only for the server's administrator.
-    id: 'health',
-    label: 'Health',
-    description: 'Whether the parts this server runs on are answering.',
-    keywords: ['status', 'database', 'redis', 'queue', 'version'],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/audit`, which reads this workspace's own events.
-    id: 'audit',
-    label: 'Audit log',
-    description: 'Who did what, and from where.',
-    keywords: ['events', 'security', 'history', 'forensics'],
-    access: 'admin',
-  },
-  {
-    // `/api/admin/instance/logs`: a traceback is about the machine.
-    id: 'logs',
-    label: 'Errors and logs',
-    description: 'What has gone wrong on this server recently.',
-    keywords: ['errors', 'logs', 'exceptions', 'traceback', 'warnings', 'crash'],
-    access: 'instance',
-  },
-  {
-    // `/api/admin/feedback`.
-    id: 'feedback',
-    label: 'Feedback',
-    description: 'Bugs and requests filed from inside the app.',
-    keywords: ['tickets', 'bugs', 'reports', 'requests'],
-    access: 'admin',
   },
 ];
+
+/** Every row of the workspace console, in nav order — for lookups and the filter. */
+export const ADMIN_ROWS: AdminEntry[] = ADMIN_NAV.flatMap((group) => group.sections);
+
+/** A row of the server console. Every one says whose it is, like the workspace's. */
+export interface ServerEntry extends SectionEntry<ServerSection> {
+  access: Access;
+}
+
+/**
+ * The server console: the machine, for whoever administers it. One list under no
+ * heading — five rows need none. Health is any admin's on the server, and is here
+ * because it is about the machine; a workspace admin who does not run the server
+ * reaches it by URL, not by nav.
+ */
+export const SERVER_NAV: NavGroup<ServerSection>[] = [
+  {
+    id: 'server',
+    sections: [
+      {
+        // `/api/admin/health`, any admin's. The page adds the server's own log
+        // (`/api/admin/instance/logs`) only for the server's administrator.
+        id: 'health',
+        label: 'Health',
+        description: 'Whether the parts this server runs on are answering.',
+        keywords: ['status', 'database', 'redis', 'queue', 'storage', 'version'],
+        access: SERVER_ACCESS['health'],
+      },
+      {
+        // `/api/admin/storage`: any admin's, like Health, and about the machine like it —
+        // what the bucket holds, by kind, and what the nightly orphan sweep last did.
+        id: 'storage',
+        label: 'Storage',
+        description: 'What the files here add up to, and what the nightly sweep removed.',
+        keywords: ['storage', 'files', 'bucket', 'attachments', 'orphans', 'sweep', 'voice'],
+        access: SERVER_ACCESS['storage'],
+      },
+      {
+        // `/api/admin/instance/users`. People draws the same list for the server's admin,
+        // in this workspace's frame; here it is the whole server's.
+        id: 'users',
+        label: 'Accounts',
+        description: 'Every account on this server.',
+        keywords: ['users', 'people', 'accounts', 'members', 'everyone', 'directory'],
+        access: SERVER_ACCESS['users'],
+      },
+      {
+        // `/api/admin/instance/sso` (ADR 0033): the server's, since a person is one address
+        // across every workspace on it.
+        id: 'sso',
+        label: 'Single sign-on',
+        description:
+          'Let people sign in with the account their organisation gives them — Google, Microsoft, Okta, Keycloak.',
+        keywords: [
+          'sso', 'oidc', 'openid', 'identity provider', 'idp', 'google workspace', 'microsoft',
+          'entra', 'azure', 'okta', 'keycloak', 'login', 'sign in',
+        ],
+        access: SERVER_ACCESS['sso'],
+      },
+      {
+        // `/api/admin/instance/workspaces/{id}/policy`.
+        id: 'app-policy',
+        label: 'App policy',
+        description: 'What may be installed on this machine, and how many apps.',
+        keywords: ['apps', 'agents', 'catalogue', 'catalog', 'permissions', 'limits', 'allow'],
+        access: SERVER_ACCESS['app-policy'],
+      },
+      {
+        // `/api/admin/instance/logs`: a traceback is about the machine.
+        id: 'logs',
+        label: 'Errors and logs',
+        description: 'What has gone wrong on this server recently.',
+        keywords: ['errors', 'logs', 'exceptions', 'traceback', 'warnings', 'crash'],
+        access: SERVER_ACCESS['logs'],
+      },
+    ],
+  },
+];
+
+const SERVER_ROWS: ServerEntry[] = SERVER_NAV.flatMap((group) => group.sections as ServerEntry[]);
 
 function lookup<Entry extends SectionEntry>(entries: Entry[]): Map<string, Entry> {
   return new Map(entries.map((entry) => [entry.id, entry]));
 }
 
-const ADMIN_BY_ID = lookup(ADMIN_NAV);
+const ADMIN_BY_ID = lookup(ADMIN_ROWS);
+const SERVER_BY_ID = lookup(SERVER_ROWS);
 const SETTINGS_BY_ID = lookup(SETTINGS_NAV.flatMap((group) => group.sections));
 
-/** The registry row for a server section. Every live one has one — see registry.test.ts. */
+/** The registry row for a workspace section. Every live one has one — see registry.test.ts. */
 export function sectionEntry(id: AdminSection): AdminEntry {
   const entry = ADMIN_BY_ID.get(id);
   if (!entry) throw new Error(`No admin console entry for section "${id}".`);
+  return entry;
+}
+
+/** The registry row for a server section. */
+export function serverEntry(id: ServerSection): ServerEntry {
+  const entry = SERVER_BY_ID.get(id);
+  if (!entry) throw new Error(`No server console entry for section "${id}".`);
   return entry;
 }
 

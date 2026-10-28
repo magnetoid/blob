@@ -457,7 +457,7 @@ function Guardrails({ policy }: { policy: WorkspacePolicy | null }) {
       <button
         type="button"
         className="btn btn-ghost"
-        onClick={() => navigate("/admin/app-policy")}
+        onClick={() => navigate("/server/app-policy")}
       >
         App policy
       </button>

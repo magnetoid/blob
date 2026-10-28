@@ -1,8 +1,10 @@
-/** The server console: this machine, its people, its channels, its health.
+/** The workspace console: its name, its people, its channels, its agents, its data.
  *
  * One page rather than two. General, members, channels and apps used to live under
  * /workspace, while accounts, audit and health lived under /admin — which made one
- * open-source server look like a grid of workspaces. They are the same job now.
+ * open-source server look like a grid of workspaces. Then one list held both jobs, with
+ * a badge on the machine's rows; the machine is /server now (ServerConsole.tsx), and
+ * this page is the workspace's alone, in three groups.
  *
  * Your own preferences are a different page (/settings). They are private.
  *
@@ -18,12 +20,8 @@ import type { AdminSection } from '../../lib/router.ts';
 import { Card } from '../console/Card.tsx';
 import { ConsoleShell, type ConsoleSectionProps } from '../console/ConsoleShell.tsx';
 import { ADMIN_NAV, sectionEntry, viewerOf } from '../console/registry.ts';
-import { AppPolicySection } from './sections/AppPolicySection.tsx';
-import { AccountsSection } from './sections/AccountsSection.tsx';
 import { AuditSection } from './sections/AuditSection.tsx';
 import { FeedbackSection } from './sections/FeedbackSection.tsx';
-import { HealthSection } from './sections/health/HealthSection.tsx';
-import { LogsSection } from './sections/LogsSection.tsx';
 import { AppsSection } from './sections/AppsSection.tsx';
 import { ChannelsSection } from './sections/ChannelsSection.tsx';
 import { DeliveriesSection } from './sections/DeliveriesSection.tsx';
@@ -34,24 +32,19 @@ import { GroupsSection } from './sections/GroupsSection.tsx';
 import { InvitationsSection } from './sections/InvitationsSection.tsx';
 import { JanusSection } from './sections/janus/JanusSection.tsx';
 import { McpServersSection } from './sections/McpServersSection.tsx';
-import { SsoSection } from './sections/SsoSection.tsx';
 import { UsageSection } from './sections/UsageSection.tsx';
-import { HuddlesSection } from './sections/calls/HuddlesSection.tsx';
 import { ExportSection } from './sections/ExportSection.tsx';
 import { ImportSection } from './sections/ImportSection.tsx';
 import { RetentionSection } from './sections/RetentionSection.tsx';
-import { StorageSection } from './sections/StorageSection.tsx';
 import { SecuritySection } from './sections/SecuritySection.tsx';
 import { ApprovalsSection } from './sections/ApprovalsSection.tsx';
-import { MeetupsSection } from './sections/calls/MeetupsSection.tsx';
+import { CallsSection } from './sections/calls/CallsSection.tsx';
 import { PeopleHub } from './sections/PeopleHub.tsx';
 import { ThemesSection } from './sections/ThemesSection.tsx';
 import { WebhooksSection } from './sections/WebhooksSection.tsx';
 
 const NAV_ID = 'admin-console-nav';
 
-/** The nav draws groups; this console's rows are one, under no heading. */
-const NAV_GROUPS = [{ id: 'server', sections: ADMIN_NAV }];
 
 /**
  * A part of the People page reached by its old URL, in the card the People page gives
@@ -60,8 +53,6 @@ const NAV_GROUPS = [{ id: 'server', sections: ADMIN_NAV }];
  *
  * Groups alone has a page under it — one group's members, `/admin/groups/:id` — and
  * draws that page's cards itself, so only there does a detail id mean "not framed".
- * `/admin/users/:id` is a real route too, but Accounts has no detail page: it shows the
- * list, and the list needs its card like anywhere else.
  */
 function framed(
   Part: ComponentType<ConsoleSectionProps>,
@@ -91,8 +82,7 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   invitations: framed(InvitationsSection),
   channels: ChannelsSection,
   emoji: EmojiSection,
-  huddles: HuddlesSection,
-  meetups: MeetupsSection,
+  calls: CallsSection,
   apps: AppsSection,
   janus: JanusSection,
   'mcp-servers': McpServersSection,
@@ -102,17 +92,11 @@ const SECTION_COMPONENTS: Record<AdminSection, ComponentType<ConsoleSectionProps
   posture: SecuritySection,
   approvals: ApprovalsSection,
   retention: RetentionSection,
-  storage: StorageSection,
   webhooks: WebhooksSection,
   deliveries: DeliveriesSection,
   connections: AssistantsAdminSection,
-  sso: SsoSection,
-  users: framed(AccountsSection),
-  'app-policy': AppPolicySection,
   feedback: FeedbackSection,
   audit: AuditSection,
-  logs: LogsSection,
-  health: HealthSection,
 };
 
 export function AdminConsole({
@@ -136,10 +120,10 @@ export function AdminConsole({
       view="admin"
       navId={NAV_ID}
       nav={{
-        groups: NAV_GROUPS,
+        groups: ADMIN_NAV,
         basePath: '/admin',
-        title: 'This server',
-        subtitle: isOwner ? 'You own this server.' : 'You are an admin of this server.',
+        title: 'This workspace',
+        subtitle: isOwner ? 'You own this workspace.' : 'You are an admin of this workspace.',
       }}
       section={section}
       viewer={viewer}

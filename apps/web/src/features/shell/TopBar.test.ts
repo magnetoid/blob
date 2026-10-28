@@ -15,23 +15,33 @@ describe('the account menu', () => {
     expect(dead.map((item) => `${item.label} → ${item.path}`)).toEqual([]);
   });
 
-  it('keeps your settings and the server console as two pages', () => {
+  it('keeps your settings, the workspace console and the server console as three pages', () => {
     const path = (label: string) => ITEMS.find((item) => item.label === label)?.path;
 
     expect(path('Preferences')).toBe('/settings');
-    expect(path('Server settings')).toBe('/admin');
+    expect(path('Workspace settings')).toBe('/admin');
+    expect(path('Server')).toBe('/server');
     expect(parseRoute('/settings')).toEqual({ view: 'settings', section: 'preferences' });
     expect(parseRoute('/admin')).toEqual({ view: 'admin', section: 'general' });
+    expect(parseRoute('/server')).toEqual({ view: 'server', section: 'health' });
   });
 
-  it('keeps server settings off a member menu', () => {
-    expect(ITEMS.find((item) => item.label === 'Server settings')?.adminOnly).toBe(true);
+  it('keeps workspace settings off a member menu', () => {
+    expect(ITEMS.find((item) => item.label === 'Workspace settings')?.adminOnly).toBe(true);
     expect(ITEMS.find((item) => item.label === 'Preferences')?.adminOnly).toBeUndefined();
   });
 
-  it('lets an admin open the merged server page', () => {
+  it('lets an admin open the workspace console', () => {
     // Members, invitations and channels live here now, so an admin who is not the
     // owner still needs the link. Owner-only rows hide inside the console.
-    expect(ITEMS.find((item) => item.label === 'Server settings')?.ownerOnly).toBeUndefined();
+    expect(ITEMS.find((item) => item.label === 'Workspace settings')?.ownerOnly).toBeUndefined();
+  });
+
+  // A fact about the person, not a role: an owner who does not run the server never
+  // sees it, and the server's admin sees it whatever their role in this workspace.
+  it('offers the server console to its administrator alone', () => {
+    const server = ITEMS.find((item) => item.label === 'Server');
+    expect(server?.instanceOnly).toBe(true);
+    expect(server?.adminOnly).toBeUndefined();
   });
 });

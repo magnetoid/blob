@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ConsoleNav } from './ConsoleNav.tsx';
-import { ADMIN_NAV, SETTINGS_NAV, type NavGroup, type Viewer } from './registry.ts';
+import { ADMIN_NAV, SERVER_NAV, SETTINGS_NAV, type NavGroup, type Viewer } from './registry.ts';
 
 // vitest globals are off, so RTL's automatic cleanup never runs. Without this, one
 // test's markup is still in the document while the next one queries it.
@@ -12,8 +12,6 @@ const ADMIN: Viewer = { role: 'admin', isInstanceAdmin: false };
 const OWNER: Viewer = { role: 'owner', isInstanceAdmin: false };
 const FOUNDER: Viewer = { role: 'owner', isInstanceAdmin: true };
 
-/** The server console's nav as AdminConsole hands it over: one list, under no heading. */
-const SERVER: NavGroup[] = [{ id: 'server', sections: ADMIN_NAV }];
 
 /** A small catalogue with one row behind each gate, and one newly shipped. */
 const GATED: NavGroup[] = [
@@ -28,8 +26,21 @@ const GATED: NavGroup[] = [
   },
 ];
 
-function renderServerNav(viewer: Viewer = FOUNDER, section = 'general') {
-  return render(<ConsoleNav groups={SERVER} section={section} viewer={viewer} />);
+function renderAdminNav(viewer: Viewer = FOUNDER, section = 'general') {
+  return render(<ConsoleNav groups={ADMIN_NAV} section={section} viewer={viewer} />);
+}
+
+/** The server console's nav as ServerConsole hands it over: rows at its own level go unbadged. */
+function renderServerNav(viewer: Viewer = FOUNDER, section = 'health') {
+  return render(
+    <ConsoleNav
+      groups={SERVER_NAV}
+      section={section}
+      viewer={viewer}
+      basePath="/server"
+      baseAccess="instance"
+    />,
+  );
 }
 
 /** The rows the nav draws, by label, in order. */
@@ -39,44 +50,43 @@ function rowLabels(container: HTMLElement): string[] {
   );
 }
 
-describe('the server console’s nav', () => {
-  it('is one list with no headings, in the registry’s order', () => {
-    const { container } = renderServerNav();
-    expect(screen.queryAllByRole('heading')).toEqual([]);
-    expect(container.querySelector('.section-label')).toBeNull();
-    expect(container.querySelector('.section-note')).toBeNull();
-    expect(rowLabels(container)).toEqual([
-      'General',
-      'Appearance',
-      'People',
-      'Channels',
-      'Emoji',
-      'Huddles',
-      'Video meetups',
+const WORKSPACE_ROWS = [
+  'General',
+  'Appearance',
+  'People',
+  'Channels',
+  'Emoji',
+  'Calls',
+  'Feedback',
+  'Apps & agents',
+  'Janus',
+  'MCP servers',
+  'Usage',
+  'Approvals',
+  'Webhooks',
+  'Deliveries',
+  'Assistants',
+  'Export',
+  'Import',
+  'Retention',
+  'Security',
+  'Audit log',
+];
+
+describe('the workspace console’s nav', () => {
+  it('is three groups under their headings, in the registry’s order', () => {
+    const { container } = renderAdminNav();
+    expect(screen.getAllByRole('heading').map((h) => h.textContent)).toEqual([
+      'Workspace',
       'Apps & agents',
-      'Janus',
-      'MCP servers',
-      'Usage',
-      'Approvals',
-      'Export',
-      'Import',
-      'Security',
-      'Retention',
-      'Storage',
-      'Webhooks',
-      'Deliveries',
-      'Assistants',
-      'Single sign-on',
-      'App policy',
-      'Health',
-      'Audit log',
-      'Errors and logs',
-      'Feedback',
+      'Data & security',
     ]);
+    expect(container.querySelector('.section-note')).toBeNull();
+    expect(rowLabels(container)).toEqual(WORKSPACE_ROWS);
   });
 
   it('draws nothing that is not a page', () => {
-    renderServerNav();
+    renderAdminNav();
     expect(screen.queryByText('Soon')).toBeNull();
     // Approvals was one of these, until it became a page that opens (M4).
     for (const gone of ['Moderation', 'Import / export']) {
@@ -88,43 +98,63 @@ describe('the server console’s nav', () => {
     }
   });
 
-  // Their pages answer nobody else; an owner of this workspace is not enough.
-  it('keeps the server’s own pages from an admin and from an owner who does not run it', () => {
-    for (const viewer of [ADMIN, OWNER]) {
-      const { container, unmount } = renderServerNav(viewer);
-      const rows = rowLabels(container);
-      expect(rows).not.toContain('App policy');
-      expect(rows).not.toContain('Errors and logs');
-      expect(rows).toContain('Health');
-      expect(rows).toContain('Audit log');
-      expect(rows).toContain('Feedback');
+  // The machine's pages are the server console's now: nothing here is anybody's but a
+  // workspace admin's, so nothing here is badged, whoever is looking.
+  it('shows every admin the same rows, with no badge on any', () => {
+    for (const viewer of [ADMIN, OWNER, FOUNDER]) {
+      const { container, unmount } = renderAdminNav(viewer);
+      expect(rowLabels(container)).toEqual(WORKSPACE_ROWS);
       expect(screen.queryByText('Server')).toBeNull();
+      for (const moved of ['Health', 'Accounts', 'Single sign-on', 'App policy', 'Errors and logs']) {
+        expect(screen.queryByText(moved)).toBeNull();
+      }
       unmount();
     }
   });
 
-  it('badges the server’s own pages for the person who runs it', () => {
-    renderServerNav();
-    const badged = screen
-      .getAllByText('Server')
-      .map((badge) => badge.closest('button')?.querySelector('.channel-name')?.textContent);
-    expect(badged).toEqual(['Single sign-on', 'App policy', 'Errors and logs']);
-    expect(screen.getByText('Audit log').closest('button')?.textContent).toBe('Audit log');
-  });
-
-  it('narrows the list to what was typed, without leaving a heading behind', () => {
-    const { container } = renderServerNav();
+  it('narrows the list to what was typed, dropping a heading left with no rows', () => {
+    const { container } = renderAdminNav();
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: 'log' } });
-    expect(rowLabels(container)).toEqual([
-      'Single sign-on',
-      'App policy',
-      'Audit log',
-      'Errors and logs',
+    expect(rowLabels(container)).toEqual(['Audit log']);
+    expect(screen.getAllByRole('heading').map((h) => h.textContent)).toEqual([
+      'Data & security',
     ]);
-    expect(screen.queryAllByRole('heading')).toEqual([]);
 
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: '' } });
-    expect(rowLabels(container)).toHaveLength(26);
+    expect(rowLabels(container)).toHaveLength(WORKSPACE_ROWS.length);
+  });
+
+  // The heading is a word people search by: "data" finds the rows under it.
+  it('finds a row by the heading it sits under', () => {
+    const { container } = renderAdminNav();
+    fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: 'data' } });
+    expect(rowLabels(container)).toEqual(['Export', 'Import', 'Retention', 'Security', 'Audit log']);
+  });
+});
+
+describe('the server console’s nav', () => {
+  it('is one list with no headings, in the registry’s order', () => {
+    const { container } = renderServerNav();
+    expect(screen.queryAllByRole('heading')).toEqual([]);
+    expect(rowLabels(container)).toEqual([
+      'Health',
+      'Storage',
+      'Accounts',
+      'Single sign-on',
+      'App policy',
+      'Errors and logs',
+    ]);
+  });
+
+  // Every row here is the server admin's: badging each "Server" would say nothing.
+  it('badges nothing, since everybody here passes the gate on every row', () => {
+    renderServerNav();
+    expect(screen.queryByText('Server')).toBeNull();
+  });
+
+  it('offers a workspace admin who does not run the server only what any admin may open', () => {
+    const { container } = renderServerNav(ADMIN);
+    expect(rowLabels(container)).toEqual(['Health', 'Storage']);
   });
 });
 
@@ -173,7 +203,7 @@ describe('the console nav', () => {
   // Where you are has to be marked, not merely coloured — that is what a screen reader
   // reads out, and it is the one thing the old chip row got right.
   it('marks the current section', () => {
-    renderServerNav(FOUNDER, 'audit');
+    renderAdminNav(FOUNDER, 'audit');
     const current = screen.getByText('Audit log').closest('button');
     expect(current?.getAttribute('aria-current')).toBe('true');
     expect(screen.getByText('General').closest('button')?.getAttribute('aria-current')).toBe(
@@ -243,7 +273,7 @@ describe('the console nav', () => {
 
   it('closes the drawer when a section is chosen', () => {
     const onNavigate = vi.fn();
-    render(<ConsoleNav groups={SERVER} section="general" viewer={FOUNDER} onNavigate={onNavigate} />);
+    render(<ConsoleNav groups={ADMIN_NAV} section="general" viewer={FOUNDER} onNavigate={onNavigate} />);
     fireEvent.click(screen.getByText('Audit log'));
     expect(onNavigate).toHaveBeenCalled();
   });

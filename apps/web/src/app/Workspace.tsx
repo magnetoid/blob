@@ -1,6 +1,6 @@
 /** The signed-in shell: top bar, sidebar, main view, optional thread panel. */
 
-import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useStore } from '../lib/store.ts';
 import { showError } from '../lib/toasts.ts';
 import { socket } from '../lib/socket.ts';
@@ -24,6 +24,7 @@ import { DecisionsView } from '../features/decisions/DecisionsView.tsx';
 import { SavedView } from '../features/messages/SavedView.tsx';
 import { FilesView } from '../features/messages/FilesView.tsx';
 import { WhatsNewView } from '../features/settings/WhatsNewView.tsx';
+import { SERVER_ACCESS, canOpen, serverLanding, viewerOf } from '../features/console/access.ts';
 import { ThreadPanelSlot } from '../features/messages/ThreadPanel.tsx';
 import { BrowseChannels } from '../features/channels/BrowseChannels.tsx';
 import { ScheduledView } from '../features/messages/ScheduledView.tsx';
@@ -37,6 +38,9 @@ import { SearchView } from '../features/search/SearchView.tsx';
 // and they were arriving in everyone's first paint.
 const AdminConsole = lazy(() =>
   import('../features/admin/AdminConsole.tsx').then((m) => ({ default: m.AdminConsole })),
+);
+const ServerConsole = lazy(() =>
+  import('../features/server/ServerConsole.tsx').then((m) => ({ default: m.ServerConsole })),
 );
 const SettingsConsole = lazy(() =>
   import('../features/settings/SettingsConsole.tsx').then((m) => ({
@@ -91,6 +95,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const route = parseRoute(path);
   const view = route.view;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const viewer = useMemo(() => viewerOf(currentUser), [currentUser]);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   /** Which list ⌘K opened. ⌘⇧K opens the same picker showing only people. */
@@ -162,9 +167,18 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       navigate('/', { replace: true });
       return;
     }
+    // The machine's console is the server administrator's — gated page by page, since
+    // Health is any admin's: an admin of this workspace who does not run the server may
+    // open that one by URL and lands on their own console from any other, while the
+    // server's administrator who is a plain member here is sent to the first page that
+    // is theirs rather than away.
+    if (resolved.view === 'server' && !canOpen(SERVER_ACCESS[resolved.section], viewer)) {
+      navigate(serverLanding(viewer) ?? (isAdmin ? '/admin' : '/'), { replace: true });
+      return;
+    }
     const canonical = pathForRoute(resolved);
     if (canonical !== path) navigate(canonical, { replace: true });
-  }, [path, isAdmin]);
+  }, [path, isAdmin, viewer]);
 
   /**
    * Follow a permalink, then let it replace itself with the conversation.
@@ -470,15 +484,26 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         {callLayer(true)}
       </>
     );
-  } else if (route.view === 'admin' && isAdmin) {
+  } else if (
+    (route.view === 'admin' && isAdmin) ||
+    (route.view === 'server' && canOpen(SERVER_ACCESS[route.section], viewer))
+  ) {
     body = (
       <>
         <Suspense fallback={<div className="auth"><p className="muted">Loading…</p></div>}>
-          <AdminConsole
-            section={route.section}
-            detailId={route.detailId}
-            onFeedback={() => setFeedbackOpen(true)}
-          />
+          {route.view === 'admin' ? (
+            <AdminConsole
+              section={route.section}
+              detailId={route.detailId}
+              onFeedback={() => setFeedbackOpen(true)}
+            />
+          ) : (
+            <ServerConsole
+              section={route.section}
+              detailId={route.detailId}
+              onFeedback={() => setFeedbackOpen(true)}
+            />
+          )}
         </Suspense>
         {paletteOpen && (
           <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
