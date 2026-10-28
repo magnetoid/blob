@@ -1213,6 +1213,27 @@ async def request_cancel(
     }
 
 
+async def carry_on(session: AsyncSession, parent_run_id: str) -> bool:
+    """The waiting run has been carried on: it is done, and `answered_at` is what tells a
+    waiter on *it* that the answer is still to come. Written in the continuation's own
+    transaction, never before it — a worker lost between the two left a parent answered
+    and nothing carrying on, which no net picks up. True when this call flipped it."""
+    row = (
+        await session.execute(
+            text(
+                """
+                UPDATE agent_runs
+                   SET status = 'succeeded', answered_at = now()
+                 WHERE id = :id AND status = 'waiting'
+                RETURNING id
+                """
+            ),
+            {"id": parent_run_id},
+        )
+    ).fetchone()
+    return row is not None
+
+
 async def stop_asked(session: AsyncSession, run_id: str) -> bool:
     """Whether somebody has pressed Stop on this run. The durable half of the ask — the
     Redis key and frame are only heard while the agent streams."""

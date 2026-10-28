@@ -172,6 +172,40 @@ class TestComingBack:
         assert await agui_job.resume_waiting_runs() == 0
         assert asked_times(pair) == 2
 
+    async def test_a_worker_lost_between_hearing_and_starting_loses_nothing(
+        self,
+        pair: dict[str, Any],  # noqa: F811 — the fixture imported above
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The run that waited used to be written `succeeded` in one transaction and its
+        continuation started after the commit. A worker restarted between the two — a
+        deploy does that on every push — left the parent answered and nothing carrying
+        on, and no net picks up a run that is not `waiting`."""
+        await ask_helper(
+            pair,
+            "@Helper tell me when the deploy is out",
+            agui=[follow_up(later(hours=2)), says("The deploy is out.")],
+        )
+        [waiting] = await helper_runs()
+        await bring_forward(waiting.id)
+
+        async def lost(*args: Any, **kwargs: Any) -> None:
+            return None  # the process died here
+
+        run_one = agui_job.run_one
+        monkeypatch.setattr(agui_job, "run_one", lost)
+        await wake(pair)
+        assert (await run_row(waiting.id)).status == "waiting", "still to be carried on"
+        assert len(await helper_runs()) == 1
+
+        monkeypatch.setattr(agui_job, "run_one", run_one)
+        assert await wake(pair) == 1
+        first, resumed = await helper_runs()
+        assert first.status == "succeeded" and first.answered_at is not None
+        assert resumed.parent_run_id == first.id
+        assert ("Helper", "The deploy is out.") in await bodies(pair)
+        assert await agui_job.resume_waiting_runs() == 0
+
     async def test_a_chain_comes_back_only_so_many_times(
         self,
         pair: dict[str, Any],  # noqa: F811 — the fixture imported above

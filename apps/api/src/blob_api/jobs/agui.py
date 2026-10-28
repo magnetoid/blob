@@ -556,17 +556,10 @@ async def _hear(run_id: str) -> None:
             )
             return
         # It asked, and it was answered: the run that asked is done, and its continuation
-        # is a run of its own. `answered_at` is what tells a waiter on *this* run that it
-        # has been carried on and the answer is still to come.
-        await session.execute(
-            text("UPDATE agent_runs SET status = 'succeeded', answered_at = now() WHERE id = :id"),
-            {"id": run_id},
-        )
-        view = await agent_run_service.view_of(session, run_id)
-        if view is not None:
-            room = str(row.channel_id)
-            after.add(partial(hub.to_channel, room, {"t": "agent_run.started", "run": view}))
-
+        # is a run of its own. It is *not* flipped here, though: `agent_runs.carry_on`
+        # writes that in the continuation's own transaction (`agui_outcome._carried_on`),
+        # so a worker lost between this commit and that one leaves it `waiting` for the
+        # net to find again, rather than answered with nothing carrying on.
         chain = agent_chains.Chain(
             chain_id=str(row.chain_id),
             initiated_by_user_id=str(row.initiated_by_user_id),

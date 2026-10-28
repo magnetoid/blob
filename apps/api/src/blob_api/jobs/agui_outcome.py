@@ -411,6 +411,7 @@ async def _start(
         )
         if run_id is None:
             return None
+        await _carried_on(session, after, listener, channel_id, chain)
         # The row as the service reads every run, so the card the room sees as a run
         # starts is the shape it gets on every later read.
         run_view = await agent_run_service.view_of(session, run_id)
@@ -420,6 +421,27 @@ async def _start(
             )
 
     return run_id
+
+
+async def _carried_on(
+    session: AsyncSession,
+    after: Any,
+    listener: Listener,
+    channel_id: str,
+    chain: agent_chains.Chain,
+) -> None:
+    """A run that waited and was answered is done once — and only once — something is
+    written for what carries it on: this run's row, or the refusal that stands in for
+    one. Nothing in `jobs/agui.py` flips it earlier, so a worker lost between hearing
+    the answer and starting the continuation leaves the parent `waiting`, and the net
+    that found it finds it again."""
+    if chain.agent_answer is None or chain.parent_run_id is None:
+        return
+    if not await agent_run_service.carry_on(session, chain.parent_run_id):
+        return
+    view = await agent_run_service.view_of(session, chain.parent_run_id)
+    if view is not None:
+        after.add(lambda: _announce(listener, channel_id, {"t": "agent_run.started", "run": view}))
 
 
 async def _stream(
@@ -772,6 +794,7 @@ async def run_one(
         # was handed over, so the room it sits in already knows the agent was here, and
         # a task left "in progress" for an agent that can never answer helps nobody.
         async with transaction() as (session, after):
+            await _carried_on(session, after, listener, channel_id, chain)
             await task_dispatch.settle(
                 session,
                 after,
@@ -783,6 +806,7 @@ async def run_one(
         return
     if gathered.refusal is not None:
         async with transaction() as (session, after):
+            await _carried_on(session, after, listener, channel_id, chain)
             await refuse(
                 session,
                 after,
