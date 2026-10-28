@@ -1,0 +1,130 @@
+/* ─── empty states ───────────────────────────────────────────────────────── */
+.empty-state {
+  max-width: 520px;
+  margin: 60px auto;
+  padding: 0 24px;
+  text-align: center;
+}
+
+/* Only on the view the app opened onto, before anything on it has been touched
+   (`lib/firstView`): the first thing on the screen is worth a beat. Every view after
+   that is one somebody switched to — Threads, Later, Activity, Scheduled, Tasks, Files, a
+   console section, or a tab or a filter inside one — and switching stays instant, so an
+   empty state there simply appears. */
+.empty-state[data-arriving='true'] {
+  animation: arrive var(--dur-open) var(--ease-out);
+}
+
+/* And never in a conversation, a search or the channel browser, even on that first view:
+   the first is a channel switch away from playing on every switch, and the other two
+   flip between results and nothing as a filter is typed or toggled. The search is told
+   apart by its head — `.search-results` alone is also the list in Saved, Activity,
+   Threads and Tasks. */
+.message-list .empty-state,
+.search-head ~ .search-results .empty-state,
+.browse-body .empty-state {
+  animation: none;
+}
+
+.empty-state-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 18px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-wash-soft);
+  color: var(--accent);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.empty-state-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.empty-state-body {
+  margin-top: 8px;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--text-3);
+  text-wrap: pretty;
+}
+
+/* Whatever follows the body — a retry, a way back — sits one step below it. */
+.empty-state > .btn {
+  margin-top: 12px;
+}
+
+.connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--hairline-soft);
+  font-size: var(--text-meta);
+  color: var(--text-3);
+  /* News about the connection, so it arrives rather than cuts in over the conversation. */
+  animation: arrive var(--dur-open) var(--ease-out);
+}
+
+.message-delivery {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  font-size: var(--text-meta);
+  color: var(--text-3);
+}
+
+.message-translation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.message-translation-card {
+  max-width: 560px;
+  margin-top: 8px;
+  padding: 11px 13px;
+  border: 1px solid var(--accent-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--accent-wash-soft);
+}
+
+.message-translation-meta {
+  font-size: var(--text-sm);
+  color: var(--text-4);
+}
+
+.message-translation-text {
+  margin-top: 6px;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+
+.message-translation-error {
+  font-size: var(--text-sm);
+  color: var(--danger);
+}
+
+.message-delivery[data-state='failed'] {
+  border-color: color-mix(in oklab, var(--danger) 24%, var(--hairline-soft));
+  color: var(--danger);
+}
+
+.message[data-pending='true'][data-delivery-state='failed'] {
+  opacity: 0.9;
+}

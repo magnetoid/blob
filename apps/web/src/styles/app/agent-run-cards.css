@@ -1,0 +1,387 @@
+/* ─── agent run cards ────────────────────────────────────────────────────── */
+
+.agent-run-card {
+  /* The rail down the left is the whole signal: scanning a channel, the eye finds
+     "an agent did this" before it reads a word. Iris rather than the accent, because
+     the accent already means "this workspace" everywhere else and would read as
+     emphasis rather than authorship. */
+  margin: 4px 20px 8px 66px;
+  padding: 12px 14px;
+  border: 1px solid var(--iris-border);
+  border-left: 3px solid var(--iris);
+  border-radius: var(--radius-md);
+  background: var(--iris-surface);
+  max-width: 560px;
+  font-size: var(--text-sm);
+  /* A run reaching its status: the rail's colour settles over a beat rather than
+     flattening in one frame. The border colour is what travels; the fill still steps
+     (a card may move its border colour and shadow, not its background), and a width
+     is a layout, not a composite. This card carries a border rather than elevation,
+     so there is no box-shadow to move with it. */
+  transition: border-color var(--dur-open) var(--ease-standard);
+}
+
+.agent-run-card[data-status='failed'],
+.agent-run-card[data-status='refused'] {
+  /* A failure stops being an agent's colour and becomes a failure's. The rail is the
+     one thing read at a glance, so it carries the more urgent of the two — set after
+     the shorthand, which would otherwise reset it to the hairline. */
+  border-color: var(--hairline);
+  border-left-color: var(--danger);
+  background: var(--surface-muted);
+}
+
+/* A finished run flattens to a result. The rail, the shimmer and Stop all said "an
+   agent is acting here", and a card that is done should stop claiming it. */
+.agent-run-card[data-status='succeeded'],
+.agent-run-card[data-status='cancelled'] {
+  border-left-width: 1px;
+  border-left-color: var(--iris-border);
+}
+
+.agent-run-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.agent-run-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--presence-offline);
+  flex: none;
+}
+
+.agent-run-dot-live {
+  /* The same 1.6s pulse the sidebar's live dot uses: one pulse, wherever something
+     is live, so a person learns the rhythm once. */
+  background: var(--presence-online);
+  animation: agent-live-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-run-dot-live {
+    animation: none;
+  }
+}
+
+.agent-run-name {
+  font-weight: 600;
+  color: var(--iris-deep);
+}
+
+.agent-run-card[data-status='failed'] .agent-run-name,
+.agent-run-card[data-status='refused'] .agent-run-name {
+  color: var(--text);
+}
+
+/* A running plan, as a bar rather than a number. There is no percentage to show — the
+   model decides how many steps there are while it takes them — so the honest shape is
+   one that says "still going" and nothing more. Reduced motion gets a still bar at the
+   sweep's midpoint rather than a frozen gradient edge. */
+.agent-run-progress {
+  position: relative;
+  overflow: hidden;
+  height: 4px;
+  margin-top: 9px;
+  border-radius: var(--radius-full);
+  background: var(--iris-shimmer);
+}
+
+.agent-run-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--iris-soft) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: agent-run-sweep 1.4s linear infinite;
+}
+
+@keyframes agent-run-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-run-progress::after {
+    animation: none;
+    background: var(--iris-soft);
+    transform: none;
+  }
+}
+
+.agent-run-state {
+  color: var(--text-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-run-lineage {
+  color: var(--text-4);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* The chain a run sits on, as one line under the head: who set whom going, this run in
+   bold. A link that failed says so in the signal colour, so a chain that broke shows
+   where. */
+.agent-run-chain {
+  margin-top: 6px;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.agent-run-chain-label {
+  color: var(--text-4);
+}
+.agent-run-chain strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.agent-run-chain [data-status="failed"],
+.agent-run-chain [data-status="refused"] {
+  color: var(--danger);
+}
+
+/* How long a question stays open, beside "waiting for your answer". */
+.agent-run-deadline {
+  color: var(--text-4);
+}
+
+/* The question a run waits on, answerable on the card by the person it waits on. */
+.agent-run-decision {
+  margin-top: 8px;
+}
+.agent-run-decision-prompt {
+  margin: 0 0 6px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+  /* An approval quotes what would be posted, or lists what a server's tool would be
+     sent, a line each; collapsed into one run of text it could not be checked. */
+  white-space: pre-line;
+}
+.agent-run-decision-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.agent-run-decision-words {
+  display: flex;
+  gap: 6px;
+}
+.agent-run-decision-words .input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* What a run coming back later will do then (ADR 0040), in the agent's own words: two
+   lines at most, since the note is a reason to wait and not the answer. */
+.agent-run-note {
+  margin: 6px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* What the run was shown: one quiet line under what it did. */
+.agent-run-seen {
+  margin-top: 6px;
+  font-size: var(--text-xs);
+  color: var(--text-4);
+  overflow-wrap: anywhere;
+}
+
+.agent-run-stop {
+  flex: none;
+}
+
+.agent-run-steps {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.agent-run-steps li {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+
+.agent-run-steps li,
+.agent-run-tool-state {
+  /* A run streams: steps tick over from pending to done and tools from running to
+     finished while you watch. Both flipped colour between frames. */
+  transition: color var(--dur-fast) var(--ease-color);
+}
+
+.agent-run-steps li[data-status='done'] {
+  color: var(--text-4);
+}
+
+.agent-run-step-mark {
+  color: var(--iris-strong);
+  flex: none;
+  width: 12px;
+  text-align: center;
+}
+
+.agent-run-tools {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-run-tool summary {
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.agent-run-tool summary code {
+  /* A tool call names something real — a channel, a query, a file — so it is set as
+     code on its own chip, the way the rest of the app sets an identifier. */
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--iris-text);
+  background: var(--iris-surface-2);
+  border: 1px solid var(--iris-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+}
+
+.agent-run-tool-state {
+  color: var(--text-4);
+  font-size: var(--text-xs);
+}
+
+.agent-run-io {
+  margin: 6px 0 4px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--iris-border-soft);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.agent-run-reasoning {
+  margin-top: 6px;
+}
+
+/* The answer as it is written: a draft, so quieter than the answer it becomes, and only
+   its newest lines — the box is pinned to the bottom, and the top fades rather than cuts
+   so it reads as text continuing above, not text missing. */
+.agent-run-draft {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-height: 7.5em;
+  margin-top: 8px;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-3);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 2.5em);
+  mask-image: linear-gradient(to bottom, transparent, #000 2.5em);
+}
+.agent-run-draft-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-run-reasoning-toggle {
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+}
+
+/* A finished run in a conversation: one line of meta under the message that asked, and
+   none of the card — no rail, no ground, no border. By the time a run has ended well its
+   answer is on screen, and the answer is the thing to read; the card stays for the states
+   that want somebody (running, failed, refused, waiting).
+
+   The left edge is the message text's: the pane gutter, the 36px avatar gutter and the
+   row's 12px gap, so it moves with the density setting as the messages do. No negative
+   margin to tuck it closer: it would slide under the row's hover and mention grounds,
+   which then cut through the line. The row's bottom padding is the gap. */
+.agent-run-line {
+  margin: 0 var(--pane-gutter) 2px calc(var(--pane-gutter) + 48px);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--text-4);
+}
+
+.agent-run-line-name {
+  font-weight: 600;
+}
+
+/* Inline, not a flex item: the details it opens are a block and so land underneath.
+   As flex siblings they sat beside the line — a capped width let them fit on it. */
+.agent-run-line-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 6px;
+  padding: 0 2px;
+  border-radius: var(--radius-xs);
+  font-size: inherit;
+  line-height: inherit;
+  transition: color var(--dur-fast) var(--ease-color);
+}
+
+.agent-run-line-toggle:hover {
+  color: var(--text-2);
+}
+
+.agent-run-line-toggle svg {
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.agent-run-line-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+/* What the run did, where the line is — the same steps, tools and reasoning the card
+   draws, at the card's size, and still without a card around them. */
+.agent-run-line-work {
+  max-width: 560px;
+  padding-bottom: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+/* The 44px target, without the 44px line: an inline box's margins count toward the line
+   it sits on, so a negative block margin of the difference keeps the line text-high and
+   under the message while the button's box still reaches 14px above and below it. */
+@media (pointer: coarse) {
+  .agent-run-line-toggle {
+    min-height: 44px;
+    margin-block: -14px;
+    padding: 0 8px;
+  }
+}

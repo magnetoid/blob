@@ -1,0 +1,49 @@
+/* ─── feedback, in the corner ─────────────────────────────────────────────── */
+.topbar-feedback {
+  margin-right: 6px;
+  gap: 7px;
+}
+
+/* On a narrow window the icon carries it alone; the account menu beside it is the
+   thing that must not be squeezed. */
+@media (max-width: 900px) {
+  /* Below this the three columns stop fitting: 264px of sidebar and 380px of thread
+     panel leave the conversation about 150px, which is narrower than the panel
+     discussing it. The panel becomes an overlay on the right instead, so opening a
+     thread stops shrinking the thing you opened it from. It is still a column at
+     ≤768px, where it goes full-bleed. */
+  .shell[data-panel='open'] {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  }
+
+  .shell[data-panel='open'] .panel {
+    position: fixed;
+    top: var(--topbar-height);
+    right: 0;
+    bottom: 0;
+    width: min(var(--panel-width), 92vw);
+    z-index: var(--z-panel);
+    box-shadow: var(--elev-3);
+  }
+
+  .shell[data-panel='open'] .panel.file-preview {
+    width: min(var(--panel-width-file), 92vw);
+  }
+
+  .topbar-feedback-label {
+    display: none;
+  }
+
+  /* Icons only. The bar has to hold the workspace name, four views, feedback and the
+     user menu on one line, and the labels are the part that can go: every button keeps
+     its `title`, so the name is a hover away rather than gone. */
+  .topbar-nav-label {
+    display: none;
+  }
+
+  .topbar-nav-btn {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+}

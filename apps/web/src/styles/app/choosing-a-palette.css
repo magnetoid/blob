@@ -1,0 +1,113 @@
+/* ─── choosing a palette ──────────────────────────────────────────────────── */
+/* A tile that shows the palette rather than naming it: page, sidebar, surfaces and the
+   accent, in miniature and in the theme's own colours. The single accent dot this
+   replaced made two themes with the same accent indistinguishable until you picked one. */
+.palette-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  max-width: 620px;
+}
+
+.palette-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.palette-tile:hover {
+  background: var(--surface-hover);
+}
+
+.palette-tile[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--text);
+}
+
+.palette-preview {
+  display: flex;
+  height: 62px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  /* A ring rather than a border: a preview of a pale theme on a pale page needs an edge,
+     and the ring does not eat a pixel of the palette it is showing. */
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+
+.palette-tile[aria-pressed='true'] .palette-preview {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.palette-preview-rail {
+  width: 30%;
+  flex: none;
+}
+
+.palette-preview-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  flex: 1;
+  padding: 0 8px;
+}
+
+.palette-preview-line {
+  height: 5px;
+  border-radius: var(--radius-full);
+}
+
+.palette-preview-line.short {
+  width: 62%;
+}
+
+.palette-preview-accent {
+  width: 34%;
+  height: 8px;
+  margin-top: 2px;
+  border-radius: var(--radius-full);
+}
+
+.palette-name {
+  padding-left: 2px;
+  font-weight: 500;
+}
+
+.theme-contrast-warning {
+  max-width: 680px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+  color: var(--text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent);
+  font-size: var(--text-meta);
+}
+
+.theme-contrast-warning ul {
+  margin: 7px 0 0;
+  padding-left: 18px;
+  color: var(--text-2);
+}
+
+@media (pointer: coarse) {
+  .palette-tile {
+    min-height: 44px;
+  }
+}
+
+.thread-also-send {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px var(--pane-gutter) 0;
+}

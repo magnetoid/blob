@@ -1,0 +1,21 @@
+/* ─── The Agents page (features/agentic/AgentsView.tsx) ───────────────────────
+   One row per agent you can ask. Drawn like a search result — the card on the page,
+   not an elevated surface — because it sits in the same pane the results do. The row
+   itself is not a button: it holds three, and a button inside a button is not one. */
+.agent-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-md);
+}

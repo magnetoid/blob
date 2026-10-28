@@ -1,0 +1,88 @@
+/* ─── the console page ────────────────────────────────────────────────────── */
+.admin-main {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  /* The column is centred, so it would step sideways by a scrollbar's width whenever a
+     section grew long enough to scroll. */
+  scrollbar-gutter: stable;
+  background: var(--bg);
+}
+
+/* The consoles sit in the same frame as the chat, so moving between the two is moving
+   between pages of one app rather than into a different one. From 901px: below it the
+   nav is a drawer and the page is the whole screen. The page is its own scroller, so its
+   corners clip what scrolls inside them. */
+@media (min-width: 901px) {
+  .admin-shell > .admin-main {
+    margin: 0 var(--frame-gap) var(--frame-gap) 0;
+    border-radius: var(--frame-radius);
+    box-shadow: var(--elev-frame);
+  }
+}
+
+/* One column for every section, centred in whatever the nav leaves. It stopped at
+   860px, and most sections then narrowed themselves again to 520–680px with an inline
+   style, so a 1440px window showed a column on the left of an empty page. A size
+   container, so a section can ask how wide the column is — the agents table and its
+   guardrails sit side by side only when both fit — rather than guess from the window. */
+.admin-page {
+  container: console-page / inline-size;
+  max-width: calc(var(--console-width) + 2 * var(--console-gutter));
+  margin-inline: auto;
+  padding: var(--space-8) var(--console-gutter) var(--space-12);
+}
+
+.admin-page-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.page-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.page-sub {
+  margin: var(--space-2) 0 0;
+  max-width: 68ch;
+  font-size: var(--text-row);
+  line-height: 1.5;
+  color: var(--text-4);
+  text-wrap: pretty;
+}
+
+/* A failure is a notice about the page, not a stray red sentence between its header and
+   its first card. */
+.console-error {
+  margin: var(--space-6) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  /* A light tint, and the edge carries the colour: at 8% the dark theme's red on its
+     own wash measured 4.63:1, closer to the line than a failure message should sit. */
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 32%, var(--hairline));
+  line-height: 1.5;
+}
+
+/* The one motion this page has: arriving at a section. The body is keyed by the section
+   in ConsoleShell, so this plays once per page and not when a detail opens inside one.
+   `backwards` and not `both`, so nothing is left holding a transform after it lands.
+   Reduced motion takes --motion-slide to zero and keeps the fade. */
+.admin-page-body {
+  margin-top: var(--space-8);
+  animation: console-enter var(--dur-open) var(--ease-out) backwards;
+}
+
+@keyframes console-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--motion-slide), 0);
+  }
+}

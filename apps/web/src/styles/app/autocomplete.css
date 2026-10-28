@@ -1,0 +1,7 @@
+/* ─── autocomplete ───────────────────────────────────────────────────────── */
+.composer-wrap {
+  position: relative;
+}
+
+/* Drag and drop. The outline lands on the box the files will join, so the target is
+   the composer rather than the whole window. */

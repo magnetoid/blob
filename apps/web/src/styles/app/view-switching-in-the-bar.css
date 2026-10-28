@@ -1,0 +1,38 @@
+/* ─── view switching, in the bar ──────────────────────────────────────────── */
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* Set off from the workspace name without a divider: the bar is short and a rule at
+     this height reads as a seam in the chrome rather than as a grouping. */
+  margin-left: 10px;
+}
+
+.topbar-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  color: var(--text-rail);
+  white-space: nowrap;
+  transition:
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color);
+}
+
+.topbar-nav-btn:hover {
+  background: var(--surface-hover-deep);
+}
+
+.topbar-nav-btn[aria-pressed='true'] {
+  background: var(--accent-wash-rail);
+  color: var(--accent);
+}
+
+.topbar-nav-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}

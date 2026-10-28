@@ -1,0 +1,117 @@
+/* ─── the console nav ─────────────────────────────────────────────────────── */
+/* The filter: the inputs' own edge, corner, surface and focus colour, at a height that
+   suits a nav rather than a form. */
+.console-nav-filter {
+  padding: var(--space-3) var(--space-3) var(--space-1);
+}
+
+.console-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  color: var(--text-4);
+  transition:
+    border-color var(--dur-fast) var(--ease-color),
+    box-shadow var(--dur-fast) var(--ease-color);
+}
+
+/* A second pixel of accent, so focus is a ring rather than a change of hue on a
+   hairline. The field's own outline is off: the wrapper is the visible control. */
+.console-filter:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.console-filter input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-ui);
+  color: var(--text);
+}
+
+.console-filter input::placeholder {
+  color: var(--text-4);
+}
+
+.admin-nav .sidebar-scroll {
+  padding: var(--space-2) var(--space-3) var(--space-6);
+}
+
+.admin-nav .sidebar-section + .sidebar-section {
+  margin-top: var(--space-4);
+}
+
+.admin-nav .section-label {
+  padding: var(--space-2) 10px var(--space-1);
+}
+
+.admin-nav .channel-row {
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
+/* Where you are is marked twice: the wash the channel list uses, and a bar at the
+   row's edge, so it does not rest on a tint that a custom theme may have made faint. */
+.admin-nav .channel-row[aria-current='true']::before {
+  content: '';
+  position: absolute;
+  inset-block: 7px;
+  left: 0;
+  width: 3px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+/* One badge in three kinds, the same size and type so they line up at the rows' end:
+   outlined for a row only the owner or only the server's admin may open, the accent for
+   new. They were the account menu's "soon" pill and two role pills, each with its own
+   box; the dashed "soon" kind went with the rows that were not pages. */
+.console-nav-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-3);
+}
+
+.console-nav-badge[data-kind='new'] {
+  border-color: var(--accent-border);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.console-nav-empty {
+  margin: 0;
+  padding: var(--space-2) 10px;
+  font-size: var(--text-ui);
+}
+
+/* On a phone the nav is the only way around the console, so its rows and its filter get
+   the app's 44px touch size like every other target. Restated here because the 32px row
+   above outranks the app-wide `.channel-row` rule in the touch-target block, and the
+   filter is a field a thumb has to hit — the search box it replaced was 44px. A height
+   rather than a minimum, so the input inside, which fills it, grows with it. */
+@media (pointer: coarse) {
+  .admin-nav .channel-row {
+    min-height: 44px;
+  }
+
+  .console-filter {
+    height: 44px;
+  }
+}

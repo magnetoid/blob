@@ -1,0 +1,150 @@
+/* ─── search ─────────────────────────────────────────────────────────────── */
+.search-head {
+  flex: none;
+  padding: 22px var(--pane-gutter) 18px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* The emoji somebody reacted with, in the activity list's footer line. Slightly larger
+   than the text beside it because a 12px emoji reads as a smudge. */
+.activity-emoji {
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+/* The ordering sits at the end of the filter row, pushed right so it reads as a
+   different kind of control than the filters beside it. */
+.search-sort {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  max-width: 640px;
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-md);
+}
+
+.search-field:focus-within {
+  border-color: var(--accent);
+}
+
+.search-field input {
+  flex: 1;
+  border: 0;
+  /* The ring moves to the wrapper, which is the visible control — the same trick
+     .composer-box uses. Without this the field had no focus indicator of any kind. */
+  outline: none;
+  background: transparent;
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+.search-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px var(--pane-gutter) 30px;
+}
+
+.search-count {
+  margin-bottom: 8px;
+  font-size: var(--text-label-size);
+  color: var(--text-4);
+}
+
+.search-parsed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.search-parsed code {
+  padding: 2px 7px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-label-size);
+  color: var(--text-3);
+}
+
+.search-result {
+  display: flex;
+  gap: 13px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-md);
+  text-align: left;
+  transition: border-color var(--dur-fast) var(--ease-color);
+}
+
+.search-result:hover {
+  border-color: var(--hairline-strong);
+}
+
+.search-result-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.search-result-author {
+  font-size: var(--text-row);
+  font-weight: 600;
+}
+
+.search-result-meta {
+  font-size: var(--text-sm);
+  color: var(--text-label);
+}
+
+.search-result-text {
+  margin-top: 3px;
+  font-size: var(--text-row);
+  line-height: 1.55;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The renderer's paragraphs and lists at a message's spacing. Without this they kept the
+   browser's 1em above and below, and a one-line result was a third empty card. */
+.search-result-text p,
+.search-result-text ul,
+.search-result-text ol {
+  margin: 0 0 6px;
+}
+
+.search-result-text ul,
+.search-result-text ol {
+  padding-left: 22px;
+}
+
+.search-result-text > :last-child {
+  margin-bottom: 0;
+}
+
+/* A row's footer line (who reacted, who mentioned you) sits apart from what was said. */
+.search-result-text + .search-result-meta {
+  display: block;
+  margin-top: 4px;
+}
+
+mark.search-hit {
+  padding: 0 0.12em;
+  border-radius: 2px;
+  background: var(--accent-wash);
+  color: inherit;
+  box-shadow: inset 0 -1px 0 var(--accent-border);
+}

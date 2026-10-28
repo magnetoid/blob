@@ -1,0 +1,56 @@
+/* ─── the way back to the newest message ─────────────────────────────────────
+   The unread bar above is the way forward into what you have not read; this is the way
+   back once you have scrolled up into history — what Teams calls "jump to newest" and
+   Discord "Jump to present". Centred like that bar, so the two read as a pair. It hangs
+   from a zero-height dock after the list (MessageList.tsx), outside the live region and
+   adding nothing to the list's height. It rises in the way a toast does — it is at the
+   foot of the pane, where the bar above drops from the head — and fades out, held
+   through the exit by usePresence. */
+.jump-latest-dock {
+  position: relative;
+  height: 0;
+  z-index: var(--z-sticky);
+}
+
+.jump-latest {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px 0 11px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow: var(--elev-2);
+  color: var(--text);
+  font-size: var(--text-ui);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  /* The centring is `translate`, so the keyframes' `transform` composes with it. */
+  translate: -50% 0;
+  animation: toast-in var(--dur-open) var(--ease-out);
+  transition:
+    background-color var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-standard);
+}
+
+/* Written out, not left to a shared `[data-state='closed']`, which this rule would
+   outrank by coming later in the file — the trap the panel and the notices note. */
+.jump-latest[data-state='closed'] {
+  animation: fade-out var(--dur-exit) var(--ease-in) forwards;
+}
+
+.jump-latest svg {
+  color: var(--accent);
+}
+
+.jump-latest:hover {
+  background: var(--surface-hover);
+}
+
+.jump-latest:active {
+  scale: var(--motion-press);
+}

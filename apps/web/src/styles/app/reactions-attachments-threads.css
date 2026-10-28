@@ -1,0 +1,352 @@
+/* ─── reactions, attachments, threads ────────────────────────────────────── */
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  transition:
+    border-color var(--dur-fast) var(--ease-color),
+    background var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
+}
+
+/* Keyed by emoji, so a new one mounts and plays this while the others sit still.
+   Reacting is the smallest thing you can do to a message and the only feedback was the
+   chip being there a frame later. Only a chip that appeared after its row was drawn: a
+   row mounts again on every scroll and channel switch, and every chip on it used to pop
+   each time. */
+.reaction[data-arrived='true'] {
+  animation: reaction-pop var(--dur-fast) var(--ease-out);
+}
+
+@keyframes reaction-pop {
+  from {
+    transform: scale(var(--motion-scale-in));
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.reaction span:first-child {
+  font-size: var(--text-ui);
+}
+
+.reaction span:last-child {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The count alone, keyed by its value: the chip stays put while the number ticks over.
+   The two motions divide by *what changed*, not by who did it. The chip's own
+   reaction-pop plays when a chip appears, because `.reaction` is keyed by its emoji and
+   only a new emoji mounts one — joining a chip somebody else started moves no chip. This
+   plays whenever the number changes, yours or anybody's — and, through `Count`, only
+   then: not when the row it is on mounts. The reply counts tick by the same rule. */
+.reaction-count[data-changed='true'],
+.thread-summary-count[data-changed='true'],
+.panel-sub-count[data-changed='true'] {
+  animation: count-tick var(--dur-fast) var(--ease-out);
+}
+
+/* A transform does nothing to an inline box, and the thread panel's count is one. */
+.thread-summary-count,
+.panel-sub-count {
+  display: inline-block;
+}
+
+.reaction:hover {
+  border-color: var(--hairline-strong);
+}
+
+.reaction[data-mine='true'] {
+  background: var(--accent-wash);
+  border-color: var(--accent-border);
+}
+
+.reaction[data-mine='true'] span:last-child {
+  color: var(--accent);
+}
+
+.thread-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.thread-summary:hover {
+  background: var(--accent-wash);
+  border-color: var(--accent-border-soft);
+}
+
+.thread-summary-meta {
+  color: var(--text-label);
+  font-weight: 400;
+}
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+/* A link preview, or a file, that arrived after its message — the unfurl a second or
+   two later, an agent's file following its answer. Marked by the row against what it
+   was first drawn with, so a row that mounts already holding them keeps still. */
+.link-preview[data-arrived='true'],
+.attachments > [data-arrived='true'] {
+  animation: arrive var(--dur-open) var(--ease-out);
+}
+
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+  padding: 8px 16px 24px;
+}
+
+.files-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface-hover);
+  color: var(--text-3);
+  text-align: center;
+}
+
+.files-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.files-tile-name {
+  padding: 10px;
+  font-size: var(--text-sm);
+  word-break: break-word;
+}
+
+/* Several pictures in one message: square tiles of one size, sized to the column — two
+   to a row on a phone, whatever its width, and up to 184px each where there is room. */
+.attachments[data-pictures='many'] > .attachment-picture {
+  flex: 0 1 calc(50% - 4px);
+  max-width: 184px;
+}
+
+.attachments[data-pictures='many'] .attachment-image {
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.attachment-image {
+  max-width: 360px;
+  max-height: 320px;
+  /* The width and height attributes give the browser the ratio; `auto` here is what
+     lets it keep that ratio while the two maximums do the constraining. */
+  width: auto;
+  height: auto;
+  cursor: zoom-in;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  display: block;
+}
+
+/* The image at full size, over everything. Its own backdrop is darker than a dialog's
+   because the point is the picture, and the surface under it is black rather than
+   --surface so a screenshot with a white background does not bleed into the frame. */
+dialog.lightbox-host {
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 48px);
+}
+
+dialog.lightbox-host::backdrop {
+  background: rgb(0 0 0 / 0.82);
+}
+
+.lightbox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(1200px, 92vw);
+  max-height: 92vh;
+}
+
+.lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* On a black backdrop rather than a surface, so the one place in the app that does not
+     take its colour from the theme — the frame around a picture is not the room. */
+  color: #f4f4f4;
+}
+
+.lightbox-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: calc(92vh - 48px);
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: rgb(0 0 0 / 0.4);
+  opacity: 0;
+  transition: opacity var(--dur-open) var(--ease-out);
+}
+
+.lightbox-image[data-loaded='true'] {
+  opacity: 1;
+}
+
+/* A file on a message: the card opens it beside the conversation, and the button at the
+   end downloads it. Two targets in one box, so the box carries the border and each half
+   carries its own hover. */
+.attachment-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding-right: 6px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  color: var(--text);
+}
+
+.attachment-file:hover {
+  border-color: var(--hairline-strong);
+}
+
+.attachment-file-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 10px 7px 10px 13px;
+  color: inherit;
+}
+
+.attachment-file-open:hover {
+  text-decoration: none;
+}
+
+.attachment-file-open:hover .attachment-name {
+  text-decoration: underline;
+}
+
+.attachment-text {
+  min-width: 0;
+}
+
+.attachment-text .attachment-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-icon);
+  color: var(--text-3);
+}
+
+.attachment-name {
+  font-size: var(--text-ui);
+  font-weight: 500;
+}
+
+.attachment-size {
+  margin-top: 1px;
+  font-size: var(--text-sm);
+  color: var(--text-5);
+}
+
+.link-preview {
+  display: block;
+  max-width: 520px;
+  margin-top: 9px;
+  padding: 10px 13px;
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.link-preview:hover {
+  text-decoration: none;
+  border-color: var(--hairline-strong);
+  border-left-color: var(--accent);
+}
+
+.link-preview-title {
+  font-size: var(--text-ui);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.link-preview-description {
+  margin-top: 2px;
+  font-size: var(--text-ui);
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.link-preview-site {
+  margin-bottom: 2px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* The page's picture, under what it says. The width and height attributes give the ratio
+   and reserve the space in a virtualised list; the maximums do the constraining. */
+.link-preview-image {
+  display: block;
+  max-width: min(360px, 100%);
+  max-height: 240px;
+  width: auto;
+  height: auto;
+  margin-top: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+}

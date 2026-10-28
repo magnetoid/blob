@@ -1,0 +1,92 @@
+/* ── Work channels (ADR 0014) ─────────────────────────────────────────────── */
+
+.work-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px var(--pane-gutter) 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* A tab being picked: the selected background and colour settle instead of switching.
+   Scoped to the tablist, because `.chip` is also every filter button in the app. */
+.work-tabs .chip {
+  transition:
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
+}
+
+.work-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px var(--pane-gutter);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.work-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.work-title {
+  font-weight: 600;
+  font-size: var(--text-lg);
+}
+
+.work-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.work-split {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) 1fr;
+  gap: 16px;
+  align-items: start;
+  /* The panel fills the pane, and rows left to stretch split that height between them —
+     on one column, a gap under a two-line list the size of the screen's spare room. */
+  align-content: start;
+}
+
+@media (max-width: 900px) {
+  .work-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.work-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.work-list .menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+}
+
+.work-list-title {
+  font-weight: 500;
+}
+
+.work-list-meta {
+  font-size: var(--text-xs);
+  color: var(--text-4);
+}
+
+.work-detail {
+  min-width: 0;
+}

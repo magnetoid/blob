@@ -1,0 +1,66 @@
+/* ─── toasts ─────────────────────────────────────────────────────────────── */
+
+.toast-stack {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: var(
+    --z-toast
+  ); /* above dialogs: a failure notice must survive an open modal */
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: var(--elev-2);
+  pointer-events: auto;
+}
+
+/* On the ring, not a border. `.toast` above carries its edge in `--elev-2`'s `0 0 0 1px`
+   and has no border at all, so a `border-color` here coloured nothing and an error toast
+   and an info toast came out identical. Restating `--elev-2` after the ring is what
+   keeps the shadow. */
+.toast-error {
+  box-shadow:
+    0 0 0 1px var(--danger),
+    var(--elev-2);
+}
+
+/* The other half of ToastKind. Without this rule an info notice was styled as a bare
+   toast, which is not wrong so much as unsaid — it reads the same as a failure whose
+   colour did not load. */
+.toast-info {
+  box-shadow:
+    0 0 0 1px var(--accent-border),
+    var(--elev-2);
+}
+
+.toast-text {
+  font-size: var(--text-base);
+  line-height: 1.35;
+}
+
+.toast-dismiss {
+  border: 0;
+  background: none;
+  color: var(--text-4);
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.toast-dismiss:hover {
+  color: var(--text);
+}

@@ -1,0 +1,169 @@
+/* ─── composer ───────────────────────────────────────────────────────────── */
+.composer {
+  flex: none;
+  padding: 6px var(--pane-gutter) 20px;
+}
+
+.composer-box {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  transition:
+    border-color var(--dur-fast) var(--ease-color),
+    box-shadow var(--dur-fast) var(--ease-color);
+}
+
+.composer-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px 0;
+}
+
+/* Aa: the formatting row's switch, which only a phone needs (Composer.tsx). */
+.composer-format-toggle {
+  display: none;
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.composer-format-toggle[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .composer-format-toggle {
+    display: inline-flex;
+  }
+
+  .composer-box:not([data-formatting]) > .composer-toolbar {
+    display: none;
+  }
+}
+
+.composer-input {
+  display: block;
+  width: 100%;
+  /* Two lines plus this rule's 12px and 4px of padding, border-box. `rows` would say
+     the same thing and is ignored under `field-sizing`, so the floor has to be a
+     length; without it an empty composer would size to its one-line placeholder and be
+     a line shorter than it has always been. */
+  min-height: calc(2lh + 16px);
+  max-height: 40vh;
+  padding: 12px 14px 4px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--text);
+  /* The field grows with what is typed during layout rather than a frame later, so a
+     wrapping line no longer lifts the box after the character that caused it has
+     painted. `min-height` above is the floor and `max-height` the ceiling. Baseline
+     2026-06; Composer.tsx keeps the JavaScript measure for browsers without it. */
+  field-sizing: content;
+}
+
+.composer-footer {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px 8px;
+}
+
+.composer-hint {
+  margin-right: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+}
+
+.send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--disabled-bg);
+  color: var(--disabled-fg);
+  /* Arming — the first character typed — already fades it to the accent; this adds the
+     give when it is pressed. No pop on arming: the composer mounts again on every channel
+     switch, and a draft waiting in the next one would pop it on the way in. */
+  transition:
+    background var(--dur-fast) var(--ease-color),
+    color var(--dur-fast) var(--ease-color),
+    scale var(--dur-fast) var(--ease-out);
+}
+
+.send-btn[data-ready='true'] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.draft-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  margin: 11px 14px 0;
+  padding: 8px 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-md);
+  font-size: var(--text-meta);
+  font-weight: 500;
+}
+
+/* Layout utilities. Deliberately few and deliberately literal: each one is a property
+   that was written inline dozens of times, and nothing here invents a scale. */
+.grow {
+  flex: 1;
+}
+
+.min-0 {
+  min-width: 0;
+}
+
+.block {
+  display: block;
+}
+
+.relative {
+  position: relative;
+}
+
+.m-0 {
+  margin: 0;
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Read out, never drawn. Two components used this class and nothing defined it, so the
+   agents table's last header said "Configure" on screen and every bar of the health
+   chart printed its own timestamp. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.composer-error {
+  margin-top: 8px;
+}

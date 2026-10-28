@@ -1,0 +1,111 @@
+/* ─── an agent's Markdown (lib/markdown.tsx, `agent`) ──────────────────────
+   Section labels, tables and dividers. Not scoped under .message-body, for the reason
+   `.code-block` below is not: the same renderer draws an agent's reply in a search hit
+   and a pinned row. */
+
+/* A `#` line: a label for the section under it, at body size. Bold is the whole of the
+   difference — a chat row is not where type gets big — with the space above it that
+   says a new part begins, and little below, so it stays with what it names. */
+p.md-section {
+  margin: 14px 0 4px;
+  color: var(--text);
+}
+
+p.md-section:first-child {
+  margin-top: 0;
+}
+
+.md-divider {
+  height: 0;
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+/* A pipe table, in a box that scrolls sideways, so a wide one never makes the
+   conversation do it — not at 400px, not anywhere. Framed like a code block, by a
+   hairline with the same corner, and only as wide as its columns. */
+.md-table-wrap {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 8px;
+  overflow-x: auto;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+}
+
+.md-table-wrap:last-child {
+  margin-bottom: 0;
+}
+
+.md-table {
+  border-collapse: collapse;
+  font-size: var(--text-ui);
+  line-height: 1.45;
+  /* Figures in a column line up digit under digit. */
+  font-variant-numeric: tabular-nums;
+  /* Between words, never inside one: the body's `anywhere` would squeeze the columns down
+     to a letter each before the box had any reason to scroll. */
+  overflow-wrap: normal;
+}
+
+.md-table :is(th, td) {
+  padding: 5px 10px;
+  border: 1px solid var(--hairline-soft);
+  text-align: left;
+  vertical-align: top;
+}
+
+/* The box draws the frame; the cells draw only the lines between them. */
+.md-table tr > :first-child {
+  border-left: 0;
+}
+
+.md-table tr > :last-child {
+  border-right: 0;
+}
+
+.md-table thead th {
+  border-top: 0;
+}
+
+.md-table tbody tr:last-child td,
+.md-table thead:last-child th {
+  border-bottom: 0;
+}
+
+/* The header row a step up from the body: the code block's ground inside an agent's
+   card, and the weight of a label. */
+.md-table th {
+  background: var(--surface-muted);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.md-table [data-align='center'] {
+  text-align: center;
+}
+
+.md-table [data-align='right'] {
+  text-align: right;
+}
+
+/* A short cell on one line (`SHORT_CELL` in lib/markdown.tsx): a row of figures reads
+   across, and the table scrolls rather than splitting a number from its unit. */
+.md-table [data-short='true'] {
+  white-space: nowrap;
+}
+
+/* Where a reply is only a way back to its message — a search hit, a pinned row — the
+   body is clamped to a few lines, and the clamp counts lines of text. A table is not made
+   of them and came through whole, as tall as it was. Clipped to the same few lines, for
+   the eye only, as the clamp is; the message has the rest. */
+.search-result-text .md-table-wrap {
+  max-height: 3lh;
+  overflow: hidden;
+}
+
+.pinned-item-body .md-table-wrap {
+  max-height: 2lh;
+  overflow: hidden;
+}
