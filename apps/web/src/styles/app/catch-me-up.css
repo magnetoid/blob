@@ -1,0 +1,136 @@
+/* ─── catch me up ────────────────────────────────────────────────────────── */
+
+/* "While you were away", above the messages.
+ *
+ * The accent wash rather than iris: this is the workspace offering you a summary, not an
+ * agent having produced one. The gradient is the one place in the app that uses one, and
+ * it is what keeps a full-width band from reading as an error banner — the other two
+ * strips in this position (`.connection-banner`, the archived `.pinned-bar`) are flat and
+ * say something is wrong.
+ */
+.catchup-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px var(--pane-gutter) 0;
+  padding: 12px 16px;
+  border: 1px solid var(--accent-border-soft);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    90deg,
+    var(--accent-wash),
+    color-mix(in srgb, var(--accent-wash) 45%, var(--surface))
+  );
+}
+
+.catchup-strip-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.catchup-strip-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-row);
+  line-height: 1.5;
+  color: var(--text-body);
+  text-wrap: pretty;
+}
+
+.catchup-strip-action {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--accent-hover);
+  font-size: var(--text-ui);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-color);
+}
+
+.catchup-strip-action:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.catchup-strip-dismiss {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--text-4);
+  font-size: var(--text-meta);
+  line-height: 1;
+}
+
+.catchup-strip-dismiss:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-2);
+}
+
+/* The strip stacks under a pointer: the action wraps to its own line rather than
+   squeezing the sentence to two words a line. */
+@media (max-width: 768px) {
+  .catchup-strip {
+    flex-wrap: wrap;
+  }
+
+  .catchup-strip-text {
+    flex: 1 1 100%;
+    order: 2;
+  }
+
+  /* Row one is the mark and the dismiss, pushed to opposite ends; the sentence takes
+     row two whole, and the action sits under it on the right. Without this the cross
+     ends up shoulder to shoulder with the mark, which reads as a pair of buttons. */
+  .catchup-strip-dismiss {
+    order: 1;
+    margin-left: auto;
+  }
+
+  .catchup-strip-action {
+    order: 3;
+    margin-left: auto;
+  }
+}
+
+.catchup-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
+
+.catchup-summary {
+  padding: 10px 0;
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.catchup-head {
+  font-size: var(--text-sm);
+}
+
+.catchup-text {
+  margin: 6px 0 8px;
+  font-size: var(--text-base);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.catchup-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* "Show more results" sits under the last result, full width, so it reads as the end of
+   the list rather than as another result. */
+.search-more {
+  width: 100%;
+  margin-top: 8px;
+  justify-content: center;
+}

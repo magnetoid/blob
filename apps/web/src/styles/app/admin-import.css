@@ -1,0 +1,164 @@
+/* ─── Admin → Import (ADR 0042) ─────────────────────────────────────────────────── */
+.import-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: var(--space-2);
+  line-height: 1.55;
+}
+
+.import-meter {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.import-meter-bar {
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.import-meter-bar::-webkit-progress-bar {
+  background: var(--surface-muted);
+  border-radius: var(--radius-full);
+}
+
+.import-meter-bar::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  transition: width var(--dur-open) var(--ease-standard);
+}
+
+.import-meter-bar::-moz-progress-bar {
+  background: var(--accent);
+  border-radius: var(--radius-full);
+}
+
+.import-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.import-facts dt {
+  font-weight: 600;
+}
+
+.import-facts dd {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .import-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .import-facts dd {
+    margin-bottom: var(--space-2);
+  }
+}
+
+.import-problems summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.import-problems ul {
+  margin: var(--space-2) 0 0;
+  padding-left: 20px;
+  color: var(--text-3);
+}
+
+.import-people {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-row-what {
+  margin: 3px 0 0;
+  font-size: var(--text-row);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.agent-row-what[data-empty] {
+  color: var(--text-4);
+}
+
+.agent-row-standing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-label);
+}
+
+.agent-row-standing[data-state='waiting'] {
+  color: var(--accent);
+}
+
+/* In the sidebar the dot sits at the row's end; here it leads the line it explains. */
+.agent-row-standing .agent-live-dot {
+  margin-left: 0;
+  margin-right: 2px;
+}
+
+.agent-row-where {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.agent-row-where:hover {
+  text-decoration: underline;
+}
+
+.agent-row-where:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.agent-row-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* A phone has no room beside the words: the buttons take their own line, as the
+   console's rows do at this width. */
+@media (max-width: 600px) {
+  .agent-row {
+    flex-wrap: wrap;
+  }
+
+  .agent-row-actions {
+    flex-basis: 100%;
+  }
+}
+
+.agent-badge {
+  flex: none;
+  align-self: center;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--iris-tint);
+  color: var(--iris-strong);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}

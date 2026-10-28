@@ -1,0 +1,85 @@
+/* ─── feedback tickets ───────────────────────────────────────────────────── */
+.feedback-kind {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  font-size: var(--text-2xs);
+  text-transform: capitalize;
+  color: var(--text-4);
+}
+
+.feedback-kind[data-kind='bug'] {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 25%, var(--hairline));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+
+.feedback-kind[data-kind='feature'] {
+  color: var(--accent);
+  border-color: var(--accent-border-soft);
+  background: var(--accent-wash-soft);
+}
+
+.feedback-detail {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.feedback-body {
+  margin: 0 0 14px;
+  font-size: var(--text-row);
+  white-space: pre-wrap;
+}
+
+.feedback-env {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px 18px;
+  margin: 0 0 14px;
+}
+
+.feedback-env dt {
+  font-size: var(--text-xs);
+  color: var(--text-4);
+}
+
+.feedback-env dd {
+  margin: 1px 0 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+}
+
+.feedback-log {
+  max-height: 320px;
+  margin: 14px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+/* The reporter's page, rendered back. Sandboxed here and served under a CSP that
+   forbids scripts and network access, because this markup came from their browser. */
+.feedback-snapshot {
+  width: 100%;
+  height: 460px;
+  margin-top: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.feedback-delete {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 25%, var(--hairline));
+}

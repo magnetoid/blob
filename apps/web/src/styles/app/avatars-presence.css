@@ -1,0 +1,101 @@
+/* ─── avatars & presence ─────────────────────────────────────────────────── */
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  /* A rounded square, never a circle: circles are reserved for status dots, so a
+     round thing next to a name can only ever mean presence. */
+  border-radius: 10px;
+  background: var(--avatar-bg);
+  color: var(--accent);
+  /* One letter now (Avatar.tsx), so it can be read: two at this size were 10.5px. */
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Meadow's other human tone. Sage, above, is the default; the name picks which (see
+   `tone` in Avatar.tsx). An agent's iris, further down, wins over both. Clay on clay-text
+   is 6.5:1 in light and 7.6:1 in dark. */
+.avatar[data-tone='clay'] {
+  background: var(--clay);
+  color: var(--clay-text);
+}
+
+/* The photo sits over the initials and fades in once it has loaded, and the initials
+   fade out under it — one crossfade rather than a letter swapped for a picture. One
+   already in the browser's cache is marked `cached` before the first paint and shown at
+   once: the message list remounts its rows as they scroll back into view, and a face
+   fading in on every one of them would be the flicker this replaces. A photo that never
+   loads leaves the initials, where it used to leave an empty square. */
+.avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--dur-open) var(--ease-out);
+}
+
+.avatar-initials {
+  transition: opacity var(--dur-open) var(--ease-out);
+}
+
+.avatar img[data-loaded] {
+  opacity: 1;
+}
+
+.avatar img[data-loaded] + .avatar-initials {
+  opacity: 0;
+}
+
+.avatar img[data-loaded='cached'],
+.avatar img[data-loaded='cached'] + .avatar-initials {
+  transition: none;
+}
+
+.avatar[data-size='sm'] {
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
+  font-size: 10px;
+}
+
+.avatar[data-size='lg'] {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.dm-avatar {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.presence-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--presence-offline);
+  border: 2px solid var(--bg-sidebar);
+}
+
+.presence-dot[data-state='active'] {
+  background: var(--presence-online);
+}
+
+.presence-dot[data-state='away'] {
+  background: var(--presence-away);
+}

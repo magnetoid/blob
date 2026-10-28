@@ -1,0 +1,204 @@
+/* ─── conversation pane ──────────────────────────────────────────────────── */
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.pane-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  height: var(--header-height);
+  padding: 0 var(--pane-gutter);
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.pane-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.pane-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.pane-prefix {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.pane-sub {
+  margin-top: 2px;
+  font-size: var(--text-label-size);
+  color: var(--text-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Who is in this channel: people and agents, counted apart.
+ *
+ * The agent half is set in iris and separated by a middot drawn as a border, so the two
+ * numbers read as one fact rather than two buttons. It sits inside the members button,
+ * which is where a click on either half should go anyway.
+ */
+.pane-members {
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.pane-members-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The first three people in the room, overlapped and ringed in the header's paper so
+   each face reads as its own. Rounded squares, as every avatar is. */
+.member-faces {
+  display: inline-flex;
+  padding-left: 5px;
+}
+
+.member-faces > .avatar {
+  margin-left: -5px;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* The badge in the channel header sits on a 15px title, not a 14px author name, so it
+   needs the extra hair of room the message list's copy does not. */
+.pane-heading .agent-badge {
+  margin-left: 2px;
+}
+
+.pane-spacer {
+  flex: 1;
+}
+
+.pinned-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  padding: 9px var(--pane-gutter);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--hairline-soft);
+  font-size: var(--text-meta);
+  color: var(--text-3);
+}
+
+.pinned-label {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.message-list {
+  flex: 1;
+  min-height: 0;
+  /* Both axes named, because `overflow-y: auto` alone computes `overflow-x` to `auto`
+     too — and an inline axis that is a scroll container takes a second gutter from
+     `scrollbar-gutter` below, a strip of dead space between the last message and the
+     composer. Nothing here needs to scroll sideways: `.message-body` breaks long words
+     (`overflow-wrap: anywhere`) and anything genuinely wide — `pre`, `.diff-body` —
+     carries its own `overflow-x: auto`. */
+  overflow: hidden auto;
+  padding: 22px 0 8px;
+  /* So a short conversation can sit on the composer rather than floating at the top of
+     an empty pane. See the auto margin below. */
+  display: flex;
+  flex-direction: column;
+  /* Browser scroll-anchoring fights the virtualizer: a row that grows (image load,
+     grouped padding) would yank the rest of the list and leave a hole. */
+  overflow-anchor: none;
+  /* Holds the scrollbar's width whether or not there is one, so the column does not
+     shift sideways the moment a channel becomes long enough to scroll. (Nothing to
+     reserve where the platform overlays its scrollbars; nothing to fix there either.) */
+  scrollbar-gutter: stable;
+  /* Stops the scroll chaining out of the list at its ends: without it a trackpad flick
+     past the last message rubber-bands the document, and a pull down past the first
+     one can trigger the browser's refresh. Vertical only — `overscroll-behavior` would
+     also spend the inline axis and take two-finger back/forward with it. */
+  overscroll-behavior-y: contain;
+}
+
+.message-list-viewport {
+  position: relative;
+  width: 100%;
+  /* Bottom-anchored, the way every chat client is: a channel with four messages in it
+     reads from just above the composer, not from the top of the window with a void
+     underneath. `margin-top: auto` rather than `justify-content: flex-end` on the
+     scroller, because that clips the first item out of reach once the content does
+     overflow; an auto margin collapses to nothing instead. */
+  margin-top: auto;
+  /* Not optional, and not obvious. This is the virtualizer's spacer: it carries an
+     inline height standing in for every message not rendered, and a flex child shrinks
+     to its container by default — so in the flex column above it was being crushed from
+     6,711px to 488, and the scrollbar described the window instead of the conversation.
+     Caught by loading 600 messages into a channel; the existing test missed it because
+     it asserts the inline style, which was never wrong. */
+  flex: none;
+}
+
+/* A thread is not anchored to its composer: it reads from the message it hangs off, at
+   the top, and a short one leaves the space below it rather than a void above. */
+.message-list[data-thread] > .message-list-viewport {
+  margin-top: 0;
+}
+
+.message-list-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  overflow-anchor: none;
+  /* Layout only — `size` would freeze the height the virtualizer needs to measure. */
+  contain: layout style;
+}
+
+.day-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px var(--pane-gutter) 10px;
+}
+
+.day-divider::before,
+.day-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hairline-soft);
+}
+
+.day-divider span {
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  color: var(--text-label);
+}
+
+.unread-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px var(--pane-gutter) 6px;
+}
+
+.unread-divider::before {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--unread-line);
+}
+
+.unread-divider span {
+  order: -1;
+  font-size: var(--text-label-size);
+  font-weight: 700;
+  color: var(--unread-text);
+}

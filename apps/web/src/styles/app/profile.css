@@ -1,0 +1,22 @@
+/* ─── profile ────────────────────────────────────────────────────────────── */
+.profile-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 14px 0 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+}
+
+.profile-preview-name {
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.profile-preview-meta {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--text-4);
+}

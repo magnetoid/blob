@@ -1,0 +1,283 @@
+/* ─── overlay motion ─────────────────────────────────────────────────────────
+   Menus, toasts, the thread panel, the two conversation notices, the typing line and
+   the dialogs enter and leave. Each is held in the document through its exit by
+   usePresence. The dialogs were enter-only until DialogPresence, for a reason of mount
+   semantics rather than taste: they run real work on mount — a focus trap, an
+   autofocus, and in CatchUpPanel's case a request — and rendering them always so they
+   could animate out would have fired all of that at start-up. The wrapper still mounts
+   a dialog on the render that opens it and only unmounts it late, so none of that moved.
+   As its exit begins it stops being modal but not visible — closed, and back in the top
+   layer as a popover in the same task — so focus goes home and the page takes keys again
+   at once, its backdrop still fades with it, and nothing here needs the `overlay`
+   property. Without popovers it stays modal, and `inert`, until the exit ends.
+
+   The lightbox is left enter-only, and the palette is the exception that gets nothing:
+   it is opened dozens of times a day from the keyboard, and a launcher that makes you
+   wait is a launcher you stop reaching for. */
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--motion-slide)))
+      scale(var(--motion-scale-in));
+  }
+}
+
+/* A fade and nothing else, for what should not move: a backdrop, an error line. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Played by whatever has just arrived: a message landing in the conversation, a link
+   preview or a file that came after it, the typing line, a refusal under a form, an
+   empty state on first load, the sign-in card. From below, like the toast, but by the
+   small distance: these are in the flow of the page rather than floating over it. One
+   way, and it never passes where it rests. No `to`, so each settles on its own opacity. */
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-slide));
+  }
+}
+
+/* A conversation joining the sidebar, from the side its rows lean towards on hover. */
+@keyframes row-arrive {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--motion-slide)));
+  }
+}
+
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--motion-slide)))
+      scale(var(--motion-scale-in));
+  }
+}
+
+@keyframes panel-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-slide-lg));
+  }
+}
+
+/* And back out the way it came in — the same 8px, reversed. A panel is the largest
+   surface here, and a fade on its own at this size reads as a flicker. */
+@keyframes panel-slide-out {
+  to {
+    opacity: 0;
+    transform: translateY(var(--motion-slide-lg));
+  }
+}
+
+/* Played by every toast, which enters the bottom of the screen and so arrives from below. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-slide-lg));
+  }
+}
+
+/* Played by .badge — the sidebar's mention and saved counts — on every re-mount, which
+   is every change of the number it carries; and by Save for later and Follow when they
+   are turned on. Never all the way from transparent: the thing is still there, it is
+   only worth one more glance. */
+@keyframes badge-pop {
+  from {
+    transform: scale(var(--motion-scale-in));
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Played by .reaction-count, and by the reply counts, whenever the number changes,
+   whoever changed it. A rise rather than a pop, because the chip around it is not
+   moving. No opacity: a brand new chip fades in as a whole with `reaction-pop`, and a
+   digit fading inside a surface that is itself fading is two ramps over the same
+   120ms — which is what your own first reaction looked like. The tick is the rise, at
+   full opacity. */
+@keyframes count-tick {
+  from {
+    transform: translateY(var(--motion-slide));
+  }
+}
+
+/* Played by .attachment-chip when a file is attached. No `to`: the chip settles on
+   whatever its own `data-status` says it should be, which for an upload in flight is
+   dimmed rather than opaque. */
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: scale(var(--motion-scale-in));
+  }
+}
+
+.menu,
+.user-menu-panel,
+.autocomplete,
+.emoji-picker,
+.pinned-panel {
+  transform-origin: top center;
+  animation: overlay-in var(--dur-open) var(--ease-out);
+}
+
+/* Held mounted by usePresence for exactly this. `forwards` so the last frame stays
+   put until React takes the node away, rather than snapping back to opaque for the
+   frame in between. */
+[data-state='closed'] {
+  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+  pointer-events: none;
+}
+
+/* Anchored bottom-left, so it should grow from there rather than from the top. */
+.autocomplete {
+  transform-origin: bottom left;
+}
+
+.user-menu-panel {
+  transform-origin: top right;
+}
+
+dialog.dialog-host::backdrop {
+  animation: fade-in var(--dur-open) var(--ease-out);
+}
+
+.dialog {
+  animation: overlay-in var(--dur-modal) var(--ease-out);
+}
+
+/* A dialog on its way out. The element itself takes the shared closed rule above — it is
+   the panel's own box, so it shrinks and fades as the panel came in — and its backdrop
+   fades with it. It is no longer modal by now: `letGo` in Dialog.tsx closed it and put
+   it straight back in the top layer as a popover, so the page behind is live again while
+   this plays, and there is still a backdrop to fade. */
+dialog.dialog-host[data-state='closed']::backdrop {
+  animation: fade-out var(--dur-exit) var(--ease-in) forwards;
+}
+
+/* For the instant between closing it and showing it again, a dialog is `display: none`,
+   and an element that is not displayed loses its animations — the exit would restart, or
+   be cut. The popover attribute is set only while that swap is under way or done, so it
+   is exactly what keeps the dialog drawn. Where it sits does not move: a popover and a
+   modal are both fixed to the viewport and centred by the same margins. */
+dialog.dialog-host[data-state='closed'][popover] {
+  display: block;
+}
+
+/* The lightbox is a dialog too, and the one whose picture still cut in: its panel is
+   `.lightbox` rather than `.dialog`, so it took none of the entrance above. Its backdrop
+   never cut — `components/Dialog.tsx` renders `dialog-host` and `lightbox-host` on the
+   same element, so the rule above already fades it over --dur-open. It is restated here
+   on --dur-modal only so the picture and the dark behind it move on one token rather
+   than on two that are identical today. Enter only: it is mounted the plain way, with
+   no `DialogPresence` to hold it, so its close stays a cut. */
+dialog.lightbox-host::backdrop {
+  animation: fade-in var(--dur-modal) var(--ease-out);
+}
+
+.lightbox {
+  animation: overlay-in var(--dur-modal) var(--ease-out);
+}
+
+/* Rises in, and leaves by the same exit the menus take — Toasts.tsx holds it mounted
+   for that with usePresence, because the store forgets a dismissed toast at once. The
+   closed rule repeats `.toast` rather than leaning on the shared `[data-state="closed"]`
+   above: `.toast`'s own `pointer-events: auto` further down would otherwise outrank it
+   and leave a leaving toast catching clicks. */
+.toast {
+  animation: toast-in var(--dur-open) var(--ease-out);
+}
+
+.toast[data-state='closed'] {
+  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+  pointer-events: none;
+}
+
+/* The right-hand panel: a thread, or a terminal in the agent a DM is with. Only the
+   thread half is held: `ThreadPanelSlot` keeps it mounted through its exit, and the
+   shell keeps `data-panel="open"` for as long — the column the panel stands in is the
+   shell's, and taking it away on the first frame of the exit would drop the panel out
+   of the layout to animate. `AgentTerminalPanel` has neither a ref nor a `data-state`,
+   so the closed rule below never applies to it and closing a terminal still cuts; it
+   gets the entrance and nothing else. The closed rule has to be written out rather than
+   left to the shared `[data-state="closed"]` above, which `.panel` here would otherwise
+   outrank by coming later in the file. */
+.panel {
+  animation: panel-slide-in var(--dur-open) var(--ease-out);
+}
+
+.panel[data-state='closed'] {
+  animation: panel-slide-out var(--dur-exit) var(--ease-in) forwards;
+}
+
+/* The two notices inside a conversation, which both used to appear and vanish with a
+   cut. No keyframes of their own: they are small overlays over the conversation and this
+   is what small overlays here do. Same specificity trap as the panel above. */
+.unread-jump-bar,
+.catchup-strip {
+  animation: overlay-in var(--dur-open) var(--ease-out);
+}
+
+.unread-jump-bar[data-state='closed'],
+.catchup-strip[data-state='closed'] {
+  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+}
+
+/* "Link copied": a word of confirmation (`components/Confirmation.tsx`), in the way an
+   attachment chip arrives and out the way a menu leaves. Same trap again. */
+.confirmation {
+  animation: chip-in var(--dur-fast) var(--ease-out);
+}
+
+.confirmation[data-state='closed'] {
+  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+}
+
+/* A picture that had to be fetched fades in when it has loaded; one already in the
+   cache is marked before the first paint and shown at once, so scrolling back past a
+   screenshot never fades it twice (`lib/imageReveal.ts`). A failure is shown too — the
+   browser's broken image and alt text say which file did not load. The avatar's own
+   version of this sits with the avatar. */
+.attachment-image,
+.link-preview-image,
+.files-tile img,
+.block-image {
+  opacity: 0;
+  transition: opacity var(--dur-open) var(--ease-out);
+}
+
+.attachment-image[data-loaded],
+.link-preview-image[data-loaded],
+.files-tile img[data-loaded],
+.block-image[data-loaded] {
+  opacity: 1;
+}
+
+.attachment-image[data-loaded='cached'],
+.link-preview-image[data-loaded='cached'],
+.files-tile img[data-loaded='cached'],
+.block-image[data-loaded='cached'] {
+  transition: none;
+}
+
+@keyframes message-flash {
+  from {
+    background: var(--accent-wash);
+  }
+  to {
+    background: transparent;
+  }
+}

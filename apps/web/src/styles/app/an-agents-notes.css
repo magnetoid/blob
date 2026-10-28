@@ -1,0 +1,38 @@
+/* ── An agent's notes (M2 · A8) ─────────────────────────────────────────────────── */
+
+.note-body {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-row);
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.note-edit {
+  display: grid;
+  gap: 8px;
+  max-width: 640px;
+}
+
+.note-edit > textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+/* A guest invitation's channels (ADR 0034): a short list of checkboxes under the form. */
+.guest-channels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) 0 0;
+  border: 0;
+}
+
+.guest-channel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}

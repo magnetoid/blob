@@ -1,0 +1,38 @@
+/* ─── later ──────────────────────────────────────────────────────────────── */
+
+.later-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px var(--pane-gutter) 2px;
+}
+
+.later-meta {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 3px;
+  font-size: var(--text-xs);
+  color: var(--text-4);
+}
+
+.later-chip {
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.later-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.later-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.remind-preset {
+  padding-left: 26px;
+}

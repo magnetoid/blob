@@ -1,0 +1,563 @@
+/* ─── the console page: cards ─────────────────────────────────────────────── */
+/* A card is the unit a page is read in — one group of settings, one list, one table —
+   and `features/console/Card.tsx` is its markup.
+ *
+ * An elevated surface in the elevation token's own terms: --elev-1 carries the ring, so
+ * there is no border to disagree with it. Not a size container: nothing asks a card its
+ * width — a row wraps its control under its label by flexbox alone — and inline-size
+ * containment would give a card no width of its own to offer a layout that sizes to
+ * content. And it clips, so a flush list's hover stays inside the rounded corners —
+ * `clip` rather than `hidden`, which would make the card a scroll container that
+ * focusing a control near its edge could scroll. */
+.console-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.console-card {
+  --card-pad-x: var(--space-6);
+  --card-pad-y: var(--space-5);
+  padding: var(--card-pad-y) var(--card-pad-x);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--elev-1);
+  overflow: clip;
+}
+
+/* One rhythm between whatever a card holds, so a paragraph's or a heading's own margins
+   are dropped first — zero-specificity, so the rule below still spaces it from what came
+   before. A heading's default margins are in its own em and differ by level, and a part
+   of a card is an h2 or an h3 depending on the card it is drawn in (`CardHeading`), so
+   leaving them would space the same heading two ways. A modal <dialog> is skipped: the
+   platform centres it with `margin: auto`, and a top margin would pull it down. */
+.console-card > :where(p, ul, ol, h2, h3, h4) {
+  margin-block: 0;
+}
+
+.console-card > * + :not(dialog) {
+  margin-top: var(--space-4);
+}
+
+.console-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.console-card-heading {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.console-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.console-card-desc {
+  margin: var(--space-1) 0 0;
+  max-width: 68ch;
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  color: var(--text-4);
+  text-wrap: pretty;
+}
+
+.console-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* What closes a card: a Save, a "Load older", a note that belongs after the rows. A
+   strip of its own, so the action is found in the same place on every card. */
+.console-card > .console-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-5) calc(-1 * var(--card-pad-x)) calc(-1 * var(--card-pad-y));
+  padding: var(--space-3) var(--card-pad-x);
+  border-top: 1px solid var(--hairline-soft);
+  /* Half a step toward the muted surface: enough to read as the card's foot, not so
+     much that a one-field card looks like two. */
+  background: color-mix(in oklab, var(--surface-muted) 50%, var(--surface));
+}
+
+/* A note in the footer reads first and pushes the actions to the end. */
+.console-card-footer > :is(p, span):first-child {
+  margin: 0 auto 0 0;
+}
+
+/* A heading inside a card, for a part of it: "New group", "Where you're signed in". */
+.console-card > .section-label {
+  padding: 0;
+}
+
+/* Settings rows: label and hint on the left, the control on the right, ruled from each
+   other rather than underlined one by one — the card's edge closes the last. */
+.console-card > :is(.pref-row, .pref-block) {
+  margin-top: 0;
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--hairline-soft);
+  border-bottom: 0;
+}
+
+/* The first row after anything that is not a row — the header, a hint, a subheading —
+   keeps the card's rhythm above its rule instead of sitting on it. */
+.console-card > :not(.pref-row, .pref-block) + :is(.pref-row, .pref-block) {
+  margin-top: var(--space-4);
+}
+
+.console-card > :is(.pref-row, .pref-block):first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.console-card > :is(.pref-row, .pref-block):last-child {
+  padding-bottom: 0;
+}
+
+/* A footer's rule is the last row's rule. */
+.console-card > :is(.pref-row, .pref-block) + .console-card-footer {
+  margin-top: 0;
+}
+
+/* The control goes under its label when both do not fit beside each other — decided by
+   the label's share of the card, so a switch stays beside it on a phone and a row of
+   chips or a select moves down. 200px is what keeps a switch beside its label on a 360px
+   phone (a 296px card, less the gap and the switch); at 260 it dropped under the label on
+   anything narrower than 388.
+ *
+ * A row of chips that moves down starts at the left like the label above it. It was
+ * aligned to the end, which did nothing while it sat beside the label and, once it was
+ * too wide for its own line and wrapped, hung each line of chips off the right edge. */
+.console-card .pref-row {
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+}
+
+.console-card .pref-row > .grow {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.console-card .pref-row > .input {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.console-card .pref-row > .chip-row {
+  margin: 0;
+}
+
+.console-card .pref-hint {
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+
+/* A row's label may be a heading — "Theme", "Owner" — so a screen reader can still move
+   through the card by them; it keeps the label's type and none of a heading's margins. */
+.console-card :is(h3, h4).pref-label {
+  margin: 0;
+}
+
+/* A closing line under a block of instructions or controls, one step below them. */
+.console-note {
+  margin: var(--space-3) 0 0;
+}
+
+/* A URL or a token in a hint: it breaks where it must rather than widening the card. */
+.console-break {
+  overflow-wrap: anywhere;
+}
+
+/* A second way to do something, folded under the first. */
+.console-details > summary {
+  cursor: pointer;
+  width: fit-content;
+  border-radius: var(--radius-sm);
+}
+
+.console-details[open] > summary {
+  margin-bottom: var(--space-3);
+}
+
+/* A text field in a card is as wide as what goes in it, not as wide as the card. */
+.console-input {
+  max-width: 420px;
+}
+
+.console-input-number,
+.console-card .pref-row > .input.console-input-number {
+  width: 110px;
+}
+
+/* Rows flush to the card's edges, for a list of things with their actions. A card's
+   padding would otherwise inset the hover and the rules between rows, and a list reads
+   better when a row's wash runs edge to edge. */
+.console-card > .console-list {
+  margin-inline: calc(-1 * var(--card-pad-x));
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.console-card > .console-list:first-child {
+  margin-top: calc(-1 * var(--card-pad-y));
+  border-top: 0;
+}
+
+.console-card > .console-list:last-child {
+  margin-bottom: calc(-1 * var(--card-pad-y));
+}
+
+.console-list > :is(.admin-row, .console-list-item) {
+  padding: var(--space-3) var(--card-pad-x);
+  border-bottom: 1px solid var(--hairline-soft);
+  font-variant-numeric: tabular-nums;
+  transition: background var(--dur-fast) var(--ease-color);
+}
+
+.console-list > :is(.admin-row, .console-list-item):last-child {
+  border-bottom: 0;
+}
+
+.console-list > :is(.admin-row, .console-list-item):hover {
+  background: var(--console-row-hover);
+}
+
+/* An item that is a row plus what opens under it — a ticket's detail, an agent's
+   channels — keeps the row's layout without its own padding and rule. */
+.console-list-item > .admin-row {
+  padding: 0;
+  border-bottom: 0;
+}
+
+/* A row that is off — a deactivated person, an archived channel — was dimmed with
+   opacity, which took its meta line to about 2.5:1. The name goes grey instead and the
+   pill beside it says why; the text stays readable. */
+.console-list > .admin-row[data-inactive='true'] {
+  opacity: 1;
+}
+
+.console-list > .admin-row[data-inactive='true'] .admin-row-title {
+  color: var(--text-3);
+}
+
+.console-list > .admin-row[data-inactive='true'] .avatar {
+  opacity: 0.6;
+}
+
+/* A real table, flush likewise. It scrolls inside its own box — sideways on a phone,
+   downwards once it is taller than most of the window — and its header row stays put
+   while it does. Scrolling carries on to the page at either end of the box, as it does
+   for any nested scroller; `overscroll-behavior: contain` stopped it there, so the wheel
+   over a long table stopped moving the page. The scroll padding is the sticky header
+   row's height, so a row that takes focus is scrolled clear of it rather than behind it
+   (WCAG 2.2, 2.4.11). On a phone there is no inner vertical scroll at all — see the
+   600px block — because a scroller inside a scroller is a trap under a thumb. */
+.console-card > .console-table-wrap {
+  max-height: min(70vh, 720px);
+  margin-inline: calc(-1 * var(--card-pad-x));
+  overflow: auto;
+  scroll-padding-top: var(--table-head-height);
+}
+
+.console-card > .console-table-wrap:first-child {
+  margin-top: calc(-1 * var(--card-pad-y));
+}
+
+.console-card > .console-table-wrap:last-child {
+  margin-bottom: calc(-1 * var(--card-pad-y));
+}
+
+.console-table-wrap .admin-table :is(th, td):first-child {
+  padding-left: var(--card-pad-x);
+}
+
+.console-table-wrap .admin-table :is(th, td):last-child {
+  padding-right: var(--card-pad-x);
+}
+
+/* After a settings row, a list or a table starts on the row's own rule. */
+.console-card > :is(.pref-row, .pref-block) + :is(.console-list, .console-table-wrap) {
+  margin-top: 0;
+}
+
+.console-card > .console-table-wrap:not(:first-child) {
+  border-top: 1px solid var(--hairline-soft);
+}
+
+/* The one empty-or-loading line every card uses, where the rows would have been. */
+.console-notice {
+  margin: 0;
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  font-size: var(--text-row);
+  line-height: 1.5;
+  color: var(--text-4);
+  text-wrap: pretty;
+}
+
+/* The shared empty state, when it is a card's: the notice's place and padding, a title
+   in the card's type rather than a page's. */
+.console-card > .empty-state {
+  max-width: 520px;
+  margin: var(--space-4) auto 0;
+  padding: var(--space-6) var(--space-4);
+}
+
+.console-card > .empty-state .empty-state-title {
+  font-size: var(--text-title);
+}
+
+.console-card > .empty-state .empty-state-body {
+  margin-top: var(--space-1);
+  font-size: var(--text-row);
+  color: var(--text-4);
+}
+
+/* Search, filters and counts at the top of a list. */
+.console-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.console-toolbar > .chip-row {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.console-toolbar > .console-filter {
+  flex: 0 1 320px;
+}
+
+.console-toolbar-note {
+  margin: 0;
+  font-size: var(--text-meta);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A form in one row — an invitation, a webhook — with the button on the inputs' line. */
+.console-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.console-inline-form > .field {
+  flex: 1 1 200px;
+  max-width: 320px;
+}
+
+/* A select is as wide as its longest choice, not as wide as a text field. */
+.console-inline-form > .field:has(> select) {
+  flex: 0 1 auto;
+}
+
+.console-inline-form > .input {
+  flex: 1 1 240px;
+  max-width: 420px;
+  width: auto;
+}
+
+/* A button is shorter than an input; lifted by half the difference, it sits on the
+   inputs' centre line rather than on their bottom edge. */
+.console-inline-form > .btn {
+  margin-bottom: 4px;
+}
+
+.console-inline-form:has(> .input) {
+  align-items: center;
+}
+
+.console-inline-form:has(> .input) > .btn {
+  margin-bottom: 0;
+}
+
+/* On touch a button is already the input's height or more. */
+@media (pointer: coarse) {
+  .console-inline-form > .btn {
+    margin-bottom: 0;
+  }
+}
+
+/* Fields on a grid — a new group, an emoji, the profile. Two across where they fit. */
+.console-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-4) var(--space-5);
+  max-width: 760px;
+}
+
+/* A form inside a card — its fields, a line under them, its buttons — closer together than
+   the cards on a page are (`.console-stack`). */
+.console-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.console-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+/* A way back to the list a detail page was opened from. */
+.console-back {
+  align-self: flex-start;
+}
+
+/* A row whose whole text is the button that opens it — a delivery and its payload. */
+.console-row-toggle {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+
+/* What such a row opens: a Replay, a payload. */
+.console-row-more {
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+.console-row-more > .btn {
+  margin: var(--space-2) 0;
+}
+
+/* An app's last failure, under what it is and before its buttons. */
+.admin-plugin-error {
+  margin: var(--space-3) 0 0;
+}
+
+/* The activity panel's two headings, spaced in the panel's own terms: they were h5s and
+   are a card's h3s now, and a heading's default margin changes with its level. */
+.admin-plugin-deliveries > .section-label {
+  margin-block: var(--space-5);
+}
+
+.admin-plugin-deliveries > .admin-plugin-deliveries-label {
+  margin-top: var(--space-4);
+}
+
+/* A link, a token or a URL shown once, with its Copy — as wide as the card allows. */
+.console-copy {
+  width: 100%;
+  margin: 0;
+}
+
+/* The tiny swatch that says which accent a palette carries. */
+.theme-swatch {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px rgb(var(--shadow-ink) / 12%);
+}
+
+/* The console's inputs show focus as a ring, the way the nav's filter does, rather than
+   as a one-pixel change of hue. */
+.admin-page :is(.input, .agentic-textarea):focus {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* The profile's fields, two across where the card has room: name beside full name,
+   what you do beside your status. `.field` spaces a label from its input; this spaces
+   one field from the next, which nothing did once, and the display name's hint sat on
+   the label under it. */
+.profile-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-4) var(--space-6);
+  align-items: start;
+}
+
+.console-card > .profile-preview {
+  margin-bottom: 0;
+}
+
+/* The status: an emoji box and the words, on one line. */
+.profile-status {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.profile-status-emoji {
+  flex: none;
+  width: 72px;
+  text-align: center;
+}
+
+.profile-clear-after {
+  margin-top: var(--space-3);
+}
+
+.profile-preview-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* A palette row as wide as its card, so every palette of a mode sits on one line. */
+.console-card .palette-gallery {
+  max-width: none;
+}
+
+/* The time zone's select and the button that offers this device's zone, stacked at the
+   end of their row. */
+.console-row-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+/* Quiet hours: the window, then the days. */
+.console-dnd-window {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.console-select-hour {
+  width: 96px;
+}
+
+/* A row inside a block — a group you can silence — ruled from its neighbours but
+   without the block's own padding. */
+.console-subrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+}
+
+.console-subrow + .console-subrow {
+  border-top: 1px solid var(--hairline-soft);
+}
+
+/* Off-canvas below, inert above: a fixed element that is never revealed. */
+.admin-nav-toggle,
+.admin-nav-scrim {
+  display: none;
+}

@@ -1,0 +1,320 @@
+/* ─── narrow viewports ───────────────────────────────────────────────────── */
+/* The chat shell adapts at one breakpoint: the sidebar becomes a drawer behind a
+   hamburger, and the thread panel takes the whole pane instead of a third column.
+   The admin console has had its own drawer since R2; this brings the conversation —
+   the screen a phone actually opens — up to the same standard. */
+
+/* The workspace's mark is the control. On a phone it opens the channel drawer; at a desk
+   it folds the channel list to a rail of icons and brings it back. It replaced a ≡ that
+   sat beside it and did the same two things, which left the corner with two controls for
+   one list. Two buttons share this class and this spot; CSS shows exactly one per width —
+   `data-when` says which — so each carries the label for the thing it actually does.
+   The button is the hit area and the mark inside keeps its 24px, which is what lets the
+   coarse-pointer rule grow the target to 44px without growing the square. */
+.topbar-mark-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border: 0;
+  background: none;
+  padding: 3px;
+  margin: -3px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.topbar-mark-btn .workspace-mark {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-color);
+}
+
+/* It says it can be pressed the way the other raised things here do — a lift and the
+   first elevation — and gives under the press. Both are tokens, so reduced motion keeps
+   the shadow and drops the movement. */
+.topbar-mark-btn:hover .workspace-mark {
+  transform: translateY(var(--motion-lift));
+  box-shadow: var(--elev-1);
+}
+
+.topbar-mark-btn:active .workspace-mark {
+  transform: scale(var(--motion-press));
+}
+
+.topbar-mark-btn[data-when='narrow'] {
+  display: none;
+}
+
+.drawer-scrim {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* One column, in every one of the four states the shell can be in.
+   *
+   * This listed two of them. The other two carry `data-sidebar-collapsed='true'`, whose
+   * rules are more specific and therefore kept winning here — so the grid still reserved
+   * the collapsed sidebar's 84px while the sidebar itself had become a fixed drawer and
+   * left the flow entirely. The conversation then landed in *that* column: an 84px pane
+   * rendering one character per line, with the composer 40px wide.
+   *
+   * Reachable without touching a phone, which is why it survived: the collapse is
+   * remembered in localStorage, so anyone who collapsed the sidebar at a desk and later
+   * opened Blob narrow — same browser, or just a resized window — got the broken layout
+   * and nothing on a wide screen ever showed it.
+   */
+  .shell,
+  .shell[data-panel='open'],
+  .shell[data-sidebar-collapsed='true'],
+  .shell[data-sidebar-collapsed='true'][data-panel='open'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The conversation header carries a title, a description and four controls, and had
+     no narrow rule at all — at 390px "Catch up" wrapped onto two lines. The labels go
+     and the icons keep their `title`, the same trade the top bar already makes. */
+  .pane-action-label {
+    display: none;
+  }
+
+  .topbar-mark-btn[data-when='narrow'] {
+    display: inline-grid;
+  }
+
+  .topbar-mark-btn[data-when='wide'] {
+    display: none;
+  }
+
+  /* The compact bar keeps only what matters: team name and search. */
+  .topbar-nav-label,
+  .topbar-search-label,
+  .topbar-invite-label {
+    display: none;
+  }
+
+  /* Invite goes entirely rather than shrinking: an admin shortcut the invitations page
+     carries anyway. Hiding the *labels* was not enough — four text tabs, a search pill
+     and the icons still wanted more than a 400px bar, and what fell off the end was the
+     account menu, which is where sign out and preferences live. (Huddles start from a
+     conversation's header now; the top bar's disabled placeholder is gone.) */
+  .topbar-minimal .topbar-invite {
+    display: none;
+  }
+
+  /* The tabs are text and cannot become icons, so they scroll instead. All four stay
+     reachable, and the row can no longer push anything off the bar. */
+  .topbar-tabs {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* The last tab fades into the bar rather than being sliced by its edge — the cue
+       that the row scrolls, where a clipped "C" read as a rendering fault. */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  }
+
+  /* Room after the last tab as wide as the fade, so a strip scrolled to its end shows its
+     last tab whole — and its underline, when it is the view you are on. */
+  .topbar-tabs::after {
+    content: '';
+    flex: none;
+    width: 20px;
+  }
+
+  .topbar-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar-tab {
+    flex: none;
+    padding: 0 8px;
+  }
+
+  /* Whatever else has to give, this does not: it is the only way to preferences, the
+     profile and sign out. */
+  .user-menu {
+    flex: none;
+    margin-left: auto;
+  }
+
+  /* A console row is an avatar, a name with its meta, and the controls. Side by side
+     they leave the meta about 150px, which wraps one word per line under buttons that
+     hang over the edge — "Deactivate" was 41px past it. The controls take their own
+     line instead: the name block claims the rest of the first one, and the row grows
+     downwards, which is the direction a phone has room in. */
+  .admin-row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .admin-row > .grow {
+    flex-basis: 0;
+    min-width: 120px;
+  }
+
+  .admin-row-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  /* "Enter to send" is a keyboard's rule. On a phone the Return key inserts a line
+     the way every other text field there does, and the send button is right beside
+     it, so the hint was describing a convention this device does not have — while
+     taking the room the button needed. */
+  .composer-hint {
+    display: none;
+  }
+
+  /* Two more things go once the controls are finger-sized: at 390px the bar wanted
+     572px, and the user menu was the part falling off the end. The workspace name is
+     the drawer's own heading, and the account name sits inside the menu this avatar
+     opens — neither is lost, both are one tap away, and the avatar is the part people
+     aim at. */
+  .user-menu-name,
+  .user-menu-trigger svg {
+    display: none;
+  }
+
+  /* The gaps were sized for a bar with labels in it. With five icon buttons and an
+     avatar they are the last few pixels between fitting and not. */
+  .topbar {
+    gap: 6px;
+    padding: 0 8px;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: var(--topbar-height);
+    bottom: 0;
+    left: 0;
+    width: min(82vw, 300px);
+    z-index: var(--z-drawer);
+    transform: translateX(-105%);
+    /* Hidden, not merely moved — the same fix the console's drawer already carries,
+       and for the same reason: a transform leaves every control in the tab order, so a
+       closed drawer handed a keyboard user eleven invisible channel buttons to walk
+       through before reaching the conversation. Co-transitioned so it stays visible
+       for the length of the slide out. */
+    visibility: hidden;
+    transition:
+      transform var(--dur-panel) var(--ease-standard),
+      visibility var(--dur-panel);
+    box-shadow: none;
+  }
+
+  .shell[data-sidebar='open'] .sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    box-shadow: var(--elev-3);
+  }
+
+  .shell[data-sidebar='open'] .drawer-scrim {
+    display: block;
+    position: fixed;
+    inset: var(--topbar-height) 0 0 0;
+    z-index: var(--z-scrim);
+    border: 0;
+    padding: 0;
+    background: var(--backdrop);
+    cursor: default;
+    /* The drawer slides in over --dur-panel; the dark behind it used to cut in on the
+       first frame. It fades in with the drawer now. */
+    animation: fade-in var(--dur-panel) var(--ease-out);
+  }
+
+  /* The thread panel becomes the pane rather than a sibling of it. */
+  .shell[data-panel='open'] .panel {
+    position: fixed;
+    top: var(--topbar-height);
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    z-index: var(--z-panel);
+  }
+
+  /* A file's panel too: the wider overlay above is for tablets, and its extra class
+     would otherwise outrank the full bleed here and pin a 380px panel to the left. */
+  .shell[data-panel='open'] .panel.file-preview {
+    width: auto;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar {
+      transition: none;
+    }
+  }
+}
+
+/* Touch targets.
+ *
+ * Every control in the app is sized for a pointer: 30px icon buttons, 31px channel
+ * rows, a 32px send button. A fingertip is about 9mm, which is why WCAG 2.2 asks for
+ * 44px, and on a phone all of these were under it — the workspace mark that opens the
+ * channel drawer and the four bar buttons most of all, since they are the first things
+ * anyone taps.
+ *
+ * Keyed on `pointer: coarse` rather than a width, because this is about what is doing
+ * the pointing: a touchscreen laptop at 1400px needs the bigger targets and a narrow
+ * desktop window does not. The message hover toolbar is left alone deliberately — it
+ * is revealed by hover, so it is a pointer affordance that a touch device barely
+ * reaches anyway, and making it 44px would give a phone a 264px-wide toolbar to solve
+ * a problem it does not have. Reaching it properly on touch is a long-press action
+ * sheet, which is a feature rather than a size. */
+@media (pointer: coarse) {
+  .icon-btn,
+  .topbar-nav-btn,
+  .topbar-mark-btn,
+  .send-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .btn,
+  .channel-row,
+  .palette-scope,
+  .sidebar-add,
+  .user-menu-trigger,
+  .menu-item,
+  .user-menu-item,
+  .pane-name-trigger,
+  .thread-summary {
+    min-height: 44px;
+  }
+
+  /* A .btn whose label is hidden at this width is as narrow as its icon — the
+     feedback button in the bar comes out 37px across. */
+  .btn {
+    min-width: 44px;
+  }
+
+  /* A reaction chip is a small thing by nature and there can be a row of them, so it
+     grows to a comfortable tap rather than to the full 44. */
+  .reaction {
+    min-height: 32px;
+  }
+}
+
+/* Installed to a home screen, the app draws under the status bar and the home
+   indicator; the insets keep the bar and composer touchable.
+
+   The inset goes into --topbar-height rather than only onto the bar's padding. The
+   bar sits in a grid row of exactly that height, and three fixed overlays — the
+   drawer, its scrim and the full-bleed thread panel — pin their top edge to it. Padding
+   the bar alone left its contents pushed out of a row that had not grown, and started
+   every overlay underneath a bar that was visually taller than the variable said. On
+   anything without a notch the inset is 0 and this is the same 48px it always was. */
+@supports (padding: env(safe-area-inset-top)) {
+  :root {
+    --topbar-height: calc(48px + env(safe-area-inset-top));
+  }
+
+  .topbar {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .composer {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+}

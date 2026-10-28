@@ -1,0 +1,308 @@
+/* ─── new message ─────────────────────────────────────────────────────────── */
+/* A recipient field, which the app had nowhere else: the only way to a group message was
+   a slash command. */
+.section-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* A section of your own (M3 · B3): its heading is the switch that folds it, and its
+   options wait at the end of the row like a channel's. */
+.section-head {
+  position: relative;
+}
+
+.section-toggle {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-label);
+  cursor: pointer;
+  text-align: left;
+}
+
+.section-toggle .section-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hung in the gutter, so a section's name lines up with "Channels" above and below it. */
+.section-toggle svg {
+  position: absolute;
+  left: -6px;
+  transition: rotate var(--dur-fast) var(--ease-out);
+}
+
+.section-toggle[aria-expanded='false'] svg {
+  rotate: -90deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-toggle svg {
+    transition: none;
+  }
+}
+
+.section-head:hover .section-kebab,
+.section-head:focus-within .section-kebab {
+  opacity: 1;
+}
+
+/* An export's row (M3 · B4): when, how it went, and Download once it is built — and a
+   legal hold's (ADR 0039): what is held, since when, and Release. */
+.export-list,
+.hold-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.export-row,
+.hold-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+/* A fault a browser reported (ADR 0025's addendum): the message and where, its stack
+   behind the summary. */
+.browser-error summary {
+  display: grid;
+  gap: 2px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.browser-error-stack {
+  margin: 4px 0 8px;
+  padding: 10px 12px;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre;
+}
+
+/* A Security page check whose title is where it is changed. */
+.security-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.security-link:hover,
+.security-link:focus-visible {
+  text-decoration: underline;
+}
+
+/* A Security page check that is worth a look (M3 · C3): said in the signal colour. */
+/* Admin → Approvals: a waiting run per row — what it waits for and where, its words when
+   the admin can read the room, Open and Stop at the end. */
+.approval-row {
+  align-items: flex-start;
+}
+.approval-words {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.approval-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.security-check[data-state='attention'] .role-pill {
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--danger);
+}
+
+/* Where a workspace's retention stands, or what a draft of it would remove. */
+.retention-standing {
+  display: grid;
+  gap: 4px;
+  padding-top: 14px;
+}
+
+/* A message whose files retention took (ADR 0039): it says so where they were. */
+.message-files-removed {
+  margin-top: 4px;
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* Save and Cancel under a field that changed. */
+.field-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* A draft's row opens where it was being written (ADR 0037): the whole row is the button,
+   and a long draft shows its first two lines. */
+.draft-open {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.draft-body {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: pre-wrap;
+}
+
+.section-empty {
+  margin: 0;
+  padding: 2px 12px 6px;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+
+.section-choices {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.section-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.section-choice:hover {
+  background: var(--surface-hover);
+}
+
+.sidebar-inline-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-rail);
+  cursor: pointer;
+}
+
+.sidebar-inline-add:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.new-message {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.new-message-to {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.new-message-label {
+  padding-top: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-4);
+}
+
+.new-message-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.new-message-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.new-message-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 5px 2px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.new-message-list {
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+.new-message-person {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font-size: var(--text-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.new-message-person:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.new-message-person:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (pointer: coarse) {
+  .sidebar-inline-add {
+    width: 44px;
+    height: 44px;
+  }
+
+  .new-message-person {
+    min-height: 44px;
+  }
+}

@@ -1,0 +1,143 @@
+/* Components. Values follow the design artifact; colours come only from tokens.css. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: var(--radius-md);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Firefox has no ::-webkit-scrollbar and drew the platform's default bar — grey on
+   every theme — beside Chrome's and Safari's slim themed one. The standard properties
+   give it the same colour, thin. Only where the pseudo-elements do not exist: in Chrome
+   setting them would switch off the slimmer pill above, which they cannot draw. */
+@supports not selector(::-webkit-scrollbar) {
+  :root {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar) transparent;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  /* Where the ring rests. A control whose ring sits elsewhere — inside its own edge, like
+     an emoji cell — sets `--focus-ring-offset` rather than `outline-offset`, so the
+     entrance below starts from *its* resting place and not from this one. It is a knob
+     on this rule, not a token, and so has no home in tokens.css. */
+  outline-offset: var(--focus-ring-offset, 2px);
+  /* Follow the element rather than impose a corner on it: this rule reaches buttons,
+     pills and cards whose own radii span 4px to 12px, and a fixed value drew a
+     differently-cornered ring around each of them. */
+  border-radius: inherit;
+  /* The ring lands rather than appears — keyboard focus only, since this is the one
+     pseudo-class that knows. An animation, not a transition, so an element's own
+     `transition` list is left alone while it is focused; and declared this early so
+     that any element with an entrance of its own (a dialog's panel, an arriving
+     message) outranks it and keeps that. */
+  animation: focus-ring-in var(--dur-fast) var(--ease-out);
+}
+
+/* From a little further out, and from nothing. `outline-offset` is the one property here
+   that is not a composite: it moves a painted ring and never a box — outlines take no
+   part in layout — so it repaints the ring and reflows nothing. Under reduced motion the
+   distance is 0, the ring starts where it rests, and it only fades in. */
+@keyframes focus-ring-in {
+  from {
+    outline-color: transparent;
+    outline-offset: calc(var(--focus-ring-offset, 2px) + var(--motion-slide));
+  }
+}
+
+/* The policy is *reduce*, not remove. What makes people ill is movement — things
+   flying, zooming, parallaxing — not a surface fading in. So the travel distances and
+   the scale go to nothing while the fades keep their duration, which is what the
+   accessibility guidance asks for and what keeps an appearing panel locatable.
+
+   This replaces a blanket `animation-duration: 0.01ms !important` on every element.
+   That reset is a blunt instrument: it does not distinguish a 300px slide from a
+   150ms cross-fade, it deletes both, and it overrides any rule written to degrade
+   gracefully — including the fade-only variants below, which it made unreachable.
+
+   Loops still stop: an infinite animation clamped to a tiny duration is a strobe,
+   which is worse for the person who asked for less motion than the animation was. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-scale-in: 1;
+    --motion-press: 1;
+    --motion-lift: 0px;
+    --motion-action-enter: 0px;
+    --motion-slide: 0px;
+    --motion-slide-lg: 0px;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  .admin-chart-bar,
+  .dashboard-bar,
+  .poll-option-bar,
+  .thread-tools-toggle svg,
+  .import-meter-bar::-webkit-progress-value {
+    transition: none;
+  }
+}
