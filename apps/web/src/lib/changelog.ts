@@ -42,6 +42,37 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    date: '2026-10-28',
+    version: '1.17.0',
+    title: 'Three clear consoles, and agents that keep their word',
+    entries: [
+      {
+        kind: 'changed',
+        text: 'Settings are now three places, each for one kind of person. Settings is yours. Workspace settings is this workspace’s admins’, in three groups — Workspace, Apps & agents, and Data & security — instead of one long list. Server, for whoever runs the machine, holds Health, Storage, Accounts, single sign-on, app policy and the logs, and appears in the account menu only for them. Old links still open the right page.',
+      },
+      {
+        kind: 'changed',
+        text: 'Huddles and video meetups are one Calls page, with a tab for each.',
+      },
+      {
+        kind: 'added',
+        text: 'A Storage page for the server’s admins: what the files here add up to, by kind, and what the nightly clean-up last removed.',
+      },
+      {
+        kind: 'fixed',
+        text: 'Pressing Stop while an agent was using its tools now stops it. Before, a run that went on to wait — for another agent, for a time it said it would come back, or for your approval — could carry on later as if nobody had pressed it.',
+      },
+      {
+        kind: 'fixed',
+        text: 'An agent that posted twice in one answer, in two steps, now posts both messages. The second was sometimes dropped while the agent was told it had gone out.',
+      },
+      {
+        kind: 'fixed',
+        text: 'An agent waiting to come back to a conversation is no longer lost if the server restarts at the moment it wakes, and it does not carry on for someone who has since become a guest.',
+      },
+    ],
+  },
+  {
     date: '2026-10-23',
     version: '1.16.0',
     title: 'The servers run exactly what was tested',

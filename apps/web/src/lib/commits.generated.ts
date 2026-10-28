@@ -11,6 +11,62 @@ export const GENERATED_REPO_URL = "https://github.com/magnetoid/blob";
 
 export const GENERATED_COMMITS: readonly BuildCommit[] = [
   {
+    "sha": "cdad68d968763bcbf4210b37f6e9cfd5a6309939",
+    "shortSha": "cdad68d9",
+    "subject": "feat(web): three consoles — /settings, /admin for the workspace, /server for the machine (#39)",
+    "date": "2026-10-28T06:02:37+01:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "8a2f62bfda790b0c24f7cc1d10bacf395bed27b1",
+    "shortSha": "8a2f62bf",
+    "subject": "feat(admin): a Storage page — attachments by kind, and what the orphan sweep did (#38)",
+    "date": "2026-10-28T05:58:28+01:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "73d2b088480ba704f179b472d32ccc27c7cdb709",
+    "shortSha": "73d2b088",
+    "subject": "refactor(web): split app.css, api.ts and store helpers by section — no behaviour change (#37)",
+    "date": "2026-10-28T03:15:39+01:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "e8403c5198e0920d8e8695e463b4e6eeeefe9e88",
+    "shortSha": "e8403c51",
+    "subject": "fix: three agent-run bugs — reused call ids, a lost continuation, a demoted person (#36)",
+    "date": "2026-10-28T03:15:34+01:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "42e0f3167adb1400711dbbd193e68d231926bd21",
+    "shortSha": "42e0f316",
+    "subject": "fix: a Stop pressed while a run's tools ran is no longer lost",
+    "date": "2026-10-28T00:46:23+01:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "9c37e4b32ebd97025d2b89cc7266e678dce9f4fe",
+    "shortSha": "9c37e4b3",
+    "subject": "deps: the Dependabot queue in one pass — Node 26, ESLint 10, FastAPI 0.162, SQLAlchemy 2.1",
+    "date": "2026-10-27T06:26:32+01:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
+    "sha": "e904e1f1da6ece26e7ff461382d505334bbfea57",
+    "shortSha": "e904e1f1",
+    "subject": "build(deps): Bump the actions group across 1 directory with 7 updates",
+    "date": "2026-10-23T03:21:39Z",
+    "author": "dependabot[bot]"
+  },
+  {
+    "sha": "d649b322f1fa3c42247d3c669ac9db9eee173409",
+    "shortSha": "d649b322",
+    "subject": "release: 1.16.0 — The servers run exactly what was tested",
+    "date": "2026-10-23T05:18:57+02:00",
+    "author": "Marko Tiosavljevic"
+  },
+  {
     "sha": "e625af583fb0deb3add8434ae6d45df93acd0ea1",
     "shortSha": "e625af58",
     "subject": "deploy: production pulls the image CI tested instead of building its own",
@@ -372,62 +428,6 @@ export const GENERATED_COMMITS: readonly BuildCommit[] = [
     "shortSha": "02d4d809",
     "subject": "feat: huddles — start one from a conversation's header",
     "date": "2026-10-21T06:08:22+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "3f1e57f2a7aa065ab781e53bedb256a8623041b2",
-    "shortSha": "3f1e57f2",
-    "subject": "feat: guests — in the channels they were invited to, and nowhere else",
-    "date": "2026-10-21T05:51:26+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "61085bac256c04c99d3460bf2a6ac070c1d104ef",
-    "shortSha": "61085bac",
-    "subject": "fix: an invitation lets its person in through single sign-on, whatever the domains",
-    "date": "2026-10-21T05:26:30+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "e85e2caf67813fcaa092d9ca5e4ea0d614f0b89b",
-    "shortSha": "e85e2caf",
-    "subject": "feat: single sign-on with OpenID Connect — the server's providers, matched on the subject",
-    "date": "2026-10-21T05:09:23+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "2b0d6af910f11583ed50d260e9b272874c14aa6d",
-    "shortSha": "2b0d6af9",
-    "subject": "feat: passkeys — sign in with one, confirm with one, or ask for one after the password",
-    "date": "2026-10-21T03:58:22+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "4b4ccaea3e086e31c5a9b95df13209acd50ddae7",
-    "shortSha": "4b4ccaea",
-    "subject": "fix: let a video meetup turn the camera on",
-    "date": "2026-10-21T03:22:19+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "507c20ea5c010f0655efb9362c873b7f27b1b4f2",
-    "shortSha": "507c20ea",
-    "subject": "feat: sign-in security — your devices everywhere, your sign-in record, and confirm it's you",
-    "date": "2026-10-21T03:21:07+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "7c6850ac68c0409557f71c4dd16fd681d0dfc120",
-    "shortSha": "7c6850ac",
-    "subject": "fix: an asker hears back after the commit; the cron hands resumes to jobs",
-    "date": "2026-10-20T20:15:42+02:00",
-    "author": "Marko Tiosavljevic"
-  },
-  {
-    "sha": "049707552ccfa2058f0374e2cbce663f8fc9aaa9",
-    "shortSha": "04970755",
-    "subject": "deps: aiohttp 3.14.5 — clears CVE-2026-111063, CVE-2026-111064, GHSA-2g87-pp6c-29x5",
-    "date": "2026-10-20T19:27:08+02:00",
     "author": "Marko Tiosavljevic"
   }
 ];
