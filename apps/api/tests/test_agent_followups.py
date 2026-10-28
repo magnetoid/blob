@@ -279,6 +279,7 @@ class TestAskedAgainOnWaking:
         ("change", "said"),
         [
             ("deactivated", "Marko's account was deactivated"),
+            ("guest", "Marko is now a guest"),
             ("left", "Marko is no longer in this conversation"),
             ("archived", "the conversation was archived"),
             ("agents_off", "agents are turned off for this server"),
@@ -299,6 +300,8 @@ class TestAskedAgainOnWaking:
 
         if change == "deactivated":
             await execute("UPDATE users SET deactivated_at = now() WHERE id = :u", u=marko)
+        elif change == "guest":
+            await execute("UPDATE users SET role = 'guest' WHERE id = :u", u=marko)
         elif change == "left":
             await execute(
                 "DELETE FROM channel_members WHERE channel_id = :c AND user_id = :u",
