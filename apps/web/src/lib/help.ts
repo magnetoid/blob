@@ -189,6 +189,18 @@ export const SECTIONS: Section[] = [
         keywords: ['retention', 'delete', 'history', 'legal hold', 'gdpr', 'compliance', 'files', 'old messages', 'purge', 'edit history', 'versions', 'edited'],
       },
       {
+        id: 'storage',
+        title: 'What the files add up to',
+        blurb: 'The Storage page counts what is kept in the bucket, by kind, and says what the nightly sweep removed.',
+        body: [
+          'Every file and voice recording sent here is kept in object storage. The Storage page adds them up — how many of each kind, and how much room they take — and says whether a browser can reach the bucket at all, which is what an upload needs.',
+          'An upload that was begun and never sent stays behind as an orphan. A sweep removes those older than a day every night, and the page says when it last ran and what it removed; before the first run it says so rather than guessing.',
+        ],
+        path: '/admin/storage',
+        audience: 'admins',
+        keywords: ['storage', 'files', 'bucket', 'attachments', 'orphans', 'sweep', 'space', 'size'],
+      },
+      {
         id: 'this-build',
         title: 'This guide describes the build you are running',
         blurb:

@@ -62,6 +62,7 @@ describe('the server console’s nav', () => {
       'Import',
       'Security',
       'Retention',
+      'Storage',
       'Webhooks',
       'Deliveries',
       'Assistants',
@@ -78,7 +79,7 @@ describe('the server console’s nav', () => {
     renderServerNav();
     expect(screen.queryByText('Soon')).toBeNull();
     // Approvals was one of these, until it became a page that opens (M4).
-    for (const gone of ['Moderation', 'Storage', 'Import / export']) {
+    for (const gone of ['Moderation', 'Import / export']) {
       expect(screen.queryByText(gone)).toBeNull();
     }
     expect(screen.queryByText('Only you can see these.')).toBeNull();
@@ -123,7 +124,7 @@ describe('the server console’s nav', () => {
     expect(screen.queryAllByRole('heading')).toEqual([]);
 
     fireEvent.change(screen.getByLabelText('Filter sections'), { target: { value: '' } });
-    expect(rowLabels(container)).toHaveLength(25);
+    expect(rowLabels(container)).toHaveLength(26);
   });
 });
 

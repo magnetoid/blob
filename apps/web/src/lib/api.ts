@@ -97,6 +97,7 @@ export type {
   AuditEvent,
   AdminWebhook,
   AdminHealth,
+  AdminStorage,
   ServerLogEntry,
   AdminPlugin,
   JanusPart,

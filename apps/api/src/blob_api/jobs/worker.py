@@ -9,6 +9,7 @@ Run with:  uv run arq blob_api.jobs.worker.WorkerSettings
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from arq import cron, func
@@ -29,6 +30,7 @@ from ..services import drafts as draft_service
 from ..services import oauth as oauth_service
 from ..services import usage as usage_service
 from ..services.calls import reconcile as reconcile_calls
+from . import orphans
 from .agui import expire_agent_decisions as expire_decisions
 from .agui import (
     handle_agent_heard,
@@ -198,13 +200,30 @@ async def sweep_orphans(_ctx: dict[str, Any]) -> None:
     a leak that no later sweep could ever clean up, because the evidence was gone.
 
     Now a failed delete simply leaves the row, and the next sweep tries again.
+
+    What it did is kept in Redis for the Storage page (`jobs/orphans.py`): how many went,
+    their size, and the error when the sweep itself failed — in which case the error is
+    raised too, so the worker's log and retry see it as before.
     """
+    ran_at = datetime.now(UTC).isoformat()
+    try:
+        removed, size = await _sweep_orphans()
+    except Exception as failure:
+        await orphans.record(
+            orphans.Outcome(ran_at=ran_at, removed=0, bytes=0, error=str(failure) or "failed")
+        )
+        raise
+    await orphans.record(orphans.Outcome(ran_at=ran_at, removed=removed, bytes=size))
+
+
+async def _sweep_orphans() -> tuple[int, int]:
+    """The sweep itself: how many rows went, and their size in bytes."""
     async with session_scope() as session:
         rows = (
             await session.execute(
                 text(
                     """
-                    SELECT id, object_key FROM attachments
+                    SELECT id, object_key, size_bytes FROM attachments
                      WHERE message_id IS NULL
                        AND created_at < now() - make_interval(hours => :hours)
                     """
@@ -214,6 +233,7 @@ async def sweep_orphans(_ctx: dict[str, Any]) -> None:
         ).fetchall()
 
     swept: list[str] = []
+    size = 0
     for row in rows:
         try:
             await delete_object(row.object_key)
@@ -222,6 +242,7 @@ async def sweep_orphans(_ctx: dict[str, Any]) -> None:
             log.warning("could not delete %s; keeping its row", row.object_key, exc_info=True)
             continue
         swept.append(str(row.id))
+        size += int(row.size_bytes)
 
     if swept:
         async with transaction() as (session, _):
@@ -230,6 +251,7 @@ async def sweep_orphans(_ctx: dict[str, Any]) -> None:
                 {"ids": swept},
             )
         log.info("swept %d orphaned upload(s)", len(swept))
+    return len(swept), size
 
 
 async def deliver_plugin_events(_ctx: dict[str, Any]) -> None:

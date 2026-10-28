@@ -84,6 +84,7 @@ describe('the console’s nav', () => {
       'Import',
       'Security',
       'Retention',
+      'Storage',
       'Webhooks',
       'Deliveries',
       'Assistants',
@@ -104,13 +105,13 @@ describe('the console’s nav', () => {
     expect(rows).not.toContain('Single sign-on');
     expect(rows).not.toContain('Errors and logs');
     expect(rows).toContain('Health');
-    expect(rows).toHaveLength(22);
+    expect(rows).toHaveLength(23);
   });
 
   it('gives them to the server’s admin when they are a plain admin here', () => {
     signIn('admin', true);
     render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
     expect(navRows()).toContain('Errors and logs');
-    expect(navRows()).toHaveLength(25);
+    expect(navRows()).toHaveLength(26);
   });
 });
