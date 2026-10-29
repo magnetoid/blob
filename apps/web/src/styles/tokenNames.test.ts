@@ -1,16 +1,17 @@
 /**
  * Blob's custom properties and Tailwind's (and shadcn's) share one namespace.
  *
- * Blob's tokens are declared unlayered, which beats every `@layer` rule Tailwind writes,
- * so a Blob `--text-xs: 11px` would silently replace Tailwind's `--text-xs` for every
- * utility that reads it — and the same for shadcn's `--accent`, `--radius` and
- * `--sidebar-width`. The collision is invisible at review time: both sides are
- * legitimate CSS. A name Blob owns that Tailwind or shadcn also owns therefore carries a
- * `--blob-` prefix, and this test is what stops the next token from drifting back.
+ * Blob's tokens are declared in the `legacy` layer, which ranks above the `theme` layer
+ * Tailwind's own variables live in, so a Blob `--text-xs: 11px` would silently replace
+ * Tailwind's `--text-xs` for every utility that reads it — and the same for shadcn's
+ * `--accent`, `--radius` and `--sidebar-width`. The collision is invisible at review
+ * time: both sides are legitimate CSS. A name Blob owns that Tailwind or shadcn also owns
+ * therefore carries a `--blob-` prefix, and this test is what stops the next token from
+ * drifting back.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const WEB = new URL('../..', import.meta.url).pathname;
@@ -97,5 +98,55 @@ describe('Blob design tokens', () => {
     const collisions = [...blobTokens()].filter((name) => reserved.has(name)).sort();
 
     expect(collisions).toEqual([]);
+  });
+});
+
+/**
+ * The stylesheet's shape is a promise too. Tailwind's `source(none)` and its `@source`
+ * list decide which files its utilities are generated from, and the `legacy` layer is
+ * what keeps Blob's own CSS ranked above preflight and below a converted component's
+ * utilities. Both fail quietly: a stray scan root only makes the sheet bigger, and a
+ * legacy import with no layer only changes who wins a tie.
+ */
+describe('styles/index.css', () => {
+  /** Comments go first: the file's own prose names `@source` and `@layer`. */
+  const indexCss = () =>
+    readFileSync(join(STYLES, 'index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  /**
+   * Directories Tailwind may scan, relative to `src/`. A phase that converts a path adds
+   * it here in the same commit as its `@source` — the point of the list is that adding
+   * one is deliberate.
+   */
+  const CONVERTED = ['components/ui'];
+
+  it('scans only converted paths', () => {
+    const css = indexCss();
+    expect(css).toMatch(/@import\s+"tailwindcss"\s+source\(none\)/);
+
+    const sources = [...css.matchAll(/@source\s+(?:not\s+)?"([^"]+)"/g)].map((m) => m[1]!);
+    expect(sources.length).toBeGreaterThan(0);
+    for (const source of sources) {
+      const fromSrc = relative(join(WEB, 'src'), resolve(STYLES, source));
+      expect(CONVERTED.some((dir) => fromSrc === dir || fromSrc.startsWith(`${dir}/`))).toBe(true);
+    }
+  });
+
+  it('puts the legacy stylesheets in their own layer, ranked between preflight and utilities', () => {
+    const css = indexCss();
+    const order = css.match(/^@layer\s+([^;{]+);/m);
+    expect(order?.[1]?.split(',').map((name) => name.trim())).toEqual([
+      'theme',
+      'base',
+      'legacy',
+      'components',
+      'utilities',
+    ]);
+    // The statement has to precede every import, or the order it declares is not the one
+    // the browser sees.
+    expect(css.indexOf('@layer')).toBeLessThan(css.indexOf('@import'));
+
+    expect(css).toMatch(/@import\s+"\.\/tokens\.css"\s+layer\(legacy\)/);
+    expect(css).toMatch(/@import\s+"\.\/app\.css"\s+layer\(legacy\)/);
   });
 });
