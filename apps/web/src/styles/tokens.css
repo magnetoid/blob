@@ -17,11 +17,14 @@
  * thirteen radii, three shadows applied four ways, nineteen copies of "120ms ease" and
  * eleven magic z-indexes, so there was nowhere to change any of them once.
  *
- * The colour names here are still a contract with the server until the themes move to
- * shadcn's names: `services/themes.py` allowlists them by string and slices that tuple
- * *by index* to group the theme editor, so renaming or reordering one breaks stored
- * themes. Everything below the colours is structure rather than palette, is deliberately
- * not themeable, and is free to change.
+ * What a workspace theme may set is a contract with the server, and it is no longer this
+ * file's names: the themeable names are shadcn's colour names plus Blob's presence and
+ * unread colours, allowlisted by string in `services/themes.py` and grouped for the theme
+ * editor by name in its `TOKEN_GROUPS`, not by position. A stored theme is keyed by them,
+ * so renaming one there needs a migration (0078 renamed every stored theme's tokens from
+ * the legacy names). The legacy tokens here are bridges onto those names and are not
+ * themeable themselves. Everything below the colours is structure rather than palette, is
+ * deliberately not themeable, and is free to change.
  *
  * Theme handling has three states: an explicit choice stamps data-theme on <html>, while
  * "system" stamps nothing and falls back to prefers-color-scheme. A custom theme is
