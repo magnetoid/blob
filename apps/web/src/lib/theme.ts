@@ -28,7 +28,7 @@ const LEGACY_STORAGE_KEY = 'blob.theme';
  * Preset b0's colours as hex, for what is drawn with a theme's colours but cannot wear
  * its stylesheet — browser chrome, an editor swatch, a palette preview — whenever a
  * theme leaves one unset. `styles/theme.test.ts` holds these to `styles/theme.css`,
- * and `public/theme-boot.js` repeats the `--primary` pair.
+ * and `public/theme-boot.js` repeats the `--background` pair.
  */
 export const B0_HEX = {
   light: {
@@ -116,12 +116,15 @@ function writeTheme(choice: ThemeChoice, preference: UserPrefs['theme']): void {
 
   // Native controls and scrollbars follow color-scheme, not our tokens.
   root.style.colorScheme = choice.mode;
-  // A hex, because not every engine reads `oklch()` in a <meta>.
-  const primary =
-    toHex(choice.tokens['--primary'] ?? '') ?? B0_HEX[choice.mode]['--primary'];
+  // The browser's own bar wears the page's colour, not the brand's: b0's `--primary` is
+  // near-black in light and near-white in dark, a stark band over the page in both. A
+  // hex, because not every engine reads `oklch()` in a <meta>.
+  const chrome =
+    toHex(choice.tokens['--background'] ?? '') ??
+    B0_HEX[choice.mode]['--background'];
   document
     .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-    ?.setAttribute('content', primary);
+    ?.setAttribute('content', chrome);
 }
 
 /**

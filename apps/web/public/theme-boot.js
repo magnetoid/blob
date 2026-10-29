@@ -35,11 +35,13 @@ try {
       tokenNames.push(name);
     }
     root.dataset.themeTokens = tokenNames.join(" ");
+    // Browser chrome follows the page (`--background`), as in lib/theme.ts. This writes the
+    // stored value raw — it may be oklch() or rgb() — and hydration normalises it to hex.
     var themeColor = document.querySelector('meta[name="theme-color"]');
     if (themeColor) {
       themeColor.setAttribute(
         "content",
-        tokens["--primary"] || (mode === "dark" ? "#e5e5e5" : "#171717"),
+        tokens["--background"] || (mode === "dark" ? "#0a0a0a" : "#ffffff"),
       );
     }
   } else if (
@@ -47,6 +49,6 @@ try {
     window.matchMedia("(prefers-color-scheme: dark)").matches
   ) {
     var defaultThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (defaultThemeColor) defaultThemeColor.setAttribute("content", "#e5e5e5");
+    if (defaultThemeColor) defaultThemeColor.setAttribute("content", "#0a0a0a");
   }
 } catch (e) {}

@@ -107,36 +107,49 @@ describe('theme application', () => {
     root.style.setProperty('--primary', '#ff0000');
     root.style.setProperty('--card', '#ffffff');
 
-    applyTheme({ mode: 'dark', tokens: { '--primary': '#abcdef' } }, 'dark');
+    applyTheme(
+      { mode: 'dark', tokens: { '--primary': '#abcdef', '--background': '#101820' } },
+      'dark',
+    );
 
     expect(root.style.getPropertyValue('--card')).toBe('');
     expect(root.style.getPropertyValue('--primary')).toBe('#abcdef');
-    expect(root.dataset.themeTokens).toBe('--primary');
+    expect(root.dataset.themeTokens).toBe('--primary --background');
     expect(root.dataset.resolvedTheme).toBe('dark');
     expect(root.dataset.theme).toBe('dark');
     expect(root.style.colorScheme).toBe('dark');
-    expect(chrome()).toBe('#abcdef');
+    expect(chrome()).toBe('#101820');
   });
 
-  it("draws browser chrome from --primary, and b0's when a theme sets none", () => {
+  it("draws browser chrome from --background, and b0's when a theme sets none", () => {
     applyTheme({ mode: 'light', tokens: {} }, 'light');
-    expect(chrome()).toBe('#171717');
+    expect(chrome()).toBe('#ffffff');
 
     applyTheme({ mode: 'dark', tokens: {} }, 'dark');
-    expect(chrome()).toBe('#e5e5e5');
+    expect(chrome()).toBe('#0a0a0a');
 
+    applyTheme({ mode: 'light', tokens: { '--background': '#fbf8f3' } }, 'light');
+    expect(chrome()).toBe('#fbf8f3');
+  });
+
+  it('does not let the brand colour paint the browser chrome', () => {
+    // b0's --primary is near-black in light and near-white in dark: a bar in that colour
+    // is a stark band over the page. The chrome belongs to the page's own colour.
     applyTheme({ mode: 'light', tokens: { '--primary': '#7a4f22' } }, 'light');
-    expect(chrome()).toBe('#7a4f22');
+    expect(chrome()).toBe('#ffffff');
+
+    applyTheme({ mode: 'dark', tokens: { '--primary': '#7a4f22' } }, 'dark');
+    expect(chrome()).toBe('#0a0a0a');
   });
 
   it('gives browser chrome a hex even when the theme is written in oklch', () => {
     // Not every engine reads oklch() in a <meta>, and shadcn's own palette is oklch.
-    applyTheme({ mode: 'light', tokens: { '--primary': 'oklch(0.205 0 0)' } }, 'light');
+    applyTheme({ mode: 'light', tokens: { '--background': 'oklch(0.205 0 0)' } }, 'light');
     expect(chrome()).toBe('#171717');
 
     // A value that is not a literal colour is as good as none.
-    applyTheme({ mode: 'light', tokens: { '--primary': 'var(--ring)' } }, 'light');
-    expect(chrome()).toBe('#171717');
+    applyTheme({ mode: 'light', tokens: { '--background': 'var(--ring)' } }, 'light');
+    expect(chrome()).toBe('#ffffff');
   });
 
   it('persists both mode palettes for the pre-hydration boot script', () => {

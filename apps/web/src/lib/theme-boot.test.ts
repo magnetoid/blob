@@ -48,7 +48,7 @@ describe('pre-hydration theme boot', () => {
 
     expect(
       document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content,
-    ).toBe('#e5e5e5');
+    ).toBe('#0a0a0a');
   });
 
   it('ignores a palette stored under the old key', () => {
@@ -90,18 +90,22 @@ describe('pre-hydration theme boot', () => {
     expect(root.dataset.themeTokens).toBe('--primary --background');
   });
 
-  it('takes browser chrome from --primary, and falls back to b0\'s', () => {
+  it('takes browser chrome from --background, and falls back to b0\'s', () => {
     const chrome = () =>
       document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content;
 
-    boot({ preference: 'light', mode: 'light', tokens: { '--primary': '#7a4f22' } }, false);
-    expect(chrome()).toBe('#7a4f22');
+    boot({ preference: 'light', mode: 'light', tokens: { '--background': '#fbf8f3' } }, false);
+    expect(chrome()).toBe('#fbf8f3');
 
     boot({ preference: 'light', mode: 'light', tokens: {} }, false);
-    expect(chrome()).toBe('#171717');
+    expect(chrome()).toBe('#ffffff');
 
     boot({ preference: 'dark', mode: 'dark', tokens: {} }, false);
-    expect(chrome()).toBe('#e5e5e5');
+    expect(chrome()).toBe('#0a0a0a');
+
+    // The brand colour is not the page's: it never paints the chrome.
+    boot({ preference: 'light', mode: 'light', tokens: { '--primary': '#7a4f22' } }, false);
+    expect(chrome()).toBe('#ffffff');
   });
 
   it('uses the current OS mode rather than the mode from the last session', () => {
@@ -112,7 +116,7 @@ describe('pre-hydration theme boot', () => {
         tokens: { '--primary': '#111111' },
         palettes: {
           light: { '--primary': '#111111' },
-          dark: { '--primary': '#eeeeee', '--card': '#222222' },
+          dark: { '--primary': '#eeeeee', '--card': '#222222', '--background': '#101820' },
         },
       },
       true,
@@ -122,11 +126,11 @@ describe('pre-hydration theme boot', () => {
     expect(root.dataset.resolvedTheme).toBe('dark');
     expect(root.style.colorScheme).toBe('dark');
     expect(root.style.getPropertyValue('--primary')).toBe('#eeeeee');
-    expect(root.dataset.themeTokens).toBe('--primary --card');
+    expect(root.dataset.themeTokens).toBe('--primary --card --background');
     expect(
       document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
         ?.content,
-    ).toBe('#eeeeee');
+    ).toBe('#101820');
   });
 
   it('does not replay a legacy palette into the wrong system mode', () => {
