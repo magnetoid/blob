@@ -98,14 +98,18 @@ describe("editing", () => {
     // Opening an editor must not round-trip a value through the colour input: that only
     // takes #rrggbb, so a pass through it would drop a translucent colour's alpha and
     // rewrite oklch() as hex. The tokens posted are the stored ones, byte for byte.
-    const stored = {
+    //
+    // `expected` is its own frozen literal and the theme gets a copy of it, so an editor
+    // that mutated the stored tokens in place would change the copy and not the thing the
+    // posted tokens are compared with — and could not touch `expected` at all.
+    const expected = Object.freeze({
       "--primary": "oklch(0.205 0 0)",
       "--border": "oklch(1 0 0 / 10%)",
       "--input": "oklch(1 0 0 / 15%)",
       "--ring": "rgba(23, 23, 23, 0.5)",
       "--sidebar": "#FAFAFA",
-    };
-    const translucent = theme("translucent", "light", stored);
+    });
+    const translucent = theme("translucent", "light", { ...expected });
     vi.spyOn(api.themes, "list").mockResolvedValue({
       themes: [...THEMES, translucent],
       groups: { ...GROUPS, Lines: ["--border", "--input", "--ring", "--sidebar"] },
@@ -128,7 +132,9 @@ describe("editing", () => {
     const posted = saved.mock.calls[0]![0];
     expect(posted.id).toBe("translucent");
     expect(posted.mode).toBe("light");
-    expect(posted.tokens).toEqual(stored);
-    expect(JSON.stringify(posted.tokens)).toBe(JSON.stringify(stored));
+    expect(posted.tokens).toEqual(expected);
+    expect(JSON.stringify(posted.tokens)).toBe(JSON.stringify(expected));
+    // And the stored theme itself was not edited in place on the way through.
+    expect(translucent.tokens).toEqual(expected);
   });
 });

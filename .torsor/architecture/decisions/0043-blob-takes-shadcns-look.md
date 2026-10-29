@@ -116,11 +116,12 @@ shadcn's colour names.**
   `lib/theme.ts` writes the chrome as hex, because not every engine reads `oklch()` in a
   `<meta>`; `B0_HEX` carries b0's few values as hex for that and for editor swatches, and a
   test holds them to `theme.css`. The manifest cannot follow dark, and says white.
-- **Meadow's palette goes; its frame stays.** Light is unchanged: `.shell > .pane` and
-  `.shell > .panel` are one card on the ground the top bar and the channel list share. In
-  dark the arrangement is shadcn's: the ground (`--sidebar`, `oklch(0.205)`) is now
-  *lighter* than the card (`--background`, `oklch(0.145)`), where Meadow set the ground
-  below the page so the card lifted. The card is still a card; it no longer rises out of a
+- **Meadow's palette goes; its frame stays.** This ADR supersedes the Meadow palette — its
+  forest-green accent, warm paper greys and Instrument Sans — and keeps Meadow's frame.
+  Light is unchanged: `.shell > .pane` and `.shell > .panel` are one card on the ground the
+  top bar and the channel list share. In dark the arrangement is shadcn's: the ground
+  (`--sidebar`, `oklch(0.205)`) is now *lighter* than the card (`--background`,
+  `oklch(0.145)`), where Meadow set the ground below the page so the card lifted. The card is still a card; it no longer rises out of a
   darker well. Phase 4 maps the frame onto shadcn's inset sidebar.
 - **The first load may grow to 260 KB gzipped.** It was 217.4 of 220 on `main`, and
   shadcn's overlays on Base UI will not fit in the 2.6 KB left. The user approved the
@@ -142,9 +143,10 @@ shadcn's colour names.**
 - A custom theme survives, rekeyed, on the colours that have a home; colours that had none
   are gone for good. A theme saved before this release and replayed from a browser's
   `blob.theme` is ignored once, then replaced by the server's answer.
-- `tests/test_themes.py` pins the frozen presets and 0078's name lists to the live code.
-  The first legitimate change to a preset or a themeable name will fail them; that is the
-  moment to snapshot the migration's copy, not to edit it.
+- `tests/test_theme_rekey_migration.py` pins the frozen presets and 0078's name lists to the
+  live code (`test_the_frozen_presets_are_the_ones_shipped`, and `NEW_NAMES` equal to
+  `THEMEABLE_TOKENS`). The first legitimate change to a preset or a themeable name will fail
+  them; that is the moment to snapshot the migration's copy, not to edit it.
 - Dark mode costs two copies of one palette, kept identical by a test, so that "system"
   works before JavaScript and an explicit choice works after it.
 - `CLAUDE.md`'s design-layer section is rewritten for this state, not for the end of the

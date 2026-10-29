@@ -460,7 +460,7 @@ survive: `/admin/health` and the rest resolve to `/server/…`, and `/admin/hudd
 
 **The design layer.** The client wears shadcn's preset b0 — Base UI, Lucide, Inter, radius
 `0.625rem`, neutral — and is mid-move: ADR 0043 and
-`docs/superpowers/specs/2026-10-29-shadcn-whole-app-design.md` carry the seven phases, of
+`docs/superpowers/specs/2026-10-29-shadcn-whole-app-design.md` carry the seven phases,
 of which only the first is built — it changed how every screen looks and no component.
 `styles/index.css` is the one CSS entry, and its layer order is the design:
 `@layer theme, base, legacy, components, utilities`. shadcn's variables are unlayered in
