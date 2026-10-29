@@ -59,6 +59,32 @@ class TestThePolicyItself:
         )
         assert "ws://localhost:3000" in plain["connect-src"].split()
 
+    def test_a_media_server_on_its_own_domain_is_reachable(self) -> None:
+        # The socket, and the https the client asks when the socket fails.
+        policy = _policy(
+            sh.content_security_policy(
+                public_url="https://chat.example.com",
+                storage_origin=None,
+                media_server="wss://lk.example.com",
+            )
+        )
+        connect = policy["connect-src"].split()
+        assert "wss://lk.example.com" in connect
+        assert "https://lk.example.com" in connect
+        assert policy["script-src"] == "'self'"
+
+    def test_a_media_server_on_a_path_here_adds_nothing_new(self) -> None:
+        policy = _policy(
+            sh.content_security_policy(
+                public_url="https://chat.example.com",
+                storage_origin=None,
+                media_server="wss://chat.example.com/livekit",
+            )
+        )
+        connect = policy["connect-src"].split()
+        assert connect.count("wss://chat.example.com") == 1
+        assert not any("/livekit" in source for source in connect)
+
     def test_extra_sources_widen_connect_and_images_only(self) -> None:
         policy = _policy(
             sh.content_security_policy(

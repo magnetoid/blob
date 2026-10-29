@@ -26,6 +26,10 @@ has no policy of its own.
 - `connect-src` allows the storage origin. Uploads are a presigned PUT straight from the
   browser to object storage; the API never sees the bytes. Blocking that origin would make
   every upload fail with a console message nobody reads.
+- `connect-src` allows the media server. A call's signalling is a WebSocket to
+  `LIVEKIT_URL`, and when it fails the client asks the same host over https why. On a path
+  of this origin that is `'self'` already; on a domain of its own it was refused, and a
+  call started, showed nobody and said nothing, with the reason only in the console.
 - `frame-src 'self'`. Feedback snapshots are same-origin iframes, and an agent's HTML
   preview will be a sandboxed `srcdoc` frame — which the browser treats as same-origin
   for the purpose of this directive.
@@ -77,11 +81,24 @@ def _socket_origin(public_url: str) -> str | None:
     return f"{scheme}://{urlparse(origin).netloc}"
 
 
+def _media_server_origins(livekit_url: str | None) -> list[str]:
+    """Both forms of the media server's origin: the socket, and the https the client
+    falls back to when it asks why the socket failed."""
+    origin = _origin(livekit_url)
+    if origin is None:
+        return []
+    netloc = urlparse(origin).netloc
+    if origin.startswith(("wss", "https")):
+        return [f"wss://{netloc}", f"https://{netloc}"]
+    return [f"ws://{netloc}", f"http://{netloc}"]
+
+
 def content_security_policy(
     *,
     public_url: str,
     storage_origin: str | None,
     extra_sources: Iterable[str] = (),
+    media_server: str | None = None,
 ) -> str:
     """The policy for the app and the API, as one string."""
     extra = [source.strip() for source in extra_sources if source.strip()]
@@ -93,6 +110,9 @@ def content_security_policy(
         connect.append(socket)
     if storage_origin and storage_origin not in connect:
         connect.append(storage_origin)
+    connect.extend(
+        source for source in _media_server_origins(media_server) if source not in connect
+    )
     connect.extend(source for source in extra if source not in connect)
     images = ["'self'", "data:", "blob:", "https:"]
     images.extend(source for source in extra if source not in images)
@@ -147,6 +167,7 @@ def security_headers(*, path: str, secure: bool, existing: MutableHeaders) -> di
             public_url=settings.PUBLIC_URL,
             storage_origin=_origin(settings.s3_public_endpoint),
             extra_sources=settings.CSP_EXTRA_SOURCES.split(),
+            media_server=settings.LIVEKIT_URL,
         )
     # Fill in, never override: a route that set its own policy knows something this does
     # not (the feedback snapshot's `default-src 'none'` is stricter than ours, on purpose).
