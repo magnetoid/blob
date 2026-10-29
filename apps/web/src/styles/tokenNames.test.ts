@@ -1,13 +1,21 @@
 /**
  * Blob's custom properties and Tailwind's (and shadcn's) share one namespace.
  *
- * Blob's tokens are declared in the `legacy` layer, which ranks above the `theme` layer
- * Tailwind's own variables live in, so a Blob `--text-xs: 11px` would silently replace
- * Tailwind's `--text-xs` for every utility that reads it — and the same for shadcn's
- * `--accent`, `--radius` and `--sidebar-width`. The collision is invisible at review
- * time: both sides are legitimate CSS. A name Blob owns that Tailwind or shadcn also owns
- * therefore carries a `--blob-` prefix, and this test is what stops the next token from
- * drifting back.
+ * A shared name breaks one side or the other, silently, and which side depends on the
+ * layer. Tailwind's own variables live in its `theme` layer, which the `legacy` layer
+ * Blob's tokens are declared in outranks, so a Blob `--text-xs: 11px` would replace
+ * Tailwind's `--text-xs` for every utility that reads it. shadcn's variables
+ * (`theme.css`) are unlayered, which outranks `legacy`, so a Blob `--accent` or
+ * `--radius` would be replaced by shadcn's — and every legacy rule that read Blob's would
+ * quietly get shadcn's value instead. The collision is invisible at review time: both
+ * sides are legitimate CSS. A name Blob owns that Tailwind or shadcn also owns therefore
+ * carries a `--blob-` prefix, and this test is what stops the next token from drifting
+ * back.
+ *
+ * Reading is guarded too. The legacy CSS reaches shadcn's palette only through the
+ * bridge in `tokens.css` (`--bg: var(--background)` …), so a `var(--accent)` under
+ * `styles/app/` is either a leftover of Blob's old accent — which now paints shadcn's
+ * hover grey — or a conversion that skipped the bridge.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -27,19 +35,28 @@ function declared(css: string): Set<string> {
   return names;
 }
 
-function blobTokens(): Set<string> {
-  const files = [
-    join(STYLES, 'tokens.css'),
+/** `app.css` and everything under `styles/app/`: the CSS that predates Tailwind. */
+function legacyFiles(): string[] {
+  return [
     join(STYLES, 'app.css'),
-    ...readdirSync(join(STYLES, 'app'))
+    ...readdirSync(join(STYLES, 'app'), { recursive: true, encoding: 'utf8' })
       .filter((file) => file.endsWith('.css'))
       .map((file) => join(STYLES, 'app', file)),
   ];
+}
+
+function blobTokens(): Set<string> {
   const names = new Set<string>();
-  for (const file of files) {
+  for (const file of [join(STYLES, 'tokens.css'), ...legacyFiles()]) {
     for (const name of declared(readFileSync(file, 'utf8'))) names.add(name);
   }
   return names;
+}
+
+/** Every `var(--name)` a stylesheet reads. Comments go first, as above. */
+function read(css: string): string[] {
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  return [...code.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)].map((match) => match[1]!);
 }
 
 /**
@@ -85,19 +102,39 @@ const SHADCN = [
   '--sidebar-width-mobile',
 ];
 
+/** Tailwind's names and shadcn's: the ones Blob may not declare, nor read outside the bridge. */
+function reservedNames(): Set<string> {
+  const tailwind = declared(
+    readFileSync(join(WEB, 'node_modules/tailwindcss/theme.css'), 'utf8'),
+  );
+  // Guard the guard: an empty theme would make every intersection trivially empty.
+  expect(tailwind.size).toBeGreaterThan(300);
+  expect(tailwind.has('--text-xs')).toBe(true);
+  return new Set([...tailwind, ...SHADCN]);
+}
+
 describe('Blob design tokens', () => {
   it('declares no token that Tailwind or shadcn also declares', () => {
-    const tailwind = declared(
-      readFileSync(join(WEB, 'node_modules/tailwindcss/theme.css'), 'utf8'),
-    );
-    // Guard the guard: an empty theme would make the intersection trivially empty.
-    expect(tailwind.size).toBeGreaterThan(300);
-    expect(tailwind.has('--text-xs')).toBe(true);
-
-    const reserved = new Set([...tailwind, ...SHADCN]);
+    const reserved = reservedNames();
     const collisions = [...blobTokens()].filter((name) => reserved.has(name)).sort();
 
     expect(collisions).toEqual([]);
+  });
+
+  it('reads Tailwind and shadcn variables only through the bridge in tokens.css', () => {
+    const reserved = reservedNames();
+    // tokens.css is not in this list on purpose: reading shadcn's names is what the
+    // bridge is for, and it declares none of them (the test above).
+    const files = legacyFiles();
+    expect(files.length).toBeGreaterThan(50);
+
+    const reads = files.flatMap((file) =>
+      read(readFileSync(file, 'utf8'))
+        .filter((name) => reserved.has(name))
+        .map((name) => `${relative(STYLES, file)} reads ${name}`),
+    );
+
+    expect(reads).toEqual([]);
   });
 });
 

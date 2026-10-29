@@ -1,73 +1,80 @@
 /*
  * Design tokens.
  *
- * Colour, type and layout came from the "Minimalist Chat App Design" artifact: warm
- * paper neutrals, a forest-green accent, Instrument Sans. Every colour in the app comes
- * from here — no component declares a hex value.
+ * Every colour the legacy CSS reads is a bridge now: the name `styles/app/` was written
+ * against, pointed at the shadcn variable (`theme.css`, preset b0) that does the same job
+ * in a converted component. So a screen nobody has converted yet already wears b0's
+ * colours, Inter and radius, and the light/dark switch is shadcn's — a bridge is a
+ * `var()`, and follows `--background` into dark on its own, which is why the dark blocks
+ * below no longer name any of them. The bridges go with the legacy CSS at the end of the
+ * migration (docs/superpowers/specs/2026-10-29-shadcn-whole-app-design.md).
  *
- * Elevation, radius, motion and stacking were added later, and for the same reason:
- * they had been thirteen radii, three shadows applied four ways, nineteen copies of
- * "120ms ease" and eleven magic z-indexes, so there was nowhere to change any of them
- * once.
+ * What shadcn has no word for keeps a value of its own here, in both themes: presence,
+ * unread, iris (agents) and clay (people), the backdrop, and every structure token —
+ * elevation, motion, stacking, sizes, density.
  *
- * The colour names here are a contract with the server: `services/themes.py` allowlists
- * them by string and slices that tuple *by index* to group the theme editor, so renaming
- * or reordering one breaks stored themes. Everything below the colours is structure
- * rather than palette, is deliberately not themeable, and is free to change.
+ * Elevation, radius, motion and stacking were added for one reason: they had been
+ * thirteen radii, three shadows applied four ways, nineteen copies of "120ms ease" and
+ * eleven magic z-indexes, so there was nowhere to change any of them once.
+ *
+ * The colour names here are still a contract with the server until the themes move to
+ * shadcn's names: `services/themes.py` allowlists them by string and slices that tuple
+ * *by index* to group the theme editor, so renaming or reordering one breaks stored
+ * themes. Everything below the colours is structure rather than palette, is deliberately
+ * not themeable, and is free to change.
  *
  * Theme handling has three states: an explicit choice stamps data-theme on <html>, while
  * "system" stamps nothing and falls back to prefers-color-scheme. A custom theme is
  * written as inline properties on <html> by `lib/theme.ts`, which beats every rule here.
+ * This file is in the `legacy` layer and shadcn's variables are unlayered, so it may read
+ * them but must never declare one (`tokenNames.test.ts`).
  */
 
 :root {
   /* ─── surfaces ─────────────────────────────────────────────────────────── */
-  --bg: #fcfcfa; /* message pane, app canvas */
-  /* The ground the frame sits on: the top bar and the channel list. One tint for both,
-     the one the plan settled for the sidebar (0.5), so the bar and the list read as a
-     single surface and what you are reading is the paper card inset in it. */
-  --bg-rail: #f3f1ea;
-  --bg-sidebar: #f3f1ea;
-  --surface: #ffffff; /* cards, inputs, popovers */
-  --surface-hover: #f3f2ed;
-  --surface-hover-warm: #f0eee7; /* sidebar rows */
-  --surface-hover-deep: #eae8e1; /* rail buttons */
-  --surface-row-hover: #faf9f5; /* message hover */
-  --surface-muted: #f7f6f1; /* pinned bar, draft chip */
-  --surface-icon: #f1f0ea;
+  --bg: var(--background); /* message pane, app canvas */
+  /* The ground the frame sits on: the top bar and the channel list, one surface. */
+  --bg-rail: var(--sidebar);
+  --bg-sidebar: var(--sidebar);
+  --surface: var(--card); /* cards, inputs, popovers */
+  --surface-hover: var(--accent);
+  --surface-hover-warm: var(--accent); /* sidebar rows */
+  --surface-hover-deep: var(--accent); /* rail buttons */
+  --surface-row-hover: var(--accent); /* message hover */
+  --surface-muted: var(--muted); /* pinned bar, draft chip */
+  --surface-icon: var(--muted);
 
-  --hairline: #e7e5de; /* borders on surfaces */
-  --hairline-soft: #edebe4; /* dividers */
-  --hairline-strong: #cfccc2; /* hover borders */
-  --hairline-popover: #e4e2da;
+  --hairline: var(--border); /* borders on surfaces */
+  --hairline-soft: var(--border); /* dividers */
+  --hairline-strong: var(--ring); /* hover borders */
+  --hairline-popover: var(--border);
 
   /* ─── text ─────────────────────────────────────────────────────────────── */
-  /* The muted end of this ladder is compressed, and deliberately. A Lighthouse pass
-     found --text-4, --text-5, --text-label and --text-faint all below WCAG AA's 4.5:1
-     in both themes — timestamps, day dividers, section headings and the composer hint
-     were between 1.75 and 4.23. Four visually distinct greys is more than the contrast
-     budget of this palette allows, so they keep their order and lose most of their
-     spread: text nobody can read is a defect, not a design. */
-  --text: #1a1d1b;
-  --text-body: #252926; /* message bodies read slightly softer */
-  --text-2: #4e534f;
-  --text-3: #6b6f6c;
-  --text-4: #626662;
-  --text-5: #666a66;
-  --text-label: #696c68; /* section labels */
-  --text-faint: #6c6f6b;
-  --text-rail: #6a6f6b;
+  /* Nine greys become two. A Lighthouse pass once found four of the old muted steps under
+     WCAG AA's 4.5:1, and b0 has one muted grey, tuned to pass (theme.test.ts measures it
+     on every ground it is drawn on). */
+  --text: var(--foreground);
+  --text-body: var(--foreground); /* message bodies */
+  --text-2: var(--foreground);
+  --text-3: var(--muted-foreground);
+  --text-4: var(--muted-foreground);
+  --text-5: var(--muted-foreground);
+  --text-label: var(--muted-foreground); /* section labels */
+  --text-faint: var(--muted-foreground);
+  --text-rail: var(--muted-foreground);
 
   /* ─── accent ───────────────────────────────────────────────────────────── */
-  --blob-accent: #1f5c3d;
-  --blob-accent-hover: #14402a;
-  --blob-accent-contrast: #fcfcfa;
-  --blob-accent-wash: #eff3ef; /* active sidebar row */
-  --blob-accent-wash-rail: #e4ebe5; /* active rail button */
-  --blob-accent-wash-soft: #eaf1ec; /* empty-state badge */
-  --blob-accent-border: #c9dace;
-  --blob-accent-border-soft: #dde6df;
-  --avatar-bg: #dce6de;
+  /* Blob's brand accent is shadcn's primary. Its hover is how shadcn's own button hovers
+     (`bg-primary/90`), so one rule serves light and dark. */
+  --blob-accent: var(--primary);
+  --blob-accent-hover: color-mix(in oklab, var(--primary) 90%, transparent);
+  --blob-accent-contrast: var(--primary-foreground);
+  --blob-accent-wash: var(--sidebar-accent); /* active sidebar row */
+  --blob-accent-wash-rail: var(--sidebar-accent); /* active rail button */
+  --blob-accent-wash-soft: var(--sidebar-accent); /* empty-state badge */
+  --blob-accent-border: var(--ring);
+  --blob-accent-border-soft: var(--border);
+  --avatar-bg: var(--muted);
 
   /* ─── state ────────────────────────────────────────────────────────────── */
   --presence-online: #3f9a63;
@@ -75,12 +82,12 @@
   --presence-offline: #c6c4bc;
   --unread-line: #dcc7b4;
   --unread-text: #a66a3c;
-  --danger: #b03227; /* Meadow's signal red: destructive, and negative deltas */
-  --disabled-bg: #edebe4;
-  --disabled-fg: #b7bab6;
-  --track-off: #dedcd4;
-  --scrollbar: #dddbd3;
-  --knob: #ffffff;
+  --danger: var(--destructive); /* destructive, and negative deltas */
+  --disabled-bg: var(--muted);
+  --disabled-fg: var(--muted-foreground);
+  --track-off: var(--input);
+  --scrollbar: var(--border);
+  --knob: var(--background);
   --backdrop: rgb(26 29 27 / 32%);
 
   /* The toggle knob keeps a shadow of its own: it is a 16px control on a coloured
@@ -124,8 +131,7 @@
   --clay-text: #5a4632;
 
   /* ─── type ─────────────────────────────────────────────────────────────── */
-  --font-ui:
-    'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-ui: var(--font-sans); /* Inter, self-hosted through @fontsource-variable */
   --blob-font-mono:
     ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -205,13 +211,15 @@
     0 8px 24px -14px rgb(var(--shadow-ink) / 14%);
 
   /* ─── radius ───────────────────────────────────────────────────────────── */
-  /* Five steps for what were thirteen ad-hoc values. Nested corners follow
-     inner = outer - padding, clamped at 2px. */
-  --blob-radius-xs: 4px;
-  --blob-radius-sm: 6px;
-  --blob-radius-md: 8px;
-  --radius-input: 10px; /* inputs sit between a row and a card */
-  --blob-radius-lg: 12px;
+  /* Blob's five steps, each the nearest of shadcn's — which all derive from b0's
+     `--radius` (0.625rem): sm 6px, md 8px, lg 10px, xl 14px. xs (4px) has no step that
+     small and takes sm; lg (12px) sits halfway between lg and xl and takes xl, the
+     corner shadcn gives a card and an inset sidebar, which is what it mostly draws. */
+  --blob-radius-xs: var(--radius-sm);
+  --blob-radius-sm: var(--radius-sm);
+  --blob-radius-md: var(--radius-md);
+  --radius-input: var(--radius-lg); /* inputs sit between a row and a card */
+  --blob-radius-lg: var(--radius-xl);
   --radius-full: 9999px;
 
   /* ─── space ────────────────────────────────────────────────────────────── */
@@ -278,56 +286,13 @@
   --z-toast: 110;
 
   /* ─── dark values ──────────────────────────────────────────────────────── */
-  /* Written once, here, and selected two ways below. They used to be written twice,
-     verbatim, which meant every palette change had to be made in both places or the
-     OS-driven and explicitly-chosen dark themes drifted apart. What is duplicated now
-     is only the alias list, which does not change when a value does. */
-  --dark-bg: #141614;
-  --dark-bg-rail: #101210;
-  /* Below --dark-bg rather than above it, as the light ground is below --bg: the frame
-     is lifted by being lighter than what it sits on, which is how dark mode shows
-     height. It was #171a17, a shade lighter than the page, when there was no frame. */
-  --dark-bg-sidebar: #101210;
-  --dark-surface: #1c1f1c;
-  --dark-surface-hover: #232623;
-  --dark-surface-hover-warm: #232623;
-  --dark-surface-hover-deep: #2a2e2a;
-  --dark-surface-row-hover: #1a1d1a;
-  --dark-surface-muted: #1f221f;
-  --dark-surface-icon: #262a26;
-  --dark-hairline: #2b2f2b;
-  --dark-hairline-soft: #242824;
-  --dark-hairline-strong: #3b403b;
-  --dark-hairline-popover: #323732;
-  --dark-text: #eceee9;
-  --dark-text-body: #dfe2dd;
-  --dark-text-2: #b3b8b2;
-  --dark-text-3: #9aa099;
-  --dark-text-4: #949b93;
-  --dark-text-5: #8f968e;
-  --dark-text-label: #8c938b;
-  --dark-text-faint: #888f87;
-  --dark-text-rail: #8b928a;
-  --dark-accent: #5fb287;
-  --dark-accent-hover: #7cc79f;
-  --dark-accent-contrast: #0c130f;
-  --dark-accent-wash: #1b2a22;
-  --dark-accent-wash-rail: #1f3327;
-  --dark-accent-wash-soft: #1b2a22;
-  --dark-accent-border: #2f4a3a;
-  --dark-accent-border-soft: #294235;
-  --dark-avatar-bg: #24382c;
+  /* What shadcn has no dark value for, written once here and selected two ways below.
+     Every bridged colour already follows theme.css into dark, so only these remain. */
   --dark-presence-online: #4fae72;
   --dark-presence-away: #d0a03a;
   --dark-presence-offline: #565c55;
   --dark-unread-line: #5c4636;
   --dark-unread-text: #d59a63;
-  --dark-danger: #d9705f;
-  --dark-disabled-bg: #262a26;
-  --dark-disabled-fg: #5e655d;
-  --dark-track-off: #363b36;
-  --dark-scrollbar: #2f342f;
-  --dark-knob: #e8ebe7;
   --dark-backdrop: rgb(0 0 0 / 55%);
 
   /* Iris on a dark ground. The names keep their jobs and the values swap ends: in
@@ -364,49 +329,11 @@
 /* Dark, selected by the OS when the viewer has made no explicit choice. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: var(--dark-bg);
-    --bg-rail: var(--dark-bg-rail);
-    --bg-sidebar: var(--dark-bg-sidebar);
-    --surface: var(--dark-surface);
-    --surface-hover: var(--dark-surface-hover);
-    --surface-hover-warm: var(--dark-surface-hover-warm);
-    --surface-hover-deep: var(--dark-surface-hover-deep);
-    --surface-row-hover: var(--dark-surface-row-hover);
-    --surface-muted: var(--dark-surface-muted);
-    --surface-icon: var(--dark-surface-icon);
-    --hairline: var(--dark-hairline);
-    --hairline-soft: var(--dark-hairline-soft);
-    --hairline-strong: var(--dark-hairline-strong);
-    --hairline-popover: var(--dark-hairline-popover);
-    --text: var(--dark-text);
-    --text-body: var(--dark-text-body);
-    --text-2: var(--dark-text-2);
-    --text-3: var(--dark-text-3);
-    --text-4: var(--dark-text-4);
-    --text-5: var(--dark-text-5);
-    --text-label: var(--dark-text-label);
-    --text-faint: var(--dark-text-faint);
-    --text-rail: var(--dark-text-rail);
-    --blob-accent: var(--dark-accent);
-    --blob-accent-hover: var(--dark-accent-hover);
-    --blob-accent-contrast: var(--dark-accent-contrast);
-    --blob-accent-wash: var(--dark-accent-wash);
-    --blob-accent-wash-rail: var(--dark-accent-wash-rail);
-    --blob-accent-wash-soft: var(--dark-accent-wash-soft);
-    --blob-accent-border: var(--dark-accent-border);
-    --blob-accent-border-soft: var(--dark-accent-border-soft);
-    --avatar-bg: var(--dark-avatar-bg);
     --presence-online: var(--dark-presence-online);
     --presence-away: var(--dark-presence-away);
     --presence-offline: var(--dark-presence-offline);
     --unread-line: var(--dark-unread-line);
     --unread-text: var(--dark-unread-text);
-    --danger: var(--dark-danger);
-    --disabled-bg: var(--dark-disabled-bg);
-    --disabled-fg: var(--dark-disabled-fg);
-    --track-off: var(--dark-track-off);
-    --scrollbar: var(--dark-scrollbar);
-    --knob: var(--dark-knob);
     --backdrop: var(--dark-backdrop);
     --iris: var(--dark-iris);
     --clay: var(--dark-clay);
@@ -426,7 +353,8 @@
     /* Shadows still exist in dark, but the surface ladder carries most of the
        elevation; the ring turns to white at low alpha because a hairline that dark
        reads as nothing. Derived from --surface, so a custom dark theme gets its own
-       ladder rather than these greens. */
+       ladder. b0's muted grey still reads 4.96:1 on the top step (--surface-3), so the
+       muted text no longer has to climb with it as Blob's old greys did. */
     --surface-2: color-mix(in oklab, var(--surface) 92%, #fff);
     --surface-3: color-mix(in oklab, var(--surface) 86%, #fff);
     --elev-1: 0 0 0 1px rgb(255 255 255 / 8%), 0 1px 2px rgb(0 0 0 / 40%);
@@ -442,49 +370,11 @@
 
 /* Dark, selected by the viewer. */
 :root[data-theme='dark'] {
-  --bg: var(--dark-bg);
-  --bg-rail: var(--dark-bg-rail);
-  --bg-sidebar: var(--dark-bg-sidebar);
-  --surface: var(--dark-surface);
-  --surface-hover: var(--dark-surface-hover);
-  --surface-hover-warm: var(--dark-surface-hover-warm);
-  --surface-hover-deep: var(--dark-surface-hover-deep);
-  --surface-row-hover: var(--dark-surface-row-hover);
-  --surface-muted: var(--dark-surface-muted);
-  --surface-icon: var(--dark-surface-icon);
-  --hairline: var(--dark-hairline);
-  --hairline-soft: var(--dark-hairline-soft);
-  --hairline-strong: var(--dark-hairline-strong);
-  --hairline-popover: var(--dark-hairline-popover);
-  --text: var(--dark-text);
-  --text-body: var(--dark-text-body);
-  --text-2: var(--dark-text-2);
-  --text-3: var(--dark-text-3);
-  --text-4: var(--dark-text-4);
-  --text-5: var(--dark-text-5);
-  --text-label: var(--dark-text-label);
-  --text-faint: var(--dark-text-faint);
-  --text-rail: var(--dark-text-rail);
-  --blob-accent: var(--dark-accent);
-  --blob-accent-hover: var(--dark-accent-hover);
-  --blob-accent-contrast: var(--dark-accent-contrast);
-  --blob-accent-wash: var(--dark-accent-wash);
-  --blob-accent-wash-rail: var(--dark-accent-wash-rail);
-  --blob-accent-wash-soft: var(--dark-accent-wash-soft);
-  --blob-accent-border: var(--dark-accent-border);
-  --blob-accent-border-soft: var(--dark-accent-border-soft);
-  --avatar-bg: var(--dark-avatar-bg);
   --presence-online: var(--dark-presence-online);
   --presence-away: var(--dark-presence-away);
   --presence-offline: var(--dark-presence-offline);
   --unread-line: var(--dark-unread-line);
   --unread-text: var(--dark-unread-text);
-  --danger: var(--dark-danger);
-  --disabled-bg: var(--dark-disabled-bg);
-  --disabled-fg: var(--dark-disabled-fg);
-  --track-off: var(--dark-track-off);
-  --scrollbar: var(--dark-scrollbar);
-  --knob: var(--dark-knob);
   --backdrop: var(--dark-backdrop);
   --iris: var(--dark-iris);
   --clay: var(--dark-clay);
@@ -501,10 +391,7 @@
   --iris-text-faint: var(--dark-iris-text-faint);
   --iris-shimmer: var(--dark-iris-shimmer);
 
-  /* Shadows still exist in dark, but the surface ladder carries most of the
-       elevation; the ring turns to white at low alpha because a hairline that dark
-       reads as nothing. Derived from --surface, so a custom dark theme gets its own
-       ladder rather than these greens. */
+  /* The same as the OS block above, verbatim (theme.test.ts compares them). */
   --surface-2: color-mix(in oklab, var(--surface) 92%, #fff);
   --surface-3: color-mix(in oklab, var(--surface) 86%, #fff);
   --elev-1: 0 0 0 1px rgb(255 255 255 / 8%), 0 1px 2px rgb(0 0 0 / 40%);
@@ -517,59 +404,19 @@
   --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
 }
 
-/* ─── muted text on an elevated surface ─────────────────────────────────────
-   In dark mode the surface ladder climbs toward white, and every step it climbs
-   it spends contrast the muted greys do not have to give. Measured on the most
-   elevated surface, five of the eight text tokens fell under 4.5:1 — the
-   palette's kind label at 3.71, faint at 3.52 — while passing comfortably on the
-   base background, which is where the palette was tuned and where every audit had
-   looked at it. Lighthouse scored the page 100 throughout: a popover that is not
-   open is not in the snapshot.
-
-   So the text climbs with the surface. The mix is toward the same white the
-   surface mixes toward and lives on the eight floating components, which are
-   exactly the ones that set --surface-2 or --surface-3 as a background; anything
-   on the base background is untouched, and light mode is untouched by
-   construction because its whole ladder is --surface.
-
-   Derived rather than hard-coded, so a custom dark theme's own greys climb too.
+/* ─── a switch that is off, in dark ─────────────────────────────────────────
+   The one bridge that depends on state. b0's knob is --background, which in dark is
+   darker than the off track (--input, white at 15%, over the card): 1.7:1, a knob
+   nobody can find. shadcn's own Switch answers it the same way — in dark, an unchecked
+   thumb is --foreground (theme.test.ts measures it). Goes when `.toggle` becomes that
+   Switch.
    ────────────────────────────────────────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light'])
-    :is(
-      .user-menu-panel,
-      .autocomplete,
-      .palette,
-      .dialog,
-      .emoji-picker,
-      .pinned-panel,
-      .menu,
-      .toast
-    ) {
-    --text-3: color-mix(in oklab, var(--dark-text-3) 82%, #fff);
-    --text-4: color-mix(in oklab, var(--dark-text-4) 80%, #fff);
-    --text-5: color-mix(in oklab, var(--dark-text-5) 78%, #fff);
-    --text-label: color-mix(in oklab, var(--dark-text-label) 76%, #fff);
-    --text-faint: color-mix(in oklab, var(--dark-text-faint) 74%, #fff);
-    --text-rail: color-mix(in oklab, var(--dark-text-rail) 76%, #fff);
+  :root:not([data-theme='light']) .toggle:not([aria-pressed='true']) {
+    --knob: var(--foreground);
   }
 }
 
-:root[data-theme='dark']
-  :is(
-    .user-menu-panel,
-    .autocomplete,
-    .palette,
-    .dialog,
-    .emoji-picker,
-    .pinned-panel,
-    .menu,
-    .toast
-  ) {
-  --text-3: color-mix(in oklab, var(--dark-text-3) 82%, #fff);
-  --text-4: color-mix(in oklab, var(--dark-text-4) 80%, #fff);
-  --text-5: color-mix(in oklab, var(--dark-text-5) 78%, #fff);
-  --text-label: color-mix(in oklab, var(--dark-text-label) 76%, #fff);
-  --text-faint: color-mix(in oklab, var(--dark-text-faint) 74%, #fff);
-  --text-rail: color-mix(in oklab, var(--dark-text-rail) 76%, #fff);
+:root[data-theme='dark'] .toggle:not([aria-pressed='true']) {
+  --knob: var(--foreground);
 }

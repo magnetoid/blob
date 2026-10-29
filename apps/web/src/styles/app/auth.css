@@ -81,9 +81,18 @@
   flex: none;
 }
 
+/* Fixed like the panel it sits on. It read the theme's accent, which since the accent
+   became shadcn's --primary is near-white in dark — on this pale square, 1.02:1. */
 .auth-brand-face[data-face='one'] {
   background: #dce6de;
-  color: var(--blob-accent);
+  color: #1f5c3d;
+}
+
+/* The mark on the panel, likewise: --primary is near-black in light, which drew a black
+   square on a black panel. Inverted from the panel's own ink instead, in both themes. */
+.auth-brand .auth-mark {
+  background: #e8e6dd;
+  color: #1a1d1b;
 }
 
 .auth-brand-face[data-face='two'] {
