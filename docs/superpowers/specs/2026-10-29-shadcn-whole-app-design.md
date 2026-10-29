@@ -1,6 +1,6 @@
 # Blob takes shadcn's look — design
 
-2026-10-29. Status: awaiting the user's approval.
+2026-10-29. Status: approved by the user.
 
 ## Intent
 
